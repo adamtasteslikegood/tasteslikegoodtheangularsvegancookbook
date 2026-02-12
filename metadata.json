@@ -1,0 +1,5 @@
+{
+  "name": "VeganGenius Chef",
+  "description": "AI-powered vegan recipe generator with portion scaling and automatic food styling image generation.",
+  "requestFramePermissions": []
+}
