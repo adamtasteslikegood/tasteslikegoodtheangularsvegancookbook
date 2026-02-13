@@ -96,9 +96,12 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return;
 
-    // Check if already saved
-    if (user.savedRecipes.some(r => r.id === recipe.id || r.name === recipe.name)) {
-        return; 
+    // Check if already saved by ID
+    if (user.savedRecipes.some(r => r.id === recipe.id)) {
+        // Update existing
+        const updatedRecipes = user.savedRecipes.map(r => r.id === recipe.id ? recipe : r);
+        this.updateUserRecord({ ...user, savedRecipes: updatedRecipes });
+        return;
     }
 
     const updatedUser = {
@@ -107,6 +110,55 @@ export class AuthService {
     };
 
     this.updateUserRecord(updatedUser);
+  }
+
+  importRecipes(recipes: any[], targetCookbookId?: string | null): number {
+    const user = this.currentUser();
+    if (!user) return 0;
+
+    let currentRecipes = [...user.savedRecipes];
+    const validRecipeIds: string[] = [];
+
+    recipes.forEach(r => {
+      // Basic validation
+      if (r.name && r.ingredients && r.instructions) {
+        // Ensure ID
+        if (!r.id) r.id = crypto.randomUUID();
+        
+        // Avoid duplicates by ID in global storage
+        if (!currentRecipes.some(existing => existing.id === r.id)) {
+          currentRecipes.push(r as Recipe);
+        }
+        validRecipeIds.push(r.id);
+      }
+    });
+
+    let cookbooks = user.cookbooks;
+    if (targetCookbookId && validRecipeIds.length > 0) {
+        cookbooks = cookbooks.map(cb => {
+            if (cb.id === targetCookbookId) {
+                // Add new IDs to the cookbook, utilizing Set for uniqueness
+                const uniqueIds = Array.from(new Set([...cb.recipeIds, ...validRecipeIds]));
+                
+                // If the cookbook doesn't have a cover image, try to set one from the imported recipes
+                let coverImage = cb.coverImage;
+                if (!coverImage) {
+                    const firstWithImage = currentRecipes.find(r => validRecipeIds.includes(r.id) && (r.ai_image_url || r.stock_image_url));
+                    if (firstWithImage) {
+                        coverImage = firstWithImage.ai_image_url || firstWithImage.stock_image_url;
+                    }
+                }
+
+                return { ...cb, recipeIds: uniqueIds, coverImage };
+            }
+            return cb;
+        });
+    }
+
+    if (validRecipeIds.length > 0) {
+      this.updateUserRecord({ ...user, savedRecipes: currentRecipes, cookbooks });
+    }
+    return validRecipeIds.length;
   }
 
   // Cookbook Management
@@ -154,7 +206,6 @@ export class AuthService {
     if (existingIndex === -1) {
       savedRecipes.push(recipe);
     } else {
-      // Use existing ID if we found a match by name but IDs differed (e.g. re-generated same recipe name)
       recipeId = savedRecipes[existingIndex].id;
     }
 

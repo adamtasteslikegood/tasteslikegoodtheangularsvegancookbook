@@ -26,6 +26,28 @@ export class AppComponent {
   newCookbookName = signal('');
   newCookbookDesc = signal('');
 
+  // Manual Recipe Entry State
+  showManualEntryModal = signal<boolean>(false);
+  manualStep = signal<number>(1); // 1: Info, 2: Ingredients, 3: Instructions
+  // Temporary form data
+  manualRecipe = signal<{
+    name: string;
+    description: string;
+    prepTime: number;
+    cookTime: number;
+    servings: number;
+    notes: string;
+    tags: string;
+  }>({
+    name: '', description: '', prepTime: 15, cookTime: 30, servings: 4, notes: '', tags: ''
+  });
+  
+  manualIngredients = signal<{name: string, amount: number, units: string, type: 'wet' | 'dry' | 'other'}[]>([]);
+  newIngredient = signal({name: '', amount: 1, units: '', type: 'dry' as 'wet' | 'dry' | 'other'});
+  
+  manualInstructions = signal<string[]>([]);
+  newInstruction = signal('');
+
   // Add to Cookbook UI State
   showAddToCookbookModal = signal<boolean>(false);
   recipeToAdd = signal<Recipe | null>(null);
@@ -43,6 +65,10 @@ export class AppComponent {
   prompt = signal<string>('');
   recipe = signal<Recipe | null>(null);
   
+  // Edit Notes State
+  isEditingNotes = signal<boolean>(false);
+  editedNotes = signal<string>('');
+
   // Status Signals
   isRecipeLoading = signal<boolean>(false);
   isImageLoading = signal<boolean>(false);
@@ -146,6 +172,126 @@ export class AppComponent {
     }
   }
 
+  // Manual Entry Methods
+  openManualEntryModal() {
+    this.manualStep.set(1);
+    this.manualRecipe.set({
+      name: '', description: '', prepTime: 15, cookTime: 30, servings: 4, notes: '', tags: ''
+    });
+    this.manualIngredients.set([]);
+    this.manualInstructions.set([]);
+    this.showManualEntryModal.set(true);
+  }
+
+  closeManualEntryModal() {
+    this.showManualEntryModal.set(false);
+  }
+
+  nextManualStep() {
+    this.manualStep.update(s => s + 1);
+  }
+
+  prevManualStep() {
+    this.manualStep.update(s => s - 1);
+  }
+
+  addManualIngredient() {
+    const ing = this.newIngredient();
+    if (!ing.name.trim()) return;
+    
+    this.manualIngredients.update(list => [...list, { ...ing }]);
+    this.newIngredient.set({name: '', amount: 1, units: '', type: 'dry'});
+  }
+
+  removeManualIngredient(index: number) {
+    this.manualIngredients.update(list => list.filter((_, i) => i !== index));
+  }
+
+  addManualInstruction() {
+    const txt = this.newInstruction();
+    if (!txt.trim()) return;
+    
+    this.manualInstructions.update(list => [...list, txt]);
+    this.newInstruction.set('');
+  }
+
+  removeManualInstruction(index: number) {
+    this.manualInstructions.update(list => list.filter((_, i) => i !== index));
+  }
+
+  saveManualRecipe() {
+    const info = this.manualRecipe();
+    
+    // Group Ingredients
+    const ingredients: IngredientGroup = {
+      wet: [], dry: [], other: []
+    };
+
+    this.manualIngredients().forEach(ing => {
+      const formatted: Ingredient = {
+        name: ing.name,
+        amount: ing.amount,
+        units: ing.units
+      };
+      if (ing.type === 'wet') ingredients.wet!.push(formatted);
+      else if (ing.type === 'dry') ingredients.dry!.push(formatted);
+      else ingredients.other!.push(formatted);
+    });
+
+    const newRecipe: Recipe = {
+      id: crypto.randomUUID(),
+      name: info.name,
+      description: info.description,
+      prepTime: info.prepTime,
+      cookTime: info.cookTime,
+      servings: info.servings,
+      ingredients: ingredients,
+      instructions: this.manualInstructions(),
+      notes: info.notes,
+      tags: info.tags.split(',').map(t => t.trim()).filter(t => t),
+      image_keywords: [info.name, 'homemade']
+    };
+
+    this.authService.saveRecipe(newRecipe);
+    this.closeManualEntryModal();
+  }
+
+  // Import / Export
+  exportRecipe(recipe?: Recipe) {
+    const dataToExport = recipe ? recipe : this.authService.currentUser()?.savedRecipes || [];
+    const fileName = recipe ? `${recipe.name.replace(/\s+/g, '_')}.json` : 'my_vegan_cookbook.json';
+    
+    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+
+  onImportFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      try {
+        const json = JSON.parse(e.target.result);
+        const recipes = Array.isArray(json) ? json : [json];
+        const count = this.authService.importRecipes(recipes, this.activeCookbookId());
+        alert(`Successfully imported ${count} recipes!`);
+      } catch (err) {
+        console.error(err);
+        alert('Failed to parse recipe file. Please ensure it is valid JSON.');
+      }
+    };
+    reader.readAsText(file);
+    // Reset input
+    event.target.value = '';
+  }
+
+
   // Auth Methods
   openAuthModal(mode: 'login' | 'signup') {
     this.isLoginMode.set(mode === 'login');
@@ -235,18 +381,33 @@ export class AppComponent {
   }
 
   async triggerImageGeneration(recipe: Recipe) {
-    if (!recipe.image_keywords || recipe.image_keywords.length === 0) return;
+    // Check if we have keywords, if not, use name and generic tags
+    let keywords = recipe.image_keywords;
+    if (!keywords || keywords.length === 0) {
+        keywords = ['delicious', 'vegan', 'gourmet', 'homemade'];
+    }
     
     this.isImageLoading.set(true);
     try {
-      const imageUrl = await this.geminiService.generateImage(recipe.image_keywords, recipe.name);
+      const imageUrl = await this.geminiService.generateImage(keywords, recipe.name);
       this.generatedImageUrl.set(imageUrl);
       this.recipe.update(r => r ? { ...r, ai_image_url: imageUrl } : null);
+      
+      // If recipe is already saved, update it in storage too
+      if (this.isSaved()) {
+          this.authService.saveRecipe(this.recipe()!);
+      }
     } catch (err) {
       console.error('Image generation failed', err);
     } finally {
       this.isImageLoading.set(false);
     }
+  }
+
+  async regenerateImage() {
+    const currentRecipe = this.recipe();
+    if (!currentRecipe) return;
+    await this.triggerImageGeneration(currentRecipe);
   }
 
   onSaveRecipe() {
@@ -255,6 +416,30 @@ export class AppComponent {
 
     this.authService.saveRecipe(currentRecipe);
     this.isSaved.set(true);
+  }
+
+  // Notes Editing
+  startEditNotes() {
+    const r = this.recipe();
+    if (r) {
+      this.editedNotes.set(r.notes || '');
+      this.isEditingNotes.set(true);
+    }
+  }
+
+  cancelEditNotes() {
+    this.isEditingNotes.set(false);
+    this.editedNotes.set('');
+  }
+
+  saveNotes() {
+    const r = this.recipe();
+    if (r) {
+        const updatedRecipe = { ...r, notes: this.editedNotes() };
+        this.recipe.set(updatedRecipe);
+        this.authService.saveRecipe(updatedRecipe);
+        this.isEditingNotes.set(false);
+    }
   }
 
   openAddToCookbookModal(recipe: Recipe | null = null) {
@@ -286,6 +471,7 @@ export class AppComponent {
     this.generatedImageUrl.set(r.ai_image_url || null);
     this.isSaved.set(true);
     this.activeView.set('generator');
+    this.isEditingNotes.set(false); // Reset edit state when switching recipes
   }
 
   updatePortions(multiplier: number) {
