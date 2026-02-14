@@ -15,6 +15,30 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
+2. Set your API key in `.env` or `.env.local`.
+   - Preferred: `VITE_GEMINI_API_KEY=...`
+   - Also supported: `VITE_API_KEY=...`
+   - Note: `GEMINI_API_KEY` without the `VITE_` prefix is not exposed to client code by Vite-based dev servers.
 3. Run the app:
    `npm run dev`
+
+## Docker (optional)
+
+Build and run a production container locally:
+
+```sh
+docker build -t vegangenius-chef .
+docker run --rm -p 8080:8080 vegangenius-chef
+```
+
+## Cloud Build (optional)
+
+A sample `cloudbuild.yaml` is included for building and deploying to Cloud Run. Update the substitutions at the top of the file to match your project, service name, and region.
+
+## Contributing
+
+See `CONTRIBUTING.md` for setup notes and workflow.
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
