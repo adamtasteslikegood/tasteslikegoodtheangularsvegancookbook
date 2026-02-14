@@ -1,15 +1,30 @@
-import { Injectable } from '@angular/core';
-import { GoogleGenAI, Type } from '@google/genai';
-import { Recipe } from '../recipe.types';
+import { Injectable } from "@angular/core";
+import { GoogleGenAI, Type } from "@google/genai";
+import { Recipe } from "../recipe.types";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class GeminiService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env['API_KEY']! });
+    // Lazily initialized so missing env doesn't crash app bootstrap.
+  }
+
+  private getClient(): GoogleGenAI {
+    if (this.ai) return this.ai;
+    const env = (import.meta as any).env as
+      | Record<string, string | undefined>
+      | undefined;
+    const apiKey = env?.VITE_GEMINI_API_KEY || env?.VITE_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "Missing API key. Set VITE_GEMINI_API_KEY (preferred) or VITE_API_KEY in your environment.",
+      );
+    }
+    this.ai = new GoogleGenAI({ apiKey });
+    return this.ai;
   }
 
   async generateRecipe(userPrompt: string): Promise<Recipe> {
@@ -32,10 +47,10 @@ export class GeminiService {
                   name: { type: Type.STRING },
                   amount: { type: Type.NUMBER },
                   units: { type: Type.STRING },
-                  notes: { type: Type.STRING }
+                  notes: { type: Type.STRING },
                 },
-                required: ["name", "amount", "units"]
-              }
+                required: ["name", "amount", "units"],
+              },
             },
             dry: {
               type: Type.ARRAY,
@@ -45,10 +60,10 @@ export class GeminiService {
                   name: { type: Type.STRING },
                   amount: { type: Type.NUMBER },
                   units: { type: Type.STRING },
-                  notes: { type: Type.STRING }
+                  notes: { type: Type.STRING },
                 },
-                required: ["name", "amount", "units"]
-              }
+                required: ["name", "amount", "units"],
+              },
             },
             other: {
               type: Type.ARRAY,
@@ -58,23 +73,32 @@ export class GeminiService {
                   name: { type: Type.STRING },
                   amount: { type: Type.NUMBER },
                   units: { type: Type.STRING },
-                  notes: { type: Type.STRING }
+                  notes: { type: Type.STRING },
                 },
-                required: ["name", "amount", "units"]
-              }
-            }
+                required: ["name", "amount", "units"],
+              },
+            },
           },
-          required: ["wet", "dry"]
+          required: ["wet", "dry"],
         },
         instructions: {
           type: Type.ARRAY,
-          items: { type: Type.STRING }
+          items: { type: Type.STRING },
         },
         notes: { type: Type.STRING },
         tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-        image_keywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+        image_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
       },
-      required: ["name", "description", "prepTime", "cookTime", "servings", "ingredients", "instructions", "image_keywords"]
+      required: [
+        "name",
+        "description",
+        "prepTime",
+        "cookTime",
+        "servings",
+        "ingredients",
+        "instructions",
+        "image_keywords",
+      ],
     } as any;
 
     const systemPrompt = `
@@ -84,14 +108,14 @@ export class GeminiService {
       For 'image_keywords', provide 3-5 visual keywords that describe the finished dish for an image generator (e.g., 'golden crust', 'rustic wooden table', 'steam rising').
     `;
 
-    const response = await this.ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+    const response = await this.getClient().models.generateContent({
+      model: "gemini-2.5-flash",
       contents: userPrompt,
       config: {
         systemInstruction: systemPrompt,
-        responseMimeType: 'application/json',
-        responseSchema: schema
-      }
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      },
     });
 
     if (response.text) {
@@ -99,26 +123,26 @@ export class GeminiService {
       recipe.id = crypto.randomUUID(); // Assign a client-side ID
       return recipe;
     }
-    throw new Error('No recipe generated');
+    throw new Error("No recipe generated");
   }
 
   async generateImage(keywords: string[], recipeName: string): Promise<string> {
-    const prompt = `Professional food photography of ${recipeName}. ${keywords.join(', ')}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
-    
-    const response = await this.ai.models.generateImages({
-      model: 'imagen-4.0-generate-001',
+    const prompt = `Professional food photography of ${recipeName}. ${keywords.join(", ")}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
+
+    const response = await this.getClient().models.generateImages({
+      model: "imagen-4.0-generate-001",
       prompt: prompt,
       config: {
         numberOfImages: 1,
-        aspectRatio: '4:3',
-        outputMimeType: 'image/jpeg'
-      }
+        aspectRatio: "4:3",
+        outputMimeType: "image/jpeg",
+      },
     });
 
     const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
     if (imageBytes) {
       return `data:image/jpeg;base64,${imageBytes}`;
     }
-    throw new Error('No image generated');
+    throw new Error("No image generated");
   }
 }
