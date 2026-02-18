@@ -5,10 +5,15 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 COPY . .
 RUN npm run build
+RUN npm prune --omit=dev
 
 # Runtime stage
-FROM nginx:alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+FROM node:20-alpine
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/server/dist ./server/dist
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/node_modules ./node_modules
 EXPOSE 8080
-# Cloud Run expects the container to listen on $PORT
-CMD ["/bin/sh", "-c", "sed -i 's/listen       80;/listen       8080;/' /etc/nginx/conf.d/default.conf && nginx -g 'daemon off;'"]
+CMD ["node", "server/dist/index.js"]
