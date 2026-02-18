@@ -1,5 +1,19 @@
 It's great you're moving towards a more robust deployment pipeline! Transitioning from an AI Studio deployment to a GitHub-driven Cloud Build process has a few key considerations. Here's a checklist to help you as you create your Dockerfile and prepare your new working branch:
 
+Project-Specific TODOs (Local Docker Test First)
+1) Confirm build output path and Docker copy:
+   - Angular outputs to ./dist (from angular.json outputPath), and Dockerfile copies /app/dist into Nginx. If you change outputPath later, update Dockerfile accordingly.
+2) Make Nginx honor $PORT:
+   - Cloud Run injects PORT at runtime. Update the Dockerfile CMD to replace the listen port with ${PORT:-8080}, not a fixed 8080.
+3) Provide VITE_ env vars at build time:
+   - The app reads import.meta.env.VITE_GEMINI_API_KEY or VITE_API_KEY, which are baked into the client bundle during npm run build. Supply these as build-time envs (e.g., Docker build args or CI secrets).
+4) Decide on secrets strategy:
+   - If you need runtime secrets, add a backend/proxy; static bundles cannot read Secret Manager at runtime.
+5) Align image registry naming:
+   - cloudbuild.yaml currently uses gcr.io. Switch to Artifact Registry if desired, and set the repo/region.
+6) Local Docker test (after updates):
+   - Build with build args for the VITE keys and run container on 8080 to verify the UI and recipe gen.
+
 Dockerfile Considerations
 Your Dockerfile is crucial for defining your application's environment.
 
