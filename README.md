@@ -10,17 +10,17 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set your API key in `.env` or `.env.local`.
-   - Preferred: `VITE_GEMINI_API_KEY=...`
-   - Also supported: `VITE_API_KEY=...`
-   - Note: `GEMINI_API_KEY` without the `VITE_` prefix is not exposed to client code by Vite-based dev servers.
-3. Run the app:
-   `npm run dev`
+2. Set your API key in the environment for the backend server:
+   - `VITE_GEMINI_API_KEY=...` (preferred)
+   - `VITE_API_KEY=...` (fallback)
+3. Build the app and backend:
+   `npm run build`
+4. Start the server (serves the UI + /api endpoints):
+   `npm start`
 
 ## Docker (optional)
 
@@ -28,7 +28,9 @@ Build and run a production container locally:
 
 ```sh
 docker build -t vegangenius-chef .
-docker run --rm -p 8080:8080 vegangenius-chef
+docker run --rm -p 8080:8080 \
+  -e VITE_GEMINI_API_KEY=your_key_here \
+  vegangenius-chef
 ```
 
 ## Cloud Build (optional)
