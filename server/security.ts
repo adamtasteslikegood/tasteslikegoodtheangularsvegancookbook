@@ -8,7 +8,10 @@ import { Express } from "express";
  */
 
 // Rate limiter for general API requests
-export const createApiLimiter = (windowMs: number = 15 * 60 * 1000, max: number = 100) => {
+export const createApiLimiter = (
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 100,
+) => {
   return rateLimit({
     windowMs, // 15 minutes default
     max, // 100 requests per window default
@@ -25,7 +28,7 @@ export const createApiLimiter = (windowMs: number = 15 * 60 * 1000, max: number 
 // Stricter rate limiter for expensive operations (recipe and image generation)
 export const createExpensiveOperationLimiter = (
   windowMs: number = 60 * 60 * 1000,
-  max: number = 20
+  max: number = 20,
 ) => {
   return rateLimit({
     windowMs, // 1 hour default
@@ -42,17 +45,16 @@ export const createExpensiveOperationLimiter = (
  * Apply security middleware to an Express app
  */
 export const applySecurityMiddleware = (app: Express) => {
-  // Security headers
-  app.use(helmet());
-
-  // Additional CORS headers if needed (customize as per your frontend domain)
-  app.use((req, res, next) => {
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("X-XSS-Protection", "1; mode=block");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    next();
-  });
+  // Security headers — CSP is disabled here because Angular's build output relies on
+  // inline styles, inline event handlers (onload), and dynamic script loading from esm.sh.
+  // In production, configure CSP at the reverse proxy or CDN level (e.g., nginx, Cloudflare).
+  // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
+  // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+    }),
+  );
 };
 
 /**
@@ -64,7 +66,7 @@ export const createRequestLogger = () => {
     res.on("finish", () => {
       const duration = Date.now() - start;
       console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
+        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`,
       );
     });
     next();
