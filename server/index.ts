@@ -138,7 +138,7 @@ app.post(
   expensiveOpLimiter,
   validateRecipeRequest,
   handleValidationErrors,
-  async (req, res) => {
+  async (req: express.Request, res: express.Response) => {
     try {
       const prompt = req.body.prompt;
 
@@ -180,7 +180,7 @@ app.post(
   expensiveOpLimiter,
   validateImageRequest,
   handleValidationErrors,
-  async (req, res) => {
+  async (req: express.Request, res: express.Response) => {
     try {
       const keywords = req.body.keywords as string[];
       const recipeName = req.body.recipeName as string;
