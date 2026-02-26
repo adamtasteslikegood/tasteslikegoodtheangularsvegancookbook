@@ -13,3 +13,5 @@ This repository is a single-page Angular application served via a Vite-based dev
 - `index.tsx`: app bootstrap.
 - `src/app.component.*`: main UI.
 - `src/services/*`: API clients and app services.
+- `docs`: documentation and resources.
+- `scripts`: utility scripts.
