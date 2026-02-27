@@ -66,6 +66,15 @@ export class AuthService {
 
       const data = await res.json();
       if (data.authenticated) {
+        // Clean up ?auth=success query param left by the OAuth redirect
+        if (window.location.search.includes("auth=success")) {
+          window.history.replaceState(
+            {},
+            document.title,
+            window.location.pathname,
+          );
+        }
+
         // Merge any existing guest data before replacing session
         const existingLocal = this.getLocalSession();
 
