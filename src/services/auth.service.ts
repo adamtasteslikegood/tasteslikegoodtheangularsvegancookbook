@@ -66,12 +66,15 @@ export class AuthService {
 
       const data = await res.json();
       if (data.authenticated) {
-        // Clean up ?auth=success query param left by the OAuth redirect
+        // Clean up ?auth=success query param left by the OAuth redirect,
+        // preserving any other query parameters that may be present.
         if (window.location.search.includes("auth=success")) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("auth");
           window.history.replaceState(
             {},
             document.title,
-            window.location.pathname,
+            url.pathname + url.search + url.hash,
           );
         }
 
