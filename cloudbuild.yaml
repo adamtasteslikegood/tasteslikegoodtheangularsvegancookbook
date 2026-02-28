@@ -1,0 +1,30 @@
+# Cloud Build pipeline for building and deploying to Cloud Run.
+# Update substitutions to match your project, service, and region.
+substitutions:
+  _REGION: us-central1
+  _SERVICE: vegangenius-chef
+  _IMAGE: gcr.io/$PROJECT_ID/vegangenius-chef
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-t", "$_IMAGE:$SHORT_SHA", "."]
+
+  - name: gcr.io/cloud-builders/docker
+    args: ["push", "$_IMAGE:$SHORT_SHA"]
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_SERVICE
+      - --image
+      - $_IMAGE:$SHORT_SHA
+      - --region
+      - $_REGION
+      - --platform
+      - managed
+      - --quiet
+
+images:
+  - $_IMAGE:$SHORT_SHA

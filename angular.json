@@ -17,11 +17,18 @@
               "browser": "."
             },
             "browser": "index.tsx",
-            "tsConfig": "tsconfig.json"
+            "tsConfig": "tsconfig.json",
+            "styles": ["src/styles.css"]
           },
           "configurations": {
             "production": {
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "fileReplacements": [
+                {
+                  "replace": "src/environments/environment.ts",
+                  "with": "src/environments/environment.prod.ts"
+                }
+              ]
             },
             "development": {
               "optimization": false,
@@ -34,7 +41,8 @@
         "serve": {
           "builder": "@angular/build:dev-server",
           "options": {
-            "port": 3000
+            "port": 3000,
+            "proxyConfig": "proxy.conf.json"
           },
           "configurations": {
             "production": {
@@ -48,5 +56,8 @@
         }
       }
     }
+  },
+  "cli": {
+    "analytics": false
   }
 }
