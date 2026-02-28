@@ -18,7 +18,7 @@
     "express": "4.22.0",
     "lodash": "4.17.23",
     "axios": "1.13.5",
-    "jsonwebtoken": "8.5.1",
+    "jsonwebtoken": "9.0.0",
     "bcrypt": "5.1.0",
     "mongoose": "6.13.6",
     "cors": "2.8.5",
