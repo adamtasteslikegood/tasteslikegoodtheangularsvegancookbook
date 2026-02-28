@@ -10,6 +10,13 @@
     "start": "node server/dist/index.js"
   },
   "dependencies": {
+    "rxjs": "^7.8.2",
+    "@angular/platform-browser": "^21.1.0",
+    "@angular/compiler": "^21.1.0",
+    "@angular/core": "^21.1.6",
+    "@google/genai": "^1.41.0",
+    "@angular/common": "^21.1.0",
+    "@angular/forms": "^21.1.4",
     "@angular/build": "^21.1.0",
     "@angular/cli": "^21.1.0",
     "@angular/common": "^21.1.0",
@@ -33,5 +40,8 @@
     "@types/node": "^22.14.0",
     "typescript": ">=5.9 <6",
     "vite": "^6.2.0"
+    "@types/node": "latest",
+    "typescript": ">=5.9 <6.0",
+    "vite": "latest"
   }
 }

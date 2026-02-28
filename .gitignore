@@ -43,3 +43,4 @@ out
 
 # OS
 Thumbs.db
+.env
