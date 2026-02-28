@@ -1,5 +1,5 @@
 <div class="max-w-6xl mx-auto p-4 md:p-8 relative min-h-screen flex flex-col">
-  
+
   <!-- Header Section -->
   <header class="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
     <div class="flex items-center gap-4 text-center md:text-left cursor-pointer" (click)="switchView('generator')">
@@ -16,10 +16,10 @@
 
     <!-- Navigation & User Profile -->
     <div class="flex flex-wrap justify-center md:justify-end items-center gap-3">
-      
+
       <!-- Nav Tabs -->
       <div class="bg-stone-100 p-1 rounded-full flex items-center">
-        <button 
+        <button
           (click)="switchView('generator')"
           class="px-4 py-2 rounded-full text-sm font-bold transition-all"
           [class.bg-white]="activeView() === 'generator'"
@@ -29,7 +29,7 @@
         >
           Generator
         </button>
-        <button 
+        <button
           (click)="switchView('kitchen')"
           class="px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2"
           [class.bg-white]="activeView() === 'kitchen'"
@@ -49,6 +49,9 @@
       <!-- Auth State -->
       @if (authService.currentUser() && !authService.currentUser()?.isGuest) {
         <div class="flex items-center gap-2 md:gap-4 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-100">
+          @if (authService.currentUser()?.picture) {
+            <img [src]="authService.currentUser()?.picture" alt="Profile" class="h-8 w-8 rounded-full object-cover border border-stone-200">
+          }
           <div class="text-right hidden sm:block">
             <p class="text-xs text-stone-400 font-bold uppercase tracking-wider">Welcome</p>
             <p class="text-stone-800 font-bold truncate max-w-[100px]">{{ authService.currentUser()?.name }}</p>
@@ -59,13 +62,12 @@
             </svg>
           </button>
         </div>
+      } @else if (!authService.authLoading()) {
+        <button (click)="openAuthModal()" class="px-5 py-2.5 bg-green-700 text-white font-semibold rounded-full hover:bg-green-800 shadow-md transition-colors">
+          Sign In
+        </button>
       } @else {
-        <button (click)="openAuthModal('login')" class="px-5 py-2.5 bg-white border border-stone-200 text-stone-700 font-semibold rounded-full hover:bg-stone-50 transition-colors">
-          Log In
-        </button>
-        <button (click)="openAuthModal('signup')" class="hidden sm:block px-5 py-2.5 bg-green-700 text-white font-semibold rounded-full hover:bg-green-800 shadow-md transition-colors">
-          Sign Up
-        </button>
+        <div class="px-5 py-2.5 w-24 h-10 rounded-full bg-stone-100 animate-pulse"></div>
       }
     </div>
   </header>
@@ -75,15 +77,15 @@
     <!-- Input Section -->
     <section class="mb-12 bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
       <div class="flex flex-col md:flex-row gap-4">
-        <input 
-          type="text" 
-          [(ngModel)]="prompt" 
+        <input
+          type="text"
+          [(ngModel)]="prompt"
           (keyup.enter)="onGenerate()"
-          placeholder="What are you craving? (e.g., 'spicy lentil tacos' or 'avocado chocolate mousse')" 
+          placeholder="What are you craving? (e.g., 'spicy lentil tacos' or 'avocado chocolate mousse')"
           class="flex-1 px-5 py-4 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg placeholder-stone-400"
         >
-        <button 
-          (click)="onGenerate()" 
+        <button
+          (click)="onGenerate()"
           [disabled]="isRecipeLoading() || !prompt().trim()"
           class="px-8 py-4 bg-green-700 hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 min-w-[160px]"
         >
@@ -111,7 +113,7 @@
     <!-- Recipe Display Section -->
     @if (recipe(); as r) {
       <main class="animate-[fadeIn_0.5s_ease-out]">
-        
+
         <!-- Recipe Header -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
           <div class="space-y-6">
@@ -119,11 +121,11 @@
               <div class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold tracking-wide uppercase">
                 Vegan Recipe
               </div>
-              
+
               <!-- Action Buttons -->
               <div class="flex items-center gap-2">
-                <button 
-                  (click)="onSaveRecipe()" 
+                <button
+                  (click)="onSaveRecipe()"
                   [disabled]="isSaved()"
                   class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 text-sm"
                   [class.bg-stone-100]="!isSaved()"
@@ -145,7 +147,7 @@
                   }
                 </button>
 
-                <button 
+                <button
                   (click)="openAddToCookbookModal()"
                   class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
                 >
@@ -155,7 +157,7 @@
                   <span>Add to Cookbook</span>
                 </button>
 
-                 <button 
+                 <button
                   (click)="exportRecipe(r)"
                   class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
                   title="Download JSON"
@@ -169,7 +171,7 @@
 
             <h2 class="text-4xl font-bold text-stone-900 leading-tight">{{ r.name }}</h2>
             <p class="text-lg text-stone-600 italic">{{ r.description }}</p>
-            
+
             <div class="flex flex-wrap gap-2">
               @for (tag of r.tags; track tag) {
                 <span class="px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-xs font-medium">#{{ tag }}</span>
@@ -223,8 +225,8 @@
 
             <!-- Regenerate Button Overlay -->
             @if (!isImageLoading()) {
-              <button 
-                (click)="regenerateImage()" 
+              <button
+                (click)="regenerateImage()"
                 class="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white text-stone-700 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all transform hover:scale-105"
                 title="Regenerate Image"
               >
@@ -245,7 +247,7 @@
                 <h3 class="text-2xl font-bold text-stone-800 mb-6 flex items-center gap-2 serif">
                   Ingredients
                 </h3>
-                
+
                 <div class="space-y-6">
                   @if (ingredients.wet && ingredients.wet.length) {
                     <div>
@@ -349,8 +351,8 @@
                   Chef's Notes
                 </h4>
                 @if (!isEditingNotes()) {
-                  <button 
-                    (click)="startEditNotes()" 
+                  <button
+                    (click)="startEditNotes()"
                     class="text-yellow-700 hover:text-yellow-900 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Edit Notes"
                   >
@@ -363,9 +365,9 @@
 
               @if (isEditingNotes()) {
                 <div class="mt-3">
-                  <textarea 
-                    [(ngModel)]="editedNotes" 
-                    rows="4" 
+                  <textarea
+                    [(ngModel)]="editedNotes"
+                    rows="4"
                     class="w-full p-3 rounded-lg border border-yellow-200 bg-white text-stone-800 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 mb-3"
                   ></textarea>
                   <div class="flex justify-end gap-2">
@@ -379,7 +381,7 @@
             </div>
           </div>
         </div>
-        
+
       </main>
     }
   }
@@ -390,7 +392,7 @@
       <!-- Sidebar -->
       <aside class="space-y-6">
         <div class="space-y-2">
-          <button 
+          <button
             (click)="openCreateCookbookModal()"
             class="w-full py-3 bg-stone-800 text-white font-bold rounded-xl shadow-lg hover:bg-stone-900 transition-all flex items-center justify-center gap-2"
           >
@@ -399,7 +401,7 @@
             </svg>
             New Cookbook
           </button>
-           <button 
+           <button
             (click)="openManualEntryModal()"
             class="w-full py-3 bg-white border border-stone-200 text-stone-700 font-bold rounded-xl hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
           >
@@ -411,7 +413,7 @@
         </div>
 
         <nav class="space-y-1">
-          <button 
+          <button
             (click)="selectCookbook(null)"
             class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-left font-medium"
             [class.bg-green-50]="activeCookbookId() === null"
@@ -426,7 +428,7 @@
           </button>
 
           @for (cb of authService.currentUser()?.cookbooks; track cb.id) {
-            <div 
+            <div
               class="group w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-left font-medium cursor-pointer"
               [class.bg-green-50]="activeCookbookId() === cb.id"
               [class.text-green-800]="activeCookbookId() === cb.id"
@@ -439,7 +441,7 @@
                  <span class="bg-stone-200 text-stone-600 text-xs px-2 py-0.5 rounded-full">
                   {{ cb.recipeIds.length }}
                 </span>
-                <button 
+                <button
                   (click)="deleteCookbook(cb.id, $event)"
                   class="p-1 text-stone-400 hover:text-red-500 rounded hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Delete Cookbook"
@@ -466,7 +468,7 @@
               <p class="text-stone-500 mt-1">{{ activeCookbook()!.description }}</p>
             }
           </div>
-          
+
           <div class="flex gap-2">
             <button (click)="exportRecipe()" class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -512,7 +514,7 @@
                      </div>
                    }
                    <div class="absolute top-2 right-2 flex gap-1">
-                      <button 
+                      <button
                         (click)="$event.stopPropagation(); openAddToCookbookModal(r)"
                         class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-green-700 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Add to Cookbook"
@@ -553,7 +555,7 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="closeAuthModal()"></div>
       <div class="relative bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
-        
+
         <button (click)="closeAuthModal()" class="absolute top-4 right-4 text-stone-400 hover:text-stone-600">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -562,111 +564,57 @@
 
         <div class="p-8">
           <div class="text-center mb-8">
-            <h2 class="text-3xl font-bold text-stone-800 mb-2 serif">{{ isLoginMode() ? 'Welcome Back' : 'Join the Kitchen' }}</h2>
-            <p class="text-stone-500">
-              {{ isLoginMode() ? 'Log in to access your cookbook.' : 'Create an account to save your recipes.' }}
-            </p>
+            <div class="inline-flex p-3 rounded-full bg-green-100 text-green-700 mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-stone-800 mb-2 serif">Welcome to VeganGenius</h2>
+            <p class="text-stone-500">Sign in to save recipes, create cookbooks, and sync your kitchen across devices.</p>
           </div>
 
-          <form (ngSubmit)="onAuthSubmit()" class="space-y-4">
-            @if (!isLoginMode()) {
-              <div>
-                <input 
-                  type="text" 
-                  [(ngModel)]="authName" 
-                  name="name"
-                  required
-                  class="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                  placeholder="Full Name"
-                >
-              </div>
-            }
-
-            <div>
-              <input 
-                type="email" 
-                [(ngModel)]="authEmail" 
-                name="email"
-                required
-                class="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                placeholder="Email Address"
-              >
+          @if (authError()) {
+            <div class="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 text-center">
+              {{ authError() }}
             </div>
+          }
 
-            <div>
-              <input 
-                type="password" 
-                [(ngModel)]="authPassword" 
-                name="password"
-                required
-                minlength="6"
-                class="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
-                placeholder="Password"
-              >
-            </div>
-
-            @if (authError()) {
-              <div class="p-3 bg-red-50 text-red-700 text-sm rounded-lg border border-red-200 text-center">
-                {{ authError() }}
-              </div>
-            }
-
-            <button 
-              type="submit" 
-              [disabled]="authLoading()"
-              class="w-full py-3.5 bg-green-700 hover:bg-green-800 disabled:opacity-70 text-white font-bold rounded-xl shadow-lg shadow-green-700/20 transition-all duration-200"
-            >
-              @if (authLoading()) {
-                <span class="flex items-center justify-center gap-2">
-                  <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              } @else {
-                {{ isLoginMode() ? 'Log In' : 'Create Account' }}
-              }
-            </button>
-          </form>
-
-          <div class="relative my-8">
-            <div class="absolute inset-0 flex items-center">
-              <div class="w-full border-t border-stone-200"></div>
-            </div>
-            <div class="relative flex justify-center text-sm">
-              <span class="px-2 bg-white text-stone-400">Or continue with</span>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <button (click)="onSocialLogin('Google')" class="flex items-center justify-center gap-2 px-4 py-3 border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors">
+          <!-- Google Sign-In Button -->
+          <button
+            (click)="onGoogleLogin()"
+            [disabled]="authLoginLoading()"
+            class="w-full flex items-center justify-center gap-3 px-6 py-4 bg-white border-2 border-stone-200 rounded-xl hover:bg-stone-50 hover:border-stone-300 disabled:opacity-70 transition-all duration-200 shadow-sm"
+          >
+            @if (authLoginLoading()) {
+              <svg class="animate-spin h-5 w-5 text-stone-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span class="text-stone-600 font-semibold">Connecting...</span>
+            } @else {
               <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                 <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              <span class="text-stone-700 font-medium text-sm">Google</span>
-            </button>
-            <button (click)="onSocialLogin('Apple')" class="flex items-center justify-center gap-2 px-4 py-3 border border-stone-200 rounded-xl hover:bg-stone-50 transition-colors">
-              <svg class="h-5 w-5 text-black" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.82 3.05-1.01 4.25-.13 2.1 1.63 2.53 3.1 2.56 3.19-.05.02-2.4 1.19-2.43 3.52-.05 2.19 2.05 3.34 2.13 3.42-.02.1-.51 1.6-1.59 3.17zM12.9 5.27c-.23-1.6 1.1-2.92 2.45-2.92.24 1.62-1.22 2.94-2.45 2.92z"/>
-              </svg>
-              <span class="text-stone-700 font-medium text-sm">Apple</span>
-            </button>
+              <span class="text-stone-700 font-semibold">Sign in with Google</span>
+            }
+          </button>
+
+          <div class="relative my-6">
+            <div class="absolute inset-0 flex items-center">
+              <div class="w-full border-t border-stone-200"></div>
+            </div>
+            <div class="relative flex justify-center text-sm">
+              <span class="px-2 bg-white text-stone-400">or</span>
+            </div>
           </div>
 
-          <div class="mt-8 text-center text-sm text-stone-600">
-            {{ isLoginMode() ? "Don't have an account?" : "Already have an account?" }}
-            <button 
-              type="button" 
-              (click)="toggleAuthMode()"
-              class="text-green-700 font-bold hover:underline ml-1"
-            >
-              {{ isLoginMode() ? 'Sign Up' : 'Log In' }}
-            </button>
-          </div>
+          <!-- Continue as Guest -->
+          <p class="text-center text-sm text-stone-500">
+            No account needed to generate recipes! Close this dialog to continue as a guest. Your recipes will be stored locally in this browser.
+          </p>
         </div>
       </div>
     </div>
@@ -678,16 +626,16 @@
       <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="closeCreateCookbookModal()"></div>
       <div class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]">
         <h3 class="text-xl font-bold text-stone-800 mb-4 serif">New Cookbook</h3>
-        <input 
-          type="text" 
-          [(ngModel)]="newCookbookName" 
-          placeholder="Cookbook Name (e.g. Desserts)" 
+        <input
+          type="text"
+          [(ngModel)]="newCookbookName"
+          placeholder="Cookbook Name (e.g. Desserts)"
           class="w-full mb-3 px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
-        <input 
-          type="text" 
-          [(ngModel)]="newCookbookDesc" 
-          placeholder="Description (Optional)" 
+        <input
+          type="text"
+          [(ngModel)]="newCookbookDesc"
+          placeholder="Description (Optional)"
           class="w-full mb-6 px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500"
         >
         <div class="flex gap-3">
@@ -720,7 +668,7 @@
                 <label class="block text-sm font-medium text-stone-600 mb-1">Recipe Name</label>
                 <input type="text" [(ngModel)]="manualRecipe().name" class="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="e.g. Lentil Shepherd's Pie">
               </div>
-              
+
               <div>
                 <label class="block text-sm font-medium text-stone-600 mb-1">Description</label>
                 <textarea [(ngModel)]="manualRecipe().description" rows="3" class="w-full px-4 py-3 rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="A brief description..."></textarea>
@@ -852,14 +800,14 @@
           <h3 class="text-xl font-bold text-stone-800 serif">Add to Cookbook</h3>
           <button (click)="openCreateCookbookModal()" class="text-sm text-green-700 font-bold hover:underline">+ New</button>
         </div>
-        
+
         <div class="space-y-2 max-h-[300px] overflow-y-auto mb-6">
           @if (authService.currentUser()?.cookbooks?.length === 0) {
             <p class="text-stone-400 text-sm text-center py-4">No cookbooks yet. Create one!</p>
           }
 
           @for (cb of authService.currentUser()?.cookbooks; track cb.id) {
-            <button 
+            <button
               (click)="addToCookbook(cb.id)"
               class="w-full text-left px-4 py-3 rounded-xl bg-stone-50 hover:bg-green-50 hover:text-green-800 transition-colors flex justify-between items-center group"
             >
@@ -872,7 +820,7 @@
             </button>
           }
         </div>
-        
+
         <button (click)="closeAddToCookbookModal()" class="w-full py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200">Cancel</button>
       </div>
     </div>
