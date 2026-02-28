@@ -74,19 +74,11 @@ scripts/                     # Utility scripts
 # Install dependencies
 npm install
 
-# Start the Angular dev server (port 3000, hot-reload)
-# NOTE: Only /api/auth is proxied to Flask (port 5000) via proxy.conf.json.
-# /api/recipe and /api/image are NOT proxied — recipe/image generation requires
-# the Express server to be running. For full local development:
-#   1. Load env vars (see Environment Variables below)
-#   2. Run `npm run build && npm start` for the Express server (port 8080), OR
-#   3. Run `npm run dev` for UI-only work (auth flow, layout); AI endpoints won't respond.
-npm run dev
-
 # Build for production (Angular app → dist/, server TypeScript → server/dist/)
 npm run build
 
 # Start the production server (serves Angular SPA + /api/* endpoints on port 8080)
+# Load env vars first — the Express server has no dotenv loader (see Environment Variables below)
 npm start
 ```
 
