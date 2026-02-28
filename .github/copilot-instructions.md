@@ -42,7 +42,7 @@ server/
   types.ts                   # Server-side TypeScript types
   tsconfig.server.json       # TypeScript config for the server
 
-proxy.conf.json              # Dev proxy: /api/auth/* → http://localhost:5000 (Flask)
+proxy.conf.json              # Dev proxy: /api/auth → http://localhost:5000 (Flask)
 Dockerfile                   # Production container (Cloud Run)
 cloudbuild.yaml              # Google Cloud Build pipeline
 docs/                        # Additional documentation
@@ -74,7 +74,13 @@ scripts/                     # Utility scripts
 # Install dependencies
 npm install
 
-# Start the Angular dev server (port 3000, hot-reload, API proxy to Flask on 5000)
+# Start the Angular dev server (port 3000, hot-reload)
+# NOTE: Only /api/auth is proxied to Flask (port 5000) via proxy.conf.json.
+# /api/recipe and /api/image are NOT proxied — recipe/image generation requires
+# the Express server to be running. For full local development:
+#   1. Load env vars (see Environment Variables below)
+#   2. Run `npm run build && npm start` for the Express server (port 8080), OR
+#   3. Run `npm run dev` for UI-only work (auth flow, layout); AI endpoints won't respond.
 npm run dev
 
 # Build for production (Angular app → dist/, server TypeScript → server/dist/)
@@ -99,7 +105,12 @@ npm run build
 
 ## Environment Variables
 
-Copy `.env.example` to `.env.local` and populate it. The server reads these at runtime.
+Copy `.env.example` to `.env.local` and populate it. The Express server has **no dotenv loader**, so variables must be exported into the shell environment before running `npm start`. The simplest one-liner:
+
+```bash
+export $(grep -v '^#' .env.local | xargs)
+npm start
+```
 
 | Variable | Required | Description |
 |---|---|---|
@@ -158,7 +169,7 @@ Copy `.env.example` to `.env.local` and populate it. The server reads these at r
 
 | Error | Cause | Fix |
 |---|---|---|
-| `Missing API key` on server start | `VITE_GEMINI_API_KEY` not set | Copy `.env.example` → `.env.local` and set the key |
+| `Missing API key` on first recipe/image request | `VITE_GEMINI_API_KEY` not set (Gemini client initialises lazily in `getClient()`) | Export env vars in shell (`export $(grep -v '^#' .env.local | xargs)`), then retry the request |
 | Angular build fails with type errors | Server TypeScript included in frontend compilation | The server has its own `server/tsconfig.server.json`; ensure files lists are correct |
 | `dist/` not found on `npm start` | Server started before build | Run `npm run build` first |
 | `/api/auth/*` 404 in dev | Flask backend not running | Start Flask on port 5000, or test without Google auth (guest mode works without it) |
