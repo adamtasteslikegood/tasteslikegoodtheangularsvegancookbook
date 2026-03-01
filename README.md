@@ -28,13 +28,21 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 
 The Flask backend provides Google OAuth authentication and database-backed recipe storage.
 
-1. Set up Python environment:
+**This project uses `uv` for Python dependency management** - it's significantly faster than pip and handles virtual environments automatically.
+
+1. Install uv (if not already installed):
    ```sh
-   cd Backend
-   pip install -r requirements.txt
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # Or on Arch: yay -S uv
    ```
 
-2. Configure environment variables (copy `.env.example` to `.env`):
+2. Set up Python environment:
+   ```sh
+   cd Backend
+   uv sync  # Installs all dependencies, creates .venv automatically
+   ```
+
+3. Configure environment variables (copy `.env.example` to `.env`):
    ```sh
    cp .env.example .env
    # Edit .env and set:
@@ -43,23 +51,24 @@ The Flask backend provides Google OAuth authentication and database-backed recip
    # - DATABASE_URL (optional, defaults to SQLite)
    ```
 
-3. Initialize database (Phase 3):
+4. Initialize database (Phase 3):
    ```sh
    ./init_database.sh
    # OR manually:
    export FLASK_APP=app.py
-   flask db init
-   flask db migrate -m "Initial schema"
-   flask db upgrade
+   uv run flask db init
+   uv run flask db migrate -m "Initial schema"
+   uv run flask db upgrade
    ```
 
-4. Start Flask backend:
+5. Start Flask backend:
    ```sh
-   python app.py
+   uv run python app.py
    ```
    The backend runs on `http://localhost:5000`
 
-For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).
+For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).  
+For uv usage guide, see [`Backend/UV_QUICK_REFERENCE.md`](Backend/UV_QUICK_REFERENCE.md).
 
 ### Full Stack Development
 
