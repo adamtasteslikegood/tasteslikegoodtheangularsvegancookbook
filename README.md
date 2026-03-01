@@ -10,7 +10,9 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 
 ## Run Locally
 
-**Prerequisites:** Node.js
+**Prerequisites:** Node.js, Python 3.9+
+
+### Frontend & Express Server
 
 1. Install dependencies:
    `npm install`
@@ -21,6 +23,52 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
    `npm run build`
 4. Start the server (serves the UI + /api endpoints):
    `npm start`
+
+### Flask Backend (Phase 3 - Database Support)
+
+The Flask backend provides Google OAuth authentication and database-backed recipe storage.
+
+1. Set up Python environment:
+   ```sh
+   cd Backend
+   pip install -r requirements.txt
+   ```
+
+2. Configure environment variables (copy `.env.example` to `.env`):
+   ```sh
+   cp .env.example .env
+   # Edit .env and set:
+   # - GOOGLE_API_KEY (for Gemini)
+   # - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (for OAuth)
+   # - DATABASE_URL (optional, defaults to SQLite)
+   ```
+
+3. Initialize database (Phase 3):
+   ```sh
+   ./init_database.sh
+   # OR manually:
+   export FLASK_APP=app.py
+   flask db init
+   flask db migrate -m "Initial schema"
+   flask db upgrade
+   ```
+
+4. Start Flask backend:
+   ```sh
+   python app.py
+   ```
+   The backend runs on `http://localhost:5000`
+
+For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).
+
+### Full Stack Development
+
+Run both servers simultaneously:
+- **Angular dev server**: `ng serve` (port 3000)
+- **Express server**: `npm run dev` (port 8080)
+- **Flask backend**: `cd Backend && python app.py` (port 5000)
+
+The Angular dev server proxies `/api/auth/*` requests to Flask (see `proxy.conf.json`).
 
 ## Docker (optional)
 
