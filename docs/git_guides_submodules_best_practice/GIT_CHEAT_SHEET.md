@@ -267,14 +267,14 @@ If abc123 exists FIRST:
    # In Backend (should see: refactor/modular-architecture)
    git rev-parse --abbrev-ref HEAD
    
-   # In main (should see: main)
+   # In main (should see:dev/front_back_split)
    git rev-parse --abbrev-ref HEAD
    ```
 
 2. **Create bash alias for submodule commits:**
    ```bash
    # Add to ~/.bashrc or ~/.zshrc:
-   alias push-both='cd Backend && git push origin refactor/modular-architecture && cd .. && git push origin main'
+   alias push-both='cd Backend && git push origin refactor/modular-architecture && cd .. && git push origin dev/front_back_split'
    
    # Then use:
    push-both
@@ -282,7 +282,7 @@ If abc123 exists FIRST:
 
 3. **Use `--dry-run` to test:**
    ```bash
-   git push --dry-run origin main
+   git push --dry-run origin <current-branch>
    # Shows what WOULD push without actually pushing
    ```
 
@@ -313,7 +313,10 @@ git push -f origin main   # Force push (risky!)
 
 ```bash
 # Everything in one go (submodule + main)
-cd Backend && git push origin refactor/modular-architecture && cd .. && git push origin main
+cd Backend && git push origin refactor/modular-architecture && cd .. && git push origin dev/front_back_split && echo "Pushed both! ✅"
+
+# <or current branches>
+cd Backend && $SUBMODULE_WORKING_BRANCH=git rev-parse --abbrev-ref HEAD && git push origin $SUBMODULE_WORKING_BRANCH && cd .. && $MAIN_WORKING_BRANCH=git rev-parse --abbrev-ref HEAD && git push origin $MAIN_WORKING_BRANCH && echo "Pushed both! ✅" && echo "main branch: " && echo $MAIN_WORKING_BRANCH && ech
 
 # Check both branches
 git rev-parse --abbrev-ref HEAD && cd Backend && git rev-parse --abbrev-ref HEAD && cd ..
