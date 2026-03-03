@@ -11,6 +11,7 @@
 |-----|---------|----------|
 | [PHASE_4_AUDIT_REPORT.md](./PHASE_4_AUDIT_REPORT.md) | What existed before Phase IV, what each gap required, package/dependency audit | Developers |
 | [PHASE_4_IMPLEMENTATION_SUMMARY.md](./PHASE_4_IMPLEMENTATION_SUMMARY.md) | All 10 files changed/created, architecture diagram, API surface, verification commands | Developers |
+| [PHASE_4_DEV_CHECKLIST_SQLITE.md](./PHASE_4_DEV_CHECKLIST_SQLITE.md) | Step-by-step local dev verification with SQLite — includes code-review bug list, Gemini recommendations | Developer (local) |
 | [PHASE_4_DEPLOYMENT_CHECKLIST.md](./PHASE_4_DEPLOYMENT_CHECKLIST.md) | Step-by-step deployment guide, smoke tests, open questions | DevOps / Developer deploying to Cloud Run |
 | [PHASE_4_CLOUD_RUN_BRIEF.md](./PHASE_4_CLOUD_RUN_BRIEF.md) | Infrastructure state, Terraform diffs, configuration questions — forward to Cloud Run App Design Center | Cloud architect / App Design Center |
 
