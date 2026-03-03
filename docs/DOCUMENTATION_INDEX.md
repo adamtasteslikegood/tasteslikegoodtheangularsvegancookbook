@@ -148,7 +148,14 @@ Start here if you need to understand the project:
 ### Troubleshooting
 - **Quick Troubleshooting:** [DEVELOPER_GUIDE.md](./DEVELOPER_GUIDE.md#debugging-issues)
 - **FAQ:** [VISUAL_SUMMARY.md](./VISUAL_SUMMARY.md#questions--answers)
-- **Detailed Help:** [SECURITY_QUICKSTART.md](./SECURITY_QUICKSTART.md#troubleshooting)
+
+### Data Integrity & Migrations
+- **Recipe ID Fix:** [RECIPE_ID_FIX.md](./RECIPE_ID_FIX.md) - Fixes dual-ID issue in recipe storage
+- **Visual Guide:** [RECIPE_ID_FIX_VISUAL.md](./RECIPE_ID_FIX_VISUAL.md) - Diagrams and flow charts
+- **Quick Start:** [../QUICKSTART_ID_FIX.md](../QUICKSTART_ID_FIX.md) - Fast reference guide
+- **Migration Script:** [Backend/scripts/fix_recipe_ids.py](../Backend/scripts/fix_recipe_ids.py)
+- **Test Script:** [Backend/scripts/test_recipe_id_fix.py](../Backend/scripts/test_recipe_id_fix.py)
+- **Scripts README:** [Backend/scripts/README.md](../Backend/scripts/README.md)
 
 ---
 

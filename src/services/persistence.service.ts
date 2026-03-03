@@ -7,8 +7,8 @@ import { Cookbook } from "../auth.types";
  * PersistenceService — hybrid persistence layer for Phase IV.
  *
  * Strategy:
- *   - Guest users  → localStorage only (delegates to AuthService)
- *   - Logged-in    → Flask API (primary) + localStorage as cache
+ *   - Guest users  → Flask API scoped by session_id + localStorage cache
+ *   - Logged-in    → Flask API scoped by user_id + localStorage cache
  *
  * All calls go through relative URLs so the Express proxy forwards
  * them to Flask transparently (no CORS, no env var changes needed).
@@ -29,7 +29,7 @@ export class PersistenceService {
       const user = this.auth.currentUser();
       const loading = this.auth.authLoading();
 
-      if (!user || user.isGuest) {
+      if (!user) {
         this._apiSynced = false;
         return;
       }
@@ -50,9 +50,7 @@ export class PersistenceService {
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
 
-    if (!user.isGuest) {
-      await this._apiSaveRecipe(recipe);
-    }
+    await this._apiSaveRecipe(recipe);
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {
@@ -61,19 +59,12 @@ export class PersistenceService {
 
     this.auth.deleteRecipe(recipeId);
 
-    if (!user.isGuest) {
-      await this._fetch(`/api/recipes/${recipeId}`, { method: "DELETE" });
-    }
+    await this._fetch(`/api/recipes/${recipeId}`, { method: "DELETE" });
   }
 
   async createCookbook(name: string, description = ""): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) return;
-
-    if (user.isGuest) {
-      this.auth.createCookbook(name, description);
-      return;
-    }
 
     try {
       const id = crypto.randomUUID();
@@ -103,9 +94,7 @@ export class PersistenceService {
 
     this.auth.deleteCookbook(cookbookId);
 
-    if (!user.isGuest) {
-      await this._fetch(`/api/collections/${cookbookId}`, { method: "DELETE" });
-    }
+    await this._fetch(`/api/collections/${cookbookId}`, { method: "DELETE" });
   }
 
   async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<void> {
@@ -114,13 +103,11 @@ export class PersistenceService {
 
     this.auth.addRecipeToCookbook(cookbookId, recipe);
 
-    if (!user.isGuest) {
-      await this._apiSaveRecipe(recipe); // ensure recipe exists in DB
-      await this._fetch(`/api/collections/${cookbookId}/recipes`, {
-        method: "POST",
-        body: JSON.stringify({ recipe_id: recipe.id }),
-      });
-    }
+    await this._apiSaveRecipe(recipe); // ensure recipe exists in DB
+    await this._fetch(`/api/collections/${cookbookId}/recipes`, {
+      method: "POST",
+      body: JSON.stringify({ recipe_id: recipe.id }),
+    });
   }
 
   async removeRecipeFromCookbook(
@@ -132,12 +119,9 @@ export class PersistenceService {
 
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
-    if (!user.isGuest) {
-      await this._fetch(
-        `/api/collections/${cookbookId}/recipes/${recipeId}`,
-        { method: "DELETE" },
-      );
-    }
+    await this._fetch(`/api/collections/${cookbookId}/recipes/${recipeId}`, {
+      method: "DELETE",
+    });
   }
 
   // ─── Internal: API sync ───────────────────────────────────────────────────
@@ -159,12 +143,11 @@ export class PersistenceService {
       const recipesData = await recipesRes.json();
       const collectionsData = await collectionsRes.json();
 
-      // Each item in recipesData.recipes has a "data" field with the full Recipe JSON.
+      // With the backend fix, data.id and the outer id are now consistent.
+      // We use the data field directly since it contains the complete recipe
+      // with the correct ID already set by the backend.
       const recipes: Recipe[] = (recipesData.recipes ?? []).map(
-        (r: { id: string; data: Recipe }) => ({
-          ...r.data,
-          id: r.id, // ensure DB id is used, not any stale client id in data
-        }),
+        (r: { id: string; data: Recipe }) => r.data,
       );
 
       const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(

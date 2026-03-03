@@ -70,6 +70,17 @@ The Flask backend provides Google OAuth authentication and database-backed recip
 For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).  
 For uv usage guide, see [`Backend/UV_QUICK_REFERENCE.md`](Backend/UV_QUICK_REFERENCE.md).
 
+6. **Database Maintenance** (if upgrading from older versions):
+   ```sh
+   # Fix recipe ID consistency (one-time migration)
+   cd Backend
+   python scripts/fix_recipe_ids.py
+   
+   # Verify the fix
+   python scripts/test_recipe_id_fix.py
+   ```
+   See [`docs/RECIPE_ID_FIX.md`](docs/RECIPE_ID_FIX.md) for details on the dual-ID issue fix.
+
 ### Full Stack Development
 
 Run both servers simultaneously:
