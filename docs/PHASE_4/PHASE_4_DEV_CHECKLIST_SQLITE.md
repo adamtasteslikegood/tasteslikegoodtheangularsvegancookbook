@@ -8,15 +8,19 @@
 
 ## 0. Prerequisites
 
-- [ ] Node.js ≥ 20 and Python ≥ 3.11 installed
+- [ ] Node.js ≥ 20, Python ≥ 3.11, and [`uv`](https://docs.astral.sh/uv/) installed
 - [ ] `npm install` completed at repo root
-- [ ] Python virtual environment active (`cd Backend && python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`)
+- [ ] Backend dependencies installed via `uv`:
+  ```bash
+  cd Backend
+  uv sync
+  ```
 - [ ] `.env.local` exists at repo root with `VITE_GEMINI_API_KEY` set
 - [ ] `Backend/.env` exists with at minimum:
   ```
   FLASK_SECRET_KEY=dev-secret-change-in-prod
   DATABASE_URL=sqlite:///instance/dev.db
-  FRONTEND_URL=http://localhost:3000
+  FRONTEND_URL=http://localhost:8080
   ```
 
 ---
@@ -26,7 +30,7 @@
 - [ ] **Run migrations** — creates `recipe`, `cookbook`, and other tables:
   ```bash
   cd Backend
-  flask db upgrade
+  uv run flask db upgrade
   ```
 - [ ] **Verify tables exist:**
   ```bash
@@ -53,26 +57,21 @@ Open **three terminals** simultaneously:
 **Terminal A — Flask backend (port 5000):**
 ```bash
 cd Backend
-source .venv/bin/activate
 export $(grep -v '^#' .env | xargs)
-flask run --port 5000 --debug
+uv run flask run --port 5000 --debug
 ```
 Expected: `Running on http://127.0.0.1:5000`
 
-**Terminal B — Express + Angular build watcher (port 8080):**
+**Terminal B — Express + Angular (port 8080):**
 ```bash
 export $(grep -v '^#' .env.local | xargs)
 npm run build && npm start
 ```
 Expected: `Listening on port 8080`
 
-**Terminal C — Angular dev server with proxy (port 3000, recommended for dev):**
-```bash
-npx ng serve --port 3000 --proxy-config proxy.conf.json
-```
-Expected: `Application bundle generation complete`
+> ℹ️ The Express server on port 8080 serves the Angular SPA and proxies `/api/auth/*`, `/api/recipes`, and `/api/collections` to Flask. Use **http://localhost:8080** for all browser testing.
 
-> ⚠️ The Angular dev server on port 3000 proxies `/api/auth/*` to Flask on 5000 via `proxy.conf.json`. Use port 3000 for all browser testing.
+> ⚠️ For faster frontend iteration (hot-reload), run `npx ng serve --port 8080 --proxy-config proxy.conf.json` instead of `npm run build && npm start`. This requires Angular CLI installed (`npm i -g @angular/cli`).
 
 ---
 
@@ -88,7 +87,7 @@ Use `curl` to verify Flask endpoints before testing through the full stack.
 
 ### 3c. Recipes — create (using session cookie from login)
 > If OAuth is not configured locally, skip to Section 4 (Guest Mode tests).
-- [ ] Log in via `http://localhost:3000/api/auth/login` in a browser
+- [ ] Log in via `http://localhost:8080/api/auth/login` in a browser
 - [ ] Copy session cookie, then:
   ```bash
   curl -X POST http://localhost:5000/api/recipes \
@@ -139,7 +138,7 @@ Use `curl` to verify Flask endpoints before testing through the full stack.
 
 ## 4. Guest Mode Tests (localStorage, no auth)
 
-Open `http://localhost:3000` **without logging in.**
+Open `http://localhost:8080` **without logging in.**
 
 - [ ] Generate a recipe via the UI — verify it appears in the recipe list
 - [ ] Open DevTools → Application → Local Storage → `vegan_genius_session` — confirm recipe is stored
@@ -214,7 +213,7 @@ From `Google Cloud App Designs/Phase4_GeminiEnterprise_ReviewRecomendations.md`:
 | Priority | Item | Dev Action |
 |----------|------|------------|
 | 🔴 Critical | `FLASK_SECRET_KEY` must be consistent (not random) | Set a fixed dev key in `Backend/.env`; never use default |
-| 🔴 Critical | `FRONTEND_URL` must be set in Flask env | Add `FRONTEND_URL=http://localhost:3000` to `Backend/.env` |
+| 🔴 Critical | `FRONTEND_URL` must be set in Flask env | Add `FRONTEND_URL=http://localhost:8080` to `Backend/.env` |
 | 🟡 High | Terraform var name mismatch (`flask_backend_SERVICE_ENDPOINT` vs `FLASK_BACKEND_URL`) | Fix in `Google Cloud App Designs/app-template-5-main.tf` before next deploy |
 | 🟡 High | Guest recipe merge UX — prompt user instead of auto-upload | Design the UX; implement after core persistence is stable |
 | 🟢 Medium | `updateCookbook()` method missing from `PersistenceService` | Add `PUT /api/collections/:id` support when cover image feature is built |
@@ -228,7 +227,7 @@ Before moving to production, all of the following must be true:
 
 - [ ] All Section 3 curl tests pass against SQLite
 - [ ] All 4 bugs in Section 7 are fixed
-- [ ] `flask db upgrade` tested against a PostgreSQL instance (can use Cloud SQL Proxy locally)
+- [ ] `uv run flask db upgrade` tested against a PostgreSQL instance (can use Cloud SQL Proxy locally)
 - [ ] `FLASK_SECRET_KEY` stored in Secret Manager (not hardcoded)
 - [ ] `FRONTEND_URL` added to flask-backend Cloud Run env vars
 - [ ] Terraform `flask_backend_SERVICE_ENDPOINT` renamed to `FLASK_BACKEND_URL`
