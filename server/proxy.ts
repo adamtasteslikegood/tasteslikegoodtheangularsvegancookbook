@@ -1,15 +1,14 @@
 /**
- * Lightweight reverse proxy for forwarding /api/auth/* requests
- * to the Flask authentication backend.
+ * Lightweight reverse proxy for forwarding requests to the Flask backend.
  *
  * Uses Node's built-in `http` module — no extra dependencies.
  *
  * Why this exists:
  *   In the production-like local setup, the browser only talks to Express (:8080).
- *   Express serves the Angular SPA and handles AI endpoints directly, but auth
- *   lives in Flask (:5000). This proxy bridges the two so session cookies, OAuth
- *   redirects, and url_for(_external=True) all resolve to the same origin the
- *   browser is on.
+ *   Express serves the Angular SPA and handles AI endpoints directly, but auth,
+ *   recipe persistence, and collections live in Flask (:5000). This proxy bridges
+ *   the two so session cookies, OAuth redirects, and url_for(_external=True) all
+ *   resolve to the same origin the browser is on.
  */
 
 import http from "node:http";
@@ -23,8 +22,10 @@ const FLASK_BACKEND_URL =
  * Returns Express middleware that proxies every matched request to the
  * Flask backend, preserving the original Host header so Flask's
  * url_for(_external=True) generates URLs that point back to Express.
+ *
+ * @param label - Used in error log messages (e.g. "Auth", "Recipes")
  */
-export function createAuthProxy() {
+export function createFlaskProxy(label = "Flask") {
   const target = new URL(FLASK_BACKEND_URL);
   const transport = target.protocol === "https:" ? https : http;
 
@@ -48,16 +49,15 @@ export function createAuthProxy() {
 
     proxyReq.on("error", (err) => {
       console.error(
-        `[Auth Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed:`,
+        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed:`,
         err.message,
       );
       if (!res.headersSent) {
         res.status(502).json({
-          error: "Auth service unavailable",
+          error: "Backend service unavailable",
           detail:
-            "Could not reach the Flask authentication backend. " +
-            "Make sure it is running on " +
-            FLASK_BACKEND_URL,
+            `Could not reach the Flask backend. ` +
+            `Make sure it is running on ${FLASK_BACKEND_URL}`,
         });
       }
     });
@@ -67,4 +67,9 @@ export function createAuthProxy() {
     // stream has not been consumed.
     req.pipe(proxyReq, { end: true });
   };
+}
+
+/** Backward-compatible alias for auth routes. */
+export function createAuthProxy() {
+  return createFlaskProxy("Auth");
 }

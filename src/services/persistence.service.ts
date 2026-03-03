@@ -1,0 +1,224 @@
+import { Injectable, effect, untracked } from "@angular/core";
+import { AuthService } from "./auth.service";
+import { Recipe } from "../recipe.types";
+import { Cookbook } from "../auth.types";
+
+/**
+ * PersistenceService — hybrid persistence layer for Phase IV.
+ *
+ * Strategy:
+ *   - Guest users  → localStorage only (delegates to AuthService)
+ *   - Logged-in    → Flask API (primary) + localStorage as cache
+ *
+ * All calls go through relative URLs so the Express proxy forwards
+ * them to Flask transparently (no CORS, no env var changes needed).
+ * See docs/ADR-001-auth-and-persistence-routing.md for the full decision record.
+ */
+@Injectable({
+  providedIn: "root",
+})
+export class PersistenceService {
+  /** Prevents duplicate API loads for the same session. */
+  private _apiSynced = false;
+
+  constructor(private auth: AuthService) {
+    // Auto-load from API when a logged-in user's session is confirmed.
+    // Uses untracked() so signal writes inside loadFromApi() don't
+    // create a reactive dependency in the effect.
+    effect(() => {
+      const user = this.auth.currentUser();
+      const loading = this.auth.authLoading();
+
+      if (!user || user.isGuest) {
+        this._apiSynced = false;
+        return;
+      }
+
+      if (!loading && !this._apiSynced) {
+        this._apiSynced = true;
+        untracked(() => this.loadFromApi());
+      }
+    });
+  }
+
+  // ─── Public API (components call these instead of AuthService directly) ──
+
+  async saveRecipe(recipe: Recipe): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    // Always update localStorage first for instant UI feedback.
+    this.auth.saveRecipe(recipe);
+
+    if (!user.isGuest) {
+      await this._apiSaveRecipe(recipe);
+    }
+  }
+
+  async deleteRecipe(recipeId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    this.auth.deleteRecipe(recipeId);
+
+    if (!user.isGuest) {
+      await this._fetch(`/api/recipes/${recipeId}`, { method: "DELETE" });
+    }
+  }
+
+  async createCookbook(name: string, description = ""): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    if (user.isGuest) {
+      this.auth.createCookbook(name, description);
+      return;
+    }
+
+    try {
+      const id = crypto.randomUUID();
+      const res = await this._fetch("/api/collections", {
+        method: "POST",
+        body: JSON.stringify({ id, name, description }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json();
+      // Sync the server-assigned cookbook into local state
+      const current = this.auth.currentUser();
+      if (current) {
+        this.auth.hydrate(current.savedRecipes, [
+          ...current.cookbooks,
+          this._toCookbook(data),
+        ]);
+      }
+    } catch {
+      // Fall back to localStorage so the UI still works
+      this.auth.createCookbook(name, description);
+    }
+  }
+
+  async deleteCookbook(cookbookId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    this.auth.deleteCookbook(cookbookId);
+
+    if (!user.isGuest) {
+      await this._fetch(`/api/collections/${cookbookId}`, { method: "DELETE" });
+    }
+  }
+
+  async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    this.auth.addRecipeToCookbook(cookbookId, recipe);
+
+    if (!user.isGuest) {
+      await this._apiSaveRecipe(recipe); // ensure recipe exists in DB
+      await this._fetch(`/api/collections/${cookbookId}/recipes`, {
+        method: "POST",
+        body: JSON.stringify({ recipe_id: recipe.id }),
+      });
+    }
+  }
+
+  async removeRecipeFromCookbook(
+    cookbookId: string,
+    recipeId: string,
+  ): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
+
+    if (!user.isGuest) {
+      await this._fetch(
+        `/api/collections/${cookbookId}/recipes/${recipeId}`,
+        { method: "DELETE" },
+      );
+    }
+  }
+
+  // ─── Internal: API sync ───────────────────────────────────────────────────
+
+  /**
+   * Load all recipes and cookbooks from the Flask API and merge into
+   * the Angular user state via AuthService.hydrate().
+   * Called once after Google OAuth login is confirmed.
+   */
+  async loadFromApi(): Promise<void> {
+    try {
+      const [recipesRes, collectionsRes] = await Promise.all([
+        this._fetch("/api/recipes"),
+        this._fetch("/api/collections"),
+      ]);
+
+      if (!recipesRes.ok || !collectionsRes.ok) return;
+
+      const recipesData = await recipesRes.json();
+      const collectionsData = await collectionsRes.json();
+
+      // Each item in recipesData.recipes has a "data" field with the full Recipe JSON.
+      const recipes: Recipe[] = (recipesData.recipes ?? []).map(
+        (r: { id: string; data: Recipe }) => ({
+          ...r.data,
+          id: r.id, // ensure DB id is used, not any stale client id in data
+        }),
+      );
+
+      const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(
+        this._toCookbook,
+      );
+
+      this.auth.hydrate(recipes, cookbooks);
+    } catch {
+      // Network failure — local state is already loaded; silently continue.
+    }
+  }
+
+  /** POST a recipe to Flask; idempotent — ignores 409 conflicts. */
+  private async _apiSaveRecipe(recipe: Recipe): Promise<void> {
+    try {
+      const res = await this._fetch("/api/recipes", {
+        method: "POST",
+        body: JSON.stringify({ ...recipe, id: recipe.id }),
+      });
+      // 201 = created, 409 = already exists (idempotent), both are fine
+      if (!res.ok && res.status !== 409) {
+        console.warn(`[PersistenceService] saveRecipe ${res.status}`);
+      }
+    } catch (err) {
+      console.warn("[PersistenceService] apiSaveRecipe failed:", err);
+    }
+  }
+
+  /** Fetch with session cookie and JSON content-type. */
+  private _fetch(path: string, init: RequestInit = {}): Promise<Response> {
+    return fetch(path, {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(init.headers ?? {}),
+      },
+    });
+  }
+
+  /** Map Flask collection JSON → Angular Cookbook interface. */
+  private _toCookbook(raw: {
+    id: string;
+    name: string;
+    description?: string;
+    coverImage?: string;
+    recipeIds?: string[];
+  }): Cookbook {
+    return {
+      id: raw.id,
+      name: raw.name,
+      description: raw.description ?? "",
+      coverImage: raw.coverImage,
+      recipeIds: raw.recipeIds ?? [],
+    };
+  }
+}
