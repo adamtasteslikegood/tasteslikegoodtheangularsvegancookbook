@@ -175,6 +175,25 @@ export class AuthService {
     }
   }
 
+  /**
+   * Hydrate the authenticated user's recipes and cookbooks from the API.
+   * Called by PersistenceService after loading data from Flask.
+   * Merges with any recipes already in localStorage (guest data brought in on login).
+   */
+  hydrate(recipes: Recipe[], cookbooks: Cookbook[]) {
+    const user = this.currentUser();
+    if (!user) return;
+
+    // Merge: keep any localStorage recipes NOT already in the API response
+    const apiIds = new Set(recipes.map((r) => r.id));
+    const localOnly = user.savedRecipes.filter((r) => !apiIds.has(r.id));
+    const merged = [...recipes, ...localOnly];
+
+    const updated = { ...user, savedRecipes: merged, cookbooks };
+    this.currentUser.set(updated);
+    this.saveLocalSession(updated);
+  }
+
   // ─── Recipe Management (localStorage) ─────────────────────────
 
   saveRecipe(recipe: Recipe) {
@@ -195,6 +214,19 @@ export class AuthService {
       savedRecipes: [...user.savedRecipes, recipe],
     };
     this.updateUserRecord(updatedUser);
+  }
+
+  deleteRecipe(recipeId: string) {
+    const user = this.currentUser();
+    if (!user) return;
+    this.updateUserRecord({
+      ...user,
+      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
+      cookbooks: user.cookbooks.map((cb) => ({
+        ...cb,
+        recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
+      })),
+    });
   }
 
   importRecipes(recipes: any[], targetCookbookId?: string | null): number {
