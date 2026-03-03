@@ -15,16 +15,18 @@ import {
   validateImageRequest,
   handleValidationErrors,
 } from "./validation.js";
-import { createAuthProxy } from "./proxy.js";
+import { createAuthProxy, createFlaskProxy } from "./proxy.js";
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || "8080", 10);
 const flaskUrl = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
 
-// ── Auth proxy ──────────────────────────────────────────────────
-// Must be mounted BEFORE express.json() so the raw request body
-// streams through to Flask without being consumed by the JSON parser.
-app.use("/api/auth", createAuthProxy());
+// ── Flask proxy routes ──────────────────────────────────────────
+// Must be mounted BEFORE express.json() so raw request bodies stream
+// through to Flask without being consumed by the JSON parser.
+app.use("/api/auth",        createAuthProxy());
+app.use("/api/recipes",     createFlaskProxy("Recipes"));
+app.use("/api/collections", createFlaskProxy("Collections"));
 
 // Reduce default JSON payload limit to 50KB for security
 app.use(express.json({ limit: "50kb" }));
