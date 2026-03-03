@@ -3,6 +3,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { GeminiService } from "./services/gemini.service";
 import { AuthService } from "./services/auth.service";
+import { PersistenceService } from "./services/persistence.service";
 import { Recipe, Ingredient, IngredientGroup } from "./recipe.types";
 import { Cookbook } from "./auth.types";
 
@@ -15,6 +16,7 @@ import { Cookbook } from "./auth.types";
 })
 export class AppComponent {
   private geminiService = inject(GeminiService);
+  private persistenceService = inject(PersistenceService);
   authService = inject(AuthService);
 
   // Navigation
@@ -176,23 +178,23 @@ export class AppComponent {
     this.showCreateCookbookModal.set(false);
   }
 
-  createCookbook() {
+  async createCookbook() {
     if (!this.newCookbookName().trim()) return;
-    this.authService.createCookbook(
+    await this.persistenceService.createCookbook(
       this.newCookbookName(),
       this.newCookbookDesc(),
     );
     this.closeCreateCookbookModal();
   }
 
-  deleteCookbook(id: string, event: Event) {
+  async deleteCookbook(id: string, event: Event) {
     event.stopPropagation();
     if (
       confirm(
         'Are you sure you want to delete this cookbook? Recipes will remain in "All Saved".',
       )
     ) {
-      this.authService.deleteCookbook(id);
+      await this.persistenceService.deleteCookbook(id);
       if (this.activeCookbookId() === id) {
         this.activeCookbookId.set(null);
       }
@@ -254,7 +256,7 @@ export class AppComponent {
     );
   }
 
-  saveManualRecipe() {
+  async saveManualRecipe() {
     const info = this.manualRecipe();
 
     // Group Ingredients
@@ -292,7 +294,7 @@ export class AppComponent {
       image_keywords: [info.name, "homemade"],
     };
 
-    this.authService.saveRecipe(newRecipe);
+    await this.persistenceService.saveRecipe(newRecipe);
     this.closeManualEntryModal();
   }
 
@@ -425,7 +427,7 @@ export class AppComponent {
 
       // If recipe is already saved, update it in storage too
       if (this.isSaved()) {
-        this.authService.saveRecipe(this.recipe()!);
+        await this.persistenceService.saveRecipe(this.recipe()!);
       }
     } catch (err) {
       console.error("Image generation failed", err);
@@ -440,11 +442,11 @@ export class AppComponent {
     await this.triggerImageGeneration(currentRecipe);
   }
 
-  onSaveRecipe() {
+  async onSaveRecipe() {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
 
-    this.authService.saveRecipe(currentRecipe);
+    await this.persistenceService.saveRecipe(currentRecipe);
     this.isSaved.set(true);
   }
 
@@ -462,12 +464,12 @@ export class AppComponent {
     this.editedNotes.set("");
   }
 
-  saveNotes() {
+  async saveNotes() {
     const r = this.recipe();
     if (r) {
       const updatedRecipe = { ...r, notes: this.editedNotes() };
       this.recipe.set(updatedRecipe);
-      this.authService.saveRecipe(updatedRecipe);
+      await this.persistenceService.saveRecipe(updatedRecipe);
       this.isEditingNotes.set(false);
     }
   }
@@ -484,10 +486,10 @@ export class AppComponent {
     this.recipeToAdd.set(null);
   }
 
-  addToCookbook(cookbookId: string) {
+  async addToCookbook(cookbookId: string) {
     const r = this.recipeToAdd();
     if (!r) return;
-    this.authService.addRecipeToCookbook(cookbookId, r);
+    await this.persistenceService.addRecipeToCookbook(cookbookId, r);
     // If we are currently viewing the generated recipe, mark as saved
     if (this.recipe()?.id === r.id) {
       this.isSaved.set(true);
