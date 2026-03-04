@@ -365,7 +365,13 @@ export class AuthService {
       savedRecipes: user.savedRecipes || [],
       cookbooks: user.cookbooks || [],
     };
-    localStorage.setItem(this.STORAGE_KEY_SESSION, JSON.stringify(safeUser));
+    try {
+      localStorage.setItem(this.STORAGE_KEY_SESSION, JSON.stringify(safeUser));
+    } catch (e) {
+      console.warn('Failed to save local session to localStorage (quota exceeded?):', e);
+      // The in-memory signal is already updated, and the backend DB will still receive the POST.
+      // Next time the user refreshes, loadFromApi() will restore from the server.
+    }
   }
 
   private loadLocalSession() {
