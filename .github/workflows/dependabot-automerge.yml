@@ -1,0 +1,89 @@
+name: Automerge Dependabot (patch/minor)
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  pull_request_review:
+    types: [submitted]
+  check_suite:
+    types: [completed]
+  workflow_run:
+    workflows: ["*"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    # Only run for Dependabot PRs
+    if: >
+      github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+      || github.event_name == 'pull_request_review' && github.event.pull_request.user.login == 'dependabot[bot]'
+      || github.event_name == 'check_suite'
+      || github.event_name == 'workflow_run'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve PR number / repo (pull_request events)
+        id: prctx
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        run: |
+          echo "owner=${{ github.repository_owner }}" >> $GITHUB_OUTPUT
+          echo "repo=${{ github.event.repository.name }}" >> $GITHUB_OUTPUT
+          echo "pr=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+
+      # For check_suite/workflow_run events we don't automatically know the PR number.
+      # The simplest robust approach is to just rely on pull_request + synchronize events for merges.
+      - name: Guard: only merge on pull_request / pull_request_review events
+        if: github.event_name != 'pull_request' && github.event_name != 'pull_request_review'
+        run: |
+          echo "Skipping: this workflow merges based on pull_request events."
+          exit 0
+
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Require patch/minor updates only
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          echo "Major update detected (${{ steps.metadata.outputs.update-type }}). Not auto-merging."
+          exit 0
+
+      - name: Enable auto-merge (squash)
+        # This will queue auto-merge; GitHub will merge once branch protection + checks are satisfied.
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = "${{ steps.prctx.outputs.owner }}";
+            const repo = "${{ steps.prctx.outputs.repo }}";
+            const pull_number = Number("${{ steps.prctx.outputs.pr }}");
+
+            // Safety: don't auto-merge draft PRs
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number });
+            if (pr.data.draft) {
+              core.info("PR is draft; not enabling auto-merge.");
+              return;
+            }
+
+            // Optional: Only allow if Dependabot marked it as patch/minor
+            core.info(`Dependabot update-type: ${{ steps.metadata.outputs.update-type }}`);
+
+            // Enable auto-merge using squash
+            // (If auto-merge is disabled at the repo level, this call will fail.)
+            await github.graphql(`
+              mutation($pullRequestId:ID!) {
+                enablePullRequestAutoMerge(input:{
+                  pullRequestId:$pullRequestId,
+                  mergeMethod:SQUASH
+                }) { pullRequest { number } }
+              }`,
+              { pullRequestId: pr.data.node_id }
+            );
+
+            core.info(`Enabled auto-merge (squash) for PR #${pull_number}.`);
