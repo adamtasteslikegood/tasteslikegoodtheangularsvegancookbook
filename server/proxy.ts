@@ -11,12 +11,11 @@
  *   resolve to the same origin the browser is on.
  */
 
-import http from "node:http";
-import https from "node:https";
-import type { Request, Response } from "express";
+import http from 'node:http';
+import https from 'node:https';
+import type { Request, Response } from 'express';
 
-const FLASK_BACKEND_URL =
-  process.env.FLASK_BACKEND_URL || "http://localhost:5000";
+const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
 /**
  * Returns Express middleware that proxies every matched request to the
@@ -25,14 +24,14 @@ const FLASK_BACKEND_URL =
  *
  * @param label - Used in error log messages (e.g. "Auth", "Recipes")
  */
-export function createFlaskProxy(label = "Flask") {
+export function createFlaskProxy(label = 'Flask') {
   const target = new URL(FLASK_BACKEND_URL);
-  const transport = target.protocol === "https:" ? https : http;
+  const transport = target.protocol === 'https:' ? https : http;
 
   return (req: Request, res: Response) => {
     const options: http.RequestOptions = {
       hostname: target.hostname,
-      port: target.port || (target.protocol === "https:" ? 443 : 80),
+      port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: req.originalUrl, // includes query string
       method: req.method,
       headers: {
@@ -47,14 +46,14 @@ export function createFlaskProxy(label = "Flask") {
       proxyRes.pipe(res, { end: true });
     });
 
-    proxyReq.on("error", (err) => {
+    proxyReq.on('error', (err) => {
       console.error(
         `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed:`,
-        err.message,
+        err.message
       );
       if (!res.headersSent) {
         res.status(502).json({
-          error: "Backend service unavailable",
+          error: 'Backend service unavailable',
           detail:
             `Could not reach the Flask backend. ` +
             `Make sure it is running on ${FLASK_BACKEND_URL}`,
@@ -71,5 +70,5 @@ export function createFlaskProxy(label = "Flask") {
 
 /** Backward-compatible alias for auth routes. */
 export function createAuthProxy() {
-  return createFlaskProxy("Auth");
+  return createFlaskProxy('Auth');
 }
