@@ -1,0 +1,7 @@
+dist
+node_modules
+server/dist
+Backend
+*.json
+*.md
+package-lock.json

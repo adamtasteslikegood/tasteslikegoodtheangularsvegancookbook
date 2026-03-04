@@ -90,6 +90,25 @@ Run both servers simultaneously:
 
 The Angular dev server proxies `/api/auth/*` requests to Flask (see `proxy.conf.json`).
 
+## CI/CD
+
+This project includes comprehensive CI checks via GitHub Actions:
+
+- ✅ **Build** - Compiles Angular app and Express server
+- ✅ **Lint** - ESLint + Prettier code quality checks
+- ✅ **Test** - Vitest test suite with coverage
+- ✅ **Type Check** - TypeScript compilation verification
+
+**Quick commands:**
+```sh
+npm run lint         # Check code quality
+npm run format       # Format code with Prettier
+npm run test         # Run tests
+npm run build        # Build project
+```
+
+**See:** [`CI_QUICK_REFERENCE.md`](CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_SETUP.md`](docs/CI_SETUP.md) for detailed setup.
+
 ## Docker (optional)
 
 Build and run a production container locally:
