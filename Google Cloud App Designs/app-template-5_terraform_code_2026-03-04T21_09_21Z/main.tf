@@ -6,7 +6,7 @@ module "secret-manager-vite-gemini-api-key" {
   source      = "github.com/GoogleCloudPlatform/terraform-google-secret-manager//modules/simple-secret?ref=v0.9.0"
   project_id  = "comdottasteslikegood"
   name        = "vite-gemini-api-key"
-  secret_data = "AIzaSyAICTU_cyMgCYgvcY35Lpfx8DQyyUT7h08"
+  secret_data = REDACTED - NOTHING TO SEE HERE - BILL, DONNY, Andy 
   depends_on  = [module.project-services-comdottasteslikegood, module.project-services-billing-project]
 }
 module "postgresql-db" {
