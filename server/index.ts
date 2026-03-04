@@ -1,35 +1,35 @@
-import express from "express";
-import { GoogleGenAI, Type } from "@google/genai";
-import { randomUUID } from "node:crypto";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import express from 'express';
+import { GoogleGenAI, Type } from '@google/genai';
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   applySecurityMiddleware,
   createApiLimiter,
   createExpensiveOperationLimiter,
   createRequestLogger,
   createErrorHandler,
-} from "./security.js";
+} from './security.js';
 import {
   validateRecipeRequest,
   validateImageRequest,
   handleValidationErrors,
-} from "./validation.js";
-import { createAuthProxy, createFlaskProxy } from "./proxy.js";
+} from './validation.js';
+import { createAuthProxy, createFlaskProxy } from './proxy.js';
 
 const app = express();
-const port = Number.parseInt(process.env.PORT || "8080", 10);
-const flaskUrl = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
+const port = Number.parseInt(process.env.PORT || '8080', 10);
+const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
 // ── Flask proxy routes ──────────────────────────────────────────
 // Must be mounted BEFORE express.json() so raw request bodies stream
 // through to Flask without being consumed by the JSON parser.
-app.use("/api/auth",        createAuthProxy());
-app.use("/api/recipes",     createFlaskProxy("Recipes"));
-app.use("/api/collections", createFlaskProxy("Collections"));
+app.use('/api/auth', createAuthProxy());
+app.use('/api/recipes', createFlaskProxy('Recipes'));
+app.use('/api/collections', createFlaskProxy('Collections'));
 
 // Reduce default JSON payload limit to 50KB for security
-app.use(express.json({ limit: "50kb" }));
+app.use(express.json({ limit: '50kb' }));
 
 // Apply security middleware
 applySecurityMiddleware(app);
@@ -39,7 +39,7 @@ app.use(createRequestLogger());
 
 // General API rate limiter (100 requests per 15 minutes)
 const apiLimiter = createApiLimiter(15 * 60 * 1000, 100);
-app.use("/api/", apiLimiter);
+app.use('/api/', apiLimiter);
 
 // Stricter rate limiter for expensive operations (20 requests per hour)
 const expensiveOpLimiter = createExpensiveOperationLimiter(60 * 60 * 1000, 20);
@@ -51,7 +51,7 @@ const getClient = () => {
   const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.VITE_API_KEY;
   if (!apiKey) {
     throw new Error(
-      "Missing API key. Set VITE_GEMINI_API_KEY (preferred) or VITE_API_KEY in the service environment.",
+      'Missing API key. Set VITE_GEMINI_API_KEY (preferred) or VITE_API_KEY in the service environment.'
     );
   }
   aiClient = new GoogleGenAI({ apiKey });
@@ -79,7 +79,7 @@ const recipeSchema = {
               units: { type: Type.STRING },
               notes: { type: Type.STRING },
             },
-            required: ["name", "amount", "units"],
+            required: ['name', 'amount', 'units'],
           },
         },
         dry: {
@@ -92,7 +92,7 @@ const recipeSchema = {
               units: { type: Type.STRING },
               notes: { type: Type.STRING },
             },
-            required: ["name", "amount", "units"],
+            required: ['name', 'amount', 'units'],
           },
         },
         other: {
@@ -105,11 +105,11 @@ const recipeSchema = {
               units: { type: Type.STRING },
               notes: { type: Type.STRING },
             },
-            required: ["name", "amount", "units"],
+            required: ['name', 'amount', 'units'],
           },
         },
       },
-      required: ["wet", "dry"],
+      required: ['wet', 'dry'],
     },
     instructions: {
       type: Type.ARRAY,
@@ -120,14 +120,14 @@ const recipeSchema = {
     image_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
   },
   required: [
-    "name",
-    "description",
-    "prepTime",
-    "cookTime",
-    "servings",
-    "ingredients",
-    "instructions",
-    "image_keywords",
+    'name',
+    'description',
+    'prepTime',
+    'cookTime',
+    'servings',
+    'ingredients',
+    'instructions',
+    'image_keywords',
   ],
 } as const;
 
@@ -138,12 +138,12 @@ For the 'instructions', provide a simple array of strings describing the steps i
 For 'image_keywords', provide 3-5 visual keywords that describe the finished dish for an image generator (e.g., 'golden crust', 'rustic wooden table', 'steam rising').
 `;
 
-app.get("/api/health", (_req, res) => {
-  res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 app.post(
-  "/api/recipe",
+  '/api/recipe',
   expensiveOpLimiter,
   validateRecipeRequest,
   handleValidationErrors,
@@ -152,17 +152,17 @@ app.post(
       const prompt = req.body.prompt;
 
       const response = await getClient().models.generateContent({
-        model: "gemini-2.5-flash",
+        model: 'gemini-2.5-flash',
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
+          responseMimeType: 'application/json',
           responseSchema: recipeSchema,
         },
       });
 
       if (!response.text) {
-        res.status(502).json({ error: "No recipe generated." });
+        res.status(502).json({ error: 'No recipe generated.' });
         return;
       }
 
@@ -174,18 +174,17 @@ app.post(
       res.status(200).json(recipe);
     } catch (error) {
       // Log detailed error server-side
-      console.error("Recipe generation error:", error);
+      console.error('Recipe generation error:', error);
 
       // Send generic message to client
-      const message =
-        "An unexpected error occurred while generating the recipe.";
+      const message = 'An unexpected error occurred while generating the recipe.';
       res.status(500).json({ error: message });
     }
-  },
+  }
 );
 
 app.post(
-  "/api/image",
+  '/api/image',
   expensiveOpLimiter,
   validateImageRequest,
   handleValidationErrors,
@@ -194,21 +193,21 @@ app.post(
       const keywords = req.body.keywords as string[];
       const recipeName = req.body.recipeName as string;
 
-      const prompt = `Professional food photography of ${recipeName}. ${keywords.join(", ")}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
+      const prompt = `Professional food photography of ${recipeName}. ${keywords.join(', ')}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
 
       const response = await getClient().models.generateImages({
-        model: "imagen-4.0-generate-001",
+        model: 'imagen-4.0-generate-001',
         prompt,
         config: {
           numberOfImages: 1,
-          aspectRatio: "4:3",
-          outputMimeType: "image/jpeg",
+          aspectRatio: '4:3',
+          outputMimeType: 'image/jpeg',
         },
       });
 
       const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
       if (!imageBytes) {
-        res.status(502).json({ error: "No image generated." });
+        res.status(502).json({ error: 'No image generated.' });
         return;
       }
 
@@ -217,24 +216,23 @@ app.post(
       });
     } catch (error) {
       // Log detailed error server-side
-      console.error("Image generation error:", error);
+      console.error('Image generation error:', error);
 
       // Send generic message to client
-      const message =
-        "An unexpected error occurred while generating the image.";
+      const message = 'An unexpected error occurred while generating the image.';
       res.status(500).json({ error: message });
     }
-  },
+  }
 );
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const distPath = path.resolve(__dirname, "..", "..", "dist");
+const distPath = path.resolve(__dirname, '..', '..', 'dist');
 
 app.use(express.static(distPath));
 
-app.get("*", (_req, res) => {
-  res.sendFile(path.join(distPath, "index.html"));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // Error handling middleware (must be last)
@@ -242,6 +240,6 @@ app.use(createErrorHandler());
 
 app.listen(port, () => {
   console.log(`Server listening on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Auth proxy → ${flaskUrl}`);
 });
