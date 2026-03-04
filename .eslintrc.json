@@ -19,6 +19,7 @@
       "rules": {
         "@typescript-eslint/no-explicit-any": "warn",
         "@typescript-eslint/no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+        "prefer-const": ["error", { "destructuring": "all" }],
         "@angular-eslint/directive-selector": [
           "error",
           {

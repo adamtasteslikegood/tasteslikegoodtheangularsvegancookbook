@@ -1,7 +1,7 @@
-import { Injectable, effect, untracked } from "@angular/core";
-import { AuthService } from "./auth.service";
-import { Recipe } from "../recipe.types";
-import { Cookbook } from "../auth.types";
+import { Injectable, effect, untracked, inject } from '@angular/core';
+import { AuthService } from './auth.service';
+import { Recipe } from '../recipe.types';
+import { Cookbook } from '../auth.types';
 
 /**
  * PersistenceService — hybrid persistence layer for Phase IV.
@@ -15,13 +15,14 @@ import { Cookbook } from "../auth.types";
  * See docs/ADR-001-auth-and-persistence-routing.md for the full decision record.
  */
 @Injectable({
-  providedIn: "root",
+  providedIn: 'root',
 })
 export class PersistenceService {
   /** Prevents duplicate API loads for the same session. */
   private _apiSynced = false;
+  private auth = inject(AuthService);
 
-  constructor(private auth: AuthService) {
+  constructor() {
     // Auto-load from API when a logged-in user's session is confirmed.
     // Uses untracked() so signal writes inside loadFromApi() don't
     // create a reactive dependency in the effect.
@@ -59,17 +60,17 @@ export class PersistenceService {
 
     this.auth.deleteRecipe(recipeId);
 
-    await this._fetch(`/api/recipes/${recipeId}`, { method: "DELETE" });
+    await this._fetch(`/api/recipes/${recipeId}`, { method: 'DELETE' });
   }
 
-  async createCookbook(name: string, description = ""): Promise<void> {
+  async createCookbook(name: string, description = ''): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) return;
 
     try {
       const id = crypto.randomUUID();
-      const res = await this._fetch("/api/collections", {
-        method: "POST",
+      const res = await this._fetch('/api/collections', {
+        method: 'POST',
         body: JSON.stringify({ id, name, description }),
       });
       if (!res.ok) throw new Error(`${res.status}`);
@@ -77,10 +78,7 @@ export class PersistenceService {
       // Sync the server-assigned cookbook into local state
       const current = this.auth.currentUser();
       if (current) {
-        this.auth.hydrate(current.savedRecipes, [
-          ...current.cookbooks,
-          this._toCookbook(data),
-        ]);
+        this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
       }
     } catch {
       // Fall back to localStorage so the UI still works
@@ -94,7 +92,7 @@ export class PersistenceService {
 
     this.auth.deleteCookbook(cookbookId);
 
-    await this._fetch(`/api/collections/${cookbookId}`, { method: "DELETE" });
+    await this._fetch(`/api/collections/${cookbookId}`, { method: 'DELETE' });
   }
 
   async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<void> {
@@ -105,22 +103,19 @@ export class PersistenceService {
 
     await this._apiSaveRecipe(recipe); // ensure recipe exists in DB
     await this._fetch(`/api/collections/${cookbookId}/recipes`, {
-      method: "POST",
+      method: 'POST',
       body: JSON.stringify({ recipe_id: recipe.id }),
     });
   }
 
-  async removeRecipeFromCookbook(
-    cookbookId: string,
-    recipeId: string,
-  ): Promise<void> {
+  async removeRecipeFromCookbook(cookbookId: string, recipeId: string): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) return;
 
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
     await this._fetch(`/api/collections/${cookbookId}/recipes/${recipeId}`, {
-      method: "DELETE",
+      method: 'DELETE',
     });
   }
 
@@ -134,8 +129,8 @@ export class PersistenceService {
   async loadFromApi(): Promise<void> {
     try {
       const [recipesRes, collectionsRes] = await Promise.all([
-        this._fetch("/api/recipes"),
-        this._fetch("/api/collections"),
+        this._fetch('/api/recipes'),
+        this._fetch('/api/collections'),
       ]);
 
       if (!recipesRes.ok || !collectionsRes.ok) return;
@@ -147,12 +142,10 @@ export class PersistenceService {
       // We use the data field directly since it contains the complete recipe
       // with the correct ID already set by the backend.
       const recipes: Recipe[] = (recipesData.recipes ?? []).map(
-        (r: { id: string; data: Recipe }) => r.data,
+        (r: { id: string; data: Recipe }) => r.data
       );
 
-      const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(
-        this._toCookbook,
-      );
+      const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(this._toCookbook);
 
       this.auth.hydrate(recipes, cookbooks);
     } catch {
@@ -163,8 +156,8 @@ export class PersistenceService {
   /** POST a recipe to Flask; idempotent — ignores 409 conflicts. */
   private async _apiSaveRecipe(recipe: Recipe): Promise<void> {
     try {
-      const res = await this._fetch("/api/recipes", {
-        method: "POST",
+      const res = await this._fetch('/api/recipes', {
+        method: 'POST',
         body: JSON.stringify({ ...recipe, id: recipe.id }),
       });
       // 201 = created, 409 = already exists (idempotent), both are fine
@@ -172,7 +165,7 @@ export class PersistenceService {
         console.warn(`[PersistenceService] saveRecipe ${res.status}`);
       }
     } catch (err) {
-      console.warn("[PersistenceService] apiSaveRecipe failed:", err);
+      console.warn('[PersistenceService] apiSaveRecipe failed:', err);
     }
   }
 
@@ -180,9 +173,9 @@ export class PersistenceService {
   private _fetch(path: string, init: RequestInit = {}): Promise<Response> {
     return fetch(path, {
       ...init,
-      credentials: "include",
+      credentials: 'include',
       headers: {
-        "Content-Type": "application/json",
+        'Content-Type': 'application/json',
         ...(init.headers ?? {}),
       },
     });
@@ -199,7 +192,7 @@ export class PersistenceService {
     return {
       id: raw.id,
       name: raw.name,
-      description: raw.description ?? "",
+      description: raw.description ?? '',
       coverImage: raw.coverImage,
       recipeIds: raw.recipeIds ?? [],
     };
