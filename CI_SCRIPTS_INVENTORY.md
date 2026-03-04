@@ -1,6 +1,6 @@
 # CI/CD Scripts & Configuration Inventory
 
-## Current State
+## Current State (Updated: March 3, 2026)
 
 ### ✅ **BUILD** - Fully Configured
 
@@ -23,94 +23,141 @@ ng build && tsc -p server/tsconfig.server.json
 
 ---
 
-### ❌ **TEST** - Not Implemented
+### ✅ **TEST** - Implemented
 
-**Current status:** No test suite exists in the repository (as noted in copilot-instructions.md)
+**Scripts:**
+- `npm run test` - Run tests in watch mode
+- `npm run test:ci` - Run tests once with coverage (for CI)
+- `npm run test:watch` - Run tests in watch mode (explicit)
 
-**What needs to be set up:**
-- Test framework (Jest, Vitest, or Angular's Karma)
-- Test configuration files
-- Test scripts in `package.json`
-- Sample test files
+**Files:**
+- `vitest.config.ts` - Vitest configuration
+- `server/server.test.ts` - Sample test file (placeholder)
 
-**Recommendation for this project:**
-- **Frontend (Angular):** Use Karma + Jasmine (Angular's default testing framework)
-- **Backend (Express):** Use Jest or Vitest with `supertest` for API testing
-- Keep it minimal given the current "no test suite" policy
+**Framework:** Vitest 3.0 (Node environment)
 
----
+**Coverage:** V8 provider with text, JSON, and HTML reports
 
-### ❌ **LINT** - Not Implemented
-
-**Current status:** Only TypeScript compilation (`npm run build` includes `tsc`)
-
-**What exists:**
-- TypeScript strict mode enabled in both configs:
-  - `tsconfig.json`: `"strict": true` (no explicit entry, but inherits)
-  - `server/tsconfig.server.json`: `"strict": true`
-
-**What's missing:**
-- ESLint configuration (`.eslintrc.json` or `.eslintrc.js`)
-- Prettier configuration (`.prettierrc` or `prettier.config.js`)
-- Lint script in `package.json`
-
-**Recommendation:**
-- Add **ESLint** for code quality
-- Add **Prettier** for code formatting
-- Create lint and format scripts
+**Notes:** Basic placeholder tests included. Add comprehensive tests as needed.
 
 ---
 
-## Additional Files & Scripts
+### ✅ **LINT** - Implemented
 
-### Scripts Directory
-- `commit-phase-1.sh` - Git commit/push helper script (Phase 1 of project)
-- **Note:** Only one script currently; minimal automation
+**Scripts:**
+- `npm run lint` - Check code with ESLint (max 0 warnings)
+- `npm run lint:fix` - Auto-fix linting issues
+- `npm run format` - Format code with Prettier
+- `npm run format:check` - Check formatting without changing files
 
-### GitHub Actions
-- **Status:** No `.github/workflows/` directory exists
-- **Needs:** Create CI workflow files for build, test, and lint
+**Files:**
+- `.eslintrc.json` - ESLint configuration
+  - Angular-specific rules (@angular-eslint)
+  - TypeScript linting (@typescript-eslint)
+  - HTML template linting with accessibility checks
+  - Prettier integration
+- `.eslintignore` - ESLint ignore patterns
+- `.prettierrc` - Prettier configuration
+- `.prettierignore` - Prettier ignore patterns
+
+**Configuration:**
+- Separate lint configs for Angular frontend and Express server
+- TypeScript strict mode enabled
+- Prettier integrated to avoid conflicts
+
+---
+
+### ✅ **TYPE CHECK** - Implemented
+
+**Script:** `npm run type-check`
+
+**What it does:**
+```bash
+tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json
+```
+
+Verifies TypeScript types without emitting files (fast check).
+
+---
+
+### ✅ **GitHub Actions** - Implemented
+
+**Workflow:** `.github/workflows/ci.yml`
+
+**Triggers:**
+- Push to `main` or `develop`
+- Pull requests to `main` or `develop`
+
+**Jobs:**
+1. **Build** - Compiles Angular + server, uploads artifacts
+2. **Lint** - Runs ESLint and Prettier checks
+3. **Test** - Runs Vitest with coverage, uploads reports
+4. **Type Check** - Verifies TypeScript types for frontend and server
+
+**Node.js Version:** 20 (LTS)
 
 ---
 
 ## Summary Table
 
-| Check | Status | File/Script | Notes |
-|-------|--------|-------------|-------|
+| Check | Status | Script | Notes |
+|-------|--------|--------|-------|
 | **BUILD** | ✅ Ready | `npm run build` | Compiles Angular + Server |
-| **TEST** | ❌ Missing | N/A | No test framework configured |
-| **LINT** | ❌ Missing | N/A | Only TypeScript compilation |
-| **GitHub Actions** | ❌ Missing | `.github/workflows/` | No CI workflows yet |
+| **TEST** | ✅ Ready | `npm run test:ci` | Vitest with coverage |
+| **LINT** | ✅ Ready | `npm run lint` | ESLint + Angular rules |
+| **FORMAT** | ✅ Ready | `npm run format:check` | Prettier formatting |
+| **TYPE CHECK** | ✅ Ready | `npm run type-check` | TypeScript verification |
+| **GitHub Actions** | ✅ Ready | `.github/workflows/ci.yml` | Complete CI pipeline |
 
 ---
 
-## Recommended GitHub Actions Setup
+## DevDependencies Added
 
-For a basic CI pipeline, you'll need:
-
-1. **`.github/workflows/build.yml`** - Build verification
-2. **`.github/workflows/lint.yml`** - Linting (once ESLint is added)
-3. **`.github/workflows/test.yml`** - Test suite (once tests are added)
-
-Or combine into a single **`.github/workflows/ci.yml`** file.
+```json
+{
+  "@angular-eslint/builder": "^21.0.0",
+  "@angular-eslint/eslint-plugin": "^21.0.0",
+  "@angular-eslint/eslint-plugin-template": "^21.0.0",
+  "@angular-eslint/schematics": "^21.0.0",
+  "@angular-eslint/template-parser": "^21.0.0",
+  "@typescript-eslint/eslint-plugin": "^8.20.0",
+  "@typescript-eslint/parser": "^8.20.0",
+  "@vitest/coverage-v8": "^3.0.0",
+  "eslint": "^9.20.0",
+  "eslint-config-prettier": "^10.0.0",
+  "eslint-plugin-prettier": "^5.2.0",
+  "prettier": "^3.4.0",
+  "vitest": "^3.0.0"
+}
+```
 
 ---
 
 ## Next Steps
 
-To set up comprehensive CI checks on GitHub:
+1. **Install Dependencies:**
+   ```bash
+   npm install
+   ```
 
-1. **Lint Setup:**
-   - Install: `npm install --save-dev eslint prettier eslint-config-prettier eslint-plugin-prettier`
-   - Create `.eslintrc.json` and `.prettierrc` config files
-   - Add lint/format scripts to `package.json`
+2. **Run Local Checks:**
+   ```bash
+   npm run lint
+   npm run test
+   npm run build
+   ```
 
-2. **Test Setup:**
-   - Install testing framework (Karma for frontend, Jest for backend)
-   - Create test files
-   - Add test script to `package.json`
+3. **Push to GitHub** - CI will run automatically
 
-3. **GitHub Actions:**
-   - Create `.github/workflows/ci.yml` with jobs for build, lint, and test
+4. **Optional Enhancements:**
+   - Add comprehensive server tests
+   - Set up Angular component testing (Karma/Jest)
+   - Add E2E tests (Playwright/Cypress)
+   - Configure code coverage thresholds
+   - Add Dependabot for dependency updates
 
-Would you like help with any of these steps?
+---
+
+## Documentation
+
+See **`docs/CI_SETUP.md`** for detailed setup instructions and troubleshooting.
