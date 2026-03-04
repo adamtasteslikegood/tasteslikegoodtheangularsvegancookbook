@@ -8,5 +8,5 @@
  */
 export const environment = {
   production: false,
-  flaskApiUrl: '',  // Empty = use relative paths (proxied in dev)
+  flaskApiUrl: '', // Empty = use relative paths (proxied in dev)
 };
