@@ -1,7 +1,7 @@
-import { Injectable, signal, WritableSignal } from "@angular/core";
-import { User, Cookbook } from "../auth.types";
-import { Recipe } from "../recipe.types";
-import { environment } from "../environments/environment";
+import { Injectable, signal, WritableSignal } from '@angular/core';
+import { User, Cookbook } from '../auth.types';
+import { Recipe } from '../recipe.types';
+import { environment } from '../environments/environment';
 
 /**
  * Authentication service that orchestrates both:
@@ -12,7 +12,7 @@ import { environment } from "../environments/environment";
  * with real Google OAuth through the Flask backend.
  */
 @Injectable({
-  providedIn: "root",
+  providedIn: 'root',
 })
 export class AuthService {
   currentUser: WritableSignal<User | null> = signal(null);
@@ -20,7 +20,7 @@ export class AuthService {
   /** True while we're checking auth status on startup */
   authLoading: WritableSignal<boolean> = signal(true);
 
-  private readonly STORAGE_KEY_SESSION = "vegan_genius_session";
+  private readonly STORAGE_KEY_SESSION = 'vegan_genius_session';
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
   constructor() {
@@ -59,7 +59,7 @@ export class AuthService {
   async checkAuthStatus(): Promise<boolean> {
     try {
       const res = await fetch(`${this.API_BASE}/api/auth/check`, {
-        credentials: "include",
+        credentials: 'include',
       });
 
       if (!res.ok) return false;
@@ -68,14 +68,10 @@ export class AuthService {
       if (data.authenticated) {
         // Clean up ?auth=success query param left by the OAuth redirect,
         // preserving any other query parameters that may be present.
-        if (window.location.search.includes("auth=success")) {
+        if (window.location.search.includes('auth=success')) {
           const url = new URL(window.location.href);
-          url.searchParams.delete("auth");
-          window.history.replaceState(
-            {},
-            document.title,
-            url.pathname + url.search + url.hash,
-          );
+          url.searchParams.delete('auth');
+          window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
         }
 
         // Merge any existing guest data before replacing session
@@ -84,10 +80,10 @@ export class AuthService {
         const user: User = {
           id: data.user_id || data.email,
           email: data.email,
-          name: data.name || "Chef",
+          name: data.name || 'Chef',
           picture: data.picture,
           isGuest: false,
-          authProvider: "google",
+          authProvider: 'google',
           savedRecipes: existingLocal?.savedRecipes || [],
           cookbooks: existingLocal?.cookbooks || [],
         };
@@ -97,7 +93,7 @@ export class AuthService {
 
         // Clear guest marker if present
         if (existingLocal?.isGuest) {
-          console.log("Merged guest session data into authenticated user.");
+          console.log('Merged guest session data into authenticated user.');
         }
 
         return true;
@@ -116,12 +112,12 @@ export class AuthService {
   async login(): Promise<void> {
     try {
       const res = await fetch(`${this.API_BASE}/api/auth/login`, {
-        credentials: "include",
+        credentials: 'include',
       });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Login failed" }));
-        throw new Error(err.error || "Failed to initiate login");
+        const err = await res.json().catch(() => ({ error: 'Login failed' }));
+        throw new Error(err.error || 'Failed to initiate login');
       }
 
       const data = await res.json();
@@ -129,10 +125,10 @@ export class AuthService {
         // Redirect to Google OAuth consent screen
         window.location.href = data.authorization_url;
       } else {
-        throw new Error("No authorization URL received");
+        throw new Error('No authorization URL received');
       }
-    } catch (err: any) {
-      console.error("Login initiation failed:", err);
+    } catch (err: unknown) {
+      console.error('Login initiation failed:', err);
       throw err;
     }
   }
@@ -143,8 +139,8 @@ export class AuthService {
   async logout(): Promise<void> {
     try {
       await fetch(`${this.API_BASE}/api/auth/logout`, {
-        method: "POST",
-        credentials: "include",
+        method: 'POST',
+        credentials: 'include',
       });
     } catch {
       // If Flask is unreachable, still clear local state
@@ -164,9 +160,9 @@ export class AuthService {
     if (!this.currentUser()) {
       const guestUser: User = {
         id: crypto.randomUUID(),
-        name: "Guest Chef",
+        name: 'Guest Chef',
         isGuest: true,
-        authProvider: "guest",
+        authProvider: 'guest',
         savedRecipes: [],
         cookbooks: [],
       };
@@ -202,9 +198,7 @@ export class AuthService {
 
     // Check if already saved by ID
     if (user.savedRecipes.some((r) => r.id === recipe.id)) {
-      const updatedRecipes = user.savedRecipes.map((r) =>
-        r.id === recipe.id ? recipe : r,
-      );
+      const updatedRecipes = user.savedRecipes.map((r) => (r.id === recipe.id ? recipe : r));
       this.updateUserRecord({ ...user, savedRecipes: updatedRecipes });
       return;
     }
@@ -229,11 +223,11 @@ export class AuthService {
     });
   }
 
-  importRecipes(recipes: any[], targetCookbookId?: string | null): number {
+  importRecipes(recipes: Recipe[], targetCookbookId?: string | null): number {
     const user = this.currentUser();
     if (!user) return 0;
 
-    let currentRecipes = [...user.savedRecipes];
+    const currentRecipes = [...user.savedRecipes];
     const validRecipeIds: string[] = [];
 
     recipes.forEach((r) => {
@@ -250,19 +244,14 @@ export class AuthService {
     if (targetCookbookId && validRecipeIds.length > 0) {
       cookbooks = cookbooks.map((cb) => {
         if (cb.id === targetCookbookId) {
-          const uniqueIds = Array.from(
-            new Set([...cb.recipeIds, ...validRecipeIds]),
-          );
+          const uniqueIds = Array.from(new Set([...cb.recipeIds, ...validRecipeIds]));
           let coverImage = cb.coverImage;
           if (!coverImage) {
             const firstWithImage = currentRecipes.find(
-              (r) =>
-                validRecipeIds.includes(r.id) &&
-                (r.ai_image_url || r.stock_image_url),
+              (r) => validRecipeIds.includes(r.id) && (r.ai_image_url || r.stock_image_url)
             );
             if (firstWithImage) {
-              coverImage =
-                firstWithImage.ai_image_url || firstWithImage.stock_image_url;
+              coverImage = firstWithImage.ai_image_url || firstWithImage.stock_image_url;
             }
           }
           return { ...cb, recipeIds: uniqueIds, coverImage };
@@ -283,7 +272,7 @@ export class AuthService {
 
   // ─── Cookbook Management (localStorage) ────────────────────────
 
-  createCookbook(name: string, description: string = "") {
+  createCookbook(name: string, description: string = '') {
     const user = this.currentUser();
     if (!user) return;
 
@@ -315,11 +304,11 @@ export class AuthService {
     if (!user) return;
 
     // 1. Ensure recipe is in savedRecipes
-    let savedRecipes = [...user.savedRecipes];
+    const savedRecipes = [...user.savedRecipes];
     let recipeId = recipe.id;
 
     const existingIndex = savedRecipes.findIndex(
-      (r) => r.id === recipe.id || r.name === recipe.name,
+      (r) => r.id === recipe.id || r.name === recipe.name
     );
     if (existingIndex === -1) {
       savedRecipes.push(recipe);
@@ -331,8 +320,7 @@ export class AuthService {
     const cookbooks = user.cookbooks.map((cb) => {
       if (cb.id === cookbookId) {
         if (!cb.recipeIds.includes(recipeId)) {
-          const coverImage =
-            cb.coverImage || recipe.ai_image_url || recipe.stock_image_url;
+          const coverImage = cb.coverImage || recipe.ai_image_url || recipe.stock_image_url;
           return { ...cb, recipeIds: [...cb.recipeIds, recipeId], coverImage };
         }
       }
@@ -389,7 +377,7 @@ export class AuthService {
         if (!user.cookbooks) user.cookbooks = [];
         this.currentUser.set(user);
       } catch (e) {
-        console.error("Failed to parse local session", e);
+        console.error('Failed to parse local session', e);
         localStorage.removeItem(this.STORAGE_KEY_SESSION);
       }
     }

@@ -1,17 +1,16 @@
-import { Component, signal, inject, computed } from "@angular/core";
-import { CommonModule } from "@angular/common";
-import { FormsModule } from "@angular/forms";
-import { GeminiService } from "./services/gemini.service";
-import { AuthService } from "./services/auth.service";
-import { PersistenceService } from "./services/persistence.service";
-import { Recipe, Ingredient, IngredientGroup } from "./recipe.types";
-import { Cookbook } from "./auth.types";
+import { Component, signal, inject, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { GeminiService } from './services/gemini.service';
+import { AuthService } from './services/auth.service';
+import { PersistenceService } from './services/persistence.service';
+import { Recipe, Ingredient, IngredientGroup } from './recipe.types';
 
 @Component({
-  selector: "app-root",
+  selector: 'app-root',
   standalone: true,
   imports: [CommonModule, FormsModule],
-  templateUrl: "./app.component.html",
+  templateUrl: './app.component.html',
   styleUrls: [],
 })
 export class AppComponent {
@@ -20,13 +19,13 @@ export class AppComponent {
   authService = inject(AuthService);
 
   // Navigation
-  activeView = signal<"generator" | "kitchen">("generator");
+  activeView = signal<'generator' | 'kitchen'>('generator');
 
   // Kitchen State
   activeCookbookId = signal<string | null>(null); // null means "All Recipes"
   showCreateCookbookModal = signal<boolean>(false);
-  newCookbookName = signal("");
-  newCookbookDesc = signal("");
+  newCookbookName = signal('');
+  newCookbookDesc = signal('');
 
   // Manual Recipe Entry State
   showManualEntryModal = signal<boolean>(false);
@@ -41,13 +40,13 @@ export class AppComponent {
     notes: string;
     tags: string;
   }>({
-    name: "",
-    description: "",
+    name: '',
+    description: '',
     prepTime: 15,
     cookTime: 30,
     servings: 4,
-    notes: "",
-    tags: "",
+    notes: '',
+    tags: '',
   });
 
   manualIngredients = signal<
@@ -55,18 +54,18 @@ export class AppComponent {
       name: string;
       amount: number;
       units: string;
-      type: "wet" | "dry" | "other";
+      type: 'wet' | 'dry' | 'other';
     }[]
   >([]);
   newIngredient = signal({
-    name: "",
+    name: '',
     amount: 1,
-    units: "",
-    type: "dry" as "wet" | "dry" | "other",
+    units: '',
+    type: 'dry' as 'wet' | 'dry' | 'other',
   });
 
   manualInstructions = signal<string[]>([]);
-  newInstruction = signal("");
+  newInstruction = signal('');
 
   // Add to Cookbook UI State
   showAddToCookbookModal = signal<boolean>(false);
@@ -78,12 +77,12 @@ export class AppComponent {
   authLoginLoading = signal<boolean>(false);
 
   // Recipe Gen State
-  prompt = signal<string>("");
+  prompt = signal<string>('');
   recipe = signal<Recipe | null>(null);
 
   // Edit Notes State
   isEditingNotes = signal<boolean>(false);
-  editedNotes = signal<string>("");
+  editedNotes = signal<string>('');
 
   // Status Signals
   isRecipeLoading = signal<boolean>(false);
@@ -101,10 +100,7 @@ export class AppComponent {
   activeCookbook = computed(() => {
     const id = this.activeCookbookId();
     if (!id) return null;
-    return (
-      this.authService.currentUser()?.cookbooks.find((cb) => cb.id === id) ||
-      null
-    );
+    return this.authService.currentUser()?.cookbooks.find((cb) => cb.id === id) || null;
   });
 
   displayedKitchenRecipes = computed(() => {
@@ -139,12 +135,9 @@ export class AppComponent {
     };
 
     const scaledGroup: IngredientGroup = {};
-    if (r.ingredients.wet)
-      scaledGroup.wet = r.ingredients.wet.map(scaleIngredient);
-    if (r.ingredients.dry)
-      scaledGroup.dry = r.ingredients.dry.map(scaleIngredient);
-    if (r.ingredients.other)
-      scaledGroup.other = r.ingredients.other.map(scaleIngredient);
+    if (r.ingredients.wet) scaledGroup.wet = r.ingredients.wet.map(scaleIngredient);
+    if (r.ingredients.dry) scaledGroup.dry = r.ingredients.dry.map(scaleIngredient);
+    if (r.ingredients.other) scaledGroup.other = r.ingredients.other.map(scaleIngredient);
 
     return scaledGroup;
   });
@@ -156,9 +149,9 @@ export class AppComponent {
   });
 
   // Navigation Methods
-  switchView(view: "generator" | "kitchen") {
+  switchView(view: 'generator' | 'kitchen') {
     this.activeView.set(view);
-    if (view === "kitchen") {
+    if (view === 'kitchen') {
       this.authService.ensureGuestSession();
     }
   }
@@ -169,8 +162,8 @@ export class AppComponent {
 
   // Kitchen Methods
   openCreateCookbookModal() {
-    this.newCookbookName.set("");
-    this.newCookbookDesc.set("");
+    this.newCookbookName.set('');
+    this.newCookbookDesc.set('');
     this.showCreateCookbookModal.set(true);
   }
 
@@ -180,19 +173,14 @@ export class AppComponent {
 
   async createCookbook() {
     if (!this.newCookbookName().trim()) return;
-    await this.persistenceService.createCookbook(
-      this.newCookbookName(),
-      this.newCookbookDesc(),
-    );
+    await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
     this.closeCreateCookbookModal();
   }
 
   async deleteCookbook(id: string, event: Event) {
     event.stopPropagation();
     if (
-      confirm(
-        'Are you sure you want to delete this cookbook? Recipes will remain in "All Saved".',
-      )
+      confirm('Are you sure you want to delete this cookbook? Recipes will remain in "All Saved".')
     ) {
       await this.persistenceService.deleteCookbook(id);
       if (this.activeCookbookId() === id) {
@@ -205,13 +193,13 @@ export class AppComponent {
   openManualEntryModal() {
     this.manualStep.set(1);
     this.manualRecipe.set({
-      name: "",
-      description: "",
+      name: '',
+      description: '',
       prepTime: 15,
       cookTime: 30,
       servings: 4,
-      notes: "",
-      tags: "",
+      notes: '',
+      tags: '',
     });
     this.manualIngredients.set([]);
     this.manualInstructions.set([]);
@@ -235,7 +223,7 @@ export class AppComponent {
     if (!ing.name.trim()) return;
 
     this.manualIngredients.update((list) => [...list, { ...ing }]);
-    this.newIngredient.set({ name: "", amount: 1, units: "", type: "dry" });
+    this.newIngredient.set({ name: '', amount: 1, units: '', type: 'dry' });
   }
 
   removeManualIngredient(index: number) {
@@ -247,13 +235,11 @@ export class AppComponent {
     if (!txt.trim()) return;
 
     this.manualInstructions.update((list) => [...list, txt]);
-    this.newInstruction.set("");
+    this.newInstruction.set('');
   }
 
   removeManualInstruction(index: number) {
-    this.manualInstructions.update((list) =>
-      list.filter((_, i) => i !== index),
-    );
+    this.manualInstructions.update((list) => list.filter((_, i) => i !== index));
   }
 
   async saveManualRecipe() {
@@ -272,8 +258,8 @@ export class AppComponent {
         amount: ing.amount,
         units: ing.units,
       };
-      if (ing.type === "wet") ingredients.wet!.push(formatted);
-      else if (ing.type === "dry") ingredients.dry!.push(formatted);
+      if (ing.type === 'wet') ingredients.wet!.push(formatted);
+      else if (ing.type === 'dry') ingredients.dry!.push(formatted);
       else ingredients.other!.push(formatted);
     });
 
@@ -288,10 +274,10 @@ export class AppComponent {
       instructions: this.manualInstructions(),
       notes: info.notes,
       tags: info.tags
-        .split(",")
+        .split(',')
         .map((t) => t.trim())
         .filter((t) => t),
-      image_keywords: [info.name, "homemade"],
+      image_keywords: [info.name, 'homemade'],
     };
 
     await this.persistenceService.saveRecipe(newRecipe);
@@ -300,46 +286,42 @@ export class AppComponent {
 
   // Import / Export
   exportRecipe(recipe?: Recipe) {
-    const dataToExport = recipe
-      ? recipe
-      : this.authService.currentUser()?.savedRecipes || [];
-    const fileName = recipe
-      ? `${recipe.name.replace(/\s+/g, "_")}.json`
-      : "my_vegan_cookbook.json";
+    const dataToExport = recipe ? recipe : this.authService.currentUser()?.savedRecipes || [];
+    const fileName = recipe ? `${recipe.name.replace(/\s+/g, '_')}.json` : 'my_vegan_cookbook.json';
 
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
-      type: "application/json",
+      type: 'application/json',
     });
     const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
     a.click();
     window.URL.revokeObjectURL(url);
   }
 
-  onImportFileSelected(event: any) {
-    const file = event.target.files[0];
+  onImportFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e: any) => {
+    reader.onload = (e: ProgressEvent<FileReader>) => {
       try {
-        const json = JSON.parse(e.target.result);
+        const result = e.target?.result;
+        if (typeof result !== 'string') return;
+        const json = JSON.parse(result);
         const recipes = Array.isArray(json) ? json : [json];
-        const count = this.authService.importRecipes(
-          recipes,
-          this.activeCookbookId(),
-        );
+        const count = this.authService.importRecipes(recipes, this.activeCookbookId());
         alert(`Successfully imported ${count} recipes!`);
       } catch (err) {
         console.error(err);
-        alert("Failed to parse recipe file. Please ensure it is valid JSON.");
+        alert('Failed to parse recipe file. Please ensure it is valid JSON.');
       }
     };
     reader.readAsText(file);
     // Reset input
-    event.target.value = "";
+    input.value = '';
   }
 
   // Auth Methods
@@ -359,8 +341,9 @@ export class AppComponent {
     try {
       await this.authService.login();
       // login() redirects the browser to Google — we won't reach here
-    } catch (err: any) {
-      this.authError.set(err.message || "Failed to start Google login");
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to start Google login';
+      this.authError.set(message);
       this.authLoginLoading.set(false);
     }
   }
@@ -369,8 +352,8 @@ export class AppComponent {
     await this.authService.logout();
     this.recipe.set(null);
     this.generatedImageUrl.set(null);
-    this.prompt.set("");
-    this.activeView.set("generator");
+    this.prompt.set('');
+    this.activeView.set('generator');
   }
 
   // Recipe Generator Methods
@@ -378,7 +361,7 @@ export class AppComponent {
     if (!this.prompt().trim()) return;
 
     this.authService.ensureGuestSession();
-    this.activeView.set("generator"); // Ensure we are on generator view
+    this.activeView.set('generator'); // Ensure we are on generator view
 
     this.isRecipeLoading.set(true);
     this.isImageLoading.set(false);
@@ -395,15 +378,14 @@ export class AppComponent {
         ? `For user ${userName}: ${this.prompt()}`
         : this.prompt();
 
-      const generatedRecipe =
-        await this.geminiService.generateRecipe(personalizedPrompt);
+      const generatedRecipe = await this.geminiService.generateRecipe(personalizedPrompt);
       this.recipe.set(generatedRecipe);
 
       this.triggerImageGeneration(generatedRecipe);
-    } catch (err: any) {
-      this.error.set(
-        err.message || "Failed to generate recipe. Please try again.",
-      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
+      this.error.set(message);
     } finally {
       this.isRecipeLoading.set(false);
     }
@@ -413,15 +395,12 @@ export class AppComponent {
     // Check if we have keywords, if not, use name and generic tags
     let keywords = recipe.image_keywords;
     if (!keywords || keywords.length === 0) {
-      keywords = ["delicious", "vegan", "gourmet", "homemade"];
+      keywords = ['delicious', 'vegan', 'gourmet', 'homemade'];
     }
 
     this.isImageLoading.set(true);
     try {
-      const imageUrl = await this.geminiService.generateImage(
-        keywords,
-        recipe.name,
-      );
+      const imageUrl = await this.geminiService.generateImage(keywords, recipe.name);
       this.generatedImageUrl.set(imageUrl);
       this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
 
@@ -430,7 +409,7 @@ export class AppComponent {
         await this.persistenceService.saveRecipe(this.recipe()!);
       }
     } catch (err) {
-      console.error("Image generation failed", err);
+      console.error('Image generation failed', err);
     } finally {
       this.isImageLoading.set(false);
     }
@@ -454,14 +433,14 @@ export class AppComponent {
   startEditNotes() {
     const r = this.recipe();
     if (r) {
-      this.editedNotes.set(r.notes || "");
+      this.editedNotes.set(r.notes || '');
       this.isEditingNotes.set(true);
     }
   }
 
   cancelEditNotes() {
     this.isEditingNotes.set(false);
-    this.editedNotes.set("");
+    this.editedNotes.set('');
   }
 
   async saveNotes() {
@@ -502,7 +481,7 @@ export class AppComponent {
     this.recipe.set(r);
     this.generatedImageUrl.set(r.ai_image_url || null);
     this.isSaved.set(true);
-    this.activeView.set("generator");
+    this.activeView.set('generator');
     this.isEditingNotes.set(false); // Reset edit state when switching recipes
   }
 
@@ -512,18 +491,18 @@ export class AppComponent {
 
   formatAmount(amount: number | number[]): string {
     if (Array.isArray(amount)) {
-      return amount.join(" - ");
+      return amount.join(' - ');
     }
     const decimal = amount;
-    if (Math.abs(decimal - 0.25) < 0.01) return "1/4";
-    if (Math.abs(decimal - 0.5) < 0.01) return "1/2";
-    if (Math.abs(decimal - 0.75) < 0.01) return "3/4";
-    if (Math.abs(decimal - 0.33) < 0.01) return "1/3";
-    if (Math.abs(decimal - 0.66) < 0.01) return "2/3";
+    if (Math.abs(decimal - 0.25) < 0.01) return '1/4';
+    if (Math.abs(decimal - 0.5) < 0.01) return '1/2';
+    if (Math.abs(decimal - 0.75) < 0.01) return '3/4';
+    if (Math.abs(decimal - 0.33) < 0.01) return '1/3';
+    if (Math.abs(decimal - 0.66) < 0.01) return '2/3';
     return decimal.toString();
   }
 
-  isString(val: any): boolean {
-    return typeof val === "string";
+  isString(val: unknown): boolean {
+    return typeof val === 'string';
   }
 }
