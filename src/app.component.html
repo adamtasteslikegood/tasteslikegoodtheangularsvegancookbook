@@ -62,10 +62,12 @@
             </svg>
           </button>
         </div>
-      } @else {
+      } @else if (!authService.authLoading()) {
         <button (click)="openAuthModal()" class="px-5 py-2.5 bg-green-700 text-white font-semibold rounded-full hover:bg-green-800 shadow-md transition-colors">
           Sign In
         </button>
+      } @else {
+        <div class="px-5 py-2.5 w-24 h-10 rounded-full bg-stone-100 animate-pulse"></div>
       }
     </div>
   </header>
