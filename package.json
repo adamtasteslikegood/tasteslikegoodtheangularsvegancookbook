@@ -11,8 +11,8 @@
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.ts\" \"server/**/*.ts\" --max-warnings 0",
-    "lint:fix": "ESLINT_USE_FLAT_CONFIG=false eslint \"src/**/*.ts\" \"server/**/*.ts\" --fix",
+    "lint": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
@@ -50,6 +50,7 @@
     "eslint": "^9.20.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-prettier": "^5.2.0",
+    "globals": "^17.4.0",
     "prettier": "^3.4.0",
     "typescript": ">=5.9 <6",
     "vite": "^6.2.0",

@@ -8,7 +8,7 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    target-branch: "deploy-with-db"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "github-actions"
@@ -21,18 +21,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    target-branch: "deploy-with-db"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "javascript"
     open-pull-requests-limit: 10
-
-  # If you have additional package.json files in subfolders, add more entries, e.g.:
-  # - package-ecosystem: "npm"
-  #   directory: "/frontend"
-  #   schedule:
-  #     interval: "weekly"
-  #   target-branch: "deploy-with-db"
 
   # -------------------------
   # Docker (root)
@@ -41,47 +34,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-    target-branch: "deploy-with-db"
+    target-branch: "main"
     labels:
       - "dependencies"
       - "docker"
     open-pull-requests-limit: 10
-
-  # If Dockerfiles are elsewhere, add more docker entries, e.g.:
-  # - package-ecosystem: "docker"
-  #   directory: "/backend"
-  #   schedule:
-  #     interval: "weekly"
-  #   target-branch: "deploy-with-db"
-
-  # -------------------------
-  # (Optional) Submodule pointer bumps
-  # -------------------------
-  # If you want Dependabot to bump the git submodule SHA (NOT python deps inside it):
-  - package-ecosystem: "gitsubmodule"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    target-branch: "deploy-with-db"
-    labels:
-      - "dependencies"
-      - "submodule"
-    open-pull-requests-limit: 10
-
-  # -------------------------
-  # Python in this repo (ONLY if pyproject.toml exists here)
-  # -------------------------
-  # Dependabot supports "pip" for pyproject.toml / requirements. It doesn't run "uv"
-  # specifically, but it can still propose updates for Python requirements declared
-  # in pyproject.toml depending on how it's structured.
-  #
-  # If you truly have python in THIS repo (not just the submodule), set directory accordingly:
-  # - package-ecosystem: "pip"
-  #   directory: "/"
-  #   schedule:
-  #     interval: "weekly"
-  #   target-branch: "deploy-with-db"
-  #   labels:
-  #     - "dependencies"
-  #     - "python"
-  #   open-pull-requests-limit: 10
