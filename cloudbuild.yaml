@@ -3,7 +3,6 @@ substitutions:
   _REGION: us-central1
   _EXPRESS_SERVICE: express-frontend
   _FLASK_SERVICE: flask-backend
-  _MIGRATION_JOB: db-migration-job
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
 
 steps:
@@ -28,20 +27,7 @@ steps:
       - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - .
 
-  # 3. Build the database migration image
-  - name: gcr.io/cloud-builders/docker
-    id: 'Build Migration Task'
-    waitFor: ['-']
-    dir: 'Backend'
-    args:
-      - build
-      - -t
-      - $_IMAGE_REGISTRY/migration-task:$SHORT_SHA
-      - -f
-      - Dockerfile.migrate
-      - .
-
-  # 4. Push images (each waits for its own build)
+  # 3. Push images (each waits for its own build)
   - name: gcr.io/cloud-builders/docker
     id: 'Push Express Frontend Image'
     waitFor: ['Build Express Frontend']
@@ -52,43 +38,10 @@ steps:
     waitFor: ['Build Flask Backend']
     args: [push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA']
 
-  - name: gcr.io/cloud-builders/docker
-    id: 'Push Migration Task Image'
-    waitFor: ['Build Migration Task']
-    args: [push, '$_IMAGE_REGISTRY/migration-task:$SHORT_SHA']
-
-  # 5. Create or update Migration Job
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: 'Upsert Migration Job'
-    waitFor: ['Push Migration Task Image']
-    entrypoint: bash
-    args:
-      - -c
-      - |
-        gcloud run jobs update $_MIGRATION_JOB \
-          --image=$_IMAGE_REGISTRY/migration-task:$SHORT_SHA \
-          --region=$_REGION 2>/dev/null || \
-        gcloud run jobs create $_MIGRATION_JOB \
-          --image=$_IMAGE_REGISTRY/migration-task:$SHORT_SHA \
-          --region=$_REGION
-
-  # 6. Execute Migration Job and wait for success
-  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
-    id: 'Execute Migration Job'
-    waitFor: ['Upsert Migration Job']
-    entrypoint: gcloud
-    args:
-      - run
-      - jobs
-      - execute
-      - $_MIGRATION_JOB
-      - --region=$_REGION
-      - --wait
-
-  # 7. Deploy Flask Backend
+  # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Flask Backend'
-    waitFor: ['Push Flask Backend Image', 'Execute Migration Job']
+    waitFor: ['Push Flask Backend Image']
     entrypoint: gcloud
     args:
       - run
@@ -101,10 +54,10 @@ steps:
       - --allow-unauthenticated
       - --quiet
 
-  # 8. Deploy Express Frontend
+  # 5. Deploy Express Frontend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Express Frontend'
-    waitFor: ['Push Express Frontend Image', 'Execute Migration Job']
+    waitFor: ['Push Express Frontend Image']
     entrypoint: gcloud
     args:
       - run
@@ -120,4 +73,3 @@ steps:
 images:
   - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
   - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
-  - $_IMAGE_REGISTRY/migration-task:$SHORT_SHA
