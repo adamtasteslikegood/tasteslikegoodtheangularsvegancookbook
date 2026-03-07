@@ -111,13 +111,13 @@ Angular tests would require additional setup with Karma or Jest. The current set
 The CI workflow does **not** require API keys for build, lint, and type-check jobs. The test job will skip tests that require the Gemini API key unless you configure it as a GitHub secret:
 
 1. Go to your repository **Settings** → **Secrets and variables** → **Actions**
-2. Add a new secret: `VITE_GEMINI_API_KEY`
+2. Add a new secret: `GEMINI_API_KEY`
 3. Update the test job in `.github/workflows/ci.yml` to use it:
 
 ```yaml
 - name: Run tests
   env:
-    VITE_GEMINI_API_KEY: ${{ secrets.VITE_GEMINI_API_KEY }}
+    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
   run: npm run test:ci
 ```
 

@@ -27,7 +27,7 @@ Use this checklist before deploying to production.
 - [ ] All required env vars set:
   - [ ] `PORT`
   - [ ] `NODE_ENV=production`
-  - [ ] `VITE_GEMINI_API_KEY`
+  - [ ] `GEMINI_API_KEY`
 - [ ] Optional env vars configured (if applicable):
   - [ ] `FRONTEND_URL`
   - [ ] `LOG_LEVEL`

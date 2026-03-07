@@ -48,10 +48,10 @@ let aiClient: GoogleGenAI | null = null;
 
 const getClient = () => {
   if (aiClient) return aiClient;
-  const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.VITE_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_API_KEY;
   if (!apiKey) {
     throw new Error(
-      'Missing API key. Set VITE_GEMINI_API_KEY (preferred) or VITE_API_KEY in the service environment.'
+      'Missing API key. Set GEMINI_API_KEY (preferred), VITE_GEMINI_API_KEY, or VITE_API_KEY in the service environment.'
     );
   }
   aiClient = new GoogleGenAI({ apiKey });

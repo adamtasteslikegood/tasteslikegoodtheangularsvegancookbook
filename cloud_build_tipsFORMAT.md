@@ -82,7 +82,7 @@ Now, let's look at integrating with Cloud Build and GitHub.
     *   This will automate the build and deployment process whenever you push changes to that branch.
 
 5.  **Environment Variables in Cloud Run:**
-    *   Since you're accessing secrets as environment variables, make sure your application code is correctly reading these variables (e.g., `process.env.VITE_GEMINI_API_KEY`).
+    *   Since you're accessing secrets as environment variables, make sure your application code is correctly reading these variables (e.g., `process.env.GEMINI_API_KEY`).
     *   When deploying with Cloud Build, you don't need to explicitly pass the secret environment variables if they are already configured on the Cloud Run service, or if your Cloud Run service account has access to the secrets. The link between Secret Manager and the Cloud Run service (which we set up earlier) will ensure they are available to the running container.
 
 6.  **Local Testing:**

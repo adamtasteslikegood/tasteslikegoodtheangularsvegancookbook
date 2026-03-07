@@ -15,7 +15,7 @@
   cd Backend
   uv sync
   ```
-- [ ] `.env.local` exists at repo root with `VITE_GEMINI_API_KEY` set
+- [ ] `.env.local` exists at repo root with `GEMINI_API_KEY` set
 - [ ] `Backend/.env` exists with at minimum:
   ```
   FLASK_SECRET_KEY=dev-secret-change-in-prod

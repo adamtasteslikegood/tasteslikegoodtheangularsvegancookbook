@@ -49,7 +49,7 @@
                     │   Image: vegangenius/express-frontend│
                     │                                     │
                     │   Env: FLASK_BACKEND_URL             │
-                    │   Secret: VITE_GEMINI_API_KEY        │
+                    │   Secret: GEMINI_API_KEY              │
                     │   Ingress: INTERNAL_LOAD_BALANCER    │
                     └──────┬───────────────┬──────────────┘
                            │               │

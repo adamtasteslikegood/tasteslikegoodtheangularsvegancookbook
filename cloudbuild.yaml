@@ -1,11 +1,14 @@
 # Cloud Build pipeline for building and deploying to Cloud Run.
+#
+
+# Cloud Build pipeline for building and deploying to Cloud Run.
 substitutions:
   _REGION: us-central1
   _EXPRESS_SERVICE: express-frontend
   _FLASK_SERVICE: flask-backend
   _MIGRATION_JOB: db-migration-job
-  _IMAGE_REGISTRY: gcr.io/$PROJECT_ID/vegangenius
-
+  _IMAGE_REGISTRY: us-central1-docker.pkg.dev/$PROJECT_ID/vegangenius
+# ... existing code ...
 steps:
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker

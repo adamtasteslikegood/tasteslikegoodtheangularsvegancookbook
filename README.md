@@ -17,7 +17,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 1. Install dependencies:
    `npm install`
 2. Set your API key in the environment for the backend server:
-   - `VITE_GEMINI_API_KEY=...` (preferred)
+   - `GEMINI_API_KEY=...` (preferred)
    - `VITE_API_KEY=...` (fallback)
 3. Build the app and backend:
    `npm run build`
@@ -116,7 +116,7 @@ Build and run a production container locally:
 ```sh
 docker build -t vegangenius-chef .
 docker run --rm -p 8080:8080 \
-  -e VITE_GEMINI_API_KEY=your_key_here \
+  -e GEMINI_API_KEY=your_key_here \
   vegangenius-chef
 ```
 
