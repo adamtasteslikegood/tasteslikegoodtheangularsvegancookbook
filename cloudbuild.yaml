@@ -4,7 +4,7 @@ substitutions:
   _EXPRESS_SERVICE: express-frontend
   _FLASK_SERVICE: flask-backend
   _MIGRATION_JOB: db-migration-job
-  _IMAGE_REGISTRY: us-central1-docker.pkg.dev/$PROJECT_ID/vegangenius
+  _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
 
 steps:
   # 1. Build the Express frontend image
