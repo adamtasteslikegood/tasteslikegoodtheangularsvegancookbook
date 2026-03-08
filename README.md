@@ -120,7 +120,7 @@ This repository now includes a minimal Qodana global configuration catalog based
 - `backend/qodana.yaml`
 - `.github/workflows/upload-global-configuration.yml`
 
-After adding the `QODANA_CONFIGURATIONS_TOKEN` secret in GitHub Actions, pushes to `main` or `develop` (or a manual workflow dispatch) will upload these shared configurations to Qodana Cloud for the organization at `https://qodana.cloud/teams/y7P7l`.
+After adding the `QODANA_CONFIGURATIONS_TOKEN` secret in GitHub Actions, pushes to `main` or `develop` (or a manual workflow dispatch) will upload these shared configurations to your Qodana Cloud organization.
 
 ## Docker (optional)
 

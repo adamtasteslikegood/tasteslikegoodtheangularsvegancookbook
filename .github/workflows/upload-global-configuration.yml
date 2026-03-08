@@ -8,31 +8,27 @@ on:
 jobs:
   upload-qodana-config:
     name: Upload global configuration
-    if: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN != '' }}
     runs-on: ubuntu-latest
+    env:
+      QODANA_CONFIGURATIONS_TOKEN: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN }}
+      QODANA_ENDPOINT: https://qodana.cloud
 
     steps:
       - name: Checkout repository
+        if: ${{ env.QODANA_CONFIGURATIONS_TOKEN != '' }}
         uses: actions/checkout@v4
 
+      - name: Explain skipped upload
+        if: ${{ env.QODANA_CONFIGURATIONS_TOKEN == '' }}
+        run: echo "QODANA_CONFIGURATIONS_TOKEN is not configured yet; skipping Qodana global configuration upload."
+
       - name: Run Qodana Configuration Uploader
-        env:
-          QODANA_CONFIGURATIONS_TOKEN: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN }}
-          QODANA_ENDPOINT: https://qodana.cloud
+        if: ${{ env.QODANA_CONFIGURATIONS_TOKEN != '' }}
         run: |
           docker run --rm \
             -v "$(pwd):/workspace" \
             -w /workspace \
             -e QODANA_CONFIGURATIONS_TOKEN="$QODANA_CONFIGURATIONS_TOKEN" \
             -e QODANA_ENDPOINT="$QODANA_ENDPOINT" \
-            jetbrains/qodana-configuration-uploader:latest \
+            jetbrains/qodana-configuration-uploader:2025.3 \
             --global-configs-file qodana-global-configurations.yaml
-
-  skip-without-token:
-    name: Skip when token is missing
-    if: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN == '' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Explain skipped upload
-        run: echo "QODANA_CONFIGURATIONS_TOKEN is not configured yet; skipping Qodana global configuration upload."
