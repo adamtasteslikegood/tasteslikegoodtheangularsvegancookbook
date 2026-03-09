@@ -29,6 +29,7 @@ export function createFlaskProxy(label = 'Flask') {
   const transport = target.protocol === 'https:' ? https : http;
 
   return (req: Request, res: Response) => {
+    const originalHost = req.headers.host || req.hostname;
     const options: http.RequestOptions = {
       hostname: target.hostname,
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
@@ -36,8 +37,11 @@ export function createFlaskProxy(label = 'Flask') {
       method: req.method,
       headers: {
         ...req.headers,
-        // Keep the browser's Host header so Flask generates URLs on :8080,
-        // not :5000.  This is critical for the OAuth redirect_uri to match.
+        // Use the target's hostname for TLS SNI verification
+        host: target.host,
+        // Pass the original host so Flask's url_for(_external=True)
+        // generates URLs that point back to the public domain
+        'x-forwarded-host': originalHost,
       },
     };
 
