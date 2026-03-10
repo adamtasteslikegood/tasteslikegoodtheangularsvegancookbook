@@ -1,0 +1,11 @@
+version: '1.0'
+
+imports:
+  - ../base/qodana.yaml
+
+exclude:
+  - name: All
+    paths:
+      - .angular
+      - coverage
+      - dist
