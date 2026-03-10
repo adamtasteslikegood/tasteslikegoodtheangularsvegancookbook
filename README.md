@@ -98,6 +98,7 @@ This project includes comprehensive CI checks via GitHub Actions:
 - ✅ **Lint** - ESLint + Prettier code quality checks
 - ✅ **Test** - Vitest test suite with coverage
 - ✅ **Type Check** - TypeScript compilation verification
+- ✅ **Qodana global configuration upload** - Publishes shared Qodana configs after `QODANA_CONFIGURATIONS_TOKEN` is added to GitHub Actions secrets
 
 **Quick commands:**
 ```sh
@@ -108,6 +109,18 @@ npm run build        # Build project
 ```
 
 **See:** [`CI_QUICK_REFERENCE.md`](CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_SETUP.md`](docs/CI_SETUP.md) for detailed setup.
+
+### Qodana global configuration
+
+This repository now includes a minimal Qodana global configuration catalog based on JetBrains' sample repository:
+
+- `qodana-global-configurations.yaml`
+- `base/qodana.yaml`
+- `frontend/qodana.yaml`
+- `backend/qodana.yaml`
+- `.github/workflows/upload-global-configuration.yml`
+
+After adding the `QODANA_CONFIGURATIONS_TOKEN` secret in GitHub Actions, pushes to `main` or `develop` (or a manual workflow dispatch) will upload these shared configurations to your Qodana Cloud organization.
 
 ## Docker (optional)
 
