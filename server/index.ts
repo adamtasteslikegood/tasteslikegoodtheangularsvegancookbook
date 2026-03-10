@@ -1,25 +1,25 @@
 import express from 'express';
-import { GoogleGenAI, Type } from '@google/genai';
-import { randomUUID } from 'node:crypto';
+import {GoogleGenAI, Type} from '@google/genai';
+import {randomUUID} from 'node:crypto';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {fileURLToPath} from 'node:url';
 import {
   applySecurityMiddleware,
   createApiLimiter,
+  createErrorHandler,
   createExpensiveOperationLimiter,
   createRequestLogger,
-  createErrorHandler,
 } from './security.js';
-import {
-  validateRecipeRequest,
-  validateImageRequest,
-  handleValidationErrors,
-} from './validation.js';
-import { createAuthProxy, createFlaskProxy } from './proxy.js';
+import {handleValidationErrors, validateImageRequest, validateRecipeRequest,} from './validation.js';
+import {createAuthProxy, createFlaskProxy} from './proxy.js';
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || '8080', 10);
 const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
+
+// Trust the first proxy (Cloud Run / GFE load balancer) so express-rate-limit
+// uses the real client IP from X-Forwarded-For instead of the proxy's IP.
+app.set('trust proxy', 1);
 
 // ── Flask proxy routes ──────────────────────────────────────────
 // Must be mounted BEFORE express.json() so raw request bodies stream
@@ -29,7 +29,7 @@ app.use('/api/recipes', createFlaskProxy('Recipes'));
 app.use('/api/collections', createFlaskProxy('Collections'));
 
 // Reduce default JSON payload limit to 50KB for security
-app.use(express.json({ limit: '50kb' }));
+app.use(express.json({limit: '50kb'}));
 
 // Apply security middleware
 applySecurityMiddleware(app);
@@ -47,88 +47,88 @@ const expensiveOpLimiter = createExpensiveOperationLimiter(60 * 60 * 1000, 20);
 let aiClient: GoogleGenAI | null = null;
 
 const getClient = () => {
-  if (aiClient) return aiClient;
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      'Missing API key. Set GEMINI_API_KEY (preferred), VITE_GEMINI_API_KEY, or VITE_API_KEY in the service environment.'
-    );
-  }
-  aiClient = new GoogleGenAI({ apiKey });
-  return aiClient;
+    if (aiClient) return aiClient;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || process.env.VITE_API_KEY;
+    if (!apiKey) {
+        throw new Error(
+            'Missing API key. Set GEMINI_API_KEY (preferred), VITE_GEMINI_API_KEY, or VITE_API_KEY in the service environment.'
+        );
+    }
+    aiClient = new GoogleGenAI({apiKey});
+    return aiClient;
 };
 
 const recipeSchema = {
-  type: Type.OBJECT,
-  properties: {
-    name: { type: Type.STRING },
-    description: { type: Type.STRING },
-    prepTime: { type: Type.INTEGER },
-    cookTime: { type: Type.INTEGER },
-    servings: { type: Type.INTEGER },
-    ingredients: {
-      type: Type.OBJECT,
-      properties: {
-        wet: {
-          type: Type.ARRAY,
-          items: {
+    type: Type.OBJECT,
+    properties: {
+        name: {type: Type.STRING},
+        description: {type: Type.STRING},
+        prepTime: {type: Type.INTEGER},
+        cookTime: {type: Type.INTEGER},
+        servings: {type: Type.INTEGER},
+        ingredients: {
             type: Type.OBJECT,
             properties: {
-              name: { type: Type.STRING },
-              amount: { type: Type.NUMBER },
-              units: { type: Type.STRING },
-              notes: { type: Type.STRING },
+                wet: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: {type: Type.STRING},
+                            amount: {type: Type.NUMBER},
+                            units: {type: Type.STRING},
+                            notes: {type: Type.STRING},
+                        },
+                        required: ['name', 'amount', 'units'],
+                    },
+                },
+                dry: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: {type: Type.STRING},
+                            amount: {type: Type.NUMBER},
+                            units: {type: Type.STRING},
+                            notes: {type: Type.STRING},
+                        },
+                        required: ['name', 'amount', 'units'],
+                    },
+                },
+                other: {
+                    type: Type.ARRAY,
+                    items: {
+                        type: Type.OBJECT,
+                        properties: {
+                            name: {type: Type.STRING},
+                            amount: {type: Type.NUMBER},
+                            units: {type: Type.STRING},
+                            notes: {type: Type.STRING},
+                        },
+                        required: ['name', 'amount', 'units'],
+                    },
+                },
             },
-            required: ['name', 'amount', 'units'],
-          },
+            required: ['wet', 'dry'],
         },
-        dry: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING },
-              amount: { type: Type.NUMBER },
-              units: { type: Type.STRING },
-              notes: { type: Type.STRING },
-            },
-            required: ['name', 'amount', 'units'],
-          },
+        instructions: {
+            type: Type.ARRAY,
+            items: {type: Type.STRING},
         },
-        other: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              name: { type: Type.STRING },
-              amount: { type: Type.NUMBER },
-              units: { type: Type.STRING },
-              notes: { type: Type.STRING },
-            },
-            required: ['name', 'amount', 'units'],
-          },
-        },
-      },
-      required: ['wet', 'dry'],
+        notes: {type: Type.STRING},
+        tags: {type: Type.ARRAY, items: {type: Type.STRING}},
+        image_keywords: {type: Type.ARRAY, items: {type: Type.STRING}},
     },
-    instructions: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
-    notes: { type: Type.STRING },
-    tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-    image_keywords: { type: Type.ARRAY, items: { type: Type.STRING } },
-  },
-  required: [
-    'name',
-    'description',
-    'prepTime',
-    'cookTime',
-    'servings',
-    'ingredients',
-    'instructions',
-    'image_keywords',
-  ],
+    required: [
+        'name',
+        'description',
+        'prepTime',
+        'cookTime',
+        'servings',
+        'ingredients',
+        'instructions',
+        'image_keywords',
+    ],
 } as const;
 
 const systemPrompt = `
@@ -139,90 +139,90 @@ For 'image_keywords', provide 3-5 visual keywords that describe the finished dis
 `;
 
 app.get('/api/health', (_req, res) => {
-  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.status(200).json({status: 'ok', timestamp: new Date().toISOString()});
 });
 
 app.post(
-  '/api/recipe',
-  expensiveOpLimiter,
-  validateRecipeRequest,
-  handleValidationErrors,
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const prompt = req.body.prompt;
+    '/api/recipe',
+    expensiveOpLimiter,
+    validateRecipeRequest,
+    handleValidationErrors,
+    async (req: express.Request, res: express.Response) => {
+        try {
+            const prompt = req.body.prompt;
 
-      const response = await getClient().models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: 'application/json',
-          responseSchema: recipeSchema,
-        },
-      });
+            const response = await getClient().models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                    systemInstruction: systemPrompt,
+                    responseMimeType: 'application/json',
+                    responseSchema: recipeSchema,
+                },
+            });
 
-      if (!response.text) {
-        res.status(502).json({ error: 'No recipe generated.' });
-        return;
-      }
+            if (!response.text) {
+                res.status(502).json({error: 'No recipe generated.'});
+                return;
+            }
 
-      const recipe = JSON.parse(response.text) as Record<string, unknown>;
-      if (!recipe.id) {
-        (recipe as { id: string }).id = randomUUID();
-      }
+            const recipe = JSON.parse(response.text) as Record<string, unknown>;
+            if (!recipe.id) {
+                (recipe as { id: string }).id = randomUUID();
+            }
 
-      res.status(200).json(recipe);
-    } catch (error) {
-      // Log detailed error server-side
-      console.error('Recipe generation error:', error);
+            res.status(200).json(recipe);
+        } catch (error) {
+            // Log detailed error server-side
+            console.error('Recipe generation error:', error);
 
-      // Send generic message to client
-      const message = 'An unexpected error occurred while generating the recipe.';
-      res.status(500).json({ error: message });
+            // Send generic message to client
+            const message = 'An unexpected error occurred while generating the recipe.';
+            res.status(500).json({error: message});
+        }
     }
-  }
 );
 
 app.post(
-  '/api/image',
-  expensiveOpLimiter,
-  validateImageRequest,
-  handleValidationErrors,
-  async (req: express.Request, res: express.Response) => {
-    try {
-      const keywords = req.body.keywords as string[];
-      const recipeName = req.body.recipeName as string;
+    '/api/image',
+    expensiveOpLimiter,
+    validateImageRequest,
+    handleValidationErrors,
+    async (req: express.Request, res: express.Response) => {
+        try {
+            const keywords = req.body.keywords as string[];
+            const recipeName = req.body.recipeName as string;
 
-      const prompt = `Professional food photography of ${recipeName}. ${keywords.join(', ')}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
+            const prompt = `Professional food photography of ${recipeName}. ${keywords.join(', ')}. High resolution, photorealistic, natural lighting, overhead shot, delicious plating.`;
 
-      const response = await getClient().models.generateImages({
-        model: 'imagen-4.0-generate-001',
-        prompt,
-        config: {
-          numberOfImages: 1,
-          aspectRatio: '4:3',
-          outputMimeType: 'image/jpeg',
-        },
-      });
+            const response = await getClient().models.generateImages({
+                model: 'imagen-4.0-generate-001',
+                prompt,
+                config: {
+                    numberOfImages: 1,
+                    aspectRatio: '4:3',
+                    outputMimeType: 'image/jpeg',
+                },
+            });
 
-      const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
-      if (!imageBytes) {
-        res.status(502).json({ error: 'No image generated.' });
-        return;
-      }
+            const imageBytes = response.generatedImages?.[0]?.image?.imageBytes;
+            if (!imageBytes) {
+                res.status(502).json({error: 'No image generated.'});
+                return;
+            }
 
-      res.status(200).json({
-        imageDataUrl: `data:image/jpeg;base64,${imageBytes}`,
-      });
-    } catch (error) {
-      // Log detailed error server-side
-      console.error('Image generation error:', error);
+            res.status(200).json({
+                imageDataUrl: `data:image/jpeg;base64,${imageBytes}`,
+            });
+        } catch (error) {
+            // Log detailed error server-side
+            console.error('Image generation error:', error);
 
-      // Send generic message to client
-      const message = 'An unexpected error occurred while generating the image.';
-      res.status(500).json({ error: message });
+            // Send generic message to client
+            const message = 'An unexpected error occurred while generating the image.';
+            res.status(500).json({error: message});
+        }
     }
-  }
 );
 
 const __filename = fileURLToPath(import.meta.url);
@@ -232,14 +232,14 @@ const distPath = path.resolve(__dirname, '..', '..', 'dist');
 app.use(express.static(distPath));
 
 app.get('*', (_req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
+    res.sendFile(path.join(distPath, 'index.html'));
 });
 
 // Error handling middleware (must be last)
 app.use(createErrorHandler());
 
 app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Auth proxy → ${flaskUrl}`);
+    console.log(`Server listening on port ${port}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Auth proxy → ${flaskUrl}`);
 });
