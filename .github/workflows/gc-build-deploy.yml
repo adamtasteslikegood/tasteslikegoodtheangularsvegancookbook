@@ -30,10 +30,12 @@ jobs:
     steps:
       - name: Detect trigger tags and branch rules
         id: detect
+        env:
+          AUTHORIZED_DEPLOYERS: ${{ vars.AUTHORIZED_DEPLOYERS }}
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.payload.repository.owner.login.toLowerCase();
+            const owner = (context.payload.repository?.owner?.login || context.repo.owner).toLowerCase();
             const actor = context.actor.toLowerCase();
             const defaultBranch = context.payload.repository.default_branch;
             const isPush = context.eventName === 'push';
@@ -67,7 +69,13 @@ jobs:
             }
 
             const branchOk = targetBranch === defaultBranch;
-            const actorOk = actor === owner || actor === 'adamtasteslikegood';
+            const authorizedActors = new Set(
+              (process.env.AUTHORIZED_DEPLOYERS || owner)
+                .split(',')
+                .map((value) => value.trim().toLowerCase())
+                .filter(Boolean),
+            );
+            const actorOk = authorizedActors.has(actor) || actor === owner;
             const shouldRun = branchOk && actorOk && triggerMode !== 'none';
             const deploymentEnabled = shouldRun && isPush;
 
@@ -101,12 +109,11 @@ jobs:
     steps:
       - name: Create versioned backup release from previous default-branch commit
         id: backup
-        env:
-          TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
-          TARGET_BRANCH: ${{ needs.detect-trigger.outputs.target_branch }}
         uses: actions/github-script@v7
         with:
           script: |
+            const triggerMode = '${{ needs.detect-trigger.outputs.trigger_mode }}';
+            const targetBranch = '${{ needs.detect-trigger.outputs.target_branch }}';
             const previousSha = context.payload.before;
             if (!previousSha || /^0+$/.test(previousSha)) {
               core.setOutput('backup_status', 'skipped');
@@ -115,8 +122,13 @@ jobs:
               return;
             }
 
-            const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
-            const tag = `main-backup-${stamp}-${previousSha.slice(0, 7)}`;
+            // Format: YYYYMMDD-HHmmss
+            const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
+            const branchName = (targetBranch || 'default')
+              .replace(/[^A-Za-z0-9._-]+/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '');
+            const tag = `${branchName}-backup-${timestamp}-${previousSha.slice(0, 7)}`;
 
             await github.rest.git.createRef({
               owner: context.repo.owner,
@@ -132,7 +144,7 @@ jobs:
               target_commitish: previousSha,
               name: `Default branch backup ${tag}`,
               body: [
-                `Backup created before processing \`${process.env.TRIGGER_MODE}\` on \`${process.env.TARGET_BRANCH}\`.`,
+                `Backup created before processing \`${triggerMode}\` on \`${targetBranch}\`.`,
                 `Source workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
                 `Backed up commit: ${previousSha}`,
               ].join('\n'),
@@ -174,7 +186,7 @@ jobs:
             npm run build
             build_exit=$?
           else
-            build_exit=99
+            build_exit=0
           fi
 
           install_status="success"
@@ -253,7 +265,8 @@ jobs:
       predeploy_notes: ${{ steps.prep.outputs.predeploy_notes }}
       cloud_build_command: ${{ steps.prep.outputs.cloud_build_command }}
     env:
-      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_PROJECT_ID_VAR: ${{ vars.GCP_PROJECT_ID }}
+      GCP_PROJECT_ID_SECRET: ${{ secrets.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
       CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
@@ -267,6 +280,8 @@ jobs:
         run: |
           set +e
 
+          GCP_PROJECT_ID="${GCP_PROJECT_ID_VAR:-$GCP_PROJECT_ID_SECRET}"
+
           checks="backup release, cloudbuild.yaml, google auth secrets, project configuration"
           notes="Pre-deployment checks passed."
           status="success"
@@ -278,14 +293,18 @@ jobs:
             status="failure"
             notes="cloudbuild.yaml is missing."
           elif [ -z "$GCP_PROJECT_ID" ] || [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$GCP_SERVICE_ACCOUNT" ]; then
+            missing_items=""
+            [ -z "$GCP_PROJECT_ID" ] && missing_items="${missing_items} GCP_PROJECT_ID"
+            [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] && missing_items="${missing_items} GCP_WORKLOAD_IDENTITY_PROVIDER"
+            [ -z "$GCP_SERVICE_ACCOUNT" ] && missing_items="${missing_items} GCP_SERVICE_ACCOUNT"
             status="failure"
-            notes="Missing one or more required Google Cloud repository secrets/variables."
+            notes="Missing required Google Cloud configuration:${missing_items}"
           elif [ "${{ needs.frontend-ci.result }}" != "success" ]; then
             status="failure"
             notes="Frontend checks must pass before deployment."
           fi
 
-          command="gcloud builds submit . --project $GCP_PROJECT_ID --config cloudbuild.yaml --substitutions=_REGION=$GCP_REGION,_SERVICE=$CLOUD_RUN_SERVICE,_IMAGE=gcr.io/$GCP_PROJECT_ID/$CLOUD_RUN_SERVICE"
+          command="gcloud builds submit . --project \"$GCP_PROJECT_ID\" --config cloudbuild.yaml --substitutions \"_REGION=$GCP_REGION,_SERVICE=$CLOUD_RUN_SERVICE,_IMAGE=gcr.io/$GCP_PROJECT_ID/$CLOUD_RUN_SERVICE\""
           if [ "$status" = "skipped" ]; then
             command="Not applicable"
           fi
@@ -313,9 +332,11 @@ jobs:
       outcome: ${{ steps.build.outputs.outcome }}
       message: ${{ steps.build.outputs.message }}
     env:
-      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_PROJECT_ID_VAR: ${{ vars.GCP_PROJECT_ID }}
+      GCP_PROJECT_ID_SECRET: ${{ secrets.GCP_PROJECT_ID }}
       GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
       CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
+      CLOUD_BUILD_COMMAND: ${{ needs.pre-deploy-gate.outputs.cloud_build_command }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -331,10 +352,8 @@ jobs:
         shell: bash
         run: |
           set +e
-          gcloud builds submit . \
-            --project "$GCP_PROJECT_ID" \
-            --config cloudbuild.yaml \
-            --substitutions "_REGION=$GCP_REGION,_SERVICE=$CLOUD_RUN_SERVICE,_IMAGE=gcr.io/$GCP_PROJECT_ID/$CLOUD_RUN_SERVICE"
+          GCP_PROJECT_ID="${GCP_PROJECT_ID_VAR:-$GCP_PROJECT_ID_SECRET}"
+          bash -lc "$CLOUD_BUILD_COMMAND"
           exit_code=$?
 
           outcome="success"
@@ -410,13 +429,27 @@ jobs:
         run: |
           python <<'PY'
           import os
+          import sys
           from pathlib import Path
           from string import Template
 
           template_path = Path(".github/templates/gc-build-deploy-status.md.tmpl")
           output_path = Path("gc-build-deploy-status-report.md")
-          template = Template(template_path.read_text())
-          output_path.write_text(template.safe_substitute(os.environ))
+
+          try:
+            template = Template(template_path.read_text())
+          except FileNotFoundError as exc:
+            print(f"Status report template is missing: {template_path}", file=sys.stderr)
+            raise SystemExit(1) from exc
+          except OSError as exc:
+            print(f"Unable to read status report template: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+
+          try:
+            output_path.write_text(template.safe_substitute(os.environ))
+          except OSError as exc:
+            print(f"Unable to write status report: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
           PY
           cat gc-build-deploy-status-report.md >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
@@ -515,7 +548,12 @@ jobs:
                   repo: context.repo.repo,
                   issue_number: pull_number,
                   name: staleLabel,
-                }).catch(() => {});
+                }).catch((error) => {
+                  const status = error?.status ?? error?.response?.status ?? 0;
+                  if (status !== 404) {
+                    core.warning(`Unable to remove label ${staleLabel} from PR #${pull_number}: ${error.message}`);
+                  }
+                });
               }
 
               await github.rest.issues.addLabels({
