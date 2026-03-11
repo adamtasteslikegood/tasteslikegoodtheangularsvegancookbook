@@ -1,0 +1,534 @@
+name: Google Cloud Build Gate
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+    branches:
+      - '**'
+
+permissions:
+  actions: read
+  checks: read
+  contents: write
+  id-token: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  detect-trigger:
+    name: Detect gc build/deploy trigger
+    runs-on: ubuntu-latest
+    outputs:
+      should_run: ${{ steps.detect.outputs.should_run }}
+      trigger_mode: ${{ steps.detect.outputs.trigger_mode }}
+      trigger_tags: ${{ steps.detect.outputs.trigger_tags }}
+      target_branch: ${{ steps.detect.outputs.target_branch }}
+      deployment_enabled: ${{ steps.detect.outputs.deployment_enabled }}
+    steps:
+      - name: Detect trigger tags and branch rules
+        id: detect
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.payload.repository.owner.login.toLowerCase();
+            const actor = context.actor.toLowerCase();
+            const defaultBranch = context.payload.repository.default_branch;
+            const isPush = context.eventName === 'push';
+            const targetBranch = isPush
+              ? context.ref.replace('refs/heads/', '')
+              : context.payload.pull_request.base.ref;
+            const text = isPush
+              ? [
+                  context.payload.head_commit?.message || '',
+                  ...(context.payload.commits || []).map((commit) => commit.message || ''),
+                ].join('\n')
+              : [
+                  context.payload.pull_request?.title || '',
+                  context.payload.pull_request?.body || '',
+                ].join('\n');
+
+            const regex = /\b(?:tag\s*=\s*)?(gcbuildanddeploy|gcbuild|gcdeploy)\b/gi;
+            const matches = [...text.matchAll(regex)].map((match) => match[1].toLowerCase());
+            const uniqueMatches = [...new Set(matches)];
+
+            let triggerMode = 'none';
+            if (
+              uniqueMatches.includes('gcbuildanddeploy') ||
+              (uniqueMatches.includes('gcbuild') && uniqueMatches.includes('gcdeploy'))
+            ) {
+              triggerMode = 'build_and_deploy';
+            } else if (uniqueMatches.includes('gcdeploy')) {
+              triggerMode = 'deploy';
+            } else if (uniqueMatches.includes('gcbuild')) {
+              triggerMode = 'build';
+            }
+
+            const branchOk = targetBranch === defaultBranch;
+            const actorOk = actor === owner || actor === 'adamtasteslikegood';
+            const shouldRun = branchOk && actorOk && triggerMode !== 'none';
+            const deploymentEnabled = shouldRun && isPush;
+
+            core.setOutput('should_run', String(shouldRun));
+            core.setOutput('trigger_mode', triggerMode);
+            core.setOutput('trigger_tags', uniqueMatches.join(', ') || 'none');
+            core.setOutput('target_branch', targetBranch);
+            core.setOutput('deployment_enabled', String(deploymentEnabled));
+
+            core.summary
+              .addHeading('Trigger detection')
+              .addTable([
+                [{ data: 'Branch', header: true }, targetBranch],
+                [{ data: 'Default branch', header: true }, defaultBranch],
+                [{ data: 'Actor', header: true }, context.actor],
+                [{ data: 'Tags', header: true }, uniqueMatches.join(', ') || 'none'],
+                [{ data: 'Mode', header: true }, triggerMode],
+                [{ data: 'Should run', header: true }, String(shouldRun)],
+                [{ data: 'Deployment enabled', header: true }, String(deploymentEnabled)],
+              ])
+              .write();
+
+  backup-main-release:
+    name: Backup current default branch as release
+    needs: detect-trigger
+    if: needs.detect-trigger.outputs.should_run == 'true' && needs.detect-trigger.outputs.deployment_enabled == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      backup_status: ${{ steps.backup.outputs.backup_status }}
+      backup_reference: ${{ steps.backup.outputs.backup_reference }}
+    steps:
+      - name: Create versioned backup release from previous default-branch commit
+        id: backup
+        env:
+          TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
+          TARGET_BRANCH: ${{ needs.detect-trigger.outputs.target_branch }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previousSha = context.payload.before;
+            if (!previousSha || /^0+$/.test(previousSha)) {
+              core.setOutput('backup_status', 'skipped');
+              core.setOutput('backup_reference', 'No previous commit available for backup');
+              core.info('No previous commit available for backup release creation.');
+              return;
+            }
+
+            const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
+            const tag = `main-backup-${stamp}-${previousSha.slice(0, 7)}`;
+
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: previousSha,
+            });
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              target_commitish: previousSha,
+              name: `Default branch backup ${tag}`,
+              body: [
+                `Backup created before processing \`${process.env.TRIGGER_MODE}\` on \`${process.env.TARGET_BRANCH}\`.`,
+                `Source workflow run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                `Backed up commit: ${previousSha}`,
+              ].join('\n'),
+              prerelease: false,
+              draft: false,
+            });
+
+            core.setOutput('backup_status', 'success');
+            core.setOutput('backup_reference', release.html_url);
+
+  frontend-ci:
+    name: Frontend / main repo checks
+    needs: detect-trigger
+    if: needs.detect-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      checks_status: ${{ steps.run.outputs.checks_status }}
+      lint_status: ${{ steps.run.outputs.lint_status }}
+      test_status: ${{ steps.run.outputs.test_status }}
+      build_status: ${{ steps.run.outputs.build_status }}
+      notes: ${{ steps.run.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Run configured repository checks
+        id: run
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+
+          npm ci
+          install_exit=$?
+
+          if [ "$install_exit" -eq 0 ]; then
+            npm run build
+            build_exit=$?
+          else
+            build_exit=99
+          fi
+
+          install_status="success"
+          build_status="success"
+          notes="Build completed successfully."
+
+          if [ "$install_exit" -ne 0 ]; then
+            install_status="failure"
+            build_status="skipped"
+            notes="npm ci failed before build could run."
+          elif [ "$build_exit" -ne 0 ]; then
+            build_status="failure"
+            notes="npm run build failed."
+          fi
+
+          checks_status="$install_status"
+
+          {
+            echo "checks_status=$checks_status"
+            echo "lint_status=not_configured"
+            echo "test_status=not_configured"
+            echo "build_status=$build_status"
+            echo "notes=$notes"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$install_exit" -ne 0 ] || [ "$build_exit" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Fail job if repository checks failed
+        if: steps.run.outputs.checks_status != 'success' || steps.run.outputs.build_status != 'success'
+        run: exit 1
+
+  backend-submodule-audit:
+    name: Backend submodule audit
+    needs: detect-trigger
+    if: needs.detect-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      checks_status: ${{ steps.audit.outputs.checks_status }}
+      lint_status: ${{ steps.audit.outputs.lint_status }}
+      test_status: ${{ steps.audit.outputs.test_status }}
+      build_status: ${{ steps.audit.outputs.build_status }}
+      notes: ${{ steps.audit.outputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Audit backend submodule availability
+        id: audit
+        shell: bash
+        run: |
+          if [ -d Backend ] && [ -n "$(ls -A Backend 2>/dev/null)" ]; then
+            note="Backend submodule checked out for reporting; no backend-specific checks are configured in this repository."
+            checks_status="present"
+          else
+            note="Backend submodule is unavailable or not initialized in this workflow run."
+            checks_status="skipped"
+          fi
+
+          {
+            echo "checks_status=$checks_status"
+            echo "lint_status=not_configured"
+            echo "test_status=not_configured"
+            echo "build_status=not_configured"
+            echo "notes=$note"
+          } >> "$GITHUB_OUTPUT"
+
+  pre-deploy-gate:
+    name: Pre-deployment gate
+    needs: [detect-trigger, backup-main-release, frontend-ci, backend-submodule-audit]
+    if: needs.detect-trigger.outputs.should_run == 'true' && needs.detect-trigger.outputs.trigger_mode != 'build'
+    runs-on: ubuntu-latest
+    outputs:
+      predeploy_status: ${{ steps.prep.outputs.predeploy_status }}
+      predeploy_checks: ${{ steps.prep.outputs.predeploy_checks }}
+      predeploy_notes: ${{ steps.prep.outputs.predeploy_notes }}
+      cloud_build_command: ${{ steps.prep.outputs.cloud_build_command }}
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
+      GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+      GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deployment prerequisites
+        id: prep
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+
+          checks="backup release, cloudbuild.yaml, google auth secrets, project configuration"
+          notes="Pre-deployment checks passed."
+          status="success"
+
+          if [ "${{ needs.detect-trigger.outputs.deployment_enabled }}" != "true" ]; then
+            status="skipped"
+            notes="Deployment is only enabled for push events on the default branch."
+          elif [ ! -f cloudbuild.yaml ]; then
+            status="failure"
+            notes="cloudbuild.yaml is missing."
+          elif [ -z "$GCP_PROJECT_ID" ] || [ -z "$GCP_WORKLOAD_IDENTITY_PROVIDER" ] || [ -z "$GCP_SERVICE_ACCOUNT" ]; then
+            status="failure"
+            notes="Missing one or more required Google Cloud repository secrets/variables."
+          elif [ "${{ needs.frontend-ci.result }}" != "success" ]; then
+            status="failure"
+            notes="Frontend checks must pass before deployment."
+          fi
+
+          command="gcloud builds submit . --project $GCP_PROJECT_ID --config cloudbuild.yaml --substitutions=_REGION=$GCP_REGION,_SERVICE=$CLOUD_RUN_SERVICE,_IMAGE=gcr.io/$GCP_PROJECT_ID/$CLOUD_RUN_SERVICE"
+          if [ "$status" = "skipped" ]; then
+            command="Not applicable"
+          fi
+
+          {
+            echo "predeploy_status=$status"
+            echo "predeploy_checks=$checks"
+            echo "predeploy_notes=$notes"
+            echo "cloud_build_command=$command"
+          } >> "$GITHUB_OUTPUT"
+
+          if [ "$status" = "failure" ]; then
+            exit 1
+          fi
+      - name: Fail job when pre-deployment gate fails
+        if: steps.prep.outputs.predeploy_status == 'failure'
+        run: exit 1
+
+  cloud-build:
+    name: Run Google Cloud Build
+    needs: [detect-trigger, pre-deploy-gate]
+    if: needs.detect-trigger.outputs.should_run == 'true' && needs.detect-trigger.outputs.deployment_enabled == 'true' && needs.pre-deploy-gate.outputs.predeploy_status == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      outcome: ${{ steps.build.outputs.outcome }}
+      message: ${{ steps.build.outputs.message }}
+    env:
+      GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+      CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Submit Cloud Build
+        id: build
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          gcloud builds submit . \
+            --project "$GCP_PROJECT_ID" \
+            --config cloudbuild.yaml \
+            --substitutions "_REGION=$GCP_REGION,_SERVICE=$CLOUD_RUN_SERVICE,_IMAGE=gcr.io/$GCP_PROJECT_ID/$CLOUD_RUN_SERVICE"
+          exit_code=$?
+
+          outcome="success"
+          message="Cloud Build completed successfully."
+          if [ "$exit_code" -ne 0 ]; then
+            outcome="failure"
+            message="Cloud Build failed."
+          fi
+
+          {
+            echo "outcome=$outcome"
+            echo "message=$message"
+          } >> "$GITHUB_OUTPUT"
+
+          exit "$exit_code"
+      - name: Fail job if Cloud Build failed
+        if: steps.build.outputs.outcome != 'success'
+        run: exit 1
+
+  status-report:
+    name: Publish status report
+    needs:
+      - detect-trigger
+      - backup-main-release
+      - frontend-ci
+      - backend-submodule-audit
+      - pre-deploy-gate
+      - cloud-build
+    if: always() && needs.detect-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render report from template
+        env:
+          TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
+          TRIGGER_TAGS: ${{ needs.detect-trigger.outputs.trigger_tags }}
+          EVENT_NAME: ${{ github.event_name }}
+          TARGET_BRANCH: ${{ needs.detect-trigger.outputs.target_branch }}
+          ACTOR: ${{ github.actor }}
+          BACKUP_REFERENCE: ${{ needs.backup-main-release.outputs.backup_reference || 'Not created' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          FRONTEND_CHECKS: ${{ needs.frontend-ci.outputs.checks_status || 'skipped' }}
+          FRONTEND_LINT: ${{ needs.frontend-ci.outputs.lint_status || 'not_configured' }}
+          FRONTEND_TEST: ${{ needs.frontend-ci.outputs.test_status || 'not_configured' }}
+          FRONTEND_BUILD: ${{ needs.frontend-ci.outputs.build_status || 'skipped' }}
+          FRONTEND_QODANA: Not produced in this workflow
+          FRONTEND_CHARTS: Not produced in this workflow
+          FRONTEND_OUTCOME: ${{ needs.frontend-ci.result }}
+          FRONTEND_NOTES: ${{ needs.frontend-ci.outputs.notes || 'No frontend notes recorded.' }}
+          BACKEND_CHECKS: ${{ needs.backend-submodule-audit.outputs.checks_status || 'skipped' }}
+          BACKEND_LINT: ${{ needs.backend-submodule-audit.outputs.lint_status || 'not_configured' }}
+          BACKEND_TEST: ${{ needs.backend-submodule-audit.outputs.test_status || 'not_configured' }}
+          BACKEND_BUILD: ${{ needs.backend-submodule-audit.outputs.build_status || 'not_configured' }}
+          BACKEND_QODANA: Not produced in this workflow
+          BACKEND_CHARTS: Not produced in this workflow
+          BACKEND_OUTCOME: ${{ needs.backend-submodule-audit.result }}
+          BACKEND_NOTES: ${{ needs.backend-submodule-audit.outputs.notes || 'No backend notes recorded.' }}
+          BACKUP_STATUS: ${{ needs.backup-main-release.outputs.backup_status || 'skipped' }}
+          PREDEPLOY_CHECKS: ${{ needs.pre-deploy-gate.outputs.predeploy_checks || 'Not run' }}
+          PREDEPLOY_OUTCOME: ${{ needs.pre-deploy-gate.outputs.predeploy_status || 'skipped' }}
+          PREDEPLOY_NOTES: ${{ needs.pre-deploy-gate.outputs.predeploy_notes || 'Pre-deployment checks were not required.' }}
+          BACKEND_BACKUP_STATUS: not_applicable
+          BACKEND_PREDEPLOY_CHECKS: Submodule-specific pre-deployment checks are not configured
+          BACKEND_PREDEPLOY_OUTCOME: skipped
+          BACKEND_PREDEPLOY_NOTES: Backend deployment remains governed by its own repository workflows.
+          CLOUD_BUILD_COMMAND: ${{ needs.pre-deploy-gate.outputs.cloud_build_command || 'Not run' }}
+          CLOUD_BUILD_OUTCOME: ${{ needs.cloud-build.outputs.outcome || 'skipped' }}
+          CLOUD_BUILD_MESSAGE: ${{ needs.cloud-build.outputs.message || 'Cloud Build was not executed.' }}
+          BACKEND_CLOUD_BUILD_COMMAND: Not run from this repository
+          BACKEND_CLOUD_BUILD_OUTCOME: skipped
+          BACKEND_CLOUD_BUILD_MESSAGE: Backend submodule deployment is not orchestrated by this workflow
+        shell: bash
+        run: |
+          python <<'PY'
+          import os
+          from pathlib import Path
+          from string import Template
+
+          template_path = Path(".github/templates/gc-build-deploy-status.md.tmpl")
+          output_path = Path("gc-build-deploy-status-report.md")
+          template = Template(template_path.read_text())
+          output_path.write_text(template.safe_substitute(os.environ))
+          PY
+          cat gc-build-deploy-status-report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gc-build-deploy-status-report
+          path: gc-build-deploy-status-report.md
+
+  label-pr:
+    name: Label associated PR with outcome
+    needs:
+      - detect-trigger
+      - frontend-ci
+      - pre-deploy-gate
+      - cloud-build
+      - status-report
+    if: always() && needs.detect-trigger.outputs.should_run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update associated PR labels and comment
+        uses: actions/github-script@v7
+        env:
+          TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
+          FRONTEND_RESULT: ${{ needs.frontend-ci.result }}
+          PREDEPLOY_RESULT: ${{ needs.pre-deploy-gate.result || 'skipped' }}
+          CLOUD_BUILD_RESULT: ${{ needs.cloud-build.result || 'skipped' }}
+          STATUS_REPORT_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        with:
+          script: |
+            const success =
+              process.env.FRONTEND_RESULT === 'success' &&
+              ['success', 'skipped'].includes(process.env.PREDEPLOY_RESULT) &&
+              ['success', 'skipped'].includes(process.env.CLOUD_BUILD_RESULT);
+
+            const labels = success
+              ? process.env.TRIGGER_MODE === 'build'
+                ? ['gc-build-success']
+                : ['gc-ready-for-deployment']
+              : ['gc-workflow-failed'];
+
+            const labelPalette = {
+              'gc-build-success': { color: '2da44e', description: 'gcBuild automation passed' },
+              'gc-ready-for-deployment': { color: '1f883d', description: 'gcDeploy automation passed and is ready for deployment' },
+              'gc-workflow-failed': { color: 'd1242f', description: 'gc build/deploy automation failed' },
+            };
+
+            const staleLabels = Object.keys(labelPalette);
+            const commentBody = success
+              ? process.env.TRIGGER_MODE === 'build'
+                ? `✅ All configured checks passed for ${process.env.TRIGGER_MODE}. Status report: ${process.env.STATUS_REPORT_URL}`
+                : `✅ All tests passed, Cloud Build SUCCESS, ready for deployment. Status report: ${process.env.STATUS_REPORT_URL}`
+              : `❌ ${process.env.TRIGGER_MODE} workflow did not complete successfully. Status report: ${process.env.STATUS_REPORT_URL}`;
+
+            let pullNumbers = [];
+            if (context.eventName === 'pull_request') {
+              pullNumbers = [context.payload.pull_request.number];
+            } else {
+              const response = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                commit_sha: context.sha,
+              });
+              pullNumbers = response.data.map((pr) => pr.number);
+            }
+
+            if (pullNumbers.length === 0) {
+              core.info('No associated pull request found; skipping label update.');
+              return;
+            }
+
+            for (const [name, config] of Object.entries(labelPalette)) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name,
+                    color: config.color,
+                    description: config.description,
+                  });
+                } else {
+                  throw error;
+                }
+              }
+            }
+
+            for (const pull_number of pullNumbers) {
+              for (const staleLabel of staleLabels) {
+                await github.rest.issues.removeLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pull_number,
+                  name: staleLabel,
+                }).catch(() => {});
+              }
+
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull_number,
+                labels,
+              });
+
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pull_number,
+                body: commentBody,
+              });
+            }
