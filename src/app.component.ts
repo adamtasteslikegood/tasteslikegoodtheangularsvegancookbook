@@ -377,13 +377,7 @@ export class AppComponent {
         this.isSaved.set(false);
 
         try {
-            const user = this.authService.currentUser();
-            const userName = user && !user.isGuest ? user.name : null;
-            const personalizedPrompt = userName
-                ? `For user ${userName}: ${this.prompt()}`
-                : this.prompt();
-
-            const generatedRecipe = await this.geminiService.generateRecipe(personalizedPrompt);
+            const generatedRecipe = await this.geminiService.generateRecipe(this.prompt());
             this.recipe.set(generatedRecipe);
             this.isSaved.set(true); // Flask saves to DB during generation
 
