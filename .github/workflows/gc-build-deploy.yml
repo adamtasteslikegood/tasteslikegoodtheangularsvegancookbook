@@ -122,13 +122,13 @@ jobs:
               return;
             }
 
-            // Format: YYYYMMDD-HHmmss
+            // Format: YYYYMMDD-HHmmss; append run metadata to avoid tag collisions on fast reruns.
             const timestamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
             const branchName = (targetBranch || 'default')
               .replace(/[^A-Za-z0-9._-]+/g, '-')
               .replace(/-+/g, '-')
               .replace(/^-|-$/g, '');
-            const tag = `${branchName}-backup-${timestamp}-${previousSha.slice(0, 7)}`;
+            const tag = `${branchName}-backup-${timestamp}-${context.runId}-${context.runAttempt}-${previousSha.slice(0, 7)}`;
 
             await github.rest.git.createRef({
               owner: context.repo.owner,
@@ -202,7 +202,11 @@ jobs:
             notes="npm run build failed."
           fi
 
-          checks_status="$install_status"
+          if [ "$install_exit" -ne 0 ] || [ "$build_exit" -ne 0 ]; then
+            checks_status="failure"
+          else
+            checks_status="success"
+          fi
 
           {
             echo "checks_status=$checks_status"
@@ -256,7 +260,7 @@ jobs:
 
   pre-deploy-gate:
     name: Pre-deployment gate
-    needs: [detect-trigger, backup-main-release, frontend-ci, backend-submodule-audit]
+    needs: [detect-trigger, frontend-ci, backend-submodule-audit]
     if: needs.detect-trigger.outputs.should_run == 'true' && needs.detect-trigger.outputs.trigger_mode != 'build'
     runs-on: ubuntu-latest
     outputs:
@@ -563,10 +567,32 @@ jobs:
                 labels,
               });
 
-              await github.rest.issues.createComment({
+              const marker = '<!-- gc-build-gate-comment -->';
+              const fullCommentBody = `${commentBody}\n\n${marker}`;
+              const { data: existingComments } = await github.rest.issues.listComments({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 issue_number: pull_number,
-                body: commentBody,
+                per_page: 100,
               });
+
+              const existingBotComment = existingComments.find((comment) => {
+                return comment.user?.type === 'Bot' && comment.body && comment.body.includes(marker);
+              });
+
+              if (existingBotComment) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existingBotComment.id,
+                  body: fullCommentBody,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pull_number,
+                  body: fullCommentBody,
+                });
+              }
             }
