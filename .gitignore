@@ -80,3 +80,5 @@ override.tf.json
 /.agent-work/session-state/81c2ddef-1352-4229-87d9-69258f03a775/workspace.yaml
 /.agent-work/session-state/a1974317-1781-45fc-9bfd-80d9ba1ecfbe/workspace.yaml
 /fastagent.jsonl
+/.copilot/copilot-instructions.md
+/.github/agents/ide-explore.md
