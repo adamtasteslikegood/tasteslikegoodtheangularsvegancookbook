@@ -82,3 +82,4 @@ override.tf.json
 /fastagent.jsonl
 /.copilot/copilot-instructions.md
 /.github/agents/ide-explore.md
+/uv.lock
