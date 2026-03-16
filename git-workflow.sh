@@ -168,7 +168,7 @@ validate_submodule() {
             exit 1
         fi
 
-        cd ..
+        cd "$PROJECT_ROOT"
     fi
     
 
