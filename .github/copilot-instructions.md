@@ -59,9 +59,9 @@ Examples: `[quick-reply: Yes | No]`  `[quick-reply: Keep | Delete all:danger]`
 Three-tier architecture: **Angular 21 SPA → Express reverse-proxy → Flask API → Cloud SQL (PostgreSQL)**.
 
 Users can:
-- Generate vegan recipes from a natural-language prompt (Gemini `gemini-2.5-flash`)
+- Generate vegan recipes from a natural-language prompt (Gemini `gemini-3.1-pro-preview`)
 - Have AI-generated food photos created for each recipe (Imagen `imagen-4.0-generate-001`)
-- Save recipes, organise them into named cookbooks, and scale ingredient portions
+- Save recipes, organize them into named cookbooks, and scale ingredient portions
 - Enter recipes manually and import/export recipes as JSON
 - Sign in via Google OAuth (or use the app as a guest, with data stored in `localStorage`)
 
@@ -296,10 +296,10 @@ npm start
 
 ## Available Utility Scripts
 
-| Script | Location | Description |
-|---|---|---|
-| `list_revisions.sh` | `scripts/` | List recent Cloud Run revisions. Flags: `-n` (count), `-s`/`-S` (services), `-p` (project), `-r` (region), `-h` (help). |
-
+| Script              | Location   | Description                                                                                                                                                       |
+|---------------------|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `list_revisions.sh` | `scripts/` | List recent Cloud Run revisions. Flags: `-n` (count), `-s`/`-S` (services), `-p` (project), `-r` (region), `-h` (help).                                           |
+| `git-workflow.sh`   | `scripts/` | A comprehensive git workflow automation script for managing commits and pushes across both the Backend submodule and main repository. **See `scripts/README.md`** |
 ---
 
 ## Common Errors & Workarounds
