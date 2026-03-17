@@ -83,3 +83,10 @@ override.tf.json
 /.copilot/copilot-instructions.md
 /.github/agents/ide-explore.md
 /uv.lock
+/#git-workflow.sh#
+
+# temp files
+#*#
+.#*
+
+
