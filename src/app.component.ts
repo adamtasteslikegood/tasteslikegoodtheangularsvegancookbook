@@ -70,6 +70,10 @@ export class AppComponent {
     // Add to Cookbook UI State
     showAddToCookbookModal = signal<boolean>(false);
     recipeToAdd = signal<Recipe | null>(null);
+    /** Tracks which cookbook IDs the recipe should belong to (pending, uncommitted). */
+    pendingCookbookIds = signal<Set<string>>(new Set());
+    showRemoveConfirmation = signal<boolean>(false);
+    cookbooksBeingRemoved = signal<string[]>([]);
 
     // Auth UI State
     showAuthModal = signal<boolean>(false);
@@ -161,7 +165,12 @@ export class AppComponent {
     }
 
     // Kitchen Methods
+    // Track whether "New Cookbook" was launched from "Add to Cookbook" flow
+    private _creatingFromAddFlow = false;
+
     openCreateCookbookModal() {
+        // If the Add to Cookbook modal is open, remember we came from there
+        this._creatingFromAddFlow = this.showAddToCookbookModal();
         this.newCookbookName.set('');
         this.newCookbookDesc.set('');
         this.showCreateCookbookModal.set(true);
@@ -169,12 +178,19 @@ export class AppComponent {
 
     closeCreateCookbookModal() {
         this.showCreateCookbookModal.set(false);
+        this._creatingFromAddFlow = false;
     }
 
     async createCookbook() {
         if (!this.newCookbookName().trim()) return;
         await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
-        this.closeCreateCookbookModal();
+        this.showCreateCookbookModal.set(false);
+
+        // If we came from the "Add to Cookbook" flow, return there
+        if (this._creatingFromAddFlow) {
+            this._creatingFromAddFlow = false;
+            // Add to Cookbook modal is still open underneath — no action needed
+        }
     }
 
     async deleteCookbook(id: string, event: Event) {
@@ -505,23 +521,104 @@ export class AppComponent {
         const r = recipe || this.recipe();
         if (!r) return;
         this.recipeToAdd.set(r);
+
+        // Initialize pending state from current cookbook membership
+        const user = this.authService.currentUser();
+        const currentIds = new Set<string>();
+        if (user) {
+            for (const cb of user.cookbooks) {
+                if (cb.recipeIds.includes(r.id)) {
+                    currentIds.add(cb.id);
+                }
+            }
+        }
+        this.pendingCookbookIds.set(currentIds);
         this.showAddToCookbookModal.set(true);
     }
 
     closeAddToCookbookModal() {
         this.showAddToCookbookModal.set(false);
         this.recipeToAdd.set(null);
+        this.pendingCookbookIds.set(new Set());
+        this.showRemoveConfirmation.set(false);
+        this.cookbooksBeingRemoved.set([]);
     }
 
-    async addToCookbook(cookbookId: string) {
+    /** Toggle a cookbook in the pending selection. */
+    toggleCookbookSelection(cookbookId: string) {
+        this.pendingCookbookIds.update(ids => {
+            const next = new Set(ids);
+            if (next.has(cookbookId)) {
+                next.delete(cookbookId);
+            } else {
+                next.add(cookbookId);
+            }
+            return next;
+        });
+    }
+
+    /** Check if a cookbook is in the pending selection. */
+    isCookbookSelected(cookbookId: string): boolean {
+        return this.pendingCookbookIds().has(cookbookId);
+    }
+
+    /** Confirm cookbook changes — shows removal confirmation if needed. */
+    confirmCookbookChanges() {
         const r = this.recipeToAdd();
         if (!r) return;
-        await this.persistenceService.addRecipeToCookbook(cookbookId, r);
+        const user = this.authService.currentUser();
+        if (!user) return;
+
+        // Find cookbooks being removed
+        const removals: string[] = [];
+        for (const cb of user.cookbooks) {
+            const wasIn = cb.recipeIds.includes(r.id);
+            const stillIn = this.pendingCookbookIds().has(cb.id);
+            if (wasIn && !stillIn) {
+                removals.push(cb.name);
+            }
+        }
+
+        if (removals.length > 0) {
+            this.cookbooksBeingRemoved.set(removals);
+            this.showRemoveConfirmation.set(true);
+        } else {
+            this.applyCookbookChanges();
+        }
+    }
+
+    /** Apply all pending cookbook adds/removes. */
+    async applyCookbookChanges() {
+        const r = this.recipeToAdd();
+        if (!r) return;
+        const user = this.authService.currentUser();
+        if (!user) return;
+
+        const pending = this.pendingCookbookIds();
+
+        for (const cb of user.cookbooks) {
+            const wasIn = cb.recipeIds.includes(r.id);
+            const shouldBeIn = pending.has(cb.id);
+
+            if (!wasIn && shouldBeIn) {
+                await this.persistenceService.addRecipeToCookbook(cb.id, r);
+            } else if (wasIn && !shouldBeIn) {
+                await this.persistenceService.removeRecipeFromCookbook(cb.id, r.id);
+            }
+        }
+
         // If we are currently viewing the generated recipe, mark as saved
         if (this.recipe()?.id === r.id) {
             this.isSaved.set(true);
         }
+
         this.closeAddToCookbookModal();
+    }
+
+    /** Cancel the removal confirmation and go back to the selection. */
+    cancelRemoveConfirmation() {
+        this.showRemoveConfirmation.set(false);
+        this.cookbooksBeingRemoved.set([]);
     }
 
     // Kitchen actions
