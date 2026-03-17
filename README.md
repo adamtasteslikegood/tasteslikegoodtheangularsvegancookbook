@@ -106,6 +106,9 @@ npm run lint         # Check code quality
 npm run format       # Format code with Prettier
 npm run test         # Run tests
 npm run build        # Build project
+
+export $(grep -v '^#' .env | xargs)  # Set environment variables from .env
+npm run dev          # Run both servers
 ```
 
 **See:** [`CI_QUICK_REFERENCE.md`](CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_SETUP.md`](docs/CI_SETUP.md) for detailed setup.
