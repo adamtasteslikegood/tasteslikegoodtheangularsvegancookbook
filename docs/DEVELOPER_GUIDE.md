@@ -326,6 +326,14 @@ app.use(cors({
   credentials: true,
 }));
 ```
+✅ **Use environment variables for secrets:**
+```bash
+# from .env file
+export $(grep -v '^#' .env | xargs)
+
+# from command line
+export API_KEY=your-secret-key
+```
 
 ✅ **Skip rate limiting for health checks:**
 Already done! Check `server/security.ts` - health endpoint is excluded.

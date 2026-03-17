@@ -312,14 +312,36 @@ export class AppComponent {
                 if (typeof result !== 'string') return;
                 const json = JSON.parse(result);
                 const recipes = Array.isArray(json) ? json : [json];
-                const count = this.authService.importRecipes(recipes, this.activeCookbookId());
+
+                // Strip any inline base64 image data before importing
+                // (images are served via /api/recipes/<id>/image, not inline)
+                const cleanedRecipes: Recipe[] = recipes.map((r: Record<string, unknown>) => {
+                    const cleaned = {...r};
+                    delete cleaned['ai_image_data'];
+                    return cleaned as unknown as Recipe;
+                });
+
+                const count = this.authService.importRecipes(cleanedRecipes, this.activeCookbookId());
                 // Sync imported recipes to Flask backend
-                for (const r of recipes) {
+                const recipesNeedingImages: Recipe[] = [];
+                for (const r of cleanedRecipes) {
                     if (r.name && r.ingredients && r.instructions) {
                         await this.persistenceService.saveRecipe(r);
+                        if (!r.ai_image_url || r.ai_image_url.startsWith('data:')) {
+                            recipesNeedingImages.push(r);
+                        }
                     }
                 }
-                alert(`Successfully imported ${count} recipes!`);
+
+                if (recipesNeedingImages.length > 0) {
+                    alert(
+                        `Imported ${count} recipes! Generating images for ${recipesNeedingImages.length} recipe(s)...`
+                    );
+                    // Generate images in the background (non-blocking)
+                    this.generateMissingImages(recipesNeedingImages);
+                } else {
+                    alert(`Successfully imported ${count} recipes!`);
+                }
             } catch (err) {
                 console.error(err);
                 alert('Failed to parse recipe file. Please ensure it is valid JSON.');
@@ -327,6 +349,29 @@ export class AppComponent {
         };
         reader.readAsText(file);
         input.value = '';
+    }
+
+    /**
+     * Generate AI images for recipes that are missing them.
+     * Runs in the background — does not block the UI.
+     */
+    private async generateMissingImages(recipes: Recipe[]) {
+        let generated = 0;
+        for (const recipe of recipes) {
+            try {
+                const imageUrl = await this.geminiService.generateImage(recipe.id);
+                if (imageUrl) {
+                    recipe.ai_image_url = imageUrl;
+                    this.authService.saveRecipe(recipe);
+                    generated++;
+                }
+            } catch (err) {
+                console.warn(`[Import] Failed to generate image for "${recipe.name}":`, err);
+            }
+        }
+        if (generated > 0) {
+            console.log(`[Import] Generated ${generated}/${recipes.length} images`);
+        }
     }
 
     // Auth Methods
