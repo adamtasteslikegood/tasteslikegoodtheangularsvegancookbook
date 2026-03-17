@@ -75,6 +75,15 @@ export class AppComponent {
     showRemoveConfirmation = signal<boolean>(false);
     cookbooksBeingRemoved = signal<string[]>([]);
 
+    // Delete / Recycle Bin State
+    showDeleteConfirmation = signal<boolean>(false);
+    recipeToDelete = signal<Recipe | null>(null);
+    showRecycleBin = signal<boolean>(false);
+    showEmptyBinConfirmation = signal<boolean>(false);
+
+    recycleBinRecipes = computed(() => this.authService.currentUser()?.deletedRecipes || []);
+    recycleBinCount = computed(() => this.recycleBinRecipes().length);
+
     // Auth UI State
     showAuthModal = signal<boolean>(false);
     authError = signal<string | null>(null);
@@ -162,6 +171,7 @@ export class AppComponent {
 
     selectCookbook(id: string | null) {
         this.activeCookbookId.set(id);
+        this.showRecycleBin.set(false);
     }
 
     // Kitchen Methods
@@ -627,7 +637,68 @@ export class AppComponent {
         this.generatedImageUrl.set(r.ai_image_url || null);
         this.isSaved.set(true);
         this.activeView.set('generator');
-        this.isEditingNotes.set(false); // Reset edit state when switching recipes
+        this.isEditingNotes.set(false);
+    }
+
+    // ─── Delete / Recycle Bin ────────────────────────────────────
+
+    /** Open delete confirmation for a recipe from the kitchen card. */
+    promptDeleteRecipe(recipe: Recipe, event: Event) {
+        event.stopPropagation();
+        this.recipeToDelete.set(recipe);
+        this.showDeleteConfirmation.set(true);
+    }
+
+    /** Confirm soft-delete: move recipe to Recycle Bin. */
+    async confirmDeleteRecipe() {
+        const r = this.recipeToDelete();
+        if (!r) return;
+        await this.persistenceService.deleteRecipe(r.id);
+
+        // If this recipe was being viewed, clear it
+        if (this.recipe()?.id === r.id) {
+            this.recipe.set(null);
+            this.generatedImageUrl.set(null);
+        }
+
+        this.showDeleteConfirmation.set(false);
+        this.recipeToDelete.set(null);
+    }
+
+    cancelDeleteRecipe() {
+        this.showDeleteConfirmation.set(false);
+        this.recipeToDelete.set(null);
+    }
+
+    /** Restore a recipe from the Recycle Bin. */
+    async restoreRecipe(recipeId: string) {
+        await this.persistenceService.restoreRecipe(recipeId);
+    }
+
+    /** Permanently delete a single recipe from the Recycle Bin. */
+    async permanentlyDeleteRecipe(recipeId: string) {
+        await this.persistenceService.permanentlyDeleteRecipe(recipeId);
+    }
+
+    /** Show empty-bin confirmation. */
+    promptEmptyRecycleBin() {
+        this.showEmptyBinConfirmation.set(true);
+    }
+
+    /** Confirm: permanently delete all recipes in the bin. */
+    async confirmEmptyRecycleBin() {
+        await this.persistenceService.emptyRecycleBin();
+        this.showEmptyBinConfirmation.set(false);
+    }
+
+    cancelEmptyRecycleBin() {
+        this.showEmptyBinConfirmation.set(false);
+    }
+
+    /** Toggle Recycle Bin view in the kitchen sidebar. */
+    toggleRecycleBin() {
+        this.showRecycleBin.update((v) => !v);
+        this.activeCookbookId.set(null);
     }
 
     updatePortions(multiplier: number) {

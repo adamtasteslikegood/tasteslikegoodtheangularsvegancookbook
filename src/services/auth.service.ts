@@ -213,6 +213,13 @@ export class AuthService {
     deleteRecipe(recipeId: string) {
         const user = this.currentUser();
         if (!user) return;
+
+        const recipe = user.savedRecipes.find((r) => r.id === recipeId);
+        const deletedRecipes = [...(user.deletedRecipes || [])];
+        if (recipe) {
+            deletedRecipes.push({ recipe, deletedAt: new Date().toISOString() });
+        }
+
         this.updateUserRecord({
             ...user,
             savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
@@ -220,6 +227,39 @@ export class AuthService {
                 ...cb,
                 recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
             })),
+            deletedRecipes,
+        });
+    }
+
+    restoreRecipe(recipeId: string) {
+        const user = this.currentUser();
+        if (!user) return;
+
+        const entry = (user.deletedRecipes || []).find((d) => d.recipe.id === recipeId);
+        if (!entry) return;
+
+        this.updateUserRecord({
+            ...user,
+            savedRecipes: [...user.savedRecipes, entry.recipe],
+            deletedRecipes: (user.deletedRecipes || []).filter((d) => d.recipe.id !== recipeId),
+        });
+    }
+
+    permanentlyDeleteRecipe(recipeId: string) {
+        const user = this.currentUser();
+        if (!user) return;
+        this.updateUserRecord({
+            ...user,
+            deletedRecipes: (user.deletedRecipes || []).filter((d) => d.recipe.id !== recipeId),
+        });
+    }
+
+    emptyRecycleBin() {
+        const user = this.currentUser();
+        if (!user) return;
+        this.updateUserRecord({
+            ...user,
+            deletedRecipes: [],
         });
     }
 
@@ -370,6 +410,7 @@ export class AuthService {
                 image: r.image?.startsWith('data:') ? undefined : r.image,
             })),
             cookbooks: user.cookbooks || [],
+            deletedRecipes: user.deletedRecipes || [],
         };
         try {
             localStorage.setItem(this.STORAGE_KEY_SESSION, JSON.stringify(safeUser));
@@ -387,6 +428,7 @@ export class AuthService {
                 const user = JSON.parse(session) as User;
                 if (!user.savedRecipes) user.savedRecipes = [];
                 if (!user.cookbooks) user.cookbooks = [];
+                if (!user.deletedRecipes) user.deletedRecipes = [];
                 this.currentUser.set(user);
             } catch (e) {
                 console.error('Failed to parse local session', e);
@@ -402,6 +444,7 @@ export class AuthService {
             const user = JSON.parse(session) as User;
             if (!user.savedRecipes) user.savedRecipes = [];
             if (!user.cookbooks) user.cookbooks = [];
+            if (!user.deletedRecipes) user.deletedRecipes = [];
             return user;
         } catch {
             return null;

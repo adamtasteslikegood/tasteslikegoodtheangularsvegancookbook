@@ -694,10 +694,98 @@
             </div>
           }
         </nav>
+
+        <!-- Recycle Bin Sidebar Entry -->
+        @if (recycleBinCount() > 0) {
+          <div class="mt-4 pt-4 border-t border-stone-200">
+            <button
+              (click)="toggleRecycleBin()"
+              class="w-full flex items-center justify-between px-4 py-3 rounded-lg transition-colors text-left font-medium"
+              [class.bg-red-50]="showRecycleBin()"
+              [class.text-red-700]="showRecycleBin()"
+              [class.text-stone-500]="!showRecycleBin()"
+              [class.hover:bg-stone-50]="!showRecycleBin()"
+            >
+              <span class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                Recycle Bin
+              </span>
+              <span class="bg-red-100 text-red-600 text-xs px-2 py-0.5 rounded-full">
+                {{ recycleBinCount() }}
+              </span>
+            </button>
+          </div>
+        }
       </aside>
 
       <!-- Main Content -->
       <main class="md:col-span-3">
+        @if (showRecycleBin()) {
+          <!-- Recycle Bin View -->
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-red-700 serif flex items-center gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                Recycle Bin
+              </h2>
+              <p class="text-stone-500 mt-1">Deleted recipes can be restored or permanently removed.</p>
+            </div>
+            @if (recycleBinCount() > 0) {
+              <button
+                (click)="promptEmptyRecycleBin()"
+                class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium"
+              >
+                Empty Recycle Bin
+              </button>
+            }
+          </div>
+
+          @if (recycleBinRecipes().length === 0) {
+            <div class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed">
+              <p class="text-stone-400">Recycle Bin is empty.</p>
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              @for (d of recycleBinRecipes(); track d.recipe.id) {
+                <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                  <div class="h-32 bg-stone-200 relative overflow-hidden">
+                    @if (d.recipe.ai_image_url) {
+                      <img [src]="d.recipe.ai_image_url" class="w-full h-full object-cover grayscale" alt="{{ d.recipe.name }}" />
+                    } @else {
+                      <div class="w-full h-full flex items-center justify-center text-stone-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    }
+                  </div>
+                  <div class="p-4">
+                    <h3 class="font-bold text-stone-800 text-lg mb-1 line-clamp-2">{{ d.recipe.name }}</h3>
+                    <p class="text-xs text-stone-400 mb-3">Deleted {{ d.deletedAt | date: 'medium' }}</p>
+                    <div class="flex gap-2">
+                      <button
+                        (click)="restoreRecipe(d.recipe.id)"
+                        class="flex-1 py-2 bg-green-100 text-green-700 font-bold rounded-lg hover:bg-green-200 text-sm"
+                      >
+                        Restore
+                      </button>
+                      <button
+                        (click)="permanentlyDeleteRecipe(d.recipe.id)"
+                        class="flex-1 py-2 bg-red-100 text-red-600 font-bold rounded-lg hover:bg-red-200 text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        } @else {
         <!-- Main Kitchen Header with Import/Export -->
         <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
@@ -842,6 +930,15 @@
                         />
                       </svg>
                     </button>
+                    <button
+                      (click)="promptDeleteRecipe(r, $event)"
+                      class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-red-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Delete Recipe"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
                 <div class="p-4">
@@ -888,6 +985,7 @@
               </div>
             }
           </div>
+        }
         }
       </main>
     </div>
@@ -1449,6 +1547,74 @@
               Confirm
             </button>
           }
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Delete Recipe Confirmation Modal -->
+  @if (showDeleteConfirmation()) {
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="cancelDeleteRecipe()"></div>
+      <div class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]">
+        <div class="text-center mb-4">
+          <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-stone-800 serif">Delete Recipe?</h3>
+          <p class="text-stone-500 mt-2 text-sm">
+            <strong>{{ recipeToDelete()?.name }}</strong> will be moved to the Recycle Bin.
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <button
+            (click)="cancelDeleteRecipe()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+          >
+            Cancel
+          </button>
+          <button
+            (click)="confirmDeleteRecipe()"
+            class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Empty Recycle Bin Confirmation Modal -->
+  @if (showEmptyBinConfirmation()) {
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="cancelEmptyRecycleBin()"></div>
+      <div class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]">
+        <div class="text-center mb-4">
+          <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <h3 class="text-xl font-bold text-stone-800 serif">Empty Recycle Bin?</h3>
+          <p class="text-stone-500 mt-2 text-sm">
+            This will permanently delete <strong>{{ recycleBinCount() }}</strong> recipe(s). This cannot be undone.
+          </p>
+        </div>
+        <div class="flex gap-3">
+          <button
+            (click)="cancelEmptyRecycleBin()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+          >
+            Cancel
+          </button>
+          <button
+            (click)="confirmEmptyRecycleBin()"
+            class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20"
+          >
+            Permanently Delete
+          </button>
         </div>
       </div>
     </div>
