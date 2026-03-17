@@ -1025,9 +1025,9 @@
     </div>
   }
 
-  <!-- Create Cookbook Modal -->
+  <!-- Create Cookbook Modal (z-[60] to layer above Add to Cookbook) -->
   @if (showCreateCookbookModal()) {
-    <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <div
         class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
         (click)="closeCreateCookbookModal()"
@@ -1384,13 +1384,17 @@
 
           @for (cb of authService.currentUser()?.cookbooks; track cb.id) {
             <button
-              (click)="addToCookbook(cb.id)"
-              class="w-full text-left px-4 py-3 rounded-xl bg-stone-50 hover:bg-green-50 hover:text-green-800 transition-colors flex justify-between items-center group"
+              (click)="toggleCookbookSelection(cb.id)"
+              class="w-full text-left px-4 py-3 rounded-xl transition-colors flex justify-between items-center group"
+              [class.bg-green-50]="isCookbookSelected(cb.id)"
+              [class.bg-stone-50]="!isCookbookSelected(cb.id)"
+              [class.ring-2]="isCookbookSelected(cb.id)"
+              [class.ring-green-500]="isCookbookSelected(cb.id)"
             >
-              <span class="font-medium text-stone-700 group-hover:text-green-800">{{
+              <span class="font-medium" [class.text-green-800]="isCookbookSelected(cb.id)" [class.text-stone-700]="!isCookbookSelected(cb.id)">{{
                 cb.name
               }}</span>
-              @if (cb.recipeIds.includes(recipeToAdd()?.id || '')) {
+              @if (isCookbookSelected(cb.id)) {
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   class="h-5 w-5 text-green-600"
@@ -1408,12 +1412,44 @@
           }
         </div>
 
-        <button
-          (click)="closeAddToCookbookModal()"
-          class="w-full py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
-        >
-          Cancel
-        </button>
+        <!-- Removal Confirmation Inline -->
+        @if (showRemoveConfirmation()) {
+          <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
+            <p class="font-bold text-amber-800 mb-1">Remove from cookbooks?</p>
+            <p class="text-amber-700">This recipe will be removed from: <strong>{{ cookbooksBeingRemoved().join(', ') }}</strong></p>
+            <div class="flex gap-2 mt-3">
+              <button
+                (click)="cancelRemoveConfirmation()"
+                class="flex-1 py-2 bg-stone-100 text-stone-600 font-bold rounded-lg hover:bg-stone-200 text-xs"
+              >
+                Go Back
+              </button>
+              <button
+                (click)="applyCookbookChanges()"
+                class="flex-1 py-2 bg-amber-600 text-white font-bold rounded-lg hover:bg-amber-700 text-xs"
+              >
+                Yes, Remove
+              </button>
+            </div>
+          </div>
+        }
+
+        <div class="flex gap-3">
+          <button
+            (click)="closeAddToCookbookModal()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+          >
+            Cancel
+          </button>
+          @if (!showRemoveConfirmation()) {
+            <button
+              (click)="confirmCookbookChanges()"
+              class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20"
+            >
+              Confirm
+            </button>
+          }
+        </div>
       </div>
     </div>
   }
