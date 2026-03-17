@@ -26,6 +26,7 @@
     "@angular/core": "^21.1.0",
     "@angular/forms": "^21.1.4",
     "@angular/platform-browser": "^21.1.0",
+    "@google-cloud/secret-manager": "^6.1.1",
     "@google/genai": "^1.41.0",
     "autoprefixer": "^10.4.24",
     "express": "^4.21.2",
