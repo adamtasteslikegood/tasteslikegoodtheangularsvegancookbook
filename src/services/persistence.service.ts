@@ -58,9 +58,39 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return;
 
+    // Soft-delete: move to recycle bin in localStorage
     this.auth.deleteRecipe(recipeId);
 
+    // Backend hard-deletes (no recycle bin server-side yet)
     await this._fetch(`/api/recipes/${recipeId}`, { method: 'DELETE' });
+  }
+
+  async restoreRecipe(recipeId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    const entry = (user.deletedRecipes || []).find((d) => d.recipe.id === recipeId);
+    if (!entry) return;
+
+    // Restore locally
+    this.auth.restoreRecipe(recipeId);
+
+    // Re-save to backend
+    await this._apiSaveRecipe(entry.recipe);
+  }
+
+  async permanentlyDeleteRecipe(recipeId: string): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+
+    this.auth.permanentlyDeleteRecipe(recipeId);
+    // Already deleted from backend during soft-delete
+  }
+
+  async emptyRecycleBin(): Promise<void> {
+    const user = this.auth.currentUser();
+    if (!user) return;
+    this.auth.emptyRecycleBin();
   }
 
   async createCookbook(name: string, description = ''): Promise<void> {
