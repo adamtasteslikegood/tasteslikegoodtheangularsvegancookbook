@@ -473,35 +473,48 @@ export class AppComponent {
     }
 
     async triggerImageGeneration(recipe: Recipe) {
+        const targetId = recipe.id; // Capture ID to guard against race conditions
         this.isImageLoading.set(true);
         try {
-            const imageUrl = await this.geminiService.generateImage(recipe.id);
-            this.generatedImageUrl.set(imageUrl);
-            this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
+            const imageUrl = await this.geminiService.generateImage(targetId);
 
-            // If recipe is already saved, update local state too
-            if (this.isSaved()) {
-                await this.persistenceService.saveRecipe(this.recipe()!);
+            // Only update UI if this recipe is still the active one
+            if (this.recipe()?.id === targetId) {
+                this.generatedImageUrl.set(imageUrl);
+                this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
             }
+
+            // Always persist the image URL back to the correct recipe via its own save
+            const updatedRecipe = {...recipe, ai_image_url: imageUrl};
+            await this.persistenceService.saveRecipe(updatedRecipe);
         } catch (err) {
             console.error('Image generation failed', err);
         } finally {
-            this.isImageLoading.set(false);
+            if (this.recipe()?.id === targetId) {
+                this.isImageLoading.set(false);
+            }
         }
     }
 
     async regenerateImage() {
         const currentRecipe = this.recipe();
         if (!currentRecipe) return;
+        const targetId = currentRecipe.id;
         this.isImageLoading.set(true);
         try {
-            const imageUrl = await this.geminiService.generateImage(currentRecipe.id, true);
-            this.generatedImageUrl.set(imageUrl);
-            this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
+            const imageUrl = await this.geminiService.generateImage(targetId, true);
+            if (this.recipe()?.id === targetId) {
+                this.generatedImageUrl.set(imageUrl);
+                this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
+            }
+            const updatedRecipe = {...currentRecipe, ai_image_url: imageUrl};
+            await this.persistenceService.saveRecipe(updatedRecipe);
         } catch (err) {
             console.error('Image regeneration failed', err);
         } finally {
-            this.isImageLoading.set(false);
+            if (this.recipe()?.id === targetId) {
+                this.isImageLoading.set(false);
+            }
         }
     }
 
