@@ -108,7 +108,7 @@
                   }
                   <div class="min-w-0">
                     <p class="font-bold text-stone-800 truncate">{{ authService.currentUser()?.name }}</p>
-                    <p class="text-xs text-stone-500 truncate">{{ authService.currentUser()?.email }}</p>
+                    <p class="text-xs text-stone-500 truncate">{{ maskedEmail() }}</p>
                   </div>
                 </div>
               </div>
