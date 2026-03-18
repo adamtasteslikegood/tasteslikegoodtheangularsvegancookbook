@@ -484,9 +484,10 @@ export class AppComponent {
                 this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
             }
 
-            // Always persist the image URL back to the correct recipe via its own save
-            const updatedRecipe = {...recipe, ai_image_url: imageUrl};
-            await this.persistenceService.saveRecipe(updatedRecipe);
+            // Update localStorage only — backend already saved the image data.
+            // Calling persistenceService.saveRecipe() would overwrite the DB
+            // recipe with a version missing ai_image_data (stripped from API responses).
+            this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
         } catch (err) {
             console.error('Image generation failed', err);
         } finally {
@@ -507,8 +508,9 @@ export class AppComponent {
                 this.generatedImageUrl.set(imageUrl);
                 this.recipe.update((r) => (r ? {...r, ai_image_url: imageUrl} : null));
             }
-            const updatedRecipe = {...currentRecipe, ai_image_url: imageUrl};
-            await this.persistenceService.saveRecipe(updatedRecipe);
+
+            // localStorage only — backend already saved the image data
+            this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
         } catch (err) {
             console.error('Image regeneration failed', err);
         } finally {
