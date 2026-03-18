@@ -18,7 +18,7 @@
     "@angular/core": "^21.2.4",
     "@angular/forms": "^21.2.4",
     "@angular/platform-browser": "^21.2.4",
-    "@google/genai": "^1.41.0",
+    "@google/genai": "^1.46.0",
     "autoprefixer": "^10.4.24",
     "express": "^4.21.2",
     "express-rate-limit": "^7.1.5",
