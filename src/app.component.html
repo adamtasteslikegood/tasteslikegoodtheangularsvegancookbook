@@ -60,42 +60,85 @@
 
       <!-- Auth State -->
       @if (authService.currentUser() && !authService.currentUser()?.isGuest) {
-        <div
-          class="flex items-center gap-2 md:gap-4 bg-white px-4 py-2 rounded-full shadow-sm border border-stone-100"
-        >
-          @if (authService.currentUser()?.picture) {
-            <img
-              [src]="authService.currentUser()?.picture"
-              alt="Profile"
-              class="h-8 w-8 rounded-full object-cover border border-stone-200"
-            />
-          }
-          <div class="text-right hidden sm:block">
-            <p class="text-xs text-stone-400 font-bold uppercase tracking-wider">Welcome</p>
-            <p class="text-stone-800 font-bold truncate max-w-[100px]">
-              {{ authService.currentUser()?.name }}
-            </p>
-          </div>
+        <div class="relative">
           <button
-            (click)="onLogout()"
-            class="p-2 text-stone-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-            title="Log Out"
+            (click)="toggleUserProfileCard()"
+            class="flex items-center gap-2 bg-white px-3 py-2 rounded-full shadow-sm border border-stone-100 hover:border-green-300 transition-colors"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              class="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            @if (authService.currentUser()?.picture) {
+              <img
+                [src]="authService.currentUser()?.picture"
+                alt="Profile"
+                class="h-8 w-8 rounded-full object-cover border border-stone-200"
               />
+            } @else {
+              <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
+                {{ authService.currentUser()?.name?.charAt(0) || '?' }}
+              </div>
+            }
+            <span class="text-stone-800 font-bold text-sm truncate max-w-[80px] hidden sm:inline">
+              {{ authService.currentUser()?.name }}
+            </span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
             </svg>
           </button>
+
+          <!-- Profile Dropdown Card -->
+          @if (showUserProfileCard()) {
+            <div
+              class="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-stone-200 z-50 animate-[fadeIn_0.2s_ease-out] overflow-hidden"
+            >
+              <!-- Backdrop to close -->
+              <div class="fixed inset-0 z-[-1]" (click)="closeUserProfileCard()"></div>
+
+              <!-- Profile Header -->
+              <div class="bg-gradient-to-br from-green-50 to-emerald-50 px-5 py-4">
+                <div class="flex items-center gap-3">
+                  @if (authService.currentUser()?.picture) {
+                    <img
+                      [src]="authService.currentUser()?.picture"
+                      alt="Profile"
+                      class="h-14 w-14 rounded-full object-cover border-2 border-white shadow-sm"
+                    />
+                  } @else {
+                    <div class="h-14 w-14 rounded-full bg-green-200 flex items-center justify-center text-green-800 font-bold text-xl border-2 border-white shadow-sm">
+                      {{ authService.currentUser()?.name?.charAt(0) || '?' }}
+                    </div>
+                  }
+                  <div class="min-w-0">
+                    <p class="font-bold text-stone-800 truncate">{{ authService.currentUser()?.name }}</p>
+                    <p class="text-xs text-stone-500 truncate">{{ authService.currentUser()?.email }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Stats -->
+              <div class="px-5 py-3 border-b border-stone-100">
+                <div class="flex justify-between text-sm">
+                  <span class="text-stone-500">Saved Recipes</span>
+                  <span class="font-bold text-stone-700">{{ authService.currentUser()?.savedRecipes?.length || 0 }}</span>
+                </div>
+                <div class="flex justify-between text-sm mt-1">
+                  <span class="text-stone-500">Cookbooks</span>
+                  <span class="font-bold text-stone-700">{{ authService.currentUser()?.cookbooks?.length || 0 }}</span>
+                </div>
+              </div>
+
+              <!-- Logout -->
+              <div class="px-3 py-2">
+                <button
+                  (click)="onLogout()"
+                  class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Log Out
+                </button>
+              </div>
+            </div>
+          }
         </div>
       } @else if (!authService.authLoading()) {
         <button

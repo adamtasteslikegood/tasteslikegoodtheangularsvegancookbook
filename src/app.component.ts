@@ -88,6 +88,7 @@ export class AppComponent {
     showAuthModal = signal<boolean>(false);
     authError = signal<string | null>(null);
     authLoginLoading = signal<boolean>(false);
+    showUserProfileCard = signal<boolean>(false);
 
     // Recipe Gen State
     prompt = signal<string>('');
@@ -424,7 +425,16 @@ export class AppComponent {
         }
     }
 
+    toggleUserProfileCard() {
+        this.showUserProfileCard.update((v) => !v);
+    }
+
+    closeUserProfileCard() {
+        this.showUserProfileCard.set(false);
+    }
+
     async onLogout() {
+        this.showUserProfileCard.set(false);
         await this.authService.logout();
         this.recipe.set(null);
         this.generatedImageUrl.set(null);
