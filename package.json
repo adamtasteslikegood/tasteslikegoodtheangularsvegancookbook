@@ -10,7 +10,7 @@
     "start": "node server/dist/index.js"
   },
   "dependencies": {
-    "@angular/build": "^21.1.4",
+    "@angular/build": "^21.2.3",
     "@angular/cli": "^21.1.4",
     "@angular/common": "^21.2.4",
     "@angular/compiler": "^21.2.4",
