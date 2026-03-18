@@ -21,6 +21,15 @@ export class AppComponent {
     // Navigation
     activeView = signal<'generator' | 'kitchen'>('generator');
 
+    constructor() {
+        // Browser back button: return to generator (home) view
+        window.addEventListener('popstate', () => {
+            if (this.activeView() === 'kitchen') {
+                this.activeView.set('generator');
+            }
+        });
+    }
+
     // Kitchen State
     activeCookbookId = signal<string | null>(null); // null means "All Recipes"
     showCreateCookbookModal = signal<boolean>(false);
@@ -167,6 +176,8 @@ export class AppComponent {
         this.activeView.set(view);
         if (view === 'kitchen') {
             this.authService.ensureGuestSession();
+            // Push history state so browser back returns to generator
+            window.history.pushState({view: 'kitchen'}, '', window.location.href);
         }
     }
 
@@ -195,13 +206,24 @@ export class AppComponent {
     async createCookbook() {
         if (!this.newCookbookName().trim()) return;
         await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
-        this.showCreateCookbookModal.set(false);
 
-        // If we came from the "Add to Cookbook" flow, return there
+        // Auto-select the new cookbook if creating from the "Add to Cookbook" flow
         if (this._creatingFromAddFlow) {
+            const user = this.authService.currentUser();
+            if (user) {
+                const newest = user.cookbooks[user.cookbooks.length - 1];
+                if (newest) {
+                    this.pendingCookbookIds.update(ids => {
+                        const next = new Set(ids);
+                        next.add(newest.id);
+                        return next;
+                    });
+                }
+            }
             this._creatingFromAddFlow = false;
-            // Add to Cookbook modal is still open underneath — no action needed
         }
+
+        this.showCreateCookbookModal.set(false);
     }
 
     async deleteCookbook(id: string, event: Event) {
@@ -431,6 +453,15 @@ export class AppComponent {
 
     closeUserProfileCard() {
         this.showUserProfileCard.set(false);
+    }
+
+    /** Mask email for display: "adam@gmail.com" → "ad***@gmail.com" */
+    maskedEmail(): string {
+        const email = this.authService.currentUser()?.email;
+        if (!email) return '';
+        const [local, domain] = email.split('@');
+        if (!domain || local.length <= 2) return email;
+        return local.slice(0, 2) + '***@' + domain;
     }
 
     async onLogout() {
