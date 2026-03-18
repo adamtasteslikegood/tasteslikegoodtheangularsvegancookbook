@@ -210,6 +210,23 @@ export class AuthService {
         this.updateUserRecord(updatedUser);
     }
 
+    /**
+     * Update a single field on a saved recipe in localStorage only.
+     * Used after image generation to set ai_image_url without
+     * overwriting the full recipe via the API (which would lose ai_image_data).
+     */
+    updateRecipeField(recipeId: string, field: keyof Recipe, value: unknown) {
+        const user = this.currentUser();
+        if (!user) return;
+
+        const idx = user.savedRecipes.findIndex((r) => r.id === recipeId);
+        if (idx === -1) return;
+
+        const updatedRecipes = [...user.savedRecipes];
+        updatedRecipes[idx] = {...updatedRecipes[idx], [field]: value};
+        this.updateUserRecord({...user, savedRecipes: updatedRecipes});
+    }
+
     deleteRecipe(recipeId: string) {
         const user = this.currentUser();
         if (!user) return;
@@ -217,7 +234,7 @@ export class AuthService {
         const recipe = user.savedRecipes.find((r) => r.id === recipeId);
         const deletedRecipes = [...(user.deletedRecipes || [])];
         if (recipe) {
-            deletedRecipes.push({ recipe, deletedAt: new Date().toISOString() });
+            deletedRecipes.push({recipe, deletedAt: new Date().toISOString()});
         }
 
         this.updateUserRecord({
