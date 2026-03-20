@@ -54,11 +54,9 @@ steps:
       - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam
       - --allow-unauthenticated
       - --quiet
-      # VPC networking for Memorystore access (try Direct VPC Egress first;
-      # if Memorystore requires a connector, replace with --vpc-connector=vegangenius-connector)
-      # - --network=default
-      # - --subnet=default
-      # - --vpc-egress=private-ranges-only
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
 
   # 5. Deploy Express Frontend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
