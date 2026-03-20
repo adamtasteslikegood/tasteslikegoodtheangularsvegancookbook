@@ -52,6 +52,14 @@ export const applySecurityMiddleware = (app: Express) => {
       contentSecurityPolicy: false,
     })
   );
+
+  // X-Robots-Tag: signal to crawlers that HTML pages are indexable
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.accepts('html') && !req.path.startsWith('/api/')) {
+      res.setHeader('X-Robots-Tag', 'index, follow');
+    }
+    next();
+  });
 };
 
 /**
