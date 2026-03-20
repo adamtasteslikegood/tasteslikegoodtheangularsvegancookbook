@@ -51,8 +51,14 @@ steps:
       - --region=$_REGION
       - --min-instances=1
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
+      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam
       - --allow-unauthenticated
       - --quiet
+      # VPC networking for Memorystore access (try Direct VPC Egress first;
+      # if Memorystore requires a connector, replace with --vpc-connector=vegangenius-connector)
+      # - --network=default
+      # - --subnet=default
+      # - --vpc-egress=private-ranges-only
 
   # 5. Deploy Express Frontend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
