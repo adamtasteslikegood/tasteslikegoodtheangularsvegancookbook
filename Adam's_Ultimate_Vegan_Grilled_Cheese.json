@@ -1,0 +1,99 @@
+{
+  "ai_metadata": {
+    "image_generation": null,
+    "recipe_generation": {
+      "is_authenticated": true,
+      "model": "gemini-2.5-pro",
+      "prompt": "For user Adam Schoen: grilled cheese sandwitch",
+      "session_id": "session_efe63afd7b044b1a91f13be84b90e85f",
+      "success": true,
+      "timestamp": "2026-03-12T02:47:07.057408",
+      "user_display_name": "Adam Schoen",
+      "user_id": "adamschoen3@tasteslikegood.org"
+    },
+    "stock_image_generation": null
+  },
+  "cookTime": 10,
+  "description": "A classic comfort food, reimagined for Adam Schoen. This vegan grilled cheese delivers a perfectly crispy, golden-brown exterior with an irresistibly gooey, melty plant-based cheese center. The ultimate quick and satisfying meal for any time of day.",
+  "id": "66c127fb-18a3-4046-bb63-05001d103072",
+  "image_keywords": [
+    "vegan grilled cheese",
+    "gooey cheese pull sandwich",
+    "golden toasted sandwich",
+    "classic comfort food",
+    "sandwich cut in half"
+  ],
+  "ingredients": {
+    "dry": [
+      {
+        "amount": 2,
+        "name": "Your favorite bread",
+        "notes": "Sourdough or a sturdy white bread work best",
+        "units": "slices"
+      }
+    ],
+    "other": [
+      {
+        "amount": [
+          2,
+          3
+        ],
+        "name": "Vegan cheese slices",
+        "notes": "Cheddar or Provolone style recommended for best melt",
+        "units": "slices"
+      }
+    ],
+    "wet": [
+      {
+        "amount": 2,
+        "name": "Vegan butter or margarine",
+        "units": "Tbsp"
+      }
+    ]
+  },
+  "instructions": [
+    {
+      "description": "Lay the two slices of bread on a cutting board or plate. Spread 1 tablespoon of vegan butter evenly on one side of each slice.",
+      "step": 1
+    },
+    {
+      "description": "Place one slice of bread, butter-side down, in a non-stick skillet or pan over medium heat.",
+      "step": 2
+    },
+    {
+      "description": "Immediately top the bread in the pan with the vegan cheese slices, arranging them in an even layer to cover the bread.",
+      "step": 3
+    },
+    {
+      "description": "Place the second slice of bread on top, with the buttered side facing up.",
+      "step": 4
+    },
+    {
+      "description": "Grill for 3-5 minutes, until the bottom slice is golden brown and crispy. Carefully flip the sandwich with a spatula.",
+      "step": 5
+    },
+    {
+      "description": "Grill the second side for another 3-5 minutes, or until it is also golden brown and the cheese is completely melted and gooey.",
+      "step": 6
+    },
+    {
+      "description": "Remove from the pan, let it rest for a moment, then slice in half diagonally and serve immediately.",
+      "step": 7
+    }
+  ],
+  "name": "Adam's Ultimate Vegan Grilled Cheese",
+  "notes": "The key to a great vegan grilled cheese is using a brand of cheese known for its melting quality. For an extra savory kick, add a thin layer of dijon mustard or a sprinkle of garlic powder to the inside of the bread. Sliced tomato or vegan bacon also make excellent additions.",
+  "prepTime": 5,
+  "servings": 1,
+  "tags": [
+    "vegan",
+    "grilled cheese",
+    "sandwich",
+    "comfort food",
+    "quick",
+    "lunch",
+    "dairy-free"
+  ],
+  "user_id": "adamschoen3@tasteslikegood.org",
+  "ai_image_url": "/api/recipes/66c127fb-18a3-4046-bb63-05001d103072/image"
+}
