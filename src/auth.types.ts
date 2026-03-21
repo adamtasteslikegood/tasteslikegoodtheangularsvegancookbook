@@ -10,6 +10,11 @@ export interface Cookbook {
   coverImage?: string;
 }
 
+export interface DeletedRecipe {
+  recipe: Recipe;
+  deletedAt: string; // ISO timestamp
+}
+
 export interface User {
   id: string;
   email?: string;
@@ -19,4 +24,5 @@ export interface User {
   authProvider?: AuthProvider;
   savedRecipes: Recipe[];
   cookbooks: Cookbook[];
+  deletedRecipes?: DeletedRecipe[];
 }
