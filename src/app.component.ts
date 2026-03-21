@@ -493,6 +493,10 @@ export class AppComponent {
             this.recipe.set(generatedRecipe);
             this.isSaved.set(true); // Flask saves to DB during generation
 
+            // Update local signal so My Kitchen shows the recipe immediately
+            // (API save is idempotent — 409 conflict is ignored)
+            await this.persistenceService.saveRecipe(generatedRecipe);
+
             this.triggerImageGeneration(generatedRecipe);
         } catch (err: unknown) {
             const message =
