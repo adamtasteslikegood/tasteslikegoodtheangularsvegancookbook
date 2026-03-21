@@ -23,7 +23,12 @@ Flask    (Cloud Run: flask-backend, port 5000)
   ├─ /api/generate       → Gemini recipe generation
   ├─ /api/generate_image → Imagen food photo generation
   ├─ /api/recipes/*      → CRUD recipes (Cloud SQL)
+  ├─ /api/recipes/<id>/image → Serve recipe image (raw PNG, Valkey-cached 24hr)
   └─ /api/collections/*  → CRUD cookbooks/collections (Cloud SQL)
+
+Valkey   (Memorystore, shared-core-nano, us-central1)
+  ├─ Sessions (Flask-Session, prefix vg:)
+  └─ Response cache (Flask-Caching, prefix vgc:)
 ```
 
 ---
@@ -104,7 +109,9 @@ Flask    (Cloud Run: flask-backend, port 5000)
 | Database | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate | — |
 | AI — text | Google Gemini `gemini-2.5-flash` via `@google/genai` | — |
 | AI — images | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | — |
-| Auth | Google OAuth (Flask sessions) + localStorage guests | — |
+| Auth | Google OAuth (Flask sessions) + IndexedDB guests | — |
+| Sessions | Valkey (Memorystore) via Flask-Session | 8.0 |
+| Caching | Valkey (Memorystore) via Flask-Caching | 2.3.0 |
 | Deployment | Google Cloud Run (2 services) + Cloud Build | — |
 | Linting | ESLint (flat config) + Prettier | 9 / 3 |
 | Testing | Vitest (server tests) | 4 |
@@ -156,6 +163,8 @@ Copy `.env.example` → `.env.local`. The Express server has **no dotenv loader*
 | `GOOGLE_API_KEY` | ✅ | Flask (Secret Manager in prod) | Gemini key for Flask |
 | `FLASK_SECRET_KEY` | ✅ (prod) | Flask | Session signing key |
 | `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask | PostgreSQL connection string |
+| `VALKEY_HOST` | No | Flask | Valkey/Memorystore host (auto-detected in prod via `VALKEY_HOST` env) |
+| `REDIS_URL` | No | Flask | Fallback Redis URL for sessions/cache (default: none → SQLAlchemy sessions) |
 
 **Rules:**
 - API keys are **server-side only** — never exposed to the browser bundle.
@@ -193,8 +202,26 @@ All browser requests go to Express. Express proxies every `/api/*` request to Fl
 
 ### Data Persistence
 - **Cloud SQL (PostgreSQL)** — primary store for recipes, collections, user data.
-- **localStorage** — client-side cache (`vegan_genius_session`) for offline/guest access.
-- `PersistenceService` writes to localStorage first (instant UI), then syncs to Flask API.
+- **Valkey (Memorystore)** — session store (Flask-Session) and response cache (Flask-Caching). Shared-core-nano 1.4GB instance in `us-central1`, connected via Direct VPC Egress. Falls back to SQLAlchemy sessions / SimpleCache when unavailable.
+- **IndexedDB** — client-side cache (`vegan-genius-db`) for offline/guest access. Replaced localStorage to support large recipe collections with images. Auto-migrates from legacy localStorage on first visit.
+- `PersistenceService` writes to IndexedDB first (instant UI), then syncs to Flask API.
+
+### Image Storage & Serving
+Images are currently stored as **base64-encoded strings inside the recipe's JSON `data` column** in PostgreSQL (`recipe.data.ai_image_data`). This is a known architectural limitation — base64 adds ~33% storage overhead.
+
+**Current flow:**
+```
+Imagen API → raw PNG bytes
+  → Flask base64-encodes → stored in recipe.data["ai_image_data"] (PostgreSQL JSON column)
+  → GET /api/recipes/<id>/image → Flask base64-decodes → raw PNG to browser
+  → Valkey caches decoded bytes for 24hr to skip DB + decode on repeat requests
+```
+
+**What the browser sees:** `<img src="/api/recipes/{id}/image">` — always a raw PNG URL, never base64.
+
+**What export/import sees:** The `ai_image_data` field is stripped from API list responses (`_strip_image_data()` helper) to keep payloads small. Export includes images; import restores them.
+
+**Planned migration:** Move images to **GCS (Cloud Storage)** bucket — stores raw PNG bytes, serves via public URL or signed URL. Eliminates base64 encoding entirely and removes binary data from the database.
 
 ### Deployment (Cloud Run)
 - **Two Cloud Run services** in `us-central1`, project `comdottasteslikegood`:
@@ -265,11 +292,12 @@ gcloud run deploy express-frontend \
 
 ## Short-Term Goals & Direction
 
-1. **Cold-start mitigation** — set `min-instances=1` on `flask-backend` to keep the database connection warm and reduce first-request latency.
-2. **CI/CD hardening** — Cloud Build pipeline refinements, automated tests in pipeline.
-3. **Frontend polish** — UI/UX improvements, accessibility, responsive design refinements.
-4. **Test coverage** — expand Vitest server tests; consider adding Angular component tests.
-5. **Observability** — structured logging, Cloud Logging queries, alerting.
+1. **GCS image migration** — Move recipe images from PostgreSQL base64 to GCS bucket. Eliminates ~33% storage overhead and removes binary data from the database.
+2. **Rate limiting** — Migrate Express in-memory rate limits to shared Valkey-backed counters (consistent across Cloud Run instances).
+3. **CI/CD hardening** — Cloud Build pipeline refinements, automated tests in pipeline.
+4. **Frontend polish** — UI/UX improvements, accessibility, responsive design refinements.
+5. **Test coverage** — expand Vitest server tests; consider adding Angular component tests.
+6. **Observability** — structured logging, Cloud Logging queries, alerting.
 
 ---
 
