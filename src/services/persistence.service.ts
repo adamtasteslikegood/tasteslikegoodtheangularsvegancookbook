@@ -156,8 +156,9 @@ export class PersistenceService {
      * Load all recipes and cookbooks from the Flask API and merge into
      * the Angular user state via AuthService.hydrate().
      * Called once after Google OAuth login is confirmed.
+     * Retries up to 2 times on failure (session may not be ready immediately after OAuth redirect).
      */
-    async loadFromApi(): Promise<void> {
+    async loadFromApi(retries = 2): Promise<void> {
         try {
             console.log('[PersistenceService] Loading recipes from API...');
             const [recipesRes, collectionsRes] = await Promise.all([
@@ -170,6 +171,10 @@ export class PersistenceService {
             if (!recipesRes.ok || !collectionsRes.ok) {
                 console.warn('[PersistenceService] API returned non-OK, will retry on next auth change');
                 this._apiSynced = false;
+                if (retries > 0) {
+                    console.log(`[PersistenceService] Retrying in 1s (${retries} retries left)...`);
+                    setTimeout(() => this.loadFromApi(retries - 1), 1000);
+                }
                 return;
             }
 
@@ -190,6 +195,10 @@ export class PersistenceService {
         } catch (err) {
             console.warn('[PersistenceService] loadFromApi failed, will retry:', err);
             this._apiSynced = false;
+            if (retries > 0) {
+                console.log(`[PersistenceService] Retrying in 1s (${retries} retries left)...`);
+                setTimeout(() => this.loadFromApi(retries - 1), 1000);
+            }
         }
     }
 
