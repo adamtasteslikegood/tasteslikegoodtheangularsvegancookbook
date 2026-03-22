@@ -70,7 +70,7 @@ steps:
       - --image=$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
       - --region=$_REGION
       - --min-instances=0
-      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam
+      - --set-env-vars=FLASK_BACKEND_URL=https://flask-backend-ixidqtkkfa-uc.a.run.app,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam
       - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
       - --allow-unauthenticated
       - --quiet
