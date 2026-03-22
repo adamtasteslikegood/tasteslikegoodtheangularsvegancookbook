@@ -52,8 +52,7 @@ export function createFlaskProxy(label = 'Flask') {
 
     proxyReq.on('error', (err) => {
       console.error(
-        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed:`,
-        err.message
+        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed: ${err.message}`
       );
       if (!res.headersSent) {
         res.status(502).json({
