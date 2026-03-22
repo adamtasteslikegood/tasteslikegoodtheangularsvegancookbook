@@ -1,40 +1,64 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { type Store } from 'express-rate-limit';
+import RedisStore from 'rate-limit-redis';
 import helmet from 'helmet';
-import { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import type Redis from 'ioredis';
 
 /**
  * Security Configuration
- * Implements rate limiting, security headers, and input validation
+ * Implements rate limiting, security headers, and input validation.
+ *
+ * Rate limiters use Valkey (via RedisStore) when available for consistent
+ * limits across Cloud Run instances. Falls back to in-memory MemoryStore
+ * when Valkey is not connected (dev or connection failure).
  */
 
+/**
+ * Build a RedisStore for express-rate-limit backed by the given ioredis client.
+ * Returns undefined if client is null (caller uses default MemoryStore).
+ */
+function buildRedisStore(valkeyClient: Redis | null, prefix: string): Store | undefined {
+  if (!valkeyClient) return undefined;
+  return new RedisStore({
+    // rate-limit-redis v4 expects a sendCommand returning a Promise
+    sendCommand: (...args: string[]) =>
+      valkeyClient.call(args[0], ...args.slice(1)) as Promise<number>,
+    prefix,
+  });
+}
+
 // Rate limiter for general API requests
-export const createApiLimiter = (windowMs: number = 15 * 60 * 1000, max: number = 100) => {
+export const createApiLimiter = (
+  valkeyClient: Redis | null = null,
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 100
+) => {
   return rateLimit({
-    windowMs, // 15 minutes default
-    max, // 100 requests per window default
-    standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-    legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
-    skip: (req) => {
-      // Skip rate limiting for health check
-      return req.path === '/api/health';
-    },
+    skip: (req) => req.path === '/api/health',
+    store: buildRedisStore(valkeyClient, 'rl:api:'),
   });
 };
 
 // Stricter rate limiter for expensive operations (recipe and image generation)
 export const createExpensiveOperationLimiter = (
+  valkeyClient: Redis | null = null,
   windowMs: number = 60 * 60 * 1000,
   max: number = 20
 ) => {
   return rateLimit({
-    windowMs, // 1 hour default
-    max, // 20 requests per window default
+    windowMs,
+    max,
     standardHeaders: true,
     legacyHeaders: false,
     message: {
       error: 'Rate limit exceeded for this operation. Please try again later.',
     },
+    store: buildRedisStore(valkeyClient, 'rl:expensive:'),
   });
 };
 

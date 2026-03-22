@@ -32,7 +32,10 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.1.5",
     "express-validator": "^7.1.0",
+    "google-auth-library": "^10.6.2",
     "helmet": "^7.1.0",
+    "ioredis": "^5.10.1",
+    "rate-limit-redis": "^4.3.1",
     "rxjs": "^7.8.2",
     "tailwindcss": "^3.4.19"
   },
