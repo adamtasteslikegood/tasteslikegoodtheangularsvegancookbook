@@ -287,7 +287,7 @@ Essential for production:
 ```bash
 NODE_ENV=production              # Not development
 PORT=8080                        # Server port
-VITE_GEMINI_API_KEY=xxx         # Gemini API key (REQUIRED)
+GEMINI_API_KEY=xxx              # Gemini API key (REQUIRED)
 ```
 
 Optional for advanced setup:
@@ -325,6 +325,14 @@ app.use(cors({
   origin: process.env.FRONTEND_URL,
   credentials: true,
 }));
+```
+✅ **Use environment variables for secrets:**
+```bash
+# from .env file
+export $(grep -v '^#' .env | xargs)
+
+# from command line
+export API_KEY=your-secret-key
 ```
 
 ✅ **Skip rate limiting for health checks:**

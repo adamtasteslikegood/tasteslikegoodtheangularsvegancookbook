@@ -2,7 +2,7 @@
  * Security-related TypeScript types and interfaces
  */
 
-import { Request, Response, NextFunction } from "express";
+import { Request, Response, NextFunction } from 'express';
 
 /**
  * Rate limit configuration options
@@ -64,7 +64,7 @@ export interface ApiError {
 /**
  * API Success response wrapper
  */
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   data?: T;
   error?: string;
   timestamp?: string;
@@ -82,9 +82,4 @@ export type SecurityMiddleware = (
 /**
  * Error handler middleware type
  */
-export type ErrorHandler = (
-  err: Error,
-  req: Request,
-  res: Response,
-  next: NextFunction
-) => void;
+export type ErrorHandler = (err: Error, req: Request, res: Response, next: NextFunction) => void;

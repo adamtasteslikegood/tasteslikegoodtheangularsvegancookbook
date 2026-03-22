@@ -3,8 +3,6 @@ name: Automerge Dependabot (patch/minor)
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
-  pull_request_review:
-    types: [submitted]
 
 permissions:
   contents: write
@@ -23,9 +21,14 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Require patch/minor updates only
+        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        run: |
+          echo "Major update detected (${{ steps.metadata.outputs.update-type }}). Not auto-merging."
+          exit 0
+
       - name: Enable auto-merge (squash)
-        # Only for patch/minor updates. Queues auto-merge; GitHub merges once checks pass.
-        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        # This will queue auto-merge; GitHub will merge once branch protection + checks are satisfied.
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

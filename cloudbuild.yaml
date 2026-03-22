@@ -1,30 +1,79 @@
 # Cloud Build pipeline for building and deploying to Cloud Run.
-# Update substitutions to match your project, service, and region.
 substitutions:
   _REGION: us-central1
-  _SERVICE: vegangenius-chef
-  _IMAGE: gcr.io/$PROJECT_ID/vegangenius-chef
+  _EXPRESS_SERVICE: express-frontend
+  _FLASK_SERVICE: flask-backend
+  _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
 
 steps:
+  # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
-    args: ["build", "-t", "$_IMAGE:$SHORT_SHA", "."]
+    id: 'Build Express Frontend'
+    waitFor: [ '-' ]
+    args:
+      - build
+      - -t
+      - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+      - .
+
+  # 2. Build the Flask backend image
+  - name: gcr.io/cloud-builders/docker
+    id: 'Build Flask Backend'
+    waitFor: [ '-' ]
+    dir: 'Backend'
+    args:
+      - build
+      - -t
+      - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - .
+
+  # 3. Push images (each waits for its own build)
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Express Frontend Image'
+    waitFor: [ 'Build Express Frontend' ]
+    args: [ push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA' ]
 
   - name: gcr.io/cloud-builders/docker
-    args: ["push", "$_IMAGE:$SHORT_SHA"]
+    id: 'Push Flask Backend Image'
+    waitFor: [ 'Build Flask Backend' ]
+    args: [ push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA' ]
 
+  # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Flask Backend'
+    waitFor: [ 'Push Flask Backend Image' ]
     entrypoint: gcloud
     args:
       - run
       - deploy
-      - $_SERVICE
-      - --image
-      - $_IMAGE:$SHORT_SHA
-      - --region
-      - $_REGION
-      - --platform
-      - managed
+      - $_FLASK_SERVICE
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --min-instances=1
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
+      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
+      - --allow-unauthenticated
+      - --quiet
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
+
+  # 5. Deploy Express Frontend
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Express Frontend'
+    waitFor: [ 'Push Express Frontend Image' ]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_EXPRESS_SERVICE
+      - --image=$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+      - --region=$_REGION
+      - --min-instances=0
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
+      - --allow-unauthenticated
       - --quiet
 
 images:
-  - $_IMAGE:$SHORT_SHA
+  - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+  - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA

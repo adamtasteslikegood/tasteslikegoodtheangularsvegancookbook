@@ -287,7 +287,7 @@ Essential for production:
 ```bash
 NODE_ENV=production              # Not development
 PORT=8080                        # Server port
-VITE_GEMINI_API_KEY=xxx         # Gemini API key (REQUIRED)
+GEMINI_API_KEY=xxx              # Gemini API key (REQUIRED)
 ```
 
 Optional for advanced setup:

@@ -10,17 +10,120 @@ View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5C
 
 ## Run Locally
 
-**Prerequisites:** Node.js
+**Prerequisites:** Node.js, Python 3.9+
+
+### Frontend & Express Server
 
 1. Install dependencies:
    `npm install`
 2. Set your API key in the environment for the backend server:
-   - `VITE_GEMINI_API_KEY=...` (preferred)
+   - `GEMINI_API_KEY=...` (preferred)
    - `VITE_API_KEY=...` (fallback)
 3. Build the app and backend:
    `npm run build`
 4. Start the server (serves the UI + /api endpoints):
    `npm start`
+
+### Flask Backend (Phase 3 - Database Support)
+
+The Flask backend provides Google OAuth authentication and database-backed recipe storage.
+
+**This project uses `uv` for Python dependency management** - it's significantly faster than pip and handles virtual environments automatically.
+
+1. Install uv (if not already installed):
+   ```sh
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # Or on Arch: yay -S uv
+   ```
+
+2. Set up Python environment:
+   ```sh
+   cd Backend
+   uv sync  # Installs all dependencies, creates .venv automatically
+   ```
+
+3. Configure environment variables (copy `.env.example` to `.env`):
+   ```sh
+   cp .env.example .env
+   # Edit .env and set:
+   # - GOOGLE_API_KEY (for Gemini)
+   # - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (for OAuth)
+   # - DATABASE_URL (optional, defaults to SQLite)
+   ```
+
+4. Initialize database (Phase 3):
+   ```sh
+   ./init_database.sh
+   # OR manually:
+   export FLASK_APP=app.py
+   uv run flask db init
+   uv run flask db migrate -m "Initial schema"
+   uv run flask db upgrade
+   ```
+
+5. Start Flask backend:
+   ```sh
+   uv run python app.py
+   ```
+   The backend runs on `http://localhost:5000`
+
+For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).  
+For uv usage guide, see [`Backend/UV_QUICK_REFERENCE.md`](Backend/UV_QUICK_REFERENCE.md).
+
+6. **Database Maintenance** (if upgrading from older versions):
+   ```sh
+   # Fix recipe ID consistency (one-time migration)
+   cd Backend
+   python scripts/fix_recipe_ids.py
+   
+   # Verify the fix
+   python scripts/test_recipe_id_fix.py
+   ```
+   See [`docs/RECIPE_ID_FIX.md`](docs/RECIPE_ID_FIX.md) for details on the dual-ID issue fix.
+
+### Full Stack Development
+
+Run both servers simultaneously:
+- **Angular dev server**: `ng serve` (port 3000)
+- **Express server**: `npm run dev` (port 8080)
+- **Flask backend**: `cd Backend && python app.py` (port 5000)
+
+The Angular dev server proxies `/api/auth/*` requests to Flask (see `proxy.conf.json`).
+
+## CI/CD
+
+This project includes comprehensive CI checks via GitHub Actions:
+
+- ✅ **Build** - Compiles Angular app and Express server
+- ✅ **Lint** - ESLint + Prettier code quality checks
+- ✅ **Test** - Vitest test suite with coverage
+- ✅ **Type Check** - TypeScript compilation verification
+- ✅ **Qodana global configuration upload** - Publishes shared Qodana configs after `QODANA_CONFIGURATIONS_TOKEN` is added to GitHub Actions secrets
+
+**Quick commands:**
+```sh
+npm run lint         # Check code quality
+npm run format       # Format code with Prettier
+npm run test         # Run tests
+npm run build        # Build project
+
+export $(grep -v '^#' .env | xargs)  # Set environment variables from .env
+npm run dev          # Run both servers
+```
+
+**See:** [`CI_QUICK_REFERENCE.md`](CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_SETUP.md`](docs/CI_SETUP.md) for detailed setup.
+
+### Qodana global configuration
+
+This repository now includes a minimal Qodana global configuration catalog based on JetBrains' sample repository:
+
+- `qodana-global-configurations.yaml`
+- `base/qodana.yaml`
+- `frontend/qodana.yaml`
+- `backend/qodana.yaml`
+- `.github/workflows/upload-global-configuration.yml`
+
+After adding the `QODANA_CONFIGURATIONS_TOKEN` secret in GitHub Actions, pushes to `main` or `develop` (or a manual workflow dispatch) will upload these shared configurations to your Qodana Cloud organization.
 
 ## Docker (optional)
 
@@ -29,7 +132,7 @@ Build and run a production container locally:
 ```sh
 docker build -t vegangenius-chef .
 docker run --rm -p 8080:8080 \
-  -e VITE_GEMINI_API_KEY=your_key_here \
+  -e GEMINI_API_KEY=your_key_here \
   vegangenius-chef
 ```
 
