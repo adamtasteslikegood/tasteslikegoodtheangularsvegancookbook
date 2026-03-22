@@ -26,7 +26,7 @@ jobs:
       - uses: actions/cache/save@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
   lint:
     name: Lint
@@ -42,7 +42,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
       - name: ESLint
         run: npm run lint
@@ -64,7 +64,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
       - name: Frontend types
         run: npx tsc --noEmit -p tsconfig.json
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
       - name: Vitest
         run: npm run test:ci
@@ -113,7 +113,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
       - name: Build Angular + server
         run: npm run build
@@ -141,7 +141,7 @@ jobs:
       - uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
       - name: npm audit (high + critical)
         run: npm audit --audit-level=high || true

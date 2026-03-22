@@ -1,5 +1,5 @@
 import rateLimit, {type Store} from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
+import RedisStore, {type RedisReply} from 'rate-limit-redis';
 import helmet from 'helmet';
 import type {Express, Request, Response, NextFunction, ErrorRequestHandler} from 'express';
 import type Redis from 'ioredis';
@@ -14,21 +14,14 @@ import type Redis from 'ioredis';
  */
 
 /**
- * Extract the real client IP from X-Forwarded-For.
+ * Extract the real client IP using Express's IP resolution.
  *
- * On Cloud Run, X-Forwarded-For is set by Google's frontend load balancer.
- * The leftmost IP is the original client IP. This bypasses Express's
- * trust-proxy resolution which can fail if the proxy hop count doesn't
- * match the actual Cloud Run ingress chain.
+ * This relies on Express's `req.ip`, which in turn uses the configured
+ * `trust proxy` settings to safely interpret proxy headers.
  */
 function getClientIp(req: Request): string {
-    const xff = req.headers['x-forwarded-for'];
-    if (xff) {
-        const raw = typeof xff === 'string' ? xff : xff[0];
-        const firstIp = raw.split(',')[0].trim();
-        if (firstIp) return firstIp;
-    }
-    return req.ip || req.socket.remoteAddress || 'unknown';
+    const ip = req.ip || req.socket.remoteAddress;
+    return ip || 'unknown';
 }
 
 /**
@@ -40,13 +33,21 @@ function buildRedisStore(valkeyClient: Redis | null, prefix: string): Store | un
     return new RedisStore({
         // rate-limit-redis v4 expects a sendCommand returning a Promise
         sendCommand: (...args: string[]) =>
-            valkeyClient.call(args[0], ...args.slice(1)) as Promise<number>,
+            valkeyClient.call(args[0], ...args.slice(1)) as unknown as Promise<RedisReply>,
         prefix,
     });
 }
 
 // Regex for image-serving paths: /recipes/<uuid>/image
 const IMAGE_SERVING_RE = /^\/recipes\/[^/]+\/image$/;
+
+/**
+ * Returns true for paths that should be exempt from general API rate limiting.
+ * Exported for unit testing.
+ */
+export function shouldSkipRateLimiting(req: Request): boolean {
+    return req.path === '/health' || IMAGE_SERVING_RE.test(req.path);
+}
 
 // Rate limiter for general API requests
 export const createApiLimiter = (
@@ -61,7 +62,7 @@ export const createApiLimiter = (
         legacyHeaders: false,
         message: {error: 'Too many requests, please try again later.'},
         // When mounted on /api, req.path is relative: /health, /recipes/…/image
-        skip: (req) => req.path === '/health' || IMAGE_SERVING_RE.test(req.path),
+        skip: shouldSkipRateLimiting,
         keyGenerator: (req) => getClientIp(req),
         store: buildRedisStore(valkeyClient, 'rl:api:'),
     });
