@@ -154,7 +154,7 @@ app.use(express.json({ limit: "50kb" }));
 # Required
 PORT=8080
 NODE_ENV=production
-VITE_GEMINI_API_KEY=your-key
+GEMINI_API_KEY=your-key
 
 # Optional
 FRONTEND_URL=https://yourdomain.com

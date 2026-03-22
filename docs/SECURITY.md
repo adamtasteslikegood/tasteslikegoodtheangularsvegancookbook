@@ -147,7 +147,7 @@ npm run dev
 ```bash
 NODE_ENV=production
 PORT=8080
-VITE_GEMINI_API_KEY=your-api-key
+GEMINI_API_KEY=your-api-key
 ```
 
 Consider using:

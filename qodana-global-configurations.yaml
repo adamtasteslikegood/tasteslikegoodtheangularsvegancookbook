@@ -1,0 +1,10 @@
+configurations:
+  - id: frontend
+    name: Frontend
+    description: Shared Qodana defaults for Angular and TypeScript frontend projects
+    qodanaYaml: frontend/qodana.yaml
+
+  - id: backend
+    name: Backend
+    description: Shared Qodana defaults for Node.js and TypeScript backend projects
+    qodanaYaml: backend/qodana.yaml

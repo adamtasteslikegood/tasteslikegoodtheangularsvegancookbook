@@ -1,0 +1,12 @@
+# robots.txt for VeganGenius Chef
+# https://www.tasteslikegood.org
+
+User-agent: *
+Allow: /
+
+# Disallow API endpoints and internal paths
+Disallow: /api/
+Disallow: /assets/
+
+# Sitemap location
+Sitemap: https://www.tasteslikegood.org/sitemap.xml

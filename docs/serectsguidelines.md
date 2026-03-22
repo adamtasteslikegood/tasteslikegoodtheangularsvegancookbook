@@ -30,9 +30,9 @@ Modify your client-side application (the frontend) to not directly call external
 Instead, all calls that require an API key should be routed through your Cloud Run service. Your client-side app will make requests to an endpoint you define on your Cloud Run service.
 Cloud Run as a Secure Proxy:
 Your Cloud Run service will act as a secure intermediary. When it receives a request from your client-side app:
-It will retrieve the necessary API key from Secret Manager (which we've already configured to expose them as environment variables like VITE_GEMINI_API_KEY ).
+It will retrieve the necessary API key from Secret Manager (which we've already configured to expose them as environment variables like GEMINI_API_KEY ).
 It will then use that retrieved API key to make the call to the actual external API (e.g., api.gemini.google.com ).
 Finally, your Cloud Run service will process the response from the external API and return the relevant data back to your client-side application.
-This approach ensures that your VITE_GEMINI_API_KEY and VITE_API_KEY are never bundled with your client-side code, never transmitted to the user's browser, and always remain securely on your Google Cloud backend within your Cloud Run service.
+This approach ensures that your GEMINI_API_KEY and VITE_API_KEY are never bundled with your client-side code, never transmitted to the user's browser, and always remain securely on your Google Cloud backend within your Cloud Run service.
 
 You're on the right track! Taking the app from an AI Studio prototype to a robust, production-ready system with proper security is a fundamental step, and you've identified a critical piece of that puzzle.

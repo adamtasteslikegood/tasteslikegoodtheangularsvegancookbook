@@ -6,5 +6,5 @@
  */
 export const environment = {
   production: true,
-  flaskApiUrl: '',  // Empty = same-origin (reverse proxy in production)
+  flaskApiUrl: '', // Empty = same-origin (reverse proxy in production)
 };
