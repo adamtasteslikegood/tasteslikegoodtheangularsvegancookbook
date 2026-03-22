@@ -1,0 +1,38 @@
+.git
+.gitignore
+node_modules/
+dist/
+.angular/
+.agent-work/
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Submodules and non-frontend code
+Backend/
+backend/
+
+# CI/CD and tooling config
+.github/
+.claude/
+pyproject.toml
+qodana-global-configurations.yaml
+
+# Non-app assets
+docs/
+scripts/
+sample_html/
+sample_sessiondata.json
+Google Cloud App Designs/
+export
+fastagent.jsonl
+model_discovery_output.txt
+commit-phase-1.sh
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

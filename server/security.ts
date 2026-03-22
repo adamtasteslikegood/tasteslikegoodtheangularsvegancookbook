@@ -1,6 +1,6 @@
-import rateLimit, { Options } from "express-rate-limit";
-import helmet from "helmet";
-import { Express } from "express";
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 
 /**
  * Security Configuration
@@ -8,19 +8,16 @@ import { Express } from "express";
  */
 
 // Rate limiter for general API requests
-export const createApiLimiter = (
-  windowMs: number = 15 * 60 * 1000,
-  max: number = 100,
-) => {
+export const createApiLimiter = (windowMs: number = 15 * 60 * 1000, max: number = 100) => {
   return rateLimit({
     windowMs, // 15 minutes default
     max, // 100 requests per window default
     standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
     legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-    message: { error: "Too many requests, please try again later." },
+    message: { error: 'Too many requests, please try again later.' },
     skip: (req) => {
       // Skip rate limiting for health check
-      return req.path === "/api/health";
+      return req.path === '/api/health';
     },
   });
 };
@@ -28,7 +25,7 @@ export const createApiLimiter = (
 // Stricter rate limiter for expensive operations (recipe and image generation)
 export const createExpensiveOperationLimiter = (
   windowMs: number = 60 * 60 * 1000,
-  max: number = 20,
+  max: number = 20
 ) => {
   return rateLimit({
     windowMs, // 1 hour default
@@ -36,7 +33,7 @@ export const createExpensiveOperationLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     message: {
-      error: "Rate limit exceeded for this operation. Please try again later.",
+      error: 'Rate limit exceeded for this operation. Please try again later.',
     },
   });
 };
@@ -53,20 +50,32 @@ export const applySecurityMiddleware = (app: Express) => {
   app.use(
     helmet({
       contentSecurityPolicy: false,
-    }),
+    })
   );
+
+  // X-Robots-Tag: signal to crawlers that HTML pages are indexable.
+  // Only set in production to avoid unintentionally indexing staging/preview deploys.
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.accepts('html') && !req.path.startsWith('/api/')) {
+        res.setHeader('X-Robots-Tag', 'index, follow');
+      }
+      next();
+    });
+  }
 };
 
 /**
  * Logger middleware for API requests
  */
 export const createRequestLogger = () => {
-  return (req: any, res: any, next: any) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const start = Date.now();
-    res.on("finish", () => {
+    res.on('finish', () => {
       const duration = Date.now() - start;
       console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`,
+        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
       );
     });
     next();
@@ -76,10 +85,10 @@ export const createRequestLogger = () => {
 /**
  * Error handler middleware
  */
-export const createErrorHandler = () => {
-  return (err: any, req: any, res: any, next: any) => {
+export const createErrorHandler = (): ErrorRequestHandler => {
+  return (err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
     // Log detailed error server-side
-    console.error("[ERROR]", {
+    console.error('[ERROR]', {
       timestamp: new Date().toISOString(),
       method: req.method,
       path: req.path,
@@ -94,7 +103,7 @@ export const createErrorHandler = () => {
     }
 
     res.status(err.status || 500).json({
-      error: "An unexpected error occurred on the server.",
+      error: 'An unexpected error occurred on the server.',
     });
   };
 };

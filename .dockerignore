@@ -11,6 +11,9 @@ README.md
 CONTRIBUTING.md
 AGENTS.md
 COPILOT.md
+START_HERE.md
+QUICK_REFERENCE.md
+LICENSE
 .editorconfig
 .vscode
 .idea
@@ -18,3 +21,29 @@ COPILOT.md
 *.swo
 *~
 .DS_Store
+
+# Submodules and non-frontend code
+Backend/
+backend/
+
+# CI/CD and tooling config
+.github/
+.claude/
+.agent-work/
+.terraform/
+*.tfstate
+*.tfstate.*
+cloudbuild.yaml
+pyproject.toml
+qodana-global-configurations.yaml
+
+# Non-app assets
+docs/
+scripts/
+sample_html/
+sample_sessiondata.json
+Google Cloud App Designs/
+export
+fastagent.jsonl
+model_discovery_output.txt
+commit-phase-1.sh

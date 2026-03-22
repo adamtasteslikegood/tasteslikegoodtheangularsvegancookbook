@@ -1,48 +1,58 @@
-import { Injectable } from "@angular/core";
-import { Recipe } from "../recipe.types";
+import {Injectable} from '@angular/core';
+import {Recipe} from '../recipe.types';
 
 @Injectable({
-  providedIn: "root",
+    providedIn: 'root',
 })
 export class GeminiService {
-  constructor() {
-    // Lazily initialized so missing env doesn't crash app bootstrap.
-  }
-
-  async generateRecipe(userPrompt: string): Promise<Recipe> {
-    const response = await fetch("/api/recipe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: userPrompt }),
-    });
-
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || "Recipe generation failed.");
+    constructor() {
     }
 
-    const recipe = (await response.json()) as Recipe;
-    recipe.id = recipe.id || crypto.randomUUID();
-    return recipe;
-  }
+    /**
+     * Generate a vegan recipe via the Flask backend.
+     * The backend saves the recipe to the database and returns it.
+     */
+    async generateRecipe(userPrompt: string): Promise<Recipe> {
+        const response = await fetch('/api/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({prompt: userPrompt}),
+        });
 
-  async generateImage(keywords: string[], recipeName: string): Promise<string> {
-    const response = await fetch("/api/image", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ keywords, recipeName }),
-    });
+        if (!response.ok) {
+            const data = await response.json().catch(() => null);
+            throw new Error(data?.error || 'Recipe generation failed.');
+        }
 
-    if (!response.ok) {
-      const message = await response.text();
-      throw new Error(message || "Image generation failed.");
+        const payload = await response.json();
+        const recipe = payload.recipe as Recipe;
+        recipe.id = recipe.id || crypto.randomUUID();
+        return recipe;
     }
 
-    const payload = (await response.json()) as { imageDataUrl?: string };
-    if (!payload.imageDataUrl) {
-      throw new Error("No image generated");
-    }
+    /**
+     * Generate an AI image for a recipe via the Flask backend.
+     * The backend saves the image server-side and returns a URL path.
+     */
+    async generateImage(recipeId: string, forceRegenerate = false): Promise<string> {
+        const response = await fetch('/api/generate_image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            credentials: 'include',
+            body: JSON.stringify({recipe_id: recipeId, force_regenerate: forceRegenerate}),
+        });
 
-    return payload.imageDataUrl;
-  }
+        if (!response.ok) {
+            const data = await response.json().catch(() => null);
+            throw new Error(data?.error || 'Image generation failed.');
+        }
+
+        const payload = await response.json();
+        if (!payload.image_url) {
+            throw new Error('No image generated');
+        }
+
+        return payload.image_url;
+    }
 }

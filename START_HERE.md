@@ -257,7 +257,7 @@ curl -I http://localhost:8080/api/health
 **Environment** → Edit `.env.local` (copy from `.env.example`)
 - `PORT` - Server port
 - `NODE_ENV` - development or production
-- `VITE_GEMINI_API_KEY` - Your Gemini API key
+- `GEMINI_API_KEY` - Your Gemini API key
 
 ---
 
