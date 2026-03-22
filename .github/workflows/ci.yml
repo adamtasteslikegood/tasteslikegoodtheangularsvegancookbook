@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop, 'dev/**' ]
+    branches: [main, develop, 'dev/**']
   pull_request:
 
 concurrency:
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/cache/save@v4
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
 
   lint:
     name: Lint
@@ -40,9 +40,14 @@ jobs:
           node-version: '20'
 
       - uses: actions/cache/restore@v4
+        id: cache-restore
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install packages (cache miss fallback)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: ESLint
         run: npm run lint
@@ -62,9 +67,14 @@ jobs:
           node-version: '20'
 
       - uses: actions/cache/restore@v4
+        id: cache-restore
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install packages (cache miss fallback)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Frontend types
         run: npx tsc --noEmit -p tsconfig.json
@@ -84,9 +94,14 @@ jobs:
           node-version: '20'
 
       - uses: actions/cache/restore@v4
+        id: cache-restore
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install packages (cache miss fallback)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Vitest
         run: npm run test:ci
@@ -111,9 +126,14 @@ jobs:
           node-version: '20'
 
       - uses: actions/cache/restore@v4
+        id: cache-restore
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install packages (cache miss fallback)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: Build Angular + server
         run: npm run build
@@ -139,9 +159,14 @@ jobs:
           node-version: '20'
 
       - uses: actions/cache/restore@v4
+        id: cache-restore
         with:
           path: node_modules
-          key: nm-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-node20-${{ hashFiles('package-lock.json') }}
+
+      - name: Install packages (cache miss fallback)
+        if: steps.cache-restore.outputs.cache-hit != 'true'
+        run: npm ci
 
       - name: npm audit (high + critical)
         run: npm audit --audit-level=high || true
