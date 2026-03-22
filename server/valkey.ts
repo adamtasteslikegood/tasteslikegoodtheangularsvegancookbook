@@ -77,15 +77,20 @@ export async function createValkeyClient(): Promise<Redis | null> {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       retryStrategy: (times: number) => Math.min(times * 200, 5000),
-      // Prefix keys to avoid collisions with Flask's Valkey usage
-      keyPrefix: 'rl:',
     };
 
     if (authMode === 'iam') {
       const { token, email } = await getIAMToken();
+      const tlsOptions: Record<string, unknown> = {};
+      if (process.env.VALKEY_TLS_INSECURE === 'true') {
+        tlsOptions.rejectUnauthorized = false;
+        console.warn(
+          '[Valkey] WARNING: VALKEY_TLS_INSECURE=true — TLS certificate verification is DISABLED. Use only for local/dev.'
+        );
+      }
       Object.assign(options, {
         password: token,
-        tls: { rejectUnauthorized: false },
+        tls: tlsOptions,
       });
       console.log(`[Valkey] Using IAM auth (sa=${email})`);
     }

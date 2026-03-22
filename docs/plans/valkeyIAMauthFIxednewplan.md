@@ -11,7 +11,7 @@
 - **Root cause:** `AUTH <sa-email> <token>` (two args) was wrong. Memorystore for Valkey expects `AUTH <token>` (
   password only).
 - **Fix:** Removed broken `CredentialProvider`, use direct `password=token` auth.
-- **Token refresh:** Background daemon thread refreshes every 50 min (tokens expire at 60 min).
+- **Token refresh:** Background daemon thread refreshes every 45 min (tokens expire at 60 min).
 - **Deployed:** `flask-backend-00040-gzk` — clean startup, no errors, no fallbacks.
 - **Logs confirm:** `Valkey connection OK`, `Using Valkey session backend`, `Using Valkey/Redis cache backend`.
 

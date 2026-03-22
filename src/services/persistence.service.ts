@@ -157,49 +157,51 @@ export class PersistenceService {
      * the Angular user state via AuthService.hydrate().
      * Called once after Google OAuth login is confirmed.
      * Retries up to 2 times on failure (session may not be ready immediately after OAuth redirect).
+     * Uses an awaited loop so that concurrent hydrations cannot overlap and the caller
+     * can await the full operation (including all retries) before proceeding.
      */
     async loadFromApi(retries = 2): Promise<void> {
-        try {
-            console.log('[PersistenceService] Loading recipes from API...');
-            const [recipesRes, collectionsRes] = await Promise.all([
-                this._fetch('/api/recipes'),
-                this._fetch('/api/collections'),
-            ]);
-
-            console.log(`[PersistenceService] API responses: recipes=${recipesRes.status}, collections=${collectionsRes.status}`);
-
-            if (!recipesRes.ok || !collectionsRes.ok) {
-                console.warn('[PersistenceService] API returned non-OK, will retry on next auth change');
-                this._apiSynced = false;
-                if (retries > 0) {
-                    console.log(`[PersistenceService] Retrying in 1s (${retries} retries left)...`);
-                    setTimeout(() => this.loadFromApi(retries - 1), 1000);
-                }
-                return;
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            if (attempt > 0) {
+                const remaining = retries - attempt + 1;
+                console.log(`[PersistenceService] Retrying in 1s (${remaining} retries left)...`);
+                await new Promise<void>((resolve) => setTimeout(resolve, 1000));
             }
+            try {
+                console.log('[PersistenceService] Loading recipes from API...');
+                const [recipesRes, collectionsRes] = await Promise.all([
+                    this._fetch('/api/recipes'),
+                    this._fetch('/api/collections'),
+                ]);
 
-            const recipesData = await recipesRes.json();
-            const collectionsData = await collectionsRes.json();
+                console.log(`[PersistenceService] API responses: recipes=${recipesRes.status}, collections=${collectionsRes.status}`);
 
-            // With the backend fix, data.id and the outer id are now consistent.
-            // We use the data field directly since it contains the complete recipe
-            // with the correct ID already set by the backend.
-            const recipes: Recipe[] = (recipesData.recipes ?? []).map(
-                (r: { id: string; data: Recipe }) => r.data
-            );
+                if (!recipesRes.ok || !collectionsRes.ok) {
+                    console.warn('[PersistenceService] API returned non-OK');
+                    continue;
+                }
 
-            const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(this._toCookbook);
+                const recipesData = await recipesRes.json();
+                const collectionsData = await collectionsRes.json();
 
-            console.log(`[PersistenceService] Hydrating ${recipes.length} recipes, ${cookbooks.length} cookbooks`);
-            this.auth.hydrate(recipes, cookbooks);
-        } catch (err) {
-            console.warn('[PersistenceService] loadFromApi failed, will retry:', err);
-            this._apiSynced = false;
-            if (retries > 0) {
-                console.log(`[PersistenceService] Retrying in 1s (${retries} retries left)...`);
-                setTimeout(() => this.loadFromApi(retries - 1), 1000);
+                // With the backend fix, data.id and the outer id are now consistent.
+                // We use the data field directly since it contains the complete recipe
+                // with the correct ID already set by the backend.
+                const recipes: Recipe[] = (recipesData.recipes ?? []).map(
+                    (r: { id: string; data: Recipe }) => r.data
+                );
+
+                const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(this._toCookbook);
+
+                console.log(`[PersistenceService] Hydrating ${recipes.length} recipes, ${cookbooks.length} cookbooks`);
+                this.auth.hydrate(recipes, cookbooks);
+                return;
+            } catch (err) {
+                console.warn('[PersistenceService] loadFromApi attempt failed:', err);
             }
         }
+        console.warn('[PersistenceService] loadFromApi failed after all retries, will retry on next auth change');
+        this._apiSynced = false;
     }
 
     /** POST a recipe to Flask; idempotent — ignores 409 conflicts. */

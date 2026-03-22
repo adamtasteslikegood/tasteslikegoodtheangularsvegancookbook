@@ -74,4 +74,7 @@ app.set('trust proxy', 1);
         console.log(`Flask backend → ${flaskUrl}`);
         console.log(`Rate limit store: ${valkeyClient ? 'Valkey' : 'in-memory'}`);
     });
-})();
+})().catch((err) => {
+    console.error('Fatal error during server startup:', err);
+    process.exit(1);
+});

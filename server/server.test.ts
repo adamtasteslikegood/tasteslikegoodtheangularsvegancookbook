@@ -100,6 +100,44 @@ describe('createApiLimiter', () => {
     });
 });
 
+describe('shouldSkipRateLimiting', () => {
+    it('skips /health', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/health'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(true);
+    });
+
+    it('skips /recipes/<uuid>/image', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/recipes/550e8400-e29b-41d4-a716-446655440000/image'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(true);
+    });
+
+    it('skips /recipes/<short-id>/image', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/recipes/abc123/image'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(true);
+    });
+
+    it('does not skip /recipes (list endpoint)', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/recipes'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(false);
+    });
+
+    it('does not skip /generate', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/generate'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(false);
+    });
+
+    it('does not skip /recipes/<uuid>/data (non-image sub-paths)', async () => {
+        const {shouldSkipRateLimiting} = await import('./security.js');
+        const req = {path: '/recipes/550e8400-e29b-41d4-a716-446655440000/data'} as Request;
+        expect(shouldSkipRateLimiting(req)).toBe(false);
+    });
+});
+
 describe('createExpensiveOperationLimiter', () => {
     it('should return a middleware function', async () => {
         const {createExpensiveOperationLimiter} = await import('./security.js');
