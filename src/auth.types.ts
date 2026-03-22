@@ -1,6 +1,6 @@
-import { Recipe } from "./recipe.types";
+import { Recipe } from './recipe.types';
 
-export type AuthProvider = "google" | "guest";
+export type AuthProvider = 'google' | 'guest';
 
 export interface Cookbook {
   id: string;
@@ -8,6 +8,11 @@ export interface Cookbook {
   description: string;
   recipeIds: string[];
   coverImage?: string;
+}
+
+export interface DeletedRecipe {
+  recipe: Recipe;
+  deletedAt: string; // ISO timestamp
 }
 
 export interface User {
@@ -19,4 +24,5 @@ export interface User {
   authProvider?: AuthProvider;
   savedRecipes: Recipe[];
   cookbooks: Cookbook[];
+  deletedRecipes?: DeletedRecipe[];
 }
