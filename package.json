@@ -29,12 +29,12 @@
     "@google-cloud/secret-manager": "^6.1.1",
     "@google/genai": "^1.41.0",
     "autoprefixer": "^10.4.24",
-    "express": "^4.21.2",
-    "express-rate-limit": "^7.1.5",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.3.1",
     "express-validator": "^7.1.0",
     "helmet": "^7.1.0",
     "rxjs": "^7.8.2",
-    "tailwindcss": "^3.4.19"
+    "tailwindcss": "^4.2.2"
   },
   "devDependencies": {
     "@angular-eslint/builder": "^21.0.0",
