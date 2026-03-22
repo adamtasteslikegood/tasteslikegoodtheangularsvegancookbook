@@ -53,13 +53,17 @@ export const applySecurityMiddleware = (app: Express) => {
     })
   );
 
-  // X-Robots-Tag: signal to crawlers that HTML pages are indexable
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    if (req.accepts('html') && !req.path.startsWith('/api/')) {
-      res.setHeader('X-Robots-Tag', 'index, follow');
-    }
-    next();
-  });
+  // X-Robots-Tag: signal to crawlers that HTML pages are indexable.
+  // Only set in production to avoid unintentionally indexing staging/preview deploys.
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (req.accepts('html') && !req.path.startsWith('/api/')) {
+        res.setHeader('X-Robots-Tag', 'index, follow');
+      }
+      next();
+    });
+  }
 };
 
 /**
