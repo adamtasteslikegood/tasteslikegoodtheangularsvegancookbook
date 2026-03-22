@@ -9,7 +9,7 @@ steps:
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Express Frontend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     args:
       - build
       - -t
@@ -19,7 +19,7 @@ steps:
   # 2. Build the Flask backend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Flask Backend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     dir: 'Backend'
     args:
       - build
@@ -30,18 +30,18 @@ steps:
   # 3. Push images (each waits for its own build)
   - name: gcr.io/cloud-builders/docker
     id: 'Push Express Frontend Image'
-    waitFor: [ 'Build Express Frontend' ]
-    args: [ push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA' ]
+    waitFor: ['Build Express Frontend']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA']
 
   - name: gcr.io/cloud-builders/docker
     id: 'Push Flask Backend Image'
-    waitFor: [ 'Build Flask Backend' ]
-    args: [ push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA' ]
+    waitFor: ['Build Flask Backend']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA']
 
   # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Flask Backend'
-    waitFor: [ 'Push Flask Backend Image' ]
+    waitFor: ['Push Flask Backend Image']
     entrypoint: gcloud
     args:
       - run
@@ -61,7 +61,7 @@ steps:
   # 5. Deploy Express Frontend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Express Frontend'
-    waitFor: [ 'Push Express Frontend Image' ]
+    waitFor: ['Push Express Frontend Image']
     entrypoint: gcloud
     args:
       - run
