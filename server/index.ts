@@ -25,13 +25,11 @@ app.set('trust proxy', 1);
     const valkeyClient = await createValkeyClient();
 
     // Health check (local to Express — handled before the proxy)
-    app.get('/api/health', (req, res) => {
+    app.get('/api/health', (_req, res) => {
         res.status(200).json({
             status: 'ok',
             timestamp: new Date().toISOString(),
             rateLimitStore: valkeyClient ? 'valkey' : 'memory',
-            clientIp: req.ip,
-            xff: req.headers['x-forwarded-for'] || null,
         });
     });
 
