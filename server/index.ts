@@ -4,8 +4,8 @@ import {fileURLToPath} from 'node:url';
 import {
     applySecurityMiddleware,
     createApiLimiter,
-    createExpensiveOperationLimiter,
     createErrorHandler,
+    createExpensiveOperationLimiter,
     createRequestLogger,
 } from './security.js';
 import {createFlaskProxy} from './proxy.js';

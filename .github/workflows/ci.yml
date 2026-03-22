@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop, 'dev/**']
+    branches: [ main, develop, 'dev/**' ]
   pull_request:
 
 concurrency:
@@ -145,13 +145,3 @@ jobs:
 
       - name: npm audit (high + critical)
         run: npm audit --audit-level=high || true
-
-  docker:
-    name: Docker Build
-    needs: [build, test, lint, type-check]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build Docker image
-        run: docker build -t vegangenius-test:${{ github.sha }} .

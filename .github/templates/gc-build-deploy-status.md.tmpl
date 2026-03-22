@@ -1,0 +1,32 @@
+# Google Cloud Build Status Report
+
+| Workflow | Value |
+| --- | --- |
+| Trigger mode | ${TRIGGER_MODE} |
+| Trigger tags | ${TRIGGER_TAGS} |
+| Event | ${EVENT_NAME} |
+| Branch | ${TARGET_BRANCH} |
+| Actor | ${ACTOR} |
+| Backup release | ${BACKUP_REFERENCE} |
+| Workflow run | ${RUN_URL} |
+
+## 1. Standard CI/CD
+
+| Area | Checks | Lint | Test | Build | Qodana Insights | Charts | Outcome | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Frontend/main_repo | ${FRONTEND_CHECKS} | ${FRONTEND_LINT} | ${FRONTEND_TEST} | ${FRONTEND_BUILD} | ${FRONTEND_QODANA} | ${FRONTEND_CHARTS} | ${FRONTEND_OUTCOME} | ${FRONTEND_NOTES} |
+| Backend/sub_module | ${BACKEND_CHECKS} | ${BACKEND_LINT} | ${BACKEND_TEST} | ${BACKEND_BUILD} | ${BACKEND_QODANA} | ${BACKEND_CHARTS} | ${BACKEND_OUTCOME} | ${BACKEND_NOTES} |
+
+## 2. Pre-Deployment CI/CD
+
+| Area | Backup Release | Pre-Deployment Checks | Outcome | Notes |
+| --- | --- | --- | --- | --- |
+| Frontend/main_repo | ${BACKUP_STATUS} | ${PREDEPLOY_CHECKS} | ${PREDEPLOY_OUTCOME} | ${PREDEPLOY_NOTES} |
+| Backend/sub_module | ${BACKEND_BACKUP_STATUS} | ${BACKEND_PREDEPLOY_CHECKS} | ${BACKEND_PREDEPLOY_OUTCOME} | ${BACKEND_PREDEPLOY_NOTES} |
+
+## 3. Cloud Build
+
+| Area | Commands sent to gcloud / terraform | Outcome | Messages |
+| --- | --- | --- | --- |
+| Frontend/main_repo | `${CLOUD_BUILD_COMMAND}` | ${CLOUD_BUILD_OUTCOME} | ${CLOUD_BUILD_MESSAGE} |
+| Backend/sub_module | `${BACKEND_CLOUD_BUILD_COMMAND}` | ${BACKEND_CLOUD_BUILD_OUTCOME} | ${BACKEND_CLOUD_BUILD_MESSAGE} |
