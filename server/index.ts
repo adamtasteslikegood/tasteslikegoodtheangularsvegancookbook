@@ -39,6 +39,8 @@ app.set('trust proxy', 1);
   // Expensive AI operations: 20 req / hour per IP
   app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
   app.use('/api/generate_image', createExpensiveOperationLimiter(valkeyClient));
+  // Static HTML shell (index.html) catch-all: reuse general API limiter
+  const staticPageLimiter = createApiLimiter(valkeyClient);
 
   // ── Flask proxy routes ──────────────────────────────────────────
   // Must be mounted BEFORE express.json() so raw request bodies stream
@@ -61,7 +63,7 @@ app.set('trust proxy', 1);
 
   app.use(express.static(distPath));
 
-  app.get('*', (_req, res) => {
+  app.get('*', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 
