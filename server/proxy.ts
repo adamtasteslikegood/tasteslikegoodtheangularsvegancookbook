@@ -37,12 +37,16 @@ export function createFlaskProxy(label = 'Flask') {
       method: req.method,
       headers: {
         ...req.headers,
-        // Use the target's hostname for TLS SNI verification
-        host: target.host,
-        // Pass the original host so Flask's url_for(_external=True)
-        // generates URLs that point back to the public domain
+        // Preserve the browser's original Host so Flask's url_for(_external=True)
+        // and OAuth redirects point back to the public/Express host.
+        host: originalHost,
+        // Pass the original host explicitly for deployments that trust
+        // X-Forwarded-Host via Werkzeug ProxyFix or similar middleware.
         'x-forwarded-host': originalHost,
       },
+      // Use the target's hostname for TLS SNI verification without
+      // changing the HTTP Host header seen by Flask.
+      ...(target.protocol === 'https:' ? { servername: target.hostname } : {}),
     };
 
     const proxyReq = transport.request(options, (proxyRes) => {
@@ -52,8 +56,7 @@ export function createFlaskProxy(label = 'Flask') {
 
     proxyReq.on('error', (err) => {
       console.error(
-        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed:`,
-        err.message
+        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed: ${err.message}`
       );
       if (!res.headersSent) {
         res.status(502).json({

@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ env.QODANA_CONFIGURATIONS_TOKEN != '' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Explain skipped upload
         if: ${{ env.QODANA_CONFIGURATIONS_TOKEN == '' }}

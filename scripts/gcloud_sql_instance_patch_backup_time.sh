@@ -1,74 +1,35 @@
-# Security Health Analytics Findings for PostgreSQL CloudSQL Instance `vegangenius-db`
-## **Summary** - 12/10/2023 - Based on `@file:docs/logs_findings/findings.csv`
+#!/usr/bin/env bash
 
-I'll read the findings file to understand the issues with your PostgreSQL CloudSQL database, logging, and network connectivity.Based on the Security Health Analytics findings for your PostgreSQL CloudSQL instance `vegangenius-db`, here are the issues and recommended fixes:
+# Configure logging flags, enforce SSL, and set automated backup time
+# for the PostgreSQL Cloud SQL instance used by Vegangenius Chef.
+#
+# Usage:
+#   ./gcloud_sql_instance_patch_backup_time.sh [BACKUP_START_TIME]
+#
+# BACKUP_START_TIME (optional) is in HH:MM (24-hour) format and defaults to 02:00.
+#
+# NOTE: These operations may restart the Cloud SQL instance.
 
-## **High Priority**
+set -euo pipefail
 
-### 1. **SSL Not Enforced** (HIGH severity)
-**Issue:** Database connections are not required to use SSL/TLS encryption, risking data exposure in transit.
+PROJECT_ID="comdottasteslikegood"
+INSTANCE_ID="vegangenius-db"
+BACKUP_START_TIME="${1:-02:00}"
 
-**Fix:**
-- Go to [Cloud SQL instance connections](https://console.cloud.google.com/sql/instances/vegangenius-db/connections?project=comdottasteslikegood)
-- Choose one of:
-  - **"Allow only SSL connections"** - Enforces SSL but doesn't require client certificates
-  - **"Require trusted client certificates"** - Enforces SSL + client certificate authentication (more secure)
-
-## **Medium Priority**
-
-### 2. **Automated Backups Disabled** (MEDIUM severity)
-**Issue:** No automated backups configured, risking data loss.
-
-**Fix:**
-- Go to [backups page](https://console.cloud.google.com/sql/instances/vegangenius-db/backups?project=comdottasteslikegood)
-- Enable "Automate backups"
-- Choose appropriate backup window
-- Save configuration
-
-### 3. **Logging Flags Disabled** (MEDIUM severity)
-**Issue:** Multiple PostgreSQL logging flags are disabled, limiting troubleshooting and forensic capabilities.
-
-**Fix:** Edit the instance and set these database flags:
-- `log_connections` = `on` - Logs all connection attempts
-- `log_disconnections` = `on` - Logs session endings
-- `log_duration` = `on` - Logs query execution times
-- `log_checkpoints` = `on` - Logs checkpoint events
-- `log_lock_waits` = `on` - Logs lock contention issues
-- `log_temp_files` = `0` - Logs all temporary file creation
-
-## **Low Priority**
-
-### 4. **SQL Statement Logging** (LOW severity)
-**Issue:** `log_statement` flag not set to `ddl`
-
-**Fix:**
-- Set database flag `log_statement` = `ddl` (logs data definition statements)
-
-## **Quick Fix via gcloud CLI**
-
-You can apply most logging flags in one command:
-
-```shell script
-gcloud sql instances patch vegangenius-db \
+echo "Patching Cloud SQL instance '${INSTANCE_ID}' in project '${PROJECT_ID}'..."
+echo "Configuring logging flags..."
+gcloud sql instances patch "${INSTANCE_ID}" \
   --database-flags=log_connections=on,log_disconnections=on,log_duration=on,log_checkpoints=on,log_lock_waits=on,log_temp_files=0,log_statement=ddl \
-  --project=comdottasteslikegood
-```
+  --project="${PROJECT_ID}"
 
-
-For SSL enforcement:
-```shell script
-gcloud sql instances patch vegangenius-db \
+echo "Enforcing SSL for all connections..."
+gcloud sql instances patch "${INSTANCE_ID}" \
   --require-ssl \
-  --project=comdottasteslikegood
-```
+  --project="${PROJECT_ID}"
 
+echo "Setting automated backup start time to ${BACKUP_START_TIME}..."
+gcloud sql instances patch "${INSTANCE_ID}" \
+  --backup-start-time="${BACKUP_START_TIME}" \
+  --project="${PROJECT_ID}"
 
-For automated backups:
-```shell script
-gcloud sql instances patch vegangenius-db \
-  --backup-start-time=02:00 \
-  --project=comdottasteslikegood
-```
-
-
-**Note:** Instance will restart during configuration changes. All findings comply with CIS, NIST, PCI-DSS, ISO 27001, and SOC2 standards.
+echo "Cloud SQL instance '${INSTANCE_ID}' has been patched successfully."

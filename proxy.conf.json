@@ -1,5 +1,17 @@
 {
-  "/api": {
+  "/api/auth": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/recipes": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  "/api/collections": {
     "target": "http://localhost:5000",
     "secure": false,
     "changeOrigin": true,
