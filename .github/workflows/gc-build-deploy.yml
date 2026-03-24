@@ -32,7 +32,7 @@ jobs:
         id: detect
         env:
           AUTHORIZED_DEPLOYERS: ${{ vars.AUTHORIZED_DEPLOYERS }}
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const owner = (context.payload.repository?.owner?.login || context.repo.owner).toLowerCase();
@@ -109,7 +109,7 @@ jobs:
     steps:
       - name: Create versioned backup release from previous default-branch commit
         id: backup
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const triggerMode = '${{ needs.detect-trigger.outputs.trigger_mode }}';
@@ -267,14 +267,15 @@ jobs:
             echo "notes=$notes"
           } >> "$GITHUB_OUTPUT"
 
-          [ "$checks_status" = "failure" ] && exit 1 || true
-
-      - name: Fail job if checks failed
-        if: always() && steps.summary.outputs.checks_status != 'success'
+          if [ "$install_exit" -ne 0 ] || [ "$build_exit" -ne 0 ]; then
+            exit 1
+          fi
+      - name: Fail job if repository checks failed
+        if: steps.run.outputs.checks_status != 'success' || steps.run.outputs.build_status != 'success'
         run: exit 1
 
   backend-submodule-audit:
-    name: Backend submodule checks
+    name: Backend submodule audit
     needs: detect-trigger
     if: needs.detect-trigger.outputs.should_run == 'true'
     runs-on: ubuntu-latest
@@ -398,10 +399,10 @@ jobs:
 
           {
             echo "checks_status=$checks_status"
-            echo "lint_status=$lint_status"
-            echo "test_status=$test_status"
-            echo "build_status=$build_status"
-            echo "notes=$notes"
+            echo "lint_status=not_configured"
+            echo "test_status=not_configured"
+            echo "build_status=not_configured"
+            echo "notes=$note"
           } >> "$GITHUB_OUTPUT"
 
   pre-deploy-gate:
@@ -422,7 +423,7 @@ jobs:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Validate deployment prerequisites
         id: prep
         continue-on-error: true
@@ -488,14 +489,14 @@ jobs:
       CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
       CLOUD_BUILD_COMMAND: ${{ needs.pre-deploy-gate.outputs.cloud_build_command }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
-      - uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v3
         with:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      - uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v3
       - name: Submit Cloud Build
         id: build
         continue-on-error: true
@@ -535,7 +536,7 @@ jobs:
     if: always() && needs.detect-trigger.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Render report from template
         env:
           TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
@@ -602,7 +603,7 @@ jobs:
             raise SystemExit(1) from exc
           PY
           cat gc-build-deploy-status-report.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: gc-build-deploy-status-report
           path: gc-build-deploy-status-report.md
@@ -619,7 +620,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update associated PR labels and comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         env:
           TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
           FRONTEND_RESULT: ${{ needs.frontend-ci.result }}
