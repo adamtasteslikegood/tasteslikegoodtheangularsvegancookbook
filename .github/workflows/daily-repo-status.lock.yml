@@ -89,6 +89,18 @@ jobs:
             setupGlobals(core, github, context, exec, io);
             const { main } = require('/opt/gh-aw/actions/check_workflow_timestamp_api.cjs');
             await main();
+     Copilot said: The job is failing because the workflow
+The job is failing because the workflow tries to read a prompt file that doesn’t exist in the runner image:
+
+Error from logs: cat: /opt/gh-aw/prompts/xpia.md: No such file or directory (exit code 1)
+This comes from the workflow step “Create prompt with built-in context” in .github/workflows/daily-repo-status.lock.yml, which does:
+sh
+cat "/opt/gh-aw/prompts/xpia.md"
+So the fix is to stop hard-requiring that file (or ensure it exists). Since this is a generated “gh-aw” workflow, the most robust fix is to make that cat conditional so the job doesn’t crash when the file isn’t shipped in the current gh-aw action/runtime.
+
+Recommended fix (make the missing prompt optional)
+Edit .github/workflows/daily-repo-status.lock.yml at the failing step (around the “Create prompt with built-in context” block) and replace the cat "/opt/gh-aw/prompts/xpia.md" line with a guarded version:
+
       - name: Create prompt with built-in context
         env:
           GH_AW_PROMPT: /tmp/gh-aw/aw-prompts/prompt.txt
@@ -101,13 +113,20 @@ jobs:
           GH_AW_GITHUB_REPOSITORY: ${{ github.repository }}
           GH_AW_GITHUB_RUN_ID: ${{ github.run_id }}
           GH_AW_GITHUB_WORKSPACE: ${{ github.workspace }}
-        run: |
+       run: |
           bash /opt/gh-aw/actions/create_prompt_first.sh
           {
           cat << 'GH_AW_PROMPT_EOF'
           <system>
           GH_AW_PROMPT_EOF
-          cat "/opt/gh-aw/prompts/xpia.md"
+      
+          # Optional: include xpia prompt if present (don’t fail if missing)
+          if [ -f "/opt/gh-aw/prompts/xpia.md" ]; then
+            cat "/opt/gh-aw/prompts/xpia.md"
+          else
+            echo "<!-- /opt/gh-aw/prompts/xpia.md not present in this runner image -->"
+          fi
+      
           cat "/opt/gh-aw/prompts/temp_folder_prompt.md"
           cat "/opt/gh-aw/prompts/markdown.md"
           cat "/opt/gh-aw/prompts/safe_outputs_prompt.md"
@@ -481,7 +500,14 @@ jobs:
                 }
               }
             },
-            "missing_data": {
+            "missing_data": {   GH_AW_PROMPT_EOF
+    cat << 'GH_AW_PROMPT_EOF'
+    </system>
+    GH_AW_PROMPT_EOF
+    cat << 'GH_AW_PROMPT_EOF'
+    {{#runtime-import .github/workflows/daily-repo-status.md}}
+    GH_AW_PROMPT_EOF
+    } > "$GH_AW_PROMPT"
               "defaultMax": 20,
               "fields": {
                 "alternatives": {
