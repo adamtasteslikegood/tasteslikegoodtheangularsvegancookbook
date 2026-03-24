@@ -9,7 +9,7 @@ steps:
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Express Frontend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     args:
       - build
       - -t
@@ -19,7 +19,7 @@ steps:
   # 2. Build the Flask backend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Flask Backend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     dir: 'Backend'
     args:
       - build
@@ -30,18 +30,18 @@ steps:
   # 3. Push images (each waits for its own build)
   - name: gcr.io/cloud-builders/docker
     id: 'Push Express Frontend Image'
-    waitFor: [ 'Build Express Frontend' ]
-    args: [ push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA' ]
+    waitFor: ['Build Express Frontend']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA']
 
   - name: gcr.io/cloud-builders/docker
     id: 'Push Flask Backend Image'
-    waitFor: [ 'Build Flask Backend' ]
-    args: [ push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA' ]
+    waitFor: ['Build Flask Backend']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA']
 
   # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Flask Backend'
-    waitFor: [ 'Push Flask Backend Image' ]
+    waitFor: ['Push Flask Backend Image']
     entrypoint: gcloud
     args:
       - run
@@ -51,7 +51,7 @@ steps:
       - --region=$_REGION
       - --min-instances=1
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
-      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
+      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images
       - --allow-unauthenticated
       - --quiet
       - --network=default
@@ -61,7 +61,7 @@ steps:
   # 5. Deploy Express Frontend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Express Frontend'
-    waitFor: [ 'Push Express Frontend Image' ]
+    waitFor: ['Push Express Frontend Image']
     entrypoint: gcloud
     args:
       - run
@@ -70,9 +70,13 @@ steps:
       - --image=$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
       - --region=$_REGION
       - --min-instances=0
+      - --set-env-vars=FLASK_BACKEND_URL=https://flask-backend-ixidqtkkfa-uc.a.run.app,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam
       - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
       - --allow-unauthenticated
       - --quiet
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
 
 images:
   - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
