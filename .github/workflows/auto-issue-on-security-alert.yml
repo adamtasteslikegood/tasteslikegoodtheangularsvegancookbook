@@ -8,7 +8,7 @@ name: ⚠️ Auto-Issue on Security Alert
 
 on:
   dependabot_alert:
-    types: [created, reintroduced, auto_reopened]
+    types: [created, reintroduced, auto_reopened, auto_dismissed]
 
   # repository_vulnerability_alert fires for all GitHub Advisory Database
   # alerts (npm audit, pip-audit, etc.) when Advanced Security is enabled
@@ -76,19 +76,20 @@ jobs:
             const issueTitle =
               `⚠️ Dependabot Alert #${alertNumber}: ${packageName} (${severity})`;
 
-            // ── Deduplication ────────────────────────────────────────────────
+            // ── Deduplication (open issues only) ────────────────────────────
             const searchResp = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue in:title "Dependabot Alert #${alertNumber}"`,
+              q: `repo:${owner}/${repo} is:issue is:open in:title "Dependabot Alert #${alertNumber}"`,
               per_page: 5,
             });
             if (searchResp.data.total_count > 0) {
-              core.info(`Issue already exists for Dependabot alert #${alertNumber} — skipping.`);
+              core.info(`Open issue already exists for Dependabot alert #${alertNumber} — skipping.`);
               return;
             }
 
             // ── Build issue body ─────────────────────────────────────────────
+            const defaultBranch = context.payload.repository?.default_branch ?? 'main';
             const manifestNote = manifestPath
-              ? `[\`${manifestPath}\`](https://github.com/${owner}/${repo}/blob/main/${manifestPath})`
+              ? `[\`${manifestPath}\`](https://github.com/${owner}/${repo}/blob/${defaultBranch}/${manifestPath})`
               : '(not specified)';
 
             const body = [
@@ -143,9 +144,18 @@ jobs:
             const alertNumber  = alert.id ?? 'unknown';
             const packageName  = alert.affected_package_name ?? 'unknown';
             const severity     = alert.severity ?? 'unknown';
-            const summary      = alert.external_reference ?? '';
             const fixedIn      = alert.fixed_in ?? 'no patch available';
-            const alertUrl     = `https://github.com/${owner}/${repo}/security/dependabot`;
+            // Advisory fields — available when GitHub Advanced Security populates the payload
+            const cvss         = alert.cvss?.score ?? null;
+            const cveId        = alert.cve_id ?? null;
+            const ghsaId       = alert.ghsa_id ?? null;
+            const summary      = alert.summary ?? alert.external_reference ?? '';
+            const description  = alert.description ?? '';
+            const cweIds       = Array.isArray(alert.cwes)
+              ? alert.cwes.map(c => c.cwe_id).join(', ')
+              : '';
+            const alertUrl     = alert.html_url
+              ?? `https://github.com/${owner}/${repo}/security/dependabot`;
 
             async function ensureLabel(name, color, description) {
               try {
@@ -176,11 +186,11 @@ jobs:
             const issueTitle = `⚠️ Vulnerability Alert: ${packageName} (${severity}) — alert #${alertNumber}`;
 
             const searchResp = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue in:title "alert #${alertNumber}" in:title "Vulnerability Alert"`,
+              q: `repo:${owner}/${repo} is:issue is:open in:title "alert #${alertNumber}" in:title "Vulnerability Alert"`,
               per_page: 5,
             });
             if (searchResp.data.total_count > 0) {
-              core.info(`Issue already exists for vulnerability alert #${alertNumber} — skipping.`);
+              core.info(`Open issue already exists for vulnerability alert #${alertNumber} — skipping.`);
               return;
             }
 
@@ -192,9 +202,14 @@ jobs:
               `| **Package** | \`${packageName}\` |`,
               `| **Severity** | \`${severity}\` |`,
               `| **Fixed in** | \`${fixedIn}\` |`,
-              `| **Reference** | ${summary || 'N/A'} |`,
-              `| **Dashboard** | [Security advisories](${alertUrl}) |`,
+              ...(cveId  ? [`| **CVE** | [${cveId}](https://nvd.nist.gov/vuln/detail/${cveId}) |`] : []),
+              ...(ghsaId ? [`| **GHSA** | [${ghsaId}](https://github.com/advisories/${ghsaId}) |`] : []),
+              ...(cvss   ? [`| **CVSS score** | \`${cvss}\` |`] : []),
+              ...(cweIds ? [`| **CWE(s)** | \`${cweIds}\` |`] : []),
+              `| **Alert** | [View in Security tab](${alertUrl}) |`,
               '',
+              ...(summary     ? ['### Advisory Summary', '', summary,     ''] : []),
+              ...(description ? ['### Details',          '', description, ''] : []),
               '## 🎯 Action Required',
               '',
               `Update \`${packageName}\` to version \`${fixedIn}\` or later, then close this issue.`,

@@ -83,13 +83,13 @@ jobs:
             const issueTitle =
               `🔍 [${toolName}] ${ruleName} in \`${fileRef}\` (alert #${alertNumber})`;
 
-            // ── Deduplication ────────────────────────────────────────────────
+            // ── Deduplication (open issues only — allow re-creation if closed) ──
             const searchResp = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${owner}/${repo} is:issue in:title "alert #${alertNumber}" in:title "[${toolName}]"`,
+              q: `repo:${owner}/${repo} is:issue is:open in:title "alert #${alertNumber}" in:title "[${toolName}]"`,
               per_page: 5,
             });
             if (searchResp.data.total_count > 0) {
-              core.info(`Issue already exists for alert #${alertNumber} — skipping.`);
+              core.info(`Open issue already exists for alert #${alertNumber} — skipping.`);
               return;
             }
 
