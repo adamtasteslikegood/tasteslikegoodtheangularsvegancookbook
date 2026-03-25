@@ -161,57 +161,108 @@ jobs:
     if: needs.detect-trigger.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
-      checks_status: ${{ steps.run.outputs.checks_status }}
-      lint_status: ${{ steps.run.outputs.lint_status }}
-      test_status: ${{ steps.run.outputs.test_status }}
-      build_status: ${{ steps.run.outputs.build_status }}
-      notes: ${{ steps.run.outputs.notes }}
+      checks_status: ${{ steps.summary.outputs.checks_status }}
+      lint_status: ${{ steps.summary.outputs.lint_status }}
+      test_status: ${{ steps.summary.outputs.test_status }}
+      build_status: ${{ steps.summary.outputs.build_status }}
+      notes: ${{ steps.summary.outputs.notes }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - name: Run configured repository checks
-        id: run
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      - name: Lint (ESLint + Prettier)
+        id: lint
+        if: steps.install.outcome == 'success'
         continue-on-error: true
+        run: |
+          npm run lint
+          npm run format:check
+
+      - name: Type check (frontend + server)
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run type-check
+
+      - name: Test (Vitest)
+        id: test
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npx vitest run --coverage
+
+      - name: Build (Angular + server)
+        id: build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm run build
+
+      - name: Security audit
+        id: audit
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+      - name: Upload coverage
+        if: always() && steps.test.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: coverage/
+          retention-days: 7
+
+      - name: Summarise outcomes
+        id: summary
+        if: always()
         shell: bash
         run: |
-          set +e
+          install="${{ steps.install.outcome }}"
+          lint="${{ steps.lint.outcome }}"
+          typecheck="${{ steps.typecheck.outcome }}"
+          test="${{ steps.test.outcome }}"
+          build="${{ steps.build.outcome }}"
+          audit="${{ steps.audit.outcome }}"
 
-          npm ci
-          install_exit=$?
-
-          if [ "$install_exit" -eq 0 ]; then
-            npm run build
-            build_exit=$?
-          else
-            build_exit=0
+          if [ "$install" != "success" ]; then
+            echo "checks_status=failure" >> "$GITHUB_OUTPUT"
+            echo "lint_status=skipped"   >> "$GITHUB_OUTPUT"
+            echo "test_status=skipped"   >> "$GITHUB_OUTPUT"
+            echo "build_status=skipped"  >> "$GITHUB_OUTPUT"
+            echo "notes=npm ci failed — all checks skipped." >> "$GITHUB_OUTPUT"
+            exit 1
           fi
 
-          install_status="success"
+          lint_status="success"
+          [ "$lint" != "success" ] && lint_status="failure"
+          [ "$typecheck" != "success" ] && lint_status="failure"
+
+          test_status="success"
+          [ "$test" != "success" ] && test_status="failure"
+
           build_status="success"
-          notes="Build completed successfully."
+          [ "$build" != "success" ] && build_status="failure"
 
-          if [ "$install_exit" -ne 0 ]; then
-            install_status="failure"
-            build_status="skipped"
-            notes="npm ci failed before build could run."
-          elif [ "$build_exit" -ne 0 ]; then
-            build_status="failure"
-            notes="npm run build failed."
-          fi
+          notes=""
+          [ "$lint_status" = "failure" ] && notes="Lint/format/typecheck failed. "
+          [ "$test_status" = "failure" ] && notes="${notes}Tests failed. "
+          [ "$build_status" = "failure" ] && notes="${notes}Build failed. "
+          [ "$audit" != "success" ] && notes="${notes}Security audit found issues (non-blocking). "
+          [ -z "$notes" ] && notes="All frontend checks passed."
 
-          if [ "$install_exit" -ne 0 ] || [ "$build_exit" -ne 0 ]; then
+          checks_status="success"
+          if [ "$lint_status" = "failure" ] || [ "$test_status" = "failure" ] || [ "$build_status" = "failure" ]; then
             checks_status="failure"
-          else
-            checks_status="success"
           fi
 
           {
             echo "checks_status=$checks_status"
-            echo "lint_status=not_configured"
-            echo "test_status=not_configured"
+            echo "lint_status=$lint_status"
+            echo "test_status=$test_status"
             echo "build_status=$build_status"
             echo "notes=$notes"
           } >> "$GITHUB_OUTPUT"
@@ -229,25 +280,121 @@ jobs:
     if: needs.detect-trigger.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     outputs:
-      checks_status: ${{ steps.audit.outputs.checks_status }}
-      lint_status: ${{ steps.audit.outputs.lint_status }}
-      test_status: ${{ steps.audit.outputs.test_status }}
-      build_status: ${{ steps.audit.outputs.build_status }}
-      notes: ${{ steps.audit.outputs.notes }}
+      checks_status: ${{ steps.summary.outputs.checks_status }}
+      lint_status: ${{ steps.summary.outputs.lint_status }}
+      test_status: ${{ steps.summary.outputs.test_status }}
+      build_status: ${{ steps.summary.outputs.build_status }}
+      notes: ${{ steps.summary.outputs.notes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Audit backend submodule availability
-        id: audit
-        shell: bash
+
+      - name: Check submodule exists
+        id: check
         run: |
           if [ -d Backend ] && [ -n "$(ls -A Backend 2>/dev/null)" ]; then
-            note="Backend submodule checked out for reporting; no backend-specific checks are configured in this repository."
-            checks_status="present"
+            echo "available=true" >> "$GITHUB_OUTPUT"
           else
-            note="Backend submodule is unavailable or not initialized in this workflow run."
-            checks_status="skipped"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install uv
+        if: steps.check.outputs.available == 'true'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        if: steps.check.outputs.available == 'true'
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        id: install
+        if: steps.check.outputs.available == 'true'
+        working-directory: Backend
+        run: uv sync --dev
+
+      - name: Lint (Black + Flake8)
+        id: lint
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        working-directory: Backend
+        run: |
+          uv run black --check .
+          uv run flake8 . --count --show-source --statistics
+
+      - name: Type check (mypy)
+        id: typecheck
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        working-directory: Backend
+        run: uv run mypy . --ignore-missing-imports
+
+      - name: Test (pytest)
+        id: test
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        working-directory: Backend
+        env:
+          FLASK_SECRET_KEY: test-secret-key-for-ci
+          GOOGLE_CLIENT_ID: test-client-id
+          GOOGLE_CLIENT_SECRET: test-client-secret
+        run: uv run pytest --cov=. --cov-report=xml --cov-report=term
+
+      - name: Docker build check
+        id: docker
+        if: steps.check.outputs.available == 'true'
+        continue-on-error: true
+        run: docker build -t backend-test:ci Backend/
+
+      - name: Upload coverage
+        if: always() && steps.test.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: Backend/coverage.xml
+          retention-days: 7
+
+      - name: Summarise outcomes
+        id: summary
+        if: always()
+        shell: bash
+        run: |
+          available="${{ steps.check.outputs.available }}"
+          if [ "$available" != "true" ]; then
+            echo "checks_status=skipped"        >> "$GITHUB_OUTPUT"
+            echo "lint_status=skipped"           >> "$GITHUB_OUTPUT"
+            echo "test_status=skipped"           >> "$GITHUB_OUTPUT"
+            echo "build_status=skipped"          >> "$GITHUB_OUTPUT"
+            echo "notes=Backend submodule unavailable." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          lint="${{ steps.lint.outcome }}"
+          typecheck="${{ steps.typecheck.outcome }}"
+          test="${{ steps.test.outcome }}"
+          docker="${{ steps.docker.outcome }}"
+
+          lint_status="success"
+          [ "$lint" != "success" ] && lint_status="failure"
+          [ "$typecheck" != "success" ] && lint_status="failure"
+
+          test_status="success"
+          [ "$test" != "success" ] && test_status="failure"
+
+          build_status="success"
+          [ "$docker" != "success" ] && build_status="failure"
+
+          notes=""
+          [ "$lint_status" = "failure" ] && notes="Black/flake8/mypy failed. "
+          [ "$test_status" = "failure" ] && notes="${notes}pytest failed. "
+          [ "$build_status" = "failure" ] && notes="${notes}Docker build failed. "
+          [ -z "$notes" ] && notes="All backend checks passed."
+
+          checks_status="success"
+          if [ "$lint_status" = "failure" ] || [ "$test_status" = "failure" ] || [ "$build_status" = "failure" ]; then
+            checks_status="failure"
           fi
 
           {

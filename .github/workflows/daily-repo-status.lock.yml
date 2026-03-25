@@ -1,11 +1,12 @@
-#    ___                   _   _      
-#   / _ \                 | | (_)     
-#  | |_| | __ _  ___ _ __ | |_ _  ___ 
+#
+#    ___                   _   _
+#   / _ \                 | | (_)
+#  | |_| | __ _  ___ _ __ | |_ _  ___
 #  |  _  |/ _` |/ _ \ '_ \| __| |/ __|
-#  | | | | (_| |  __/ | | | |_| | (__ 
+#  | | | | (_| |  __/ | | | |_| | (__
 #  \_| |_/\__, |\___|_| |_|\__|_|\___|
 #          __/ |
-#  _    _ |___/ 
+#  _    _ |___/
 # | |  | |                / _| |
 # | |  | | ___ _ __ _  __| |_| | _____      ____
 # | |/\| |/ _ \ '__| |/ /|  _| |/ _ \ \ /\ / / ___|
@@ -29,19 +30,19 @@
 #
 # gh-aw-metadata: {"schema_version":"v1","frontmatter_hash":"44589f9d0d11dbf2be0a771ebac7ede5717e856175407247658c4be5f07735c6","compiler_version":"v0.50.7"}
 
-name: "Daily Repo Status"
-"on":
+name: 'Daily Repo Status'
+'on':
   schedule:
-  - cron: "41 0 * * *"
-    # Friendly format: daily (scattered)
+    - cron: '41 0 * * *'
+      # Friendly format: daily (scattered)
   workflow_dispatch:
 
 permissions: {}
 
 concurrency:
-  group: "gh-aw-${{ github.workflow }}"
+  group: 'gh-aw-${{ github.workflow }}'
 
-run-name: "Daily Repo Status"
+run-name: 'Daily Repo Status'
 
 jobs:
   activation:
@@ -49,8 +50,8 @@ jobs:
     permissions:
       contents: read
     outputs:
-      comment_id: ""
-      comment_repo: ""
+      comment_id: ''
+      comment_repo: ''
       secret_verification_result: ${{ steps.validate-secret.outputs.verification_result }}
     steps:
       - name: Setup Scripts
@@ -81,7 +82,7 @@ jobs:
       - name: Check workflow file timestamps
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          GH_AW_WORKFLOW_FILE: "daily-repo-status.lock.yml"
+          GH_AW_WORKFLOW_FILE: 'daily-repo-status.lock.yml'
         with:
           script: |
             const { setupGlobals } = require('/opt/gh-aw/actions/setup_globals.cjs');

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { Request, Response, NextFunction } from 'express';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { NextFunction, Request, Response } from 'express';
 
 // Module-level mock for express-validator.
 // vi.mock() is hoisted to the top of the module by Vitest's transform pass.
@@ -94,9 +94,47 @@ describe('createApiLimiter', () => {
   });
 
   it('should accept custom windowMs and max parameters', async () => {
-    const { createApiLimiter } = await import('./security');
-    const limiter = createApiLimiter(5000, 10);
+    const { createApiLimiter } = await import('./security.js');
+    const limiter = createApiLimiter(null, 5000, 10);
     expect(typeof limiter).toBe('function');
+  });
+});
+
+describe('shouldSkipRateLimiting', () => {
+  it('skips /health', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/health' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(true);
+  });
+
+  it('skips /recipes/<uuid>/image', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/image' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(true);
+  });
+
+  it('skips /recipes/<short-id>/image', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/recipes/abc123/image' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(true);
+  });
+
+  it('does not skip /recipes (list endpoint)', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/recipes' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(false);
+  });
+
+  it('does not skip /generate', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/generate' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(false);
+  });
+
+  it('does not skip /recipes/<uuid>/data (non-image sub-paths)', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/data' } as Request;
+    expect(shouldSkipRateLimiting(req)).toBe(false);
   });
 });
 

@@ -18,8 +18,8 @@
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
   },
   "dependencies": {
-    "@angular/build": "21.2.4",
-    "@angular/cli": "21.2.4",
+    "@angular/build": "21.2.3",
+    "@angular/cli": "21.2.3",
     "@angular/common": "21.2.4",
     "@angular/compiler": "21.2.4",
     "@angular/compiler-cli": "21.2.4",
@@ -32,6 +32,9 @@
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.1",
     "express-validator": "^7.1.0",
+    "google-auth-library": "^10.6.2",
+    "ioredis": "^5.10.1",
+    "rate-limit-redis": "^4.3.1",
     "helmet": "^8.1.0",
     "rxjs": "^7.8.2",
     "tailwindcss": "^3.4.19"

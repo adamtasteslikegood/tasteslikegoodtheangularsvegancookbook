@@ -13,6 +13,7 @@ export interface Cookbook {
 export interface DeletedRecipe {
   recipe: Recipe;
   deletedAt: string; // ISO timestamp
+  cookbookIds?: string[]; // cookbooks the recipe belonged to before deletion
 }
 
 export interface User {
