@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Server } from 'node:http';
 import {
   applySecurityMiddleware,
   createApiLimiter,
@@ -9,7 +10,7 @@ import {
   createRequestLogger,
 } from './security.js';
 import { createFlaskProxy } from './proxy.js';
-import { createValkeyClient } from './valkey.js';
+import { createValkeyClient, shutdownValkey } from './valkey.js';
 
 const app = express();
 const port = Number.parseInt(process.env.PORT || '8080', 10);
@@ -18,6 +19,9 @@ const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 // Trust the first proxy (Cloud Run / GFE load balancer) so express-rate-limit
 // uses the real client IP from X-Forwarded-For instead of the proxy's IP.
 app.set('trust proxy', 1);
+
+// Module-level reference so the graceful-shutdown handler can close it.
+let server: Server | null = null;
 
 // ── Async startup ───────────────────────────────────────────────
 (async () => {
@@ -70,7 +74,7 @@ app.set('trust proxy', 1);
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
 
-  app.listen(port, () => {
+  server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Flask backend → ${flaskUrl}`);
@@ -80,3 +84,19 @@ app.set('trust proxy', 1);
   console.error('Fatal error during server startup:', err);
   process.exit(1);
 });
+
+// Graceful shutdown on SIGTERM / SIGINT
+// Drains in-flight HTTP connections, stops the Valkey token-refresh timer,
+// and closes the Redis connection so Cloud Run terminations and local dev
+// restarts don't leave dangling handles or abruptly terminate requests.
+const gracefulShutdown = async (signal: string): Promise<void> => {
+  console.log(`[Server] Received ${signal}, shutting down gracefully...`);
+  if (server) {
+    await new Promise<void>((resolve) => server!.close(() => resolve()));
+  }
+  await shutdownValkey();
+  process.exit(0);
+};
+
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
