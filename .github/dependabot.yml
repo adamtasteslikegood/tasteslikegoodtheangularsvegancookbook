@@ -66,7 +66,8 @@ updates:
           - "postcss"
     # Ignore known breaking major updates that require manual migration
     ignore:
-      # Tailwind v4 requires @tailwindcss/postcss and a config migration
+      # Tailwind v4 requires @tailwindcss/postcss plugin and full config migration.
+      # Review periodically — remove this ignore when ready to migrate (see postcss.config.js).
       - dependency-name: "tailwindcss"
         update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 15
