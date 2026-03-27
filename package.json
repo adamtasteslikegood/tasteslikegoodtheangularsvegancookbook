@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "@angular/build": "21.2.4",
-    "@angular/cli": "21.2.4",
+    "@angular/cli": "21.2.5",
     "@angular/common": "21.2.4",
     "@angular/compiler": "21.2.4",
     "@angular/compiler-cli": "21.2.4",
