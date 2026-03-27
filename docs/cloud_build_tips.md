@@ -1,3 +1,7 @@
+> ⚠️ **Note:** This document was written during early project setup. The current architecture uses an Express reverse proxy (see [ADR-001](./ADR-001-auth-and-persistence-routing.md)) — API keys are server-side only and are **not** baked into the client bundle. References to `VITE_GEMINI_API_KEY` in the client are outdated. The Express server reads `GEMINI_API_KEY` from the environment; Flask reads `GOOGLE_API_KEY`. See the root `README.md` for current setup instructions.
+
+---
+
 It's great you're moving towards a more robust deployment pipeline! Transitioning from an AI Studio deployment to a GitHub-driven Cloud Build process has a few key considerations. Here's a checklist to help you as you create your Dockerfile and prepare your new working branch:
 
 Project-Specific TODOs (Local Docker Test First)
