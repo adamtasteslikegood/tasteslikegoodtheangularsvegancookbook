@@ -1,4 +1,4 @@
-version: 2
+version: 3
 
 updates:
   # -------------------------
@@ -12,7 +12,7 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 25
 
   # -------------------------
   # npm (root)
@@ -25,7 +25,7 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 25
 
   # -------------------------
   # Docker (root)
@@ -38,4 +38,4 @@ updates:
     labels:
       - "dependencies"
       - "docker"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 25
