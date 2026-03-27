@@ -21,14 +21,22 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Require patch/minor updates only
+      - name: Skip major updates
         if: steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: |
-          echo "Major update detected (${{ steps.metadata.outputs.update-type }}). Not auto-merging."
+          echo "::notice::Major update detected (${{ steps.metadata.outputs.update-type }}). Not auto-merging."
           exit 0
 
+      - name: Approve patch/minor updates
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
+        run: |
+          gh pr review "$PR_URL" --approve --body "Auto-approved: Dependabot ${{ steps.metadata.outputs.update-type }} update."
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Enable auto-merge (squash)
-        # This will queue auto-merge; GitHub will merge once branch protection + checks are satisfied.
+        if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -37,7 +45,6 @@ jobs:
             const repo = context.repo.repo;
             const pull_number = context.payload.pull_request.number;
 
-            // Safety: don't auto-merge draft PRs
             const pr = await github.rest.pulls.get({ owner, repo, pull_number });
             if (pr.data.draft) {
               core.info("PR is draft; not enabling auto-merge.");
@@ -46,8 +53,6 @@ jobs:
 
             core.info(`Dependabot update-type: ${{ steps.metadata.outputs.update-type }}`);
 
-            // Enable auto-merge using squash
-            // (If auto-merge is disabled at the repo level, this call will fail.)
             await github.graphql(`
               mutation($pullRequestId:ID!) {
                 enablePullRequestAutoMerge(input:{
