@@ -22,6 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # JavaScript/TypeScript covers the Angular frontend and Express server.
+        # Python (Flask backend) lives in the Backend/ submodule — a separate
+        # repository that should configure its own CodeQL workflow.
         language: [javascript-typescript]
 
     steps:

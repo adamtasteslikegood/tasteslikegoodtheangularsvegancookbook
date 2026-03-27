@@ -24,5 +24,5 @@ jobs:
           fail-on-severity: high
           # Comment on the PR with a summary of changes
           comment-summary-in-pr: always
-          # Deny copyleft licenses that could affect distribution
+          # Deny copyleft licenses incompatible with the project's proprietary distribution
           deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-3.0-only

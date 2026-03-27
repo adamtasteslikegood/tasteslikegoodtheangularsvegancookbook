@@ -28,6 +28,9 @@ jobs:
           exit 0
 
       - name: Approve patch/minor updates
+        # Note: GITHUB_TOKEN approval may not satisfy branch protection rules that
+        # require reviews from specific users/teams. A PAT from a dedicated bot
+        # account would be needed in that case.
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         run: |
           gh pr review "$PR_URL" --approve --body "Auto-approved: Dependabot ${{ steps.metadata.outputs.update-type }} update."
