@@ -72,15 +72,26 @@
                 class="h-8 w-8 rounded-full object-cover border border-stone-200"
               />
             } @else {
-              <div class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm">
+              <div
+                class="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-bold text-sm"
+              >
                 {{ authService.currentUser()?.name?.charAt(0) || '?' }}
               </div>
             }
             <span class="text-stone-800 font-bold text-sm truncate max-w-[80px] hidden sm:inline">
               {{ authService.currentUser()?.name }}
             </span>
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-4 w-4 text-stone-400"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+              />
             </svg>
           </button>
 
@@ -102,12 +113,16 @@
                       class="h-14 w-14 rounded-full object-cover border-2 border-white shadow-sm"
                     />
                   } @else {
-                    <div class="h-14 w-14 rounded-full bg-green-200 flex items-center justify-center text-green-800 font-bold text-xl border-2 border-white shadow-sm">
+                    <div
+                      class="h-14 w-14 rounded-full bg-green-200 flex items-center justify-center text-green-800 font-bold text-xl border-2 border-white shadow-sm"
+                    >
                       {{ authService.currentUser()?.name?.charAt(0) || '?' }}
                     </div>
                   }
                   <div class="min-w-0">
-                    <p class="font-bold text-stone-800 truncate">{{ authService.currentUser()?.name }}</p>
+                    <p class="font-bold text-stone-800 truncate">
+                      {{ authService.currentUser()?.name }}
+                    </p>
                     <p class="text-xs text-stone-500 truncate">{{ maskedEmail() }}</p>
                   </div>
                 </div>
@@ -117,11 +132,15 @@
               <div class="px-5 py-3 border-b border-stone-100">
                 <div class="flex justify-between text-sm">
                   <span class="text-stone-500">Saved Recipes</span>
-                  <span class="font-bold text-stone-700">{{ authService.currentUser()?.savedRecipes?.length || 0 }}</span>
+                  <span class="font-bold text-stone-700">{{
+                    authService.currentUser()?.savedRecipes?.length || 0
+                  }}</span>
                 </div>
                 <div class="flex justify-between text-sm mt-1">
                   <span class="text-stone-500">Cookbooks</span>
-                  <span class="font-bold text-stone-700">{{ authService.currentUser()?.cookbooks?.length || 0 }}</span>
+                  <span class="font-bold text-stone-700">{{
+                    authService.currentUser()?.cookbooks?.length || 0
+                  }}</span>
                 </div>
               </div>
 
@@ -131,8 +150,19 @@
                   (click)="onLogout()"
                   class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                    />
                   </svg>
                   Log Out
                 </button>
@@ -218,7 +248,11 @@
 
     <!-- Recipe Display Section -->
     @if (recipe(); as r) {
-      <article class="animate-[fadeIn_0.5s_ease-out]" itemscope itemtype="https://schema.org/Recipe">
+      <article
+        class="animate-[fadeIn_0.5s_ease-out]"
+        itemscope
+        itemtype="https://schema.org/Recipe"
+      >
         <!-- Recipe Header -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
           <div class="space-y-6">
@@ -751,8 +785,17 @@
               [class.hover:bg-stone-50]="!showRecycleBin()"
             >
               <span class="flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
                 Recycle Bin
               </span>
@@ -771,12 +814,23 @@
           <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
               <h2 class="text-3xl font-bold text-red-700 serif flex items-center gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-8 w-8"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                    clip-rule="evenodd"
+                  />
                 </svg>
                 Recycle Bin
               </h2>
-              <p class="text-stone-500 mt-1">Deleted recipes can be restored or permanently removed.</p>
+              <p class="text-stone-500 mt-1">
+                Deleted recipes can be restored or permanently removed.
+              </p>
             </div>
             @if (recycleBinCount() > 0) {
               <button
@@ -789,27 +843,51 @@
           </div>
 
           @if (recycleBinRecipes().length === 0) {
-            <div class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed">
+            <div
+              class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed"
+            >
               <p class="text-stone-400">Recycle Bin is empty.</p>
             </div>
           } @else {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               @for (d of recycleBinRecipes(); track d.recipe.id) {
-                <div class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden opacity-75 hover:opacity-100 transition-opacity">
+                <div
+                  class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden opacity-75 hover:opacity-100 transition-opacity"
+                >
                   <div class="h-32 bg-stone-200 relative overflow-hidden">
                     @if (d.recipe.ai_image_url) {
-                      <img [src]="d.recipe.ai_image_url" class="w-full h-full object-cover grayscale" alt="{{ d.recipe.name }}" loading="lazy" />
+                      <img
+                        [src]="d.recipe.ai_image_url"
+                        class="w-full h-full object-cover grayscale"
+                        alt="{{ d.recipe.name }}"
+                        loading="lazy"
+                      />
                     } @else {
                       <div class="w-full h-full flex items-center justify-center text-stone-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-10 w-10"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
                         </svg>
                       </div>
                     }
                   </div>
                   <div class="p-4">
-                    <h3 class="font-bold text-stone-800 text-lg mb-1 line-clamp-2">{{ d.recipe.name }}</h3>
-                    <p class="text-xs text-stone-400 mb-3">Deleted {{ d.deletedAt | date: 'medium' }}</p>
+                    <h3 class="font-bold text-stone-800 text-lg mb-1 line-clamp-2">
+                      {{ d.recipe.name }}
+                    </h3>
+                    <p class="text-xs text-stone-400 mb-3">
+                      Deleted {{ d.deletedAt | date: 'medium' }}
+                    </p>
                     <div class="flex gap-2">
                       <button
                         (click)="restoreRecipe(d.recipe.id)"
@@ -830,207 +908,217 @@
             </div>
           }
         } @else {
-        <!-- Main Kitchen Header with Import/Export -->
-        <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-          <div>
-            <h2 class="text-3xl font-bold text-stone-800 serif">
-              {{ activeCookbook() ? activeCookbook()!.name : 'All Recipes' }}
-            </h2>
-            @if (activeCookbook()?.description) {
-              <p class="text-stone-500 mt-1">{{ activeCookbook()!.description }}</p>
-            }
-          </div>
-
-          <div class="flex gap-2">
-            <button
-              (click)="exportRecipe()"
-              class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                />
-              </svg>
-              Export All
-            </button>
-            <label
-              class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m-4 4v12"
-                />
-              </svg>
-              Import JSON
-              <input
-                type="file"
-                class="hidden"
-                accept=".json"
-                (change)="onImportFileSelected($event)"
-              />
-            </label>
-          </div>
-        </div>
-
-        @if (displayedKitchenRecipes().length === 0) {
-          <div
-            class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed"
-          >
-            <div class="text-stone-300 mb-4">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                class="h-16 w-16 mx-auto"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                />
-              </svg>
+          <!-- Main Kitchen Header with Import/Export -->
+          <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <h2 class="text-3xl font-bold text-stone-800 serif">
+                {{ activeCookbook() ? activeCookbook()!.name : 'All Recipes' }}
+              </h2>
+              @if (activeCookbook()?.description) {
+                <p class="text-stone-500 mt-1">{{ activeCookbook()!.description }}</p>
+              }
             </div>
-            <h3 class="text-xl font-bold text-stone-600 mb-2">No recipes yet</h3>
-            <p class="text-stone-400 max-w-xs mx-auto mb-6">
-              Start by generating some delicious vegan meals, write your own, or import a cookbook.
-            </p>
-            <button
-              (click)="switchView('generator')"
-              class="px-6 py-2 bg-green-600 text-white font-medium rounded-full hover:bg-green-700 transition-colors"
-            >
-              Go to Generator
-            </button>
-          </div>
-        } @else {
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            @for (r of displayedKitchenRecipes(); track r.id) {
-              <div
-                class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
-                (click)="viewRecipe(r)"
+
+            <div class="flex gap-2">
+              <button
+                (click)="exportRecipe()"
+                class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2"
               >
-                <div class="h-48 bg-stone-200 relative overflow-hidden">
-                  @if (r.ai_image_url) {
-                    <img
-                      [src]="r.ai_image_url"
-                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      alt="{{ r.name }}"
-                      loading="lazy"
-                    />
-                  } @else {
-                    <div class="w-full h-full flex items-center justify-center text-stone-400">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-12 w-12"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                  }
-                  <div class="absolute top-2 right-2 flex gap-1">
-                    <button
-                      (click)="$event.stopPropagation(); openAddToCookbookModal(r)"
-                      class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-green-700 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Add to Cookbook"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      (click)="promptDeleteRecipe(r, $event)"
-                      class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-red-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Delete Recipe"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-                <div class="p-4">
-                  <h3 class="font-bold text-stone-800 text-lg mb-1 leading-snug line-clamp-2">
-                    {{ r.name }}
-                  </h3>
-                  <div class="flex items-center text-xs text-stone-500 gap-3 mt-3">
-                    <span class="flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-3 w-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      {{ r.cookTime + r.prepTime }}m
-                    </span>
-                    <span class="flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        class="h-3 w-3"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          stroke-width="2"
-                          d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                        />
-                      </svg>
-                      {{ r.servings }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            }
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                  />
+                </svg>
+                Export All
+              </button>
+              <label
+                class="px-3 py-2 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-sm font-medium flex items-center gap-2 cursor-pointer"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m-4 4v12"
+                  />
+                </svg>
+                Import JSON
+                <input
+                  type="file"
+                  class="hidden"
+                  accept=".json"
+                  (change)="onImportFileSelected($event)"
+                />
+              </label>
+            </div>
           </div>
-        }
+
+          @if (displayedKitchenRecipes().length === 0) {
+            <div
+              class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed"
+            >
+              <div class="text-stone-300 mb-4">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-16 w-16 mx-auto"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+                  />
+                </svg>
+              </div>
+              <h3 class="text-xl font-bold text-stone-600 mb-2">No recipes yet</h3>
+              <p class="text-stone-400 max-w-xs mx-auto mb-6">
+                Start by generating some delicious vegan meals, write your own, or import a
+                cookbook.
+              </p>
+              <button
+                (click)="switchView('generator')"
+                class="px-6 py-2 bg-green-600 text-white font-medium rounded-full hover:bg-green-700 transition-colors"
+              >
+                Go to Generator
+              </button>
+            </div>
+          } @else {
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              @for (r of displayedKitchenRecipes(); track r.id) {
+                <div
+                  class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
+                  (click)="viewRecipe(r)"
+                >
+                  <div class="h-48 bg-stone-200 relative overflow-hidden">
+                    @if (r.ai_image_url) {
+                      <img
+                        [src]="r.ai_image_url"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        alt="{{ r.name }}"
+                        loading="lazy"
+                      />
+                    } @else {
+                      <div class="w-full h-full flex items-center justify-center text-stone-400">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-12 w-12"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                          />
+                        </svg>
+                      </div>
+                    }
+                    <div class="absolute top-2 right-2 flex gap-1">
+                      <button
+                        (click)="$event.stopPropagation(); openAddToCookbookModal(r)"
+                        class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-green-700 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Add to Cookbook"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                          />
+                        </svg>
+                      </button>
+                      <button
+                        (click)="promptDeleteRecipe(r, $event)"
+                        class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-red-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Delete Recipe"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fill-rule="evenodd"
+                            d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                            clip-rule="evenodd"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="p-4">
+                    <h3 class="font-bold text-stone-800 text-lg mb-1 leading-snug line-clamp-2">
+                      {{ r.name }}
+                    </h3>
+                    <div class="flex items-center text-xs text-stone-500 gap-3 mt-3">
+                      <span class="flex items-center gap-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        {{ r.cookTime + r.prepTime }}m
+                      </span>
+                      <span class="flex items-center gap-1">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          class="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
+                        {{ r.servings }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
         }
       </main>
     </div>
@@ -1534,9 +1622,12 @@
               [class.ring-2]="isCookbookSelected(cb.id)"
               [class.ring-green-500]="isCookbookSelected(cb.id)"
             >
-              <span class="font-medium" [class.text-green-800]="isCookbookSelected(cb.id)" [class.text-stone-700]="!isCookbookSelected(cb.id)">{{
-                cb.name
-              }}</span>
+              <span
+                class="font-medium"
+                [class.text-green-800]="isCookbookSelected(cb.id)"
+                [class.text-stone-700]="!isCookbookSelected(cb.id)"
+                >{{ cb.name }}</span
+              >
               @if (isCookbookSelected(cb.id)) {
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1559,7 +1650,10 @@
         @if (showRemoveConfirmation()) {
           <div class="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
             <p class="font-bold text-amber-800 mb-1">Remove from cookbooks?</p>
-            <p class="text-amber-700">This recipe will be removed from: <strong>{{ cookbooksBeingRemoved().join(', ') }}</strong></p>
+            <p class="text-amber-700">
+              This recipe will be removed from:
+              <strong>{{ cookbooksBeingRemoved().join(', ') }}</strong>
+            </p>
             <div class="flex gap-2 mt-3">
               <button
                 (click)="cancelRemoveConfirmation()"
@@ -1600,12 +1694,28 @@
   <!-- Delete Recipe Confirmation Modal -->
   @if (showDeleteConfirmation()) {
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="cancelDeleteRecipe()"></div>
-      <div class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]">
+      <div
+        class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
+        (click)="cancelDeleteRecipe()"
+      ></div>
+      <div
+        class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]"
+      >
         <div class="text-center mb-4">
-          <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          <div
+            class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 text-red-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
             </svg>
           </div>
           <h3 class="text-xl font-bold text-stone-800 serif">Delete Recipe?</h3>
@@ -1634,17 +1744,34 @@
   <!-- Empty Recycle Bin Confirmation Modal -->
   @if (showEmptyBinConfirmation()) {
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm" (click)="cancelEmptyRecycleBin()"></div>
-      <div class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]">
+      <div
+        class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
+        (click)="cancelEmptyRecycleBin()"
+      ></div>
+      <div
+        class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]"
+      >
         <div class="text-center mb-4">
-          <div class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" viewBox="0 0 20 20" fill="currentColor">
-              <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          <div
+            class="mx-auto w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mb-3"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-6 w-6 text-red-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fill-rule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clip-rule="evenodd"
+              />
             </svg>
           </div>
           <h3 class="text-xl font-bold text-stone-800 serif">Empty Recycle Bin?</h3>
           <p class="text-stone-500 mt-2 text-sm">
-            This will permanently delete <strong>{{ recycleBinCount() }}</strong> recipe(s). This cannot be undone.
+            This will permanently delete <strong>{{ recycleBinCount() }}</strong> recipe(s). This
+            cannot be undone.
           </p>
         </div>
         <div class="flex gap-3">

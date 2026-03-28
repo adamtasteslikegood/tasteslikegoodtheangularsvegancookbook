@@ -1,6 +1,5 @@
 ### Here is a mermaid graph:
 
-
 ```mermaid
 graph TD
     subgraph Legend

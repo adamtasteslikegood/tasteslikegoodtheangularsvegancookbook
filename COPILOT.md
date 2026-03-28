@@ -3,7 +3,8 @@
 Keep suggestions aligned with the repo's deployment targets (Cloud Run) and minimal client exposure of secrets.
 
 ## Documentation
--  put new docs in `docs/*` (unless they belong in the top-level i.e. `README.md`)
+
+- put new docs in `docs/*` (unless they belong in the top-level i.e. `README.md`)
 - `docs/*`: documentation and resources.
 
 ## Constraints
