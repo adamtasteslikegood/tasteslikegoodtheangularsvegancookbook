@@ -30,7 +30,7 @@
 | [README_SECURITY.md](./README_SECURITY.md) | Security implementation overview |
 | [SECURITY_QUICKSTART.md](./SECURITY_QUICKSTART.md) | Step-by-step security setup |
 | [SECURITY_IMPLEMENTATION_REPORT.md](./SECURITY_IMPLEMENTATION_REPORT.md) | Detailed security metrics and analysis |
-| [serectsguidelines.md](./serectsguidelines.md) | Secrets management guidelines |
+| [secretsguidelines.md](./secretsguidelines.md) | Secrets management guidelines |
 | [rate_limit.md](./rate_limit.md) | Rate limiting configuration reference |
 
 ### 👨‍💻 Developer — `Label: developer`
