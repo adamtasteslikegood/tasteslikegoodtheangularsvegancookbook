@@ -67,8 +67,8 @@ The Flask backend provides Google OAuth authentication and database-backed recip
    ```
    The backend runs on `http://localhost:5000`
 
-For detailed database setup, see [`Backend/DATABASE_SETUP.md`](Backend/DATABASE_SETUP.md).  
-For uv usage guide, see [`Backend/UV_QUICK_REFERENCE.md`](Backend/UV_QUICK_REFERENCE.md).
+For detailed database setup, see the Backend repository documentation.  
+For uv usage, see [`docs/UV_INTEGRATION_SUMMARY.md`](docs/UV_INTEGRATION_SUMMARY.md).
 
 6. **Database Maintenance** (if upgrading from older versions):
    ```sh
@@ -111,7 +111,7 @@ export $(grep -v '^#' .env | xargs)  # Set environment variables from .env
 npm run dev          # Run both servers
 ```
 
-**See:** [`CI_QUICK_REFERENCE.md`](CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_SETUP.md`](docs/CI_SETUP.md) for detailed setup.
+**See:** [`docs/CI_CD/CI_QUICK_REFERENCE.md`](docs/CI_CD/CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_CD/CI_SETUP.md`](docs/CI_CD/CI_SETUP.md) for detailed setup.
 
 ### Qodana global configuration
 
