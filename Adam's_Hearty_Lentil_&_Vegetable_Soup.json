@@ -152,16 +152,7 @@
   "notes": "For a creamier texture, use an immersion blender to partially blend the soup before adding the spinach. This soup is great for meal prep as the flavors deepen overnight. It will thicken as it cools; add a splash of broth when reheating.",
   "prepTime": 15,
   "servings": 6,
-  "tags": [
-    "vegan",
-    "soup",
-    "lentil",
-    "healthy",
-    "winter",
-    "easy",
-    "one-pot",
-    "gluten-free"
-  ],
+  "tags": ["vegan", "soup", "lentil", "healthy", "winter", "easy", "one-pot", "gluten-free"],
   "user_id": "adamschoen3@tasteslikegood.org",
   "ai_image_url": "/api/recipes/d239823c-b0ab-434a-9554-d54e90e9417d/image"
 }
