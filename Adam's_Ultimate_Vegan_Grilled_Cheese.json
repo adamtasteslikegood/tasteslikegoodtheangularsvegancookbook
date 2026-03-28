@@ -34,10 +34,7 @@
     ],
     "other": [
       {
-        "amount": [
-          2,
-          3
-        ],
+        "amount": [2, 3],
         "name": "Vegan cheese slices",
         "notes": "Cheddar or Provolone style recommended for best melt",
         "units": "slices"
@@ -85,15 +82,7 @@
   "notes": "The key to a great vegan grilled cheese is using a brand of cheese known for its melting quality. For an extra savory kick, add a thin layer of dijon mustard or a sprinkle of garlic powder to the inside of the bread. Sliced tomato or vegan bacon also make excellent additions.",
   "prepTime": 5,
   "servings": 1,
-  "tags": [
-    "vegan",
-    "grilled cheese",
-    "sandwich",
-    "comfort food",
-    "quick",
-    "lunch",
-    "dairy-free"
-  ],
+  "tags": ["vegan", "grilled cheese", "sandwich", "comfort food", "quick", "lunch", "dairy-free"],
   "user_id": "adamschoen3@tasteslikegood.org",
   "ai_image_url": "/api/recipes/66c127fb-18a3-4046-bb63-05001d103072/image"
 }
