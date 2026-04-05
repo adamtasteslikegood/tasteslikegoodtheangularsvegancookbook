@@ -89,13 +89,24 @@ let server: Server | null = null;
 // Drains in-flight HTTP connections, stops the Valkey token-refresh timer,
 // and closes the Redis connection so Cloud Run terminations and local dev
 // restarts don't leave dangling handles or abruptly terminate requests.
+let isShuttingDown = false;
+
 const gracefulShutdown = async (signal: string): Promise<void> => {
+  // Guard: ignore duplicate signals (e.g. two rapid Ctrl-C presses)
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+
   console.log(`[Server] Received ${signal}, shutting down gracefully...`);
-  if (server) {
-    await new Promise<void>((resolve) => server!.close(() => resolve()));
+  try {
+    if (server) {
+      await new Promise<void>((resolve) => server!.close(() => resolve()));
+    }
+    await shutdownValkey();
+    process.exit(0);
+  } catch (err) {
+    console.error('[Server] Error during graceful shutdown (forcing exit):', err);
+    process.exit(1);
   }
-  await shutdownValkey();
-  process.exit(0);
 };
 
 process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));

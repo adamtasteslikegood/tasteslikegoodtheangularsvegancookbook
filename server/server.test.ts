@@ -286,9 +286,11 @@ describe('createValkeyClient', () => {
     // module-level state (client / refreshTimer) is reset to null.
     const { shutdownValkey } = await import('./valkey.js');
     await shutdownValkey();
-    // Remove env vars set during the test
+    // Remove all Valkey-related env vars set during the test
     delete process.env.VALKEY_HOST;
     delete process.env.VALKEY_AUTH_MODE;
+    delete process.env.VALKEY_PORT;
+    delete process.env.VALKEY_TLS_INSECURE;
   });
 
   it('returns null when VALKEY_HOST is not set', async () => {
