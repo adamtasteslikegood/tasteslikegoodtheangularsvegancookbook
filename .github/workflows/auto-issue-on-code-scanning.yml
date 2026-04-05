@@ -1,0 +1,134 @@
+name: 🔍 Auto-Issue on Code Scanning Alert
+
+# Opens a GitHub issue for every new (or reopened) code scanning alert
+# produced by CodeQL, Qodana, or any other tool — but only for the
+# main and deploy-with-db branches.
+
+on:
+  code_scanning_alert:
+    types: [created, reopened_by_user, appeared_in_branch]
+
+permissions:
+  issues: write
+  contents: read
+  security-events: read
+
+jobs:
+  create-issue:
+    # Filter to protected branches only
+    if: >-
+      github.event.ref == 'refs/heads/main' ||
+      github.event.ref == 'refs/heads/deploy-with-db'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create code scanning issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const alert  = context.payload.alert;
+            const ref    = context.payload.ref;          // e.g. refs/heads/main
+            const branch = ref.replace('refs/heads/', '');
+
+            const alertNumber  = alert.number;
+            const toolName     = alert.tool?.name ?? 'Unknown Tool';
+            const ruleName     = alert.rule?.name ?? alert.rule?.id ?? 'Unknown Rule';
+            const severity     = alert.rule?.severity ?? 'unknown';   // note/warning/error/critical
+            const ruleDesc     = alert.rule?.description ?? '';
+            const alertUrl     = alert.html_url;
+            const filePath     = alert.most_recent_instance?.location?.path ?? '(unknown file)';
+            const startLine    = alert.most_recent_instance?.location?.start_line ?? '';
+            const message      = alert.most_recent_instance?.message?.text ?? '';
+
+            // ── Label helpers ────────────────────────────────────────────────
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                }
+              }
+            }
+
+            await ensureLabel('automated',    'e4e669', 'Automatically created by a workflow');
+            await ensureLabel('security',     'e11d48', 'Security vulnerabilities or concerns');
+            await ensureLabel('code-quality', 'a2eeef', 'Code quality issues');
+
+            // Severity → label + colour
+            const severityLabelMap = {
+              critical: { name: 'severity: critical', color: '7b0000' },
+              error:    { name: 'severity: error',    color: 'b91c1c' },
+              warning:  { name: 'severity: warning',  color: 'f97316' },
+              note:     { name: 'severity: note',     color: '6366f1' },
+            };
+            const sevLabel = severityLabelMap[severity]
+              ?? { name: `severity: ${severity}`, color: 'cccccc' };
+            await ensureLabel(sevLabel.name, sevLabel.color, `${severity} severity finding`);
+
+            // Tool-specific label
+            const toolLabelName = `tool: ${toolName.toLowerCase()}`;
+            await ensureLabel(toolLabelName, 'dbeafe', `Finding from ${toolName}`);
+
+            const allLabels = ['automated', 'code-quality', sevLabel.name, toolLabelName];
+            // Mark as security if severity is critical/error
+            if (severity === 'critical' || severity === 'error') {
+              allLabels.push('security');
+            }
+
+            // ── Issue title (unique per alert) ───────────────────────────────
+            const fileRef  = startLine ? `${filePath}:${startLine}` : filePath;
+            const issueTitle =
+              `🔍 [${toolName}] ${ruleName} in \`${fileRef}\` (alert #${alertNumber})`;
+
+            // ── Deduplication (open issues only — allow re-creation if closed) ──
+            const searchResp = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open in:title "alert #${alertNumber}" in:title "[${toolName}]"`,
+              per_page: 5,
+            });
+            if (searchResp.data.total_count > 0) {
+              core.info(`Open issue already exists for alert #${alertNumber} — skipping.`);
+              return;
+            }
+
+            // ── Build issue body ─────────────────────────────────────────────
+            const locationLink = filePath !== '(unknown file)'
+              ? `[\`${fileRef}\`](https://github.com/${owner}/${repo}/blob/${branch}/${filePath}${startLine ? `#L${startLine}` : ''})`
+              : '`(unknown)`';
+
+            const body = [
+              `## 🔍 Code Scanning Alert — ${toolName}`,
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              `| **Tool** | ${toolName} |`,
+              `| **Rule** | \`${ruleName}\` |`,
+              `| **Severity** | \`${severity}\` |`,
+              `| **Branch** | \`${branch}\` |`,
+              `| **Location** | ${locationLink} |`,
+              `| **Alert** | [View in Security tab](${alertUrl}) |`,
+              '',
+              ...(ruleDesc ? [`### Rule Description`, '', ruleDesc, ''] : []),
+              ...(message  ? [`### Finding`, '', `> ${message}`, ''] : []),
+              '## 🎯 Action Required',
+              '',
+              `Please review the [alert in the Security tab](${alertUrl}) and either:`,
+              '- Fix the identified issue in the source code, **or**',
+              '- Dismiss the alert with a justification if it is a false positive.',
+              '',
+              '---',
+              `> 🤖 Auto-generated by [Auto-Issue on Code Scanning Alert](https://github.com/${owner}/${repo}/blob/main/.github/workflows/auto-issue-on-code-scanning.yml)`,
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner,
+              repo,
+              title:     issueTitle,
+              body,
+              labels:    allLabels,
+              assignees: ['adamtasteslikegood', 'copilot'],
+            });
+
+            core.info(`Created issue #${issue.data.number}: ${issue.data.html_url}`);

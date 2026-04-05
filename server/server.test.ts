@@ -62,7 +62,7 @@ describe('handleValidationErrors', () => {
   });
 
   it('should call next() when there are no validation errors', async () => {
-    const { handleValidationErrors } = await import('./validation.js');
+    const { handleValidationErrors } = await import('./validation');
 
     const req = {} as Request;
     const res = { status: vi.fn().mockReturnThis(), json: vi.fn() } as unknown as Response;
@@ -81,7 +81,7 @@ describe('handleValidationErrors', () => {
       array: () => [{ type: 'field', path: 'prompt', msg: 'Prompt is required' }],
     } as unknown as ReturnType<typeof validationResult>);
 
-    const { handleValidationErrors } = await import('./validation.js');
+    const { handleValidationErrors } = await import('./validation');
 
     const req = {} as Request;
     const jsonMock = vi.fn();
@@ -107,7 +107,7 @@ describe('handleValidationErrors', () => {
 
 describe('validateRecipeRequest', () => {
   it('should be a non-empty array of validation middleware', async () => {
-    const { validateRecipeRequest } = await import('./validation.js');
+    const { validateRecipeRequest } = await import('./validation');
     expect(Array.isArray(validateRecipeRequest)).toBe(true);
     expect(validateRecipeRequest.length).toBeGreaterThan(0);
   });
@@ -115,7 +115,7 @@ describe('validateRecipeRequest', () => {
 
 describe('validateImageRequest', () => {
   it('should be a non-empty array of validation middleware', async () => {
-    const { validateImageRequest } = await import('./validation.js');
+    const { validateImageRequest } = await import('./validation');
     expect(Array.isArray(validateImageRequest)).toBe(true);
     expect(validateImageRequest.length).toBeGreaterThan(0);
   });
@@ -125,7 +125,7 @@ describe('validateImageRequest', () => {
 
 describe('createApiLimiter', () => {
   it('should return a middleware function', async () => {
-    const { createApiLimiter } = await import('./security.js');
+    const { createApiLimiter } = await import('./security');
     const limiter = createApiLimiter();
     expect(typeof limiter).toBe('function');
   });
@@ -177,7 +177,7 @@ describe('shouldSkipRateLimiting', () => {
 
 describe('createExpensiveOperationLimiter', () => {
   it('should return a middleware function', async () => {
-    const { createExpensiveOperationLimiter } = await import('./security.js');
+    const { createExpensiveOperationLimiter } = await import('./security');
     const limiter = createExpensiveOperationLimiter();
     expect(typeof limiter).toBe('function');
   });
@@ -185,13 +185,13 @@ describe('createExpensiveOperationLimiter', () => {
 
 describe('createRequestLogger', () => {
   it('should return a middleware function', async () => {
-    const { createRequestLogger } = await import('./security.js');
+    const { createRequestLogger } = await import('./security');
     const logger = createRequestLogger();
     expect(typeof logger).toBe('function');
   });
 
   it('should call next() and log on response finish', async () => {
-    const { createRequestLogger } = await import('./security.js');
+    const { createRequestLogger } = await import('./security');
     const logger = createRequestLogger();
 
     const listeners: Record<string, () => void> = {};
@@ -214,14 +214,14 @@ describe('createRequestLogger', () => {
 
 describe('createErrorHandler', () => {
   it('should return a function with arity 4 (Express error handler signature)', async () => {
-    const { createErrorHandler } = await import('./security.js');
+    const { createErrorHandler } = await import('./security');
     const handler = createErrorHandler();
     expect(typeof handler).toBe('function');
     expect(handler.length).toBe(4);
   });
 
   it('should respond with 500 and a generic message for unhandled errors', async () => {
-    const { createErrorHandler } = await import('./security.js');
+    const { createErrorHandler } = await import('./security');
     const handler = createErrorHandler();
 
     const jsonMock = vi.fn();
@@ -240,7 +240,7 @@ describe('createErrorHandler', () => {
   });
 
   it('should delegate to next() if headers are already sent', async () => {
-    const { createErrorHandler } = await import('./security.js');
+    const { createErrorHandler } = await import('./security');
     const handler = createErrorHandler();
 
     const req = { method: 'GET', path: '/api/health' } as Request;

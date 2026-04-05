@@ -1,0 +1,230 @@
+name: ⚠️ Auto-Issue on Security Alert
+
+# Opens a GitHub issue for every new (or reintroduced) Dependabot security
+# alert, and for any general GitHub security advisory that fires via the
+# repository_vulnerability_alert event.
+# Also handles security alerts that are auto-dismissed, to keep the team
+# informed of everything Dependabot surfaces.
+
+on:
+  dependabot_alert:
+    types: [created, reintroduced, auto_reopened, auto_dismissed]
+
+  # repository_vulnerability_alert fires for all GitHub Advisory Database
+  # alerts (npm audit, pip-audit, etc.) when Advanced Security is enabled
+  repository_vulnerability_alert:
+    types: [create, reopen]
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  dependabot-alert:
+    if: github.event_name == 'dependabot_alert'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create Dependabot security issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const alert     = context.payload.alert;
+            const action    = context.payload.action;
+
+            const alertNumber  = alert.number;
+            const ecosystem    = alert.dependency?.package?.ecosystem ?? 'unknown';
+            const packageName  = alert.dependency?.package?.name ?? 'unknown';
+            const manifestPath = alert.dependency?.manifest_path ?? '';
+            const severity     = alert.security_vulnerability?.severity ?? 'unknown';
+            const summary      = alert.security_vulnerability?.advisory?.summary ?? '';
+            const description  = alert.security_vulnerability?.advisory?.description ?? '';
+            const vulnRange    = alert.security_vulnerability?.vulnerable_version_range ?? '';
+            const patchedVer   = alert.security_vulnerability?.first_patched_version?.identifier ?? 'none available';
+            const alertUrl     = alert.html_url ?? `https://github.com/${owner}/${repo}/security/dependabot/${alertNumber}`;
+
+            // ── Label helpers ────────────────────────────────────────────────
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                }
+              }
+            }
+
+            await ensureLabel('automated',    'e4e669', 'Automatically created by a workflow');
+            await ensureLabel('security',     'e11d48', 'Security vulnerabilities or concerns');
+            await ensureLabel('dependencies', 'dbeafe', 'Dependency updates and security patches');
+
+            const severityLabelMap = {
+              critical: { name: 'severity: critical', color: '7b0000' },
+              high:     { name: 'severity: high',     color: 'b91c1c' },
+              medium:   { name: 'severity: medium',   color: 'f97316' },
+              low:      { name: 'severity: low',      color: 'fde68a' },
+            };
+            const sevLabel = severityLabelMap[severity]
+              ?? { name: `severity: ${severity}`, color: 'cccccc' };
+            await ensureLabel(sevLabel.name, sevLabel.color, `${severity} severity finding`);
+
+            const allLabels = ['automated', 'security', 'dependencies', sevLabel.name];
+
+            // ── Issue title (unique per Dependabot alert number) ──────────────
+            const issueTitle =
+              `⚠️ Dependabot Alert #${alertNumber}: ${packageName} (${severity})`;
+
+            // ── Deduplication (open issues only) ────────────────────────────
+            const searchResp = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open in:title "Dependabot Alert #${alertNumber}"`,
+              per_page: 5,
+            });
+            if (searchResp.data.total_count > 0) {
+              core.info(`Open issue already exists for Dependabot alert #${alertNumber} — skipping.`);
+              return;
+            }
+
+            // ── Build issue body ─────────────────────────────────────────────
+            const defaultBranch = context.payload.repository?.default_branch ?? 'main';
+            const manifestNote = manifestPath
+              ? `[\`${manifestPath}\`](https://github.com/${owner}/${repo}/blob/${defaultBranch}/${manifestPath})`
+              : '(not specified)';
+
+            const body = [
+              `## ⚠️ Dependabot Security Alert`,
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              `| **Package** | \`${packageName}\` (${ecosystem}) |`,
+              `| **Severity** | \`${severity}\` |`,
+              `| **Vulnerable range** | \`${vulnRange}\` |`,
+              `| **First patched version** | \`${patchedVer}\` |`,
+              `| **Manifest** | ${manifestNote} |`,
+              `| **Alert** | [View Dependabot alert](${alertUrl}) |`,
+              '',
+              ...(summary     ? ['### Advisory Summary', '', summary,     ''] : []),
+              ...(description ? ['### Details',          '', description, ''] : []),
+              '## 🎯 Action Required',
+              '',
+              `Please update \`${packageName}\` to a patched version (\`${patchedVer}\`) or assess`,
+              'whether the vulnerability affects this project. Once resolved, close this issue.',
+              '',
+              '---',
+              `> 🤖 Auto-generated by [Auto-Issue on Security Alert](https://github.com/${owner}/${repo}/blob/main/.github/workflows/auto-issue-on-security-alert.yml)`,
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner,
+              repo,
+              title:     issueTitle,
+              body,
+              labels:    allLabels,
+              assignees: ['adamtasteslikegood'],
+            });
+
+            core.info(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
+
+  # ── repository_vulnerability_alert (GitHub Advanced Security) ─────────────
+  repo-vulnerability-alert:
+    if: github.event_name == 'repository_vulnerability_alert'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create repository vulnerability issue
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const { owner, repo } = context.repo;
+            const alert    = context.payload.alert;
+            const action   = context.payload.action;
+
+            const alertNumber  = alert.id ?? 'unknown';
+            const packageName  = alert.affected_package_name ?? 'unknown';
+            const severity     = alert.severity ?? 'unknown';
+            const fixedIn      = alert.fixed_in ?? 'no patch available';
+            // Advisory fields — available when GitHub Advanced Security populates the payload
+            const cvss         = alert.cvss?.score ?? null;
+            const cveId        = alert.cve_id ?? null;
+            const ghsaId       = alert.ghsa_id ?? null;
+            const summary      = alert.summary ?? alert.external_reference ?? '';
+            const description  = alert.description ?? '';
+            const cweIds       = Array.isArray(alert.cwes)
+              ? alert.cwes.map(c => c.cwe_id).join(', ')
+              : '';
+            const alertUrl     = alert.html_url
+              ?? `https://github.com/${owner}/${repo}/security/dependabot`;
+
+            async function ensureLabel(name, color, description) {
+              try {
+                await github.rest.issues.getLabel({ owner, repo, name });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({ owner, repo, name, color, description });
+                }
+              }
+            }
+
+            await ensureLabel('automated',    'e4e669', 'Automatically created by a workflow');
+            await ensureLabel('security',     'e11d48', 'Security vulnerabilities or concerns');
+            await ensureLabel('dependencies', 'dbeafe', 'Dependency updates and security patches');
+
+            const severityLabelMap = {
+              critical: { name: 'severity: critical', color: '7b0000' },
+              high:     { name: 'severity: high',     color: 'b91c1c' },
+              medium:   { name: 'severity: medium',   color: 'f97316' },
+              low:      { name: 'severity: low',      color: 'fde68a' },
+            };
+            const sevLabel = severityLabelMap[severity]
+              ?? { name: `severity: ${severity}`, color: 'cccccc' };
+            await ensureLabel(sevLabel.name, sevLabel.color, `${severity} severity finding`);
+
+            const allLabels = ['automated', 'security', 'dependencies', sevLabel.name];
+
+            const issueTitle = `⚠️ Vulnerability Alert: ${packageName} (${severity}) — alert #${alertNumber}`;
+
+            const searchResp = await github.rest.search.issuesAndPullRequests({
+              q: `repo:${owner}/${repo} is:issue is:open in:title "alert #${alertNumber}" in:title "Vulnerability Alert"`,
+              per_page: 5,
+            });
+            if (searchResp.data.total_count > 0) {
+              core.info(`Open issue already exists for vulnerability alert #${alertNumber} — skipping.`);
+              return;
+            }
+
+            const body = [
+              `## ⚠️ Repository Vulnerability Alert`,
+              '',
+              '| Field | Value |',
+              '|---|---|',
+              `| **Package** | \`${packageName}\` |`,
+              `| **Severity** | \`${severity}\` |`,
+              `| **Fixed in** | \`${fixedIn}\` |`,
+              ...(cveId  ? [`| **CVE** | [${cveId}](https://nvd.nist.gov/vuln/detail/${cveId}) |`] : []),
+              ...(ghsaId ? [`| **GHSA** | [${ghsaId}](https://github.com/advisories/${ghsaId}) |`] : []),
+              ...(cvss   ? [`| **CVSS score** | \`${cvss}\` |`] : []),
+              ...(cweIds ? [`| **CWE(s)** | \`${cweIds}\` |`] : []),
+              `| **Alert** | [View in Security tab](${alertUrl}) |`,
+              '',
+              ...(summary     ? ['### Advisory Summary', '', summary,     ''] : []),
+              ...(description ? ['### Details',          '', description, ''] : []),
+              '## 🎯 Action Required',
+              '',
+              `Update \`${packageName}\` to version \`${fixedIn}\` or later, then close this issue.`,
+              '',
+              '---',
+              `> 🤖 Auto-generated by [Auto-Issue on Security Alert](https://github.com/${owner}/${repo}/blob/main/.github/workflows/auto-issue-on-security-alert.yml)`,
+            ].join('\n');
+
+            const issue = await github.rest.issues.create({
+              owner,
+              repo,
+              title:     issueTitle,
+              body,
+              labels:    allLabels,
+              assignees: ['adamtasteslikegood'],
+            });
+
+            core.info(`Created issue #${issue.data.number}: ${issue.data.html_url}`);
