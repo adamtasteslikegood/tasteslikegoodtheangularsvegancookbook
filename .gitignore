@@ -84,3 +84,7 @@ AGENTS.md
 # temp files
 #*#
 .#*
+.clawhub/
+claude-code-tresor
+skills
+*.kate-swp
