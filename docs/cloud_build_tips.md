@@ -5,17 +5,18 @@
 It's great you're moving towards a more robust deployment pipeline! Transitioning from an AI Studio deployment to a GitHub-driven Cloud Build process has a few key considerations. Here's a checklist to help you as you create your Dockerfile and prepare your new working branch:
 
 Project-Specific TODOs (Local Docker Test First)
-1) Confirm build output path and Docker copy:
+
+1. Confirm build output path and Docker copy:
    - Angular outputs to ./dist (from angular.json outputPath), and Dockerfile copies /app/dist into Nginx. If you change outputPath later, update Dockerfile accordingly.
-2) Make Nginx honor $PORT:
+2. Make Nginx honor $PORT:
    - Cloud Run injects PORT at runtime. Update the Dockerfile CMD to replace the listen port with ${PORT:-8080}, not a fixed 8080.
-3) Provide VITE_ env vars at build time:
+3. Provide VITE\_ env vars at build time:
    - The app reads import.meta.env.VITE_GEMINI_API_KEY or VITE_API_KEY, which are baked into the client bundle during npm run build. Supply these as build-time envs (e.g., Docker build args or CI secrets).
-4) Decide on secrets strategy:
+4. Decide on secrets strategy:
    - If you need runtime secrets, add a backend/proxy; static bundles cannot read Secret Manager at runtime.
-5) Align image registry naming:
+5. Align image registry naming:
    - cloudbuild.yaml currently uses gcr.io. Switch to Artifact Registry if desired, and set the repo/region.
-6) Local Docker test (after updates):
+6. Local Docker test (after updates):
    - Build with build args for the VITE keys and run container on 8080 to verify the UI and recipe gen.
 
 Dockerfile Considerations
@@ -44,16 +45,19 @@ Cloud Build Configuration File ( cloudbuild.yaml ):
 This file defines the steps Cloud Build will execute. It should be at the root of your repository.
 Build Step: Specify how to build your Docker image.
 steps:
+
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/[SERVICE-NAME]:$COMMIT_SHA', '.']
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+  Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Push Step: Push the built image to Artifact Registry (recommended over Container Registry).
+
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'gcr.io/$PROJECT_ID/[SERVICE-NAME]:$COMMIT_SHA']
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+  Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Deploy Step: Deploy the new image to your Cloud Run service.
+
 - name: 'gcr.io/cloud-builders/gcloud'
   args:
   - 'run'
@@ -65,7 +69,7 @@ Deploy Step: Deploy the new image to your Cloud Run service.
   - '[REGION]'
   - '--platform'
 
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Substitution Variables: Use built-in Cloud Build variables like $PROJECT_ID and $COMMIT_SHA .
 Image Naming: Use a consistent naming convention for your Docker images, often including the commit SHA for traceability.

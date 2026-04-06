@@ -76,6 +76,11 @@ override.tf.json
 /uv.lock
 /export
 
+<<<<<<< HEAD
 # Sample/test data (regenerate locally as needed)
 sample_sessiondata.json
 model_discovery_output.txt
+=======
+
+Google Cloud App Designs/.cloud_run_flask_plus_express.md.kate-swp
+>>>>>>> origin/main

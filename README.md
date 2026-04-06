@@ -31,18 +31,21 @@ The Flask backend provides Google OAuth authentication and database-backed recip
 **This project uses `uv` for Python dependency management** - it's significantly faster than pip and handles virtual environments automatically.
 
 1. Install uv (if not already installed):
+
    ```sh
    curl -LsSf https://astral.sh/uv/install.sh | sh
    # Or on Arch: yay -S uv
    ```
 
 2. Set up Python environment:
+
    ```sh
    cd Backend
    uv sync  # Installs all dependencies, creates .venv automatically
    ```
 
 3. Configure environment variables (copy `.env.example` to `.env`):
+
    ```sh
    cp .env.example .env
    # Edit .env and set:
@@ -52,6 +55,7 @@ The Flask backend provides Google OAuth authentication and database-backed recip
    ```
 
 4. Initialize database (Phase 3):
+
    ```sh
    ./init_database.sh
    # OR manually:
@@ -71,19 +75,22 @@ For detailed database setup, see the Backend repository documentation.
 For uv usage, see [`docs/UV_INTEGRATION_SUMMARY.md`](docs/UV_INTEGRATION_SUMMARY.md).
 
 6. **Database Maintenance** (if upgrading from older versions):
+
    ```sh
    # Fix recipe ID consistency (one-time migration)
    cd Backend
    python scripts/fix_recipe_ids.py
-   
+
    # Verify the fix
    python scripts/test_recipe_id_fix.py
    ```
+
    See [`docs/RECIPE_ID_FIX.md`](docs/RECIPE_ID_FIX.md) for details on the dual-ID issue fix.
 
 ### Full Stack Development
 
 Run both servers simultaneously:
+
 - **Angular dev server**: `ng serve` (port 3000)
 - **Express server**: `npm run dev` (port 8080)
 - **Flask backend**: `cd Backend && python app.py` (port 5000)
@@ -101,6 +108,7 @@ This project includes comprehensive CI checks via GitHub Actions:
 - ✅ **Qodana global configuration upload** - Publishes shared Qodana configs after `QODANA_CONFIGURATIONS_TOKEN` is added to GitHub Actions secrets
 
 **Quick commands:**
+
 ```sh
 npm run lint         # Check code quality
 npm run format       # Format code with Prettier

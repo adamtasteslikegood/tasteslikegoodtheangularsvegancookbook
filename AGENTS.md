@@ -99,22 +99,22 @@ Valkey   (Memorystore, shared-core-nano, us-central1)
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Frontend framework | Angular (standalone components, signals API) | 21 |
-| Styling | Tailwind CSS | 3 |
-| Frontend build | Angular CLI (`@angular/build`) backed by Vite | 21 |
-| Reverse proxy | Node.js + Express | 20 / 4.x |
-| Backend API | Python + Flask | 3.x |
-| Database | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate | — |
-| AI — text | Google Gemini `gemini-2.5-flash` via `@google/genai` | — |
-| AI — images | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | — |
-| Auth | Google OAuth (Flask sessions) + IndexedDB guests | — |
-| Sessions | Valkey (Memorystore) via Flask-Session | 8.0 |
-| Caching | Valkey (Memorystore) via Flask-Caching | 2.3.0 |
-| Deployment | Google Cloud Run (2 services) + Cloud Build | — |
-| Linting | ESLint (flat config) + Prettier | 9 / 3 |
-| Testing | Vitest (server tests) | 4 |
+| Layer              | Technology                                                  | Version  |
+| ------------------ | ----------------------------------------------------------- | -------- |
+| Frontend framework | Angular (standalone components, signals API)                | 21       |
+| Styling            | Tailwind CSS                                                | 3        |
+| Frontend build     | Angular CLI (`@angular/build`) backed by Vite               | 21       |
+| Reverse proxy      | Node.js + Express                                           | 20 / 4.x |
+| Backend API        | Python + Flask                                              | 3.x      |
+| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate       | —        |
+| AI — text          | Google Gemini `gemini-2.5-flash` via `@google/genai`        | —        |
+| AI — images        | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | —        |
+| Auth               | Google OAuth (Flask sessions) + IndexedDB guests            | —        |
+| Sessions           | Valkey (Memorystore) via Flask-Session                      | 8.0      |
+| Caching            | Valkey (Memorystore) via Flask-Caching                      | 2.3.0    |
+| Deployment         | Google Cloud Run (2 services) + Cloud Build                 | —        |
+| Linting            | ESLint (flat config) + Prettier                             | 9 / 3    |
+| Testing            | Vitest (server tests)                                       | 4        |
 
 ---
 
@@ -154,19 +154,20 @@ npm run test:ci        # With coverage
 
 Copy `.env.example` → `.env.local`. The Express server has **no dotenv loader** — export vars before `npm start`.
 
-| Variable | Required | Used by | Description |
-|---|---|---|---|
-| `GEMINI_API_KEY` | ✅ | Express (Secret Manager in prod) | Gemini API key |
-| `FLASK_BACKEND_URL` | No | Express | Flask URL (default `http://localhost:5000`) |
-| `PORT` | No | Express | Server port (default `8080`) |
-| `NODE_ENV` | No | Express | `development` or `production` |
-| `GOOGLE_API_KEY` | ✅ | Flask (Secret Manager in prod) | Gemini key for Flask |
-| `FLASK_SECRET_KEY` | ✅ (prod) | Flask | Session signing key |
-| `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask | PostgreSQL connection string |
-| `VALKEY_HOST` | No | Flask | Valkey/Memorystore host (auto-detected in prod via `VALKEY_HOST` env) |
-| `REDIS_URL` | No | Flask | Fallback Redis URL for sessions/cache (default: none → SQLAlchemy sessions) |
+| Variable                  | Required  | Used by                          | Description                                                                 |
+| ------------------------- | --------- | -------------------------------- | --------------------------------------------------------------------------- |
+| `GEMINI_API_KEY`          | ✅        | Express (Secret Manager in prod) | Gemini API key                                                              |
+| `FLASK_BACKEND_URL`       | No        | Express                          | Flask URL (default `http://localhost:5000`)                                 |
+| `PORT`                    | No        | Express                          | Server port (default `8080`)                                                |
+| `NODE_ENV`                | No        | Express                          | `development` or `production`                                               |
+| `GOOGLE_API_KEY`          | ✅        | Flask (Secret Manager in prod)   | Gemini key for Flask                                                        |
+| `FLASK_SECRET_KEY`        | ✅ (prod) | Flask                            | Session signing key                                                         |
+| `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask                            | PostgreSQL connection string                                                |
+| `VALKEY_HOST`             | No        | Flask                            | Valkey/Memorystore host (auto-detected in prod via `VALKEY_HOST` env)       |
+| `REDIS_URL`               | No        | Flask                            | Fallback Redis URL for sessions/cache (default: none → SQLAlchemy sessions) |
 
 **Rules:**
+
 - API keys are **server-side only** — never exposed to the browser bundle.
 - The `VITE_` prefix is a naming convention carried over from the project's origin — not used for secrets.
 - Never hardcode secrets in source files or commit them.
@@ -178,38 +179,45 @@ Copy `.env.example` → `.env.local`. The Express server has **no dotenv loader*
 ### Request Flow (ADR-001)
 
 All browser requests go to Express. Express proxies every `/api/*` request to Flask via `server/proxy.ts` (raw HTTP stream, no body parsing). This means:
+
 - **One origin** — no CORS issues, session cookies work automatically.
 - Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-Host`.
 - Angular uses only relative paths (`/api/...`) — no Flask URL in the bundle.
 
 ### Frontend (Angular 21)
+
 - **Single standalone component** (`app.component.ts`) — all UI state + logic.
 - **Signals API** (`signal()`, `computed()`) for all reactive state — no RxJS observables.
 - **Three services:** `GeminiService` (AI calls), `AuthService` (OAuth + guest sessions), `PersistenceService` (hybrid API + localStorage).
 - The dev server runs on **port 3000** and proxies `/api` to Flask on `:5000` via `proxy.conf.json`.
 
 ### Express Server (Reverse Proxy)
+
 - Handles `/api/health` locally; everything else under `/api` is proxied to Flask.
 - Serves the Angular `dist/` as static files with an SPA catch-all.
 - Security: Helmet headers, rate limiting, request logging, error handler.
 - **No AI logic** — the Express server is a pure reverse proxy + static host.
 
 ### Flask Backend (API + AI + Auth + DB)
+
 - Google OAuth via Flask sessions (server-side, not JWT).
 - Gemini recipe generation and Imagen image generation.
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
 - Modular: blueprints, repositories, services, models.
 
 ### Data Persistence
+
 - **Cloud SQL (PostgreSQL)** — primary store for recipes, collections, user data.
 - **Valkey (Memorystore)** — session store (Flask-Session) and response cache (Flask-Caching). Shared-core-nano 1.4GB instance in `us-central1`, connected via Direct VPC Egress. Falls back to SQLAlchemy sessions / SimpleCache when unavailable.
 - **IndexedDB** — client-side cache (`vegan-genius-db`) for offline/guest access. Replaced localStorage to support large recipe collections with images. Auto-migrates from legacy localStorage on first visit.
 - `PersistenceService` writes to IndexedDB first (instant UI), then syncs to Flask API.
 
 ### Image Storage & Serving
+
 Images are currently stored as **base64-encoded strings inside the recipe's JSON `data` column** in PostgreSQL (`recipe.data.ai_image_data`). This is a known architectural limitation — base64 adds ~33% storage overhead.
 
 **Current flow:**
+
 ```
 Imagen API → raw PNG bytes
   → Flask base64-encodes → stored in recipe.data["ai_image_data"] (PostgreSQL JSON column)
@@ -224,6 +232,7 @@ Imagen API → raw PNG bytes
 **Planned migration:** Move images to **GCS (Cloud Storage)** bucket — stores raw PNG bytes, serves via public URL or signed URL. Eliminates base64 encoding entirely and removes binary data from the database.
 
 ### Deployment (Cloud Run)
+
 - **Two Cloud Run services** in `us-central1`, project `comdottasteslikegood`:
   - `express-frontend` — serves SPA + proxies to Flask
   - `flask-backend` — API, AI, auth, database
@@ -237,6 +246,7 @@ Imagen API → raw PNG bytes
 ## Key Conventions
 
 ### Code Style
+
 - **Signals, not RxJS** — new reactive state uses `signal()` / `computed()`.
 - **Standalone components** — no NgModule; declare imports in the component's `imports` array.
 - **Angular prefix** — components: `app-*` (kebab-case), directives: `app*` (camelCase).
@@ -244,6 +254,7 @@ Imagen API → raw PNG bytes
 - **TypeScript strict** — server uses `strict: true`; frontend uses Angular defaults.
 
 ### Workflow
+
 - **Minimal changes** — prefer surgical edits; avoid large refactors.
 - **Keep dev and prod aligned** — changes must work in both `npm run dev` and `npm start`.
 - **No new server-side runtime dependencies** unless explicitly requested.
@@ -251,17 +262,18 @@ Imagen API → raw PNG bytes
 - **No hardcoded secrets** — use environment variables; API keys stay server-side.
 
 ### File Naming
+
 - Angular: `*.component.ts`, `*.service.ts`, `*.types.ts`
 - Server: `*.ts` (compiled to `server/dist/`)
 - Flask: snake_case Python files, blueprint pattern
-- Docs: UPPERCASE_SNAKE.md for guides, ADR-NNN-*.md for decisions
+- Docs: UPPERCASE_SNAKE.md for guides, ADR-NNN-\*.md for decisions
 
 ---
 
 ## Available Utility Scripts
 
-| Script | Location | Description |
-|---|---|---|
+| Script              | Location   | Description                                                                                                             |
+| ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------- |
 | `list_revisions.sh` | `scripts/` | List recent Cloud Run revisions. Flags: `-n` (count), `-s`/`-S` (services), `-p` (project), `-r` (region), `-h` (help). |
 
 ---
@@ -303,11 +315,11 @@ gcloud run deploy express-frontend \
 
 ## Common Errors & Workarounds
 
-| Error | Cause | Fix |
-|---|---|---|
-| `Missing API key` on first AI request | `GEMINI_API_KEY` / `GOOGLE_API_KEY` not set | Export env vars: `export $(grep -v '^#' .env.local \| xargs)` |
-| Angular build fails with type errors | Server TS included in frontend compilation | Server has own `server/tsconfig.server.json`; check `include` arrays |
-| `dist/` not found on `npm start` | Server started before build | Run `npm run build` first |
-| `/api/*` 502 in dev | Flask backend not running | Start Flask on `:5000` (`cd Backend && python app.py`) |
-| `Backend service unavailable` in prod | Express can't reach Flask Cloud Run | Check `FLASK_BACKEND_URL` env var on `express-frontend` service |
-| Build artefacts committed | `dist/` not in `.gitignore` | Already gitignored — do not commit `dist/` |
+| Error                                 | Cause                                       | Fix                                                                  |
+| ------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `Missing API key` on first AI request | `GEMINI_API_KEY` / `GOOGLE_API_KEY` not set | Export env vars: `export $(grep -v '^#' .env.local \| xargs)`        |
+| Angular build fails with type errors  | Server TS included in frontend compilation  | Server has own `server/tsconfig.server.json`; check `include` arrays |
+| `dist/` not found on `npm start`      | Server started before build                 | Run `npm run build` first                                            |
+| `/api/*` 502 in dev                   | Flask backend not running                   | Start Flask on `:5000` (`cd Backend && python app.py`)               |
+| `Backend service unavailable` in prod | Express can't reach Flask Cloud Run         | Check `FLASK_BACKEND_URL` env var on `express-frontend` service      |
+| Build artefacts committed             | `dist/` not in `.gitignore`                 | Already gitignored — do not commit `dist/`                           |
