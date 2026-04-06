@@ -1,17 +1,22 @@
+> ⚠️ **Note:** This document was written during early project setup. The current architecture uses an Express reverse proxy (see [ADR-001](./ADR-001-auth-and-persistence-routing.md)) — API keys are server-side only and are **not** baked into the client bundle. References to `VITE_GEMINI_API_KEY` in the client are outdated. The Express server reads `GEMINI_API_KEY` from the environment; Flask reads `GOOGLE_API_KEY`. See the root `README.md` for current setup instructions.
+
+---
+
 It's great you're moving towards a more robust deployment pipeline! Transitioning from an AI Studio deployment to a GitHub-driven Cloud Build process has a few key considerations. Here's a checklist to help you as you create your Dockerfile and prepare your new working branch:
 
 Project-Specific TODOs (Local Docker Test First)
-1) Confirm build output path and Docker copy:
+
+1. Confirm build output path and Docker copy:
    - Angular outputs to ./dist (from angular.json outputPath), and Dockerfile copies /app/dist into Nginx. If you change outputPath later, update Dockerfile accordingly.
-2) Make Nginx honor $PORT:
+2. Make Nginx honor $PORT:
    - Cloud Run injects PORT at runtime. Update the Dockerfile CMD to replace the listen port with ${PORT:-8080}, not a fixed 8080.
-3) Provide VITE_ env vars at build time:
-   - The app reads process.env.GEMINI_API_KEY (preferred), VITE_GEMINI_API_KEY, or VITE_API_KEY on the server side. These are NOT baked into the client bundle. Supply these as runtime envs (e.g., Cloud Run env vars or Docker env flags).
-4) Decide on secrets strategy:
+3. Provide VITE\_ env vars at build time:
+   - The app reads import.meta.env.VITE_GEMINI_API_KEY or VITE_API_KEY, which are baked into the client bundle during npm run build. Supply these as build-time envs (e.g., Docker build args or CI secrets).
+4. Decide on secrets strategy:
    - If you need runtime secrets, add a backend/proxy; static bundles cannot read Secret Manager at runtime.
-5) Align image registry naming:
+5. Align image registry naming:
    - cloudbuild.yaml currently uses gcr.io. Switch to Artifact Registry if desired, and set the repo/region.
-6) Local Docker test (after updates):
+6. Local Docker test (after updates):
    - Build with build args for the VITE keys and run container on 8080 to verify the UI and recipe gen.
 
 Dockerfile Considerations
@@ -40,16 +45,19 @@ Cloud Build Configuration File ( cloudbuild.yaml ):
 This file defines the steps Cloud Build will execute. It should be at the root of your repository.
 Build Step: Specify how to build your Docker image.
 steps:
+
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/[SERVICE-NAME]:$COMMIT_SHA', '.']
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+  Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Push Step: Push the built image to Artifact Registry (recommended over Container Registry).
+
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'gcr.io/$PROJECT_ID/[SERVICE-NAME]:$COMMIT_SHA']
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+  Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Deploy Step: Deploy the new image to your Cloud Run service.
+
 - name: 'gcr.io/cloud-builders/gcloud'
   args:
   - 'run'
@@ -61,7 +69,7 @@ Deploy Step: Deploy the new image to your Cloud Run service.
   - '[REGION]'
   - '--platform'
 
-Generated code may be subject to license restrictions not shown here. Use code with care. Learn more 
+Generated code may be subject to license restrictions not shown here. Use code with care. Learn more
 
 Substitution Variables: Use built-in Cloud Build variables like $PROJECT_ID and $COMMIT_SHA .
 Image Naming: Use a consistent naming convention for your Docker images, often including the commit SHA for traceability.
@@ -81,7 +89,7 @@ Set up a Cloud Build trigger that listens for pushes to your new working branch 
 Configure it to use your cloudbuild.yaml file.
 This will automate the build and deployment process whenever you push changes to that branch.
 Environment Variables in Cloud Run:
-Since you're accessing secrets as environment variables, make sure your application code is correctly reading these variables (e.g., process.env.GEMINI_API_KEY ).
+Since you're accessing secrets as environment variables, make sure your application code is correctly reading these variables (e.g., process.env.VITE_GEMINI_API_KEY ).
 When deploying with Cloud Build, you don't need to explicitly pass the secret environment variables if they are already configured on the Cloud Run service, or if your Cloud Run service account has access to the secrets. The link between Secret Manager and the Cloud Run service (which we set up earlier) will ensure they are available to the running container.
 Local Testing:
 Before pushing to GitHub and triggering a Cloud Build, always test your Dockerfile locally.
