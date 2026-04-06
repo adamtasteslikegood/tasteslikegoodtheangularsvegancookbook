@@ -31,30 +31,31 @@ npm audit
 
 ## Rate Limits
 
-| Endpoint | Limit | Window |
-|----------|-------|--------|
-| `/api/recipe` | 20 | 1 hour |
-| `/api/image` | 20 | 1 hour |
-| `/api/` (general) | 100 | 15 min |
-| `/api/health` | None | N/A |
+| Endpoint          | Limit | Window |
+| ----------------- | ----- | ------ |
+| `/api/recipe`     | 20    | 1 hour |
+| `/api/image`      | 20    | 1 hour |
+| `/api/` (general) | 100   | 15 min |
+| `/api/health`     | None  | N/A    |
 
 ---
 
 ## HTTP Status Codes
 
-| Code | Meaning | Common Cause |
-|------|---------|-------------|
-| 200 | Success | Request OK |
-| 400 | Bad Request | Invalid input |
-| 429 | Rate Limited | Too many requests |
-| 500 | Server Error | Internal error |
-| 502 | Bad Gateway | External API error |
+| Code | Meaning      | Common Cause       |
+| ---- | ------------ | ------------------ |
+| 200  | Success      | Request OK         |
+| 400  | Bad Request  | Invalid input      |
+| 429  | Rate Limited | Too many requests  |
+| 500  | Server Error | Internal error     |
+| 502  | Bad Gateway  | External API error |
 
 ---
 
 ## Input Validation Rules
 
 **Recipe Endpoint**
+
 ```
 POST /api/recipe
 {
@@ -63,6 +64,7 @@ POST /api/recipe
 ```
 
 **Image Endpoint**
+
 ```
 POST /api/image
 {
@@ -88,41 +90,42 @@ Strict-Transport-Security: [via HTTPS]
 
 ## Common Issues
 
-| Issue | Solution |
-|-------|----------|
-| Rate limit too strict | Edit `server/security.ts` |
-| Validation failing | Check error message, adjust rules |
-| Performance slow | Check logs for duration, profile |
-| Errors leaking info | Check error handling, server logs |
+| Issue                 | Solution                          |
+| --------------------- | --------------------------------- |
+| Rate limit too strict | Edit `server/security.ts`         |
+| Validation failing    | Check error message, adjust rules |
+| Performance slow      | Check logs for duration, profile  |
+| Errors leaking info   | Check error handling, server logs |
 
 ---
 
 ## Key Files
 
-| File | Purpose |
-|------|---------|
-| `server/security.ts` | Rate limit, headers, logging |
-| `server/validation.ts` | Input validation |
-| `server/index.ts` | Main server + integration |
-| `.env.example` | Environment variables |
+| File                   | Purpose                      |
+| ---------------------- | ---------------------------- |
+| `server/security.ts`   | Rate limit, headers, logging |
+| `server/validation.ts` | Input validation             |
+| `server/index.ts`      | Main server + integration    |
+| `.env.example`         | Environment variables        |
 
 ---
 
 ## Documentation
 
-| Doc | Purpose | Read Time |
-|-----|---------|-----------|
-| VISUAL_SUMMARY.md | Quick overview | 5 min |
-| DEVELOPER_GUIDE.md | Daily reference | 20 min |
-| SECURITY_QUICKSTART.md | Setup guide | 15 min |
-| DEPLOYMENT_CHECKLIST.md | Pre-production | 15 min |
-| SECURITY.md | Comprehensive | 30 min |
+| Doc                     | Purpose         | Read Time |
+| ----------------------- | --------------- | --------- |
+| VISUAL_SUMMARY.md       | Quick overview  | 5 min     |
+| DEVELOPER_GUIDE.md      | Daily reference | 20 min    |
+| SECURITY_QUICKSTART.md  | Setup guide     | 15 min    |
+| DEPLOYMENT_CHECKLIST.md | Pre-production  | 15 min    |
+| SECURITY.md             | Comprehensive   | 30 min    |
 
 ---
 
 ## Configuration
 
 ### Rate Limits (server/security.ts)
+
 ```typescript
 // General API: 100 requests per 15 minutes
 createApiLimiter(15 * 60 * 1000, 100);
@@ -132,6 +135,7 @@ createExpensiveOperationLimiter(60 * 60 * 1000, 20);
 ```
 
 ### Validation (server/validation.ts)
+
 ```typescript
 // Adjust prompt length: change 500
 .isLength({ min: 1, max: 500 })
@@ -141,9 +145,10 @@ createExpensiveOperationLimiter(60 * 60 * 1000, 20);
 ```
 
 ### Payload Size (server/index.ts)
+
 ```typescript
 // Change from 50kb
-app.use(express.json({ limit: "50kb" }));
+app.use(express.json({ limit: '50kb' }));
 ```
 
 ---

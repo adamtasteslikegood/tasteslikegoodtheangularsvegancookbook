@@ -45,6 +45,8 @@ coverage
 *.swp
 *.swo
 *~
+*.kate-swp
+.directory
 
 # OS
 Thumbs.db
@@ -63,6 +65,7 @@ override.tf.json
 *_override.tf.json
 *.tf
 
+<<<<<<< HEAD
 # Agent skills & work (moved to separate repo)
 .agent/
 .agent-work/
@@ -80,11 +83,31 @@ AGENTS.md
 /fastagent.jsonl
 /uv.lock
 /#git-workflow.sh#
+=======
+# Agent/AI work directories
+.agent-work/
+>>>>>>> origin/main
 
-# temp files
+# Temp and backup files
 #*#
 .#*
+<<<<<<< HEAD
 .clawhub/
 claude-code-tresor
 skills
 *.kate-swp
+=======
+*~
+/fastagent.jsonl
+/uv.lock
+/export
+
+<<<<<<< HEAD
+# Sample/test data (regenerate locally as needed)
+sample_sessiondata.json
+model_discovery_output.txt
+=======
+
+Google Cloud App Designs/.cloud_run_flask_plus_express.md.kate-swp
+>>>>>>> origin/main
+>>>>>>> origin/main
