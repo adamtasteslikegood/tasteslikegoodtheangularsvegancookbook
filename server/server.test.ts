@@ -1,5 +1,42 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
+
+// ── Hoisted mock factories ─────────────────────────────────────────────────
+// vi.hoisted() runs before vi.mock() factories so these references are safe
+// to capture inside the ioredis / google-auth-library mock factories below.
+
+const { MockRedis } = vi.hoisted(() => {
+  const mockRedisInstance = {
+    ping: vi.fn().mockResolvedValue('PONG'),
+    quit: vi.fn().mockResolvedValue('OK'),
+    call: vi.fn().mockResolvedValue('OK'),
+    on: vi.fn(),
+    options: {} as Record<string, unknown>,
+  };
+  // Must be a regular function (not arrow) so it can be called with `new`
+  const MockRedis = vi.fn(function MockRedisImpl() {
+    return mockRedisInstance;
+  });
+  return { MockRedis };
+});
+
+// ── Module mocks ───────────────────────────────────────────────────────────
+
+// Mock ioredis so tests never open real TCP connections
+vi.mock('ioredis', () => ({ default: MockRedis }));
+
+// Mock google-auth-library so tests never call GCP IAM APIs.
+// GoogleAuth must be a regular function (not arrow) to support `new GoogleAuth()`.
+vi.mock('google-auth-library', () => ({
+  GoogleAuth: vi.fn(function GoogleAuthImpl() {
+    return {
+      getClient: vi.fn().mockResolvedValue({
+        getAccessToken: vi.fn().mockResolvedValue({ token: 'test-iam-token' }),
+        email: 'test@project.iam.gserviceaccount.com',
+      }),
+    };
+  }),
+}));
 
 // Module-level mock for express-validator.
 // vi.mock() is hoisted to the top of the module by Vitest's transform pass.
@@ -228,5 +265,104 @@ describe('Runtime environment', () => {
   it('should run in a valid NODE_ENV', () => {
     const nodeEnv = process.env.NODE_ENV || 'development';
     expect(['development', 'production', 'test']).toContain(nodeEnv);
+  });
+});
+
+// ── createValkeyClient tests ───────────────────────────────────────────────
+
+describe('createValkeyClient', () => {
+  beforeEach(() => {
+    // Reset mock call history (keeps implementations intact)
+    vi.clearAllMocks();
+    // Ensure Valkey env vars are absent at the start of every test
+    delete process.env.VALKEY_HOST;
+    delete process.env.VALKEY_PORT;
+    delete process.env.VALKEY_AUTH_MODE;
+    delete process.env.VALKEY_TLS_INSECURE;
+  });
+
+  afterEach(async () => {
+    // Always clean up any Redis client that was created during the test so
+    // module-level state (client / refreshTimer) is reset to null.
+    const { shutdownValkey } = await import('./valkey.js');
+    await shutdownValkey();
+    // Remove all Valkey-related env vars set during the test
+    delete process.env.VALKEY_HOST;
+    delete process.env.VALKEY_AUTH_MODE;
+    delete process.env.VALKEY_PORT;
+    delete process.env.VALKEY_TLS_INSECURE;
+  });
+
+  it('returns null when VALKEY_HOST is not set', async () => {
+    const { createValkeyClient } = await import('./valkey.js');
+    const result = await createValkeyClient();
+    expect(result).toBeNull();
+    expect(MockRedis).not.toHaveBeenCalled();
+  });
+
+  it('creates a Redis client and returns it when VALKEY_HOST is set', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+    const result = await createValkeyClient();
+    expect(result).not.toBeNull();
+    expect(MockRedis).toHaveBeenCalledOnce();
+  });
+
+  it('sets password and tls options when VALKEY_AUTH_MODE=iam', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        password: 'test-iam-token',
+        tls: expect.any(Object),
+      })
+    );
+  });
+
+  it('does NOT set password or tls when VALKEY_AUTH_MODE is not iam', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    const callArg = MockRedis.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(callArg).not.toHaveProperty('password');
+    expect(callArg).not.toHaveProperty('tls');
+  });
+
+  it('starts a token refresh timer only in IAM mode', async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval');
+
+    // Non-IAM: no timer should be started
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient, shutdownValkey } = await import('./valkey.js');
+    await createValkeyClient();
+    expect(setIntervalSpy).not.toHaveBeenCalled();
+
+    // Clean up so the next call starts fresh
+    await shutdownValkey();
+    vi.clearAllMocks();
+
+    // IAM mode: timer must be started
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    await createValkeyClient();
+    expect(setIntervalSpy).toHaveBeenCalled();
+
+    setIntervalSpy.mockRestore();
+  });
+
+  it('returns the existing healthy client without reinitializing on a second call', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+
+    const first = await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledOnce();
+
+    // Clear call count — should NOT increase on the second call
+    MockRedis.mockClear();
+
+    const second = await createValkeyClient();
+    expect(MockRedis).not.toHaveBeenCalled();
+    expect(second).toBe(first);
   });
 });
