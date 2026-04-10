@@ -51,8 +51,7 @@ The workflow runs on:
 
 ## Configuration Files
 
-- `.eslintrc.json` - ESLint rules
-- `.eslintignore` - ESLint ignore patterns
+- `eslint.config.js` - ESLint rules (flat config format)
 - `.prettierrc` - Prettier formatting rules
 - `.prettierignore` - Prettier ignore patterns
 - `vitest.config.ts` - Vitest test configuration

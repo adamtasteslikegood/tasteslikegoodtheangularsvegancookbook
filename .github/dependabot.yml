@@ -12,6 +12,13 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    commit-message:
+      prefix: "ci"
+    groups:
+      # Group all GitHub Actions updates into a single PR
+      actions-all:
+        patterns:
+          - "*"
     open-pull-requests-limit: 10
 
   # -------------------------
@@ -25,7 +32,45 @@ updates:
     labels:
       - "dependencies"
       - "javascript"
-    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      # All @angular/* packages should be updated together
+      angular:
+        patterns:
+          - "@angular/*"
+      # Testing tools (vitest, coverage)
+      testing:
+        patterns:
+          - "vitest"
+          - "@vitest/*"
+      # ESLint and related plugins
+      linting:
+        patterns:
+          - "eslint"
+          - "eslint-*"
+          - "@typescript-eslint/*"
+          - "@angular-eslint/*"
+          - "prettier"
+      # TypeScript and type definitions
+      types:
+        patterns:
+          - "typescript"
+          - "@types/*"
+      # Build tools (vite, tailwind, postcss, autoprefixer)
+      build-tools:
+        patterns:
+          - "vite"
+          - "tailwindcss"
+          - "autoprefixer"
+          - "postcss"
+    # Ignore known breaking major updates that require manual migration
+    ignore:
+      # Tailwind v4 requires @tailwindcss/postcss plugin and full config migration.
+      # Review periodically — remove this ignore when ready to migrate (see postcss.config.js).
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+    open-pull-requests-limit: 15
 
   # -------------------------
   # Docker (root)
@@ -38,4 +83,6 @@ updates:
     labels:
       - "dependencies"
       - "docker"
-    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(docker)"
+    open-pull-requests-limit: 5
