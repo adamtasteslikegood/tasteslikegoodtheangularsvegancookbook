@@ -11,7 +11,8 @@
 import Redis, { type RedisOptions } from 'ioredis';
 import { GoogleAuth } from 'google-auth-library';
 
-// Token refresh interval (45 min — tokens last 60 min, refresh early)
+// Token refresh interval (45 min — tokens last 60 min, 15-min buffer prevents
+// expiry under clock skew or delayed refresh execution)
 const TOKEN_REFRESH_INTERVAL_MS = 45 * 60 * 1000;
 
 let client: Redis | null = null;
