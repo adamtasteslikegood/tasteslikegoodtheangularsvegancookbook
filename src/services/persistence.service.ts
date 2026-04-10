@@ -160,8 +160,9 @@ export class PersistenceService {
    * the Angular user state via AuthService.hydrate().
    * Called once after Google OAuth login is confirmed.
    * Retries up to 2 times on failure (session may not be ready immediately after OAuth redirect).
-   * Uses an awaited loop so that concurrent hydrations cannot overlap and the caller
-   * can await the full operation (including all retries) before proceeding.
+   * The awaited loop makes retries run sequentially within a single invocation, and any
+   * caller that explicitly awaits this method will wait for the full operation (including retries).
+   * This method does not by itself prevent separate loadFromApi() invocations from overlapping.
    */
   async loadFromApi(retries = 2): Promise<void> {
     for (let attempt = 0; attempt <= retries; attempt++) {

@@ -4,8 +4,6 @@
  * Supports GCP Memorystore IAM authentication with automatic token refresh.
  * Falls back gracefully to null (caller uses in-memory store) when Valkey
  * is unavailable or VALKEY_HOST is not set.
- *
- * Mirrors the pattern in Backend/utils/valkey_auth.py.
  */
 
 import Redis, { type RedisOptions } from 'ioredis';
@@ -151,7 +149,7 @@ export async function createValkeyClient(): Promise<Redis | null> {
     return client;
   } catch (err) {
     console.error('[Valkey] Connection failed, falling back to in-memory rate limiting:', err);
-    client = null;
+    await shutdownValkey();
     return null;
   }
 }

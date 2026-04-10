@@ -46,6 +46,12 @@ let server: Server | null = null;
   // Static HTML shell (index.html) catch-all: reuse general API limiter
   const staticPageLimiter = createApiLimiter(valkeyClient);
 
+  // Apply security middleware (Helmet headers) and request logging before
+  // the Flask proxy so that security headers and telemetry cover all
+  // responses, including proxied /api/* traffic.
+  applySecurityMiddleware(app);
+  app.use(createRequestLogger());
+
   // ── Flask proxy routes ──────────────────────────────────────────
   // Must be mounted BEFORE express.json() so raw request bodies stream
   // through to Flask without being consumed by the JSON parser.
@@ -53,12 +59,6 @@ let server: Server | null = null;
 
   // Reduce default JSON payload limit to 50KB for security
   app.use(express.json({ limit: '50kb' }));
-
-  // Apply security middleware
-  applySecurityMiddleware(app);
-
-  // Request logging
-  app.use(createRequestLogger());
 
   // ── Static file serving ─────────────────────────────────────────
   const __filename = fileURLToPath(import.meta.url);
