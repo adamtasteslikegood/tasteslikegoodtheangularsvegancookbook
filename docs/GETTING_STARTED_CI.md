@@ -55,7 +55,7 @@ npm run lint:fix
 npm run test
 ```
 
-This will run the test suite. Currently, only placeholder tests are included.
+This will run the test suite (Vitest server tests).
 
 ### Build the project
 
@@ -88,7 +88,7 @@ Some existing code may not follow the new linting rules. Options:
 
 1. **Auto-fix:** `npm run lint:fix`
 2. **Format first:** `npm run format` then `npm run lint:fix`
-3. **Disable rules temporarily:** Edit `.eslintrc.json` to make rules "warn" instead of "error"
+3. **Disable rules temporarily:** Edit `eslint.config.js` to make rules "warn" instead of "error"
 
 ### Node version mismatch
 
@@ -107,7 +107,7 @@ nvm use 20
 
 ### Tests fail
 
-The initial test is a placeholder. If it fails, check:
+The test suite uses Vitest. If a test fails, check:
 
 ```bash
 npm run test -- --reporter=verbose
@@ -126,27 +126,17 @@ npm run build
 
 ## What to Do Next
 
-### Add Real Tests
+### Expand Test Coverage
 
-Replace the placeholder test in `server/server.test.ts` with actual tests:
+The project has a working test suite in `server/server.test.ts`. To add more tests, follow the existing patterns:
 
 ```typescript
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import express from 'express';
-import request from 'supertest'; // You'll need to install this
+import { describe, it, expect } from 'vitest';
 
-describe('Express API', () => {
-  let app: express.Application;
-
-  beforeAll(() => {
-    // Setup your Express app
-    app = express();
-    // ... configure routes
-  });
-
-  it('GET /api/health returns 200', async () => {
-    const response = await request(app).get('/api/health');
-    expect(response.status).toBe(200);
+describe('My Feature', () => {
+  it('should behave correctly', () => {
+    // Add test logic here
+    expect(true).toBe(true);
   });
 });
 ```
@@ -194,6 +184,6 @@ Add to `package.json`:
 ✅ Ready to start development with CI/CD  
 
 For more information, see:
-- [`CI_QUICK_REFERENCE.md`](../CI_QUICK_REFERENCE.md) - All commands
-- [`docs/CI_SETUP.md`](CI_SETUP.md) - Detailed setup guide
-- [`CI_SCRIPTS_INVENTORY.md`](../CI_SCRIPTS_INVENTORY.md) - Complete inventory
+- [`docs/CI_CD/CI_QUICK_REFERENCE.md`](CI_CD/CI_QUICK_REFERENCE.md) - All commands
+- [`docs/CI_CD/CI_SETUP.md`](CI_CD/CI_SETUP.md) - Detailed setup guide
+- [`docs/CI_CD/CI_SCRIPTS_INVENTORY.md`](CI_CD/CI_SCRIPTS_INVENTORY.md) - Complete inventory
