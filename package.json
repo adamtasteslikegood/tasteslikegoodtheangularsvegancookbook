@@ -18,7 +18,7 @@
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
   },
   "dependencies": {
-    "@angular/build": "21.2.6",
+    "@angular/build": "21.2.7",
     "@angular/cli": "21.2.6",
     "@angular/common": "21.2.7",
     "@angular/compiler": "21.2.7",
@@ -54,7 +54,7 @@
     "globals": "^17.4.0",
     "prettier": "^3.4.0",
     "typescript": ">=5.9 <6",
-    "vite": "^8.0.3",
+    "vite": "^8.0.8",
     "vitest": "^4.0.8"
   }
 }
