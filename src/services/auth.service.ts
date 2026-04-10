@@ -40,10 +40,27 @@ export class AuthService {
       if (!authenticated) {
         // No Flask session — restore guest/local session if one exists
         this.loadLocalSession();
+        // If localStorage had a stale Google-authed user but Flask session
+        // expired, downgrade to guest so the Sign In button shows.
+        // Recipes are preserved and will merge back after re-login.
+        const restored = this.currentUser();
+        if (restored && !restored.isGuest) {
+          console.log('Flask session expired — downgrading cached user to guest');
+          const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
+          this.currentUser.set(downgraded);
+          this.saveLocalSession(downgraded);
+        }
       }
     } catch {
       // Network error (Flask not running, etc.) — fall back to local
       this.loadLocalSession();
+      const restored = this.currentUser();
+      if (restored && !restored.isGuest) {
+        console.log('Flask unreachable — downgrading cached user to guest');
+        const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
+        this.currentUser.set(downgraded);
+        this.saveLocalSession(downgraded);
+      }
     } finally {
       this.authLoading.set(false);
     }
@@ -180,12 +197,17 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return;
 
-    // Merge: keep any localStorage recipes NOT already in the API response
+    // Merge recipes: keep any localStorage recipes NOT already in the API response
     const apiIds = new Set(recipes.map((r) => r.id));
     const localOnly = user.savedRecipes.filter((r) => !apiIds.has(r.id));
     const merged = [...recipes, ...localOnly];
 
-    const updated = { ...user, savedRecipes: merged, cookbooks };
+    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response
+    const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
+    const localOnlyCookbooks = user.cookbooks.filter((c) => !apiCookbookIds.has(c.id));
+    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks];
+
+    const updated = { ...user, savedRecipes: merged, cookbooks: mergedCookbooks };
     this.currentUser.set(updated);
     this.saveLocalSession(updated);
   }
@@ -234,7 +256,11 @@ export class AuthService {
     const recipe = user.savedRecipes.find((r) => r.id === recipeId);
     const deletedRecipes = [...(user.deletedRecipes || [])];
     if (recipe) {
-      deletedRecipes.push({ recipe, deletedAt: new Date().toISOString() });
+      // Remember which cookbooks this recipe was in, so restore can re-add it
+      const cookbookIds = user.cookbooks
+        .filter((cb) => cb.recipeIds.includes(recipeId))
+        .map((cb) => cb.id);
+      deletedRecipes.push({ recipe, deletedAt: new Date().toISOString(), cookbookIds });
     }
 
     this.updateUserRecord({
@@ -255,9 +281,20 @@ export class AuthService {
     const entry = (user.deletedRecipes || []).find((d) => d.recipe.id === recipeId);
     if (!entry) return;
 
+    // Restore cookbook membership if it was saved
+    const cookbooks = entry.cookbookIds?.length
+      ? user.cookbooks.map((cb) => {
+          if (entry.cookbookIds!.includes(cb.id) && !cb.recipeIds.includes(recipeId)) {
+            return { ...cb, recipeIds: [...cb.recipeIds, recipeId] };
+          }
+          return cb;
+        })
+      : user.cookbooks;
+
     this.updateUserRecord({
       ...user,
       savedRecipes: [...user.savedRecipes, entry.recipe],
+      cookbooks,
       deletedRecipes: (user.deletedRecipes || []).filter((d) => d.recipe.id !== recipeId),
     });
   }
