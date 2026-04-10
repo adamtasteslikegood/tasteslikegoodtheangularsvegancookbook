@@ -45,6 +45,8 @@ coverage
 *.swp
 *.swo
 *~
+*.kate-swp
+.directory
 
 # OS
 Thumbs.db
@@ -63,30 +65,49 @@ override.tf.json
 *_override.tf.json
 *.tf
 
-# .agent-work
-.agent-work/*
-/.agent-work/conversation.json
-/.agent-work/.instructions-notified
-/.agent-work/session-state/3f1222a6-6ef7-4f45-95c3-848d0bef20e8/events.jsonl
-/.agent-work/session-state/a1974317-1781-45fc-9bfd-80d9ba1ecfbe/events.jsonl
+<<<<<<< HEAD
+# Agent skills & work (moved to separate repo)
+.agent/
+.agent-work/
+.claude/
+.codex/
+.copilot/
+.cursor/
+.gemini/
+.zed/
+.github/agents/
+.github/skills/
+AGENTS.md
+
 /export
-/.agent-work/session-state/3a821be5-b1f7-4de5-b61c-b11ce3f1cf2a/checkpoints/index.md
-/.agent-work/session-state/3f1222a6-6ef7-4f45-95c3-848d0bef20e8/checkpoints/index.md
-/.agent-work/session-state/81c2ddef-1352-4229-87d9-69258f03a775/checkpoints/index.md
-/.agent-work/session-state/a1974317-1781-45fc-9bfd-80d9ba1ecfbe/checkpoints/index.md
-/.agent-work/usage-stats.jsonl
-/.agent-work/session-state/3a821be5-b1f7-4de5-b61c-b11ce3f1cf2a/workspace.yaml
-/.agent-work/session-state/3f1222a6-6ef7-4f45-95c3-848d0bef20e8/workspace.yaml
-/.agent-work/session-state/81c2ddef-1352-4229-87d9-69258f03a775/workspace.yaml
-/.agent-work/session-state/a1974317-1781-45fc-9bfd-80d9ba1ecfbe/workspace.yaml
 /fastagent.jsonl
-/.copilot/copilot-instructions.md
-/.github/agents/ide-explore.md
 /uv.lock
 /#git-workflow.sh#
+=======
+# Agent/AI work directories
+.agent-work/
+>>>>>>> origin/main
 
-# temp files
+# Temp and backup files
 #*#
 .#*
+<<<<<<< HEAD
+.clawhub/
+claude-code-tresor
+skills
+*.kate-swp
+=======
+*~
+/fastagent.jsonl
+/uv.lock
+/export
 
+<<<<<<< HEAD
+# Sample/test data (regenerate locally as needed)
+sample_sessiondata.json
+model_discovery_output.txt
+=======
 
+Google Cloud App Designs/.cloud_run_flask_plus_express.md.kate-swp
+>>>>>>> origin/main
+>>>>>>> origin/main
