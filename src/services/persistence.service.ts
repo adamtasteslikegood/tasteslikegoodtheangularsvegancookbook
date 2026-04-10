@@ -166,7 +166,7 @@ export class PersistenceService {
   async loadFromApi(retries = 2): Promise<void> {
     for (let attempt = 0; attempt <= retries; attempt++) {
       if (attempt > 0) {
-        const remaining = retries - attempt + 1;
+        const remaining = retries - attempt;
         console.log(`[PersistenceService] Retrying in 1s (${remaining} retries left)...`);
         await new Promise<void>((resolve) => setTimeout(resolve, 1000));
       }
