@@ -59,12 +59,38 @@ async function refreshTokenInPlace(): Promise<void> {
  *
  * Returns null if VALKEY_HOST is not set or the connection fails,
  * allowing the caller to fall back to in-memory rate limiting.
+ *
+ * Guards against double-initialization: if a healthy client already exists,
+ * it is returned immediately. If the existing client is unhealthy it is torn
+ * down via shutdownValkey() before a fresh one is created.
+ *
+ * If VALKEY_HOST is unset and a client from a previous call is still alive
+ * (e.g. the env var was removed between calls), it is shut down before
+ * returning null so no handles are left dangling.
  */
 export async function createValkeyClient(): Promise<Redis | null> {
   const host = process.env.VALKEY_HOST;
   if (!host) {
+    // If a client exists from a previous call but VALKEY_HOST has since been
+    // removed, tear it down to avoid leaking handles (e.g. in tests / dev).
+    if (client) {
+      console.warn('[Valkey] VALKEY_HOST removed — shutting down existing client');
+      await shutdownValkey();
+    }
     console.log('[Valkey] VALKEY_HOST not set — using in-memory rate limiting');
     return null;
+  }
+
+  // Guard: reuse an already-healthy client instead of creating a second one
+  if (client) {
+    try {
+      await client.ping();
+      return client;
+    } catch {
+      // Existing client is unhealthy — tear it down before reinitializing
+      console.warn('[Valkey] Existing client unhealthy, reinitializing...');
+      await shutdownValkey();
+    }
   }
 
   const port = parseInt(process.env.VALKEY_PORT || '6379', 10);
