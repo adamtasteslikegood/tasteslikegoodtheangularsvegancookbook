@@ -32,7 +32,7 @@ jobs:
         id: detect
         env:
           AUTHORIZED_DEPLOYERS: ${{ vars.AUTHORIZED_DEPLOYERS }}
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const owner = (context.payload.repository?.owner?.login || context.repo.owner).toLowerCase();
@@ -109,7 +109,7 @@ jobs:
     steps:
       - name: Create versioned backup release from previous default-branch commit
         id: backup
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const triggerMode = '${{ needs.detect-trigger.outputs.trigger_mode }}';
@@ -473,7 +473,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update associated PR labels and comment
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
           FRONTEND_RESULT: ${{ needs.frontend-ci.result }}
