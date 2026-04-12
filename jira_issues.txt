@@ -1,4 +1,22 @@
-KAN-1
-KAN-2
-KAN-3 ?logo? 
-KAN-5 Privacy Policy 
+KAN-1   Sync Github Repositories with Jira [In Review]
+KAN-2   Publish Website on Google API->credentials>audience [PUBLISH] [In Progress]
+KAN-3   Polish Logo [Subtask, In Progress]
+KAN-4   Get team to come up with logo candidates [Subtask, In Progress]
+KAN-5   Privacy Policy [Subtask, In Progress]
+KAN-6   Terms Of Service [Subtask, To Do]
+KAN-7   Configure OAuth 2.0 credentials for website [Subtask, In Review]
+KAN-8   Set up Google API project and enable required APIs [Subtask, Done]
+KAN-9   Test authentication flow with Google API [Subtask, In Review]
+KAN-10  Document Google API integration steps [Subtask, In Progress]
+KAN-11  Integrate Google API credentials into website codebase [Subtask, In Progress]
+KAN-12  Set up audience parameters in Google API credentials [Subtask, To Do]
+KAN-13  Login bug - "New Login" Authenticated Home View not updating [Task, To Do]
+KAN-14  Elaborate and refine Jira issue descriptions [Task, To Do]
+KAN-15  Get first GitHub item using Jira work item # [Epic, In Review]
+KAN-16  BUG: Catch quit failures before reinitializing Valkey client [Bug, To Do] -> GH#163
+KAN-17  BUG: VALKEY_HOST unset causes stale client handle leak [Bug, To Do] -> GH#162
+KAN-18  Add and enforce CI for Angular+Flask: builds, lint, tests [Task, To Do] -> GH#104
+KAN-19  Set up Numbered Versioning on build/deploy CI/CD pipeline [Task, To Do] -> GH#102
+KAN-20  Publish an official numbered release (v1.0.0) [Task, To Do] -> GH#101 GH#103
+KAN-21  Establish PR size and reviewability best practices [Task, To Do] -> GH#100
+KAN-22  Set up Copilot instructions for this repository [Task, To Do] -> GH#7
