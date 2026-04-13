@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Frontend + Express proxy (root)
+
 ```bash
 npm install
 npm run dev          # Angular dev server on :3000, proxies /api → Flask :5000
@@ -24,6 +25,7 @@ npm run test:ci      # Vitest with coverage
 ```
 
 ### Backend (Python/Flask)
+
 ```bash
 cd Backend
 uv sync              # Install deps via uv (preferred over pip)
@@ -35,6 +37,7 @@ pytest tests/test_normalization.py::TestNormalization::test_normalize_unit  # Si
 ```
 
 ### Cloud deployment
+
 ```bash
 gcloud builds submit --config=cloudbuild.yaml  # Build + deploy both services to Cloud Run
 ```
@@ -42,6 +45,7 @@ gcloud builds submit --config=cloudbuild.yaml  # Build + deploy both services to
 ## Architecture
 
 ### Three-tier request flow
+
 ```
 Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 ```
@@ -49,6 +53,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
 ### Layer 1 — Angular 21 SPA (`src/`)
+
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
 - Type definitions: `recipe.types.ts`, `auth.types.ts`
@@ -56,6 +61,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 - Entry: `index.tsx` (tsconfig uses `jsx: react-jsx`, hence `.tsx`)
 
 ### Layer 2 — Express reverse proxy (`server/`)
+
 - `server/index.ts` — startup, graceful shutdown (drains HTTP, closes Valkey)
 - `server/proxy.ts` — `createFlaskProxy()`, raw streaming to Flask
 - `server/security.ts` — Helmet, rate limiting (300 req/15 min general, 20 req/hr AI), request logger
@@ -64,7 +70,9 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 - No AI logic lives here; it's purely proxy + static hosting
 
 ### Layer 3 — Flask API (`Backend/`)
+
 Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — ignore its monolithic description):
+
 - `auth.py` + `blueprints/auth_api_bp.py` — Google OAuth 2.0 flow, sessions
 - `blueprints/generation_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen)
 - `blueprints/recipes_api_bp.py` — CRUD for recipes
@@ -76,21 +84,25 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 - `migrations/` — Alembic via Flask-Migrate
 
 ### Persistence strategy
+
 - `PersistenceService` writes localStorage first (instant UI), then syncs to Flask
 - On OAuth login, guest localStorage data merges into the authenticated session
 - Cloud SQL (PostgreSQL) is authoritative; SQLite used for local dev
 
 ### Authentication
+
 - Dual-auth: Flask tries user OAuth credentials first, falls back to server `GOOGLE_API_KEY`
 - `ProxyFix` middleware in Flask trusts `X-Forwarded-*` from Express for external URL generation
 
 ## Key environment variables
 
 **Root (`.env.local`):**
+
 - `GEMINI_API_KEY` — required
 - `FLASK_BACKEND_URL` — default `http://localhost:5000`
 
 **Backend (`.env`):**
+
 - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — OAuth
 - `GOOGLE_API_KEY` — Gemini fallback key
 - `FLASK_SECRET_KEY` — session signing
@@ -101,6 +113,7 @@ In production all secrets come from Google Secret Manager, injected at Cloud Run
 ## Deployment
 
 Two Cloud Run services in `us-central1`:
+
 - `express-frontend` — Node.js, port 8080, public
 - `flask-backend` — Python (gunicorn), port 5000, no public auth
 
