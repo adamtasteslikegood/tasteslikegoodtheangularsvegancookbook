@@ -1,0 +1,158 @@
+# Release pipeline — fires on every push to main.
+#
+# Flow:
+#   1. Extract version from package.json
+#   2. Skip if git tag vX.Y.Z already exists (idempotent, safe for hotfixes)
+#   3. Extract CHANGELOG.md section for this version
+#   4. Create signed git tag vX.Y.Z
+#   5. Publish GitHub Release with CHANGELOG excerpt as release notes
+#   6. Submit Google Cloud Build with _VERSION=vX.Y.Z so both Docker images
+#      are tagged with the SemVer alongside $SHORT_SHA (see cloudbuild.yaml)
+#
+# Required secrets / vars (GitHub repo settings):
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  — Workload Identity pool provider resource name
+#   GCP_SERVICE_ACCOUNT             — Service account email for Cloud Build submissions
+#   GCP_PROJECT_ID (var or secret)  — GCP project ID
+#
+# KAN-26, KAN-28
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write   # create tags + GitHub Release
+  id-token: write   # Workload Identity Federation (GCP OIDC)
+
+jobs:
+  release:
+    name: Tag, release, and deploy
+    runs-on: ubuntu-latest
+    # Skip Prettier auto-format bot commits and Dependabot bumps — they do not
+    # warrant a new release.
+    if: |
+      !contains(github.event.head_commit.message, '[skip ci]') &&
+      github.actor != 'dependabot[bot]'
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+          fetch-depth: 0   # full history so we can push tags
+
+      # ── 1. Determine version ──────────────────────────────────────────────
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION (tag: v$VERSION)"
+
+      # ── 2. Check for existing tag (idempotent) ───────────────────────────
+
+      - name: Check if tag already exists
+        id: tag_check
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — skipping release creation."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG does not exist yet — proceeding with release."
+          fi
+
+      # ── 3. Extract CHANGELOG section ─────────────────────────────────────
+
+      - name: Extract CHANGELOG release notes
+        id: changelog
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES=""
+          if [ -f CHANGELOG.md ]; then
+            # Extract the section between this version header and the next one
+            NOTES=$(awk "/^## \[?${VERSION}\]?/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md)
+          fi
+          if [ -z "$NOTES" ]; then
+            NOTES="See commit history for changes in this release."
+          fi
+          # Write to a file to avoid quoting issues in multiline outputs
+          echo "$NOTES" > release_notes.md
+          echo "Release notes extracted for v$VERSION."
+
+      # ── 4. Create and push git tag ────────────────────────────────────────
+
+      - name: Create and push tag
+        if: steps.tag_check.outputs.exists == 'false'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "✅ Pushed tag $TAG"
+
+      # ── 5. Create GitHub Release ──────────────────────────────────────────
+
+      - name: Create GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const tag = '${{ steps.version.outputs.tag }}';
+            const version = '${{ steps.version.outputs.version }}';
+            const notes = fs.existsSync('release_notes.md')
+              ? fs.readFileSync('release_notes.md', 'utf8').trim()
+              : 'See commit history for changes in this release.';
+
+            const release = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: tag,
+              name: `${tag}`,
+              body: notes,
+              draft: false,
+              prerelease: false,
+            });
+
+            core.summary
+              .addHeading(`Release ${tag} created`)
+              .addLink('View Release', release.data.html_url)
+              .write();
+
+            console.log(`✅ GitHub Release created: ${release.data.html_url}`);
+
+      # ── 6. Authenticate to GCP (Workload Identity Federation) ─────────────
+
+      - name: Authenticate to Google Cloud
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: google-github-actions/setup-gcloud@v3
+
+      # ── 7. Submit Cloud Build ─────────────────────────────────────────────
+
+      - name: Submit Cloud Build
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
+          VERSION: ${{ steps.version.outputs.tag }}
+        run: |
+          echo "Submitting Cloud Build for $VERSION (project: $GCP_PROJECT_ID)"
+          gcloud builds submit . \
+            --project "$GCP_PROJECT_ID" \
+            --config cloudbuild.yaml \
+            --substitutions "_VERSION=$VERSION" \
+            --quiet
+          echo "✅ Cloud Build submitted for $VERSION"
