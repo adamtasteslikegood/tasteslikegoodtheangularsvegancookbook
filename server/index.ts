@@ -67,6 +67,13 @@ let server: Server | null = null;
 
   app.use(express.static(distPath));
 
+  // Privacy policy — served as a standalone static HTML page.
+  // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
+  const publicPath = path.resolve(__dirname, '..', 'public');
+  app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
+    res.sendFile(path.join(publicPath, 'privacy-policy.html'));
+  });
+
   app.get('*', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
