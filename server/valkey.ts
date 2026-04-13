@@ -163,6 +163,10 @@ export function getValkeyClient(): Redis | null {
 
 /**
  * Gracefully shut down the Valkey client and stop token refresh.
+ *
+ * quit() is raced against a 3-second timeout so a broken or unresponsive
+ * Valkey connection cannot block Cloud Run's 10-second shutdown window.
+ * On timeout, disconnect() is called to force-close the TCP socket.
  */
 export async function shutdownValkey(): Promise<void> {
   if (refreshTimer) {
@@ -170,7 +174,18 @@ export async function shutdownValkey(): Promise<void> {
     refreshTimer = null;
   }
   if (client) {
-    await client.quit();
-    client = null;
+    const closing = client;
+    client = null; // Null out before await so concurrent calls don't double-quit
+    try {
+      await Promise.race([
+        closing.quit(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Valkey quit timed out after 3s')), 3000)
+        ),
+      ]);
+    } catch (err) {
+      console.error('[Valkey] Shutdown timeout — forcing disconnect:', (err as Error).message);
+      closing.disconnect();
+    }
   }
 }
