@@ -11,11 +11,13 @@ feature/*, fix/*, hotfix/* → dev → main
 ```
 
 **Three permanent branches:**
+
 - `main` - Production-ready code, always deployable
 - `dev` - Integration branch for features
-- *(temporary)* - Feature, fix, and hotfix branches
+- _(temporary)_ - Feature, fix, and hotfix branches
 
 **Branch protection:**
+
 - ✅ No direct commits to main or dev
 - ✅ All changes via pull requests
 - ✅ Automated quality gates required
@@ -31,6 +33,7 @@ feature/*, fix/*, hotfix/* → dev → main
 **Purpose:** Production-ready releases only
 
 **Protection Rules:**
+
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `production-build`
 - ✅ Require linear history (squash merges only)
@@ -39,14 +42,17 @@ feature/*, fix/*, hotfix/* → dev → main
 - ✅ Require review from CODEOWNERS
 
 **Who can merge:**
+
 - Only `dev`, `release/*`, or `dependabot/*` branches
 - After passing dev-to-main.yml workflow
 
 **Triggers:**
+
 - dev-to-main.yml workflow on PR
 - release.yml workflow for GitHub releases
 
 **Typical state:**
+
 - Always matches latest GitHub release
 - Only updated when releasing new version
 - Every commit corresponds to a version tag (v1.0.0, v1.1.0, etc.)
@@ -58,6 +64,7 @@ feature/*, fix/*, hotfix/* → dev → main
 **Purpose:** Integration branch for all features
 
 **Protection Rules:**
+
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `validate-pr`
 - ✅ Require linear history (squash merges only)
@@ -65,6 +72,7 @@ feature/*, fix/*, hotfix/* → dev → main
 - ✅ No deletions
 
 **Who can merge:**
+
 - Feature branches (`feature/*`)
 - Fix branches (`fix/*`)
 - Hotfix branches (`hotfix/*`)
@@ -73,9 +81,11 @@ feature/*, fix/*, hotfix/* → dev → main
 - Docs branches (`docs/*`)
 
 **Triggers:**
+
 - pr-into-dev.yml workflow on PR
 
 **Typical state:**
+
 - Contains completed features awaiting release
 - Ahead of main by several commits
 - Reset to main only after release (via merge)
@@ -89,11 +99,13 @@ feature/*, fix/*, hotfix/* → dev → main
 **Purpose:** New features or enhancements
 
 **Examples:**
+
 - `feature/add-rust-templates`
 - `feature/vscode-extension`
 - `feature/ai-suggestions`
 
 **Lifecycle:**
+
 1. Create from latest `dev`: `git checkout dev && git pull && git checkout -b feature/my-feature`
 2. Make changes, commit with Conventional Commits
 3. Push to origin: `git push -u origin feature/my-feature`
@@ -103,6 +115,7 @@ feature/*, fix/*, hotfix/* → dev → main
 7. Delete feature branch
 
 **PR Requirements:**
+
 - ✅ Title must follow Conventional Commits: `feat(scope): description`
 - ✅ At least one linked issue (recommended)
 - ✅ All quality gates pass
@@ -117,16 +130,19 @@ feature/*, fix/*, hotfix/* → dev → main
 **Purpose:** Bug fixes
 
 **Examples:**
+
 - `fix/installer-windows-path`
 - `fix/python-syntax-validation`
 - `fix/broken-markdown-links`
 
 **Lifecycle:**
 Same as feature branches, but:
+
 - PR title prefix: `fix(scope): description`
 - Link to bug issue with `Fixes #123` or `Closes #123`
 
 **PR Requirements:**
+
 - ✅ Title: `fix(scope): description`
 - ✅ Linked to bug issue
 - ✅ Quality gates pass
@@ -141,10 +157,12 @@ Same as feature branches, but:
 **Purpose:** Urgent fixes for production issues
 
 **Examples:**
+
 - `hotfix/critical-installer-bug`
 - `hotfix/security-patch`
 
 **Lifecycle:**
+
 1. Create from `dev`: `git checkout dev && git pull && git checkout -b hotfix/issue-name`
 2. Make minimal fix
 3. Create PR to `dev`
@@ -152,12 +170,14 @@ Same as feature branches, but:
 5. Fast-track review and merge
 
 **PR Requirements:**
+
 - ✅ Title: `fix(scope): description` or `hotfix(scope): description`
 - ✅ Link to critical issue
 - ✅ Quality gates pass (can be expedited)
 - ✅ Fast-track review
 
 **Special considerations:**
+
 - Prioritize speed over perfection
 - Minimal changes only
 - Document reason for hotfix in PR description
@@ -171,10 +191,12 @@ Same as feature branches, but:
 **Purpose:** Testing experiments or validations
 
 **Examples:**
+
 - `test/new-quality-gate`
 - `test/workflow-validation`
 
 **Lifecycle:**
+
 - Same as feature branches
 - PR title: `test(scope): description`
 - May not require linked issue
@@ -188,10 +210,12 @@ Same as feature branches, but:
 **Purpose:** Code improvements without changing functionality
 
 **Examples:**
+
 - `refactor/simplify-analyzer`
 - `refactor/improve-error-handling`
 
 **Lifecycle:**
+
 - Same as feature branches
 - PR title: `refactor(scope): description`
 - Should not change external behavior
@@ -205,10 +229,12 @@ Same as feature branches, but:
 **Purpose:** Documentation-only changes
 
 **Examples:**
+
 - `docs/update-installation-guide`
 - `docs/add-troubleshooting-section`
 
 **Lifecycle:**
+
 - Same as feature branches
 - PR title: `docs: description` or `docs(scope): description`
 - Can skip some quality gates (Python, Bash)
@@ -416,6 +442,7 @@ ClaudeForge uses **Conventional Commits** format.
 ### Examples
 
 **Good:**
+
 ```
 feat(installer): add Windows PowerShell support
 
@@ -426,6 +453,7 @@ Closes #42
 ```
 
 **Good:**
+
 ```
 fix(skill): correct template selection logic
 
@@ -436,6 +464,7 @@ Fixes #156
 ```
 
 **Good:**
+
 ```
 docs: update installation troubleshooting guide
 
@@ -444,17 +473,21 @@ from issues #78, #82, and #91.
 ```
 
 **Bad:**
+
 ```
 Added new feature
 ```
+
 - Missing type and scope
 - Wrong tense (should be "add")
 - Vague subject
 
 **Bad:**
+
 ```
 fix: Fixed the bug
 ```
+
 - Capitalized subject
 - Unnecessary word "the"
 - No details on what bug
@@ -466,6 +499,7 @@ fix: Fixed the bug
 PR titles MUST follow Conventional Commits format.
 
 **Valid examples:**
+
 - `feat(installer): add Windows PowerShell support`
 - `fix(skill): correct Python syntax validation`
 - `docs: update installation guide`
@@ -473,6 +507,7 @@ PR titles MUST follow Conventional Commits format.
 - `ci: add Python dependency updates to dependabot`
 
 **Invalid examples:**
+
 - `Add new feature` ❌ Missing type/scope
 - `Fixed bug` ❌ Wrong tense, no scope
 - `Update docs` ❌ Missing colon
@@ -480,6 +515,7 @@ PR titles MUST follow Conventional Commits format.
 - `feat: Add feature.` ❌ Period at end
 
 **Validation:**
+
 - pr-into-dev.yml workflow validates PR title format
 - Fails if format is incorrect
 - Auto-comments with fix instructions
@@ -502,6 +538,7 @@ ClaudeForge uses **Squash and Merge** exclusively.
 When merging PR with multiple commits:
 
 **Before merge (feature branch):**
+
 ```
 feat: add template A
 fix: correct typo
@@ -511,6 +548,7 @@ test: add unit tests
 ```
 
 **After merge (dev branch):**
+
 ```
 feat(skill): add Rust templates (#42)
 
@@ -525,6 +563,7 @@ Co-authored-by: Developer <dev@example.com>
 ### Merge Commit Message
 
 Automatically generated:
+
 - **Title:** From PR title (Conventional Commits format)
 - **Body:** From PR description
 - **Footer:** PR number, co-authors
@@ -615,6 +654,7 @@ git fetch --prune
 **Problem:** PR validation fails with "Invalid branch name"
 
 **Solution:**
+
 ```bash
 # Rename branch
 git branch -m feature/correct-name
@@ -630,6 +670,7 @@ git push --force-with-lease origin feature/correct-name
 **Problem:** PR title doesn't follow Conventional Commits
 
 **Solution:**
+
 1. Go to PR page on GitHub
 2. Click "Edit" next to PR title
 3. Update to format: `type(scope): description`
@@ -641,6 +682,7 @@ git push --force-with-lease origin feature/correct-name
 **Problem:** dev-to-main warns CHANGELOG.md not updated
 
 **Solution:**
+
 ```bash
 # On dev branch
 git checkout dev
@@ -661,6 +703,7 @@ git push origin dev
 **Problem:** Critical bug in production (main)
 
 **Solution:**
+
 ```bash
 # Create hotfix from dev (not main)
 git checkout dev
@@ -682,6 +725,7 @@ git push -u origin hotfix/critical-bug
 **Problem:** Need to work on feature B while feature A is in review
 
 **Solution:**
+
 ```bash
 # Feature A already in PR
 git checkout dev
