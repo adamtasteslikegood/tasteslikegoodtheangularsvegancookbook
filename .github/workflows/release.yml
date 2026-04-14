@@ -9,10 +9,8 @@
 #   6. Submit Google Cloud Build with _VERSION=vX.Y.Z so both Docker images
 #      are tagged with the SemVer alongside $SHORT_SHA (see cloudbuild.yaml)
 #
-# Required secrets / vars (GitHub repo settings):
-#   GCP_WORKLOAD_IDENTITY_PROVIDER  — Workload Identity pool provider resource name
-#   GCP_SERVICE_ACCOUNT             — Service account email for Cloud Build submissions
-#   GCP_PROJECT_ID (var or secret)  — GCP project ID
+# No GCP secrets required here — Cloud Build is triggered by a tag-push
+# trigger configured in the GCP Console (not from this workflow).
 #
 # KAN-26, KAN-28
 
@@ -24,7 +22,6 @@ on:
 
 permissions:
   contents: write   # create tags + GitHub Release
-  id-token: write   # Workload Identity Federation (GCP OIDC)
 
 jobs:
   release:
@@ -128,31 +125,8 @@ jobs:
 
             console.log(`✅ GitHub Release created: ${release.data.html_url}`);
 
-      # ── 6. Authenticate to GCP (Workload Identity Federation) ─────────────
-
-      - name: Authenticate to Google Cloud
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: google-github-actions/auth@v3
-        with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-
-      - name: Set up gcloud CLI
-        if: steps.tag_check.outputs.exists == 'false'
-        uses: google-github-actions/setup-gcloud@v3
-
-      # ── 7. Submit Cloud Build ─────────────────────────────────────────────
-
-      - name: Submit Cloud Build
-        if: steps.tag_check.outputs.exists == 'false'
-        env:
-          GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
-          VERSION: ${{ steps.version.outputs.tag }}
-        run: |
-          echo "Submitting Cloud Build for $VERSION (project: $GCP_PROJECT_ID)"
-          gcloud builds submit . \
-            --project "$GCP_PROJECT_ID" \
-            --config cloudbuild.yaml \
-            --substitutions "_VERSION=$VERSION" \
-            --quiet
-          echo "✅ Cloud Build submitted for $VERSION"
+      # ── 6. Cloud Build ────────────────────────────────────────────────────
+      # Cloud Build is triggered automatically by the tag push above via a
+      # trigger configured in the GCP Console (Source: Cloud Source Repos /
+      # GitHub mirror, Event: push tag v*.*.*, Config: cloudbuild.yaml).
+      # No gcloud submit needed here.
