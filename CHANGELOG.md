@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.1.0] - 2026-04-13
 
 ### Added
+
 - Angular 21 SPA with Signals API — recipe generation, AI food photos, personal cookbook
 - Google OAuth 2.0 authentication with guest-session fallback (localStorage)
 - Express reverse proxy with Helmet, rate limiting (Valkey / in-memory fallback), request logging
@@ -32,6 +33,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Branch strategy: `main` (production), `dev` (integration), `fix/KAN-XX` / `feat/KAN-XX` feature branches
 
 ### Security
+
 - KAN-23: `generation_api_bp` blueprint registration fix (AI endpoints were unreachable)
 - KAN-24: Sanitized all Flask 500 responses; removed `client_secret` from session storage
 - KAN-16: Valkey shutdown timeout prevents Cloud Run SIGTERM window exhaustion
