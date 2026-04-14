@@ -1,0 +1,215 @@
+name: CI/CD — Flask → flask-backend
+
+# Deploy policy mirrors ci-cd.yml but gates on Backend/ changes for patches.
+# On the same minor/major tag, both this workflow and ci-cd.yml trigger,
+# ensuring both services are always updated together for breaking releases.
+#
+# Image traceability: same OCI label + tag scheme as the frontend workflow.
+# Cloud Run revision suffix encodes version + short SHA:
+#   flask-backend-00017-1-2-3-shabc1234
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  pull_request:
+    branches: [main]
+
+env:
+  REGION: us-central1
+  SERVICE: flask-backend
+  IMAGE: gcr.io/comdottasteslikegood/flask-backend
+
+jobs:
+  # ── 0. Version gate ──────────────────────────────────────────────────────
+  # For patches, checks whether the Backend submodule pointer changed since
+  # the previous tag (any change inside Backend/ updates the submodule SHA
+  # visible in the parent repo diff).
+
+  version-gate:
+    name: Version gate
+    runs-on: ubuntu-latest
+    outputs:
+      semver_tag:      ${{ steps.gate.outputs.semver_tag }}
+      short_sha:       ${{ steps.gate.outputs.short_sha }}
+      revision_suffix: ${{ steps.gate.outputs.revision_suffix }}
+      should_deploy:   ${{ steps.gate.outputs.should_deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Compute version metadata and deploy gate
+        id: gate
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            SEMVER_TAG="${GITHUB_REF_NAME}"
+            PATCH=$(echo "${SEMVER_TAG#v}" | cut -d. -f3 | cut -d- -f1 | cut -d+ -f1)
+
+            if [ "$PATCH" = "0" ]; then
+              SHOULD_DEPLOY=true
+              echo "Bump type: minor/major — deploying unconditionally"
+            else
+              PREV_TAG=$(git tag --sort=-version:refname \
+                | grep -v "^${SEMVER_TAG}$" | head -1 || true)
+              if [ -z "$PREV_TAG" ]; then
+                SHOULD_DEPLOY=true
+                echo "No previous tag — first release, deploying"
+              else
+                # Backend/ is a submodule; any change inside it updates the
+                # submodule pointer in the parent repo diff.
+                CHANGED=$(git diff --name-only "$PREV_TAG" "${SEMVER_TAG}" -- Backend \
+                  | wc -l | tr -d ' ')
+                SHOULD_DEPLOY=$([ "$CHANGED" -gt 0 ] && echo "true" || echo "false")
+                echo "Patch bump: backend submodule changed=${CHANGED} vs ${PREV_TAG} → should_deploy=${SHOULD_DEPLOY}"
+              fi
+            fi
+          else
+            # Non-tag push to main — continuous deployment
+            SEMVER_TAG="v$(python3 -c "import json; print(json.load(open('package.json'))['version'])")"
+            SHOULD_DEPLOY=true
+            echo "Branch push — deploying continuously"
+          fi
+
+          VERSION_SLUG=$(echo "${SEMVER_TAG#v}" | tr '.' '-' | tr '+' '-')
+          REVISION_SUFFIX="${VERSION_SLUG}-sha${SHORT_SHA}"
+
+          echo "semver_tag=${SEMVER_TAG}"           >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHORT_SHA}"             >> "$GITHUB_OUTPUT"
+          echo "revision_suffix=${REVISION_SUFFIX}" >> "$GITHUB_OUTPUT"
+          echo "should_deploy=${SHOULD_DEPLOY}"     >> "$GITHUB_OUTPUT"
+
+          echo "→ semver_tag=${SEMVER_TAG}  revision_suffix=${REVISION_SUFFIX}"
+
+  # ── 1. GCP auth gate ─────────────────────────────────────────────────────
+
+  activation:
+    name: Authenticate with GCP
+    runs-on: ubuntu-latest
+    needs: [version-gate]
+    steps:
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: '${{ secrets.GCP_PROJECT_ID }}'
+
+  # ── 2. Install & Test ─────────────────────────────────────────────────────
+  # uv is fast enough that caching across jobs adds more complexity than value;
+  # uv sync runs in one job alongside pytest.
+
+  install-test:
+    name: Install & pytest
+    runs-on: ubuntu-latest
+    needs: [version-gate]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        working-directory: Backend
+        run: uv sync
+      - name: Run pytest
+        working-directory: Backend
+        run: uv run pytest
+
+  # ── 3. Build Docker image ─────────────────────────────────────────────────
+  # Build context is Backend/ (where Backend/Dockerfile lives).
+  # Same four-tag strategy as the frontend workflow.
+
+  build:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    needs: [activation, install-test, version-gate]
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Authenticate for Docker push
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+      - run: gcloud auth configure-docker gcr.io --quiet
+
+      - name: Build & push (with OCI labels + all tags)
+        env:
+          SEMVER_TAG: ${{ needs.version-gate.outputs.semver_tag }}
+          SHORT_SHA:  ${{ needs.version-gate.outputs.short_sha }}
+        run: |
+          BUILD_TAG="${SEMVER_TAG}-sha.${SHORT_SHA}"
+          BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          docker build \
+            --label "org.opencontainers.image.version=${SEMVER_TAG#v}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.created=${BUILD_DATE}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "com.tasteslikegood.build-run=${GITHUB_RUN_NUMBER}" \
+            --label "com.tasteslikegood.service=flask-backend" \
+            --tag "${IMAGE}:${SEMVER_TAG}" \
+            --tag "${IMAGE}:${BUILD_TAG}" \
+            --tag "${IMAGE}:${GITHUB_SHA}" \
+            --tag "${IMAGE}:latest" \
+            Backend/
+
+          docker push "${IMAGE}:${SEMVER_TAG}"
+          docker push "${IMAGE}:${BUILD_TAG}"
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:latest"
+
+          echo "Pushed:"
+          echo "  ${IMAGE}:${SEMVER_TAG}"
+          echo "  ${IMAGE}:${BUILD_TAG} (informational)"
+          echo "  ${IMAGE}:${GITHUB_SHA} (used for deploy)"
+          echo "  ${IMAGE}:latest"
+
+  # ── 4. Deploy to Cloud Run ────────────────────────────────────────────────
+
+  deploy:
+    name: Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: [activation, build, version-gate]
+    if: |
+      github.event_name != 'pull_request' &&
+      needs.version-gate.outputs.should_deploy == 'true' &&
+      (
+        github.ref == 'refs/heads/main' ||
+        startsWith(github.ref, 'refs/tags/v')
+      )
+
+    steps:
+      - name: Authenticate
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GOOGLE_CREDENTIALS }}'
+
+      - name: Deploy flask-backend
+        env:
+          SEMVER_TAG:      ${{ needs.version-gate.outputs.semver_tag }}
+          SHORT_SHA:       ${{ needs.version-gate.outputs.short_sha }}
+          REVISION_SUFFIX: ${{ needs.version-gate.outputs.revision_suffix }}
+        run: |
+          gcloud run deploy "${SERVICE}" \
+            --image "${IMAGE}:${GITHUB_SHA}" \
+            --region "${REGION}" \
+            --project "${{ secrets.GCP_PROJECT_ID }}" \
+            --revision-suffix "${REVISION_SUFFIX}" \
+            --platform managed \
+            --quiet
+
+          echo "✅ Deployed ${SERVICE}"
+          echo "   Revision : ${SERVICE}-${REVISION_SUFFIX}"
+          echo "   SemVer   : ${SEMVER_TAG}"
+          echo "   Image    : ${IMAGE}:${GITHUB_SHA}"
