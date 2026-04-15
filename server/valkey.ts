@@ -92,7 +92,7 @@ export async function createValkeyClient(): Promise<Redis | null> {
     }
   }
 
-  const port = parseInt(process.env.VALKEY_PORT || '6379', 10);
+  const port = Number.parseInt(process.env.VALKEY_PORT || '6379', 10);
   const authMode = process.env.VALKEY_AUTH_MODE;
 
   try {
