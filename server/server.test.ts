@@ -307,9 +307,10 @@ describe('createValkeyClient', () => {
       return {
         ping: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
         quit: vi.fn().mockResolvedValue('OK'),
+        call: vi.fn(),
         disconnect: vi.fn(),
         on: vi.fn(),
-        options: {},
+        options: {} as Record<string, unknown>,
       };
     });
 
@@ -345,11 +346,12 @@ describe('createValkeyClient', () => {
       return {
         ping: vi.fn().mockResolvedValue('PONG'),
         quit: vi.fn().mockResolvedValue('OK'),
+        call: vi.fn(),
         disconnect: vi.fn(),
         on: vi.fn().mockImplementation((event: string, cb: (err: Error) => void) => {
           if (event === 'error') errorHandler = cb;
         }),
-        options: {},
+        options: {} as Record<string, unknown>,
       };
     });
 
@@ -358,7 +360,9 @@ describe('createValkeyClient', () => {
     await createValkeyClient();
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    errorHandler?.(new Error('Connection reset by peer'));
+    expect(errorHandler).not.toBeNull();
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    errorHandler!(new Error('Connection reset by peer'));
     expect(errorSpy).toHaveBeenCalledWith('[Valkey] Connection error:', 'Connection reset by peer');
     errorSpy.mockRestore();
   });
@@ -370,9 +374,10 @@ describe('createValkeyClient', () => {
       return {
         ping: vi.fn().mockResolvedValue('PONG'),
         quit: vi.fn().mockReturnValue(new Promise(() => {})), // never resolves
+        call: vi.fn(),
         disconnect: disconnectMock,
         on: vi.fn(),
-        options: {},
+        options: {} as Record<string, unknown>,
       };
     });
 
@@ -438,7 +443,7 @@ describe('applySecurityMiddleware', () => {
     const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
       req: Request,
       res: Response,
-      next: NextFunction,
+      next: NextFunction
     ) => void;
 
     const setHeader = vi.fn();
@@ -446,7 +451,7 @@ describe('applySecurityMiddleware', () => {
     robotsMiddleware(
       { accepts: vi.fn().mockReturnValue('html'), path: '/about' } as unknown as Request,
       { setHeader } as unknown as Response,
-      next,
+      next
     );
 
     expect(setHeader).toHaveBeenCalledWith('X-Robots-Tag', 'index, follow');
@@ -462,7 +467,7 @@ describe('applySecurityMiddleware', () => {
     const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
       req: Request,
       res: Response,
-      next: NextFunction,
+      next: NextFunction
     ) => void;
 
     const setHeader = vi.fn();
@@ -470,7 +475,7 @@ describe('applySecurityMiddleware', () => {
     robotsMiddleware(
       { accepts: vi.fn().mockReturnValue('html'), path: '/api/generate' } as unknown as Request,
       { setHeader } as unknown as Response,
-      next,
+      next
     );
 
     expect(setHeader).not.toHaveBeenCalled();
@@ -486,7 +491,7 @@ describe('applySecurityMiddleware', () => {
     const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
       req: Request,
       res: Response,
-      next: NextFunction,
+      next: NextFunction
     ) => void;
 
     const setHeader = vi.fn();
@@ -494,7 +499,7 @@ describe('applySecurityMiddleware', () => {
     robotsMiddleware(
       { accepts: vi.fn().mockReturnValue(false), path: '/data.json' } as unknown as Request,
       { setHeader } as unknown as Response,
-      next,
+      next
     );
 
     expect(setHeader).not.toHaveBeenCalled();
@@ -517,9 +522,9 @@ describe('createApiLimiter with non-null Valkey client', () => {
 describe('createExpensiveOperationLimiter with non-null Valkey client', () => {
   it('builds a RedisStore when a Valkey client is provided', async () => {
     const { createExpensiveOperationLimiter } = await import('./security');
-    const limiter = createExpensiveOperationLimiter(
-      { call: vi.fn() } as unknown as Parameters<typeof createExpensiveOperationLimiter>[0],
-    );
+    const limiter = createExpensiveOperationLimiter({ call: vi.fn() } as unknown as Parameters<
+      typeof createExpensiveOperationLimiter
+    >[0]);
     expect(typeof limiter).toBe('function');
   });
 });
