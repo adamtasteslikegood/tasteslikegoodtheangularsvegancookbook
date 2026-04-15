@@ -26,5 +26,3 @@ jobs:
 
       - name: Submit npm dependency snapshot
         uses: actions/npm-dependency-submission-action@v1
-        with:
-          node-version: '20'
