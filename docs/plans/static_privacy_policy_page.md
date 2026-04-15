@@ -21,22 +21,43 @@ Here's exactly why and how:
 ```html
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Privacy Policy — Vegangenius Chef</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.6; color: #333; }
-    h1 { color: #2d6a4f; }
-    h2 { color: #40916c; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
-    a { color: #2d6a4f; }
-    footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #eee; font-size: 0.85rem; color: #666; }
-  </style>
-</head>
-<body>
-  <!-- paste full policy text here as HTML -->
-  <a href="/">← Back to Vegangenius Chef</a>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy Policy — Vegangenius Chef</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.6;
+        color: #333;
+      }
+      h1 {
+        color: #2d6a4f;
+      }
+      h2 {
+        color: #40916c;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.5rem;
+      }
+      a {
+        color: #2d6a4f;
+      }
+      footer {
+        margin-top: 3rem;
+        padding-top: 1rem;
+        border-top: 1px solid #eee;
+        font-size: 0.85rem;
+        color: #666;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- paste full policy text here as HTML -->
+    <a href="/">← Back to Vegangenius Chef</a>
+  </body>
 </html>
 ```
 

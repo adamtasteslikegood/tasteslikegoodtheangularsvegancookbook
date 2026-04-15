@@ -27,11 +27,13 @@ Most endpoints support both **authenticated** and **guest** users:
 Get all recipes for the current user (or anonymous recipes for guests).
 
 **Request:**
+
 ```http
 GET /api/recipes
 ```
 
 **Response:**
+
 ```json
 {
   "recipes": [
@@ -48,6 +50,7 @@ GET /api/recipes
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 - `500 Internal Server Error` - Database error
 
@@ -58,11 +61,13 @@ GET /api/recipes
 Retrieve a specific recipe. Only returns if the recipe belongs to the current user.
 
 **Request:**
+
 ```http
 GET /api/recipes/:id
 ```
 
 **Response:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -82,11 +87,7 @@ GET /api/recipes/:id
         "unit": "cups"
       }
     ],
-    "instructions": [
-      "Mix dry ingredients",
-      "Add wet ingredients",
-      "Cook on griddle"
-    ],
+    "instructions": ["Mix dry ingredients", "Add wet ingredients", "Cook on griddle"],
     "tags": ["breakfast", "vegan"],
     "nutrition": {
       "calories": 250,
@@ -101,6 +102,7 @@ GET /api/recipes/:id
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 - `404 Not Found` - Recipe doesn't exist or doesn't belong to user
 - `500 Internal Server Error` - Database error
@@ -112,6 +114,7 @@ GET /api/recipes/:id
 Create a new recipe. Automatically associates with authenticated user or creates as anonymous.
 
 **Request:**
+
 ```http
 POST /api/recipes
 Content-Type: application/json
@@ -152,6 +155,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -164,11 +168,13 @@ Content-Type: application/json
 ```
 
 **Status Codes:**
+
 - `201 Created` - Recipe created successfully
 - `400 Bad Request` - Invalid JSON or missing required fields
 - `500 Internal Server Error` - Database error
 
 **Required Fields:**
+
 - `name` (string)
 
 ---
@@ -178,6 +184,7 @@ Content-Type: application/json
 Update an existing recipe. Only the recipe owner can update.
 
 **Request:**
+
 ```http
 PUT /api/recipes/:id
 Content-Type: application/json
@@ -190,6 +197,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "id": "550e8400-e29b-41d4-a716-446655440000",
@@ -202,6 +210,7 @@ Content-Type: application/json
 ```
 
 **Status Codes:**
+
 - `200 OK` - Recipe updated successfully
 - `400 Bad Request` - Invalid JSON
 - `404 Not Found` - Recipe doesn't exist or doesn't belong to user
@@ -214,11 +223,13 @@ Content-Type: application/json
 Delete a recipe. Only the recipe owner can delete.
 
 **Request:**
+
 ```http
 DELETE /api/recipes/:id
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Recipe deleted successfully"
@@ -226,6 +237,7 @@ DELETE /api/recipes/:id
 ```
 
 **Status Codes:**
+
 - `200 OK` - Recipe deleted successfully
 - `404 Not Found` - Recipe doesn't exist or doesn't belong to user
 - `500 Internal Server Error` - Database error
@@ -237,11 +249,13 @@ DELETE /api/recipes/:id
 Get statistics about the current user's recipes.
 
 **Request:**
+
 ```http
 GET /api/recipes/stats
 ```
 
 **Response:**
+
 ```json
 {
   "total_recipes": 42,
@@ -250,6 +264,7 @@ GET /api/recipes/stats
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 - `500 Internal Server Error` - Database error
 
@@ -262,11 +277,13 @@ GET /api/recipes/stats
 Check if the current session is authenticated.
 
 **Request:**
+
 ```http
 GET /api/auth/check
 ```
 
 **Response (Authenticated):**
+
 ```json
 {
   "authenticated": true,
@@ -278,6 +295,7 @@ GET /api/auth/check
 ```
 
 **Response (Guest):**
+
 ```json
 {
   "authenticated": false,
@@ -292,11 +310,13 @@ GET /api/auth/check
 Get detailed information about the authenticated user.
 
 **Request:**
+
 ```http
 GET /api/auth/me
 ```
 
 **Response:**
+
 ```json
 {
   "id": 123,
@@ -310,6 +330,7 @@ GET /api/auth/me
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 - `401 Unauthorized` - Not authenticated
 
@@ -320,11 +341,13 @@ GET /api/auth/me
 Clear the authentication session.
 
 **Request:**
+
 ```http
 POST /api/auth/logout
 ```
 
 **Response:**
+
 ```json
 {
   "message": "Logged out successfully",
@@ -333,6 +356,7 @@ POST /api/auth/logout
 ```
 
 **Status Codes:**
+
 - `200 OK` - Success
 
 ---
@@ -344,11 +368,13 @@ POST /api/auth/logout
 Check API health and database connection.
 
 **Request:**
+
 ```http
 GET /api/status
 ```
 
 **Response:**
+
 ```json
 {
   "status": "running",
@@ -362,6 +388,7 @@ GET /api/status
 ```
 
 **Database Status Values:**
+
 - `"connected"` - Database is accessible
 - `"error"` - Database connection failed
 - `"unknown"` - Database status could not be determined
@@ -379,6 +406,7 @@ All error responses follow this format:
 ```
 
 **Common Error Codes:**
+
 - `400 Bad Request` - Invalid input data
 - `401 Unauthorized` - Authentication required
 - `404 Not Found` - Resource doesn't exist
@@ -392,26 +420,26 @@ All error responses follow this format:
 
 ```typescript
 interface Recipe {
-  id: string;                    // UUID
-  user_id: number | null;        // Database user ID (null for anonymous)
-  name: string;                  // Recipe name
-  data: RecipeData;              // Full recipe details
-  created_at: string;            // ISO 8601 timestamp
-  updated_at: string;            // ISO 8601 timestamp
+  id: string; // UUID
+  user_id: number | null; // Database user ID (null for anonymous)
+  name: string; // Recipe name
+  data: RecipeData; // Full recipe details
+  created_at: string; // ISO 8601 timestamp
+  updated_at: string; // ISO 8601 timestamp
 }
 
 interface RecipeData {
   name: string;
   description?: string;
-  prepTime?: number;             // Minutes
-  cookTime?: number;             // Minutes
+  prepTime?: number; // Minutes
+  cookTime?: number; // Minutes
   servings?: number;
-  difficulty?: string;           // "Easy", "Medium", "Hard"
+  difficulty?: string; // "Easy", "Medium", "Hard"
   ingredients: Ingredient[];
   instructions: string[];
   tags?: string[];
   nutrition?: Nutrition;
-  image_url?: string;            // AI-generated image
+  image_url?: string; // AI-generated image
 }
 
 interface Ingredient {
@@ -422,10 +450,10 @@ interface Ingredient {
 
 interface Nutrition {
   calories?: number;
-  protein?: number;              // Grams
-  carbs?: number;                // Grams
-  fat?: number;                  // Grams
-  fiber?: number;                // Grams
+  protein?: number; // Grams
+  carbs?: number; // Grams
+  fat?: number; // Grams
+  fiber?: number; // Grams
 }
 ```
 
@@ -457,7 +485,7 @@ curl -X POST http://localhost:5000/api/recipes \
 ```javascript
 async function getRecipes() {
   const response = await fetch('/api/recipes', {
-    credentials: 'include'  // Include session cookie
+    credentials: 'include', // Include session cookie
   });
   const data = await response.json();
   console.log(`You have ${data.count} recipes`);

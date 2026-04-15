@@ -51,34 +51,42 @@ curl http://localhost:5000/api/recipes
 Choose your path based on what you need:
 
 ### **Just Getting Started?**
+
 → Read: **[PHASE_3_COMPLETE_SUMMARY.md](PHASE_3_COMPLETE_SUMMARY.md)**  
 _5-minute overview of what's been done and what's next_
 
 ### **Setting Up Database?**
+
 → Read: **[Backend/DATABASE_SETUP.md](../Backend/DATABASE_SETUP.md)**  
 _Step-by-step setup for SQLite or PostgreSQL_
 
 ### **Need Quick Commands?**
+
 → Read: **[PHASE_3_QUICKREF.md](PHASE_3_QUICKREF.md)**  
 _One-page cheat sheet with all commands_
 
 ### **Want API Details?**
+
 → Read: **[RECIPE_API.md](RECIPE_API.md)**  
 _Complete API endpoint documentation with examples_
 
 ### **Understanding Architecture?**
+
 → Read: **[PHASE_3_ARCHITECTURE.md](PHASE_3_ARCHITECTURE.md)**  
 _Visual diagrams and data flow_
 
 ### **Tracking Your Progress?**
+
 → Read: **[PHASE_3_PROGRESS.md](PHASE_3_PROGRESS.md)**  
 _Task checklist and completion tracking_
 
 ### **Need Full Details?**
+
 → Read: **[PHASE_3_DATABASE_IMPLEMENTATION.md](PHASE_3_DATABASE_IMPLEMENTATION.md)**  
 _Comprehensive implementation guide_
 
 ### **Want Everything?**
+
 → Read: **[PHASE_3_INDEX.md](PHASE_3_INDEX.md)**  
 _Complete documentation index_
 
@@ -89,10 +97,12 @@ _Complete documentation index_
 ### ✅ Backend (100% Complete)
 
 **Database Models:**
+
 - User model (email, name, google_id)
 - Recipe model (user_id, name, JSON data)
 
 **API Endpoints:**
+
 - `GET /api/recipes` - List recipes
 - `POST /api/recipes` - Create recipe
 - `GET /api/recipes/:id` - Get recipe
@@ -100,6 +110,7 @@ _Complete documentation index_
 - `DELETE /api/recipes/:id` - Delete recipe
 
 **Features:**
+
 - User ownership of recipes
 - Anonymous recipe support
 - Session-based authentication
@@ -107,6 +118,7 @@ _Complete documentation index_
 - Migration script for existing recipes
 
 **Documentation:**
+
 - 10 comprehensive documents
 - Setup guides
 - API reference
@@ -159,24 +171,26 @@ Replace localStorage with RecipeService calls.
 ## 📁 Key Files Reference
 
 ### Code Files
-| File | What It Does |
-|------|--------------|
-| `Backend/models/user.py` | User database model |
-| `Backend/models/recipe.py` | Recipe database model |
-| `Backend/repositories/db_recipe_repository.py` | Database operations |
-| `Backend/blueprints/recipes_api_bp.py` | Recipe API endpoints |
-| `Backend/blueprints/auth_api_bp.py` | User authentication |
-| `Backend/init_database.sh` | Setup script |
-| `Backend/scripts/migrate_recipes_to_db.py` | Migration tool |
+
+| File                                           | What It Does          |
+| ---------------------------------------------- | --------------------- |
+| `Backend/models/user.py`                       | User database model   |
+| `Backend/models/recipe.py`                     | Recipe database model |
+| `Backend/repositories/db_recipe_repository.py` | Database operations   |
+| `Backend/blueprints/recipes_api_bp.py`         | Recipe API endpoints  |
+| `Backend/blueprints/auth_api_bp.py`            | User authentication   |
+| `Backend/init_database.sh`                     | Setup script          |
+| `Backend/scripts/migrate_recipes_to_db.py`     | Migration tool        |
 
 ### Documentation Files
-| File | Purpose |
-|------|---------|
+
+| File                                                           | Purpose                     |
+| -------------------------------------------------------------- | --------------------------- |
 | **[PHASE_3_COMPLETE_SUMMARY.md](PHASE_3_COMPLETE_SUMMARY.md)** | Start here - quick overview |
-| **[Backend/DATABASE_SETUP.md](../Backend/DATABASE_SETUP.md)** | Setup instructions |
-| **[PHASE_3_QUICKREF.md](PHASE_3_QUICKREF.md)** | Quick reference |
-| **[RECIPE_API.md](RECIPE_API.md)** | API documentation |
-| **[PHASE_3_PROGRESS.md](PHASE_3_PROGRESS.md)** | Task tracking |
+| **[Backend/DATABASE_SETUP.md](../Backend/DATABASE_SETUP.md)**  | Setup instructions          |
+| **[PHASE_3_QUICKREF.md](PHASE_3_QUICKREF.md)**                 | Quick reference             |
+| **[RECIPE_API.md](RECIPE_API.md)**                             | API documentation           |
+| **[PHASE_3_PROGRESS.md](PHASE_3_PROGRESS.md)**                 | Task tracking               |
 
 ---
 
@@ -210,23 +224,29 @@ python scripts/migrate_recipes_to_db.py
 ## 🐛 Troubleshooting
 
 ### "flask: command not found"
+
 ```bash
 python -m flask db init
 ```
 
 ### "No such table"
+
 ```bash
 flask db upgrade
 ```
 
 ### "Can't connect to database"
+
 Check your `.env` file has:
+
 ```bash
 DATABASE_URL=sqlite:///tasteslikegood.db
 ```
 
 ### More Issues?
+
 See the troubleshooting sections in:
+
 - [PHASE_3_QUICKREF.md](PHASE_3_QUICKREF.md)
 - [Backend/DATABASE_SETUP.md](../Backend/DATABASE_SETUP.md)
 
@@ -235,11 +255,13 @@ See the troubleshooting sections in:
 ## 🎓 How It Works
 
 ### Before Phase 3 (File-Based)
+
 ```
 Generate Recipe → Save to recipes/uuid.json → Read from file
 ```
 
 ### After Phase 3 (Database)
+
 ```
 Generate Recipe → POST /api/recipes → Save to database
                                     → Read from database
@@ -247,6 +269,7 @@ Generate Recipe → POST /api/recipes → Save to database
 ```
 
 ### Authentication Flow
+
 ```
 1. User logs in with Google
 2. Flask creates User in database

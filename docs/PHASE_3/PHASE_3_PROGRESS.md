@@ -7,6 +7,7 @@ Track the implementation progress of database integration.
 ## ✅ Completed Tasks
 
 ### Foundation (Models & Configuration)
+
 - [x] **Install SQLAlchemy dependencies** (`flask-sqlalchemy`, `psycopg2-binary`, `flask-migrate`)
 - [x] **Create `extensions.py`** - Initialize `db` and `migrate` objects
 - [x] **Configure database** in `config.py` - `SQLALCHEMY_DATABASE_URI` with fallback
@@ -16,6 +17,7 @@ Track the implementation progress of database integration.
 - [x] **Add timestamps** to both models
 
 ### Database Operations
+
 - [x] **Create db_recipe_repository.py** - Database CRUD operations
   - [x] `get_user_recipes(user_id)`
   - [x] `get_recipe_by_id(recipe_id, user_id)`
@@ -25,6 +27,7 @@ Track the implementation progress of database integration.
   - [x] `migrate_file_to_db(filename, recipe_data, user_id)`
 
 ### API Endpoints
+
 - [x] **Create recipes_api_bp.py** - RESTful recipe API
   - [x] `GET /api/recipes` - List user's recipes
   - [x] `POST /api/recipes` - Create recipe
@@ -35,18 +38,21 @@ Track the implementation progress of database integration.
 - [x] **Register recipes_api_bp** in `app.py`
 
 ### Authentication Integration
+
 - [x] **Update auth_api_bp.py** - Persist users to database
   - [x] Create/update user in OAuth callback
   - [x] Store database user ID in session
   - [x] Update `/api/auth/me` to fetch from database
 
 ### Tools & Scripts
+
 - [x] **Create migration script** (`scripts/migrate_recipes_to_db.py`)
   - [x] Import file-based recipes into database
   - [x] Support for dry-run mode
   - [x] User assignment option
 
 ### Documentation
+
 - [x] **Create PHASE_3_DATABASE_IMPLEMENTATION.md** - Comprehensive guide
 - [x] **Create DATABASE_SETUP.md** - Setup instructions
 - [x] **Update .env.example** - Add DATABASE_URL configuration
@@ -57,17 +63,20 @@ Track the implementation progress of database integration.
 ## ⏳ In Progress / Pending Tasks
 
 ### Database Initialization
+
 - [ ] **Initialize Flask-Migrate** - Run `flask db init`
 - [ ] **Create initial migration** - Run `flask db migrate`
 - [ ] **Apply migration** - Run `flask db upgrade`
 - [ ] **Verify tables created** - Check database schema
 
 ### Data Migration
+
 - [ ] **Run migration script** - Import existing recipes from files
 - [ ] **Test anonymous recipe handling** - Verify user_id = NULL works
 - [ ] **Test user-owned recipes** - Verify user association works
 
 ### Testing
+
 - [ ] **Test user creation** - OAuth flow creates database user
 - [ ] **Test recipe CRUD** - All API endpoints work
   - [ ] Create recipe (authenticated)
@@ -83,6 +92,7 @@ Track the implementation progress of database integration.
   - [ ] Malformed JSON in request
 
 ### Frontend Integration (Angular)
+
 - [ ] **Create RecipeService** (`src/services/recipe.service.ts`)
   - [ ] Injectable service with HttpClient
   - [ ] Methods for all CRUD operations
@@ -98,6 +108,7 @@ Track the implementation progress of database integration.
 - [ ] **Test authenticated mode** - Server persistence works
 
 ### Recipe Generation Integration
+
 - [ ] **Update generation_bp.py** - Save generated recipes to database
   - [ ] For authenticated users: save to DB immediately
   - [ ] For guests: keep localStorage behavior
@@ -105,12 +116,14 @@ Track the implementation progress of database integration.
 - [ ] **Test recipe generation** - Verify new recipes are persisted
 
 ### Documentation Updates
+
 - [ ] **Update main README.md** - Add database setup section
 - [ ] **Update Backend/API.md** - Document new recipe endpoints
 - [ ] **Update Backend/QUICKSTART.md** - Include database initialization
 - [ ] **Create Phase 3 completion doc** - Summary of changes
 
 ### Deployment
+
 - [ ] **Update Dockerfile** - Ensure migrations run on deploy
 - [ ] **Update cloudbuild.yaml** - Add database initialization step
 - [ ] **Test on Cloud Run** - Verify PostgreSQL connection
@@ -121,6 +134,7 @@ Track the implementation progress of database integration.
 ## 🚫 Not Yet Started
 
 ### Phase 4 Features (Future Work)
+
 - [ ] Recipe collections/cookbooks
 - [ ] Favorite recipes flag
 - [ ] Recipe sharing (public/private)
@@ -143,6 +157,7 @@ None yet - initial implementation in progress.
 ### Manual Testing Steps
 
 #### 1. Database Setup
+
 ```bash
 cd Backend
 export FLASK_APP=app.py
@@ -153,6 +168,7 @@ flask db upgrade
 ```
 
 #### 2. User Authentication
+
 ```bash
 # Start backend: python app.py
 # Start frontend: ng serve
@@ -161,6 +177,7 @@ flask db upgrade
 ```
 
 #### 3. Recipe Creation (Anonymous)
+
 ```bash
 curl -X POST http://localhost:5000/api/recipes \
   -H "Content-Type: application/json" \
@@ -169,6 +186,7 @@ curl -X POST http://localhost:5000/api/recipes \
 ```
 
 #### 4. Recipe Creation (Authenticated)
+
 ```bash
 # After logging in (with session cookie):
 curl -X POST http://localhost:5000/api/recipes \
@@ -179,12 +197,14 @@ curl -X POST http://localhost:5000/api/recipes \
 ```
 
 #### 5. Recipe Listing
+
 ```bash
 curl http://localhost:5000/api/recipes
 # Expected: Returns recipes for current user (or empty array)
 ```
 
 #### 6. Recipe Update
+
 ```bash
 curl -X PUT http://localhost:5000/api/recipes/<recipe-id> \
   -H "Content-Type: application/json" \
@@ -193,12 +213,14 @@ curl -X PUT http://localhost:5000/api/recipes/<recipe-id> \
 ```
 
 #### 7. Recipe Deletion
+
 ```bash
 curl -X DELETE http://localhost:5000/api/recipes/<recipe-id>
 # Expected: Recipe deleted from database
 ```
 
 #### 8. Data Migration
+
 ```bash
 python scripts/migrate_recipes_to_db.py --dry-run
 python scripts/migrate_recipes_to_db.py
@@ -226,19 +248,19 @@ Phase 3 is complete when:
 
 ## 📊 Progress Summary
 
-| Category | Completed | Total | Progress |
-|----------|-----------|-------|----------|
-| **Models & Setup** | 7 | 7 | 100% ✅ |
-| **Database Operations** | 6 | 6 | 100% ✅ |
-| **API Endpoints** | 7 | 7 | 100% ✅ |
-| **Authentication** | 3 | 3 | 100% ✅ |
-| **Scripts & Tools** | 3 | 3 | 100% ✅ |
-| **Documentation** | 4 | 7 | 57% ⏳ |
-| **Database Init** | 0 | 4 | 0% 🔴 |
-| **Testing** | 0 | 13 | 0% 🔴 |
-| **Frontend** | 0 | 8 | 0% 🔴 |
-| **Deployment** | 0 | 4 | 0% 🔴 |
-| **Overall** | 30 | 62 | **48%** |
+| Category                | Completed | Total | Progress |
+| ----------------------- | --------- | ----- | -------- |
+| **Models & Setup**      | 7         | 7     | 100% ✅  |
+| **Database Operations** | 6         | 6     | 100% ✅  |
+| **API Endpoints**       | 7         | 7     | 100% ✅  |
+| **Authentication**      | 3         | 3     | 100% ✅  |
+| **Scripts & Tools**     | 3         | 3     | 100% ✅  |
+| **Documentation**       | 4         | 7     | 57% ⏳   |
+| **Database Init**       | 0         | 4     | 0% 🔴    |
+| **Testing**             | 0         | 13    | 0% 🔴    |
+| **Frontend**            | 0         | 8     | 0% 🔴    |
+| **Deployment**          | 0         | 4     | 0% 🔴    |
+| **Overall**             | 30        | 62    | **48%**  |
 
 ---
 
@@ -258,6 +280,7 @@ Phase 3 is complete when:
 ## 📚 Related Files
 
 ### Backend
+
 - `Backend/app.py` - Main app, blueprint registration
 - `Backend/config.py` - Database configuration
 - `Backend/extensions.py` - SQLAlchemy initialization
@@ -269,11 +292,13 @@ Phase 3 is complete when:
 - `Backend/scripts/migrate_recipes_to_db.py` - Migration script
 
 ### Frontend
+
 - `src/services/recipe.service.ts` - **TO CREATE**
 - `src/app.component.ts` - Needs updates
 - `src/auth.service.ts` - May need updates for user sync
 
 ### Documentation
+
 - `docs/PHASE_3_DATABASE_IMPLEMENTATION.md` - Main guide
 - `Backend/DATABASE_SETUP.md` - Setup instructions
 - `docs/PHASE_3_PROGRESS.md` - This file

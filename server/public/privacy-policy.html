@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -14,7 +14,11 @@
         --border: #c8dfd2;
         --max-width: 820px;
       }
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
       body {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         background: var(--bg);
@@ -28,9 +32,19 @@
         border-bottom: 2px solid var(--border);
         padding-bottom: 1.5rem;
       }
-      header h1 { font-size: 2rem; color: var(--green); margin-bottom: 0.25rem; }
-      header p { color: var(--muted); font-size: 0.9rem; }
-      main { max-width: var(--max-width); margin: 0 auto; }
+      header h1 {
+        font-size: 2rem;
+        color: var(--green);
+        margin-bottom: 0.25rem;
+      }
+      header p {
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+      main {
+        max-width: var(--max-width);
+        margin: 0 auto;
+      }
       h2 {
         font-size: 1.2rem;
         color: var(--green);
@@ -38,11 +52,26 @@
         padding-bottom: 0.3rem;
         border-bottom: 1px solid var(--border);
       }
-      h3 { font-size: 1rem; color: var(--light-green); margin: 1.4rem 0 0.5rem; }
-      p { margin-bottom: 0.9rem; }
-      ul, ol { margin: 0.5rem 0 0.9rem 1.6rem; }
-      li { margin-bottom: 0.45rem; }
-      hr { border: none; border-top: 1px solid var(--border); margin: 1.75rem 0; }
+      h3 {
+        font-size: 1rem;
+        color: var(--light-green);
+        margin: 1.4rem 0 0.5rem;
+      }
+      p {
+        margin-bottom: 0.9rem;
+      }
+      ul,
+      ol {
+        margin: 0.5rem 0 0.9rem 1.6rem;
+      }
+      li {
+        margin-bottom: 0.45rem;
+      }
+      hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 1.75rem 0;
+      }
       table {
         width: 100%;
         border-collapse: collapse;
@@ -60,7 +89,9 @@
         border-bottom: 1px solid var(--border);
         vertical-align: top;
       }
-      tr:nth-child(even) td { background: #eaf4ee; }
+      tr:nth-child(even) td {
+        background: #eaf4ee;
+      }
       code {
         background: #dff0e6;
         padding: 0.1em 0.35em;
@@ -68,7 +99,9 @@
         font-size: 0.85em;
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
       }
-      a { color: var(--light-green); }
+      a {
+        color: var(--light-green);
+      }
       footer {
         max-width: var(--max-width);
         margin: 3rem auto 0;
@@ -86,13 +119,13 @@
     </header>
 
     <main>
-
       <h2>1. Who We Are</h2>
       <p>
-        <a href="https://tasteslikegood.org">tasteslikegood.org</a> (also referred to as <strong>Vegangenius Chef</strong>)
-        is a vegan AI recipe generator web application that helps users discover, generate, and manage plant-based
-        recipes using Google's Gemini AI. In this Privacy Policy, tasteslikegood.org is referred to as "we", "us",
-        or "our", and the user is referred to as "you".
+        <a href="https://tasteslikegood.org">tasteslikegood.org</a> (also referred to as
+        <strong>Vegangenius Chef</strong>) is a vegan AI recipe generator web application that helps
+        users discover, generate, and manage plant-based recipes using Google's Gemini AI. In this
+        Privacy Policy, tasteslikegood.org is referred to as "we", "us", or "our", and the user is
+        referred to as "you".
       </p>
       <p>We are the controller of personal data collected through this application.</p>
 
@@ -101,9 +134,9 @@
       <h2>2. Scope of This Privacy Policy</h2>
       <p>
         This Privacy Policy applies to all personal data collected when you use
-        <a href="https://tasteslikegood.org">tasteslikegood.org</a>, including when you sign in with Google,
-        generate recipes, save cookbooks, or use the application as a guest. By using our service, you agree to
-        the collection and use of information in accordance with this policy.
+        <a href="https://tasteslikegood.org">tasteslikegood.org</a>, including when you sign in with
+        Google, generate recipes, save cookbooks, or use the application as a guest. By using our
+        service, you agree to the collection and use of information in accordance with this policy.
       </p>
 
       <hr />
@@ -112,8 +145,8 @@
 
       <h3>3.1 Account Information (Google Sign-In Users)</h3>
       <p>
-        When you sign in with Google, we receive the following information from Google, based on the OAuth scopes
-        you authorize:
+        When you sign in with Google, we receive the following information from Google, based on the
+        OAuth scopes you authorize:
       </p>
       <table>
         <thead>
@@ -142,48 +175,56 @@
         </tbody>
       </table>
       <p>
-        <strong>No personal information from your Google Account is sent to the Gemini AI model.</strong>
-        Only the recipe prompt you type (e.g., "make a vegan pasta dish") is securely sent by our servers to
-        Gemini to generate a recipe. All AI generation requests are made using a server-side API key managed by
-        tasteslikegood.org — not your personal Google account credentials or quota.
+        <strong
+          >No personal information from your Google Account is sent to the Gemini AI model.</strong
+        >
+        Only the recipe prompt you type (e.g., "make a vegan pasta dish") is securely sent by our
+        servers to Gemini to generate a recipe. All AI generation requests are made using a
+        server-side API key managed by tasteslikegood.org — not your personal Google account
+        credentials or quota.
       </p>
       <p>
-        We do not request any other Google API scopes. We do not access your Google Drive, Gmail, Contacts,
-        Calendar, or any other Google services.
+        We do not request any other Google API scopes. We do not access your Google Drive, Gmail,
+        Contacts, Calendar, or any other Google services.
       </p>
 
       <h3>3.2 Recipe Inputs and Prompts</h3>
       <p>
-        Text you type into the recipe generator, including ingredients, dietary preferences, allergens, cooking
-        constraints, and recipe prompts. This content is processed by Google Gemini AI to generate recipes and is
-        stored in your account to populate your cookbook.
+        Text you type into the recipe generator, including ingredients, dietary preferences,
+        allergens, cooking constraints, and recipe prompts. This content is processed by Google
+        Gemini AI to generate recipes and is stored in your account to populate your cookbook.
       </p>
 
       <h3>3.3 Guest User Data (No Account Required)</h3>
       <p>You may use the application without signing in. In this case:</p>
       <ul>
         <li>No Google Account data is collected</li>
-        <li>Your recipes and cookbooks are stored locally in your browser's <code>localStorage</code></li>
-        <li>This data never leaves your device unless you choose to sign in, at which point it is migrated to your account</li>
+        <li>
+          Your recipes and cookbooks are stored locally in your browser's <code>localStorage</code>
+        </li>
+        <li>
+          This data never leaves your device unless you choose to sign in, at which point it is
+          migrated to your account
+        </li>
         <li>Clearing your browser storage will permanently delete guest data</li>
       </ul>
 
       <h3>3.4 Usage and Analytics Data</h3>
       <p>
-        Pages viewed, features used, recipes generated, and timestamps of activity. This data is used to operate
-        and improve the service.
+        Pages viewed, features used, recipes generated, and timestamps of activity. This data is
+        used to operate and improve the service.
       </p>
 
       <h3>3.5 Device and Browser Information</h3>
       <p>
-        Browser type, operating system, device type, IP address, and server log information. This is used for
-        security, debugging, and abuse prevention.
+        Browser type, operating system, device type, IP address, and server log information. This is
+        used for security, debugging, and abuse prevention.
       </p>
 
       <h3>3.6 Cookies and Similar Technologies</h3>
       <p>
-        We use essential session cookies to maintain your login state. We may use preference cookies to remember
-        your settings. We do not use third-party advertising cookies.
+        We use essential session cookies to maintain your login state. We may use preference cookies
+        to remember your settings. We do not use third-party advertising cookies.
       </p>
 
       <hr />
@@ -201,8 +242,10 @@
         <li>Comply with applicable legal obligations</li>
       </ul>
       <p>
-        We do <strong>not</strong> use your information to serve you advertisements. We do <strong>not</strong>
-        sell, rent, or share your personal information with third parties for their own marketing purposes.
+        We do <strong>not</strong> use your information to serve you advertisements. We do
+        <strong>not</strong>
+        sell, rent, or share your personal information with third parties for their own marketing
+        purposes.
       </p>
 
       <hr />
@@ -210,16 +253,29 @@
       <h2>5. Google API Services &mdash; Limited Use Disclosure</h2>
       <p>
         tasteslikegood.org's use of information received from Google APIs adheres to the
-        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">
-          Google API Services User Data Policy
-        </a>, including the <strong>Limited Use</strong> requirements.
+        <a
+          href="https://developers.google.com/terms/api-services-user-data-policy"
+          target="_blank"
+          rel="noopener"
+        >
+          Google API Services User Data Policy </a
+        >, including the <strong>Limited Use</strong> requirements.
       </p>
       <p>Specifically:</p>
       <ul>
-        <li>We only use Google user data (email, name, profile picture) for the purpose of operating tasteslikegood.org and providing features directly requested by you</li>
-        <li>We do not transfer Google user data to third parties except as necessary to provide the service (e.g., our hosting infrastructure), or as required by law</li>
+        <li>
+          We only use Google user data (email, name, profile picture) for the purpose of operating
+          tasteslikegood.org and providing features directly requested by you
+        </li>
+        <li>
+          We do not transfer Google user data to third parties except as necessary to provide the
+          service (e.g., our hosting infrastructure), or as required by law
+        </li>
         <li>We do not use Google user data for serving advertisements</li>
-        <li>We do not allow humans to read your Google user data unless you have given express permission, it is necessary for security purposes, or it is required by law</li>
+        <li>
+          We do not allow humans to read your Google user data unless you have given express
+          permission, it is necessary for security purposes, or it is required by law
+        </li>
         <li>We do not use Google user data for any purpose not described in this Privacy Policy</li>
       </ul>
 
@@ -228,9 +284,18 @@
       <h2>6. Legal Bases for Processing (GDPR / UK GDPR)</h2>
       <p>Where applicable, we process your personal data on the following legal bases:</p>
       <ul>
-        <li><strong>Contract performance:</strong> Processing necessary to provide the service you have requested</li>
-        <li><strong>Legitimate interests:</strong> Improving the service, maintaining security, and preventing abuse</li>
-        <li><strong>Consent:</strong> Where you have actively provided information (e.g., recipe prompts)</li>
+        <li>
+          <strong>Contract performance:</strong> Processing necessary to provide the service you
+          have requested
+        </li>
+        <li>
+          <strong>Legitimate interests:</strong> Improving the service, maintaining security, and
+          preventing abuse
+        </li>
+        <li>
+          <strong>Consent:</strong> Where you have actively provided information (e.g., recipe
+          prompts)
+        </li>
         <li><strong>Legal compliance:</strong> Where required by applicable law</li>
       </ul>
 
@@ -240,16 +305,17 @@
 
       <h3>7.1 Google APIs</h3>
       <p>
-        We use Google OAuth 2.0 for authentication and the Google Gemini API for AI recipe generation. Your
-        authentication tokens are managed securely on our servers. Recipe prompts you submit are sent to the
-        Gemini API — no Google Account personal data (name, email, profile picture) is included in those requests.
+        We use Google OAuth 2.0 for authentication and the Google Gemini API for AI recipe
+        generation. Your authentication tokens are managed securely on our servers. Recipe prompts
+        you submit are sent to the Gemini API — no Google Account personal data (name, email,
+        profile picture) is included in those requests.
       </p>
 
       <h3>7.2 Hosting and Infrastructure</h3>
       <p>
-        Your data is processed on Google Cloud Platform (Cloud Run, Cloud SQL) infrastructure located in the
-        United States (us-central1). Google Cloud acts as a data processor on our behalf under Google's standard
-        data processing terms.
+        Your data is processed on Google Cloud Platform (Cloud Run, Cloud SQL) infrastructure
+        located in the United States (us-central1). Google Cloud acts as a data processor on our
+        behalf under Google's standard data processing terms.
       </p>
 
       <h3>7.3 No Sale of Personal Data</h3>
@@ -257,29 +323,31 @@
 
       <h3>7.4 Legal Requirements</h3>
       <p>
-        We may disclose your information if required to do so by law, court order, or government authority, or if
-        we believe in good faith that such disclosure is necessary to protect our rights, your safety, or the
-        safety of others.
+        We may disclose your information if required to do so by law, court order, or government
+        authority, or if we believe in good faith that such disclosure is necessary to protect our
+        rights, your safety, or the safety of others.
       </p>
 
       <hr />
 
       <h2>8. Data Retention</h2>
       <p>
-        We retain your account information (email, name, profile picture) and your saved recipes and cookbooks
-        for as long as your account is active. If you delete your account or request deletion, we will remove
-        your personal data within 30 days, except where retention is required by law.
+        We retain your account information (email, name, profile picture) and your saved recipes and
+        cookbooks for as long as your account is active. If you delete your account or request
+        deletion, we will remove your personal data within 30 days, except where retention is
+        required by law.
       </p>
       <p>
-        Guest data stored in your browser's <code>localStorage</code> is retained until you clear your browser
-        storage or sign in and migrate it to an account.
+        Guest data stored in your browser's <code>localStorage</code> is retained until you clear
+        your browser storage or sign in and migrate it to an account.
       </p>
 
       <hr />
 
       <h2>9. Data Security</h2>
       <p>
-        We implement reasonable technical and organizational measures to protect your personal data, including:
+        We implement reasonable technical and organizational measures to protect your personal data,
+        including:
       </p>
       <ul>
         <li>HTTPS encryption for all data in transit</li>
@@ -288,8 +356,9 @@
         <li>API keys and secrets managed via Google Secret Manager (never stored in code)</li>
       </ul>
       <p>
-        No method of transmission over the Internet or electronic storage is 100% secure. We cannot guarantee
-        absolute security but are committed to protecting your data using industry-standard practices.
+        No method of transmission over the Internet or electronic storage is 100% secure. We cannot
+        guarantee absolute security but are committed to protecting your data using
+        industry-standard practices.
       </p>
 
       <hr />
@@ -298,23 +367,25 @@
 
       <h3>10.1 Access, Update, and Deletion</h3>
       <p>
-        You may request access to, correction of, or deletion of your personal data at any time by contacting
-        us at <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>. You may also delete
-        your account and all associated data directly within the application.
+        You may request access to, correction of, or deletion of your personal data at any time by
+        contacting us at <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>.
+        You may also delete your account and all associated data directly within the application.
       </p>
 
       <h3>10.2 Revoking Google Access</h3>
       <p>
         You may revoke our application's access to your Google Account at any time via your
-        <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>
-        page. Revoking access will sign you out of tasteslikegood.org; your saved recipes will be retained unless
-        you also request account deletion.
+        <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener"
+          >Google Account Permissions</a
+        >
+        page. Revoking access will sign you out of tasteslikegood.org; your saved recipes will be
+        retained unless you also request account deletion.
       </p>
 
       <h3>10.3 Opting Out of Analytics</h3>
       <p>
-        You may opt out of analytics data collection by using the application in guest mode (without signing in)
-        or by using browser tools to block tracking.
+        You may opt out of analytics data collection by using the application in guest mode (without
+        signing in) or by using browser tools to block tracking.
       </p>
 
       <h3>10.4 GDPR and UK GDPR Rights</h3>
@@ -332,24 +403,32 @@
 
       <h3>10.5 CCPA and US State Privacy Rights</h3>
       <p>
-        If you are a California resident or covered by similar US state privacy laws, you have the right to:
+        If you are a California resident or covered by similar US state privacy laws, you have the
+        right to:
       </p>
       <ul>
         <li>Know what personal information we collect and how it is used</li>
         <li>Request deletion of your personal information</li>
-        <li>Opt out of the sale of your personal information (note: we do not sell personal information)</li>
+        <li>
+          Opt out of the sale of your personal information (note: we do not sell personal
+          information)
+        </li>
         <li>Non-discrimination for exercising your privacy rights</li>
       </ul>
-      <p>To exercise any of these rights, contact us at <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>.</p>
+      <p>
+        To exercise any of these rights, contact us at
+        <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>.
+      </p>
 
       <hr />
 
       <h2>11. Children's Privacy</h2>
       <p>
-        tasteslikegood.org is not directed to children under the age of 13 (or 16 where applicable under local law).
-        We do not knowingly collect personal information from children. If we become aware that a child has provided
-        us with personal information, we will delete it promptly. If you believe a child has provided us with
-        personal information, please contact us at
+        tasteslikegood.org is not directed to children under the age of 13 (or 16 where applicable
+        under local law). We do not knowingly collect personal information from children. If we
+        become aware that a child has provided us with personal information, we will delete it
+        promptly. If you believe a child has provided us with personal information, please contact
+        us at
         <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>.
       </p>
 
@@ -357,19 +436,20 @@
 
       <h2>12. International Data Transfers</h2>
       <p>
-        tasteslikegood.org is operated from the United States. If you are accessing the service from outside the
-        United States, your data may be transferred to and processed in the United States. We implement appropriate
-        safeguards for international transfers as required by applicable law, including reliance on Google Cloud's
-        data processing terms.
+        tasteslikegood.org is operated from the United States. If you are accessing the service from
+        outside the United States, your data may be transferred to and processed in the United
+        States. We implement appropriate safeguards for international transfers as required by
+        applicable law, including reliance on Google Cloud's data processing terms.
       </p>
 
       <hr />
 
       <h2>13. Changes to This Privacy Policy</h2>
       <p>
-        We may update this Privacy Policy from time to time. When we make material changes, we will notify you
-        via an in-app notice or by updating the "Last updated" date at the top of this page. Your continued use
-        of the service after changes are posted constitutes your acceptance of the updated policy.
+        We may update this Privacy Policy from time to time. When we make material changes, we will
+        notify you via an in-app notice or by updating the "Last updated" date at the top of this
+        page. Your continued use of the service after changes are posted constitutes your acceptance
+        of the updated policy.
       </p>
 
       <hr />
@@ -377,7 +457,8 @@
       <h2>14. Contact Information</h2>
       <p>For privacy-related questions, requests, or complaints, please contact us:</p>
       <p>
-        <strong>Email:</strong> <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>
+        <strong>Email:</strong>
+        <a href="mailto:privacy@tasteslikegood.org">privacy@tasteslikegood.org</a>
       </p>
       <p>
         <strong>Mailing Address:</strong><br />
@@ -387,7 +468,6 @@
         United States
       </p>
       <p>We aim to respond to all privacy inquiries within 30 days.</p>
-
     </main>
 
     <footer>

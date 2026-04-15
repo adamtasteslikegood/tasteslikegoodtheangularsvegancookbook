@@ -26,7 +26,7 @@
 # Old create_recipe() code
 def create_recipe(recipe_data, user_id):
     recipe_id = str(uuid.uuid4())  # ❌ Always generate new UUID
-    
+
     recipe = Recipe(
         id=recipe_id,              # ← Database ID
         name=recipe_data.get('name'),
@@ -63,10 +63,10 @@ def create_recipe(recipe_data, user_id):
 def create_recipe(recipe_data, user_id):
     # ✅ Use existing ID if present, else generate
     recipe_id = recipe_data.get('id', str(uuid.uuid4()))
-    
+
     # ✅ Ensure data has the same ID
     recipe_data_with_id = {**recipe_data, 'id': recipe_id}
-    
+
     recipe = Recipe(
         id=recipe_id,                # ← Database ID
         name=recipe_data.get('name'),
@@ -160,7 +160,7 @@ Processing:
   Recipe 1: Fixing... ✓
   Recipe 2: Fixing... ✓
   Recipe 3: Already consistent, skipping
-  
+
 Result: 2 updated, 1 already ok
 ```
 
@@ -261,20 +261,20 @@ Database:
 
 ## Quick Reference
 
-| Situation | Action | Result |
-|-----------|--------|--------|
-| **New installation** | Deploy normally | ✅ Works automatically |
-| **Existing database** | Run `fix_recipe_ids.py` | ✅ Fixes all recipes |
-| **Create recipe with ID** | Send `{id: "abc", ...}` | ✅ Uses "abc" everywhere |
-| **Create recipe without ID** | Send `{name: "x", ...}` | ✅ Generates UUID |
-| **Update recipe** | Send new data | ✅ Keeps ID consistent |
-| **Verify fix** | Run `test_recipe_id_fix.py` | ✅ Confirms working |
+| Situation                    | Action                      | Result                   |
+| ---------------------------- | --------------------------- | ------------------------ |
+| **New installation**         | Deploy normally             | ✅ Works automatically   |
+| **Existing database**        | Run `fix_recipe_ids.py`     | ✅ Fixes all recipes     |
+| **Create recipe with ID**    | Send `{id: "abc", ...}`     | ✅ Uses "abc" everywhere |
+| **Create recipe without ID** | Send `{name: "x", ...}`     | ✅ Generates UUID        |
+| **Update recipe**            | Send new data               | ✅ Keeps ID consistent   |
+| **Verify fix**               | Run `test_recipe_id_fix.py` | ✅ Confirms working      |
 
 ---
 
 **Legend:**
+
 - ✅ = Fixed / Working correctly
 - ❌ = Problem / Issue
 - ← = Points to / Indicates
 - ↓ = Flow direction
-
