@@ -25,18 +25,45 @@ permissions:
   issues: write
   security-events: read
 
-# ─── Shared label definitions ────────────────────────────────────────────────
-env:
-  LABEL_SECURITY: security
-  LABEL_SCANNING: code-scanning
-  LABEL_CRITICAL: 'severity: critical'
-  LABEL_HIGH: 'severity: high'
-  LABEL_ERROR: 'severity: error'
-
 jobs:
-  # ── Job 1: New / reopened alert ─────────────────────────────────────────────
+  # ── Job 1: Ensure the required labels exist (shared prerequisite) ─────────────
+  ensure-labels:
+    name: Ensure labels exist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create missing labels
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const defs = [
+              { name: 'security',           color: 'd73a4a', description: 'Security concern' },
+              { name: 'code-scanning',      color: 'e4e669', description: 'Code-scanning alert' },
+              { name: 'severity: critical', color: 'b60205', description: 'Critical severity' },
+              { name: 'severity: high',     color: 'e11d48', description: 'High severity' },
+              { name: 'severity: error',    color: 'ff6b6b', description: 'Error-level rule severity' },
+            ];
+            for (const def of defs) {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo:  context.repo.repo,
+                  name:  def.name,
+                });
+              } catch {
+                await github.rest.issues.createLabel({
+                  owner:       context.repo.owner,
+                  repo:        context.repo.repo,
+                  name:        def.name,
+                  color:       def.color,
+                  description: def.description,
+                });
+              }
+            }
+
+  # ── Job 2: New / reopened alert ──────────────────────────────────────────────
   on-new-alert:
     name: Create issue for new alert
+    needs: ensure-labels
     if: github.event_name == 'code_scanning_alert'
     runs-on: ubuntu-latest
 
@@ -57,38 +84,8 @@ jobs:
             echo "create=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Ensure the labels we apply actually exist in this repo.
-      - name: Ensure labels exist
-        if: steps.sev.outputs.create == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const defs = [
-              { name: 'security',          color: 'd73a4a', description: 'Security concern' },
-              { name: 'code-scanning',     color: 'e4e669', description: 'Code-scanning alert' },
-              { name: 'severity: critical',color: 'b60205', description: 'Critical severity' },
-              { name: 'severity: high',    color: 'e11d48', description: 'High severity' },
-              { name: 'severity: error',   color: 'ff6b6b', description: 'Error-level rule severity' },
-            ];
-            for (const def of defs) {
-              try {
-                await github.rest.issues.getLabel({
-                  owner: context.repo.owner,
-                  repo:  context.repo.repo,
-                  name:  def.name,
-                });
-              } catch {
-                await github.rest.issues.createLabel({
-                  owner:       context.repo.owner,
-                  repo:        context.repo.repo,
-                  name:        def.name,
-                  color:       def.color,
-                  description: def.description,
-                });
-              }
-            }
-
       # Guard against duplicates (e.g. the alert was dismissed then reopened).
+      # Cap at MAX_DEDUP_PAGES pages to bound API usage.
       - name: Check for duplicate issue
         if: steps.sev.outputs.create == 'true'
         id: dedup
@@ -96,8 +93,8 @@ jobs:
         with:
           script: |
             const alertNumber = context.payload.alert.number;
-            let page = 1;
-            while (true) {
+            const MAX_DEDUP_PAGES = 10;
+            for (let page = 1; page <= MAX_DEDUP_PAGES; page++) {
               const { data: issues } = await github.rest.issues.listForRepo({
                 owner:    context.repo.owner,
                 repo:     context.repo.repo,
@@ -112,7 +109,6 @@ jobs:
                 return;
               }
               if (issues.length < 100) break;
-              page++;
             }
             core.setOutput('exists', 'false');
 
@@ -121,27 +117,24 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const alert = context.payload.alert;
-            const level = '${{ steps.sev.outputs.level }}';
-            const emoji = level === 'critical' ? '🔴' : (level === 'high' ? '🟠' : '🟡');
-            const ref   = context.payload.ref || 'unknown';
+            // ── Helpers ────────────────────────────────────────────────────────
+            function severityEmoji(level) {
+              if (level === 'critical') return '🔴';
+              if (level === 'high')     return '🟠';
+              return '🟡';
+            }
 
-            const loc = alert.most_recent_instance?.location;
-            const fileLine = loc
-              ? `[\`${loc.path}\` line ${loc.start_line}](${alert.html_url})`
-              : '_unknown_';
+            function severityLabels(level) {
+              const base = ['security', 'code-scanning'];
+              if      (level === 'critical') base.push('severity: critical');
+              else if (level === 'high')     base.push('severity: high');
+              else                           base.push('severity: error');
+              return base;
+            }
 
-            const labels = ['security', 'code-scanning'];
-            if      (level === 'critical') labels.push('severity: critical');
-            else if (level === 'high')     labels.push('severity: high');
-            else                           labels.push('severity: error');
-
-            await github.rest.issues.create({
-              owner:  context.repo.owner,
-              repo:   context.repo.repo,
-              title:  `${emoji} [Security] ${alert.rule.name} (Alert #${alert.number})`,
-              labels,
-              body: [
+            function issueBody({ alert, level, fileLine, ref }) {
+              const emoji = severityEmoji(level);
+              return [
                 `## ${emoji} Code-Scanning Security Alert`,
                 '',
                 '| Field | Value |',
@@ -163,64 +156,97 @@ jobs:
                 '',
                 '---',
                 '_Automatically opened by the **Security Alert → GitHub Issue** workflow._',
-              ].join('\n'),
+              ].join('\n');
+            }
+
+            // ── Main ───────────────────────────────────────────────────────────
+            const alert = context.payload.alert;
+            const level = '${{ steps.sev.outputs.level }}';
+            const emoji = severityEmoji(level);
+            const ref   = context.payload.ref || 'unknown';
+
+            const loc = alert.most_recent_instance?.location;
+            const fileLine = loc
+              ? `[\`${loc.path}\` line ${loc.start_line}](${alert.html_url})`
+              : '_unknown_';
+
+            await github.rest.issues.create({
+              owner:  context.repo.owner,
+              repo:   context.repo.repo,
+              title:  `${emoji} [Security] ${alert.rule.name} (Alert #${alert.number})`,
+              labels: severityLabels(level),
+              body:   issueBody({ alert, level, fileLine, ref }),
             });
 
-  # ── Job 2: Weekly back-fill of existing open alerts ──────────────────────────
+  # ── Job 3: Weekly back-fill of existing open alerts ──────────────────────────
   backfill:
     name: Back-fill existing open alerts
+    needs: ensure-labels
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ensure labels exist
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const defs = [
-              { name: 'security',          color: 'd73a4a', description: 'Security concern' },
-              { name: 'code-scanning',     color: 'e4e669', description: 'Code-scanning alert' },
-              { name: 'severity: critical',color: 'b60205', description: 'Critical severity' },
-              { name: 'severity: high',    color: 'e11d48', description: 'High severity' },
-              { name: 'severity: error',   color: 'ff6b6b', description: 'Error-level rule severity' },
-            ];
-            for (const def of defs) {
-              try {
-                await github.rest.issues.getLabel({
-                  owner: context.repo.owner,
-                  repo:  context.repo.repo,
-                  name:  def.name,
-                });
-              } catch {
-                await github.rest.issues.createLabel({
-                  owner:       context.repo.owner,
-                  repo:        context.repo.repo,
-                  name:        def.name,
-                  color:       def.color,
-                  description: def.description,
-                });
-              }
-            }
-
       - name: Back-fill open high/critical/error alerts
         uses: actions/github-script@v7
         env:
           DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
         with:
           script: |
-            const dryRun = process.env.DRY_RUN === 'true';
+            // ── Helpers ────────────────────────────────────────────────────────
+            function severityEmoji(level) {
+              if (level === 'critical') return '🔴';
+              if (level === 'high')     return '🟠';
+              return '🟡';
+            }
 
-            // ── Collect alert numbers that already have an issue ──────────────
+            function severityLabels(level) {
+              const base = ['security', 'code-scanning'];
+              if      (level === 'critical') base.push('severity: critical');
+              else if (level === 'high')     base.push('severity: high');
+              else                           base.push('severity: error');
+              return base;
+            }
+
+            function issueBody({ alert, level, fileLine }) {
+              const emoji = severityEmoji(level);
+              return [
+                `## ${emoji} Code-Scanning Security Alert`,
+                '',
+                '| Field | Value |',
+                '|-------|-------|',
+                `| **Alert #** | [#${alert.number}](${alert.html_url}) |`,
+                `| **Rule ID** | \`${alert.rule.id}\` |`,
+                `| **Rule name** | ${alert.rule.name} |`,
+                `| **Severity** | \`${level}\` |`,
+                `| **Location** | ${fileLine} |`,
+                '',
+                '### Description',
+                alert.rule.description || '_No description provided._',
+                '',
+                '### Next steps',
+                `1. Open the [alert in the Security tab](${alert.html_url}) and review the finding.`,
+                '2. Apply the suggested fix, or dismiss the alert with a written justification.',
+                '3. Close this issue once the alert is resolved or dismissed.',
+                '',
+                '---',
+                '_Automatically opened by the **Security Alert → GitHub Issue** workflow._',
+              ].join('\n');
+            }
+
+            // ── Main ───────────────────────────────────────────────────────────
+            const dryRun = process.env.DRY_RUN === 'true';
+            const MAX_DEDUP_PAGES = 10;
+
+            // Collect alert numbers that already have an issue (bounded pagination).
             const existing = new Set();
-            let issuePage = 1;
-            while (true) {
+            for (let page = 1; page <= MAX_DEDUP_PAGES; page++) {
               const { data: issues } = await github.rest.issues.listForRepo({
                 owner:    context.repo.owner,
                 repo:     context.repo.repo,
                 labels:   'code-scanning',
                 state:    'all',
                 per_page: 100,
-                page:     issuePage,
+                page,
               });
               if (issues.length === 0) break;
               for (const issue of issues) {
@@ -228,12 +254,11 @@ jobs:
                 if (m) existing.add(parseInt(m[1], 10));
               }
               if (issues.length < 100) break;
-              issuePage++;
             }
             console.log(`Existing code-scanning issue(s): ${existing.size}`);
 
-            // ── Fetch open alerts at each target severity level ───────────────
-            // 'error' catches CodeQL rules with rule.severity = error that have
+            // Fetch open alerts for each target severity level.
+            // 'error' catches CodeQL rules whose rule.severity = error but have
             // no CVSS score (security_severity_level would be null/empty).
             const targetSeverities = ['critical', 'high', 'error'];
             let created = 0;
@@ -268,7 +293,7 @@ jobs:
                   }
 
                   const level = alert.rule.security_severity_level || alert.rule.severity || severity;
-                  const emoji = level === 'critical' ? '🔴' : (level === 'high' ? '🟠' : '🟡');
+                  const emoji = severityEmoji(level);
                   const title = `${emoji} [Security] ${alert.rule.name} (Alert #${alert.number})`;
 
                   if (dryRun) {
@@ -276,11 +301,6 @@ jobs:
                     existing.add(alert.number);
                     continue;
                   }
-
-                  const labels = ['security', 'code-scanning'];
-                  if      (level === 'critical') labels.push('severity: critical');
-                  else if (level === 'high')     labels.push('severity: high');
-                  else                           labels.push('severity: error');
 
                   const loc = alert.most_recent_instance?.location;
                   const fileLine = loc
@@ -291,29 +311,8 @@ jobs:
                     owner:  context.repo.owner,
                     repo:   context.repo.repo,
                     title,
-                    labels,
-                    body: [
-                      `## ${emoji} Code-Scanning Security Alert`,
-                      '',
-                      '| Field | Value |',
-                      '|-------|-------|',
-                      `| **Alert #** | [#${alert.number}](${alert.html_url}) |`,
-                      `| **Rule ID** | \`${alert.rule.id}\` |`,
-                      `| **Rule name** | ${alert.rule.name} |`,
-                      `| **Severity** | \`${level}\` |`,
-                      `| **Location** | ${fileLine} |`,
-                      '',
-                      '### Description',
-                      alert.rule.description || '_No description provided._',
-                      '',
-                      '### Next steps',
-                      `1. Open the [alert in the Security tab](${alert.html_url}) and review the finding.`,
-                      '2. Apply the suggested fix, or dismiss the alert with a written justification.',
-                      '3. Close this issue once the alert is resolved or dismissed.',
-                      '',
-                      '---',
-                      '_Automatically opened by the **Security Alert → GitHub Issue** workflow._',
-                    ].join('\n'),
+                    labels: severityLabels(level),
+                    body:   issueBody({ alert, level, fileLine }),
                   });
 
                   existing.add(alert.number);
