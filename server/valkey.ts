@@ -74,7 +74,11 @@ export async function createValkeyClient(): Promise<Redis | null> {
     // removed, tear it down to avoid leaking handles (e.g. in tests / dev).
     if (client) {
       console.warn('[Valkey] VALKEY_HOST removed — shutting down existing client');
-      await shutdownValkey();
+      try {
+        await shutdownValkey();
+      } catch (err) {
+        console.error('[Valkey] Shutdown failed during cleanup:', (err as Error).message);
+      }
     }
     console.log('[Valkey] VALKEY_HOST not set — using in-memory rate limiting');
     return null;
@@ -86,9 +90,14 @@ export async function createValkeyClient(): Promise<Redis | null> {
       await client.ping();
       return client;
     } catch {
-      // Existing client is unhealthy — tear it down before reinitializing
+      // Existing client is unhealthy — tear it down before reinitializing.
+      // Catch shutdown errors so a broken quit() cannot prevent reinitialization.
       console.warn('[Valkey] Existing client unhealthy, reinitializing...');
-      await shutdownValkey();
+      try {
+        await shutdownValkey();
+      } catch (err) {
+        console.error('[Valkey] Shutdown failed during reinit:', (err as Error).message);
+      }
     }
   }
 
@@ -149,7 +158,11 @@ export async function createValkeyClient(): Promise<Redis | null> {
     return client;
   } catch (err) {
     console.error('[Valkey] Connection failed, falling back to in-memory rate limiting:', err);
-    await shutdownValkey();
+    try {
+      await shutdownValkey();
+    } catch (shutdownErr) {
+      console.error('[Valkey] Shutdown failed during fallback:', (shutdownErr as Error).message);
+    }
     return null;
   }
 }
