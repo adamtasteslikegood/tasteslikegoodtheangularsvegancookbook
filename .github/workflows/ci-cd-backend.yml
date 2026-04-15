@@ -1,0 +1,33 @@
+name: CI — Flask (flask-backend)
+
+# CI only — pytest on every push and PR.
+# Docker image build and Cloud Run deploy are handled by Cloud Build,
+# triggered via a GCP Console trigger on version tags (v*.*.*).
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+  pull_request:
+    branches: [main]
+
+jobs:
+  install-test:
+    name: Install & pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+      - name: Install dependencies
+        working-directory: Backend
+        run: uv sync
+      - name: Run pytest
+        working-directory: Backend
+        run: uv run pytest
