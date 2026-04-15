@@ -85,7 +85,8 @@ jobs:
           fi
 
       # Guard against duplicates (e.g. the alert was dismissed then reopened).
-      # Cap at MAX_DEDUP_PAGES pages to bound API usage.
+      # Cap at MAX_DEDUP_PAGES to stay well within API rate limits.
+      # 10 pages × 100 issues/page = 1,000 issues searched, sufficient for this repo.
       - name: Check for duplicate issue
         if: steps.sev.outputs.create == 'true'
         id: dedup
@@ -118,6 +119,9 @@ jobs:
         with:
           script: |
             // ── Helpers ────────────────────────────────────────────────────────
+            // Note: actions/github-script steps run in isolated VM contexts per job,
+            // so these helpers are repeated in the backfill job. A composite action
+            // would be the DRY alternative but adds meaningful structural complexity.
             function severityEmoji(level) {
               if (level === 'critical') return '🔴';
               if (level === 'high')     return '🟠';
@@ -319,7 +323,8 @@ jobs:
                   created++;
                   console.log(`Created issue for Alert #${alert.number}: ${title}`);
 
-                  // Avoid hitting the secondary rate-limit on issue creation.
+                  // 500 ms between creates to stay under GitHub's secondary rate limit
+                  // (GitHub enforces ~1 issue/second for mutation requests).
                   await new Promise(r => setTimeout(r, 500));
                 }
 
