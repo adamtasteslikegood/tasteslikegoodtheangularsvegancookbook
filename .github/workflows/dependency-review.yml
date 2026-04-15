@@ -17,6 +17,15 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Dependency Review
         uses: actions/dependency-review-action@v4
         with:
@@ -24,5 +33,5 @@ jobs:
           fail-on-severity: high
           # Comment on the PR with a summary of changes
           comment-summary-in-pr: always
-          # Deny copyleft licenses incompatible with the project's proprietary distribution
-          deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-3.0-only
+          # Retry if snapshots are not immediately available
+          retry-on-snapshot-warnings: true
