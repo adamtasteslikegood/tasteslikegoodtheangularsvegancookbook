@@ -27,7 +27,7 @@
     "@angular/forms": "21.2.8",
     "@angular/platform-browser": "21.2.8",
     "@google-cloud/secret-manager": "^6.1.1",
-    "@google/genai": "^1.49.0",
+    "@google/genai": "^1.50.1",
     "autoprefixer": "^10.5.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
