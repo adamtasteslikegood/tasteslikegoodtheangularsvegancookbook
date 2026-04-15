@@ -234,18 +234,18 @@ echo "✅ Verification complete!"
 
 ## Key Commands Quick List
 
-| Task | Command |
-|------|---------|
-| Check status everywhere | `git status && git -C Backend status` |
-| Stage files in submodule | `cd Backend && git add <files>` |
-| Commit submodule | `cd Backend && git commit -m "msg"` |
-| Push submodule | `cd Backend && git push origin refactor/modular-architecture` |
-| Stage main repo | `git add <files>` |
-| Commit main repo | `git commit -m "msg"` |
-| Push main repo | `git push origin main` |
-| View submodule log | `git -C Backend log --oneline` |
-| Pull everything | `git pull --recurse-submodules` |
-| Update submodule | `git submodule update --remote --merge Backend` |
+| Task                     | Command                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| Check status everywhere  | `git status && git -C Backend status`                         |
+| Stage files in submodule | `cd Backend && git add <files>`                               |
+| Commit submodule         | `cd Backend && git commit -m "msg"`                           |
+| Push submodule           | `cd Backend && git push origin refactor/modular-architecture` |
+| Stage main repo          | `git add <files>`                                             |
+| Commit main repo         | `git commit -m "msg"`                                         |
+| Push main repo           | `git push origin main`                                        |
+| View submodule log       | `git -C Backend log --oneline`                                |
+| Pull everything          | `git pull --recurse-submodules`                               |
+| Update submodule         | `git submodule update --remote --merge Backend`               |
 
 ---
 
