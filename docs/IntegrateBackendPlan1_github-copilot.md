@@ -55,10 +55,11 @@ Now I have a good understanding of your architecture. Let me provide you with a 
 Status: Completed
 
 Diff: /home/adam/projects/tasteslikegoodtheangularsvegancookbook/ARCHITECTURE_RECOMMENDATION.md
+
 ```
 # Architecture Recommendation: Three-Tier Application Design
 
-**Date:** February 25, 2026  
+**Date:** February 25, 2026
 **Status:** Recommendation / Planning
 
 ## Current State Analysis
@@ -141,48 +142,50 @@ You currently have **two parallel backends**:
 ## Proposed Three-Tier Architecture
 
 ```
+
 ┌─────────────────────────────────────────────────────────┐
-│                   PRESENTATION TIER                      │
-│                                                          │
-│              Angular Frontend (Port 4200)                │
-│         Served as static files by Express (8080)         │
-│                                                          │
-│  • Recipe browsing/creation UI                          │
-│  • User profile display                                 │
-│  • Import/Export features                               │
+│ PRESENTATION TIER │
+│ │
+│ Angular Frontend (Port 4200) │
+│ Served as static files by Express (8080) │
+│ │
+│ • Recipe browsing/creation UI │
+│ • User profile display │
+│ • Import/Export features │
 └─────────────────────────────────────────────────────────┘
-                           │
-          ┌────────────────┴────────────────┐
-          │                                 │
-          ▼                                 ▼
-┌──────────────────────┐        ┌──────────────────────┐
-│   APPLICATION TIER   │        │   APPLICATION TIER   │
-│                      │        │                      │
-│  Express Server      │        │  Flask Server        │
-│  (Port 8080)         │        │  (Port 5000)         │
-│                      │        │                      │
-│  • /api/recipe       │        │  • /auth/*           │
-│  • /api/image        │        │  • /api/users/*      │
-│  • Rate limiting     │        │  • /api/favorites/*  │
-│  • Gemini calls      │        │  • /api/collections/*│
-│  • Static serving    │        │  • Session mgmt      │
-│                      │        │  • OAuth flow        │
-└──────────────────────┘        └──────────────────────┘
-                                           │
-                                           ▼
-                              ┌──────────────────────┐
-                              │     DATA TIER        │
-                              │                      │
-                              │  PostgreSQL/MongoDB  │
-                              │  (Port 5432/27017)   │
-                              │                      │
-                              │  • Users             │
-                              │  • Recipes (persist) │
-                              │  • Collections       │
-                              │  • Favorites         │
-                              │  • User settings     │
-                              └──────────────────────┘
-```
+│
+┌────────────────┴────────────────┐
+│ │
+▼ ▼
+┌──────────────────────┐ ┌──────────────────────┐
+│ APPLICATION TIER │ │ APPLICATION TIER │
+│ │ │ │
+│ Express Server │ │ Flask Server │
+│ (Port 8080) │ │ (Port 5000) │
+│ │ │ │
+│ • /api/recipe │ │ • /auth/_ │
+│ • /api/image │ │ • /api/users/_ │
+│ • Rate limiting │ │ • /api/favorites/* │
+│ • Gemini calls │ │ • /api/collections/*│
+│ • Static serving │ │ • Session mgmt │
+│ │ │ • OAuth flow │
+└──────────────────────┘ └──────────────────────┘
+│
+▼
+┌──────────────────────┐
+│ DATA TIER │
+│ │
+│ PostgreSQL/MongoDB │
+│ (Port 5432/27017) │
+│ │
+│ • Users │
+│ • Recipes (persist) │
+│ • Collections │
+│ • Favorites │
+│ • User settings │
+└──────────────────────┘
+
+````
 
 ## Implementation Plan
 
@@ -194,7 +197,7 @@ You currently have **two parallel backends**:
    ```python
    from flask_cors import CORS
    CORS(app, origins=["http://localhost:4200", "http://localhost:8080"])
-   ```
+````
 
 2. **Update Flask blueprints for API-only responses**
    - Add `/api/auth/login` that returns JWT or session cookie
@@ -208,10 +211,11 @@ You currently have **two parallel backends**:
 ### Phase 2: Angular Frontend Orchestrates Both Backends
 
 4. **Update Angular services**
+
    ```typescript
    // src/services/auth.service.ts (NEW)
    const FLASK_API = 'http://localhost:5000';
-   
+
    // src/services/recipe.service.ts (EXISTING)
    const EXPRESS_API = 'http://localhost:8080';
    ```
@@ -223,6 +227,7 @@ You currently have **two parallel backends**:
 ### Phase 3: Add Database to Flask
 
 6. **Add SQLAlchemy or MongoDB**
+
    ```python
    # Backend/models/user.py
    class User(db.Model):
@@ -230,7 +235,7 @@ You currently have **two parallel backends**:
        email = db.Column(db.String(120), unique=True)
        name = db.Column(db.String(100))
        google_id = db.Column(db.String(100))
-   
+
    # Backend/models/recipe.py
    class Recipe(db.Model):
        id = db.Column(db.String(36), primary_key=True)
@@ -315,7 +320,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 {
   "dependencies": {
     // Add these:
-    "@angular/common/http": "^21.1.0"  // Likely already there
+    "@angular/common/http": "^21.1.0" // Likely already there
   }
 }
 ```
@@ -323,6 +328,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 ## Deployment Architecture
 
 ### Development
+
 - **Angular Dev Server:** `http://localhost:4200`
 - **Express Server:** `http://localhost:8080`
 - **Flask Server:** `http://localhost:5000`
@@ -330,6 +336,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 ### Production
 
 Option A: **Separate Services (Recommended)**
+
 ```
 Cloud Run Service 1: express-frontend (Angular + Express)
   - Serves static files
@@ -343,6 +350,7 @@ Cloud SQL: PostgreSQL instance
 ```
 
 Option B: **Nginx Reverse Proxy**
+
 ```
 Nginx (Port 80/443)
   ├─> /api/recipe, /api/image  → Express (8080)
@@ -371,7 +379,7 @@ The Flask backend already has recipe generation. Here's how to handle it:
 ## Timeline Estimate
 
 - **Phase 1** (CORS + API endpoints): 2-4 hours
-- **Phase 2** (Angular service updates): 4-6 hours  
+- **Phase 2** (Angular service updates): 4-6 hours
 - **Phase 3** (Database integration): 1-2 days
 - **Phase 4** (User features): 3-5 days per feature
 
@@ -390,6 +398,7 @@ The Flask backend already has recipe generation. Here's how to handle it:
 **Recommendation: Use the Flask Backend for auth, database, and user management.**
 
 This approach:
+
 - ✅ Preserves your working Express AI generation code
 - ✅ Leverages existing Flask auth and architecture
 - ✅ Provides clean separation of concerns
@@ -402,6 +411,7 @@ The Flask backend is already **80% of the way there** for what you need. It woul
 ---
 
 **Next Steps:**
+
 1. Review this recommendation
 2. I can implement Phase 1 (CORS + API endpoints) immediately
 3. Then proceed to Phase 2 (Angular integration)
@@ -445,20 +455,22 @@ Perfect! I've created a comprehensive architecture recommendation document for y
 
 ### Three-Tier Architecture:
 ```
+
 ┌─────────────────┐
-│ Angular Frontend│  (Presentation)
+│ Angular Frontend│ (Presentation)
 └────────┬────────┘
-         │
-    ┌────┴────┐
-    ▼         ▼
+│
+┌────┴────┐
+▼ ▼
 ┌────────┐ ┌────────┐
-│Express │ │ Flask  │  (Application)
-│AI Gen  │ │Auth/DB │
+│Express │ │ Flask │ (Application)
+│AI Gen │ │Auth/DB │
 └────────┘ └───┬────┘
-               ▼
-          ┌──────────┐
-          │PostgreSQL│  (Data)
-          └──────────┘
+▼
+┌──────────┐
+│PostgreSQL│ (Data)
+└──────────┘
+
 ```
 
 I've detailed a **4-phase implementation plan** in the document with specific code examples and a ~2 week timeline.
@@ -469,3 +481,4 @@ I've detailed a **4-phase implementation plan** in the document with specific co
 3. Testing the multi-backend architecture
 
 Let me know if you want me to proceed or if you have questions about the recommendation!
+```

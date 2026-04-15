@@ -7,6 +7,7 @@
 **Script:** `npm run build`
 
 **Files:**
+
 - `package.json` - Contains build script
 - `angular.json` - Angular CLI build configuration
 - `tsconfig.json` - Frontend TypeScript config
@@ -15,9 +16,11 @@
 - `postcss.config.js` - PostCSS configuration
 
 **What it does:**
+
 ```bash
 ng build && tsc -p server/tsconfig.server.json
 ```
+
 1. Builds Angular app (output: `dist/`)
 2. Compiles server TypeScript (output: `server/dist/`)
 
@@ -26,11 +29,13 @@ ng build && tsc -p server/tsconfig.server.json
 ### ✅ **TEST** - Implemented
 
 **Scripts:**
+
 - `npm run test` - Run tests in watch mode
 - `npm run test:ci` - Run tests once with coverage (for CI)
 - `npm run test:watch` - Run tests in watch mode (explicit)
 
 **Files:**
+
 - `vitest.config.ts` - Vitest configuration
 - `server/server.test.ts` - Sample test file (placeholder)
 
@@ -45,12 +50,14 @@ ng build && tsc -p server/tsconfig.server.json
 ### ✅ **LINT** - Implemented
 
 **Scripts:**
+
 - `npm run lint` - Check code with ESLint (max 0 warnings)
 - `npm run lint:fix` - Auto-fix linting issues
 - `npm run format` - Format code with Prettier
 - `npm run format:check` - Check formatting without changing files
 
 **Files:**
+
 - `.eslintrc.json` - ESLint configuration
   - Angular-specific rules (@angular-eslint)
   - TypeScript linting (@typescript-eslint)
@@ -61,6 +68,7 @@ ng build && tsc -p server/tsconfig.server.json
 - `.prettierignore` - Prettier ignore patterns
 
 **Configuration:**
+
 - Separate lint configs for Angular frontend and Express server
 - TypeScript strict mode enabled
 - Prettier integrated to avoid conflicts
@@ -72,6 +80,7 @@ ng build && tsc -p server/tsconfig.server.json
 **Script:** `npm run type-check`
 
 **What it does:**
+
 ```bash
 tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json
 ```
@@ -85,10 +94,12 @@ Verifies TypeScript types without emitting files (fast check).
 **Workflow:** `.github/workflows/ci.yml`
 
 **Triggers:**
+
 - Push to `main` or `develop`
 - Pull requests to `main` or `develop`
 
 **Jobs:**
+
 1. **Build** - Compiles Angular + server, uploads artifacts
 2. **Lint** - Runs ESLint and Prettier checks
 3. **Test** - Runs Vitest with coverage, uploads reports
@@ -100,14 +111,14 @@ Verifies TypeScript types without emitting files (fast check).
 
 ## Summary Table
 
-| Check | Status | Script | Notes |
-|-------|--------|--------|-------|
-| **BUILD** | ✅ Ready | `npm run build` | Compiles Angular + Server |
-| **TEST** | ✅ Ready | `npm run test:ci` | Vitest with coverage |
-| **LINT** | ✅ Ready | `npm run lint` | ESLint + Angular rules |
-| **FORMAT** | ✅ Ready | `npm run format:check` | Prettier formatting |
-| **TYPE CHECK** | ✅ Ready | `npm run type-check` | TypeScript verification |
-| **GitHub Actions** | ✅ Ready | `.github/workflows/ci.yml` | Complete CI pipeline |
+| Check              | Status   | Script                     | Notes                     |
+| ------------------ | -------- | -------------------------- | ------------------------- |
+| **BUILD**          | ✅ Ready | `npm run build`            | Compiles Angular + Server |
+| **TEST**           | ✅ Ready | `npm run test:ci`          | Vitest with coverage      |
+| **LINT**           | ✅ Ready | `npm run lint`             | ESLint + Angular rules    |
+| **FORMAT**         | ✅ Ready | `npm run format:check`     | Prettier formatting       |
+| **TYPE CHECK**     | ✅ Ready | `npm run type-check`       | TypeScript verification   |
+| **GitHub Actions** | ✅ Ready | `.github/workflows/ci.yml` | Complete CI pipeline      |
 
 ---
 
@@ -136,11 +147,13 @@ Verifies TypeScript types without emitting files (fast check).
 ## Next Steps
 
 1. **Install Dependencies:**
+
    ```bash
    npm install
    ```
 
 2. **Run Local Checks:**
+
    ```bash
    npm run lint
    npm run test

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { NextFunction, Request, Response } from 'express';
+import type { Express, NextFunction, Request, Response } from 'express';
 
 // ── Hoisted mock factories ─────────────────────────────────────────────────
 // vi.hoisted() runs before vi.mock() factories so these references are safe
@@ -34,6 +34,18 @@ vi.mock('google-auth-library', () => ({
         getAccessToken: vi.fn().mockResolvedValue({ token: 'test-iam-token' }),
         email: 'test@project.iam.gserviceaccount.com',
       }),
+    };
+  }),
+}));
+
+// Mock rate-limit-redis so tests that pass a non-null Valkey client to
+// createApiLimiter / createExpensiveOperationLimiter never open real sockets.
+vi.mock('rate-limit-redis', () => ({
+  default: vi.fn(function RedisStoreMock() {
+    return {
+      increment: vi.fn().mockResolvedValue({ totalHits: 1, resetTime: new Date() }),
+      decrement: vi.fn().mockResolvedValue(undefined),
+      resetKey: vi.fn().mockResolvedValue(undefined),
     };
   }),
 }));
@@ -288,5 +300,230 @@ describe('createValkeyClient', () => {
     delete process.env.VALKEY_HOST;
     const second = await createValkeyClient();
     expect(second).toBeNull();
+  });
+
+  it('returns null and falls back to in-memory when initial ping fails', async () => {
+    MockRedis.mockImplementationOnce(function () {
+      return {
+        ping: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+        quit: vi.fn().mockResolvedValue('OK'),
+        call: vi.fn(),
+        disconnect: vi.fn(),
+        on: vi.fn(),
+        options: {} as Record<string, unknown>,
+      };
+    });
+
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+    const result = await createValkeyClient();
+    expect(result).toBeNull();
+  });
+
+  it('reinitializes when the cached client fails the health-check ping', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+
+    await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledOnce();
+
+    // Make the next ping call (health check on second createValkeyClient()) fail
+    const existingInstance = MockRedis.mock.results[0]?.value as {
+      ping: ReturnType<typeof vi.fn>;
+    };
+    existingInstance.ping.mockRejectedValueOnce(new Error('Connection lost'));
+
+    vi.clearAllMocks(); // reset call counts; mockRejectedValueOnce queue survives
+
+    await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledOnce(); // called once more for the new client
+  });
+
+  it('invokes the error-event callback when the client emits an error', async () => {
+    let errorHandler: ((err: Error) => void) | null = null;
+
+    MockRedis.mockImplementationOnce(function () {
+      return {
+        ping: vi.fn().mockResolvedValue('PONG'),
+        quit: vi.fn().mockResolvedValue('OK'),
+        call: vi.fn(),
+        disconnect: vi.fn(),
+        on: vi.fn().mockImplementation((event: string, cb: (err: Error) => void) => {
+          if (event === 'error') errorHandler = cb;
+        }),
+        options: {} as Record<string, unknown>,
+      };
+    });
+
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    expect(errorHandler).not.toBeNull();
+    errorHandler!(new Error('Connection reset by peer'));
+    expect(errorSpy).toHaveBeenCalledWith('[Valkey] Connection error:', 'Connection reset by peer');
+    errorSpy.mockRestore();
+  });
+
+  it('calls disconnect() when quit times out during shutdown', async () => {
+    const disconnectMock = vi.fn();
+
+    MockRedis.mockImplementationOnce(function () {
+      return {
+        ping: vi.fn().mockResolvedValue('PONG'),
+        quit: vi.fn().mockReturnValue(new Promise(() => {})), // never resolves
+        call: vi.fn(),
+        disconnect: disconnectMock,
+        on: vi.fn(),
+        options: {} as Record<string, unknown>,
+      };
+    });
+
+    process.env.VALKEY_HOST = '10.0.0.1';
+    const { createValkeyClient, shutdownValkey } = await import('./valkey.js');
+    await createValkeyClient();
+
+    vi.useFakeTimers();
+    try {
+      const shutdownPromise = shutdownValkey();
+      await vi.advanceTimersByTimeAsync(4000); // past the 3 s timeout
+      await shutdownPromise;
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(disconnectMock).toHaveBeenCalled();
+  });
+});
+
+// ── applySecurityMiddleware tests ──────────────────────────────────────────
+
+describe('applySecurityMiddleware', () => {
+  let originalNodeEnv: string | undefined;
+
+  beforeEach(() => {
+    originalNodeEnv = process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it('registers at least one middleware (helmet) on the app', async () => {
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+    expect(useMock).toHaveBeenCalled();
+  });
+
+  it('registers X-Robots-Tag middleware in production (two app.use calls)', async () => {
+    process.env.NODE_ENV = 'production';
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+    expect(useMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not register X-Robots-Tag middleware outside production', async () => {
+    process.env.NODE_ENV = 'development';
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+    expect(useMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('X-Robots-Tag middleware sets header for HTML page requests', async () => {
+    process.env.NODE_ENV = 'production';
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+
+    const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => void;
+
+    const setHeader = vi.fn();
+    const next = vi.fn();
+    robotsMiddleware(
+      { accepts: vi.fn().mockReturnValue('html'), path: '/about' } as unknown as Request,
+      { setHeader } as unknown as Response,
+      next
+    );
+
+    expect(setHeader).toHaveBeenCalledWith('X-Robots-Tag', 'index, follow');
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('X-Robots-Tag middleware skips /api/ paths', async () => {
+    process.env.NODE_ENV = 'production';
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+
+    const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => void;
+
+    const setHeader = vi.fn();
+    const next = vi.fn();
+    robotsMiddleware(
+      { accepts: vi.fn().mockReturnValue('html'), path: '/api/generate' } as unknown as Request,
+      { setHeader } as unknown as Response,
+      next
+    );
+
+    expect(setHeader).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('X-Robots-Tag middleware skips non-HTML requests', async () => {
+    process.env.NODE_ENV = 'production';
+    const { applySecurityMiddleware } = await import('./security');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+
+    const robotsMiddleware = useMock.mock.calls[1]?.[0] as (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => void;
+
+    const setHeader = vi.fn();
+    const next = vi.fn();
+    robotsMiddleware(
+      { accepts: vi.fn().mockReturnValue(false), path: '/data.json' } as unknown as Request,
+      { setHeader } as unknown as Response,
+      next
+    );
+
+    expect(setHeader).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
+  });
+});
+
+// ── buildRedisStore (via createApiLimiter / createExpensiveOperationLimiter) ──
+
+describe('createApiLimiter with non-null Valkey client', () => {
+  it('builds a RedisStore when a Valkey client is provided', async () => {
+    const { createApiLimiter } = await import('./security');
+    const limiter = createApiLimiter({ call: vi.fn() } as unknown as Parameters<
+      typeof createApiLimiter
+    >[0]);
+    expect(typeof limiter).toBe('function');
+  });
+});
+
+describe('createExpensiveOperationLimiter with non-null Valkey client', () => {
+  it('builds a RedisStore when a Valkey client is provided', async () => {
+    const { createExpensiveOperationLimiter } = await import('./security');
+    const limiter = createExpensiveOperationLimiter({ call: vi.fn() } as unknown as Parameters<
+      typeof createExpensiveOperationLimiter
+    >[0]);
+    expect(typeof limiter).toBe('function');
   });
 });

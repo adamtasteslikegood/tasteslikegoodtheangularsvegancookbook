@@ -26,21 +26,22 @@ curl http://localhost:5000/api/recipes
 
 ## 📁 Key Files
 
-| File | Purpose |
-|------|---------|
-| `Backend/models/user.py` | User database model |
-| `Backend/models/recipe.py` | Recipe database model |
+| File                                           | Purpose                  |
+| ---------------------------------------------- | ------------------------ |
+| `Backend/models/user.py`                       | User database model      |
+| `Backend/models/recipe.py`                     | Recipe database model    |
 | `Backend/repositories/db_recipe_repository.py` | Database CRUD operations |
-| `Backend/blueprints/recipes_api_bp.py` | Recipe API endpoints |
-| `Backend/blueprints/auth_api_bp.py` | User auth + persistence |
-| `Backend/scripts/migrate_recipes_to_db.py` | File → DB migration |
-| `Backend/init_database.sh` | One-command setup |
+| `Backend/blueprints/recipes_api_bp.py`         | Recipe API endpoints     |
+| `Backend/blueprints/auth_api_bp.py`            | User auth + persistence  |
+| `Backend/scripts/migrate_recipes_to_db.py`     | File → DB migration      |
+| `Backend/init_database.sh`                     | One-command setup        |
 
 ---
 
 ## 🔧 Commands
 
 ### Database Setup
+
 ```bash
 cd Backend
 export FLASK_APP=app.py
@@ -59,6 +60,7 @@ flask db downgrade
 ```
 
 ### Environment
+
 ```bash
 # .env file
 DATABASE_URL=sqlite:///tasteslikegood.db          # Development
@@ -69,18 +71,18 @@ DATABASE_URL=postgresql://user:pass@host:5432/db  # Production
 
 ## 🌐 API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| **GET** | `/api/recipes` | List user's recipes |
-| **POST** | `/api/recipes` | Create recipe |
-| **GET** | `/api/recipes/:id` | Get recipe |
-| **PUT** | `/api/recipes/:id` | Update recipe |
-| **DELETE** | `/api/recipes/:id` | Delete recipe |
-| **GET** | `/api/recipes/stats` | Recipe stats |
-| **GET** | `/api/auth/check` | Auth status |
-| **GET** | `/api/auth/me` | Current user |
-| **POST** | `/api/auth/logout` | Logout |
-| **GET** | `/api/status` | Health + DB status |
+| Method     | Endpoint             | Description         |
+| ---------- | -------------------- | ------------------- |
+| **GET**    | `/api/recipes`       | List user's recipes |
+| **POST**   | `/api/recipes`       | Create recipe       |
+| **GET**    | `/api/recipes/:id`   | Get recipe          |
+| **PUT**    | `/api/recipes/:id`   | Update recipe       |
+| **DELETE** | `/api/recipes/:id`   | Delete recipe       |
+| **GET**    | `/api/recipes/stats` | Recipe stats        |
+| **GET**    | `/api/auth/check`    | Auth status         |
+| **GET**    | `/api/auth/me`       | Current user        |
+| **POST**   | `/api/auth/logout`   | Logout              |
+| **GET**    | `/api/status`        | Health + DB status  |
 
 ---
 
@@ -112,6 +114,7 @@ CREATE TABLE recipe (
 ## 🧪 Testing
 
 ### Test API
+
 ```bash
 # List recipes
 curl http://localhost:5000/api/recipes
@@ -126,6 +129,7 @@ curl http://localhost:5000/api/status
 ```
 
 ### Verify Database
+
 ```bash
 # SQLite
 sqlite3 Backend/tasteslikegood.db "SELECT * FROM user;"
@@ -139,13 +143,13 @@ psql -d tasteslikegood -c "SELECT * FROM \"user\";"
 
 ## 🔥 Common Issues
 
-| Problem | Solution |
-|---------|----------|
-| "flask: command not found" | `python -m flask db init` |
-| "No such table" | Run `flask db upgrade` |
-| "Can't locate revision" | Delete `migrations/` and re-init |
-| DB connection refused | Check DATABASE_URL, start PostgreSQL |
-| Permission denied | `chmod 664 tasteslikegood.db` |
+| Problem                    | Solution                             |
+| -------------------------- | ------------------------------------ |
+| "flask: command not found" | `python -m flask db init`            |
+| "No such table"            | Run `flask db upgrade`               |
+| "Can't locate revision"    | Delete `migrations/` and re-init     |
+| DB connection refused      | Check DATABASE_URL, start PostgreSQL |
+| Permission denied          | `chmod 664 tasteslikegood.db`        |
 
 ---
 
@@ -162,6 +166,7 @@ psql -d tasteslikegood -c "SELECT * FROM \"user\";"
 ## ✅ Completion Checklist
 
 ### Backend
+
 - [x] Models created (User, Recipe)
 - [x] Repository with CRUD operations
 - [x] API endpoints implemented
@@ -172,6 +177,7 @@ psql -d tasteslikegood -c "SELECT * FROM \"user\";"
 - [ ] Existing recipes migrated
 
 ### Frontend
+
 - [ ] RecipeService created
 - [ ] AppComponent updated
 - [ ] Loading states added
@@ -179,6 +185,7 @@ psql -d tasteslikegood -c "SELECT * FROM \"user\";"
 - [ ] Guest → login sync working
 
 ### Deployment
+
 - [ ] PostgreSQL configured
 - [ ] Migrations run on deploy
 - [ ] Cloud Run tested

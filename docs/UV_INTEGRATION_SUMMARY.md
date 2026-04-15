@@ -58,6 +58,7 @@
 ## Key Changes Summary
 
 ### Before (pip + venv)
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate
@@ -67,6 +68,7 @@ flask db migrate
 ```
 
 ### After (uv)
+
 ```bash
 uv sync
 uv run python app.py
@@ -74,6 +76,7 @@ uv run flask db migrate
 ```
 
 **Benefits:**
+
 - ✅ No manual venv activation
 - ✅ 10-100x faster installations
 - ✅ No PEP 668 errors on Arch Linux
@@ -101,12 +104,14 @@ uv run flask db migrate
 ## How to Use Now
 
 ### First Time Setup
+
 ```bash
 cd Backend
 ./init_database.sh  # Automatically uses uv
 ```
 
 ### Daily Development
+
 ```bash
 cd Backend
 
@@ -122,10 +127,13 @@ uv run python scripts/migrate_recipes_to_db.py
 ```
 
 ### No Activation Needed!
+
 With uv, you don't need to run `source .venv/bin/activate` anymore. Just prefix commands with `uv run`.
 
 ### Optional: Traditional Activation
+
 If you prefer the traditional workflow:
+
 ```bash
 uv sync                    # Setup
 source .venv/bin/activate  # Activate
@@ -155,6 +163,7 @@ pipx install uv
 ## Project Files
 
 The project already has:
+
 - ✅ `pyproject.toml` - Dependency definitions
 - ✅ `uv.lock` - Locked versions (commit this!)
 - ✅ `requirements.txt` - Legacy file (kept for reference)
@@ -183,6 +192,7 @@ The project already has:
 ## Documentation Links
 
 For users:
+
 - **Quick Start**: `Backend/UV_QUICK_REFERENCE.md`
 - **Full Guide**: `Backend/ARCH_LINUX_SETUP.md`
 - **Database Setup**: `Backend/DATABASE_SETUP.md`
@@ -192,11 +202,13 @@ For users:
 ## Next Steps for User
 
 1. **Install uv** (if not already):
+
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
    ```
 
 2. **Run the setup script**:
+
    ```bash
    cd Backend
    ./init_database.sh
@@ -213,6 +225,7 @@ For users:
 ## Performance Improvement
 
 Installation time (50+ packages):
+
 - **Before (pip)**: ~120 seconds
 - **After (uv)**: ~3 seconds
 - **Speedup**: 40x faster! ⚡

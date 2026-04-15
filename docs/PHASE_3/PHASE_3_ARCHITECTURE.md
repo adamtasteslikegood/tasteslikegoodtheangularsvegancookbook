@@ -384,7 +384,7 @@ Before (Phase 2):
 After (Phase 3):
   Recipes → Database (user ownership)
   Users → Database (persistent)
-  
+
 Transition:
   ✅ Both systems coexist
   ✅ Migration script: files → database
@@ -397,6 +397,7 @@ Transition:
 ## Deployment Architecture
 
 ### Development
+
 ```
 localhost:3000 ← Angular dev server (ng serve)
 localhost:8080 ← Express server (npm run dev)
@@ -405,6 +406,7 @@ File: tasteslikegood.db (SQLite)
 ```
 
 ### Production (Cloud Run)
+
 ```
 your-app.run.app (HTTPS)
 ├─ Express container (serves Angular + AI endpoints)
@@ -416,15 +418,15 @@ your-app.run.app (HTTPS)
 
 ## Success Metrics
 
-| Metric | Target | Status |
-|--------|--------|--------|
-| Backend models created | ✅ Yes | Complete |
+| Metric                      | Target | Status   |
+| --------------------------- | ------ | -------- |
+| Backend models created      | ✅ Yes | Complete |
 | Database repository working | ✅ Yes | Complete |
-| API endpoints functional | ✅ Yes | Complete |
-| User persistence working | ✅ Yes | Complete |
-| Frontend integration | ⏳ No | Pending |
-| Production deployment | ⏳ No | Pending |
-| Data migration tested | ⏳ No | Pending |
+| API endpoints functional    | ✅ Yes | Complete |
+| User persistence working    | ✅ Yes | Complete |
+| Frontend integration        | ⏳ No  | Pending  |
+| Production deployment       | ⏳ No  | Pending  |
+| Data migration tested       | ⏳ No  | Pending  |
 
 ---
 

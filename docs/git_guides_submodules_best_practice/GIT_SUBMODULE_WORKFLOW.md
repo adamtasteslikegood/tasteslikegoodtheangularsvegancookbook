@@ -80,6 +80,7 @@ cd Backend && git log --oneline -3 && cd ..
 ## ⚠️ **COMMON PITFALLS TO AVOID**
 
 ### ❌ DON'T: Commit main repo without pushing submodule first
+
 ```bash
 # This creates a "dangling" commit reference
 git add .
@@ -88,6 +89,7 @@ git push origin main
 ```
 
 ### ❌ DON'T: Push main repo without updating submodule reference
+
 ```bash
 cd Backend
 git add .
@@ -98,6 +100,7 @@ git add . && git commit && git push  # ← Main repo points to wrong commit
 ```
 
 ### ✅ DO: Always push submodule BEFORE main repo
+
 ```bash
 # Submodule first
 cd Backend && git push origin branch && cd ..
@@ -242,14 +245,14 @@ cd Backend && git pull && cd ..
 
 ## ✨ **Best Practices Summary**
 
-| Do ✅ | Don't ❌ |
-|------|---------|
-| Push submodule first | Push main repo first |
-| Commit descriptive messages | Use generic "update" messages |
-| Verify with `git log` | Assume it worked |
-| Use `.gitignore` for build files | Commit node_modules, venv, etc |
+| Do ✅                            | Don't ❌                        |
+| -------------------------------- | ------------------------------- |
+| Push submodule first             | Push main repo first            |
+| Commit descriptive messages      | Use generic "update" messages   |
+| Verify with `git log`            | Assume it worked                |
+| Use `.gitignore` for build files | Commit node_modules, venv, etc  |
 | Pull with `--recurse-submodules` | Forget submodule is out of sync |
-| Test locally before push | Push breaking changes untested |
+| Test locally before push         | Push breaking changes untested  |
 
 ---
 
@@ -276,12 +279,14 @@ git push origin main
 ## 🆘 **If Something Goes Wrong**
 
 ### Submodule is out of sync with main repo:
+
 ```bash
 git pull --recurse-submodules
 cd Backend && git pull && cd ..
 ```
 
 ### Main repo points to commit that doesn't exist in submodule:
+
 ```bash
 cd Backend
 git fetch origin
@@ -293,6 +298,7 @@ git push origin main
 ```
 
 ### Need to force push (use with caution!):
+
 ```bash
 cd Backend
 git push -f origin refactor/modular-architecture

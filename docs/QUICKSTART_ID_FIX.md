@@ -9,7 +9,9 @@ The **dual-ID problem** in recipe storage has been **completely resolved**. Each
 ## What Was Fixed
 
 ### The Problem
+
 Every recipe had TWO different IDs:
+
 ```json
 {
   "id": "ca55f18a-b0cd-4c92-8059-ca603aac53f1",  // ← Database UUID (always new)
@@ -21,7 +23,9 @@ Every recipe had TWO different IDs:
 ```
 
 ### The Solution
+
 Now all recipes have ONE consistent ID:
+
 ```json
 {
   "id": "ca55f18a-b0cd-4c92-8059-ca603aac53f1",
@@ -36,24 +40,25 @@ Now all recipes have ONE consistent ID:
 
 ## Files Changed
 
-| File | Change | Status |
-|------|--------|--------|
-| `Backend/repositories/db_recipe_repository.py` | Fixed `create_recipe()` to preserve existing IDs | ✅ Done |
-| `Backend/repositories/db_recipe_repository.py` | Fixed `update_recipe()` to maintain ID consistency | ✅ Done |
-| `src/services/persistence.service.ts` | Simplified recipe mapping (no more override) | ✅ Done |
-| `Backend/scripts/fix_recipe_ids.py` | Migration script for existing data | ✅ Created |
-| `Backend/scripts/test_recipe_id_fix.py` | Automated tests | ✅ Created |
-| `Backend/scripts/README.md` | Scripts documentation | ✅ Created |
-| `docs/RECIPE_ID_FIX.md` | Detailed explanation | ✅ Created |
-| `docs/DOCUMENTATION_INDEX.md` | Added references | ✅ Updated |
-| `README.md` | Added database maintenance section | ✅ Updated |
-| `RECIPE_ID_ISSUE_RESOLVED.md` | Summary document | ✅ Created |
+| File                                           | Change                                             | Status     |
+| ---------------------------------------------- | -------------------------------------------------- | ---------- |
+| `Backend/repositories/db_recipe_repository.py` | Fixed `create_recipe()` to preserve existing IDs   | ✅ Done    |
+| `Backend/repositories/db_recipe_repository.py` | Fixed `update_recipe()` to maintain ID consistency | ✅ Done    |
+| `src/services/persistence.service.ts`          | Simplified recipe mapping (no more override)       | ✅ Done    |
+| `Backend/scripts/fix_recipe_ids.py`            | Migration script for existing data                 | ✅ Created |
+| `Backend/scripts/test_recipe_id_fix.py`        | Automated tests                                    | ✅ Created |
+| `Backend/scripts/README.md`                    | Scripts documentation                              | ✅ Created |
+| `docs/RECIPE_ID_FIX.md`                        | Detailed explanation                               | ✅ Created |
+| `docs/DOCUMENTATION_INDEX.md`                  | Added references                                   | ✅ Updated |
+| `README.md`                                    | Added database maintenance section                 | ✅ Updated |
+| `RECIPE_ID_ISSUE_RESOLVED.md`                  | Summary document                                   | ✅ Created |
 
 ---
 
 ## Next Steps
 
 ### 1. For New Installations
+
 ✅ **No action needed** - the fix is in the code, just deploy normally.
 
 ### 2. For Existing Databases
@@ -66,6 +71,7 @@ python scripts/fix_recipe_ids.py
 ```
 
 **Output example:**
+
 ```
 INFO:__main__:Found 42 recipes to check
 INFO:__main__:Fixing recipe 'Test Soup': DB id=ca55f18a..., data.id=test-r-222
@@ -82,6 +88,7 @@ python scripts/test_recipe_id_fix.py
 ```
 
 **Expected output:**
+
 ```
 === Running Recipe ID Consistency Tests ===
 ✓ Recipe created with consistent ID: test-recipe-123
@@ -100,6 +107,7 @@ Failed: 0
 ### Creating a Recipe
 
 **With an existing ID:**
+
 ```python
 recipe_data = {"id": "my-recipe-123", "name": "Test", ...}
 create_recipe(recipe_data)
@@ -107,6 +115,7 @@ create_recipe(recipe_data)
 ```
 
 **Without an ID:**
+
 ```python
 recipe_data = {"name": "Test", ...}
 create_recipe(recipe_data)
@@ -135,11 +144,13 @@ update_recipe("existing-id", {"name": "Updated", ...})
 ## Documentation
 
 📚 **Full details:**
+
 - `docs/RECIPE_ID_FIX.md` - Complete explanation with examples
 - `Backend/scripts/README.md` - Script usage guide
 - `docs/DOCUMENTATION_INDEX.md` - Quick navigation
 
 🔧 **Scripts:**
+
 - `Backend/scripts/fix_recipe_ids.py` - Fix existing data
 - `Backend/scripts/test_recipe_id_fix.py` - Verify the fix
 
