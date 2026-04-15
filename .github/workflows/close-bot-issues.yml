@@ -1,0 +1,40 @@
+name: Close accidental bot issues (#176–#2836)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  close-issues:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issues 176–2836
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+            const START = 176;
+            const END   = 2836;
+            let closed = 0, skipped = 0;
+
+            for (let i = START; i <= END; i++) {
+              try {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: i,
+                  state: 'closed',
+                  state_reason: 'not_planned',
+                });
+                closed++;
+                if (closed % 100 === 0) core.info(`Progress: closed ${closed} issues (last: #${i})`);
+              } catch (e) {
+                skipped++;
+                core.debug(`Skip #${i}: ${e.message}`);
+              }
+            }
+            core.info(`Done — closed: ${closed}, skipped: ${skipped}`);
