@@ -361,7 +361,6 @@ describe('createValkeyClient', () => {
 
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     expect(errorHandler).not.toBeNull();
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     errorHandler!(new Error('Connection reset by peer'));
     expect(errorSpy).toHaveBeenCalledWith('[Valkey] Connection error:', 'Connection reset by peer');
     errorSpy.mockRestore();
