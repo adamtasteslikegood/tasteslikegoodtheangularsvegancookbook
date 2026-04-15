@@ -14,9 +14,9 @@ import { Ingredient, IngredientGroup, Recipe } from './recipe.types';
   styleUrls: [],
 })
 export class AppComponent {
-  private geminiService = inject(GeminiService);
-  private persistenceService = inject(PersistenceService);
-  authService = inject(AuthService);
+  private readonly geminiService = inject(GeminiService);
+  private readonly persistenceService = inject(PersistenceService);
+  readonly authService = inject(AuthService);
 
   // Navigation
   activeView = signal<'generator' | 'kitchen'>('generator');
@@ -392,7 +392,7 @@ export class AppComponent {
           alert(`Successfully imported ${count} recipes!`);
         }
       } catch (err) {
-        console.error(err);
+        console.error('Failed to parse recipe import file:', err);
         alert('Failed to parse recipe file. Please ensure it is valid JSON.');
       }
     };
