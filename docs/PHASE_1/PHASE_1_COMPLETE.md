@@ -7,11 +7,13 @@ Phase 1 of the three-tier architecture has been successfully implemented! This e
 ### Changes Made
 
 #### 1. **Added Flask-CORS Support**
+
 - **File:** `Backend/requirements.txt`
 - **Change:** Added `Flask-CORS==5.0.0`
 - **Purpose:** Enables Cross-Origin Resource Sharing so Angular frontend (port 4200) can call Flask backend (port 5000)
 
 #### 2. **Configured CORS in Flask App**
+
 - **File:** `Backend/app.py`
 - **Changes:**
   - Imported `CORS` from `flask_cors`
@@ -21,13 +23,14 @@ Phase 1 of the three-tier architecture has been successfully implemented! This e
   - Enabled `supports_credentials=True` for session cookies
 
 #### 3. **Created API Authentication Blueprint**
+
 - **File:** `Backend/blueprints/auth_api_bp.py` (NEW)
 - **Endpoints Implemented:**
-
   - **GET `/api/auth/login`**
     - Initiates Google OAuth flow
     - Returns JSON with authorization URL
     - Frontend can redirect user to this URL
+
     ```json
     {
       "authorization_url": "https://accounts.google.com/o/oauth2/auth?...",
@@ -44,6 +47,7 @@ Phase 1 of the three-tier architecture has been successfully implemented! This e
     - Returns current authenticated user's information
     - Requires valid session cookie
     - Returns 401 if not authenticated
+
     ```json
     {
       "user_id": "user@example.com",
@@ -57,6 +61,7 @@ Phase 1 of the three-tier architecture has been successfully implemented! This e
   - **POST `/api/auth/logout`**
     - Clears user session
     - Returns 200 with logout confirmation
+
     ```json
     {
       "message": "Logged out successfully",
@@ -79,6 +84,7 @@ Phase 1 of the three-tier architecture has been successfully implemented! This e
     ```
 
 #### 4. **Registered New Blueprint**
+
 - **File:** `Backend/app.py`
 - **Change:** Added import and registration of `auth_api_bp` before other blueprints
 
@@ -103,12 +109,14 @@ Angular Frontend (http://localhost:4200)
 ### Authentication Flow
 
 1. **User clicks "Login" button in Angular**
+
    ```typescript
    // In Angular component
    authService.redirectToLogin(); // Calls GET /api/auth/login
    ```
 
 2. **Flask returns authorization URL**
+
    ```json
    {
      "authorization_url": "https://accounts.google.com/o/oauth2/auth?..."
@@ -116,6 +124,7 @@ Angular Frontend (http://localhost:4200)
    ```
 
 3. **Angular redirects to Google**
+
    ```typescript
    window.location.href = response.authorization_url;
    ```
@@ -128,18 +137,20 @@ Angular Frontend (http://localhost:4200)
    - Stores user info in session
 
 6. **Flask redirects back to Angular**
+
    ```javascript
    // Redirects to http://localhost:4200/dashboard (or configured URL)
    ```
 
 7. **Angular checks auth status**
+
    ```typescript
    authService.checkAuth(); // Calls GET /api/auth/check
    ```
 
 8. **Angular displays user info**
    ```typescript
-   authService.user$.subscribe(user => {
+   authService.user$.subscribe((user) => {
      if (user && user.authenticated) {
        // Display user name, picture, etc.
      }
@@ -164,11 +175,11 @@ export interface UserInfo {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class AuthService {
   private readonly FLASK_API = 'http://localhost:5000';
-  
+
   private userSubject = new BehaviorSubject<UserInfo | null>(null);
   public user$ = this.userSubject.asObservable();
 
@@ -177,31 +188,35 @@ export class AuthService {
   }
 
   checkAuth(): void {
-    this.http.get<UserInfo>(`${this.FLASK_API}/api/auth/check`, {
-      withCredentials: true
-    }).subscribe(
-      (response: UserInfo) => {
+    this.http
+      .get<UserInfo>(`${this.FLASK_API}/api/auth/check`, {
+        withCredentials: true,
+      })
+      .subscribe((response: UserInfo) => {
         if (response.authenticated) {
           this.userSubject.next(response);
         }
-      }
-    );
+      });
   }
 
   redirectToLogin(): void {
-    this.http.get<any>(`${this.FLASK_API}/api/auth/login`, {
-      withCredentials: true
-    }).subscribe(
-      (response: any) => {
+    this.http
+      .get<any>(`${this.FLASK_API}/api/auth/login`, {
+        withCredentials: true,
+      })
+      .subscribe((response: any) => {
         window.location.href = response.authorization_url;
-      }
-    );
+      });
   }
 
   logout(): Observable<any> {
-    return this.http.post(`${this.FLASK_API}/api/auth/logout`, {}, {
-      withCredentials: true
-    });
+    return this.http.post(
+      `${this.FLASK_API}/api/auth/logout`,
+      {},
+      {
+        withCredentials: true,
+      }
+    );
   }
 }
 ```
@@ -220,10 +235,10 @@ import { AuthService } from '@services/auth.service';
     </div>
     <div *ngIf="isAuthenticated">
       <p>Hello, {{ user?.name }}!</p>
-      <img [src]="user?.picture" alt="Profile">
+      <img [src]="user?.picture" alt="Profile" />
       <button (click)="logout()">Logout</button>
     </div>
-  `
+  `,
 })
 export class LoginComponent {
   user$ = this.authService.user$;
@@ -246,12 +261,14 @@ export class LoginComponent {
 ## Security Notes
 
 ### ✅ What's Secure
+
 - **Session Cookies:** Credentials stored securely in HTTP-only session cookies
 - **CORS Restricted:** Only specific origins allowed
 - **State Validation:** OAuth state parameter prevents CSRF attacks
 - **Google OAuth:** Leverages industry-standard OAuth 2.0
 
 ### ⚠️ Production Checklist
+
 - [ ] Set `PRODUCTION_ORIGIN` environment variable with your actual domain
 - [ ] Set `FLASK_SECRET_KEY` environment variable (strong random key)
 - [ ] Use HTTPS in production (secure cookies require it)
@@ -273,6 +290,7 @@ pip install Flask-CORS==5.0.0
 ### 2. Environment Variables
 
 Make sure your `.env` file has:
+
 ```
 GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_secret
@@ -284,6 +302,7 @@ FRONTEND_URL=http://localhost:4200 (for dev)
 ### 3. Start Both Servers
 
 **Terminal 1 - Flask Backend:**
+
 ```bash
 cd Backend
 python app.py
@@ -291,6 +310,7 @@ python app.py
 ```
 
 **Terminal 2 - Express Frontend:**
+
 ```bash
 npm start
 # Runs on http://localhost:8080 (serves Angular on 4200)
@@ -321,6 +341,7 @@ curl -X GET http://localhost:5000/api/auth/login \
 ## Next Steps (Phase 2)
 
 Phase 2 will focus on **Angular Frontend Integration**:
+
 - [ ] Create `src/services/auth.service.ts`
 - [ ] Create login/logout components
 - [ ] Add auth guards for protected routes
@@ -329,11 +350,11 @@ Phase 2 will focus on **Angular Frontend Integration**:
 
 ## Files Modified
 
-| File | Change |
-|------|--------|
-| `Backend/requirements.txt` | Added Flask-CORS |
-| `Backend/app.py` | Added CORS config, registered auth_api_bp |
-| `Backend/blueprints/auth_api_bp.py` | NEW - Authentication API endpoints |
+| File                                | Change                                    |
+| ----------------------------------- | ----------------------------------------- |
+| `Backend/requirements.txt`          | Added Flask-CORS                          |
+| `Backend/app.py`                    | Added CORS config, registered auth_api_bp |
+| `Backend/blueprints/auth_api_bp.py` | NEW - Authentication API endpoints        |
 
 ## Verification
 
@@ -341,7 +362,7 @@ Phase 2 will focus on **Angular Frontend Integration**:
 ✅ **Auth endpoints created** - `/api/auth/*` endpoints ready  
 ✅ **Session management** - Using existing auth infrastructure  
 ✅ **JSON responses** - All endpoints return JSON (API-ready)  
-✅ **Backward compatible** - Existing templates still work at `/auth/*`  
+✅ **Backward compatible** - Existing templates still work at `/auth/*`
 
 ---
 

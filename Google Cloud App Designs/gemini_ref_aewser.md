@@ -34,7 +34,7 @@ Database Migrations: Integrate a migration tool (e.g., Alembic for Flask-SQLAlch
 Secret Management for Database Credentials: Store your database username and password in Secret Manager and access them as environment variables in your Flask Cloud Run service, similar to how you're handling API keys.
 Phase 4: Add User Features
 This phase primarily involves developing the Flask backend to interact with the new database.
-The Angular frontend will make requests to the Flask backend's new API endpoints ( /api/users/* , /api/favorites/* , etc.) for these features.
+The Angular frontend will make requests to the Flask backend's new API endpoints ( /api/users/_ , /api/favorites/_ , etc.) for these features.
 Security and Best Practices
 Service Accounts: Create dedicated service accounts for each Cloud Run service (Express and Flask) with the least privilege necessary.
 Express service: Needs permissions for calling generative AI APIs.
@@ -62,17 +62,17 @@ Integrate Database Migrations into Cloud Build:
 Your flask db upgrade command is key. In your cloudbuild.yaml (which we discussed earlier), you'll want to add a step after your application container is built but before the Cloud Run deployment, to run your database migrations. This ensures your database schema is always up-to-date with your application code.
 You might consider running this as a separate Cloud Run Job or a temporary Cloud Run service if the migration process is complex or long-running.
 Test API Endpoints with Cloud SQL:
-Once deployed to Cloud Run, thoroughly test your Flask API endpoints ( /api/recipes , /api/auth/* , /api/status ) to ensure they correctly interact with the Cloud SQL PostgreSQL database.
+Once deployed to Cloud Run, thoroughly test your Flask API endpoints ( /api/recipes , /api/auth/\* , /api/status ) to ensure they correctly interact with the Cloud SQL PostgreSQL database.
 You're well on your way to a robust, production-ready setup! Let me know if you'd like to refine the Cloud SQL configuration, discuss the cloudbuild.yaml steps for migrations, or anything else.
 
-A diagram of the application's architecture. It represents components used in the application and connections between them. 
-List of components: 
+A diagram of the application's architecture. It represents components used in the application and connections between them.
+List of components:
 vegangenius-chef (vegangenius-chef)
 vite-gemini-api-key (secret-manager-vite-gemini-api-key)
 vite-api-key (secret-manager-vite-api-key)
 vegangenius-chef-db (postgresql-db)
 vegangenius-chef-db-credentials (db-credentials-secret)
-List of connections: 
+List of connections:
 vegangenius-chef -> secret-manager-vite-gemini-api-key
 vegangenius-chef -> secret-manager-vite-api-key
 vegangenius-chef -> db-credentials-secret

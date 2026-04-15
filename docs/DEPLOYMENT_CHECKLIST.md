@@ -3,6 +3,7 @@
 Use this checklist before deploying to production.
 
 ## ✅ Code Changes
+
 - [ ] All security files created:
   - [ ] `server/security.ts`
   - [ ] `server/validation.ts`
@@ -13,6 +14,7 @@ Use this checklist before deploying to production.
 - [ ] TypeScript compilation successful: `npm run build`
 
 ## ✅ Dependencies
+
 - [ ] All new packages installed: `npm install`
 - [ ] No peer dependency warnings
 - [ ] `npm audit` shows no critical vulnerabilities
@@ -23,6 +25,7 @@ Use this checklist before deploying to production.
 - [ ] Lock file (`package-lock.json`) updated and committed
 
 ## ✅ Configuration
+
 - [ ] `.env.local` created from `.env.example`
 - [ ] All required env vars set:
   - [ ] `PORT`
@@ -34,6 +37,7 @@ Use this checklist before deploying to production.
 - [ ] No sensitive data in code or git
 
 ## ✅ Rate Limiting
+
 - [ ] Rate limit values reviewed and appropriate:
   - [ ] General API: 100/15min
   - [ ] Expensive ops: 20/1hr
@@ -42,6 +46,7 @@ Use this checklist before deploying to production.
 - [ ] Tested with rapid requests
 
 ## ✅ Security Headers
+
 - [ ] Helmet.js enabled
 - [ ] Custom security headers verified:
   - [ ] X-Content-Type-Options: nosniff
@@ -51,6 +56,7 @@ Use this checklist before deploying to production.
 - [ ] Headers tested with curl: `curl -I http://localhost:8080/api/health`
 
 ## ✅ Input Validation
+
 - [ ] All validation rules reviewed
 - [ ] Test cases created for:
   - [ ] Valid inputs (should succeed)
@@ -62,6 +68,7 @@ Use this checklist before deploying to production.
 - [ ] No sensitive details in validation errors
 
 ## ✅ Error Handling
+
 - [ ] Error responses don't leak sensitive info
 - [ ] Tested error responses don't show stack traces
 - [ ] Server logs contain full error details
@@ -71,12 +78,14 @@ Use this checklist before deploying to production.
   - [ ] Malformed JSON
 
 ## ✅ Payload Size
+
 - [ ] JSON limit set to 50KB (not 15MB)
 - [ ] Tested that normal requests still work
 - [ ] Tested that oversized payloads are rejected
 - [ ] Appropriate error message for oversized requests
 
 ## ✅ Request Logging
+
 - [ ] Logging middleware enabled
 - [ ] Log format verified in console output
 - [ ] Tested with sample requests
@@ -88,6 +97,7 @@ Use this checklist before deploying to production.
   - [ ] Duration
 
 ## ✅ Testing
+
 - [ ] Unit tests pass
 - [ ] Integration tests pass
 - [ ] API endpoints tested:
@@ -100,6 +110,7 @@ Use this checklist before deploying to production.
 - [ ] Performance acceptable (check logs for durations)
 
 ## ✅ Documentation
+
 - [ ] Updated README or docs
 - [ ] Security documentation in place:
   - [ ] `SECURITY.md`
@@ -111,6 +122,7 @@ Use this checklist before deploying to production.
 - [ ] Documentation reviewed by team
 
 ## ✅ Deployment Preparation
+
 - [ ] Build artifacts generated: `npm run build`
 - [ ] No build errors or warnings
 - [ ] Distribution files in `dist/` directory
@@ -118,6 +130,7 @@ Use this checklist before deploying to production.
 - [ ] Health check endpoint responds
 
 ## ✅ Production-Only Requirements
+
 - [ ] HTTPS/TLS configured (or planned)
   - [ ] SSL certificate obtained
   - [ ] Reverse proxy configured (nginx/Cloudflare)
@@ -133,6 +146,7 @@ Use this checklist before deploying to production.
 - [ ] Uptime monitoring configured
 
 ## ✅ Team Communication
+
 - [ ] Team notified of changes
 - [ ] New security features documented
 - [ ] Breaking changes communicated (if any)
@@ -141,6 +155,7 @@ Use this checklist before deploying to production.
 - [ ] Release notes prepared
 
 ## ✅ Post-Deployment
+
 - [ ] Monitor error rates in production
 - [ ] Monitor rate limit hits
 - [ ] Check logs for unexpected patterns
@@ -150,6 +165,7 @@ Use this checklist before deploying to production.
 - [ ] Check for any performance regressions
 
 ## ✅ Advanced Security (Optional but Recommended)
+
 - [ ] CORS configured for specific domains
 - [ ] Request timeout handling implemented
 - [ ] Request ID tracking added
@@ -162,6 +178,7 @@ Use this checklist before deploying to production.
 ## 🔒 Security Hardening Reminders
 
 ### Before Going Live
+
 1. **Review all error messages** - Ensure no sensitive info is leaked
 2. **Test rate limiting** - Confirm it kicks in appropriately
 3. **Verify headers** - Use curl to check security headers are present
@@ -169,6 +186,7 @@ Use this checklist before deploying to production.
 5. **Validate input** - Test with various invalid inputs
 
 ### In Production
+
 1. **Monitor logs daily** - Look for suspicious patterns
 2. **Check rate limits** - Verify legitimate users aren't hitting limits
 3. **Review errors** - Investigate unexpected error spikes
@@ -176,6 +194,7 @@ Use this checklist before deploying to production.
 5. **Audit access** - Who is accessing the API, how often
 
 ### Security Best Practices
+
 - [ ] Keep dependencies updated
 - [ ] Run `npm audit` regularly
 - [ ] Monitor for CVEs affecting dependencies
@@ -187,12 +206,13 @@ Use this checklist before deploying to production.
 
 ## 📋 Checklist Completion
 
-- **Date Completed:** _______________
-- **Completed By:** _______________
-- **Reviewed By:** _______________
+- **Date Completed:** **\*\***\_\_\_**\*\***
+- **Completed By:** **\*\***\_\_\_**\*\***
+- **Reviewed By:** **\*\***\_\_\_**\*\***
 - **Approved for Production:** ☐ YES ☐ NO
 
 ### Notes:
+
 ```
 _________________________________________________________________
 
@@ -241,6 +261,7 @@ curl -X POST http://localhost:8080/api/recipe \
 ---
 
 **For detailed information, refer to:**
+
 - `SECURITY.md` - Complete security guide
 - `SECURITY_QUICKSTART.md` - Implementation details
 - `DEVELOPER_GUIDE.md` - Developer reference

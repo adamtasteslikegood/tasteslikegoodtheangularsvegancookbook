@@ -28,6 +28,7 @@ npm run build       # Verify build works
 ```
 
 Or run all at once:
+
 ```bash
 npm run format && npm run lint && npm run test:ci && npm run build
 ```
@@ -37,6 +38,7 @@ GitHub Actions will run these same checks automatically when you open a PR.
 ## CI/CD
 
 This project uses GitHub Actions for continuous integration. All PRs must pass:
+
 - ✅ Build check
 - ✅ Linting (ESLint + Prettier)
 - ✅ Tests (Vitest)

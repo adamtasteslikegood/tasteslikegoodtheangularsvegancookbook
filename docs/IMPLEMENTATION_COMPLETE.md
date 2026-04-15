@@ -69,21 +69,25 @@ Created:
 ## 🚀 Getting Started
 
 ### Step 1: Install Dependencies
+
 ```bash
 npm install
 ```
 
 ### Step 2: Build the Project
+
 ```bash
 npm run build
 ```
 
 ### Step 3: Start the Server
+
 ```bash
 npm start
 ```
 
 ### Step 4: Test the Security Features
+
 ```bash
 # Test rate limiting (should get 429 after 20 requests)
 for i in {1..21}; do
@@ -107,16 +111,19 @@ curl -I http://localhost:8080/api/health
 ## 📚 Documentation Provided
 
 ### For Everyone
+
 - **SECURITY.md** - Complete security documentation
 - **SECURITY_QUICKSTART.md** - Quick start implementation guide
 - **SECURITY_IMPLEMENTATION_REPORT.md** - Detailed implementation report
 
 ### For Developers
+
 - **DEVELOPER_GUIDE.md** - Daily reference guide for working with security features
 - **server/security.ts** - Well-commented security middleware code
 - **server/validation.ts** - Well-commented validation code
 
 ### For DevOps/Deployment
+
 - **DEPLOYMENT_CHECKLIST.md** - Pre-deployment verification checklist
 - **CHANGELOG_SECURITY.md** - Detailed change log
 - **.env.example** - Environment variables template
@@ -126,6 +133,7 @@ curl -I http://localhost:8080/api/health
 ## 🎯 Key Features
 
 ### Rate Limiting
+
 ```
 General API:         100 requests per 15 minutes per IP
 Expensive Ops:       20 requests per hour per IP
@@ -134,6 +142,7 @@ Response:            429 Too Many Requests (when exceeded)
 ```
 
 ### Security Headers
+
 ```
 X-Content-Type-Options: nosniff
 X-Frame-Options: DENY
@@ -143,6 +152,7 @@ Referrer-Policy: strict-origin-when-cross-origin
 ```
 
 ### Input Validation
+
 ```
 /api/recipe:    prompt (1-500 chars)
 /api/image:     recipeName (1-100 chars) + keywords array (1-10, each 1-50 chars)
@@ -150,6 +160,7 @@ Response:       400 Bad Request with validation details
 ```
 
 ### Error Handling
+
 ```
 Server-side:    Full error details logged for debugging
 Client-side:    Generic error message (no sensitive info)
@@ -160,14 +171,14 @@ Prevents:       Information leakage to attackers
 
 ## 🔐 Security Vulnerabilities Fixed
 
-| # | Vulnerability | Status | Solution |
-|---|---|---|---|
-| 1 | No rate limiting | ✅ Fixed | express-rate-limit middleware |
-| 2 | No security headers | ✅ Fixed | Helmet.js + custom headers |
-| 3 | Lax input validation | ✅ Fixed | express-validator |
-| 4 | Large payload limit (15MB) | ✅ Fixed | Reduced to 50KB |
-| 5 | Information leakage in errors | ✅ Fixed | Secure error handling |
-| 6 | No request logging | ✅ Fixed | Logging middleware |
+| #   | Vulnerability                 | Status   | Solution                      |
+| --- | ----------------------------- | -------- | ----------------------------- |
+| 1   | No rate limiting              | ✅ Fixed | express-rate-limit middleware |
+| 2   | No security headers           | ✅ Fixed | Helmet.js + custom headers    |
+| 3   | Lax input validation          | ✅ Fixed | express-validator             |
+| 4   | Large payload limit (15MB)    | ✅ Fixed | Reduced to 50KB               |
+| 5   | Information leakage in errors | ✅ Fixed | Secure error handling         |
+| 6   | No request logging            | ✅ Fixed | Logging middleware            |
 
 ---
 
@@ -186,14 +197,15 @@ Prevents:       Information leakage to attackers
 
 ```json
 {
-  "express-rate-limit": "^7.1.5",  // Rate limiting
-  "helmet": "^7.1.0",              // Security headers
-  "express-validator": "^7.1.0",   // Input validation
-  "@types/express-rate-limit": "^6.0.0"  // TypeScript types
+  "express-rate-limit": "^7.1.5", // Rate limiting
+  "helmet": "^7.1.0", // Security headers
+  "express-validator": "^7.1.0", // Input validation
+  "@types/express-rate-limit": "^6.0.0" // TypeScript types
 }
 ```
 
 All packages:
+
 - ✅ Latest stable versions
 - ✅ Well-maintained
 - ✅ Industry standard
@@ -204,25 +216,30 @@ All packages:
 ## 🔧 Configuration & Customization
 
 ### Adjust Rate Limits
+
 Edit `server/security.ts`:
+
 ```typescript
 createExpensiveOperationLimiter(
-  60 * 60 * 1000,  // Window: 1 hour
-  50               // Max: 50 requests (change from 20)
+  60 * 60 * 1000, // Window: 1 hour
+  50 // Max: 50 requests (change from 20)
 );
 ```
 
 ### Customize Validation Rules
+
 Edit `server/validation.ts`:
+
 ```typescript
-body("prompt")
-  .isLength({ min: 1, max: 1000 })  // Change from 500
+body('prompt').isLength({ min: 1, max: 1000 }); // Change from 500
 ```
 
 ### Adjust Payload Size Limit
+
 Edit `server/index.ts`:
+
 ```typescript
-app.use(express.json({ limit: "100kb" }));  // Change from 50kb
+app.use(express.json({ limit: '100kb' })); // Change from 50kb
 ```
 
 ---
@@ -232,17 +249,20 @@ app.use(express.json({ limit: "100kb" }));  // Change from 50kb
 ### Recommended Next Steps (Priority Order)
 
 **CRITICAL Priority:**
+
 1. ⚠️ Implement HTTPS/TLS in production (use reverse proxy like nginx)
 2. ⚠️ Add API authentication (API Key or JWT)
 3. ⚠️ Implement secrets management for API keys
 
 **HIGH Priority:**
+
 1. Configure CORS for your frontend domain
 2. Add request timeout handling
 3. Set up automated dependency updates
 4. Implement error monitoring (Sentry, etc.)
 
 **MEDIUM Priority:**
+
 1. Add API monitoring and alerting
 2. Implement request ID tracking
 3. Add detailed security event logging
@@ -255,6 +275,7 @@ See `SECURITY.md` for detailed implementation guides for each recommendation.
 ## 🧪 Testing the Implementation
 
 ### Test Rate Limiting
+
 ```bash
 # Make rapid requests - 21st should get 429
 for i in {1..21}; do
@@ -266,6 +287,7 @@ done
 ```
 
 ### Test Input Validation
+
 ```bash
 # Empty prompt - should fail with 400
 curl -X POST http://localhost:8080/api/recipe \
@@ -275,16 +297,18 @@ curl -X POST http://localhost:8080/api/recipe \
 # Prompt too long (>500 chars) - should fail
 curl -X POST http://localhost:8080/api/recipe \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "'$(printf 'a%.0s' {1..501})'"}' 
+  -d '{"prompt": "'$(printf 'a%.0s' {1..501})'"}'
 ```
 
 ### Test Security Headers
+
 ```bash
 # Should see X-Content-Type-Options, X-Frame-Options, etc.
 curl -I http://localhost:8080/api/health
 ```
 
 ### Test Error Handling
+
 ```bash
 # Should return generic error (no sensitive details)
 curl -X POST http://localhost:8080/api/recipe \
@@ -338,6 +362,7 @@ Before deploying to production:
 ## 🆘 Troubleshooting
 
 ### Build fails with TypeScript errors
+
 ```bash
 # Clear cache and rebuild
 rm -rf dist
@@ -345,15 +370,18 @@ npm run build
 ```
 
 ### Rate limit hitting too often
+
 - Check actual traffic volume
 - Adjust limits in `server/security.ts`
 - Verify clients aren't making unnecessary requests
 
 ### Validation errors for valid input
+
 - Check validation rules in `server/validation.ts`
 - Adjust min/max character limits if needed
 
 ### Performance issues
+
 - Check request duration in logs
 - Profile slow endpoints
 - Verify API key has sufficient quota

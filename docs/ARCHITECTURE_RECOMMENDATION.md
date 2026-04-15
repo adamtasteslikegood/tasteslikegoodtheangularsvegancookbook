@@ -133,6 +133,7 @@ You currently have **two parallel backends**:
 **No changes to Express server** - it continues to work exactly as is.
 
 1. **Add CORS to Flask** (allow Angular to call it)
+
    ```python
    from flask_cors import CORS
    CORS(app, origins=["http://localhost:4200", "http://localhost:8080"])
@@ -150,10 +151,11 @@ You currently have **two parallel backends**:
 ### Phase 2: Angular Frontend Orchestrates Both Backends
 
 4. **Update Angular services**
+
    ```typescript
    // src/services/auth.service.ts (NEW)
    const FLASK_API = 'http://localhost:5000';
-   
+
    // src/services/recipe.service.ts (EXISTING)
    const EXPRESS_API = 'http://localhost:8080';
    ```
@@ -165,6 +167,7 @@ You currently have **two parallel backends**:
 ### Phase 3: Add Database to Flask
 
 6. **Add SQLAlchemy or MongoDB**
+
    ```python
    # Backend/models/user.py
    class User(db.Model):
@@ -172,7 +175,7 @@ You currently have **two parallel backends**:
        email = db.Column(db.String(120), unique=True)
        name = db.Column(db.String(100))
        google_id = db.Column(db.String(100))
-   
+
    # Backend/models/recipe.py
    class Recipe(db.Model):
        id = db.Column(db.String(36), primary_key=True)
@@ -257,7 +260,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 {
   "dependencies": {
     // Add these:
-    "@angular/common/http": "^21.1.0"  // Likely already there
+    "@angular/common/http": "^21.1.0" // Likely already there
   }
 }
 ```
@@ -265,6 +268,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 ## Deployment Architecture
 
 ### Development
+
 - **Angular Dev Server:** `http://localhost:4200`
 - **Express Server:** `http://localhost:8080`
 - **Flask Server:** `http://localhost:5000`
@@ -272,6 +276,7 @@ pyjwt==2.8.0               # Optional: JWT tokens instead of sessions
 ### Production
 
 Option A: **Separate Services (Recommended)**
+
 ```
 Cloud Run Service 1: express-frontend (Angular + Express)
   - Serves static files
@@ -285,6 +290,7 @@ Cloud SQL: PostgreSQL instance
 ```
 
 Option B: **Nginx Reverse Proxy**
+
 ```
 Nginx (Port 80/443)
   ├─> /api/recipe, /api/image  → Express (8080)
@@ -313,7 +319,7 @@ The Flask backend already has recipe generation. Here's how to handle it:
 ## Timeline Estimate
 
 - **Phase 1** (CORS + API endpoints): 2-4 hours
-- **Phase 2** (Angular service updates): 4-6 hours  
+- **Phase 2** (Angular service updates): 4-6 hours
 - **Phase 3** (Database integration): 1-2 days
 - **Phase 4** (User features): 3-5 days per feature
 
@@ -332,6 +338,7 @@ The Flask backend already has recipe generation. Here's how to handle it:
 **Recommendation: Use the Flask Backend for auth, database, and user management.**
 
 This approach:
+
 - ✅ Preserves your working Express AI generation code
 - ✅ Leverages existing Flask auth and architecture
 - ✅ Provides clean separation of concerns
@@ -344,6 +351,7 @@ The Flask backend is already **80% of the way there** for what you need. It woul
 ---
 
 **Next Steps:**
+
 1. Review this recommendation
 2. I can implement Phase 1 (CORS + API endpoints) immediately
 3. Then proceed to Phase 2 (Angular integration)

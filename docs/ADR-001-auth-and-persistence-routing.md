@@ -22,6 +22,7 @@ Angular SPA (Browser)
 ```
 
 The Terraform template (`app-template-5-main.tf`) has already:
+
 - Split into two Cloud Run services: `express-frontend` and `flask-backend`
 - Injected `flask_backend_SERVICE_ENDPOINT` as an env var into `express-frontend`
 - Given `flask-backend` `roles/cloudsql.client` IAM access to the PostgreSQL instance
@@ -42,13 +43,13 @@ Angular knows the Flask Cloud Run URL at build time → calls Flask directly wit
 
 ## Decision Drivers
 
-| Driver | Weight |
-|--------|--------|
-| Session-cookie auth (no JWT) must survive browser same-origin restrictions | High |
-| OAuth redirect_uri must match the URL the browser is actually on | High |
-| Consistency between dev and production | High |
-| Avoid CORS `SameSite=None; Secure` cookie complexity | High |
-| Minimize changes to working code | Medium |
+| Driver                                                                     | Weight |
+| -------------------------------------------------------------------------- | ------ |
+| Session-cookie auth (no JWT) must survive browser same-origin restrictions | High   |
+| OAuth redirect_uri must match the URL the browser is actually on           | High   |
+| Consistency between dev and production                                     | High   |
+| Avoid CORS `SameSite=None; Secure` cookie complexity                       | High   |
+| Minimize changes to working code                                           | Medium |
 | Angular bundle must not contain Flask's Cloud Run URL (changes per deploy) | Medium |
 
 ---
@@ -65,6 +66,7 @@ Browser → Express (:8080 / express-frontend Cloud Run)
 ```
 
 **How it works:**
+
 - `server/proxy.ts` already implements a raw HTTP proxy for `/api/auth/*`
 - Extend the proxy (or mount a second proxy) for `/api/recipes/*` and `/api/collections/*`
 - Flask's `FLASK_BACKEND_URL` is read from the env var (`flask_backend_SERVICE_ENDPOINT`) injected by Terraform — never hardcoded in the Angular build
@@ -73,6 +75,7 @@ Browser → Express (:8080 / express-frontend Cloud Run)
 - OAuth `redirect_uri` in Flask points to `express-frontend` domain → callback flows back through Express → Flask session is established server-side
 
 **Sequence: Google OAuth login**
+
 ```
 1. Angular    →  POST /api/auth/login           (Express, relative)
 2. Express    →  POST /api/auth/login           (Flask, internal)
@@ -88,6 +91,7 @@ Browser → Express (:8080 / express-frontend Cloud Run)
 ```
 
 **Pros:**
+
 - ✅ Already built — `server/proxy.ts` and `createAuthProxy()` exist and work
 - ✅ Session cookies are same-origin; `SameSite=Lax` works (most secure default)
 - ✅ OAuth redirect_uri resolves to one domain — no origin mismatch
@@ -96,6 +100,7 @@ Browser → Express (:8080 / express-frontend Cloud Run)
 - ✅ Dev and prod are identical: dev uses `proxy.conf.json` (ng serve) or `server/proxy.ts` (npm start); prod uses the same `server/proxy.ts` with Cloud Run URL
 
 **Cons:**
+
 - ⚠ Small extra latency: browser → Express → Flask (mitigated by VPC internal routing between Cloud Run services)
 - ⚠ Express proxy must be extended to cover new routes (`/api/recipes/*`, `/api/collections/*`)
 - ⚠ Express becomes a dependency for Flask availability (already the case for auth)
@@ -144,9 +149,9 @@ export function createFlaskProxy(pathPrefix: string) {
 
 ```typescript
 // server/index.ts — mount before express.json()
-app.use("/api/auth",        createFlaskProxy("/api/auth"));
-app.use("/api/recipes",     createFlaskProxy("/api/recipes"));
-app.use("/api/collections", createFlaskProxy("/api/collections"));
+app.use('/api/auth', createFlaskProxy('/api/auth'));
+app.use('/api/recipes', createFlaskProxy('/api/recipes'));
+app.use('/api/collections', createFlaskProxy('/api/collections'));
 ```
 
 Or consolidate into a single middleware that proxies any `/api/*` route not handled by Express locally.
@@ -186,8 +191,9 @@ The Terraform template already injects `flask_backend_SERVICE_ENDPOINT` into the
 ```
 
 This matches `server/index.ts`:
+
 ```typescript
-const flaskUrl = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
+const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 ```
 
 ---
@@ -195,6 +201,7 @@ const flaskUrl = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
 ## Consequences
 
 ### Positive
+
 - Auth, recipe save, and cookbook management all work over the same origin — zero CORS configuration needed on Flask for browser clients
 - Session cookies use `SameSite=Lax; HttpOnly; Secure` — most secure default
 - OAuth flow is clean: one domain throughout the entire redirect cycle
@@ -202,11 +209,13 @@ const flaskUrl = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
 - Dev parity: same proxy code runs locally (`server/proxy.ts`) and in production (Cloud Run internal VPC)
 
 ### Negative / Trade-offs
+
 - Express is now a required intermediary for Flask calls — if Express is down, Flask is also unreachable from the browser (acceptable: they scale together on Cloud Run)
 - Internal Flask calls add ~1–5ms latency (Cloud Run VPC internal routing; negligible for persistence ops)
 - Express proxy must be maintained alongside Flask API evolution (low overhead)
 
 ### Neutral
+
 - Flask CORS headers (`flask-cors`) are still useful for **server-to-server** calls or future admin tooling, but are not required for the Angular SPA
 
 ---
@@ -259,4 +268,4 @@ sequenceDiagram
 
 ---
 
-*Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>*
+_Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>_

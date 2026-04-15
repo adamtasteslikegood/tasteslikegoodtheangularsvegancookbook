@@ -127,26 +127,21 @@ export class AuthService {
    * Redirects the browser to Google's consent page.
    */
   async login(): Promise<void> {
-    try {
-      const res = await fetch(`${this.API_BASE}/api/auth/login`, {
-        credentials: 'include',
-      });
+    const res = await fetch(`${this.API_BASE}/api/auth/login`, {
+      credentials: 'include',
+    });
 
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: 'Login failed' }));
-        throw new Error(err.error || 'Failed to initiate login');
-      }
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: 'Login failed' }));
+      throw new Error(body.error || 'Failed to initiate login');
+    }
 
-      const data = await res.json();
-      if (data.authorization_url) {
-        // Redirect to Google OAuth consent screen
-        window.location.href = data.authorization_url;
-      } else {
-        throw new Error('No authorization URL received');
-      }
-    } catch (err: unknown) {
-      console.error('Login initiation failed:', err);
-      throw err;
+    const data = await res.json();
+    if (data.authorization_url) {
+      // Redirect to Google OAuth consent screen
+      window.location.href = data.authorization_url;
+    } else {
+      throw new Error('No authorization URL received');
     }
   }
 

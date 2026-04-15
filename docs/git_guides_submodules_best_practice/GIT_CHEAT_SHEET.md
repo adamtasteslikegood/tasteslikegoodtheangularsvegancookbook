@@ -60,30 +60,32 @@ git push origin main
 
 ## Key Commands
 
-| What | Command |
-|------|---------|
-| Check current location | `pwd` |
-| Check current branch | `git rev-parse --abbrev-ref HEAD` |
-| See all changes (both) | `git status && git -C Backend status` |
-| Stage submodule files | `cd Backend && git add <files>` |
-| Commit submodule | `cd Backend && git commit -m "msg"` |
-| Push submodule | `cd Backend && git push origin refactor/modular-architecture` |
-| Go back to main | `cd ..` |
-| Stage main files | `git add <files>` |
-| Commit main | `git commit -m "msg"` |
-| Push main | `git push origin main` |
+| What                   | Command                                                       |
+| ---------------------- | ------------------------------------------------------------- |
+| Check current location | `pwd`                                                         |
+| Check current branch   | `git rev-parse --abbrev-ref HEAD`                             |
+| See all changes (both) | `git status && git -C Backend status`                         |
+| Stage submodule files  | `cd Backend && git add <files>`                               |
+| Commit submodule       | `cd Backend && git commit -m "msg"`                           |
+| Push submodule         | `cd Backend && git push origin refactor/modular-architecture` |
+| Go back to main        | `cd ..`                                                       |
+| Stage main files       | `git add <files>`                                             |
+| Commit main            | `git commit -m "msg"`                                         |
+| Push main              | `git push origin main`                                        |
 
 ---
 
 ## Common Commands
 
 ### Check Status Everywhere
+
 ```bash
 git status
 cd Backend && git status && cd ..
 ```
 
 ### See What's Committed
+
 ```bash
 # Main repo
 git log --oneline -5
@@ -93,6 +95,7 @@ cd Backend && git log --oneline -5 && cd ..
 ```
 
 ### Dry Run (See What Would Push)
+
 ```bash
 # Submodule
 cd Backend && git push --dry-run origin refactor/modular-architecture && cd ..
@@ -102,6 +105,7 @@ git push --dry-run origin main
 ```
 
 ### Fix Out-of-Sync Submodule
+
 ```bash
 git pull --recurse-submodules
 ```
@@ -113,6 +117,7 @@ git pull --recurse-submodules
 ### ❌ "I pushed main first!"
 
 **Fix:**
+
 ```bash
 # Your commit is still there locally
 cd Backend
@@ -123,6 +128,7 @@ git push origin refactor/modular-architecture
 ### ❌ "Backend shows as modified but I already pushed it"
 
 **Fix:**
+
 ```bash
 # This is normal, means main repo detected submodule change
 git add Backend
@@ -133,6 +139,7 @@ git push origin main
 ### ❌ "I can't remember which branch Backend is on"
 
 **Fix:**
+
 ```bash
 cd Backend
 git rev-parse --abbrev-ref HEAD
@@ -142,6 +149,7 @@ git rev-parse --abbrev-ref HEAD
 ### ❌ "Clone is failing"
 
 **Fix (you might have pushed main first):**
+
 ```bash
 cd Backend
 git push origin refactor/modular-architecture
@@ -155,14 +163,14 @@ cd ..
 
 ```
 Do you have changes in Backend?
-  YES → 
+  YES →
     │
     ├─ cd Backend
     ├─ git add .
     ├─ git commit -m "message"
     ├─ git push origin refactor/modular-architecture
     └─ cd ..
-  
+
   NO → Skip to next
 
 Do you have changes in main repo?
@@ -171,7 +179,7 @@ Do you have changes in main repo?
     ├─ git add .
     ├─ git commit -m "message"
     └─ git push origin main
-  
+
   NO → You're done!
 
 Done! ✅
@@ -182,21 +190,25 @@ Done! ✅
 ## Before/After Checklist
 
 ### Before You Push
+
 - [ ] `pwd` shows you in `/tasteslikegoodtheangularsvegancookbook`
 - [ ] `git status` shows your files
 - [ ] You reviewed your changes with `git diff`
 
 ### Push Submodule
+
 - [ ] `cd Backend` - in submodule now
 - [ ] `git push origin refactor/modular-architecture` - PUSHED ✅
 - [ ] `cd ..` - back to main repo
 
 ### Push Main Repo
+
 - [ ] `git status` shows Backend as modified (that's correct!)
 - [ ] `git push origin main` - PUSHED ✅
 - [ ] `git log --oneline -1` shows your commit
 
 ### Verification
+
 - [ ] Both commits show in GitHub
 - [ ] No error messages
 - [ ] Submodule reference points to correct commit
@@ -263,24 +275,27 @@ If abc123 exists FIRST:
 ## Pro Tips 🚀
 
 1. **Always check branch names:**
+
    ```bash
    # In Backend (should see: refactor/modular-architecture)
    git rev-parse --abbrev-ref HEAD
-   
+
    # In main (should see:dev/front_back_split)
    git rev-parse --abbrev-ref HEAD
    ```
 
 2. **Create bash alias for submodule commits:**
+
    ```bash
    # Add to ~/.bashrc or ~/.zshrc:
    alias push-both='cd Backend && git push origin refactor/modular-architecture && cd .. && git push origin dev/front_back_split'
-   
+
    # Then use:
    push-both
    ```
 
 3. **Use `--dry-run` to test:**
+
    ```bash
    git push --dry-run origin <current-branch>
    # Shows what WOULD push without actually pushing
