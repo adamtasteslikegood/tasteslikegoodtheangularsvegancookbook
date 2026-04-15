@@ -1,0 +1,158 @@
+# PR Gate — quality checks that must pass before any dev→main merge.
+#
+# All jobs are required status checks (configure in GitHub branch protection).
+# The 'gate' job is the single required check: it passes only when all
+# individual jobs succeed, so branch protection only needs one rule.
+#
+# KAN-26, KAN-27, KAN-33
+
+name: PR Gate
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # ── Frontend ──────────────────────────────────────────────────────────────
+
+  frontend-lint:
+    name: Frontend — lint + format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  frontend-type-check:
+    name: Frontend — TypeScript
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.json
+      - run: npx tsc --noEmit -p server/tsconfig.server.json
+
+  frontend-build:
+    name: Frontend — build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ github.sha }}
+          path: |
+            dist/
+            server/dist/
+          retention-days: 3
+
+  frontend-test:
+    name: Frontend — unit tests + coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      # Coverage thresholds are enforced by vitest.config.ts:
+      #   lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40%
+      - run: npm run test:ci
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage/
+          retention-days: 7
+
+  # ── Backend ───────────────────────────────────────────────────────────────
+
+  backend-test:
+    name: Backend — pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@v5
+      - name: Install backend dependencies
+        working-directory: Backend
+        run: uv sync
+      - name: Run pytest
+        working-directory: Backend
+        run: uv run pytest
+
+  # ── Changelog ─────────────────────────────────────────────────────────────
+
+  changelog-check:
+    name: CHANGELOG entry for this version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Verify CHANGELOG.md has an entry for package.json version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Checking CHANGELOG.md for version: $VERSION"
+          if [ ! -f CHANGELOG.md ]; then
+            echo "::error::CHANGELOG.md is missing. Add it before merging to main."
+            exit 1
+          fi
+          if ! grep -qF "## [$VERSION]" CHANGELOG.md && ! grep -qF "## $VERSION" CHANGELOG.md; then
+            echo "::error::No CHANGELOG.md entry found for v$VERSION. Add a '## [$VERSION]' section."
+            exit 1
+          fi
+          echo "✅ CHANGELOG.md has an entry for v$VERSION"
+
+  # ── Gate ──────────────────────────────────────────────────────────────────
+  # Single required check for branch protection. Fails if ANY job above fails.
+
+  gate:
+    name: Gate — all checks passed
+    needs:
+      - frontend-lint
+      - frontend-type-check
+      - frontend-build
+      - frontend-test
+      - backend-test
+      - changelog-check
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Evaluate all job results
+        run: |
+          results='${{ toJSON(needs) }}'
+          failed=$(echo "$results" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          failed = [name for name, info in data.items() if info.get('result') not in ('success', 'skipped')]
+          print('\n'.join(failed))
+          ")
+          if [ -n "$failed" ]; then
+            echo "::error::The following jobs failed or were cancelled:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "✅ All PR gate checks passed."

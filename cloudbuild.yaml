@@ -1,15 +1,26 @@
 # Cloud Build pipeline for building and deploying to Cloud Run.
+#
+# Substitutions:
+#   _REGION          — GCP region (default: us-central1)
+#   _EXPRESS_SERVICE — Cloud Run service name for the Express frontend
+#   _FLASK_SERVICE   — Cloud Run service name for the Flask backend
+#   _IMAGE_REGISTRY  — Artifact Registry base path
+#   _VERSION         — SemVer tag (e.g. v1.0.0); passed by release.yml.
+#                      Defaults to 'latest' for manual/ad-hoc submits.
 substitutions:
   _REGION: us-central1
   _EXPRESS_SERVICE: express-frontend
   _FLASK_SERVICE: flask-backend
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
+  _VERSION: latest
 
 steps:
+  # ── Build ────────────────────────────────────────────────────────────────────
+
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Express Frontend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     args:
       - build
       - -t
@@ -19,7 +30,7 @@ steps:
   # 2. Build the Flask backend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Flask Backend'
-    waitFor: [ '-' ]
+    waitFor: ['-']
     dir: 'Backend'
     args:
       - build
@@ -27,21 +38,57 @@ steps:
       - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - .
 
+  # ── Push SHORT_SHA tags ──────────────────────────────────────────────────────
+
   # 3. Push images (each waits for its own build)
   - name: gcr.io/cloud-builders/docker
     id: 'Push Express Frontend Image'
-    waitFor: [ 'Build Express Frontend' ]
-    args: [ push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA' ]
+    waitFor: ['Build Express Frontend']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA']
 
   - name: gcr.io/cloud-builders/docker
     id: 'Push Flask Backend Image'
-    waitFor: [ 'Build Flask Backend' ]
-    args: [ push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA' ]
+    waitFor: ['Build Flask Backend']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA']
+
+  # ── Tag and push SemVer + latest ─────────────────────────────────────────────
+  # KAN-32: Tag with _VERSION (e.g. v1.0.0) alongside SHORT_SHA so images are
+  # pullable by version and rollbacks are unambiguous.
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Tag Express Frontend Version'
+    waitFor: ['Push Express Frontend Image']
+    args:
+      - tag
+      - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+      - $_IMAGE_REGISTRY/express-frontend:$_VERSION
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Tag Flask Backend Version'
+    waitFor: ['Push Flask Backend Image']
+    args:
+      - tag
+      - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - $_IMAGE_REGISTRY/flask-backend:$_VERSION
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Express Frontend Version Tag'
+    waitFor: ['Tag Express Frontend Version']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$_VERSION']
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Flask Backend Version Tag'
+    waitFor: ['Tag Flask Backend Version']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$_VERSION']
+
+  # ── Deploy ───────────────────────────────────────────────────────────────────
+  # KAN-30: Flask backend deploys first; Express frontend waits on its completion
+  # so the new frontend never serves against the old API during rollout.
 
   # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Flask Backend'
-    waitFor: [ 'Push Flask Backend Image' ]
+    waitFor: ['Push Flask Backend Version Tag']
     entrypoint: gcloud
     args:
       - run
@@ -50,18 +97,21 @@ steps:
       - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - --region=$_REGION
       - --min-instances=1
+      # KAN-29: FLASK_ENV=production activates production-only guards:
+      #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
+      #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
-      - --set-env-vars=VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
       - --no-allow-unauthenticated
       - --quiet
       - --network=default
       - --subnet=default
       - --vpc-egress=private-ranges-only
 
-  # 5. Deploy Express Frontend
+  # 5. Deploy Express Frontend — waits on Flask deploy (KAN-30)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Express Frontend'
-    waitFor: [ 'Push Express Frontend Image' ]
+    waitFor: ['Push Express Frontend Version Tag', 'Deploy Flask Backend']
     entrypoint: gcloud
     args:
       - run
@@ -76,4 +126,6 @@ steps:
 
 images:
   - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+  - $_IMAGE_REGISTRY/express-frontend:$_VERSION
   - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+  - $_IMAGE_REGISTRY/flask-backend:$_VERSION
