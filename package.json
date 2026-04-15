@@ -45,7 +45,7 @@
     "@angular-eslint/eslint-plugin-template": "^21.0.0",
     "@angular-eslint/schematics": "^21.0.0",
     "@angular-eslint/template-parser": "^21.0.0",
-    "@eslint/js": "^9.39.4",
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
     "@types/express-rate-limit": "^6.0.0",
     "@types/node": "^25.6.0",
