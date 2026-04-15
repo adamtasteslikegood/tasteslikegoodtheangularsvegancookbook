@@ -47,8 +47,9 @@ Express reads `FLASK_BACKEND_URL`. Align them:
 ```
 
 This is the env var `server/index.ts` and `server/proxy.ts` read:
+
 ```typescript
-const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || "http://localhost:5000";
+const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 ```
 
 ---
@@ -66,6 +67,7 @@ docker push gcr.io/comdottasteslikegood/flask-backend-image
 ```
 
 Or trigger via Cloud Build:
+
 ```bash
 gcloud builds submit --config cloudbuild.yaml
 ```
@@ -117,6 +119,7 @@ This is a progressive enhancement — do it per feature when convenient.
 ## Deployment Checklist
 
 ### Pre-Deploy
+
 - [ ] Cloud SQL Auth Proxy downloaded and configured locally
 - [ ] `flask db upgrade` run successfully against Cloud SQL instance `vegangenius-chef-db`
 - [ ] `cookbook` table visible in Cloud SQL console
@@ -126,11 +129,13 @@ This is a progressive enhancement — do it per feature when convenient.
 - [ ] Docker images built and pushed for both services
 
 ### Deploy
+
 - [ ] `flask-backend` Cloud Run service updated with new image
 - [ ] `express-frontend` Cloud Run service updated with new image and correct `FLASK_BACKEND_URL`
 - [ ] Both services show `READY` status in Cloud Run console
 
 ### Post-Deploy Smoke Tests
+
 - [ ] `GET https://<express-url>/api/health` → `200 OK`
 - [ ] `GET https://<express-url>/api/auth/check` → `{"authenticated": false}` (unauthenticated)
 - [ ] Sign in with Google → `{"authenticated": true}` on callback
@@ -142,6 +147,7 @@ This is a progressive enhancement — do it per feature when convenient.
 - [ ] Log out, log back in → recipes and cookbooks still present
 
 ### Guest User Regression Tests
+
 - [ ] Load app without signing in → guest session created
 - [ ] Save a recipe as guest → appears in UI, stored in `localStorage`
 - [ ] No network calls to `/api/recipes` or `/api/collections` for guest user

@@ -32,9 +32,11 @@ Backend/
 4. **[RECIPE_API.md](RECIPE_API.md)** - API endpoint reference
 
 **Need quick info?**
+
 - **[PHASE_3_QUICKREF.md](PHASE_3_QUICKREF.md)** - One-page cheat sheet
 
 **Tracking progress?**
+
 - **[PHASE_3_PROGRESS.md](PHASE_3_PROGRESS.md)** - Task checklist and status
 
 ---
@@ -48,6 +50,7 @@ Backend/
 **Use when**: You need the full picture of Phase 3
 
 **Contents**:
+
 - ✅ What's been completed
 - ❌ What's still missing
 - 📋 Step-by-step implementation checklist
@@ -65,6 +68,7 @@ Backend/
 **Use when**: You want a high-level overview
 
 **Contents**:
+
 - Overview and status
 - What was implemented (detailed)
 - File changes (new/modified)
@@ -82,6 +86,7 @@ Backend/
 **Use when**: You're implementing Phase 3 and need to track progress
 
 **Contents**:
+
 - ✅ Completed tasks with checkboxes
 - ⏳ In-progress tasks
 - 🚫 Not started tasks
@@ -99,6 +104,7 @@ Backend/
 **Use when**: You need quick commands or reminders
 
 **Contents**:
+
 - 🚀 Quick start commands
 - 📁 Key files reference
 - 🔧 Common commands
@@ -117,6 +123,7 @@ Backend/
 **Use when**: Setting up the database for the first time
 
 **Contents**:
+
 - Quick start (SQLite)
 - PostgreSQL setup (production)
 - Environment configuration
@@ -136,6 +143,7 @@ Backend/
 **Use when**: Implementing or testing API endpoints
 
 **Contents**:
+
 - Base URL configuration
 - Authentication overview
 - All endpoint specifications:
@@ -153,44 +161,44 @@ Backend/
 
 ### Models
 
-| File | Description |
-|------|-------------|
-| `Backend/models/user.py` | User model (id, email, name, google_id, created_at) |
-| `Backend/models/recipe.py` | Recipe model (id, user_id, name, data, timestamps) |
-| `Backend/models/__init__.py` | Model exports |
-| `Backend/extensions.py` | SQLAlchemy and Flask-Migrate setup |
+| File                         | Description                                         |
+| ---------------------------- | --------------------------------------------------- |
+| `Backend/models/user.py`     | User model (id, email, name, google_id, created_at) |
+| `Backend/models/recipe.py`   | Recipe model (id, user_id, name, data, timestamps)  |
+| `Backend/models/__init__.py` | Model exports                                       |
+| `Backend/extensions.py`      | SQLAlchemy and Flask-Migrate setup                  |
 
 ### Repositories
 
-| File | Description |
-|------|-------------|
+| File                                           | Description                          |
+| ---------------------------------------------- | ------------------------------------ |
 | `Backend/repositories/db_recipe_repository.py` | Database CRUD operations for recipes |
-| `Backend/repositories/recipe_repository.py` | File-based operations (legacy) |
+| `Backend/repositories/recipe_repository.py`    | File-based operations (legacy)       |
 
 ### API Blueprints
 
-| File | Description |
-|------|-------------|
-| `Backend/blueprints/recipes_api_bp.py` | RESTful recipe endpoints (`/api/recipes`) |
-| `Backend/blueprints/auth_api_bp.py` | User authentication and persistence |
-| `Backend/blueprints/api_bp.py` | System endpoints (status, health check) |
-| `Backend/blueprints/generation_bp.py` | Recipe generation (needs Phase 3 integration) |
-| `Backend/blueprints/recipes_bp.py` | Legacy file-based routes |
+| File                                   | Description                                   |
+| -------------------------------------- | --------------------------------------------- |
+| `Backend/blueprints/recipes_api_bp.py` | RESTful recipe endpoints (`/api/recipes`)     |
+| `Backend/blueprints/auth_api_bp.py`    | User authentication and persistence           |
+| `Backend/blueprints/api_bp.py`         | System endpoints (status, health check)       |
+| `Backend/blueprints/generation_bp.py`  | Recipe generation (needs Phase 3 integration) |
+| `Backend/blueprints/recipes_bp.py`     | Legacy file-based routes                      |
 
 ### Scripts
 
-| File | Description |
-|------|-------------|
+| File                                       | Description                           |
+| ------------------------------------------ | ------------------------------------- |
 | `Backend/scripts/migrate_recipes_to_db.py` | Import file-based recipes to database |
-| `Backend/init_database.sh` | Automated database setup script |
+| `Backend/init_database.sh`                 | Automated database setup script       |
 
 ### Configuration
 
-| File | Description |
-|------|-------------|
-| `Backend/config.py` | Database URI and app configuration |
-| `Backend/.env.example` | Environment variable template |
-| `Backend/app.py` | Flask app factory, blueprint registration |
+| File                   | Description                               |
+| ---------------------- | ----------------------------------------- |
+| `Backend/config.py`    | Database URI and app configuration        |
+| `Backend/.env.example` | Environment variable template             |
+| `Backend/app.py`       | Flask app factory, blueprint registration |
 
 ---
 
@@ -257,19 +265,19 @@ curl -X POST http://localhost:5000/api/recipes \
 
 ## 📊 Phase 3 Status
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| **Models** | ✅ Complete | User and Recipe models with timestamps |
-| **Database Config** | ✅ Complete | SQLite/PostgreSQL support |
-| **Repository** | ✅ Complete | Full CRUD operations |
-| **API Endpoints** | ✅ Complete | RESTful recipe API |
-| **Auth Integration** | ✅ Complete | User persistence in OAuth |
-| **Migration Script** | ✅ Complete | File → DB import tool |
-| **Documentation** | ✅ Complete | Comprehensive guides |
-| **Database Init** | ⏳ Pending | User must run init script |
-| **Testing** | ⏳ Pending | Manual testing needed |
-| **Frontend** | ⏳ Pending | Angular integration |
-| **Deployment** | ⏳ Pending | PostgreSQL on Cloud Run |
+| Component            | Status      | Notes                                  |
+| -------------------- | ----------- | -------------------------------------- |
+| **Models**           | ✅ Complete | User and Recipe models with timestamps |
+| **Database Config**  | ✅ Complete | SQLite/PostgreSQL support              |
+| **Repository**       | ✅ Complete | Full CRUD operations                   |
+| **API Endpoints**    | ✅ Complete | RESTful recipe API                     |
+| **Auth Integration** | ✅ Complete | User persistence in OAuth              |
+| **Migration Script** | ✅ Complete | File → DB import tool                  |
+| **Documentation**    | ✅ Complete | Comprehensive guides                   |
+| **Database Init**    | ⏳ Pending  | User must run init script              |
+| **Testing**          | ⏳ Pending  | Manual testing needed                  |
+| **Frontend**         | ⏳ Pending  | Angular integration                    |
+| **Deployment**       | ⏳ Pending  | PostgreSQL on Cloud Run                |
 
 **Overall Progress**: ~48% (Backend foundation complete)
 
@@ -278,18 +286,22 @@ curl -X POST http://localhost:5000/api/recipes \
 ## 🎓 Learning Resources
 
 ### SQLAlchemy
+
 - [SQLAlchemy ORM Tutorial](https://docs.sqlalchemy.org/en/14/orm/tutorial.html)
 - [Flask-SQLAlchemy Quickstart](https://flask-sqlalchemy.palletsprojects.com/en/3.0.x/quickstart/)
 
 ### Flask-Migrate
+
 - [Flask-Migrate Documentation](https://flask-migrate.readthedocs.io/)
 - [Alembic Tutorial](https://alembic.sqlalchemy.org/en/latest/tutorial.html)
 
 ### Database Design
+
 - [PostgreSQL Tutorial](https://www.postgresqltutorial.com/)
 - [Database Normalization](https://en.wikipedia.org/wiki/Database_normalization)
 
 ### RESTful APIs
+
 - [REST API Best Practices](https://restfulapi.net/)
 - [HTTP Status Codes](https://httpstatuses.com/)
 
@@ -309,13 +321,14 @@ curl -X POST http://localhost:5000/api/recipes \
    - Migration errors
 
 3. **Verify setup**:
+
    ```bash
    # Check .env file
    cat Backend/.env | grep DATABASE_URL
-   
+
    # Check database file (SQLite)
    ls -lh Backend/tasteslikegood.db
-   
+
    # Test connection
    python -c "from app import create_app; from extensions import db; app = create_app(); app.app_context().push(); db.session.execute('SELECT 1'); print('OK')"
    ```

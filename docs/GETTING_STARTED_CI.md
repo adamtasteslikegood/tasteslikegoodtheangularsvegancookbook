@@ -11,6 +11,7 @@ npm install
 ```
 
 This will install:
+
 - ESLint and Angular ESLint plugins
 - Prettier for code formatting
 - Vitest for testing
@@ -144,6 +145,7 @@ describe('My Feature', () => {
 ### Configure Branch Protection
 
 In GitHub:
+
 1. Go to **Settings** → **Branches**
 2. Add a branch protection rule for `main`
 3. Enable "Require status checks to pass before merging"
@@ -181,9 +183,10 @@ Add to `package.json`:
 ✅ All dependencies installed  
 ✅ Format, lint, test, and build scripts working  
 ✅ GitHub Actions workflow configured  
-✅ Ready to start development with CI/CD  
+✅ Ready to start development with CI/CD
 
 For more information, see:
+
 - [`docs/CI_CD/CI_QUICK_REFERENCE.md`](CI_CD/CI_QUICK_REFERENCE.md) - All commands
 - [`docs/CI_CD/CI_SETUP.md`](CI_CD/CI_SETUP.md) - Detailed setup guide
 - [`docs/CI_CD/CI_SCRIPTS_INVENTORY.md`](CI_CD/CI_SCRIPTS_INVENTORY.md) - Complete inventory

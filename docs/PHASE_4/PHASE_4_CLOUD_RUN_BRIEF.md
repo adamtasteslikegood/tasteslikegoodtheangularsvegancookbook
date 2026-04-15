@@ -11,27 +11,27 @@
 
 ### Cloud Run Services
 
-| Service | Image | Purpose | Status |
-|---------|-------|---------|--------|
+| Service            | Image                                                | Purpose                                         | Status              |
+| ------------------ | ---------------------------------------------------- | ----------------------------------------------- | ------------------- |
 | `express-frontend` | `gcr.io/comdottasteslikegood/express-frontend-image` | Angular SPA + Express API gateway + Flask proxy | Updated in Phase IV |
-| `flask-backend` | `gcr.io/comdottasteslikegood/flask-backend-image` | Auth (Google OAuth), Recipe CRUD, Cookbook CRUD | Updated in Phase IV |
+| `flask-backend`    | `gcr.io/comdottasteslikegood/flask-backend-image`    | Auth (Google OAuth), Recipe CRUD, Cookbook CRUD | Updated in Phase IV |
 
 ### Cloud SQL
 
-| Resource | Value |
-|----------|-------|
-| Instance name | `vegangenius-chef-db` |
-| Engine | PostgreSQL 15 |
-| Region | `us-west2` |
-| Tier | `db-perf-optimized-N-8` (ENTERPRISE_PLUS) |
-| Tables | `user`, `recipe`, `cookbook` (new in Phase IV) |
-| IAM auth | Enabled (`cloudsql.iam_authentication = on`) |
+| Resource      | Value                                          |
+| ------------- | ---------------------------------------------- |
+| Instance name | `vegangenius-chef-db`                          |
+| Engine        | PostgreSQL 15                                  |
+| Region        | `us-west2`                                     |
+| Tier          | `db-perf-optimized-N-8` (ENTERPRISE_PLUS)      |
+| Tables        | `user`, `recipe`, `cookbook` (new in Phase IV) |
+| IAM auth      | Enabled (`cloudsql.iam_authentication = on`)   |
 
 ### Secret Manager
 
-| Secret | Purpose |
-|--------|---------|
-| `vite-gemini-api-key` | Gemini API key (Express service) |
+| Secret                            | Purpose                                           |
+| --------------------------------- | ------------------------------------------------- |
+| `vite-gemini-api-key`             | Gemini API key (Express service)                  |
 | `vegangenius-chef-db-credentials` | PostgreSQL connection credentials (Flask service) |
 
 ---
@@ -88,16 +88,19 @@ and routes all save/delete operations to both the API and localStorage.
 ### 1. Environment Variable Rename (Critical)
 
 The Terraform template currently injects the Flask service URL as:
+
 ```
 flask_backend_SERVICE_ENDPOINT
 ```
 
 The Express server reads:
+
 ```
 FLASK_BACKEND_URL
 ```
 
 **Update needed in `app-template-5-main.tf`** (express-frontend `env_vars` block):
+
 ```hcl
 # Change:
 "flask_backend_SERVICE_ENDPOINT" = module.flask-backend.service_uri
@@ -112,6 +115,7 @@ Flask's OAuth callback redirects to `FRONTEND_URL` after authentication. This mu
 the `express-frontend` Cloud Run service URL (the URL users see in their browser).
 
 **Add to flask-backend `env_vars`:**
+
 ```hcl
 "FRONTEND_URL" = module.express-frontend.service_uri
 ```
@@ -122,6 +126,7 @@ Flask server-side sessions require a stable `SECRET_KEY`. Without it, all sessio
 invalidated on every container restart (Cloud Run scales to zero frequently).
 
 **Add to Secret Manager and reference in flask-backend:**
+
 ```hcl
 # New secret:
 module "flask-secret-key" {
@@ -151,6 +156,7 @@ SESSION_COOKIE_SAMESITE = 'Lax'  # Same-origin proxy pattern works with Lax
 Current Terraform sets `min_instance_count = 0` for both services (scale to zero).
 
 **Recommendation for flask-backend:**
+
 ```hcl
 service_scaling = {
   min_instance_count = 1  # Avoid cold-start during OAuth callback
@@ -180,6 +186,7 @@ Browser → express-frontend Cloud Run (HTTPS, public)
 ```
 
 The Terraform already configures:
+
 - VPC egress `ALL_TRAFFIC` on both services
 - `roles/cloudsql.client` IAM role on flask-backend service account
 - Cloud SQL volume mount at `/cloudsql` in flask-backend container
@@ -242,12 +249,12 @@ The Terraform already configures:
 
 ## Files Reference
 
-| Doc | Location |
-|-----|----------|
-| Architecture Decision Record (proxy vs CORS) | `docs/ADR-001-auth-and-persistence-routing.md` |
-| Three-tier architecture recommendation | `docs/ARCHITECTURE_RECOMMENDATION.md` |
-| Phase IV implementation summary | `docs/PHASE_4/PHASE_4_IMPLEMENTATION_SUMMARY.md` |
-| Phase IV audit report | `docs/PHASE_4/PHASE_4_AUDIT_REPORT.md` |
-| Cloud Run + Terraform diagram | `Google Cloud App Designs/cloud_run_flask_plus_express.md` |
-| Terraform template | `Google Cloud App Designs/app-template-5-main.tf` |
-| Google's guidance (Gemini response) | `Google Cloud App Designs/gemini_ref_aewser.md` |
+| Doc                                          | Location                                                   |
+| -------------------------------------------- | ---------------------------------------------------------- |
+| Architecture Decision Record (proxy vs CORS) | `docs/ADR-001-auth-and-persistence-routing.md`             |
+| Three-tier architecture recommendation       | `docs/ARCHITECTURE_RECOMMENDATION.md`                      |
+| Phase IV implementation summary              | `docs/PHASE_4/PHASE_4_IMPLEMENTATION_SUMMARY.md`           |
+| Phase IV audit report                        | `docs/PHASE_4/PHASE_4_AUDIT_REPORT.md`                     |
+| Cloud Run + Terraform diagram                | `Google Cloud App Designs/cloud_run_flask_plus_express.md` |
+| Terraform template                           | `Google Cloud App Designs/app-template-5-main.tf`          |
+| Google's guidance (Gemini response)          | `Google Cloud App Designs/gemini_ref_aewser.md`            |

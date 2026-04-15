@@ -9,6 +9,7 @@ Before running your new `cloudbuild.yaml` pipeline to deploy the BETA 2.22 Full 
 Replace the `<PLACEHOLDERS>` in the commands below with your actual project details.
 
 ### 1. Scale Down the Cloud SQL Database Tier
+
 Your `db-perf-optimized-N-8` tier is expensive. Scale it down to `db-g1-small` for development/BETA.
 
 ```bash
@@ -18,6 +19,7 @@ gcloud sql instances patch <YOUR_DB_INSTANCE_NAME> \
 ```
 
 ### 2. Create the Database Migration Cloud Run Job
+
 This creates the job that `cloudbuild.yaml` will execute to run your Alembic migrations.
 
 ```bash
@@ -36,6 +38,7 @@ gcloud run jobs create db-migration-job \
 ```
 
 ### 3. Update Flask Backend Secrets and Settings
+
 Ensure your Flask backend has its `SECRET_KEY`, `FRONTEND_URL`, and the critical `--min-instances=1` setting to prevent latency for OAuth.
 
 ```bash
@@ -50,11 +53,14 @@ gcloud run services update flask-backend \
 ```
 
 ### 4. Setting up a Cloud Load Balancer (Ingress)
+
 Since you are migrating to a production setup, your Express.js service should be exposed through a Cloud Load Balancer rather than hitting the Cloud Run URL directly. This gives you:
+
 1. **Custom Domain Support**: e.g. `api.tasteslikegood.org`
 2. **Managed SSL**: Automatic certificate provisioning.
 
 **High-Level Steps (via Console):**
+
 1. Navigate to **Network Services** > **Load balancing**.
 2. Click **Create Load Balancer** and select **Application Load Balancer (HTTP/S)**.
 3. Configure **Frontend**: Use **HTTPS** and attach a Google-managed SSL certificate targeting your custom domain.

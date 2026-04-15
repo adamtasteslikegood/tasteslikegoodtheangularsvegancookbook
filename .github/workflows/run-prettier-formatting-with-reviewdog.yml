@@ -38,4 +38,3 @@ jobs:
           filter_mode: file
           fail_level: none
           # Uses default prettier_flags: '.' — .prettierrc and .prettierignore handle scoping
-
