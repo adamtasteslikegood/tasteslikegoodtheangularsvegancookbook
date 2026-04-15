@@ -31,18 +31,18 @@ Files read before writing any code:
 
 ### ✅ What Existed and Was Ready
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| Flask `/api/recipes` blueprint | ✅ Complete | All 5 CRUD routes + `/stats`. `url_prefix="/api/recipes"` set correctly. |
-| Flask `/api/auth/*` blueprint | ✅ Complete | `login`, `callback`, `me`, `logout`, `check` all implemented. |
-| `db_recipe_repository.py` | ✅ Complete | Full CRUD + migration helper functions. Handles NULL user_id for guests. |
-| `User` SQLAlchemy model | ✅ Complete | `id`, `email`, `name`, `google_id`, `created_at`. |
-| `Recipe` SQLAlchemy model | ✅ Complete | `id`, `user_id`, `name`, `data` (JSON), timestamps. `to_dict()` implemented. |
-| Alembic migration infrastructure | ✅ Complete | Flask-Migrate configured in `extensions.py`. One migration exists: `b8896f552679`. |
-| `flask-sqlalchemy`, `flask-migrate`, `psycopg2-binary` | ✅ In `requirements.txt` | No new pip packages needed. |
-| Express proxy (`server/proxy.ts`) | ✅ Working | `createAuthProxy()` implemented with raw Node.js `http`/`https`. No npm deps needed. |
-| Angular `AuthService` | ✅ Working | localStorage CRUD for recipes and cookbooks. Google OAuth flow via Flask. Signal-based state. |
-| Angular `environment.ts` / `environment.prod.ts` | ✅ Correct | `flaskApiUrl: ''` — relative URLs. No change needed. |
+| Component                                              | Status                   | Notes                                                                                         |
+| ------------------------------------------------------ | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Flask `/api/recipes` blueprint                         | ✅ Complete              | All 5 CRUD routes + `/stats`. `url_prefix="/api/recipes"` set correctly.                      |
+| Flask `/api/auth/*` blueprint                          | ✅ Complete              | `login`, `callback`, `me`, `logout`, `check` all implemented.                                 |
+| `db_recipe_repository.py`                              | ✅ Complete              | Full CRUD + migration helper functions. Handles NULL user_id for guests.                      |
+| `User` SQLAlchemy model                                | ✅ Complete              | `id`, `email`, `name`, `google_id`, `created_at`.                                             |
+| `Recipe` SQLAlchemy model                              | ✅ Complete              | `id`, `user_id`, `name`, `data` (JSON), timestamps. `to_dict()` implemented.                  |
+| Alembic migration infrastructure                       | ✅ Complete              | Flask-Migrate configured in `extensions.py`. One migration exists: `b8896f552679`.            |
+| `flask-sqlalchemy`, `flask-migrate`, `psycopg2-binary` | ✅ In `requirements.txt` | No new pip packages needed.                                                                   |
+| Express proxy (`server/proxy.ts`)                      | ✅ Working               | `createAuthProxy()` implemented with raw Node.js `http`/`https`. No npm deps needed.          |
+| Angular `AuthService`                                  | ✅ Working               | localStorage CRUD for recipes and cookbooks. Google OAuth flow via Flask. Signal-based state. |
+| Angular `environment.ts` / `environment.prod.ts`       | ✅ Correct               | `flaskApiUrl: ''` — relative URLs. No change needed.                                          |
 
 ---
 
@@ -61,11 +61,12 @@ Files read before writing any code:
 **Impact:** No database table to store cookbooks.  
 **What was needed:** A model matching Angular's `Cookbook` interface (`id`, `name`, `description`, `recipeIds`, `coverImage`).  
 **Decision:** Store `recipe_ids` as a JSON array (not a join table). Rationale:
-  - Angular already uses `recipeIds: string[]` — no ORM join needed on the Python side.
-  - Avoids a many-to-many association table and the cascade complexity that comes with it.
-  - Queries are simple: filter by `user_id`, return the array.
-  - PostgreSQL's JSON support handles this efficiently.  
-**Fix:** Created `Backend/models/cookbook.py` and `Backend/migrations/versions/d4f8c2e19a73_add_cookbook_model.py`.
+
+- Angular already uses `recipeIds: string[]` — no ORM join needed on the Python side.
+- Avoids a many-to-many association table and the cascade complexity that comes with it.
+- Queries are simple: filter by `user_id`, return the array.
+- PostgreSQL's JSON support handles this efficiently.  
+  **Fix:** Created `Backend/models/cookbook.py` and `Backend/migrations/versions/d4f8c2e19a73_add_cookbook_model.py`.
 
 ---
 
@@ -103,25 +104,28 @@ Files read before writing any code:
 ## Package/Dependency Assessment
 
 ### Python (Backend)
-| Package | Needed For | Status |
-|---------|-----------|--------|
-| `flask-sqlalchemy` | Cookbook model | ✅ Already in requirements.txt |
-| `flask-migrate` | Alembic migrations | ✅ Already in requirements.txt |
-| `psycopg2-binary` | PostgreSQL driver | ✅ Already in requirements.txt |
-| `flask-cors` | CORS headers | ✅ Already installed (not needed for proxy pattern) |
+
+| Package            | Needed For         | Status                                              |
+| ------------------ | ------------------ | --------------------------------------------------- |
+| `flask-sqlalchemy` | Cookbook model     | ✅ Already in requirements.txt                      |
+| `flask-migrate`    | Alembic migrations | ✅ Already in requirements.txt                      |
+| `psycopg2-binary`  | PostgreSQL driver  | ✅ Already in requirements.txt                      |
+| `flask-cors`       | CORS headers       | ✅ Already installed (not needed for proxy pattern) |
 
 **No new pip packages were added.**
 
 ### Node.js (Express)
-| Package | Needed For | Status |
-|---------|-----------|--------|
+
+| Package          | Needed For      | Status              |
+| ---------------- | --------------- | ------------------- |
 | `http` / `https` | Proxy transport | ✅ Node.js built-in |
 
 **No new npm packages were added.**
 
 ### Angular
-| Package | Needed For | Status |
-|---------|-----------|--------|
+
+| Package                                        | Needed For                            | Status                   |
+| ---------------------------------------------- | ------------------------------------- | ------------------------ |
 | `@angular/core` signals, `effect`, `untracked` | PersistenceService reactive auto-sync | ✅ Already in Angular 21 |
 
 **No new npm packages were added.**
@@ -130,12 +134,12 @@ Files read before writing any code:
 
 ## What Was NOT Changed (Intentionally Preserved)
 
-| Component | Reason Preserved |
-|-----------|-----------------|
-| `server/index.ts` AI endpoints (`/api/recipe`, `/api/image`) | Working — not related to persistence |
-| `server/security.ts` rate limiting, Helmet | Working — applies to all routes |
-| `Backend/blueprints/auth_api_bp.py` | Working — full OAuth flow in place |
-| `Backend/auth.py` (Flask template-based auth) | Legacy — kept for backward compat |
-| `AuthService` localStorage methods | Guests and local cache still use them |
-| `src/environments/environment.ts` | `flaskApiUrl: ''` is correct by design |
-| Angular component (`app.component.ts`) | Out of scope — components call `PersistenceService` when they're ready |
+| Component                                                    | Reason Preserved                                                       |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `server/index.ts` AI endpoints (`/api/recipe`, `/api/image`) | Working — not related to persistence                                   |
+| `server/security.ts` rate limiting, Helmet                   | Working — applies to all routes                                        |
+| `Backend/blueprints/auth_api_bp.py`                          | Working — full OAuth flow in place                                     |
+| `Backend/auth.py` (Flask template-based auth)                | Legacy — kept for backward compat                                      |
+| `AuthService` localStorage methods                           | Guests and local cache still use them                                  |
+| `src/environments/environment.ts`                            | `flaskApiUrl: ''` is correct by design                                 |
+| Angular component (`app.component.ts`)                       | Out of scope — components call `PersistenceService` when they're ready |

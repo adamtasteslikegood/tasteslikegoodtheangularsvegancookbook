@@ -54,6 +54,7 @@ npm run type-check
 ## GitHub Actions Workflow
 
 The CI pipeline (`.github/workflows/ci.yml`) runs on:
+
 - Pushes to `main` or `develop` branches
 - Pull requests targeting `main` or `develop`
 
@@ -67,6 +68,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs on:
 ## Configuration Files
 
 ### ESLint (`.eslintrc.json`)
+
 - Separate configurations for Angular code and Express server code
 - TypeScript-aware linting
 - Angular-specific rules (component/directive selectors)
@@ -74,6 +76,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs on:
 - Prettier integration
 
 ### Prettier (`.prettierrc`)
+
 - Single quotes
 - 2-space indentation
 - 100-character line width
@@ -81,6 +84,7 @@ The CI pipeline (`.github/workflows/ci.yml`) runs on:
 - LF line endings
 
 ### Vitest (`vitest.config.ts`)
+
 - Node environment for server tests
 - Coverage reports (text, JSON, HTML)
 - Tests located in `server/**/*.test.ts` or `server/**/*.spec.ts`
@@ -124,14 +128,17 @@ The CI workflow does **not** require API keys for build, lint, and type-check jo
 ## Troubleshooting
 
 ### ESLint fails with "Parsing error"
+
 - Ensure you've run `npm install` to install all devDependencies
 - Check that `tsconfig.json` and `server/tsconfig.server.json` are valid
 
 ### Prettier conflicts with ESLint
+
 - This shouldn't happen - `eslint-config-prettier` disables conflicting rules
 - Run `npm run format` before `npm run lint`
 
 ### Tests fail in CI but pass locally
+
 - Check Node.js version (CI uses Node 20)
 - Ensure environment variables are set in CI (if needed)
 - Check for platform-specific issues (line endings, paths)
