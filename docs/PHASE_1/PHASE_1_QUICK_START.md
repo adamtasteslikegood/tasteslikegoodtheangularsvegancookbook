@@ -9,6 +9,7 @@ Your Flask app is now ready to serve API requests from your Angular frontend!
 ## The 5 New Endpoints
 
 ### 1. Login Initiation
+
 ```
 GET /api/auth/login
 → Returns: { authorization_url: "...", state: "..." }
@@ -16,6 +17,7 @@ GET /api/auth/login
 ```
 
 ### 2. OAuth Callback
+
 ```
 GET /api/auth/callback?code=...&state=...
 → Called by Google after authentication
@@ -23,6 +25,7 @@ GET /api/auth/callback?code=...&state=...
 ```
 
 ### 3. Get Current User
+
 ```
 GET /api/auth/me
 → Returns: { user_id, email, name, picture, authenticated: true }
@@ -30,6 +33,7 @@ GET /api/auth/me
 ```
 
 ### 4. Check Auth Status
+
 ```
 GET /api/auth/check
 → Returns: { authenticated: true/false, user_id?, email?, ... }
@@ -37,6 +41,7 @@ GET /api/auth/check
 ```
 
 ### 5. Logout
+
 ```
 POST /api/auth/logout
 → Returns: { message: "Logged out", authenticated: false }
@@ -54,14 +59,14 @@ constructor(private http: HttpClient) {}
 
 // Check if logged in
 checkAuth() {
-  this.http.get('http://localhost:5000/api/auth/check', 
+  this.http.get('http://localhost:5000/api/auth/check',
     { withCredentials: true })
     .subscribe(res => console.log(res));
 }
 
 // Start login
 login() {
-  this.http.get<any>('http://localhost:5000/api/auth/login', 
+  this.http.get<any>('http://localhost:5000/api/auth/login',
     { withCredentials: true })
     .subscribe(res => {
       window.location.href = res.authorization_url;
@@ -70,14 +75,14 @@ login() {
 
 // Get user info
 getUser() {
-  this.http.get('http://localhost:5000/api/auth/me', 
+  this.http.get('http://localhost:5000/api/auth/me',
     { withCredentials: true })
     .subscribe(res => console.log(res));
 }
 
 // Logout
 logout() {
-  this.http.post('http://localhost:5000/api/auth/logout', {}, 
+  this.http.post('http://localhost:5000/api/auth/logout', {},
     { withCredentials: true })
     .subscribe(res => console.log(res));
 }
@@ -98,12 +103,14 @@ Backend/
 ## How to Test
 
 ### Terminal 1: Start Flask
+
 ```bash
 cd Backend
 python app.py
 ```
 
 ### Terminal 2: Test with curl
+
 ```bash
 # Check auth (should be false)
 curl -X GET http://localhost:5000/api/auth/check
@@ -114,6 +121,7 @@ curl -X GET http://localhost:5000/api/auth/login \
 ```
 
 ### Terminal 3: Start Angular (existing)
+
 ```bash
 npm start
 # Or ng serve on port 4200
@@ -128,7 +136,7 @@ Express Server (8080)          Flask Server (5000)
 └─ /api/image (Imagen)         └─ /api/users/* (next phase)
 
         ↓ CORS allows ↓
-        
+
      Angular Frontend (4200)
      ├─ Calls Express for AI generation
      └─ Calls Flask for authentication & user data
@@ -137,6 +145,7 @@ Express Server (8080)          Flask Server (5000)
 ## Environment Variables Needed
 
 Make sure `.env` has:
+
 ```
 GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=xxx
@@ -149,11 +158,12 @@ FLASK_SECRET_KEY=some-random-string (or leave blank for dev)
 ✅ CORS headers (Angular can call Flask)  
 ✅ Session cookies (secure user tracking)  
 ✅ JSON responses (API-ready)  
-✅ Error handling (proper HTTP status codes)  
+✅ Error handling (proper HTTP status codes)
 
 ## What's Next (Phase 2)
 
 Phase 2 will add:
+
 - Angular auth service/component
 - Protected routes
 - User profile display

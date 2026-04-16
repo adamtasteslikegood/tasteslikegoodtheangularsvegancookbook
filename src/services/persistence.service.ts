@@ -20,7 +20,7 @@ import { Cookbook } from '../auth.types';
 export class PersistenceService {
   /** Prevents duplicate API loads for the same session. */
   private _apiSynced = false;
-  private auth = inject(AuthService);
+  private readonly auth = inject(AuthService);
 
   constructor() {
     // Auto-load from API when a logged-in user's session is confirmed.

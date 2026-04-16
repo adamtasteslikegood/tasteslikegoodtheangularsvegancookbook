@@ -7,10 +7,12 @@ Fixed **4 errors** and **17 warnings** to make the CI pipeline pass cleanly.
 ## Changes Made
 
 ### 1. TypeScript Configuration (`tsconfig.json`)
+
 - **Issue:** Parser couldn't find `src/environments/environment.prod.ts`
 - **Fix:** Changed from `files: ["./index.tsx"]` to `include: ["./index.tsx", "src/**/*"]`
 
 ### 2. Server Security Module (`server/security.ts`)
+
 - **Issue:** Unused `Options` import and `any` types in middleware
 - **Fixes:**
   - Removed unused `Options` import
@@ -20,10 +22,12 @@ Fixed **4 errors** and **17 warnings** to make the CI pipeline pass cleanly.
   - Added intersection type `Error & { status?: number }` for HTTP errors with status codes
 
 ### 3. Server Types (`server/types.ts`)
+
 - **Issue:** `ApiResponse<T = any>` using `any` as default generic
 - **Fix:** Changed to `ApiResponse<T = unknown>`
 
 ### 4. Auth Service (`src/services/auth.service.ts`)
+
 - **Issues:**
   - `prefer-const` error (variable declared with `let` but never reassigned)
   - `any` types in error handling and function parameters
@@ -36,10 +40,12 @@ Fixed **4 errors** and **17 warnings** to make the CI pipeline pass cleanly.
   - Added `prefer-const` ESLint rule configuration for better detection
 
 ### 5. Persistence Service (`src/services/persistence.service.ts`)
+
 - **Issue:** Constructor injection discouraged by Angular lint rule
 - **Fix:** Replaced `constructor(private auth: AuthService)` with `private auth = inject(AuthService)`
 
 ### 6. App Component (`src/app.component.ts`)
+
 - **Issues:**
   - Unused `Cookbook` import
   - Multiple `any` types in event handlers and error handling
@@ -51,21 +57,25 @@ Fixed **4 errors** and **17 warnings** to make the CI pipeline pass cleanly.
   - `val: any` → `val: unknown` in `isString()` helper
 
 ### 7. Test Configuration (`vitest.config.ts`)
+
 - **Issue:** Duplicate tests running (source + compiled)
 - **Fix:** Added explicit `exclude: ['server/dist/**', ...]` to prevent running compiled test files
 
 ### 8. Package Scripts (`package.json`)
+
 - **Issue:** ESLint 9 using flat config by default, but project uses legacy `.eslintrc.json`
 - **Fix:** Added `ESLINT_USE_FLAT_CONFIG=false` to `lint` and `lint:fix` scripts
 
 ## Before vs After
 
 ### Before:
+
 ```
 ✖ 21 problems (4 errors, 17 warnings)
 ```
 
 ### After (Expected):
+
 ```
 ✓ 0 problems
 ```

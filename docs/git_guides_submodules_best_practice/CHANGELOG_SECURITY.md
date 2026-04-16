@@ -3,6 +3,7 @@
 ## [Unreleased - Security Hardening Release]
 
 ### Added
+
 - **Rate Limiting Middleware** (`server/security.ts`)
   - General API endpoints: 100 requests per 15 minutes
   - Expensive operations (/api/recipe, /api/image): 20 requests per hour
@@ -37,22 +38,26 @@
   - `server/types.ts` - TypeScript types for security features
 
 ### Changed
+
 - Reduced JSON payload size limit from 15MB to 50KB (prevents payload DOS attacks)
 - Refactored server initialization to use modular security middleware
 - Updated error handling in `/api/recipe` and `/api/image` endpoints
 - Enhanced request/response logging capabilities
 
 ### Dependencies Added
+
 - `express-rate-limit@^7.1.5` - Rate limiting middleware
 - `helmet@^7.1.0` - Security headers middleware
 - `express-validator@^7.1.0` - Input validation and sanitization
 - `@types/express-rate-limit@^6.0.0` - TypeScript type definitions
 
 ### Files Modified
+
 - `package.json` - Added new security dependencies and types
 - `server/index.ts` - Integrated security middleware and validation
 
 ### Files Created
+
 - `server/security.ts` - Security middleware configuration
 - `server/validation.ts` - Input validation rules and error handling
 - `server/types.ts` - TypeScript types for security features
@@ -61,6 +66,7 @@
 - `.env.example` - Environment variables template
 
 ### Security Improvements
+
 - ✅ Prevents Denial of Service (DOS) attacks via rate limiting
 - ✅ Protects against common HTTP vulnerabilities via Helmet.js
 - ✅ Prevents injection attacks via input validation
@@ -69,30 +75,36 @@
 - ✅ Improves security monitoring via request logging
 
 ### Recommendations for Further Hardening
+
 (See `SECURITY.md` for detailed instructions)
 
 #### Priority: CRITICAL
+
 - [ ] Implement HTTPS/TLS in production
 - [ ] Add authentication (API Key or JWT)
 - [ ] Use secrets manager for API keys
 - [ ] Set up error/security monitoring
 
 #### Priority: HIGH
+
 - [ ] Configure CORS for specific domains
 - [ ] Add request timeout handling
 - [ ] Implement database-level security
 - [ ] Set up automated dependency updates
 
 #### Priority: MEDIUM
+
 - [ ] Add API monitoring and alerting
 - [ ] Implement request ID tracking
 - [ ] Add detailed security event logging
 - [ ] Set up backup and disaster recovery
 
 ### Breaking Changes
+
 - None - All changes are backwards compatible
 
 ### Migration Guide
+
 1. Run `npm install` to install new dependencies
 2. Run `npm run build` to compile TypeScript
 3. No configuration changes needed for basic functionality
@@ -100,6 +112,7 @@
 5. (Optional) Adjust validation rules in `server/validation.ts`
 
 ### Performance Impact
+
 - Minimal overhead: ~3-5ms per request added by middleware
 - Rate limiting: ~1-2ms
 - Input validation: ~0.5-2ms
@@ -107,6 +120,7 @@
 - Request logging: ~1ms
 
 ### Testing Recommendations
+
 - [ ] Test rate limiting with rapid requests
 - [ ] Test input validation with invalid payloads
 - [ ] Test error handling (check no sensitive info is leaked)
@@ -114,6 +128,7 @@
 - [ ] Performance test to ensure overhead is acceptable
 
 ### Notes
+
 - The Gemini API key should be managed via environment variables
 - Consider implementing API authentication for production
 - Monitor the logs for suspicious activity patterns

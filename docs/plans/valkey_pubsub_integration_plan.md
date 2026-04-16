@@ -18,15 +18,15 @@ The app currently has three architectural gaps:
 
 ## Why Valkey over Redis
 
-| Factor | Valkey | Redis |
-|--------|--------|-------|
-| **License** | BSD-3 (fully open-source, Linux Foundation) | RSALv2 + SSPLv1 (restrictive for cloud providers) |
-| **GCP direction** | GCP's recommended path forward | Frozen at v7.2 on Memorystore |
-| **Pricing** | Shared-core-nano 1.4GB: **~$23/mo** | Basic M1 1GB: **~$35/mo** |
-| **API compatibility** | 100% Redis-compatible (same wire protocol) | The original |
-| **Python `redis` lib** | ✅ Works identically | ✅ Works |
-| **Node.js `ioredis`** | ✅ Works identically | ✅ Works |
-| **Flask-Session** | `SESSION_TYPE = 'redis'` (same config) | `SESSION_TYPE = 'redis'` |
+| Factor                 | Valkey                                      | Redis                                             |
+| ---------------------- | ------------------------------------------- | ------------------------------------------------- |
+| **License**            | BSD-3 (fully open-source, Linux Foundation) | RSALv2 + SSPLv1 (restrictive for cloud providers) |
+| **GCP direction**      | GCP's recommended path forward              | Frozen at v7.2 on Memorystore                     |
+| **Pricing**            | Shared-core-nano 1.4GB: **~$23/mo**         | Basic M1 1GB: **~$35/mo**                         |
+| **API compatibility**  | 100% Redis-compatible (same wire protocol)  | The original                                      |
+| **Python `redis` lib** | ✅ Works identically                        | ✅ Works                                          |
+| **Node.js `ioredis`**  | ✅ Works identically                        | ✅ Works                                          |
+| **Flask-Session**      | `SESSION_TYPE = 'redis'` (same config)      | `SESSION_TYPE = 'redis'`                          |
 
 **Zero code difference** — same Python `redis` library, same `ioredis` for Node.js. The only difference is which Memorystore engine you select in GCP Console.
 
@@ -55,13 +55,13 @@ Browser → Express → Flask
 
 Cloud Run must reach Valkey over a private VPC network. Two options:
 
-| | **Direct VPC Egress** (preferred) | **Serverless VPC Connector** (fallback) |
-|---|---|---|
-| **Base cost** | **$0** (no extra VMs) | **~$14-20/mo** (min 2 always-on VMs) |
-| **Latency** | Lower (direct path) | Higher (extra network hop) |
-| **Scales to zero** | ✅ Yes | ❌ No — VMs run 24/7 |
-| **Management** | None | Must size and monitor VMs |
-| **Memorystore support** | Check at deploy time — may require connector | ✅ Always supported |
+|                         | **Direct VPC Egress** (preferred)            | **Serverless VPC Connector** (fallback) |
+| ----------------------- | -------------------------------------------- | --------------------------------------- |
+| **Base cost**           | **$0** (no extra VMs)                        | **~$14-20/mo** (min 2 always-on VMs)    |
+| **Latency**             | Lower (direct path)                          | Higher (extra network hop)              |
+| **Scales to zero**      | ✅ Yes                                       | ❌ No — VMs run 24/7                    |
+| **Management**          | None                                         | Must size and monitor VMs               |
+| **Memorystore support** | Check at deploy time — may require connector | ✅ Always supported                     |
 
 **Strategy:** Try Direct VPC Egress first. If Memorystore requires a connector, fall back to VPC connector.
 
@@ -85,14 +85,14 @@ gcloud run deploy flask-backend \
 
 ### What changes
 
-| File | Change |
-|------|--------|
-| `Backend/requirements.txt` | Add `redis>=5.0.0` (Python client — works with Valkey) |
-| `Backend/config.py` | Add `REDIS_URL` env var (default `redis://localhost:6379`) |
-| `Backend/app.py` | Change `SESSION_TYPE` from `'sqlalchemy'` to `'redis'`, add `SESSION_REDIS` connection |
-| `Backend/extensions.py` | No change (Flask-Session handles Redis/Valkey internally) |
-| `Backend/Dockerfile` | No change (redis is pure Python) |
-| `cloudbuild.yaml` | Add `REDIS_URL` secret to flask-backend deploy step |
+| File                       | Change                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| `Backend/requirements.txt` | Add `redis>=5.0.0` (Python client — works with Valkey)                                 |
+| `Backend/config.py`        | Add `REDIS_URL` env var (default `redis://localhost:6379`)                             |
+| `Backend/app.py`           | Change `SESSION_TYPE` from `'sqlalchemy'` to `'redis'`, add `SESSION_REDIS` connection |
+| `Backend/extensions.py`    | No change (Flask-Session handles Redis/Valkey internally)                              |
+| `Backend/Dockerfile`       | No change (redis is pure Python)                                                       |
+| `cloudbuild.yaml`          | Add `REDIS_URL` secret to flask-backend deploy step                                    |
 
 ### GCP Infrastructure needed
 
@@ -189,12 +189,12 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 ### What changes
 
-| File | Change |
-|------|--------|
+| File                 | Change                                                    |
+| -------------------- | --------------------------------------------------------- |
 | `server/security.ts` | Use `rate-limit-redis` store instead of in-memory default |
-| `package.json` | Add `rate-limit-redis`, `ioredis` |
-| `server/index.ts` | Initialize Valkey client, pass to rate limiters |
-| `cloudbuild.yaml` | Add `REDIS_URL` secret to `express-frontend` deploy step |
+| `package.json`       | Add `rate-limit-redis`, `ioredis`                         |
+| `server/index.ts`    | Initialize Valkey client, pass to rate limiters           |
+| `cloudbuild.yaml`    | Add `REDIS_URL` secret to `express-frontend` deploy step  |
 
 ### Code changes (Express)
 
@@ -204,9 +204,7 @@ import RedisStore from 'rate-limit-redis';
 import Redis from 'ioredis';
 
 // Connect to Valkey (ioredis works identically with Redis and Valkey)
-const redisClient = process.env.REDIS_URL
-  ? new Redis(process.env.REDIS_URL)
-  : null;
+const redisClient = process.env.REDIS_URL ? new Redis(process.env.REDIS_URL) : null;
 
 export const createApiLimiter = (windowMs = 15 * 60 * 1000, max = 100) => {
   return rateLimit({
@@ -239,21 +237,21 @@ export const createApiLimiter = (windowMs = 15 * 60 * 1000, max = 100) => {
 
 ### What changes
 
-| File | Change |
-|------|--------|
-| `Backend/app.py` or new `Backend/cache.py` | Flask-Caching with Redis backend |
-| `Backend/requirements.txt` | Add `Flask-Caching>=2.0.0` |
-| `Backend/blueprints/generation_api_bp.py` | Cache Gemini responses (optional) |
-| `Backend/blueprints/recipes_api_bp.py` | Cache recipe list / recipe detail responses |
+| File                                       | Change                                      |
+| ------------------------------------------ | ------------------------------------------- |
+| `Backend/app.py` or new `Backend/cache.py` | Flask-Caching with Redis backend            |
+| `Backend/requirements.txt`                 | Add `Flask-Caching>=2.0.0`                  |
+| `Backend/blueprints/generation_api_bp.py`  | Cache Gemini responses (optional)           |
+| `Backend/blueprints/recipes_api_bp.py`     | Cache recipe list / recipe detail responses |
 
 ### Cache candidates
 
-| Endpoint | Cache TTL | Key | Benefit |
-|----------|-----------|-----|---------|
-| `GET /api/recipes` | 60s | `recipes:{user_id}` | Avoid DB query on every page load |
-| `GET /api/recipes/<id>` | 300s | `recipe:{id}` | Hot recipe detail |
-| `GET /api/recipes/<id>/image` | 3600s | `img:{id}` | Avoid base64 decode on every image request |
-| `GET /api/collections` | 60s | `collections:{user_id}` | Cookbook list |
+| Endpoint                      | Cache TTL | Key                     | Benefit                                    |
+| ----------------------------- | --------- | ----------------------- | ------------------------------------------ |
+| `GET /api/recipes`            | 60s       | `recipes:{user_id}`     | Avoid DB query on every page load          |
+| `GET /api/recipes/<id>`       | 300s      | `recipe:{id}`           | Hot recipe detail                          |
+| `GET /api/recipes/<id>/image` | 3600s     | `img:{id}`              | Avoid base64 decode on every image request |
+| `GET /api/collections`        | 60s       | `collections:{user_id}` | Cookbook list                              |
 
 ### Cache invalidation
 
@@ -316,19 +314,19 @@ Frontend polling:
 
 ### What changes
 
-| File | Change |
-|------|--------|
-| `Backend/requirements.txt` | Add `google-cloud-pubsub>=2.0.0` |
-| `Backend/services/pubsub_service.py` | New — publish messages to topics |
-| `Backend/workers/recipe_worker.py` | New — subscribes to `recipe-generation`, calls Gemini |
-| `Backend/workers/image_worker.py` | New — subscribes to `image-generation`, calls Imagen |
-| `Backend/blueprints/generation_api_bp.py` | Rewrite to publish instead of blocking |
-| `Backend/models/recipe.py` | Add `status` field (`pending`, `generating`, `ready`, `error`) |
-| `Backend/migrations/` | New migration for `status` column |
-| `Backend/Dockerfile` | Worker entrypoint (or separate Dockerfile) |
-| `cloudbuild.yaml` | Add worker service deploy step |
-| `src/services/gemini.service.ts` | Update to poll for completion |
-| `src/app.component.ts` | Update UI to show generation progress |
+| File                                      | Change                                                         |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `Backend/requirements.txt`                | Add `google-cloud-pubsub>=2.0.0`                               |
+| `Backend/services/pubsub_service.py`      | New — publish messages to topics                               |
+| `Backend/workers/recipe_worker.py`        | New — subscribes to `recipe-generation`, calls Gemini          |
+| `Backend/workers/image_worker.py`         | New — subscribes to `image-generation`, calls Imagen           |
+| `Backend/blueprints/generation_api_bp.py` | Rewrite to publish instead of blocking                         |
+| `Backend/models/recipe.py`                | Add `status` field (`pending`, `generating`, `ready`, `error`) |
+| `Backend/migrations/`                     | New migration for `status` column                              |
+| `Backend/Dockerfile`                      | Worker entrypoint (or separate Dockerfile)                     |
+| `cloudbuild.yaml`                         | Add worker service deploy step                                 |
+| `src/services/gemini.service.ts`          | Update to poll for completion                                  |
+| `src/app.component.ts`                    | Update UI to show generation progress                          |
 
 ### GCP setup
 
@@ -367,8 +365,11 @@ const { recipe_id, status } = await response.json(); // returns immediately (202
 const poll = setInterval(async () => {
   const res = await fetch(`/api/recipes/${recipe_id}/status`);
   const { status, recipe } = await res.json();
-  if (status === 'ready') { clearInterval(poll); /* update UI */ }
-  else if (status === 'error') { clearInterval(poll); /* show error */ }
+  if (status === 'ready') {
+    clearInterval(poll); /* update UI */
+  } else if (status === 'error') {
+    clearInterval(poll); /* show error */
+  }
 }, 2000);
 ```
 
@@ -391,20 +392,20 @@ Express proxy already supports streaming (`server/proxy.ts` uses raw HTTP stream
 
 ## Infrastructure Cost Estimate
 
-| Service | Tier | Monthly Cost |
-|---------|------|-------------|
-| **Memorystore for Valkey** | Shared-core-nano, 1.4GB | **~$23/mo** |
-| VPC networking (preferred) | Direct VPC Egress | **$0** |
-| VPC networking (fallback) | VPC Connector, f1-micro × 2 | ~$14-20/mo |
-| Pub/Sub (Phase 4) | Per-message | ~$0.50-2/mo |
-| Cloud Run worker (Phase 4) | Scales to zero | ~$5-15/mo |
+| Service                    | Tier                        | Monthly Cost |
+| -------------------------- | --------------------------- | ------------ |
+| **Memorystore for Valkey** | Shared-core-nano, 1.4GB     | **~$23/mo**  |
+| VPC networking (preferred) | Direct VPC Egress           | **$0**       |
+| VPC networking (fallback)  | VPC Connector, f1-micro × 2 | ~$14-20/mo   |
+| Pub/Sub (Phase 4)          | Per-message                 | ~$0.50-2/mo  |
+| Cloud Run worker (Phase 4) | Scales to zero              | ~$5-15/mo    |
 
 ### Total by phase
 
-| Phases | Direct VPC Egress | VPC Connector |
-|--------|------------------|---------------|
-| **1-3** (Valkey only) | **~$23/mo** | ~$37-43/mo |
-| **1-5** (Valkey + Pub/Sub) | **~$29-40/mo** | ~$43-57/mo |
+| Phases                     | Direct VPC Egress | VPC Connector |
+| -------------------------- | ----------------- | ------------- |
+| **1-3** (Valkey only)      | **~$23/mo**       | ~$37-43/mo    |
+| **1-5** (Valkey + Pub/Sub) | **~$29-40/mo**    | ~$43-57/mo    |
 
 ---
 

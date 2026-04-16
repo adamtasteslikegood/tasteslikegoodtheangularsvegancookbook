@@ -18,6 +18,7 @@ Done! ✅
 ## Why This Order?
 
 When you push main repo first:
+
 ```
 ❌ Main repo says: "Backend points to commit ABC123"
 ❌ But commit ABC123 doesn't exist on Backend's remote yet
@@ -27,6 +28,7 @@ When you push main repo first:
 ```
 
 When you push submodule first:
+
 ```
 ✅ Commit ABC123 exists on Backend's remote
 ✅ Main repo references it
@@ -105,7 +107,7 @@ No shortcuts.
 ✅ Copy-paste ready commands  
 ✅ Visual diagrams & explanations  
 ✅ Troubleshooting help  
-✅ Your specific use case covered  
+✅ Your specific use case covered
 
 ---
 
@@ -136,4 +138,4 @@ Now you can push and commit confidently knowing exactly what to do and why it ma
 
 **Main Guide:** GIT_CHEAT_SHEET.md  
 **Visual Explanation:** GIT_WORKFLOW_VISUAL.md  
-**Copy-Paste Commands:** GIT_COMMANDS_COPYPASTE.md  
+**Copy-Paste Commands:** GIT_COMMANDS_COPYPASTE.md

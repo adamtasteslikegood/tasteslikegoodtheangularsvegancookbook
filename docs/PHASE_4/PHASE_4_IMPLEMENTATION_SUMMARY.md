@@ -2,7 +2,7 @@
 
 **Date:** 2026-03-03  
 **Status:** ✅ Complete — build passing, Flask importable  
-**Phase:** IV — Frontend ↔ Backend Persistence Wiring  
+**Phase:** IV — Frontend ↔ Backend Persistence Wiring
 
 ---
 
@@ -18,28 +18,28 @@ to work entirely in `localStorage` (zero behavior change for guests).
 
 ### Express Layer
 
-| File | Type | Change |
-|------|------|--------|
-| `server/proxy.ts` | Modified | Added generic `createFlaskProxy(label)` export. `createAuthProxy` now delegates to it. The proxy pattern is now reusable for any Flask route group. |
+| File              | Type     | Change                                                                                                                                                     |
+| ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `server/proxy.ts` | Modified | Added generic `createFlaskProxy(label)` export. `createAuthProxy` now delegates to it. The proxy pattern is now reusable for any Flask route group.        |
 | `server/index.ts` | Modified | Imported `createFlaskProxy`; mounted `/api/recipes` and `/api/collections` proxy routes (before `express.json()` so request bodies stream through intact). |
 
 ### Flask Layer
 
-| File | Type | Change |
-|------|------|--------|
-| `Backend/blueprints/recipes_api_bp.py` | Modified | Added `"data": recipe.data` to the `GET /api/recipes` list response. Required so Angular can reconstruct full `Recipe` objects from the API on login. |
-| `Backend/models/cookbook.py` | **New** | SQLAlchemy `Cookbook` model. Stores `recipe_ids` as a PostgreSQL JSON array, matching Angular's `Cookbook` interface (`recipeIds: string[]`). |
-| `Backend/models/__init__.py` | Modified | Added `Cookbook` to the `__all__` export so Alembic and blueprints can import it. |
-| `Backend/migrations/versions/d4f8c2e19a73_add_cookbook_model.py` | **New** | Alembic migration that creates the `cookbook` table. Chained after the existing `b8896f552679` User/Recipe migration. |
-| `Backend/blueprints/collections_api_bp.py` | **New** | Full CRUD blueprint for cookbooks: 6 routes (list, create, get, delete, add-recipe, remove-recipe). Modelled on `recipes_api_bp.py`. |
-| `Backend/app.py` | Modified | Imported and registered `collections_api_bp` (`url_prefix="/api/collections"`). |
+| File                                                             | Type     | Change                                                                                                                                                |
+| ---------------------------------------------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Backend/blueprints/recipes_api_bp.py`                           | Modified | Added `"data": recipe.data` to the `GET /api/recipes` list response. Required so Angular can reconstruct full `Recipe` objects from the API on login. |
+| `Backend/models/cookbook.py`                                     | **New**  | SQLAlchemy `Cookbook` model. Stores `recipe_ids` as a PostgreSQL JSON array, matching Angular's `Cookbook` interface (`recipeIds: string[]`).         |
+| `Backend/models/__init__.py`                                     | Modified | Added `Cookbook` to the `__all__` export so Alembic and blueprints can import it.                                                                     |
+| `Backend/migrations/versions/d4f8c2e19a73_add_cookbook_model.py` | **New**  | Alembic migration that creates the `cookbook` table. Chained after the existing `b8896f552679` User/Recipe migration.                                 |
+| `Backend/blueprints/collections_api_bp.py`                       | **New**  | Full CRUD blueprint for cookbooks: 6 routes (list, create, get, delete, add-recipe, remove-recipe). Modelled on `recipes_api_bp.py`.                  |
+| `Backend/app.py`                                                 | Modified | Imported and registered `collections_api_bp` (`url_prefix="/api/collections"`).                                                                       |
 
 ### Angular Layer
 
-| File | Type | Change |
-|------|------|--------|
-| `src/services/auth.service.ts` | Modified | Added two new public methods: `hydrate(recipes, cookbooks)` — merges API-loaded data into the signal + localStorage cache; `deleteRecipe(id)` — removes a recipe from savedRecipes and all cookbook recipeIds. |
-| `src/services/persistence.service.ts` | **New** | Hybrid persistence service. Routes API calls for authenticated users, delegates to `AuthService` localStorage methods for guests. Auto-syncs from Flask on login via Angular `effect()`. |
+| File                                  | Type     | Change                                                                                                                                                                                                         |
+| ------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/services/auth.service.ts`        | Modified | Added two new public methods: `hydrate(recipes, cookbooks)` — merges API-loaded data into the signal + localStorage cache; `deleteRecipe(id)` — removes a recipe from savedRecipes and all cookbook recipeIds. |
+| `src/services/persistence.service.ts` | **New**  | Hybrid persistence service. Routes API calls for authenticated users, delegates to `AuthService` localStorage methods for guests. Auto-syncs from Flask on login via Angular `effect()`.                       |
 
 ---
 
@@ -75,6 +75,7 @@ Full ADR (Architecture Decision Record) for why Express proxy was chosen over di
 ## API Surface After Phase IV
 
 ### Express-native (unchanged)
+
 ```
 GET  /api/health
 POST /api/recipe     → Gemini 2.5 Flash
@@ -82,6 +83,7 @@ POST /api/image      → Imagen 4.0
 ```
 
 ### Flask (proxied through Express)
+
 ```
 # Auth
 GET  /api/auth/check
@@ -111,10 +113,10 @@ DELETE /api/collections/:id/recipes/:recipe_id
 
 ## Persistence Behaviour
 
-| User Type | Save Recipe | Save Cookbook | On Page Refresh |
-|-----------|-------------|---------------|-----------------|
-| Guest | `localStorage` only | `localStorage` only | Data survives until browser clear |
-| Google OAuth | `localStorage` (instant) + Flask API (async) | Flask API | Data loaded from Cloud SQL ✅ |
+| User Type    | Save Recipe                                  | Save Cookbook       | On Page Refresh                   |
+| ------------ | -------------------------------------------- | ------------------- | --------------------------------- |
+| Guest        | `localStorage` only                          | `localStorage` only | Data survives until browser clear |
+| Google OAuth | `localStorage` (instant) + Flask API (async) | Flask API           | Data loaded from Cloud SQL ✅     |
 
 The `PersistenceService` effect fires once per login session — it calls `GET /api/recipes`
 and `GET /api/collections`, then merges the results into Angular's user signal via

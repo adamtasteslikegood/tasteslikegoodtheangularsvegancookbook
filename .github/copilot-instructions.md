@@ -59,6 +59,7 @@ Examples: `[quick-reply: Yes | No]`  `[quick-reply: Keep | Delete all:danger]`
 Three-tier architecture: **Angular 21 SPA → Express reverse-proxy → Flask API → Cloud SQL (PostgreSQL)**.
 
 Users can:
+
 - Generate vegan recipes from a natural-language prompt (Gemini `gemini-3.1-pro-preview`)
 - Have AI-generated food photos created for each recipe (Imagen `imagen-4.0-generate-001`)
 - Save recipes, organize them into named cookbooks, and scale ingredient portions
@@ -127,20 +128,20 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 
 ## Tech Stack
 
-| Layer | Technology | Version |
-|---|---|---|
-| Frontend framework | Angular (standalone components, signals API) | 21 |
-| Styling | Tailwind CSS | 3 |
-| Frontend build | Angular CLI (`@angular/build`) backed by Vite | 21 |
-| Reverse proxy | Node.js + Express | 20 / 4.x |
-| Backend API | Python + Flask | 3.x |
-| Database | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate | — |
-| AI — text | Google Gemini `gemini-2.5-flash` via `@google/genai` | — |
-| AI — images | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | — |
-| Auth | Google OAuth (Flask sessions) + localStorage guests | — |
-| Deployment | Google Cloud Run (2 services) + Cloud Build | — |
-| Linting | ESLint (flat config) + Prettier | 9 / 3 |
-| Testing | Vitest (server tests) | 4 |
+| Layer              | Technology                                                  | Version  |
+| ------------------ | ----------------------------------------------------------- | -------- |
+| Frontend framework | Angular (standalone components, signals API)                | 21       |
+| Styling            | Tailwind CSS                                                | 3        |
+| Frontend build     | Angular CLI (`@angular/build`) backed by Vite               | 21       |
+| Reverse proxy      | Node.js + Express                                           | 20 / 4.x |
+| Backend API        | Python + Flask                                              | 3.x      |
+| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate       | —        |
+| AI — text          | Google Gemini `gemini-2.5-flash` via `@google/genai`        | —        |
+| AI — images        | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | —        |
+| Auth               | Google OAuth (Flask sessions) + localStorage guests         | —        |
+| Deployment         | Google Cloud Run (2 services) + Cloud Build                 | —        |
+| Linting            | ESLint (flat config) + Prettier                             | 9 / 3    |
+| Testing            | Vitest (server tests)                                       | 4        |
 
 ---
 
@@ -151,6 +152,7 @@ Browser → Express (:8080) → Flask (:5000) → Cloud SQL
 ```
 
 All browser requests go to Express. Express proxies every `/api/*` request to Flask via `server/proxy.ts` (raw HTTP stream, no body parsing). This means:
+
 - **One origin** — no CORS issues, session cookies work automatically.
 - Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-Host`.
 - Angular uses only relative paths (`/api/...`) — no Flask URL in the bundle.
@@ -190,6 +192,7 @@ npm run test:ci        # With coverage
 ### Build troubleshooting
 
 If the build fails after dependency changes:
+
 ```bash
 rm -rf dist node_modules
 npm install
@@ -207,17 +210,18 @@ export $(grep -v '^#' .env.local | xargs)
 npm start
 ```
 
-| Variable | Required | Used by | Description |
-|---|---|---|---|
-| `GEMINI_API_KEY` | ✅ | Express (Secret Manager in prod) | Gemini API key |
-| `FLASK_BACKEND_URL` | No | Express | Flask URL (default `http://localhost:5000`) |
-| `PORT` | No | Express | Server port (default `8080`) |
-| `NODE_ENV` | No | Express | `development` or `production` |
-| `GOOGLE_API_KEY` | ✅ | Flask (Secret Manager in prod) | Gemini key for Flask |
-| `FLASK_SECRET_KEY` | ✅ (prod) | Flask | Session signing key |
-| `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask | PostgreSQL connection string |
+| Variable                  | Required  | Used by                          | Description                                 |
+| ------------------------- | --------- | -------------------------------- | ------------------------------------------- |
+| `GEMINI_API_KEY`          | ✅        | Express (Secret Manager in prod) | Gemini API key                              |
+| `FLASK_BACKEND_URL`       | No        | Express                          | Flask URL (default `http://localhost:5000`) |
+| `PORT`                    | No        | Express                          | Server port (default `8080`)                |
+| `NODE_ENV`                | No        | Express                          | `development` or `production`               |
+| `GOOGLE_API_KEY`          | ✅        | Flask (Secret Manager in prod)   | Gemini key for Flask                        |
+| `FLASK_SECRET_KEY`        | ✅ (prod) | Flask                            | Session signing key                         |
+| `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask                            | PostgreSQL connection string                |
 
 **Rules:**
+
 - API keys are **server-side only** — never exposed to the browser bundle.
 - The `VITE_` prefix is a naming convention carried over from the project's origin — not used for secrets.
 - Never hardcode API keys in source files or commit them.
@@ -228,6 +232,7 @@ npm start
 ## Architecture Notes
 
 ### Frontend (Angular 21)
+
 - **Single standalone component** (`app.component.ts`) — all UI state + logic.
 - **Signals API** (`signal()`, `computed()`) for all reactive state — no RxJS observables.
 - **Three services:**
@@ -237,6 +242,7 @@ npm start
 - The dev server runs on **port 3000** and proxies `/api` to Flask on `:5000` via `proxy.conf.json`.
 
 ### Express Server (Reverse Proxy)
+
 - `server/index.ts` is the single entry point. It handles:
   - `GET /api/health` — local health check
   - `ALL /api/*` — proxied to Flask via `server/proxy.ts` (raw HTTP stream, mounted BEFORE `express.json()`)
@@ -247,6 +253,7 @@ npm start
 - **No AI logic** — Express is a pure reverse proxy + static host.
 
 ### Flask Backend (API + AI + Auth + DB)
+
 - Google OAuth via Flask sessions (server-side, not JWT).
 - Gemini recipe generation and Imagen image generation.
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
@@ -254,12 +261,14 @@ npm start
 - `ProxyFix` middleware trusts `X-Forwarded-*` headers from Express.
 
 ### Data Persistence
+
 - **Cloud SQL (PostgreSQL)** — primary store for recipes, collections, user data.
 - **localStorage** — client-side cache (`vegan_genius_session`) for offline/guest access.
 - `PersistenceService` writes to `localStorage` first (instant UI), then syncs to Flask API.
 - On Google OAuth login, guest data from `localStorage` is merged into the authenticated session.
 
 ### Deployment (Cloud Run)
+
 - **Two Cloud Run services** in `us-central1`, project `comdottasteslikegood`:
   - `express-frontend` — serves SPA + proxies to Flask
   - `flask-backend` — API, AI, auth, database
@@ -273,6 +282,7 @@ npm start
 ## Key Conventions
 
 ### Code Style
+
 - **Signals, not RxJS** — new reactive state uses `signal()` / `computed()`.
 - **Standalone components** — no NgModule; declare imports in the component's `imports` array.
 - **Angular prefix** — components: `app-*` (kebab-case), directives: `app*` (camelCase).
@@ -280,6 +290,7 @@ npm start
 - **TypeScript strict** — server uses `strict: true`; frontend uses Angular defaults.
 
 ### Workflow
+
 - **Minimal changes** — prefer surgical edits; avoid large refactors.
 - **Keep dev and prod aligned** — changes must work in both `npm run dev` and `npm start`.
 - **No new server-side runtime dependencies** unless explicitly requested.
@@ -287,28 +298,30 @@ npm start
 - **No hardcoded secrets** — use environment variables; API keys stay server-side.
 
 ### File Naming
+
 - Angular: `*.component.ts`, `*.service.ts`, `*.types.ts`
 - Server: `*.ts` (compiled to `server/dist/`)
 - Flask: snake_case Python files, blueprint pattern
-- Docs: UPPERCASE_SNAKE.md for guides, ADR-NNN-*.md for decisions
+- Docs: UPPERCASE_SNAKE.md for guides, ADR-NNN-\*.md for decisions
 
 ---
 
 ## Available Utility Scripts
 
 | Script              | Location   | Description                                                                                                                                                       |
-|---------------------|------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| ------------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `list_revisions.sh` | `scripts/` | List recent Cloud Run revisions. Flags: `-n` (count), `-s`/`-S` (services), `-p` (project), `-r` (region), `-h` (help).                                           |
 | `git-workflow.sh`   | `scripts/` | A comprehensive git workflow automation script for managing commits and pushes across both the Backend submodule and main repository. **See `scripts/README.md`** |
+
 ---
 
 ## Common Errors & Workarounds
 
-| Error | Cause | Fix |
-|---|---|---|
-| `Missing API key` on first AI request | `GEMINI_API_KEY` / `GOOGLE_API_KEY` not set | Export env vars: `export $(grep -v '^#' .env.local \| xargs)` |
-| Angular build fails with type errors | Server TS included in frontend compilation | Server has own `server/tsconfig.server.json`; check `include` arrays |
-| `dist/` not found on `npm start` | Server started before build | Run `npm run build` first |
-| `/api/*` 502 in dev | Flask backend not running | Start Flask on `:5000` (`cd Backend && python app.py`) |
-| `Backend service unavailable` in prod | Express can't reach Flask Cloud Run | Check `FLASK_BACKEND_URL` env var on `express-frontend` service |
-| Build artefacts committed | `dist/` not in `.gitignore` | Already gitignored — do not commit `dist/` |
+| Error                                 | Cause                                       | Fix                                                                  |
+| ------------------------------------- | ------------------------------------------- | -------------------------------------------------------------------- |
+| `Missing API key` on first AI request | `GEMINI_API_KEY` / `GOOGLE_API_KEY` not set | Export env vars: `export $(grep -v '^#' .env.local \| xargs)`        |
+| Angular build fails with type errors  | Server TS included in frontend compilation  | Server has own `server/tsconfig.server.json`; check `include` arrays |
+| `dist/` not found on `npm start`      | Server started before build                 | Run `npm run build` first                                            |
+| `/api/*` 502 in dev                   | Flask backend not running                   | Start Flask on `:5000` (`cd Backend && python app.py`)               |
+| `Backend service unavailable` in prod | Express can't reach Flask Cloud Run         | Check `FLASK_BACKEND_URL` env var on `express-frontend` service      |
+| Build artefacts committed             | `dist/` not in `.gitignore`                 | Already gitignored — do not commit `dist/`                           |

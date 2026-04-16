@@ -9,6 +9,7 @@ Phase 3 adds persistent database storage to replace the file-based recipe system
 ## ✅ What's Been Completed
 
 ### 1. Database Models Created
+
 - **Location**: `Backend/models/`
 - **Files**:
   - `user.py` - User model with Google OAuth fields
@@ -16,6 +17,7 @@ Phase 3 adds persistent database storage to replace the file-based recipe system
   - `__init__.py` - Model exports
 
 ### 2. Database Configuration
+
 - **SQLAlchemy** and **Flask-Migrate** installed (`requirements.txt`)
 - **Database URI** configured in `config.py`:
   - Falls back to SQLite: `sqlite:///tasteslikegood.db`
@@ -23,11 +25,13 @@ Phase 3 adds persistent database storage to replace the file-based recipe system
   - Automatic Heroku/GCP URL format conversion (`postgres://` → `postgresql://`)
 
 ### 3. Extensions Setup
+
 - **File**: `Backend/extensions.py`
 - SQLAlchemy (`db`) and Flask-Migrate (`migrate`) initialized
 - Imported and configured in `app.py`
 
 ### 4. Dependencies Installed
+
 ```txt
 flask-sqlalchemy==3.1.1
 psycopg2-binary==2.9.9
@@ -39,9 +43,11 @@ flask-migrate==4.0.5
 ## ❌ What's Still Missing
 
 ### 1. Database Migrations Not Initialized
+
 **Problem**: No `migrations/` directory exists. Flask-Migrate is configured but migrations haven't been created.
 
 **What's needed**:
+
 ```bash
 cd Backend
 flask db init
@@ -50,17 +56,21 @@ flask db upgrade
 ```
 
 ### 2. No Database CRUD Operations
+
 **Problem**: Models exist, but no code uses them. All recipe operations still use file-based storage (`repositories/recipe_repository.py`).
 
 **What's needed**:
+
 - Create database repository methods (`repositories/db_recipe_repository.py`)
 - Update blueprints to use database instead of files
 - Add user creation/lookup in authentication flow
 
 ### 3. Authentication Doesn't Create Users
+
 **Problem**: OAuth flow stores user info in session but doesn't persist to database.
 
 **What's needed** in `blueprints/auth_api_bp.py`:
+
 ```python
 # After getting user_info from Google
 from models import User
@@ -80,9 +90,11 @@ session['user_id'] = user.id  # Store database ID
 ```
 
 ### 4. Recipe Endpoints Still Use Files
+
 **Problem**: All recipe operations in blueprints use `recipe_repository.py` (file-based).
 
 **What's needed**:
+
 - `/api/recipes` (GET) - List user's recipes from database
 - `/api/recipes` (POST) - Save new recipe to database
 - `/api/recipes/:id` (GET) - Get recipe from database
@@ -90,17 +102,21 @@ session['user_id'] = user.id  # Store database ID
 - `/api/recipes/:id` (DELETE) - Delete recipe from database
 
 ### 5. No Migration Strategy for Existing Data
+
 **Problem**: Recipes stored as JSON files in `recipes/` directory need migration path.
 
 **What's needed**:
+
 - Script to import existing recipes into database
 - Associate anonymous recipes with special "guest" user or null user_id
 - Keep file-based storage as backup during transition
 
 ### 6. Frontend Doesn't Know About Database
+
 **Problem**: Angular app (`src/`) stores recipes in localStorage, doesn't call backend recipe APIs.
 
 **What's needed**:
+
 - Create Angular service: `RecipeService` to call `/api/recipes` endpoints
 - Update `app.component.ts` to persist recipes server-side
 - Sync localStorage recipes on first login (merge guest data)
@@ -112,6 +128,7 @@ session['user_id'] = user.id  # Store database ID
 ### Phase 3A: Initialize Database (Backend Only)
 
 - [ ] **Step 1**: Add `DATABASE_URL` to `.env`
+
   ```bash
   # Backend/.env
   DATABASE_URL=postgresql://user:password@localhost:5432/tasteslikegood
@@ -120,6 +137,7 @@ session['user_id'] = user.id  # Store database ID
   ```
 
 - [ ] **Step 2**: Initialize Flask-Migrate
+
   ```bash
   cd Backend
   export FLASK_APP=app.py
@@ -153,6 +171,7 @@ session['user_id'] = user.id  # Store database ID
   - Store database `user.id` in session
 
 - [ ] **Step 6**: Add user info endpoint
+
   ```python
   # Backend/blueprints/auth_api_bp.py
   @auth_api_bp.route('/me', methods=['GET'])
@@ -160,7 +179,7 @@ session['user_id'] = user.id  # Store database ID
       user_id = session.get('user_id')
       if not user_id:
           return jsonify({'authenticated': False}), 401
-      
+
       user = User.query.get(user_id)
       return jsonify({
           'authenticated': True,
@@ -244,6 +263,7 @@ session['user_id'] = user.id  # Store database ID
 ## 🗄️ Database Schema
 
 ### User Table
+
 ```sql
 CREATE TABLE user (
     id INTEGER PRIMARY KEY AUTOINCREMENT,  -- or SERIAL in PostgreSQL
@@ -255,6 +275,7 @@ CREATE TABLE user (
 ```
 
 ### Recipe Table
+
 ```sql
 CREATE TABLE recipe (
     id VARCHAR(36) PRIMARY KEY,           -- UUID
@@ -271,6 +292,7 @@ CREATE TABLE recipe (
 ## 🔗 API Endpoints to Implement
 
 ### Authentication (Already Exists)
+
 ```
 GET  /api/auth/login     → Initiate OAuth
 GET  /api/auth/callback  → OAuth callback
@@ -279,6 +301,7 @@ POST /api/auth/logout    → Clear session
 ```
 
 ### Recipes (NEW - Phase 3C)
+
 ```
 GET    /api/recipes              → List user's recipes
 POST   /api/recipes              → Create new recipe
@@ -321,6 +344,7 @@ curl http://localhost:5000/api/health
 ## 📚 Files to Create/Modify
 
 ### Files to CREATE:
+
 - `Backend/migrations/` (directory - via `flask db init`)
 - `Backend/repositories/db_recipe_repository.py`
 - `Backend/blueprints/recipes_api_bp.py`
@@ -329,6 +353,7 @@ curl http://localhost:5000/api/health
 - `docs/PHASE_3/` (directory for completion docs)
 
 ### Files to MODIFY:
+
 - `Backend/blueprints/auth_api_bp.py` (add user persistence)
 - `Backend/blueprints/api_bp.py` (add health check)
 - `Backend/blueprints/generation_bp.py` (save to database)
@@ -342,6 +367,7 @@ curl http://localhost:5000/api/health
 ## 🎯 Success Criteria
 
 Phase 3 is complete when:
+
 1. ✅ Database migrations run successfully
 2. ✅ Users are created/retrieved during OAuth
 3. ✅ Recipes can be saved to and retrieved from database
@@ -355,12 +381,14 @@ Phase 3 is complete when:
 ## 🔧 Troubleshooting
 
 ### "No module named 'flask_sqlalchemy'"
+
 ```bash
 cd Backend
 pip install flask-sqlalchemy flask-migrate psycopg2-binary
 ```
 
 ### "flask: command not found"
+
 ```bash
 export FLASK_APP=app.py
 # OR
@@ -368,6 +396,7 @@ python -m flask db init
 ```
 
 ### "Can't locate revision identified by 'xxxxx'"
+
 ```bash
 # Reset migrations
 rm -rf migrations/
@@ -377,6 +406,7 @@ flask db upgrade
 ```
 
 ### Database connection errors
+
 - **SQLite**: Make sure `Backend/` is writable
 - **PostgreSQL**: Verify connection string and database exists
 - Check `DATABASE_URL` format matches SQLAlchemy requirements

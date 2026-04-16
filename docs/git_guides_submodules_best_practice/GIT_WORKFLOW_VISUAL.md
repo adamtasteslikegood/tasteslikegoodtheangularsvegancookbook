@@ -313,14 +313,14 @@ Local Machine:
 
 ## Summary Table
 
-| Aspect | Correct Order | Wrong Order |
-|--------|---------------|------------|
-| **Submodule push timing** | First | Second |
-| **Main repo push timing** | Second | First |
-| **Reference exists?** | Yes ✅ | No ❌ |
-| **Works for others?** | Yes ✅ | No ❌ |
-| **Build fails for clone?** | No ✅ | Yes ❌ |
-| **CI/CD breaks?** | No ✅ | Yes ❌ |
+| Aspect                     | Correct Order | Wrong Order |
+| -------------------------- | ------------- | ----------- |
+| **Submodule push timing**  | First         | Second      |
+| **Main repo push timing**  | Second        | First       |
+| **Reference exists?**      | Yes ✅        | No ❌       |
+| **Works for others?**      | Yes ✅        | No ❌       |
+| **Build fails for clone?** | No ✅         | Yes ❌      |
+| **CI/CD breaks?**          | No ✅         | Yes ❌      |
 
 ---
 

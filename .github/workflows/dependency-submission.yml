@@ -1,0 +1,35 @@
+name: Dependency Submission
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  dependency-submission:
+    name: Submit Dependency Snapshot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Submit dependency snapshot
+        uses: github/dependency-submission-action@v1
+        with:
+          # Adjust if your package-lock.json is not at repo root
+          dependency-file: package-lock.json

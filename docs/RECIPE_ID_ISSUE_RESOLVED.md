@@ -3,6 +3,7 @@
 ## Issue Description
 
 You reported that each recipe in the database had **two different IDs**:
+
 - **Outer ID**: A new UUID generated for every database record (`"ca55f18a-b0cd-4c92-8059-ca603aac53f1"`)
 - **Inner ID**: The original ID embedded in the recipe data (`"test-r-222"`)
 
@@ -19,10 +20,12 @@ You reported that each recipe in the database had **two different IDs**:
 ## Root Cause
 
 The Flask backend's recipe storage model has two ID fields:
+
 1. `Recipe.id` - Database primary key (string UUID)
 2. `Recipe.data` - JSON blob containing the full recipe (which includes its own `id` field)
 
 The bug was in `Backend/repositories/db_recipe_repository.py`:
+
 - `create_recipe()` **always generated a new UUID**, even when the incoming recipe already had an ID
 - It didn't synchronize the database ID with the data's ID
 
@@ -31,23 +34,27 @@ The bug was in `Backend/repositories/db_recipe_repository.py`:
 ### 1. Backend Repository Fix (`db_recipe_repository.py`)
 
 #### `create_recipe()`
+
 - Now **preserves existing IDs** from `recipe_data` if present
 - Falls back to generating a UUID only when no ID exists
 - Ensures `recipe_data['id']` matches the database `Recipe.id`
 
 #### `update_recipe()`
+
 - Ensures the data JSON field always contains the same ID as the database record
 - Prevents ID drift during updates
 
 ### 2. Frontend Persistence Service (`persistence.service.ts`)
 
 Simplified the `loadFromApi()` method since IDs are now consistent:
+
 - Before: Had to override `data.id` with the database `id`
 - After: Can use `data` directly since IDs match
 
 ### 3. Migration Script
 
 Created `Backend/scripts/fix_recipe_ids.py` to fix existing data:
+
 - Scans all recipes in the database
 - Updates any records where `data.id ≠ Recipe.id`
 - Makes them consistent using the database ID
@@ -55,6 +62,7 @@ Created `Backend/scripts/fix_recipe_ids.py` to fix existing data:
 ### 4. Test Script
 
 Created `Backend/scripts/test_recipe_id_fix.py` to verify:
+
 - ✓ Recipes with existing IDs preserve them
 - ✓ Recipes without IDs get a generated UUID
 - ✓ Updates maintain ID consistency
@@ -71,9 +79,11 @@ Created `Backend/scripts/test_recipe_id_fix.py` to verify:
 ## How to Apply the Fix
 
 ### For New Deployments
+
 The fix is already in the code - just deploy as normal.
 
 ### For Existing Databases
+
 Run the migration script to fix existing recipes:
 
 ```bash
@@ -82,6 +92,7 @@ python scripts/fix_recipe_ids.py
 ```
 
 ### Verify the Fix
+
 Run the test suite:
 
 ```bash
@@ -114,6 +125,7 @@ After the fix, all recipes have **one consistent ID** used everywhere:
 ## Documentation
 
 Full details available in:
+
 - `docs/RECIPE_ID_FIX.md` - Comprehensive explanation with before/after examples
 - `docs/DOCUMENTATION_INDEX.md` - Quick reference navigation
 

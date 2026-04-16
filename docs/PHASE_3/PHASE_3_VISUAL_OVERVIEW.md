@@ -362,7 +362,7 @@ Express Backend (localhost:8080)
 
 ```
 ✅  Complete / Working
-⏳  Pending / In Progress  
+⏳  Pending / In Progress
 ❌  Not Started
 🔴  Blocked / Issue
 ✨  New Feature

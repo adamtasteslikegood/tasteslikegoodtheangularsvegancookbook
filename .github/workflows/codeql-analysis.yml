@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
   schedule:
     # Run weekly on Monday at 06:00 UTC to catch new CVEs
-    - cron: "0 6 * * 1"
+    - cron: '0 6 * * 1'
 
 permissions:
   actions: read
@@ -44,4 +44,4 @@ jobs:
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4
         with:
-          category: "/language:${{ matrix.language }}"
+          category: '/language:${{ matrix.language }}'
