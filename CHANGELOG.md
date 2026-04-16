@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ### Fixed
 
 - Catch `shutdownValkey()` failures inside `createValkeyClient()` so a broken `quit()` cannot prevent reinitialization or fallback to in-memory rate limiting ([TAS-48](https://linear.app/tasteslikegood/issue/TAS-48/catch-quit-failures-before-reinitializing-valkey-client))
+- Decouple `services.image_service.generate_ai_image` from Flask's request context so pytest unit tests no longer raise `RuntimeError: Working outside of request context.` Session access is guarded by `has_request_context()` and user metadata falls back to anonymous defaults when invoked outside a request (unit tests, CLI jobs) ([TAS-8](https://linear.app/tasteslikegood/issue/TAS-8/pytest-failing-for-pr67))
 
 ### Changed
 
