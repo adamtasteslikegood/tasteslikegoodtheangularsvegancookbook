@@ -2,7 +2,7 @@ name: Qodana Configuration Upload
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
     steps:
       - name: Checkout repository
         if: ${{ env.QODANA_CONFIGURATIONS_TOKEN != '' }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Explain skipped upload
         if: ${{ env.QODANA_CONFIGURATIONS_TOKEN == '' }}

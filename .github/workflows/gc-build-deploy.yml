@@ -32,7 +32,7 @@ jobs:
         id: detect
         env:
           AUTHORIZED_DEPLOYERS: ${{ vars.AUTHORIZED_DEPLOYERS }}
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const owner = (context.payload.repository?.owner?.login || context.repo.owner).toLowerCase();
@@ -109,7 +109,7 @@ jobs:
     steps:
       - name: Create versioned backup release from previous default-branch commit
         id: backup
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         with:
           script: |
             const triggerMode = '${{ needs.detect-trigger.outputs.trigger_mode }}';
@@ -167,8 +167,8 @@ jobs:
       build_status: ${{ steps.run.outputs.build_status }}
       notes: ${{ steps.run.outputs.notes }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
@@ -235,7 +235,7 @@ jobs:
       build_status: ${{ steps.audit.outputs.build_status }}
       notes: ${{ steps.audit.outputs.notes }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Audit backend submodule availability
@@ -276,7 +276,7 @@ jobs:
       GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
       GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Validate deployment prerequisites
         id: prep
         continue-on-error: true
@@ -342,7 +342,7 @@ jobs:
       CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE || 'vegangenius-chef' }}
       CLOUD_BUILD_COMMAND: ${{ needs.pre-deploy-gate.outputs.cloud_build_command }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - uses: google-github-actions/auth@v3
@@ -389,7 +389,7 @@ jobs:
     if: always() && needs.detect-trigger.outputs.should_run == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Render report from template
         env:
           TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
@@ -456,7 +456,7 @@ jobs:
             raise SystemExit(1) from exc
           PY
           cat gc-build-deploy-status-report.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: gc-build-deploy-status-report
           path: gc-build-deploy-status-report.md
@@ -473,7 +473,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Update associated PR labels and comment
-        uses: actions/github-script@v9
+        uses: actions/github-script@v7
         env:
           TRIGGER_MODE: ${{ needs.detect-trigger.outputs.trigger_mode }}
           FRONTEND_RESULT: ${{ needs.frontend-ci.result }}
