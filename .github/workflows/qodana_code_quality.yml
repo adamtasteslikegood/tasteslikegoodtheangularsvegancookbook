@@ -22,7 +22,7 @@ jobs:
         if: ${{ env.QODANA_TOKEN == '' }}
         run: echo "::notice::QODANA_TOKEN is not available (expected for dependabot or fork PRs). Skipping Qodana scan."
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         if: ${{ env.QODANA_TOKEN != '' }}
         with:
           ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
