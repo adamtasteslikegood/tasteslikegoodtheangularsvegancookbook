@@ -18,12 +18,19 @@ options:
   logging: CLOUD_LOGGING_ONLY
 
 steps:
+  # ── Submodule init ──────────────────────────────────────────────────────────
+  # Cloud Build does not initialize git submodules automatically.
+
+  - name: gcr.io/cloud-builders/git
+    id: 'Init Submodules'
+    args: ['submodule', 'update', '--init', '--recursive']
+
   # ── Build ────────────────────────────────────────────────────────────────────
 
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Express Frontend'
-    waitFor: ['-']
+    waitFor: ['Init Submodules']
     args:
       - build
       - -t
@@ -33,7 +40,7 @@ steps:
   # 2. Build the Flask backend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Flask Backend'
-    waitFor: ['-']
+    waitFor: ['Init Submodules']
     dir: 'Backend'
     args:
       - build
