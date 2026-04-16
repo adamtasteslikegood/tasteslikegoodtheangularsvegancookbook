@@ -49,7 +49,10 @@ jobs:
                   repo:  context.repo.repo,
                   name:  def.name,
                 });
-              } catch {
+              } catch (err) {
+                // Only create the label when it is genuinely missing (404).
+                // Re-throw anything else (5xx, auth errors) so failures are visible.
+                if (err.status !== 404) throw err;
                 await github.rest.issues.createLabel({
                   owner:       context.repo.owner,
                   repo:        context.repo.repo,
@@ -116,6 +119,8 @@ jobs:
       - name: Create issue
         if: steps.sev.outputs.create == 'true' && steps.dedup.outputs.exists == 'false'
         uses: actions/github-script@v7
+        env:
+          ALERT_LEVEL: ${{ steps.sev.outputs.level }}
         with:
           script: |
             // ── Helpers ────────────────────────────────────────────────────────
@@ -165,7 +170,7 @@ jobs:
 
             // ── Main ───────────────────────────────────────────────────────────
             const alert = context.payload.alert;
-            const level = '${{ steps.sev.outputs.level }}';
+            const level = process.env.ALERT_LEVEL;
             const emoji = severityEmoji(level);
             const ref   = context.payload.ref || 'unknown';
 
@@ -211,7 +216,7 @@ jobs:
               return base;
             }
 
-            function issueBody({ alert, level, fileLine }) {
+            function issueBody({ alert, level, fileLine, ref }) {
               const emoji = severityEmoji(level);
               return [
                 `## ${emoji} Code-Scanning Security Alert`,
@@ -223,6 +228,7 @@ jobs:
                 `| **Rule name** | ${alert.rule.name} |`,
                 `| **Severity** | \`${level}\` |`,
                 `| **Location** | ${fileLine} |`,
+                `| **Branch** | \`${ref}\` |`,
                 '',
                 '### Description',
                 alert.rule.description || '_No description provided._',
@@ -239,6 +245,7 @@ jobs:
 
             // ── Main ───────────────────────────────────────────────────────────
             const dryRun = process.env.DRY_RUN === 'true';
+            // 10 pages × 100 issues/page = 1,000 issues searched, sufficient for this repo.
             const MAX_DEDUP_PAGES = 10;
 
             // Collect alert numbers that already have an issue (bounded pagination).
@@ -261,76 +268,80 @@ jobs:
             }
             console.log(`Existing code-scanning issue(s): ${existing.size}`);
 
-            // Fetch open alerts for each target severity level.
-            // 'error' catches CodeQL rules whose rule.severity = error but have
-            // no CVSS score (security_severity_level would be null/empty).
-            const targetSeverities = ['critical', 'high', 'error'];
+            // Fetch ALL open alerts without a severity filter, then apply the same
+            // predicate as the on-new-alert job client-side.
+            // Rationale: the API's `severity` filter maps to `security_severity_level`
+            // (CVSS-based) and does not understand `rule.severity = 'error'`, so
+            // passing 'error' there would return 0 results.
             let created = 0;
             let skipped = 0;
+            let alertPage = 1;
 
-            for (const severity of targetSeverities) {
-              let page = 1;
-              while (true) {
-                let alerts;
-                try {
-                  ({ data: alerts } = await github.rest.codeScanning.listAlertsForRepo({
-                    owner:    context.repo.owner,
-                    repo:     context.repo.repo,
-                    state:    'open',
-                    severity,
-                    per_page: 100,
-                    page,
-                  }));
-                } catch (err) {
-                  // Code scanning may not be enabled or accessible — skip gracefully.
-                  console.error(`Could not list alerts (severity=${severity}): ${err.message}`);
-                  break;
-                }
-
-                if (alerts.length === 0) break;
-
-                for (const alert of alerts) {
-                  if (existing.has(alert.number)) {
-                    console.log(`Skip Alert #${alert.number} (${severity}) — issue already exists.`);
-                    skipped++;
-                    continue;
-                  }
-
-                  const level = alert.rule.security_severity_level || alert.rule.severity || severity;
-                  const emoji = severityEmoji(level);
-                  const title = `${emoji} [Security] ${alert.rule.name} (Alert #${alert.number})`;
-
-                  if (dryRun) {
-                    console.log(`[DRY RUN] Would create: ${title}`);
-                    existing.add(alert.number);
-                    continue;
-                  }
-
-                  const loc = alert.most_recent_instance?.location;
-                  const fileLine = loc
-                    ? `[\`${loc.path}\` line ${loc.start_line}](${alert.html_url})`
-                    : '_unknown_';
-
-                  await github.rest.issues.create({
-                    owner:  context.repo.owner,
-                    repo:   context.repo.repo,
-                    title,
-                    labels: severityLabels(level),
-                    body:   issueBody({ alert, level, fileLine }),
-                  });
-
-                  existing.add(alert.number);
-                  created++;
-                  console.log(`Created issue for Alert #${alert.number}: ${title}`);
-
-                  // 500 ms between creates to stay under GitHub's secondary rate limit
-                  // (GitHub enforces ~1 issue/second for mutation requests).
-                  await new Promise(r => setTimeout(r, 500));
-                }
-
-                if (alerts.length < 100) break;
-                page++;
+            while (true) {
+              let alerts;
+              try {
+                ({ data: alerts } = await github.rest.codeScanning.listAlertsForRepo({
+                  owner:    context.repo.owner,
+                  repo:     context.repo.repo,
+                  state:    'open',
+                  per_page: 100,
+                  page:     alertPage,
+                }));
+              } catch (err) {
+                // Code scanning may not be enabled or accessible — skip gracefully.
+                console.error(`Could not list alerts: ${err.message}`);
+                break;
               }
+
+              if (alerts.length === 0) break;
+
+              for (const alert of alerts) {
+                // Match on-new-alert predicate: critical/high CVSS OR error rule severity.
+                const secLevel = alert.rule.security_severity_level;
+                const ruleSev  = alert.rule.severity;
+                if (!['critical', 'high'].includes(secLevel) && ruleSev !== 'error') continue;
+
+                if (existing.has(alert.number)) {
+                  console.log(`Skip Alert #${alert.number} — issue already exists.`);
+                  skipped++;
+                  continue;
+                }
+
+                const level = secLevel || ruleSev;
+                const emoji = severityEmoji(level);
+                const title = `${emoji} [Security] ${alert.rule.name} (Alert #${alert.number})`;
+
+                if (dryRun) {
+                  console.log(`[DRY RUN] Would create: ${title}`);
+                  existing.add(alert.number);
+                  continue;
+                }
+
+                const loc = alert.most_recent_instance?.location;
+                const fileLine = loc
+                  ? `[\`${loc.path}\` line ${loc.start_line}](${alert.html_url})`
+                  : '_unknown_';
+                const ref = alert.most_recent_instance?.ref || 'unknown';
+
+                await github.rest.issues.create({
+                  owner:  context.repo.owner,
+                  repo:   context.repo.repo,
+                  title,
+                  labels: severityLabels(level),
+                  body:   issueBody({ alert, level, fileLine, ref }),
+                });
+
+                existing.add(alert.number);
+                created++;
+                console.log(`Created issue for Alert #${alert.number}: ${title}`);
+
+                // 500 ms between creates to stay under GitHub's secondary rate limit
+                // (GitHub enforces ~1 issue/second for mutation requests).
+                await new Promise(r => setTimeout(r, 500));
+              }
+
+              if (alerts.length < 100) break;
+              alertPage++;
             }
 
             console.log(`\nSummary: ${created} issue(s) created, ${skipped} skipped (duplicates).`);
