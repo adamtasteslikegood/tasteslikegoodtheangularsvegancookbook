@@ -52,7 +52,10 @@ jobs:
               } catch (err) {
                 // Only create the label when it is genuinely missing (404).
                 // Re-throw anything else (5xx, auth errors) so failures are visible.
-                if (err.status !== 404) throw err;
+                if (err.status !== 404) {
+                  err.message = `ensure-labels: failed to get label "${def.name}": ${err.message}`;
+                  throw err;
+                }
                 await github.rest.issues.createLabel({
                   owner:       context.repo.owner,
                   repo:        context.repo.repo,
