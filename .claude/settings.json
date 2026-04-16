@@ -1,0 +1,29 @@
+{
+  "enabledPlugins": {
+    "engineering-skills@claude-code-skills": true,
+    "engineering-advanced-skills@claude-code-skills": true,
+    "marketing-skills@claude-code-skills": true,
+    "pm-skills@claude-code-skills": true,
+    "product-skills@claude-code-skills": true,
+    "c-level-skills@claude-code-skills": true,
+    "ra-qm-skills@claude-code-skills": true,
+    "business-growth-skills@claude-code-skills": true,
+    "finance-skills@claude-code-skills": true,
+    "code-review@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "superpowers@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/check-gstack.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
