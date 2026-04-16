@@ -9,6 +9,7 @@ This directory contains automation scripts for managing git workflows across the
 A comprehensive git workflow automation script for managing commits and pushes across both the Backend submodule and main repository.
 
 **Key Features:**
+
 - ✅ Automated workflow for submodule-first, then main repo commits/pushes
 - ✅ Interactive mode with step-by-step prompts
 - ✅ Smart handling of staged/unstaged/untracked files
@@ -66,34 +67,34 @@ export OPENAI_API_KEY="your-key-here"
 
 **Options Reference:**
 
-| Category | Flag | Description |
-|----------|------|-------------|
-| **Mode** | `-i, --interactive` | Interactive mode with prompts |
-| | `-n, --dry-run` | Preview without executing |
-| | `-q, --quiet` | Minimal output |
-| **Repos** | `--no-submodule` | Skip Backend submodule |
-| | `--no-main` | Skip main repo |
-| | `--submodule-path PATH` | Custom submodule path |
-| **Operations** | `--commit-only` | Commit without pushing |
-| | `--push` | Enable push (auto with `-m`) |
-| | `--confirm-push` | Confirm before each push |
-| | `--force` | Force push (dangerous!) |
-| **Message** | `-m "MSG"` | Commit message |
-| | `--sub-message "MSG"` | Submodule-specific message |
-| | `--main-message "MSG"` | Main repo-specific message |
-| | `-F FILE` | Read message from file |
-| | `--editor [vim]` | Use editor for message |
-| | `--auto` | AI-generate message |
-| **Staging** | `-a, --all` | Stage all without prompts |
-| | `-u, --update` | Stage tracked only |
-| | `-p, --patch` | Interactive staging |
-| | `--no-prompt-unstaged` | Don't prompt for unstaged |
-| **Hooks** | `--run-before CMD` | Run command before |
-| | `--run-after CMD` | Run command after |
-| | `--pull-before` | Pull before commit |
-| | `--pull-rebase` | Pull with rebase |
-| **Branches** | `--main-branch NAME` | Specify main branch |
-| | `--sub-branch NAME` | Specify submodule branch |
+| Category       | Flag                    | Description                   |
+| -------------- | ----------------------- | ----------------------------- |
+| **Mode**       | `-i, --interactive`     | Interactive mode with prompts |
+|                | `-n, --dry-run`         | Preview without executing     |
+|                | `-q, --quiet`           | Minimal output                |
+| **Repos**      | `--no-submodule`        | Skip Backend submodule        |
+|                | `--no-main`             | Skip main repo                |
+|                | `--submodule-path PATH` | Custom submodule path         |
+| **Operations** | `--commit-only`         | Commit without pushing        |
+|                | `--push`                | Enable push (auto with `-m`)  |
+|                | `--confirm-push`        | Confirm before each push      |
+|                | `--force`               | Force push (dangerous!)       |
+| **Message**    | `-m "MSG"`              | Commit message                |
+|                | `--sub-message "MSG"`   | Submodule-specific message    |
+|                | `--main-message "MSG"`  | Main repo-specific message    |
+|                | `-F FILE`               | Read message from file        |
+|                | `--editor [vim]`        | Use editor for message        |
+|                | `--auto`                | AI-generate message           |
+| **Staging**    | `-a, --all`             | Stage all without prompts     |
+|                | `-u, --update`          | Stage tracked only            |
+|                | `-p, --patch`           | Interactive staging           |
+|                | `--no-prompt-unstaged`  | Don't prompt for unstaged     |
+| **Hooks**      | `--run-before CMD`      | Run command before            |
+|                | `--run-after CMD`       | Run command after             |
+|                | `--pull-before`         | Pull before commit            |
+|                | `--pull-rebase`         | Pull with rebase              |
+| **Branches**   | `--main-branch NAME`    | Specify main branch           |
+|                | `--sub-branch NAME`     | Specify submodule branch      |
 
 **Environment Variables:**
 
@@ -136,6 +137,7 @@ export OPENAI_ENDPOINT="https://..." # Optional (custom endpoint)
 Legacy script for Phase 1 implementation. Commits specific files with predefined messages.
 
 **Usage:**
+
 ```bash
 ./scripts/commit-phase-1.sh
 ```
@@ -145,6 +147,7 @@ Legacy script for Phase 1 implementation. Commits specific files with predefined
 Lists recent Cloud Run service revisions.
 
 **Usage:**
+
 ```bash
 ./scripts/list_revisions.sh
 ```
@@ -156,6 +159,7 @@ Lists recent Cloud Run service revisions.
 Always commit and push the **submodule first**, then the main repo. This prevents broken references.
 
 **✅ Correct:**
+
 ```bash
 ./scripts/git-workflow.sh -m "feat: add feature"
 # OR manually:
@@ -164,6 +168,7 @@ git commit && git push
 ```
 
 **❌ Wrong:**
+
 ```bash
 # DON'T commit main repo before pushing submodule!
 git commit -a  # This includes submodule reference
@@ -180,6 +185,7 @@ Use `-i` when you want control over each step:
 ```
 
 This will:
+
 - Confirm branches
 - Show staged changes before committing
 - Confirm before each push
@@ -207,19 +213,23 @@ Always test complex workflows with `--dry-run`:
 ## Troubleshooting
 
 **"Not a git repository" error:**
+
 - Make sure you're in the project root
 - Verify Backend submodule is initialized: `git submodule update --init`
 
 **Unstaged changes prompts:**
+
 - Use `--all` to stage everything automatically
 - Use `--no-prompt-unstaged` to skip prompts
 
 **Push fails:**
+
 - Check you have push permissions
 - Verify remote branch exists
 - Use `--confirm-push` to review before pushing
 
 **AI generation fails:**
+
 - Verify `OPENAI_API_KEY` is set
 - Check you have `jq` and `curl` installed
 - Ensure API key has sufficient credits
@@ -227,6 +237,7 @@ Always test complex workflows with `--dry-run`:
 ## Contributing
 
 When creating new scripts:
+
 1. Make them executable: `chmod +x scripts/new-script.sh`
 2. Add usage documentation in comments
 3. Use the color functions from `git-workflow.sh`

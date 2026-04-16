@@ -1,8 +1,12 @@
 ####################################################################################################################
 # WARNING: Do not store sensitive information in this file, as its contents will be included in the Qodana report. #
 ####################################################################################################################
-version: "1.0"
+version: '1.0'
 linter: jetbrains/qodana-js:2025.3
+
+# Install npm dependencies so ESLint and Angular type resolution work correctly
+bootstrap: npm ci
+
 profile:
   name: qodana.recommended
 include:
@@ -17,3 +21,5 @@ exclude:
       - .gemini
       - .github
       - .zed
+      # Plain HTML served by Express — not Angular templates
+      - server/public

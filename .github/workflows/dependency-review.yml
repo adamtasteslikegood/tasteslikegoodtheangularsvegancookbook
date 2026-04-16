@@ -24,5 +24,7 @@ jobs:
           fail-on-severity: high
           # Comment on the PR with a summary of changes
           comment-summary-in-pr: always
-          # Deny copyleft licenses incompatible with the project's proprietary distribution
-          deny-licenses: GPL-2.0-only, GPL-3.0-only, AGPL-3.0-only
+          # Retry if snapshots are not immediately available
+          retry-on-snapshot-warnings: true
+          # Only allow permissive licenses; blocks GPL, AGPL, and other copyleft licenses
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, BlueOak-1.0.0, CC0-1.0, CC-BY-3.0, CC-BY-4.0, Unlicense, WTFPL, Python-2.0

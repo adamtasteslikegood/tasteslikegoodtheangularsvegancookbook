@@ -13,26 +13,30 @@ Complete CI/CD infrastructure implemented for **both** the Angular/Express front
 **Status:** ✅ Complete and tested
 
 ### Stack
+
 - **Language:** TypeScript
 - **Package Manager:** npm
 - **Runtime:** Node.js 20
 - **Frameworks:** Angular 21 + Express
 
 ### Tools Configured
-| Tool | Purpose | Config |
-|------|---------|--------|
-| ESLint | Linting | `.eslintrc.json` |
-| Prettier | Formatting | `.prettierrc` |
-| Vitest | Testing | `vitest.config.ts` |
+
+| Tool       | Purpose       | Config                                          |
+| ---------- | ------------- | ----------------------------------------------- |
+| ESLint     | Linting       | `.eslintrc.json`                                |
+| Prettier   | Formatting    | `.prettierrc`                                   |
+| Vitest     | Testing       | `vitest.config.ts`                              |
 | TypeScript | Type checking | `tsconfig.json` + `server/tsconfig.server.json` |
 
 ### GitHub Actions Jobs
+
 1. **Build** - Compile Angular + Express server
 2. **Lint** - ESLint + Prettier
 3. **Test** - Vitest with coverage
 4. **Type Check** - TypeScript compilation
 
 ### Commands
+
 ```bash
 npm run build
 npm run lint
@@ -42,6 +46,7 @@ npm run type-check
 ```
 
 ### Files Created
+
 - `.github/workflows/ci.yml`
 - `.eslintrc.json`
 - `.eslintignore`
@@ -52,6 +57,7 @@ npm run type-check
 - Documentation: 7 files
 
 ### Status
+
 ✅ **All checks passing** - Committed and ready to push
 
 ---
@@ -64,27 +70,31 @@ npm run type-check
 **Status:** ✅ Complete and ready to test
 
 ### Stack
+
 - **Language:** Python 3.13
 - **Package Manager:** uv
 - **Runtime:** Python 3.13
 - **Framework:** Flask
 
 ### Tools Configured
-| Tool | Purpose | Config |
-|------|---------|--------|
-| Black | Formatting | `pyproject.toml` |
-| Flake8 | Linting | `.flake8` |
-| mypy | Type checking | `pyproject.toml` |
-| pytest | Testing | `pyproject.toml` |
-| Safety | Security scanning | N/A |
+
+| Tool   | Purpose           | Config           |
+| ------ | ----------------- | ---------------- |
+| Black  | Formatting        | `pyproject.toml` |
+| Flake8 | Linting           | `.flake8`        |
+| mypy   | Type checking     | `pyproject.toml` |
+| pytest | Testing           | `pyproject.toml` |
+| Safety | Security scanning | N/A              |
 
 ### GitHub Actions Jobs
+
 1. **Lint** - Black + Flake8
 2. **Type Check** - mypy
 3. **Test** - pytest with coverage
 4. **Security** - Safety vulnerability scan
 
 ### Commands
+
 ```bash
 uv run black .
 uv run flake8 .
@@ -93,6 +103,7 @@ uv run pytest --cov=.
 ```
 
 ### Files Created
+
 - `.github/workflows/ci.yml`
 - `.flake8`
 - `.gitignore` (updated)
@@ -100,32 +111,34 @@ uv run pytest --cov=.
 - Documentation: 5 files
 
 ### Status
+
 ✅ **Ready to test and commit** - See `CI_READY_TO_TEST.md`
 
 ---
 
 ## 📊 Side-by-Side Comparison
 
-| Feature | Frontend | Backend |
-|---------|----------|---------|
-| **Language** | TypeScript | Python 3.13 |
-| **Package Manager** | npm | uv |
-| **Formatter** | Prettier | Black |
-| **Linter** | ESLint (Angular rules) | Flake8 |
-| **Type Checker** | tsc (strict mode) | mypy |
-| **Test Framework** | Vitest | pytest |
-| **Coverage Tool** | V8 | pytest-cov |
-| **Security Scan** | None (yet) | Safety |
-| **CI Jobs** | 4 | 4 |
-| **Runtime** | Node 20 | Python 3.13 |
-| **Branches** | deploy-with-db | dev/backend_sub222 |
-| **Status** | ✅ Tested & passing | ✅ Ready to test |
+| Feature             | Frontend               | Backend            |
+| ------------------- | ---------------------- | ------------------ |
+| **Language**        | TypeScript             | Python 3.13        |
+| **Package Manager** | npm                    | uv                 |
+| **Formatter**       | Prettier               | Black              |
+| **Linter**          | ESLint (Angular rules) | Flake8             |
+| **Type Checker**    | tsc (strict mode)      | mypy               |
+| **Test Framework**  | Vitest                 | pytest             |
+| **Coverage Tool**   | V8                     | pytest-cov         |
+| **Security Scan**   | None (yet)             | Safety             |
+| **CI Jobs**         | 4                      | 4                  |
+| **Runtime**         | Node 20                | Python 3.13        |
+| **Branches**        | deploy-with-db         | dev/backend_sub222 |
+| **Status**          | ✅ Tested & passing    | ✅ Ready to test   |
 
 ---
 
 ## 🚀 What's Implemented
 
 ### Both Repositories Have:
+
 ✅ GitHub Actions CI pipeline  
 ✅ Code formatting enforcement  
 ✅ Linting rules  
@@ -135,23 +148,26 @@ uv run pytest --cov=.
 ✅ Comprehensive documentation  
 ✅ Quick reference guides  
 ✅ Pre-commit command examples  
-✅ .gitignore updates  
+✅ .gitignore updates
 
 ### Frontend Also Has:
+
 ✅ All linting errors fixed (0 errors, 0 warnings)  
 ✅ Build verified and passing  
-✅ Tests running successfully  
+✅ Tests running successfully
 
 ### Backend Also Has:
+
 ✅ Security vulnerability scanning (Safety)  
 ✅ uv package manager (10-100x faster than pip)  
-✅ Existing test suite ready to run  
+✅ Existing test suite ready to run
 
 ---
 
 ## 📁 Documentation Created
 
 ### Frontend (Root)
+
 1. `CI_IMPLEMENTATION_COMPLETE.md` - Full implementation summary
 2. `CI_SCRIPTS_INVENTORY.md` - Complete script inventory
 3. `CI_QUICK_REFERENCE.md` - Command quick reference
@@ -162,6 +178,7 @@ uv run pytest --cov=.
 8. `docs/GETTING_STARTED_CI.md` - Getting started
 
 ### Backend (Backend/)
+
 1. `CI_IMPLEMENTATION_COMPLETE.md` - Implementation details
 2. `CI_SCRIPTS_INVENTORY.md` - Script inventory
 3. `CI_QUICK_REFERENCE.md` - Command reference
@@ -174,12 +191,14 @@ uv run pytest --cov=.
 ## 🎯 Next Steps
 
 ### For Frontend (Already Done ✅)
+
 ```bash
 # Already committed and passing
 git push origin deploy-with-db
 ```
 
 ### For Backend (Ready to Execute)
+
 ```bash
 cd Backend
 
@@ -204,23 +223,27 @@ git push origin dev/backend_sub222
 ## 🔑 Key Benefits
 
 ### Consistency
+
 - Same CI/CD patterns across both repos
 - Parallel job execution for speed
 - Coverage reporting in both
 
 ### Quality
+
 - Automatic code formatting
 - Strict linting rules
 - Type checking enforced
 - Test coverage tracked
 
 ### Developer Experience
+
 - Pre-commit checklists
 - Comprehensive documentation
 - Quick reference guides
 - One-line command runners
 
 ### Maintainability
+
 - Easy to add new checks
 - Clear documentation
 - Standard tools
@@ -231,11 +254,13 @@ git push origin dev/backend_sub222
 ## 📈 Coverage & Quality Goals
 
 ### Frontend
+
 - **Current:** Tests passing (placeholder tests)
 - **Goal:** Add comprehensive Angular + Express tests
 - **Coverage Target:** >70%
 
 ### Backend
+
 - **Current:** 8 test files with various test cases
 - **Goal:** Run and verify all pass
 - **Coverage Target:** >70% (>90% for auth/recipes)
@@ -245,6 +270,7 @@ git push origin dev/backend_sub222
 ## 🛠️ Tools Used
 
 ### Frontend
+
 - **ESLint 9** - With Angular-specific rules
 - **Prettier 3** - For consistent formatting
 - **Vitest 4** - Fast test framework
@@ -252,6 +278,7 @@ git push origin dev/backend_sub222
 - **GitHub Actions** - CI/CD automation
 
 ### Backend
+
 - **Black 23+** - Opinionated formatter
 - **Flake8 6+** - PEP 8 linting
 - **mypy 1+** - Static type checking
@@ -268,11 +295,13 @@ git push origin dev/backend_sub222
 ### Running All Checks
 
 **Frontend:**
+
 ```bash
 npm run format && npm run lint && npm run test:ci && npm run build
 ```
 
 **Backend:**
+
 ```bash
 cd Backend
 uv run black . && uv run flake8 . && uv run mypy . --ignore-missing-imports && uv run pytest --cov=.
@@ -290,12 +319,14 @@ uv run black . && uv run flake8 . && uv run mypy . --ignore-missing-imports && u
 ### Viewing Coverage Reports
 
 **Frontend:**
+
 ```bash
 npm run test:ci
 # View in terminal or check coverage/ directory
 ```
 
 **Backend:**
+
 ```bash
 uv run pytest --cov=. --cov-report=html
 # Open htmlcov/index.html in browser
@@ -314,7 +345,7 @@ uv run pytest --cov=. --cov-report=html
 ✅ **Automated testing** with coverage tracking  
 ✅ **Security scanning** (Backend)  
 ✅ **Code quality standards** maintained  
-✅ **Developer-friendly** tooling and commands  
+✅ **Developer-friendly** tooling and commands
 
 ### Impact:
 
@@ -322,23 +353,26 @@ uv run pytest --cov=. --cov-report=html
 🛡️ **Higher quality** - Automated checks  
 📚 **Better documentation** - Clear guidelines  
 🤝 **Easier collaboration** - Standard workflows  
-⚡ **Quick feedback** - 2-3 minute CI runs  
+⚡ **Quick feedback** - 2-3 minute CI runs
 
 ---
 
 ## 📞 Support & Resources
 
 ### Frontend Documentation
+
 - `CI_QUICK_REFERENCE.md` - All commands
 - `CI_FINAL_STATUS.md` - Current status
 - `docs/CI_SETUP.md` - Detailed setup
 
 ### Backend Documentation
+
 - `Backend/CI_QUICK_REFERENCE.md` - All commands
 - `Backend/BACKEND_CI_COMPLETE.md` - Complete summary
 - `Backend/CI_READY_TO_TEST.md` - Test checklist
 
 ### GitHub Actions
+
 - Frontend: https://github.com/[your-username]/tasteslikegoodtheangularsvegancookbook/actions
 - Backend: https://github.com/adamtasteslikegood/tasteslikegood.com/actions
 
@@ -347,6 +381,7 @@ uv run pytest --cov=. --cov-report=html
 ## ✅ Final Checklist
 
 ### Frontend
+
 - [x] CI/CD configured
 - [x] All linting errors fixed
 - [x] Tests passing
@@ -355,6 +390,7 @@ uv run pytest --cov=. --cov-report=html
 - [x] Ready to push
 
 ### Backend
+
 - [x] CI/CD configured
 - [x] Tools configured
 - [x] Documentation complete

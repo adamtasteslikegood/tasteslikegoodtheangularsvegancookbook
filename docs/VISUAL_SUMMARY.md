@@ -390,18 +390,21 @@ A: Increase limits in `server/security.ts` or implement per-user tracking with a
 ## Support & Help
 
 📖 **Documentation:**
-  - Full guide: `SECURITY.md`
-  - Quick start: `SECURITY_QUICKSTART.md`
-  - Developer ref: `DEVELOPER_GUIDE.md`
+
+- Full guide: `SECURITY.md`
+- Quick start: `SECURITY_QUICKSTART.md`
+- Developer ref: `DEVELOPER_GUIDE.md`
 
 💻 **Code Reference:**
-  - Security setup: `server/security.ts`
-  - Validation rules: `server/validation.ts`
-  - Integration: `server/index.ts`
+
+- Security setup: `server/security.ts`
+- Validation rules: `server/validation.ts`
+- Integration: `server/index.ts`
 
 ✅ **Verification:**
-  - Checklist: `DEPLOYMENT_CHECKLIST.md`
-  - Report: `SECURITY_IMPLEMENTATION_REPORT.md`
+
+- Checklist: `DEPLOYMENT_CHECKLIST.md`
+- Report: `SECURITY_IMPLEMENTATION_REPORT.md`
 
 ---
 
