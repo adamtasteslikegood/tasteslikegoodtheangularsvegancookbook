@@ -141,17 +141,17 @@ Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__cl
 
 Available gstack skills:
 
-| Skill | Skill | Skill | Skill |
-|-------|-------|-------|-------|
-| `/office-hours` | `/plan-ceo-review` | `/plan-eng-review` | `/plan-design-review` |
-| `/design-consultation` | `/design-shotgun` | `/design-html` | `/review` |
-| `/ship` | `/land-and-deploy` | `/canary` | `/benchmark` |
-| `/browse` | `/connect-chrome` | `/qa` | `/qa-only` |
-| `/design-review` | `/setup-browser-cookies` | `/setup-deploy` | `/retro` |
-| `/investigate` | `/document-release` | `/codex` | `/cso` |
-| `/autoplan` | `/plan-devex-review` | `/devex-review` | `/careful` |
-| `/freeze` | `/guard` | `/unfreeze` | `/gstack-upgrade` |
-| `/learn` | | | |
+| Skill                  | Skill                    | Skill              | Skill                 |
+| ---------------------- | ------------------------ | ------------------ | --------------------- |
+| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review` | `/plan-design-review` |
+| `/design-consultation` | `/design-shotgun`        | `/design-html`     | `/review`             |
+| `/ship`                | `/land-and-deploy`       | `/canary`          | `/benchmark`          |
+| `/browse`              | `/connect-chrome`        | `/qa`              | `/qa-only`            |
+| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`    | `/retro`              |
+| `/investigate`         | `/document-release`      | `/codex`           | `/cso`                |
+| `/autoplan`            | `/plan-devex-review`     | `/devex-review`    | `/careful`            |
+| `/freeze`              | `/guard`                 | `/unfreeze`        | `/gstack-upgrade`     |
+| `/learn`               |                          |                    |                       |
 
 ## Skill routing
 
@@ -160,6 +160,7 @@ tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
 The skill has specialized workflows that produce better results than ad-hoc answers.
 
 Key routing rules:
+
 - Product ideas, "is this worth building", brainstorming → invoke office-hours
 - Bugs, errors, "why is this broken", 500 errors → invoke investigate
 - Ship, deploy, push, create PR → invoke ship
