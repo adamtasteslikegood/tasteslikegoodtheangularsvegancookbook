@@ -24,8 +24,8 @@ jobs:
     name: Frontend — lint + format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
@@ -37,8 +37,8 @@ jobs:
     name: Frontend — TypeScript
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
@@ -50,14 +50,14 @@ jobs:
     name: Frontend — build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         with:
           name: dist-${{ github.sha }}
           path: |
@@ -69,8 +69,8 @@ jobs:
     name: Frontend — unit tests + coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
@@ -78,7 +78,7 @@ jobs:
       # Coverage thresholds are enforced by vitest.config.ts:
       #   lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40%
       - run: npm run test:ci
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-${{ github.sha }}
@@ -91,10 +91,10 @@ jobs:
     name: Backend — pytest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v7
@@ -111,7 +111,7 @@ jobs:
     name: CHANGELOG entry for this version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
       - name: Verify CHANGELOG.md has an entry for package.json version
         run: |
           VERSION=$(node -p "require('./package.json').version")
