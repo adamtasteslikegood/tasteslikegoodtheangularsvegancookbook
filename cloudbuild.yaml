@@ -106,6 +106,7 @@ steps:
       - $_FLASK_SERVICE
       - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - --region=$_REGION
+      - --port=5000
       - --min-instances=1
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
