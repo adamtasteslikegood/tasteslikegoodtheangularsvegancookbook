@@ -14,6 +14,9 @@ substitutions:
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
   _VERSION: latest
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
   # ── Build ────────────────────────────────────────────────────────────────────
 
