@@ -111,7 +111,7 @@ steps:
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
       - --no-allow-unauthenticated
       - --quiet
