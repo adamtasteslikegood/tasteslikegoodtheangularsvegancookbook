@@ -497,12 +497,13 @@
                           <li
                             class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
                           >
-                            <span class="font-bold text-green-700 min-w-[3rem] text-right">
-                              {{ formatAmount(ing.amount) }}
+                            <span
+                              class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                            >
+                              {{ formatAmount(ing.amount) }} {{ ing.units }}
                             </span>
                             <div class="flex-1">
-                              <span class="text-stone-800 font-medium">{{ ing.units }}</span>
-                              <span class="text-stone-800"> {{ ing.name }}</span>
+                              <span class="text-stone-800">{{ ing.name }}</span>
                               @if (ing.notes) {
                                 <span class="text-stone-400 text-sm italic">
                                   ({{ ing.notes }})</span
@@ -525,12 +526,13 @@
                           <li
                             class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
                           >
-                            <span class="font-bold text-green-700 min-w-[3rem] text-right">
-                              {{ formatAmount(ing.amount) }}
+                            <span
+                              class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                            >
+                              {{ formatAmount(ing.amount) }} {{ ing.units }}
                             </span>
                             <div class="flex-1">
-                              <span class="text-stone-800 font-medium">{{ ing.units }}</span>
-                              <span class="text-stone-800"> {{ ing.name }}</span>
+                              <span class="text-stone-800">{{ ing.name }}</span>
                               @if (ing.notes) {
                                 <span class="text-stone-400 text-sm italic">
                                   ({{ ing.notes }})</span
@@ -553,12 +555,13 @@
                           <li
                             class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
                           >
-                            <span class="font-bold text-green-700 min-w-[3rem] text-right">
-                              {{ formatAmount(ing.amount) }}
+                            <span
+                              class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                            >
+                              {{ formatAmount(ing.amount) }} {{ ing.units }}
                             </span>
                             <div class="flex-1">
-                              <span class="text-stone-800 font-medium">{{ ing.units }}</span>
-                              <span class="text-stone-800"> {{ ing.name }}</span>
+                              <span class="text-stone-800">{{ ing.name }}</span>
                               @if (ing.notes) {
                                 <span class="text-stone-400 text-sm italic">
                                   ({{ ing.notes }})</span
