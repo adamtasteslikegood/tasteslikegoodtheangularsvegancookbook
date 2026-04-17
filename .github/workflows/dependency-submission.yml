@@ -7,8 +7,7 @@ on:
     branches: [main, dev]
 
 permissions:
-  contents: read
-  security-events: write
+  contents: write
 
 jobs:
   dependency-submission:
@@ -29,7 +28,4 @@ jobs:
         run: npm ci
 
       - name: Submit dependency snapshot
-        uses: github/dependency-submission-action@v1
-        with:
-          # Adjust if your package-lock.json is not at repo root
-          dependency-file: package-lock.json
+        uses: actions/npm-dependency-submission-action@v3
