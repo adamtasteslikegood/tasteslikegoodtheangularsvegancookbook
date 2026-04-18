@@ -14,6 +14,10 @@ permissions:
   issues: read
   pull-requests: read
 
+pre-steps:
+  - name: Install GitHub Copilot CLI from npm
+    run: npm_config_ignore_scripts=false npm install --prefix "${{ runner.temp }}/copilot-cli" @github/copilot@1.0.32
+
 network: defaults
 
 tools:
@@ -30,7 +34,10 @@ safe-outputs:
     title-prefix: '[repo-status] '
     labels: [report, daily-status]
 source: githubnext/agentics/workflows/daily-repo-status.md@442992eda2ccb11ee75a39c019ec6d38ae5a84a2
-engine: copilot
+engine:
+  id: copilot
+  version: "1.0.32"
+  command: ${{ runner.temp }}/copilot-cli/node_modules/.bin/copilot
 ---
 
 # Daily Repo Status
