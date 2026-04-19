@@ -1,0 +1,126 @@
+{
+  "results": [
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "360628",
+      "createdAt": "2026-03-23T00:49:35.403Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "Teamwork Collection",
+      "key": "TWC",
+      "id": "360451",
+      "type": "global",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/TWC"
+      },
+      "currentActiveAlias": "TWC"
+    },
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "721004",
+      "createdAt": "2026-03-23T04:26:49.549Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "the aa2 team",
+      "key": "team57d5e9d65f0b468c9d9950ab0f55b30d",
+      "id": "720898",
+      "type": "global",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/team57d5e9d65f0b468c9d9950ab0f55b30d"
+      },
+      "currentActiveAlias": "team57d5e9d65f0b468c9d9950ab0f55b30d"
+    },
+    {
+      "spaceOwnerId": "712020:a1ad64fe-dd87-4dcd-80e6-966741e11fb6",
+      "homepageId": "6258781",
+      "createdAt": "2026-04-13T06:14:06.237Z",
+      "authorId": "712020:a1ad64fe-dd87-4dcd-80e6-966741e11fb6",
+      "icon": null,
+      "name": "Allison Lunn",
+      "key": "~712020a1ad64fedd874dcd80e6966741e11fb6",
+      "id": "6258691",
+      "type": "personal",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/~712020a1ad64fedd874dcd80e6966741e11fb6"
+      },
+      "currentActiveAlias": "~712020a1ad64fedd874dcd80e6966741e11fb6"
+    },
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "7634946",
+      "createdAt": "2026-03-25T01:20:07.579Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "Software Development",
+      "key": "SD",
+      "id": "7634944",
+      "type": "onboarding",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/SD"
+      },
+      "currentActiveAlias": "SD"
+    },
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "7766018",
+      "createdAt": "2026-03-25T01:20:06.307Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "Adam Schoen",
+      "key": "~712020b8ee911e5c1a43e6bcd7ab242663a8b6",
+      "id": "7766016",
+      "type": "personal",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/~712020b8ee911e5c1a43e6bcd7ab242663a8b6"
+      },
+      "currentActiveAlias": "~712020b8ee911e5c1a43e6bcd7ab242663a8b6"
+    },
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "11042990",
+      "createdAt": "2026-04-18T09:21:48.399Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "Tasteslikegood.org",
+      "key": "TLG",
+      "id": "11042818",
+      "type": "global",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/TLG"
+      },
+      "currentActiveAlias": "TLG"
+    },
+    {
+      "spaceOwnerId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "homepageId": "11075756",
+      "createdAt": "2026-04-18T09:21:50.387Z",
+      "authorId": "712020:b8ee911e-5c1a-43e6-bcd7-ab242663a8b6",
+      "icon": null,
+      "name": "10110 Tasteslikegood Plaza",
+      "key": "PLZA",
+      "id": "11075586",
+      "type": "global",
+      "description": null,
+      "status": "current",
+      "_links": {
+        "webui": "/spaces/PLZA"
+      },
+      "currentActiveAlias": "PLZA"
+    }
+  ],
+  "_links": {
+    "base": "https://tasteslikegood.atlassian.net/wiki"
+  }
+}
