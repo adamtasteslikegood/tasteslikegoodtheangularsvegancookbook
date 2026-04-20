@@ -37,12 +37,12 @@ export function createFlaskProxy(label = 'Flask') {
       method: req.method,
       headers: {
         ...req.headers,
-        // Preserve the browser's original Host so Flask's url_for(_external=True)
-        // and OAuth redirects point back to the public/Express host.
-        host: originalHost,
-        // Pass the original host explicitly for deployments that trust
-        // X-Forwarded-Host via Werkzeug ProxyFix or similar middleware.
+        // Host must match the target so Cloud Run's frontend load balancer
+        // routes the request to the Flask service. Flask sees the browser's
+        // original host via X-Forwarded-Host (honored by ProxyFix, x_host=1).
+        host: target.host,
         'x-forwarded-host': originalHost,
+        'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || req.protocol,
       },
       // Use the target's hostname for TLS SNI verification without
       // changing the HTTP Host header seen by Flask.

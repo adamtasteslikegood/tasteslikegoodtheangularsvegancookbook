@@ -14,13 +14,23 @@ substitutions:
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
   _VERSION: latest
 
+options:
+  logging: CLOUD_LOGGING_ONLY
+
 steps:
+  # ── Submodule init ──────────────────────────────────────────────────────────
+  # Cloud Build does not initialize git submodules automatically.
+
+  - name: gcr.io/cloud-builders/git
+    id: 'Init Submodules'
+    args: ['submodule', 'update', '--init', '--recursive']
+
   # ── Build ────────────────────────────────────────────────────────────────────
 
   # 1. Build the Express frontend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Express Frontend'
-    waitFor: ['-']
+    waitFor: ['Init Submodules']
     args:
       - build
       - -t
@@ -30,7 +40,7 @@ steps:
   # 2. Build the Flask backend image
   - name: gcr.io/cloud-builders/docker
     id: 'Build Flask Backend'
-    waitFor: ['-']
+    waitFor: ['Init Submodules']
     dir: 'Backend'
     args:
       - build
@@ -96,11 +106,12 @@ steps:
       - $_FLASK_SERVICE
       - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - --region=$_REGION
+      - --port=8080
       - --min-instances=1
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
       - --no-allow-unauthenticated
       - --quiet
