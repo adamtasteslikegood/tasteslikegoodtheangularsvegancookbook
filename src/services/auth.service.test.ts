@@ -129,14 +129,14 @@ describe('AuthService auth-check startup behavior', () => {
       savedRecipes: cachedUser.savedRecipes,
     });
 
-    expect(
-      JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')
-    ).toMatchObject({
-      id: cachedUser.id,
-      isGuest: true,
-      authProvider: 'guest',
-      savedRecipes: cachedUser.savedRecipes,
-    });
+    expect(JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')).toMatchObject(
+      {
+        id: cachedUser.id,
+        isGuest: true,
+        authProvider: 'guest',
+        savedRecipes: cachedUser.savedRecipes,
+      }
+    );
   });
 
   it('preserves cached authenticated state when auth-check returns a server error', async () => {
