@@ -15,12 +15,14 @@ import { environment } from '../environments/environment';
   providedIn: 'root',
 })
 export class AuthService {
+  static readonly SESSION_STORAGE_KEY = 'vegan_genius_session';
+
   currentUser: WritableSignal<User | null> = signal(null);
 
   /** True while we're checking auth status on startup */
   authLoading: WritableSignal<boolean> = signal(true);
 
-  private readonly STORAGE_KEY_SESSION = 'vegan_genius_session';
+  private readonly STORAGE_KEY_SESSION = AuthService.SESSION_STORAGE_KEY;
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
   constructor() {
@@ -37,32 +39,35 @@ export class AuthService {
     this.authLoading.set(true);
     try {
       const authenticated = await this.checkAuthStatus();
-      if (!authenticated) {
-        // No Flask session — restore guest/local session if one exists
+      if (authenticated !== true) {
+        // No Flask session — restore guest/local session if one exists.
+        // Only an explicit authenticated:false response should clear stale
+        // cached Google-authenticated state; transient failures must preserve it.
         this.loadLocalSession();
-        // If localStorage had a stale Google-authed user but Flask session
-        // expired, downgrade to guest so the Sign In button shows.
-        // Recipes are preserved and will merge back after re-login.
-        const restored = this.currentUser();
-        if (restored && !restored.isGuest) {
-          console.log('Flask session expired — downgrading cached user to guest');
-          const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
-          this.currentUser.set(downgraded);
-          this.saveLocalSession(downgraded);
+        if (authenticated === false) {
+          this.clearStaleAuthenticatedSession('Flask session expired');
         }
-      }
-    } catch {
-      // Network error (Flask not running, etc.) — fall back to local
-      this.loadLocalSession();
-      const restored = this.currentUser();
-      if (restored && !restored.isGuest) {
-        console.log('Flask unreachable — downgrading cached user to guest');
-        const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
-        this.currentUser.set(downgraded);
-        this.saveLocalSession(downgraded);
       }
     } finally {
       this.authLoading.set(false);
+    }
+  }
+
+  /**
+   * If the loaded local session points at a Google-authed user but Flask
+   * reports no active session, drop it entirely. Keeping the cached user
+   * (even downgraded to guest) causes the UI to show the Sign In button
+   * while still rendering the previously authenticated user's recipes —
+   * a state mismatch (and a minor privacy leak on shared devices). The
+   * authenticated user's recipes live in the Flask DB and will be re-
+   * hydrated on re-login.
+   */
+  private clearStaleAuthenticatedSession(reason: string) {
+    const restored = this.currentUser();
+    if (restored && !restored.isGuest) {
+      console.log(`${reason} — clearing cached authenticated session`);
+      this.currentUser.set(null);
+      localStorage.removeItem(this.STORAGE_KEY_SESSION);
     }
   }
 
@@ -70,16 +75,19 @@ export class AuthService {
 
   /**
    * Check if the user has a valid Flask session cookie.
-   * Called on app init and after OAuth callback redirect.
-   * Returns true if user is authenticated via Flask.
+   * Called during app startup to check whether a Flask session is still active.
+   * Returns:
+   * - true when the backend confirms an authenticated Flask session
+   * - false when the backend explicitly reports authenticated: false
+   * - null for transient transport/server failures so cached state is preserved
    */
-  async checkAuthStatus(): Promise<boolean> {
+  async checkAuthStatus(): Promise<boolean | null> {
     try {
       const res = await fetch(`${this.API_BASE}/api/auth/check`, {
         credentials: 'include',
       });
 
-      if (!res.ok) return false;
+      if (!res.ok) return null;
 
       const data = await res.json();
       if (data.authenticated) {
@@ -118,7 +126,7 @@ export class AuthService {
 
       return false;
     } catch {
-      return false;
+      return null;
     }
   }
 
