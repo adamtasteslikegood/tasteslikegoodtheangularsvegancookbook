@@ -8,6 +8,11 @@ description: |
 on:
   schedule: daily
   workflow_dispatch:
+  steps:
+    - name: Validate COPILOT_GITHUB_TOKEN secret
+      run: bash "${RUNNER_TEMP}/gh-aw/actions/validate_multi_secret.sh" COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default
+      env:
+        COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
 
 permissions:
   contents: read
@@ -16,7 +21,9 @@ permissions:
 
 pre-steps:
   - name: Install GitHub Copilot CLI from npm
-    run: npm_config_ignore_scripts=false npm install --prefix "${{ runner.temp }}/copilot-cli" @github/copilot@1.0.32
+    run: npm_config_ignore_scripts=false npm install --prefix "${{ runner.temp }}/gh-aw/copilot-cli" @github/copilot@1.0.32
+  - name: Install AWF binary
+    run: bash "${RUNNER_TEMP}/gh-aw/actions/install_awf_binary.sh" v0.25.20
 
 network: defaults
 
@@ -37,7 +44,7 @@ source: githubnext/agentics/workflows/daily-repo-status.md@442992eda2ccb11ee75a3
 engine:
   id: copilot
   version: "1.0.32"
-  command: ${{ runner.temp }}/copilot-cli/node_modules/.bin/copilot
+  command: ${{ runner.temp }}/gh-aw/copilot-cli/node_modules/.bin/copilot
 ---
 
 # Daily Repo Status
