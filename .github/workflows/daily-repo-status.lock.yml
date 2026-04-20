@@ -50,8 +50,8 @@
 #   - ghcr.io/github/github-mcp-server:v0.32.0
 #   - node:lts-alpine
 
-name: "Daily Repo Status"
-"on":
+name: 'Daily Repo Status'
+'on':
   schedule:
     - cron: '45 12 * * *'
       # Friendly format: daily (scattered)
