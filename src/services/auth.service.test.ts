@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { User } from '../src/auth.types';
-import { AuthService } from '../src/services/auth.service';
+import type { User } from '../auth.types';
+import { AuthService } from './auth.service';
 
 const STORAGE_KEY_SESSION = 'vegan_genius_session';
 
@@ -45,11 +45,10 @@ function createAuthenticatedUser(): User {
         id: 'recipe-1',
         name: 'Cached curry',
         description: 'Saved offline',
-        prepTime: '10 minutes',
-        cookTime: '20 minutes',
-        totalTime: '30 minutes',
+        prepTime: 10,
+        cookTime: 20,
         servings: 2,
-        ingredients: [],
+        ingredients: {},
         instructions: [],
       },
     ],
