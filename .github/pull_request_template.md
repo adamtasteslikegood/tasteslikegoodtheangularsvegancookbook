@@ -13,7 +13,8 @@
   Examples:
     Closes #123
     Fixes #456
-    Relates to #789
+    Resolves #789
+    Relates to #101
 -->
 
 ## Type of Change
