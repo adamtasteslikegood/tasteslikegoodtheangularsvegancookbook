@@ -38,14 +38,17 @@ export class AuthService {
     try {
       const authenticated = await this.checkAuthStatus();
       if (!authenticated) {
-        // No Flask session — restore guest/local session if one exists
+        // Flask explicitly reports no active session — restore local session
+        // and clear any stale authenticated cache (avoids showing logged-out
+        // header while still displaying a previously-authenticated user's data).
         this.loadLocalSession();
         this.clearStaleAuthenticatedSession('Flask session expired');
       }
     } catch {
-      // Network error (Flask not running, etc.) — fall back to local
+      // Network error (Flask not running, temporary 5xx, etc.) — fall back to
+      // local session without clearing it. A transient failure must not force
+      // a signed-in user's cached data to be wiped.
       this.loadLocalSession();
-      this.clearStaleAuthenticatedSession('Flask unreachable');
     } finally {
       this.authLoading.set(false);
     }
@@ -74,55 +77,53 @@ export class AuthService {
   /**
    * Check if the user has a valid Flask session cookie.
    * Called on app init and after OAuth callback redirect.
-   * Returns true if user is authenticated via Flask.
+   * Returns true if user is authenticated via Flask, false if Flask explicitly
+   * reports no active session. Throws on network/fetch errors so callers can
+   * distinguish a transient failure from a deliberate "not authenticated".
    */
   async checkAuthStatus(): Promise<boolean> {
-    try {
-      const res = await fetch(`${this.API_BASE}/api/auth/check`, {
-        credentials: 'include',
-      });
+    const res = await fetch(`${this.API_BASE}/api/auth/check`, {
+      credentials: 'include',
+    });
 
-      if (!res.ok) return false;
+    if (!res.ok) return false;
 
-      const data = await res.json();
-      if (data.authenticated) {
-        // Clean up ?auth=success query param left by the OAuth redirect,
-        // preserving any other query parameters that may be present.
-        if (window.location.search.includes('auth=success')) {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('auth');
-          window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
-        }
-
-        // Merge any existing guest data before replacing session
-        const existingLocal = this.getLocalSession();
-
-        const user: User = {
-          id: data.user_id || data.email,
-          email: data.email,
-          name: data.name || 'Chef',
-          picture: data.picture,
-          isGuest: false,
-          authProvider: 'google',
-          savedRecipes: existingLocal?.savedRecipes || [],
-          cookbooks: existingLocal?.cookbooks || [],
-        };
-
-        this.currentUser.set(user);
-        this.saveLocalSession(user);
-
-        // Clear guest marker if present
-        if (existingLocal?.isGuest) {
-          console.log('Merged guest session data into authenticated user.');
-        }
-
-        return true;
+    const data = await res.json();
+    if (data.authenticated) {
+      // Clean up ?auth=success query param left by the OAuth redirect,
+      // preserving any other query parameters that may be present.
+      if (window.location.search.includes('auth=success')) {
+        const url = new URL(window.location.href);
+        url.searchParams.delete('auth');
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
       }
 
-      return false;
-    } catch {
-      return false;
+      // Merge any existing guest data before replacing session
+      const existingLocal = this.getLocalSession();
+
+      const user: User = {
+        id: data.user_id || data.email,
+        email: data.email,
+        name: data.name || 'Chef',
+        picture: data.picture,
+        isGuest: false,
+        authProvider: 'google',
+        savedRecipes: existingLocal?.savedRecipes || [],
+        cookbooks: existingLocal?.cookbooks || [],
+      };
+
+      this.currentUser.set(user);
+      this.saveLocalSession(user);
+
+      // Clear guest marker if present
+      if (existingLocal?.isGuest) {
+        console.log('Merged guest session data into authenticated user.');
+      }
+
+      return true;
     }
+
+    return false;
   }
 
   /**
