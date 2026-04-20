@@ -14,7 +14,6 @@
     Relates to #789
 -->
 
-
 ## Type of Change
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
