@@ -2,8 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { User } from '../auth.types';
 import { AuthService } from './auth.service';
 
-const STORAGE_KEY_SESSION = 'vegan_genius_session';
-
 type MockStorage = Storage & {
   clear: () => void;
 };
@@ -58,9 +56,12 @@ function createAuthenticatedUser(): User {
 }
 
 async function waitForAuthInit(authService: AuthService) {
-  await vi.waitFor(() => {
-    expect(authService.authLoading()).toBe(false);
-  });
+  await vi.waitFor(
+    () => {
+      expect(authService.authLoading()).toBe(false);
+    },
+    { timeout: 1000 }
+  );
 }
 
 describe('AuthService auth-check startup behavior', () => {
@@ -106,9 +107,9 @@ describe('AuthService auth-check startup behavior', () => {
     localStorageMock.clear();
   });
 
-  it('downgrades a cached authenticated session only when the backend explicitly reports unauthenticated', async () => {
+  it('downgrades cached session when backend returns authenticated: false', async () => {
     const cachedUser = createAuthenticatedUser();
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(cachedUser));
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
 
     vi.stubGlobal(
       'fetch',
@@ -128,7 +129,9 @@ describe('AuthService auth-check startup behavior', () => {
       savedRecipes: cachedUser.savedRecipes,
     });
 
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY_SESSION) || '{}')).toMatchObject({
+    expect(
+      JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')
+    ).toMatchObject({
       id: cachedUser.id,
       isGuest: true,
       authProvider: 'guest',
@@ -138,7 +141,7 @@ describe('AuthService auth-check startup behavior', () => {
 
   it('preserves cached authenticated state when auth-check returns a server error', async () => {
     const cachedUser = createAuthenticatedUser();
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(cachedUser));
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
 
     vi.stubGlobal(
       'fetch',
@@ -151,12 +154,14 @@ describe('AuthService auth-check startup behavior', () => {
     await waitForAuthInit(authService);
 
     expect(authService.currentUser()).toEqual(cachedUser);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY_SESSION) || '{}')).toEqual(cachedUser);
+    expect(JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')).toEqual(
+      cachedUser
+    );
   });
 
   it('preserves cached authenticated state when auth-check fails with a transport error', async () => {
     const cachedUser = createAuthenticatedUser();
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(cachedUser));
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
 
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network blip')));
 
@@ -164,6 +169,8 @@ describe('AuthService auth-check startup behavior', () => {
     await waitForAuthInit(authService);
 
     expect(authService.currentUser()).toEqual(cachedUser);
-    expect(JSON.parse(localStorage.getItem(STORAGE_KEY_SESSION) || '{}')).toEqual(cachedUser);
+    expect(JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')).toEqual(
+      cachedUser
+    );
   });
 });

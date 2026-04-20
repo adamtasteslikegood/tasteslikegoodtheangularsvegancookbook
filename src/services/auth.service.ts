@@ -15,12 +15,14 @@ import { environment } from '../environments/environment';
   providedIn: 'root',
 })
 export class AuthService {
+  static readonly SESSION_STORAGE_KEY = 'vegan_genius_session';
+
   currentUser: WritableSignal<User | null> = signal(null);
 
   /** True while we're checking auth status on startup */
   authLoading: WritableSignal<boolean> = signal(true);
 
-  private readonly STORAGE_KEY_SESSION = 'vegan_genius_session';
+  private readonly STORAGE_KEY_SESSION = AuthService.SESSION_STORAGE_KEY;
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
   constructor() {
