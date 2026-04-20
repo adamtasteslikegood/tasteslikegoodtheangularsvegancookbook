@@ -37,29 +37,19 @@ export class AuthService {
     this.authLoading.set(true);
     try {
       const authenticated = await this.checkAuthStatus();
-      if (!authenticated) {
+      if (authenticated !== true) {
         // No Flask session — restore guest/local session if one exists
         this.loadLocalSession();
         // If localStorage had a stale Google-authed user but Flask session
         // expired, downgrade to guest so the Sign In button shows.
         // Recipes are preserved and will merge back after re-login.
         const restored = this.currentUser();
-        if (restored && !restored.isGuest) {
+        if (authenticated === false && restored && !restored.isGuest) {
           console.log('Flask session expired — downgrading cached user to guest');
           const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
           this.currentUser.set(downgraded);
           this.saveLocalSession(downgraded);
         }
-      }
-    } catch {
-      // Network error (Flask not running, etc.) — fall back to local
-      this.loadLocalSession();
-      const restored = this.currentUser();
-      if (restored && !restored.isGuest) {
-        console.log('Flask unreachable — downgrading cached user to guest');
-        const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
-        this.currentUser.set(downgraded);
-        this.saveLocalSession(downgraded);
       }
     } finally {
       this.authLoading.set(false);
@@ -73,13 +63,13 @@ export class AuthService {
    * Called on app init and after OAuth callback redirect.
    * Returns true if user is authenticated via Flask.
    */
-  async checkAuthStatus(): Promise<boolean> {
+  async checkAuthStatus(): Promise<boolean | null> {
     try {
       const res = await fetch(`${this.API_BASE}/api/auth/check`, {
         credentials: 'include',
       });
 
-      if (!res.ok) return false;
+      if (!res.ok) return null;
 
       const data = await res.json();
       if (data.authenticated) {
@@ -118,7 +108,7 @@ export class AuthService {
 
       return false;
     } catch {
-      return false;
+      return null;
     }
   }
 
