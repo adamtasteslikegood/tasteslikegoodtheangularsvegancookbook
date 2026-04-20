@@ -3,10 +3,19 @@
 	url = https://github.com/adamtasteslikegood/tasteslikegood.com.git
 	branch = dev/backend_sub222
 
+[submodule "gemstack"]
+	path = gemstack
+	url = https://github.com/ekrishgupta/gemstack.git
 [submodule "alirez-claude-skills"]
 	path = alirez-claude-skills
-	url = https://github.com/adamtasteslikegood/alirez_claude_skills.git
+	url = ./alirez-claude-skills
+
+
+[submodule "alirez-claude-skills"]
+	path = alirez-claude-skills
+	url = https://github.com/adamtasteslikegood/alirez-claude-skills.git
 
 [submodule "gemstack"]
 	path = gemstack
 	url = https://github.com/garrytan/gstack.git
+
