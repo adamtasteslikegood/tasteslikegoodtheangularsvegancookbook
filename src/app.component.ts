@@ -765,6 +765,49 @@ export class AppComponent {
     this.servingsMultiplier.set(multiplier);
   }
 
+  // ─── v0.2 Distribution Methods ────────────────────────────
+
+  async togglePublic(recipe: Recipe) {
+    const nextState = !recipe.is_public;
+    recipe.is_public = nextState;
+
+    // If making public and slug is missing, generate one
+    if (nextState && !recipe.slug) {
+      recipe.slug = recipe.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    try {
+      await this.persistenceService.saveRecipe(recipe);
+      this.authService.saveRecipe(recipe); // Update local state
+    } catch (err) {
+      console.error('Failed to toggle public state:', err);
+      recipe.is_public = !nextState; // Revert on failure
+    }
+  }
+
+  async updateSlug(recipe: Recipe) {
+    if (!recipe.slug?.trim()) return;
+
+    // Clean the slug
+    recipe.slug = recipe.slug
+      .toLowerCase()
+      .trim()
+      .replace(/[\s_-]+/g, '-')
+      .replace(/[^\w-]/g, '');
+
+    try {
+      await this.persistenceService.saveRecipe(recipe);
+      this.authService.saveRecipe(recipe); // Update local state
+    } catch (err) {
+      console.error('Failed to update slug:', err);
+    }
+  }
+
   formatAmount(amount: number | number[]): string {
     if (Array.isArray(amount)) {
       return amount.join(' - ');
