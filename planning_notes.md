@@ -30,3 +30,6 @@ A comprehensive UI/UX review produced the following foundational anti-AI slop de
 
 ## Next Steps
 All artifacts (`roadmap.md`, `plan.md`, test plans) have been documented. The next technical phase is implementing the Alembic data migrations and backend SSR proxy routing on the `feat/v0.2-public-recipes` branch.
+
+**Immediate Bug Fix (Added 2026-04-20):**
+*   **Authentication UI Mismatch (KAN-60):** The website currently shows all recipes as if the user is logged in (when returning in a previously authenticated browser), but the login button incorrectly renders in a logged-out state. This needs to be addressed immediately.
