@@ -755,7 +755,7 @@
               [class.hover:bg-stone-50]="activeCookbookId() !== cb.id"
               (click)="selectCookbook(cb.id)"
               (keydown.enter)="selectCookbook(cb.id)"
-              (keyup.space)="selectCookbook(cb.id); $event.preventDefault()"
+              (keydown.space)="selectCookbook(cb.id); $event.preventDefault()"
               tabindex="0"
               role="button"
             >
@@ -1021,7 +1021,7 @@
                   class="bg-white rounded-xl shadow-sm border border-stone-200 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer"
                   (click)="viewRecipe(r)"
                   (keydown.enter)="viewRecipe(r)"
-                  (keyup.space)="viewRecipe(r); $event.preventDefault()"
+                  (keydown.space)="viewRecipe(r); $event.preventDefault()"
                   tabindex="0"
                   role="button"
                 >
