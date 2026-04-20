@@ -62,7 +62,7 @@ export class AuthService {
 
   /**
    * Check if the user has a valid Flask session cookie.
-   * Called on app init and after OAuth callback redirect.
+   * Called during app startup to check whether a Flask session is still active.
    * Returns:
    * - true when the backend confirms an authenticated Flask session
    * - false when the backend explicitly reports authenticated: false
