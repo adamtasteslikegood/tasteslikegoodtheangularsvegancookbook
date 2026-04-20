@@ -53,8 +53,8 @@
 name: "Daily Repo Status"
 "on":
   schedule:
-  - cron: "45 12 * * *"
-    # Friendly format: daily (scattered)
+    - cron: '45 12 * * *'
+      # Friendly format: daily (scattered)
   # steps: # Steps injected into pre-activation job
   # - env:
       # COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
