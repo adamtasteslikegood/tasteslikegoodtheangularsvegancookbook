@@ -2,3 +2,11 @@
 	path = Backend
 	url = https://github.com/adamtasteslikegood/tasteslikegood.com.git
 	branch = dev/backend_sub222
+
+[submodule "alirez-claude-skills"]
+	path = alirez-claude-skills
+	url = https://github.com/adamtasteslikegood/alirez_claude_skills.git
+
+[submodule "gemstack"]
+	path = gemstack
+	url = https://github.com/garrytan/gstack.git
