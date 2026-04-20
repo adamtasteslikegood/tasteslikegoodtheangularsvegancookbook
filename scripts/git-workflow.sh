@@ -1,18 +1,24 @@
 #!/bin/bash
 
 ################################################################################
-# Git Workflow Script - Submodule & Main Repo Management
+# Git Workflow Script - Multi-Submodule & Main Repo Management
 ################################################################################
-# Manages commits and pushes across Backend submodule and main repository
-# with extensive options for customization and safety.
+# Manages commits and pushes across ALL submodules and the main repository.
+# Works with any git repo — auto-detects submodules at runtime.
+# Supports --recursive for nested submodule trees.
 #
 # Usage: ./git-workflow.sh [OPTIONS]
 # Example: ./git-workflow.sh -i -m "feat: new feature"
 # Example: ./git-workflow.sh --no-submodule --push
 # Example: ./git-workflow.sh --all -m "chore: update all"
+# Example: ./git-workflow.sh --recursive -m "chore: update everything"
+# Example: ./git-workflow.sh --submodule-path Backend -m "fix: backend only"
 ################################################################################
 
 set -euo pipefail  # Exit on error, undefined vars, pipe failures
+
+# Disable pagers for all git commands in this script
+export GIT_PAGER=cat
 
 ################################################################################
 # COLORS & FORMATTING
@@ -63,9 +69,14 @@ RUN_AFTER=""
 PULL_BEFORE=false
 PULL_REBASE=false
 
-# Paths
-SUBMODULE_PATH="Backend"
+# Paths — submodule filtering (empty = all detected submodules)
+SUBMODULE_FILTER_PATHS=()
+RECURSIVE=false
 PROJECT_ROOT=""
+
+# Populated at runtime by detect_submodules()
+DETECTED_SUBMODULES=()
+COMMITTED_SUBMODULES=()
 
 # Staging behavior
 STAGE_ALL_FLAG=false
@@ -153,16 +164,75 @@ validate_git_repo() {
     fi
 }
 
-validate_submodule() {
-    if [[ "$DO_SUBMODULE" == true ]] && [[ ! -d "$SUBMODULE_PATH" ]]; then
-        print_error "Submodule directory '$SUBMODULE_PATH' not found."
-        exit 1
+validate_submodules() {
+    if [[ "$DO_SUBMODULE" != true ]]; then
+        return 0
     fi
 
-    if [[ "$DO_SUBMODULE" == true ]] && [[ ! -d "$SUBMODULE_PATH/.git" ]]; then
-        print_error "'$SUBMODULE_PATH' is not a git repository."
-        exit 1
+    for sm_path in "${DETECTED_SUBMODULES[@]}"; do
+        if [[ ! -d "$sm_path" ]]; then
+            print_error "Submodule directory '$sm_path' not found."
+            print_info "Try: git submodule update --init${RECURSIVE:+ --recursive}"
+            exit 1
+        fi
+
+        if [[ ! -d "$sm_path/.git" ]] && [[ ! -f "$sm_path/.git" ]]; then
+            print_error "'$sm_path' is not a git repository."
+            print_info "Try: git submodule update --init${RECURSIVE:+ --recursive}"
+            exit 1
+        fi
+    done
+}
+
+detect_submodules() {
+    if [[ "$DO_SUBMODULE" != true ]]; then
+        return 0
     fi
+
+    local recursive_flag=""
+    if [[ "$RECURSIVE" == true ]]; then
+        recursive_flag="--recursive"
+    fi
+
+    # Read submodule paths from git
+    local all_submodules=()
+    while IFS= read -r line; do
+        # git submodule status output: " <sha> <path> (<describe>)" or "-<sha> <path>"
+        local sm_path
+        sm_path=$(echo "$line" | awk '{print $2}')
+        if [[ -n "$sm_path" ]]; then
+            all_submodules+=("$sm_path")
+        fi
+    done < <(git submodule status $recursive_flag 2>/dev/null)
+
+    if [[ ${#all_submodules[@]} -eq 0 ]]; then
+        print_warning "No submodules found in this repository"
+        DO_SUBMODULE=false
+        return 0
+    fi
+
+    # Apply filter if --submodule-path was specified
+    if [[ ${#SUBMODULE_FILTER_PATHS[@]} -gt 0 ]]; then
+        for filter_path in "${SUBMODULE_FILTER_PATHS[@]}"; do
+            local found=false
+            for sm_path in "${all_submodules[@]}"; do
+                if [[ "$sm_path" == "$filter_path" ]]; then
+                    DETECTED_SUBMODULES+=("$sm_path")
+                    found=true
+                    break
+                fi
+            done
+            if [[ "$found" == false ]]; then
+                print_error "Specified submodule '$filter_path' not found."
+                print_info "Available submodules: ${all_submodules[*]}"
+                exit 1
+            fi
+        done
+    else
+        DETECTED_SUBMODULES=("${all_submodules[@]}")
+    fi
+
+    print_info "Detected ${#DETECTED_SUBMODULES[@]} submodule(s): ${DETECTED_SUBMODULES[*]}"
 }
 
 ################################################################################
@@ -588,51 +658,63 @@ pull_changes() {
 # WORKFLOW FUNCTIONS
 ################################################################################
 
-process_submodule() {
+process_submodules() {
     if [[ "$DO_SUBMODULE" != true ]]; then
         return 0
     fi
 
-    print_header "Processing Submodule: $SUBMODULE_PATH"
-
-    cd "$SUBMODULE_PATH"
-
-    # Auto-detect branch if not specified
-    if [[ -z "$SUB_BRANCH" ]]; then
-        SUB_BRANCH=$(get_current_branch)
-        print_info "Auto-detected submodule branch: $SUB_BRANCH"
+    if [[ ${#DETECTED_SUBMODULES[@]} -eq 0 ]]; then
+        return 0
     fi
 
-    # Interactive branch confirmation
-    if [[ "$INTERACTIVE" == true ]]; then
-        local response
-        read -rp "$(echo -e "${CYAN}Submodule branch [$SUB_BRANCH]:${NC} ")" response
-        if [[ -n "$response" ]]; then
-            SUB_BRANCH="$response"
+    for sm_path in "${DETECTED_SUBMODULES[@]}"; do
+        local sm_name
+        sm_name=$(basename "$sm_path")
+
+        print_header "Processing Submodule: $sm_path"
+
+        cd "$PROJECT_ROOT/$sm_path"
+
+        # Auto-detect branch (--sub-branch overrides all)
+        local branch="$SUB_BRANCH"
+        if [[ -z "$branch" ]]; then
+            branch=$(get_current_branch)
+            print_info "Auto-detected branch for $sm_path: $branch"
         fi
-    fi
 
-    # Pull before if requested
-    if [[ "$PULL_BEFORE" == true ]]; then
-        pull_changes "Submodule" "$SUB_BRANCH"
-    fi
-
-    # Show status
-    get_repo_status "Submodule" "." >/dev/null
-
-    # Commit
-    if [[ "$DO_COMMIT" == true ]]; then
-        if commit_changes "Submodule" "$SUB_BRANCH" true; then
-            SUBMODULE_COMMITTED=true
+        # Interactive branch confirmation
+        if [[ "$INTERACTIVE" == true ]]; then
+            local response
+            read -rp "$(echo -e "${CYAN}Branch for $sm_path [$branch]:${NC} ")" response
+            if [[ -n "$response" ]]; then
+                branch="$response"
+            fi
         fi
-    fi
 
-    # Push
-    if [[ "$DO_PUSH" == true ]] && [[ "$SUBMODULE_COMMITTED" == true ]]; then
-        push_changes "Submodule" "$SUB_BRANCH"
-    fi
+        # Pull before if requested
+        if [[ "$PULL_BEFORE" == true ]]; then
+            pull_changes "$sm_path" "$branch"
+        fi
 
-    cd "$PROJECT_ROOT"
+        # Show status
+        get_repo_status "$sm_path" "." >/dev/null
+
+        # Commit
+        local committed=false
+        if [[ "$DO_COMMIT" == true ]]; then
+            if commit_changes "$sm_path" "$branch" true; then
+                committed=true
+                COMMITTED_SUBMODULES+=("$sm_path")
+            fi
+        fi
+
+        # Push
+        if [[ "$DO_PUSH" == true ]] && [[ "$committed" == true ]]; then
+            push_changes "$sm_path" "$branch"
+        fi
+
+        cd "$PROJECT_ROOT"
+    done
 }
 
 process_main_repo() {
@@ -667,10 +749,13 @@ process_main_repo() {
     # Show status
     get_repo_status "Main Repository" "." >/dev/null
 
-    # If submodule was committed, update submodule reference
-    if [[ "$SUBMODULE_COMMITTED" == true ]]; then
-        print_info "Updating submodule reference in main repo..."
-        git add "$SUBMODULE_PATH"
+    # If any submodules were committed, update their references
+    if [[ ${#COMMITTED_SUBMODULES[@]} -gt 0 ]]; then
+        print_info "Updating submodule references in main repo..."
+        for sm_path in "${COMMITTED_SUBMODULES[@]}"; do
+            git add "$sm_path"
+            print_info "  Updated reference: $sm_path"
+        done
     fi
 
     # Commit
@@ -698,8 +783,9 @@ ${BOLD}USAGE:${NC}
     $0 [OPTIONS]
 
 ${BOLD}DESCRIPTION:${NC}
-    Manages git commits and pushes across Backend submodule and main repository.
-    Default workflow: commit submodule → commit main → push submodule → push main
+    Manages git commits and pushes across all submodules and the main repository.
+    Works with any git repo — auto-detects submodules at runtime.
+    Default workflow: commit submodules → commit main → push submodules → push main
 
 ${BOLD}OPTIONS:${NC}
     ${BOLD}Mode:${NC}
@@ -712,9 +798,10 @@ ${BOLD}OPTIONS:${NC}
     ${BOLD}Repository Selection:${NC}
     --main                     Process main repo only
     --no-main                  Skip main repo
-    --submodule                Process submodule only
-    --no-submodule             Skip submodule
-    --submodule-path PATH      Submodule path (default: Backend)
+    --submodule                Process submodule(s) only
+    --no-submodule             Skip all submodules
+    --submodule-path PATH      Process only this submodule (repeatable)
+    -r, --recursive            Include nested submodules (recursive)
 
     ${BOLD}Operations:${NC}
     --commit-only              Only commit, don't push
@@ -753,7 +840,7 @@ ${BOLD}OPTIONS:${NC}
 
 ${BOLD}EXAMPLES:${NC}
     ${BOLD}Basic usage:${NC}
-    # Default: prompt for staging, use editor, commit both repos
+    # Default: prompt for staging, use editor, commit all submodules + main
     $0
 
     # Commit with message (automatically enables push)
@@ -765,12 +852,21 @@ ${BOLD}EXAMPLES:${NC}
     # Interactive mode with custom message
     $0 -i -m "feat: add authentication"
 
+    # Include nested submodules
+    $0 --recursive --all -m "chore: update everything"
+
     ${BOLD}Advanced usage:${NC}
     # Commit only, no push
     $0 --commit-only -m "wip: work in progress"
 
     # Main repo only, specific branch
     $0 --no-submodule --main-branch dev/feature -m "docs: update README"
+
+    # Only process a specific submodule
+    $0 --submodule-path Backend -m "fix: backend bug"
+
+    # Multiple specific submodules
+    $0 --submodule-path Backend --submodule-path libs/shared -m "chore: update"
 
     # Different messages for submodule and main
     $0 --sub-message "fix: backend bug" --main-message "chore: update backend ref"
@@ -800,14 +896,14 @@ ${BOLD}ENVIRONMENT VARIABLES:${NC}
 ${BOLD}WORKFLOW ORDER:${NC}
     1. Run --run-before command (if specified)
     2. Pull changes (if --pull-before specified)
-    3. Process Submodule:
+    3. Process Each Submodule (in order detected):
        - Check status
        - Stage files (with prompts or --all)
        - Commit
        - Push (if enabled)
     4. Process Main Repository:
        - Check status
-       - Update submodule reference (if submodule changed)
+       - Update submodule references (for any submodules that changed)
        - Stage files
        - Commit
        - Push (if enabled)
@@ -860,8 +956,12 @@ parse_arguments() {
                 shift
                 ;;
             --submodule-path)
-                SUBMODULE_PATH="$2"
+                SUBMODULE_FILTER_PATHS+=("$2")
                 shift 2
+                ;;
+            -r|--recursive)
+                RECURSIVE=true
+                shift
                 ;;
             --commit-only)
                 COMMIT_ONLY=true
@@ -990,16 +1090,22 @@ main() {
 
     # Validation
     validate_git_repo
-    validate_submodule
+    detect_submodules
+    validate_submodules
 
     # Track what was committed
-    SUBMODULE_COMMITTED=false
     MAIN_COMMITTED=false
 
     # Show configuration in interactive mode
     if [[ "$INTERACTIVE" == true ]]; then
         print_header "Configuration"
-        print_info "Submodule: $([ "$DO_SUBMODULE" == true ] && echo "✓" || echo "✗")"
+        print_info "Submodules: $([ "$DO_SUBMODULE" == true ] && echo "✓ (${#DETECTED_SUBMODULES[@]} found)" || echo "✗")"
+        if [[ "$DO_SUBMODULE" == true ]] && [[ ${#DETECTED_SUBMODULES[@]} -gt 0 ]]; then
+            for sm in "${DETECTED_SUBMODULES[@]}"; do
+                print_info "  - $sm"
+            done
+        fi
+        print_info "Recursive: $([ "$RECURSIVE" == true ] && echo "✓" || echo "✗")"
         print_info "Main repo: $([ "$DO_MAIN" == true ] && echo "✓" || echo "✗")"
         print_info "Commit: $([ "$DO_COMMIT" == true ] && echo "✓" || echo "✗")"
         print_info "Push: $([ "$DO_PUSH" == true ] && echo "✓" || echo "✗")"
@@ -1029,7 +1135,7 @@ main() {
     fi
 
     # Execute workflow
-    process_submodule
+    process_submodules
     process_main_repo
 
     # Run after hook
@@ -1044,12 +1150,14 @@ main() {
     # Final summary
     print_header "Workflow Complete"
 
-    if [[ "$DO_SUBMODULE" == true ]]; then
-        cd "$PROJECT_ROOT/$SUBMODULE_PATH"
-        print_info "Submodule latest commits:"
-        git log --oneline -3
-        echo ""
-        cd "$PROJECT_ROOT"
+    if [[ "$DO_SUBMODULE" == true ]] && [[ ${#DETECTED_SUBMODULES[@]} -gt 0 ]]; then
+        for sm_path in "${DETECTED_SUBMODULES[@]}"; do
+            cd "$PROJECT_ROOT/$sm_path"
+            print_info "$sm_path latest commits:"
+            git log --oneline -3
+            echo ""
+            cd "$PROJECT_ROOT"
+        done
     fi
 
     if [[ "$DO_MAIN" == true ]]; then
