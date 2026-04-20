@@ -15,12 +15,14 @@ import { environment } from '../environments/environment';
   providedIn: 'root',
 })
 export class AuthService {
+  static readonly SESSION_STORAGE_KEY = 'vegan_genius_session';
+
   currentUser: WritableSignal<User | null> = signal(null);
 
   /** True while we're checking auth status on startup */
   authLoading: WritableSignal<boolean> = signal(true);
 
-  private readonly STORAGE_KEY_SESSION = 'vegan_genius_session';
+  private readonly STORAGE_KEY_SESSION = AuthService.SESSION_STORAGE_KEY;
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
   constructor() {
@@ -37,18 +39,15 @@ export class AuthService {
     this.authLoading.set(true);
     try {
       const authenticated = await this.checkAuthStatus();
-      if (!authenticated) {
-        // Flask explicitly reports no active session — restore local session
-        // and clear any stale authenticated cache (avoids showing logged-out
-        // header while still displaying a previously-authenticated user's data).
+      if (authenticated !== true) {
+        // No Flask session — restore guest/local session if one exists.
+        // Only an explicit authenticated:false response should clear stale
+        // cached Google-authenticated state; transient failures must preserve it.
         this.loadLocalSession();
-        this.clearStaleAuthenticatedSession('Flask session expired');
+        if (authenticated === false) {
+          this.clearStaleAuthenticatedSession('Flask session expired');
+        }
       }
-    } catch {
-      // Network error (Flask not running, temporary 5xx, etc.) — fall back to
-      // local session without clearing it. A transient failure must not force
-      // a signed-in user's cached data to be wiped.
-      this.loadLocalSession();
     } finally {
       this.authLoading.set(false);
     }
@@ -76,54 +75,59 @@ export class AuthService {
 
   /**
    * Check if the user has a valid Flask session cookie.
-   * Called on app init and after OAuth callback redirect.
-   * Returns true if user is authenticated via Flask, false if Flask explicitly
-   * reports no active session. Throws on network/fetch errors so callers can
-   * distinguish a transient failure from a deliberate "not authenticated".
+   * Called during app startup to check whether a Flask session is still active.
+   * Returns:
+   * - true when the backend confirms an authenticated Flask session
+   * - false when the backend explicitly reports authenticated: false
+   * - null for transient transport/server failures so cached state is preserved
    */
-  async checkAuthStatus(): Promise<boolean> {
-    const res = await fetch(`${this.API_BASE}/api/auth/check`, {
-      credentials: 'include',
-    });
+  async checkAuthStatus(): Promise<boolean | null> {
+    try {
+      const res = await fetch(`${this.API_BASE}/api/auth/check`, {
+        credentials: 'include',
+      });
 
-    if (!res.ok) return false;
+      if (!res.ok) return null;
 
-    const data = await res.json();
-    if (data.authenticated) {
-      // Clean up ?auth=success query param left by the OAuth redirect,
-      // preserving any other query parameters that may be present.
-      if (window.location.search.includes('auth=success')) {
-        const url = new URL(window.location.href);
-        url.searchParams.delete('auth');
-        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+      const data = await res.json();
+      if (data.authenticated) {
+        // Clean up ?auth=success query param left by the OAuth redirect,
+        // preserving any other query parameters that may be present.
+        if (window.location.search.includes('auth=success')) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('auth');
+          window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        }
+
+        // Merge any existing guest data before replacing session
+        const existingLocal = this.getLocalSession();
+
+        const user: User = {
+          id: data.user_id || data.email,
+          email: data.email,
+          name: data.name || 'Chef',
+          picture: data.picture,
+          isGuest: false,
+          authProvider: 'google',
+          savedRecipes: existingLocal?.savedRecipes || [],
+          cookbooks: existingLocal?.cookbooks || [],
+        };
+
+        this.currentUser.set(user);
+        this.saveLocalSession(user);
+
+        // Clear guest marker if present
+        if (existingLocal?.isGuest) {
+          console.log('Merged guest session data into authenticated user.');
+        }
+
+        return true;
       }
 
-      // Merge any existing guest data before replacing session
-      const existingLocal = this.getLocalSession();
-
-      const user: User = {
-        id: data.user_id || data.email,
-        email: data.email,
-        name: data.name || 'Chef',
-        picture: data.picture,
-        isGuest: false,
-        authProvider: 'google',
-        savedRecipes: existingLocal?.savedRecipes || [],
-        cookbooks: existingLocal?.cookbooks || [],
-      };
-
-      this.currentUser.set(user);
-      this.saveLocalSession(user);
-
-      // Clear guest marker if present
-      if (existingLocal?.isGuest) {
-        console.log('Merged guest session data into authenticated user.');
-      }
-
-      return true;
+      return false;
+    } catch {
+      return null;
     }
-
-    return false;
   }
 
   /**
