@@ -11,8 +11,8 @@
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "test:watch": "vitest watch",
-    "lint": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --max-warnings 0",
-    "lint:fix": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --fix",
+    "lint": "eslint \"src/**/*.{ts,html}\" \"server/**/*.ts\" --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.{ts,html}\" \"server/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
