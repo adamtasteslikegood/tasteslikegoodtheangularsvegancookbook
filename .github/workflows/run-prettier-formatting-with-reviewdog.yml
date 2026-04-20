@@ -10,6 +10,7 @@ on:
     branches: [main, dev]
 
 jobs:
+
   prettier-review:
     name: Prettier
     if: github.event.pull_request.head.repo.full_name == github.repository
@@ -27,14 +28,14 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
       - name: Run Prettier with reviewdog
         # v1.3.0 — pinned to commit for supply-chain safety
         uses: EPMatt/reviewdog-action-prettier@f691104cbeb4b0299df971275444c64be93c03ae
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           level: error
-          reporter: github-pr-review
+          reporter: github-pr-check # Changed from github-pr-review
           filter_mode: file
           fail_level: none
+
           # Uses default prettier_flags: '.' — .prettierrc and .prettierignore handle scoping
