@@ -56,6 +56,9 @@ let server: Server | null = null;
   // Must be mounted BEFORE express.json() so raw request bodies stream
   // through to Flask without being consumed by the JSON parser.
   app.use('/api', createFlaskProxy('API'));
+  app.use('/r', createFlaskProxy('Public Recipe'));
+  app.use('/browse', createFlaskProxy('Browse'));
+  app.use('/sitemap.xml', createFlaskProxy('Sitemap'));
 
   // Reduce default JSON payload limit to 50KB for security
   app.use(express.json({ limit: '50kb' }));
