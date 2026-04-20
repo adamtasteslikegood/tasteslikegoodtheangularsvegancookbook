@@ -70,34 +70,22 @@ describe('AuthService auth-check startup behavior', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
 
-    Object.defineProperty(globalThis, 'localStorage', {
-      value: localStorageMock,
-      configurable: true,
-      writable: true,
+    vi.stubGlobal('localStorage', localStorageMock);
+
+    vi.stubGlobal('window', {
+      location: {
+        href: 'http://localhost/',
+        search: '',
+        hash: '',
+        pathname: '/',
+      },
+      history: {
+        replaceState: vi.fn(),
+      },
     });
 
-    Object.defineProperty(globalThis, 'window', {
-      value: {
-        location: {
-          href: 'http://localhost/',
-          search: '',
-          hash: '',
-          pathname: '/',
-        },
-        history: {
-          replaceState: vi.fn(),
-        },
-      },
-      configurable: true,
-      writable: true,
-    });
-
-    Object.defineProperty(globalThis, 'document', {
-      value: {
-        title: 'Vegangenius Chef',
-      },
-      configurable: true,
-      writable: true,
+    vi.stubGlobal('document', {
+      title: 'Vegangenius Chef',
     });
 
     localStorageMock.clear();
@@ -105,6 +93,7 @@ describe('AuthService auth-check startup behavior', () => {
 
   afterEach(() => {
     localStorageMock.clear();
+    vi.unstubAllGlobals();
   });
 
   it('downgrades cached session when backend returns authenticated: false', async () => {
