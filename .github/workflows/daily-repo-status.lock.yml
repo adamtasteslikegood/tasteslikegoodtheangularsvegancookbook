@@ -79,7 +79,7 @@ jobs:
   activation:
     needs: pre_activation
     if: needs.pre_activation.outputs.activated == 'true'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       actions: read
       contents: read
