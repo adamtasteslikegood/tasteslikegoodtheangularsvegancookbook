@@ -57,9 +57,9 @@ name: 'Daily Repo Status'
       # Friendly format: daily (scattered)
   # steps: # Steps injected into pre-activation job
   # - env:
-      # COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
-    # name: Validate COPILOT_GITHUB_TOKEN secret
-    # run: "bash \"${RUNNER_TEMP}/gh-aw/actions/validate_multi_secret.sh\" COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default"
+  # COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN }}
+  # name: Validate COPILOT_GITHUB_TOKEN secret
+  # run: "bash \"${RUNNER_TEMP}/gh-aw/actions/validate_multi_secret.sh\" COPILOT_GITHUB_TOKEN 'GitHub Copilot CLI' https://github.github.com/gh-aw/reference/engines/#github-copilot-default"
   workflow_dispatch:
     inputs:
       aw_context:
