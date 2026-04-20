@@ -5,7 +5,7 @@
 
 [submodule "alirez-claude-skills"]
 	path = alirez-claude-skills
-	url = https://github.com/adamtasteslikegood/alirez_claude_skills.git
+	url = https://github.com/adamtasteslikegood/alirez-claude-skills.git
 
 [submodule "gemstack"]
 	path = gemstack
