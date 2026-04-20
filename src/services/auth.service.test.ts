@@ -96,7 +96,7 @@ describe('AuthService auth-check startup behavior', () => {
     vi.unstubAllGlobals();
   });
 
-  it('downgrades cached session when backend returns authenticated: false', async () => {
+  it('clears cached authenticated session when backend returns authenticated: false', async () => {
     const cachedUser = createAuthenticatedUser();
     localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
 
@@ -111,21 +111,8 @@ describe('AuthService auth-check startup behavior', () => {
     const authService = new AuthService();
     await waitForAuthInit(authService);
 
-    expect(authService.currentUser()).toMatchObject({
-      id: cachedUser.id,
-      isGuest: true,
-      authProvider: 'guest',
-      savedRecipes: cachedUser.savedRecipes,
-    });
-
-    expect(JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')).toMatchObject(
-      {
-        id: cachedUser.id,
-        isGuest: true,
-        authProvider: 'guest',
-        savedRecipes: cachedUser.savedRecipes,
-      }
-    );
+    expect(authService.currentUser()).toBeNull();
+    expect(localStorage.getItem(AuthService.SESSION_STORAGE_KEY)).toBeNull();
   });
 
   it('preserves cached authenticated state when auth-check returns a server error', async () => {
