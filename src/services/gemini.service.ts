@@ -25,6 +25,35 @@ export class GeminiService {
     }
 
     const payload = await response.json();
+    const recipeId = payload.recipe_id || (payload.recipe && payload.recipe.id);
+    
+    // Poll for status if generating asynchronously
+    if (payload.status === 'generating') {
+      return new Promise((resolve, reject) => {
+        const poll = setInterval(async () => {
+          try {
+            const res = await fetch(`/api/recipes/${recipeId}/status`);
+            if (!res.ok) {
+              clearInterval(poll);
+              reject(new Error('Failed to get recipe status'));
+              return;
+            }
+            const { status, recipe } = await res.json();
+            if (status === 'ready') {
+              clearInterval(poll);
+              resolve(recipe as Recipe);
+            } else if (status === 'error') {
+              clearInterval(poll);
+              reject(new Error('Recipe generation failed during async processing'));
+            }
+          } catch (e) {
+            clearInterval(poll);
+            reject(e);
+          }
+        }, 2000);
+      });
+    }
+
     const recipe = payload.recipe as Recipe;
     recipe.id = recipe.id || crypto.randomUUID();
     return recipe;
@@ -48,6 +77,34 @@ export class GeminiService {
     }
 
     const payload = await response.json();
+    
+    if (payload.status === 'generating_image') {
+       // Poll until image_url is populated
+       return new Promise((resolve, reject) => {
+         const poll = setInterval(async () => {
+           try {
+             const res = await fetch(`/api/recipes/${recipeId}/status`);
+             if (!res.ok) {
+               clearInterval(poll);
+               reject(new Error('Failed to get recipe status'));
+               return;
+             }
+             const { recipe } = await res.json();
+             if (recipe.ai_image_url) {
+               clearInterval(poll);
+               resolve(recipe.ai_image_url);
+             } else if (recipe.ai_metadata?.image_generation?.success === false) {
+               clearInterval(poll);
+               reject(new Error('Image generation failed during async processing'));
+             }
+           } catch (e) {
+             clearInterval(poll);
+             reject(e);
+           }
+         }, 2000);
+       });
+    }
+
     if (!payload.image_url) {
       throw new Error('No image generated');
     }
