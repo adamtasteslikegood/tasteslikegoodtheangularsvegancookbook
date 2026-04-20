@@ -527,3 +527,62 @@ describe('createExpensiveOperationLimiter with non-null Valkey client', () => {
     expect(typeof limiter).toBe('function');
   });
 });
+
+// ── createFlaskProxy — Host header routing (regression) ───────────────────
+// Regression: Cloud Run's frontend load balancer routes by Host header.
+// If the proxy forwards the browser's Host (custom domain) to a
+// *.run.app target, Cloud Run returns its branded 404 before the request
+// reaches Flask. The proxy must set Host = target host and communicate
+// the browser's original host via X-Forwarded-Host.
+
+describe('createFlaskProxy Host header', () => {
+  it('sets Host to the target backend, X-Forwarded-Host to the original', async () => {
+    const originalUrl = process.env.FLASK_BACKEND_URL;
+    process.env.FLASK_BACKEND_URL = 'https://flask-backend-xyz.a.run.app';
+
+    const captured: { host?: string; xfh?: string } = {};
+    vi.resetModules();
+    vi.doMock('node:https', () => ({
+      default: {
+        request: (opts: { headers: Record<string, string> }) => {
+          captured.host = opts.headers.host;
+          captured.xfh = opts.headers['x-forwarded-host'];
+          return {
+            on: vi.fn(),
+            end: vi.fn(),
+            write: vi.fn(),
+          };
+        },
+      },
+    }));
+
+    const { createFlaskProxy } = await import('./proxy');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'www.tasteslikegood.org' },
+      hostname: 'www.tasteslikegood.org',
+      originalUrl: '/api/auth/login',
+      method: 'GET',
+      protocol: 'https',
+      pipe: vi.fn(),
+    } as unknown as Request;
+
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    handler(req, res);
+
+    expect(captured.host).toBe('flask-backend-xyz.a.run.app');
+    expect(captured.xfh).toBe('www.tasteslikegood.org');
+
+    vi.doUnmock('node:https');
+    vi.resetModules();
+    if (originalUrl) process.env.FLASK_BACKEND_URL = originalUrl;
+    else delete process.env.FLASK_BACKEND_URL;
+  });
+});

@@ -74,7 +74,7 @@ let server: Server | null = null;
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
 
-  app.get('*', staticPageLimiter, (_req, res) => {
+  app.get('{*path}', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 
