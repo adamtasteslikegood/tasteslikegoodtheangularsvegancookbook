@@ -123,11 +123,11 @@ export class AuthService {
 
         return true;
       }
+
+      return false;
     } catch {
       return null;
     }
-
-    return false;
   }
 
   /**
