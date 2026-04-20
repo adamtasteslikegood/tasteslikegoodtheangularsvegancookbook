@@ -2,6 +2,19 @@
 
 <!-- Provide a brief description of the changes in this PR -->
 
+## Related Issues
+
+<!--
+  Link issues this PR closes or relates to. GitHub will auto-close linked
+  issues when this PR is merged.
+
+  Examples:
+    Closes #123
+    Fixes #456
+    Relates to #789
+-->
+
+
 ## Type of Change
 
 - [ ] Bug fix (non-breaking change which fixes an issue)
