@@ -63,7 +63,10 @@ export class AuthService {
   /**
    * Check if the user has a valid Flask session cookie.
    * Called on app init and after OAuth callback redirect.
-   * Returns true if user is authenticated via Flask.
+   * Returns:
+   * - true when the backend confirms an authenticated Flask session
+   * - false when the backend explicitly reports authenticated: false
+   * - null for transient transport/server failures so cached state is preserved
    */
   async checkAuthStatus(): Promise<boolean | null> {
     try {
