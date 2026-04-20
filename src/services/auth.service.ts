@@ -40,21 +40,34 @@ export class AuthService {
     try {
       const authenticated = await this.checkAuthStatus();
       if (authenticated !== true) {
-        // No Flask session — restore guest/local session if one exists
+        // No Flask session — restore guest/local session if one exists.
+        // Only an explicit authenticated:false response should clear stale
+        // cached Google-authenticated state; transient failures must preserve it.
         this.loadLocalSession();
-        // If localStorage had a stale Google-authed user but Flask session
-        // expired, downgrade to guest so the Sign In button shows.
-        // Recipes are preserved and will merge back after re-login.
-        const restored = this.currentUser();
-        if (authenticated === false && restored && !restored.isGuest) {
-          console.log('Flask session expired — downgrading cached user to guest');
-          const downgraded = { ...restored, isGuest: true, authProvider: 'guest' as const };
-          this.currentUser.set(downgraded);
-          this.saveLocalSession(downgraded);
+        if (authenticated === false) {
+          this.clearStaleAuthenticatedSession('Flask session expired');
         }
       }
     } finally {
       this.authLoading.set(false);
+    }
+  }
+
+  /**
+   * If the loaded local session points at a Google-authed user but Flask
+   * reports no active session, drop it entirely. Keeping the cached user
+   * (even downgraded to guest) causes the UI to show the Sign In button
+   * while still rendering the previously authenticated user's recipes —
+   * a state mismatch (and a minor privacy leak on shared devices). The
+   * authenticated user's recipes live in the Flask DB and will be re-
+   * hydrated on re-login.
+   */
+  private clearStaleAuthenticatedSession(reason: string) {
+    const restored = this.currentUser();
+    if (restored && !restored.isGuest) {
+      console.log(`${reason} — clearing cached authenticated session`);
+      this.currentUser.set(null);
+      localStorage.removeItem(this.STORAGE_KEY_SESSION);
     }
   }
 
@@ -110,11 +123,11 @@ export class AuthService {
 
         return true;
       }
-
-      return false;
     } catch {
       return null;
     }
+
+    return false;
   }
 
   /**
