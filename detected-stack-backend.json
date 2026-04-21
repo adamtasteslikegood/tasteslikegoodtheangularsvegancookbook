@@ -1,0 +1,33 @@
+{
+  "repo": "/home/adam/projects/tasteslikegoodtheangularsvegancookbook/Backend",
+  "languages": [
+    "python"
+  ],
+  "package_managers": [
+    "pip"
+  ],
+  "ci_targets": [
+    "github",
+    "gitlab"
+  ],
+  "test_commands": [
+    "python3 -m pytest"
+  ],
+  "build_commands": [],
+  "lint_commands": [
+    "python3 -m ruff check ."
+  ],
+  "signals": {
+    "package_json": false,
+    "pnpm_lock": false,
+    "yarn_lock": false,
+    "npm_lock": false,
+    "pyproject": true,
+    "requirements": true,
+    "go_mod": false,
+    "dockerfile": true,
+    "vercel": false,
+    "helm": false,
+    "k8s": false
+  }
+}
