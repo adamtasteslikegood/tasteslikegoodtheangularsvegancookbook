@@ -90,6 +90,7 @@ ADDITIONAL_FILES=()
 AI_MODEL="${OPENAI_MODEL:-gpt-4}"
 AI_API_KEY="${OPENAI_API_KEY:-}"
 AI_ENDPOINT="${OPENAI_ENDPOINT:-https://api.openai.com/v1/chat/completions}"
+AI_EXTRA_PROMPT=""
 
 ################################################################################
 # HELPER FUNCTIONS
@@ -117,6 +118,22 @@ print_success() { print_color "$GREEN" "✅ $*"; }
 print_info() { print_color "$BLUE" "ℹ️  $*"; }
 print_warning() { print_color "$YELLOW" "⚠️  $*"; }
 print_error() { print_color "$RED" "❌ $*"; }
+
+print_color_stderr() {
+    local color=$1
+    shift
+    echo -e "${color}$*${NC}" >&2
+}
+
+print_success_stderr() { print_color_stderr "$GREEN" "✅ $*"; }
+print_info_stderr() { print_color_stderr "$BLUE" "ℹ️  $*"; }
+print_warning_stderr() { print_color_stderr "$YELLOW" "⚠️  $*"; }
+print_error_stderr() { print_color_stderr "$RED" "❌ $*"; }
+
+is_blank() {
+    local value="${1:-}"
+    [[ -z "${value//[$'\t\r\n ']/}" ]]
+}
 
 confirm() {
     local prompt="$1"
@@ -242,20 +259,28 @@ detect_submodules() {
 generate_ai_commit_message() {
     local diff_output="$1"
     local repo_name="$2"
+    local extra_prompt="${3:-}"
 
     if [[ -z "$AI_API_KEY" ]]; then
-        print_error "AI commit message generation requires OPENAI_API_KEY environment variable"
-        print_info "Set it with: export OPENAI_API_KEY='your-key-here'"
+        print_error_stderr "AI commit message generation requires OPENAI_API_KEY environment variable"
+        print_info_stderr "Set it with: export OPENAI_API_KEY='your-key-here'"
         return 1
     fi
 
-    print_info "Generating commit message using AI ($AI_MODEL)..."
+    print_info_stderr "Generating commit message using AI ($AI_MODEL) for $repo_name..."
 
     # Prepare the prompt
-    local prompt="Based on the following git diff, generate a concise, conventional commit message (e.g., feat:, fix:, chore:, docs:).
+    local prompt="Based on the following git diff from repository '$repo_name', generate a concise, conventional commit message (e.g., feat:, fix:, chore:, docs:).
 Include a clear summary line and bullet points for key changes.
+Keep the subject line short and specific.
 
-Git diff:
+${AI_EXTRA_PROMPT:+Additional instructions:
+$AI_EXTRA_PROMPT
+
+}${extra_prompt:+Extra regeneration instructions:
+$extra_prompt
+
+}Git diff:
 $diff_output
 
 Generate a commit message following conventional commits format."
@@ -293,12 +318,201 @@ Generate a commit message following conventional commits format."
     message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
 
     if [[ -z "$message" ]]; then
-        print_error "Failed to generate AI commit message"
-        print_info "API Response: $response"
+        print_error_stderr "Failed to generate AI commit message"
+        print_info_stderr "API Response: $response"
         return 1
     fi
 
     echo "$message"
+}
+
+print_commit_message_preview() {
+    local message="$1"
+    local guidance="${2:-}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+    echo -e "${GREEN}✅ Commit message preview${NC}" >&2
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+    if ! is_blank "$guidance"; then
+        echo -e "${CYAN}Active AI guidance:${NC}" >&2
+        printf '%s\n' "$guidance" >&2
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+    fi
+    printf '%s\n' "$message" >&2
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+    echo "" >&2
+}
+
+get_preferred_editor() {
+    if [[ -n "$COMMIT_MESSAGE_EDITOR" ]]; then
+        echo "$COMMIT_MESSAGE_EDITOR"
+    else
+        git var GIT_EDITOR 2>/dev/null || true
+    fi
+}
+
+edit_commit_message_in_editor() {
+    local initial_message="$1"
+    local repo_name="${2:-}"
+    local branch="${3:-}"
+    local editor
+    editor=$(get_preferred_editor)
+
+    if [[ -z "$editor" ]]; then
+        print_error_stderr "No editor configured. Set --editor, GIT_EDITOR, VISUAL, EDITOR, or git core.editor."
+        return 1
+    fi
+
+    local temp_file
+    temp_file=$(mktemp)
+
+    local staged_files=""
+    staged_files=$(git diff --cached --name-status 2>/dev/null || true)
+
+    cat > "$temp_file" << EOF
+$initial_message
+
+# Edit the commit message above.
+# Lines starting with # are ignored.
+#
+# Repository: ${repo_name:-Current Repository}
+# Branch: ${branch:-$(get_current_branch)}
+# Staged files:
+EOF
+
+    if ! is_blank "$staged_files"; then
+        while IFS= read -r staged_file; do
+            printf '#   %s\n' "$staged_file" >> "$temp_file"
+        done << EOF
+$staged_files
+EOF
+    else
+        printf '#   (none detected)\n' >> "$temp_file"
+    fi
+
+    print_info_stderr "Opening commit message in editor: $editor"
+    if ! sh -c 'eval "$1 \"\$2\""' sh "$editor" "$temp_file"; then
+        rm -f "$temp_file"
+        print_error_stderr "Editor exited with a non-zero status"
+        return 1
+    fi
+
+    local edited_message
+    edited_message=$(git stripspace --strip-comments < "$temp_file")
+    rm -f "$temp_file"
+
+    if is_blank "$edited_message"; then
+        print_error_stderr "Commit message cannot be empty"
+        return 1
+    fi
+
+    echo "$edited_message"
+}
+
+prompt_for_ai_regeneration_instructions() {
+    local instructions=""
+    printf '%s\n' "Enter extra instructions for regenerating the commit message." >&2
+    printf '%s\n' "Example: emphasize bug fix, mention API cleanup, keep it shorter, avoid bullet points." >&2
+    read -r -p "$(echo -e "${CYAN}Extra AI instructions:${NC} ")" instructions
+    echo "$instructions"
+}
+
+review_ai_commit_message() {
+    local repo_name="$1"
+    local branch="$2"
+    local diff_output="$3"
+    local message="$4"
+    local accumulated_guidance=""
+
+    while true; do
+        local active_guidance="$AI_EXTRA_PROMPT"
+        if ! is_blank "$accumulated_guidance"; then
+            if is_blank "$active_guidance"; then
+                active_guidance="$accumulated_guidance"
+            else
+                active_guidance="${active_guidance}
+${accumulated_guidance}"
+            fi
+        fi
+
+        print_commit_message_preview "$message" "$active_guidance"
+
+        if [[ "$INTERACTIVE" != true ]]; then
+            echo "$message"
+            return 0
+        fi
+
+        echo "Options:" >&2
+        echo "  y) Use this commit message" >&2
+        echo "  e) Edit in editor before commit" >&2
+        echo "  r) Regenerate commit message" >&2
+        echo "  g) Add guidance and regenerate" >&2
+        echo "  c) Clear added guidance (keeps --ai-prompt)" >&2
+        echo "  m) Enter commit message manually" >&2
+        echo "  q) Abort" >&2
+        echo "" >&2
+
+        local choice
+        printf '%b' "${CYAN}Choose [y/e/r/g/c/m/q] (1-7 also works):${NC} " >&2
+        IFS= read -r -n 1 choice
+        echo "" >&2
+        choice="${choice,,}"
+
+        case "$choice" in
+            y|1)
+                echo "$message"
+                return 0
+                ;;
+            e|2)
+                local edited_message
+                if edited_message=$(edit_commit_message_in_editor "$message" "$repo_name" "$branch"); then
+                    message="$edited_message"
+                fi
+                ;;
+            r|3)
+                if ! message=$(generate_ai_commit_message "$diff_output" "$repo_name" "$accumulated_guidance"); then
+                    return 1
+                fi
+                ;;
+            g|4)
+                local extra_instructions
+                extra_instructions=$(prompt_for_ai_regeneration_instructions)
+                if is_blank "$extra_instructions"; then
+                    print_warning_stderr "No additional guidance entered. Keeping current guidance."
+                    continue
+                fi
+                if is_blank "$accumulated_guidance"; then
+                    accumulated_guidance="$extra_instructions"
+                else
+                    accumulated_guidance="${accumulated_guidance}
+${extra_instructions}"
+                fi
+                if ! message=$(generate_ai_commit_message "$diff_output" "$repo_name" "$accumulated_guidance"); then
+                    return 1
+                fi
+                ;;
+            c|5)
+                accumulated_guidance=""
+                print_info_stderr "Cleared accumulated AI guidance."
+                ;;
+            m|6)
+                printf '%s\n' "Please enter commit message manually:" >&2
+                read -r message
+                if is_blank "$message"; then
+                    print_error_stderr "Commit message cannot be empty"
+                else
+                    echo "$message"
+                    return 0
+                fi
+                ;;
+            q|7)
+                print_warning_stderr "Commit aborted by user"
+                return 1
+                ;;
+            *)
+                print_error_stderr "Invalid choice. Use y/e/r/g/c/m/q or 1-7."
+                ;;
+        esac
+    done
 }
 
 ################################################################################
@@ -435,7 +649,8 @@ stage_files() {
 
 get_commit_message() {
     local repo_name=$1
-    local is_submodule=$2
+    local branch=$2
+    local is_submodule=$3
     local message=""
 
     # Priority order:
@@ -453,19 +668,14 @@ get_commit_message() {
     elif [[ "$COMMIT_MESSAGE_AUTO" == true ]]; then
         local diff_output
         diff_output=$(git diff --cached)
-        message=$(generate_ai_commit_message "$diff_output" "$repo_name")
-        if [[ $? -ne 0 ]] || [[ -z "$message" ]]; then
-            print_error "Failed to generate AI commit message"
-            exit 1
+        if ! message=$(generate_ai_commit_message "$diff_output" "$repo_name"); then
+            return 1
         fi
-        print_success "Generated commit message:"
-        echo "$message"
-        echo ""
-        if [[ "$INTERACTIVE" == true ]]; then
-            if ! confirm "Use this commit message?"; then
-                print_info "Please enter commit message manually:"
-                read -r message
-            fi
+        if [[ -z "$message" ]]; then
+            return 1
+        fi
+        if ! message=$(review_ai_commit_message "$repo_name" "$branch" "$diff_output" "$message"); then
+            return 1
         fi
     fi
 
@@ -491,7 +701,7 @@ commit_changes() {
     if [[ "$DRY_RUN" == true ]]; then
         print_info "[DRY RUN] Would commit to $repo_name ($branch)"
         local msg
-        msg=$(get_commit_message "$repo_name" "$is_submodule")
+        msg=$(get_commit_message "$repo_name" "$branch" "$is_submodule")
         print_info "[DRY RUN] Message: ${msg:-<would use editor>}"
         return 0
     fi
@@ -510,7 +720,9 @@ commit_changes() {
 
     # Determine how to commit
     local message
-    message=$(get_commit_message "$repo_name" "$is_submodule")
+    if ! message=$(get_commit_message "$repo_name" "$branch" "$is_submodule"); then
+        return 1
+    fi
 
     if [[ -n "$COMMIT_MESSAGE_FILE" ]]; then
         # Commit with message from file
@@ -820,8 +1032,10 @@ ${BOLD}OPTIONS:${NC}
     --sub-message MSG          Commit message for submodule only
     --main-message MSG         Commit message for main repo only
     -F, --file FILE            Read commit message from file
-    --editor [EDITOR]          Use editor for commit message (default: git config)
+    --editor [EDITOR]          Use editor command for commit messages (quote commands with flags)
     --auto, --generate         Auto-generate commit message using AI
+    --ai-prompt MSG            Additional AI instructions for generated commit messages
+                               In interactive mode, regeneration guidance accumulates until cleared
                                Requires OPENAI_API_KEY environment variable
 
     ${BOLD}Staging:${NC}
@@ -873,6 +1087,12 @@ ${BOLD}EXAMPLES:${NC}
 
     # AI-generated commit message
     $0 --auto --all
+
+    # AI-generated message with extra guidance
+    $0 --auto --ai-prompt "keep it short and mention the schema changes" --all
+
+    # Interactive AI review menu with regeneration, editor editing, and guidance accumulation
+    $0 --auto --interactive --editor "code --wait" --all
 
     # Pull before, then commit and push both
     $0 --pull-before -m "chore: sync and update"
@@ -1022,6 +1242,10 @@ parse_arguments() {
             --auto|--generate)
                 COMMIT_MESSAGE_AUTO=true
                 shift
+                ;;
+            --ai-prompt)
+                AI_EXTRA_PROMPT="$2"
+                shift 2
                 ;;
             -a|--all)
                 STAGE_ALL_FLAG=true
