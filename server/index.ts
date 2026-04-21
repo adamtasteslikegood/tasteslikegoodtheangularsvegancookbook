@@ -74,6 +74,14 @@ let server: Server | null = null;
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
 
+  // Flask SSR routes — individual public recipes, the browse index, and the
+  // sitemap must be proxied to Flask BEFORE the Angular catch-all so the HTML
+  // the crawler receives is server-rendered (not the empty SPA shell).
+  const ssrProxy = createFlaskProxy('SSR');
+  app.get('/r/*splat', staticPageLimiter, ssrProxy);
+  app.get('/browse', staticPageLimiter, ssrProxy);
+  app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
+
   app.get('{*path}', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
