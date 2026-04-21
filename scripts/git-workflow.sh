@@ -90,6 +90,7 @@ ADDITIONAL_FILES=()
 AI_MODEL="${OPENAI_MODEL:-gpt-4}"
 AI_API_KEY="${OPENAI_API_KEY:-}"
 AI_ENDPOINT="${OPENAI_ENDPOINT:-https://api.openai.com/v1/chat/completions}"
+AI_CURRENT_PROMPT=""
 
 ################################################################################
 # HELPER FUNCTIONS
@@ -239,9 +240,106 @@ detect_submodules() {
 # AI COMMIT MESSAGE GENERATION
 ################################################################################
 
-generate_ai_commit_message() {
-    local diff_output="$1"
-    local repo_name="$2"
+build_ai_prompt() {
+    local repo_name="$1"
+    local diff_output="$2"
+
+    local prompt="Based on the following git diff from repository '$repo_name', generate a concise, conventional commit message (e.g., feat:, fix:, chore:, docs:).
+Include a clear summary line and bullet points for key changes.
+Keep the subject line short and specific.
+
+Git diff:
+$diff_output
+
+Generate a commit message following conventional commits format."
+
+    echo "$prompt"
+}
+
+preview_edit_ai_prompt() {
+    local repo_name="$1"
+    local diff_output="$2"
+
+    while true; do
+        local current_prompt
+        current_prompt=$(build_ai_prompt "$repo_name" "$diff_output")
+
+        local diff_stats
+        diff_stats=$(echo "$diff_output" | wc -l)
+        local diff_lines="(diff: ${diff_stats} lines)"
+
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        echo -e "${GREEN}📝 Current AI Prompt Preview${NC}" >&2
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        echo -e "${BLUE}Based on git diff from repository '$repo_name', generate a concise... (type 'v' to view full)${NC}" >&2
+        echo -e "${BLUE}$diff_lines${NC}" >&2
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        echo "" >&2
+
+        if [[ "$INTERACTIVE" != true ]]; then
+            AI_CURRENT_PROMPT="$current_prompt"
+            echo "$AI_CURRENT_PROMPT"
+            return 0
+        fi
+
+        echo "Options:" >&2
+        echo "  g) Generate commit message with this prompt" >&2
+        echo "  v) View full prompt (diff may be long)" >&2
+        echo "  e) Edit prompt in editor" >&2
+        echo "  a) Add extra instructions to prompt" >&2
+        echo "  c) Clear extra instructions" >&2
+        echo "  q) Abort" >&2
+        echo "" >&2
+
+        local choice
+        read -r -p "$(echo -e "${CYAN}Choose [g/v/e/a/c/q]:${NC} ")" choice
+        choice="${choice,,}"
+
+        case "$choice" in
+            g)
+                AI_CURRENT_PROMPT="$current_prompt"
+                echo "$AI_CURRENT_PROMPT"
+                return 0
+                ;;
+            v)
+                echo -e "${GREEN}Full Prompt:${NC}" >&2
+                echo "$current_prompt" >&2
+                echo "" >&2
+                ;;
+            e)
+                local temp_file
+                temp_file=$(mktemp)
+                echo "$current_prompt" > "$temp_file"
+                sh -c 'eval "$1 \"\$2\""' sh "$COMMIT_MESSAGE_EDITOR" "$temp_file" 2>/dev/null || true
+                current_prompt=$(cat "$temp_file")
+                rm -f "$temp_file"
+                ;;
+            a)
+                printf '%s\n' "Enter extra instructions to add to the prompt:" >&2
+                local extra
+                read -r extra
+                if [[ -n "$extra" ]]; then
+                    AI_CURRENT_PROMPT="${AI_CURRENT_PROMPT}
+Extra user instructions: $extra
+"
+                fi
+                ;;
+            c)
+                AI_CURRENT_PROMPT=""
+                ;;
+            q)
+                print_warning "Prompt editing aborted" >&2
+                return 1
+                ;;
+            *)
+                print_error "Invalid choice. Choose g/v/e/a/c/q." >&2
+                ;;
+        esac
+    done
+}
+
+generate_ai_commit_message_with_prompt() {
+    local prompt="$1"
 
     if [[ -z "$AI_API_KEY" ]]; then
         print_error "AI commit message generation requires OPENAI_API_KEY environment variable"
@@ -249,16 +347,7 @@ generate_ai_commit_message() {
         return 1
     fi
 
-    print_info "Generating commit message using AI ($AI_MODEL)..."
-
-    # Prepare the prompt
-    local prompt="Based on the following git diff, generate a concise, conventional commit message (e.g., feat:, fix:, chore:, docs:).
-Include a clear summary line and bullet points for key changes.
-
-Git diff:
-$diff_output
-
-Generate a commit message following conventional commits format."
+    print_info "Generating commit message using AI ($AI_MODEL)..." >&2
 
     # Create JSON payload
     local json_payload
@@ -293,12 +382,83 @@ Generate a commit message following conventional commits format."
     message=$(echo "$response" | jq -r '.choices[0].message.content // empty')
 
     if [[ -z "$message" ]]; then
-        print_error "Failed to generate AI commit message"
-        print_info "API Response: $response"
+        print_error "Failed to generate AI commit message" >&2
+        print_info "API Response: $response" >&2
         return 1
     fi
 
     echo "$message"
+}
+
+review_commit_message() {
+    local message="$1"
+
+    while true; do
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        echo -e "${GREEN}✅ Generated commit message${NC}" >&2
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        printf '%s\n' "$message" >&2
+        echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}" >&2
+        echo "" >&2
+
+        if [[ "$INTERACTIVE" != true ]]; then
+            echo "$message"
+            return 0
+        fi
+
+        echo "Options:" >&2
+        echo "  y) Use this commit message" >&2
+        echo "  e) Edit message in editor" >&2
+        echo "  r) Regenerate with same prompt" >&2
+        echo "  g) Regenerate with extra guidance" >&2
+        echo "  p) Review/edit prompt again" >&2
+        echo "  q) Abort" >&2
+        echo "" >&2
+
+        local choice
+        read -r -p "$(echo -e "${CYAN}Choose [y/e/r/g/p/q]:${NC} ")" choice
+        choice="${choice,,}"
+
+        case "$choice" in
+            y)
+                echo "$message"
+                return 0
+                ;;
+            e)
+                local temp_file
+                temp_file=$(mktemp)
+                echo "$message" > "$temp_file"
+                sh -c 'eval "$1 \"\$2\""' sh "$COMMIT_MESSAGE_EDITOR" "$temp_file" 2>/dev/null || true
+                message=$(git stripspace < "$temp_file" 2>/dev/null || cat "$temp_file")
+                rm -f "$temp_file"
+                ;;
+            r)
+                if ! message=$(generate_ai_commit_message_with_prompt "$AI_CURRENT_PROMPT"); then
+                    return 1
+                fi
+                ;;
+            g)
+                printf '%s\n' "Enter extra instructions for regeneration:" >&2
+                local extra
+                read -r extra
+                local regen_prompt="${AI_CURRENT_PROMPT}
+Regenerate with focus: $extra"
+                if ! message=$(generate_ai_commit_message_with_prompt "$regen_prompt"); then
+                    return 1
+                fi
+                ;;
+            p)
+                return 2  # Special code to go back to prompt review
+                ;;
+            q)
+                print_warning "Commit message review aborted" >&2
+                return 1
+                ;;
+            *)
+                print_error "Invalid choice. Choose y/e/r/g/p/q." >&2
+                ;;
+        esac
+    done
 }
 
 ################################################################################
@@ -453,17 +613,34 @@ get_commit_message() {
     elif [[ "$COMMIT_MESSAGE_AUTO" == true ]]; then
         local diff_output
         diff_output=$(git diff --cached)
-        message=$(generate_ai_commit_message "$diff_output" "$repo_name")
-        if [[ $? -ne 0 ]] || [[ -z "$message" ]]; then
-            print_error "Failed to generate AI commit message"
-            exit 1
-        fi
-        print_success "Generated commit message:"
-        echo "$message"
-        echo ""
+
+        while true; do
+            local prompt
+            if ! prompt=$(preview_edit_ai_prompt "$repo_name" "$diff_output"); then
+                return 1
+            fi
+
+            local generated_message
+            if ! generated_message=$(generate_ai_commit_message_with_prompt "$prompt"); then
+                return 1
+            fi
+
+            local review_result
+            if review_result=$(review_commit_message "$generated_message"); then
+                message="$review_result"
+                break
+            elif [[ "$review_result" == 2 ]]; then
+                # Go back to prompt review
+                continue
+            else
+                # Abort
+                return 1
+            fi
+        done
+
         if [[ "$INTERACTIVE" == true ]]; then
             if ! confirm "Use this commit message?"; then
-                print_info "Please enter commit message manually:"
+                print_info "Please enter commit message manually:" >&2
                 read -r message
             fi
         fi
@@ -821,7 +998,7 @@ ${BOLD}OPTIONS:${NC}
     --main-message MSG         Commit message for main repo only
     -F, --file FILE            Read commit message from file
     --editor [EDITOR]          Use editor for commit message (default: git config)
-    --auto, --generate         Auto-generate commit message using AI
+    --auto, --generate         Auto-generate commit message using AI with prompt preview and message review
                                Requires OPENAI_API_KEY environment variable
 
     ${BOLD}Staging:${NC}
@@ -871,8 +1048,11 @@ ${BOLD}EXAMPLES:${NC}
     # Different messages for submodule and main
     $0 --sub-message "fix: backend bug" --main-message "chore: update backend ref"
 
-    # AI-generated commit message
-    $0 --auto --all
+    # AI-generated commit message with review
+    $0 --auto --interactive --all
+
+    # AI with prompt editing before generation
+    $0 --auto -i --editor "code --wait" --all
 
     # Pull before, then commit and push both
     $0 --pull-before -m "chore: sync and update"
