@@ -27,6 +27,22 @@
 - [ ] Performance improvement
 - [ ] CI/CD changes
 
+## PR Scope & Reviewability
+
+<!--
+  PRs should be small and focused. Large PRs are hard to review thoroughly
+  and increase the risk of bugs slipping through. See docs/CONTRIBUTING.md
+  for guidance on splitting large PRs.
+-->
+
+- [ ] This PR is focused on a single concern (one feature, one bug fix, one refactor)
+- [ ] This PR changes fewer than 400 lines (excluding auto-generated/lock files)
+- [ ] If this PR is large (400+ lines), I have explained why it cannot be split further (see notes below)
+
+**If this is a large PR, describe why it cannot reasonably be split:**
+
+<!-- e.g. "These changes are tightly coupled across layers and must ship atomically" -->
+
 ## Testing
 
 <!-- Describe the tests you ran to verify your changes -->
@@ -36,6 +52,7 @@
 - [ ] Code is formatted (`npm run format`)
 - [ ] Build succeeds (`npm run build`)
 - [ ] Type checking passes (`npm run type-check`)
+- [ ] New behavior is covered by tests (or existing tests adequately cover it)
 
 ## Checklist
 
