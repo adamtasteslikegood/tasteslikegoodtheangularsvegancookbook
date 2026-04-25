@@ -1,0 +1,157 @@
+# PR Size Check — posts an informational comment when a PR exceeds the
+# recommended line threshold. Does NOT block merging.
+#
+# Thresholds:
+#   warning : 400 changed lines  (review carefully)
+#   large   : 800 changed lines  (strongly consider splitting)
+#
+# Lock files (package-lock.json, uv.lock, etc.) and migration files are
+# excluded from the count because they are auto-generated.
+#
+# KAN-21
+
+name: PR Size Check
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  size-check:
+    name: PR size warning
+    runs-on: ubuntu-latest
+    # Skip draft PRs — authors are still iterating.
+    if: github.event.pull_request.draft == false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Count changed lines (excluding generated files)
+        id: count
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Patterns to exclude from the line count
+          EXCLUDE_PATTERNS=(
+            "package-lock.json"
+            "uv.lock"
+            "*.lock"
+            "dist/*"
+            "coverage/*"
+            "Backend/migrations/*"
+            "*.min.js"
+            "*.min.css"
+          )
+
+          EXCLUDE_ARGS=()
+          for pattern in "${EXCLUDE_PATTERNS[@]}"; do
+            EXCLUDE_ARGS+=(":(exclude)$pattern")
+          done
+
+          # Count added + deleted lines (insertions + deletions from --stat)
+          DIFF_STAT=$(git diff --stat "$BASE_SHA" "$HEAD_SHA" -- . "${EXCLUDE_ARGS[@]}" | tail -1)
+          echo "Diff stat: $DIFF_STAT"
+
+          INSERTIONS=$(echo "$DIFF_STAT" | grep -oP '\d+(?= insertion)' || echo 0)
+          DELETIONS=$(echo "$DIFF_STAT"  | grep -oP '\d+(?= deletion)'  || echo 0)
+          TOTAL=$(( ${INSERTIONS:-0} + ${DELETIONS:-0} ))
+
+          echo "insertions=$INSERTIONS" >> "$GITHUB_OUTPUT"
+          echo "deletions=$DELETIONS"   >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL"           >> "$GITHUB_OUTPUT"
+          echo "Total changed lines (excl. generated): $TOTAL"
+
+      - name: Post or update size comment
+        uses: actions/github-script@v7
+        env:
+          TOTAL: ${{ steps.count.outputs.total }}
+          INSERTIONS: ${{ steps.count.outputs.insertions }}
+          DELETIONS: ${{ steps.count.outputs.deletions }}
+        with:
+          script: |
+            const total      = parseInt(process.env.TOTAL)       || 0;
+            const insertions = parseInt(process.env.INSERTIONS)  || 0;
+            const deletions  = parseInt(process.env.DELETIONS)   || 0;
+
+            const WARNING_THRESHOLD = 400;
+            const LARGE_THRESHOLD   = 800;
+
+            const MARKER = '<!-- pr-size-check -->';
+
+            // Only comment if above the warning threshold
+            if (total < WARNING_THRESHOLD) {
+              // Remove any previous warning comment if the PR has been reduced
+              const { data: comments } = await github.rest.issues.listComments({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                issue_number: context.issue.number,
+              });
+              const existing = comments.find(c => c.body.includes(MARKER));
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner:      context.repo.owner,
+                  repo:       context.repo.repo,
+                  comment_id: existing.id,
+                });
+                console.log('Removed previous size warning (PR is now within threshold).');
+              }
+              console.log(`PR size ${total} lines is within the ${WARNING_THRESHOLD}-line threshold. ✅`);
+              return;
+            }
+
+            const isLarge = total >= LARGE_THRESHOLD;
+            const emoji   = isLarge ? '🚨' : '⚠️';
+            const level   = isLarge ? 'Large PR' : 'PR Size Warning';
+            const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
+            const guideUrl = `${repoUrl}/blob/main/docs/CONTRIBUTING.md#pr-size--reviewability`;
+            const advice  = isLarge
+              ? `This PR is **very large**. Please consider splitting it into smaller, focused PRs before requesting a review. See the [PR Size & Reviewability](${guideUrl}) guide.`
+              : `This PR exceeds the recommended size. If it cannot be split further, please add a note in the PR description explaining why. See the [PR Size & Reviewability](${guideUrl}) guide.`;
+
+            const body = `${MARKER}
+            ${emoji} **${level}**
+
+            | Metric | Value |
+            |--------|-------|
+            | Lines added | +${insertions} |
+            | Lines removed | −${deletions} |
+            | **Total changed** | **${total}** |
+            | Recommended limit | ${WARNING_THRESHOLD} |
+
+            ${advice}
+
+            > Lock files, generated files, and migration files are excluded from this count.
+            > This comment is informational only — it does not block merging.
+            `.replace(/^ {12}/gm, '');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes(MARKER));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner:      context.repo.owner,
+                repo:       context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+              console.log('Updated existing size warning comment.');
+            } else {
+              await github.rest.issues.createComment({
+                owner:        context.repo.owner,
+                repo:         context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+              console.log('Created new size warning comment.');
+            }
