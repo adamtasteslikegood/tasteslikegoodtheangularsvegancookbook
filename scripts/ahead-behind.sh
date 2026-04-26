@@ -249,19 +249,19 @@ show_top_branches() {
       printf "%-44s %12s %8d %8d %8d %-24s\n" "$branch" "$commit_date" "$ahead" "$behind" "$total" "$prs"
     done
   else
-    printf "%-44s %8s %8s %8s %-24s\n" "Branch" "Ahead" "Behind" "Total" "PRs"
-    printf "%-44s %8s %8s %8s %-24s\n" "------" "-----" "------" "-----" "---"
+    printf "%-44s %12s %8s %8s %8s %-24s\n" "Branch" "Updated" "Ahead" "Behind" "Total" "PRs"
+    printf "%-44s %12s %8s %8s %8s %-24s\n" "------" "-------" "-----" "------" "-----" "---"
 
-    git -C "$path" for-each-ref --format='%(refname:short) %(upstream:short)' refs/heads/ | while read -r branch upstream; do
+    git -C "$path" for-each-ref --format='%(committerdate:short) %(refname:short) %(upstream:short)' refs/heads/ | while read -r commit_date branch upstream; do
       if [[ -n "$upstream" ]]; then
         counts=$(git -C "$path" rev-list --left-right --count "$branch...$upstream" 2>/dev/null || echo "0 0")
         read -r ahead behind <<< "$counts"
         total=$((ahead + behind))
-        printf "%d\t%s\t%d\t%d\n" "$total" "$branch" "$ahead" "$behind"
+        printf "%d\t%s\t%s\t%d\t%d\n" "$total" "$commit_date" "$branch" "$ahead" "$behind"
       fi
-    done | sort -t $'\t' -k1,1nr | head -n "$N" | while IFS=$'\t' read -r total branch ahead behind; do
+    done | sort -t $'\t' -k1,1nr | head -n "$N" | while IFS=$'\t' read -r total commit_date branch ahead behind; do
       prs=$(format_branch_prs "$path" "$branch")
-      printf "%-44s %8d %8d %8d %-24s\n" "$branch" "$ahead" "$behind" "$total" "$prs"
+      printf "%-44s %12s %8d %8d %8d %-24s\n" "$branch" "$commit_date" "$ahead" "$behind" "$total" "$prs"
     done
   fi
 }
