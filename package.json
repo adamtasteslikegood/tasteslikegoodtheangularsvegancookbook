@@ -15,7 +15,10 @@
     "lint:fix": "eslint \"src/**/*.{ts,html}\" \"server/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
-    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
+    "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json",
+    "pm:check": "python3 scripts/pm/atlassian_pm_link.py check",
+    "pm:brief": "python3 scripts/pm/atlassian_pm_link.py brief --update-legacy-files",
+    "pm:sync": "python3 scripts/pm/atlassian_pm_link.py sync --update-legacy-files"
   },
   "dependencies": {
     "@angular/build": "21.2.7",
