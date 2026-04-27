@@ -2,9 +2,7 @@
   "mcpServers": {
     "pm-daemon": {
       "command": "bash",
-      "args": [
-        "scripts/pm/run_pm_daemon.sh"
-      ],
+      "args": ["scripts/pm/run_pm_daemon.sh"],
       "env": {}
     }
   }
