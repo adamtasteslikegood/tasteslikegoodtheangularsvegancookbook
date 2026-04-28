@@ -1,12 +1,9 @@
-
-    1 {
-    2   "mcpServers": {
-    3     "pm-daemon": {
-    4       "command": "/home/adam/projects/tasteslikegoodtheangularsvegancookbook/alirez-claude-skills/pm-daemon/.venv/bin/python",
-    5       "args": [
-    6         "/home/adam/projects/tasteslikegoodtheangularsvegancookbook/alirez-claude-skills/pm-daemon/pm_daemon.py"
-    7       ],
-    8       "env": {}
-    9     }
-   10   }
-   11 }
+{
+  "mcpServers": {
+    "pm-daemon": {
+      "command": "bash",
+      "args": ["scripts/pm/run_pm_daemon.sh"],
+      "env": {}
+    }
+  }
+}
