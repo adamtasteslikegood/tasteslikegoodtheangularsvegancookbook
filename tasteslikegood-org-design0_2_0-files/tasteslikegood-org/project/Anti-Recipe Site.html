@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VeganGenius Chef — Anti-Recipe Site v0.2</title>
+<link rel="icon" href="assets/favicon.svg">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lato:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  /* Anti-Recipe base — true black/white, no radius, no shadow */
+  body {
+    font-family: 'Lato', sans-serif;
+    background: #fff;
+    color: #000;
+    -webkit-font-smoothing: antialiased;
+    text-wrap: pretty;
+  }
+
+  /* Typography */
+  h1, h2, h3, h4 { font-family: 'Playfair Display', Georgia, serif; }
+
+  /* Monospace for ingredients & steps */
+  .mono { font-family: 'Courier New', Courier, monospace; }
+
+  /* Anti-recipe structural borders */
+  .ar-border { border: 1px solid #000; }
+  .ar-border-b { border-bottom: 1px solid #000; }
+  .ar-border-t { border-top: 1px solid #000; }
+  .ar-border-r { border-right: 1px solid #000; }
+
+  /* Label style */
+  .ar-label {
+    font-family: 'Lato', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* Tweaks panel */
+  #tweaks-panel {
+    position: fixed; bottom: 24px; right: 24px;
+    background: #fff; border: 1px solid #000;
+    padding: 20px; width: 220px; z-index: 9999;
+    display: none;
+  }
+  #tweaks-panel.open { display: block; }
+  .tweak-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.1em; color: #555; margin-bottom: 5px; display: block;
+  }
+  .tweak-row { margin-bottom: 14px; }
+  select, input[type=range] {
+    font-family: 'Lato', sans-serif;
+    width: 100%; border: 1px solid #000; padding: 5px 7px;
+    font-size: 12px; background: #fff; border-radius: 0; color: #000;
+  }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .fade-up { animation: fadeUp 0.5s ease-out both; }
+  .fade-in { animation: fadeIn 0.4s ease-out both; }
+
+  /* Save toast */
+  @keyframes toastIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+    background: #000; color: #fff;
+    font-family: 'Lato', sans-serif; font-size: 13px; font-weight: 700;
+    letter-spacing: 0.05em; padding: 12px 24px;
+    animation: toastIn 0.3s ease-out both;
+    z-index: 9999; pointer-events: none;
+  }
+
+  /* CTA button */
+  .save-cta {
+    background: #000; color: #fff;
+    font-family: 'Lato', sans-serif; font-weight: 700;
+    font-size: 0.8rem; letter-spacing: 0.08em; text-transform: uppercase;
+    border: 1px solid #000; padding: 14px 28px;
+    cursor: pointer; transition: background 0.15s, color 0.15s;
+    min-height: 44px;
+  }
+  .save-cta:hover { background: #fff; color: #000; }
+  .save-cta.saved { background: #fff; color: #000; }
+
+  /* Recipe step hover */
+  .recipe-step { transition: background 0.15s; }
+  .recipe-step:hover { background: #f5f5f5; }
+
+  /* Browse grid card hover */
+  .browse-card img { transition: transform 0.5s ease; display: block; width: 100%; }
+  .browse-card:hover img { transform: scale(1.03); }
+  .browse-card { cursor: pointer; overflow: hidden; }
+
+  /* Tag */
+  .ar-tag {
+    font-family: 'Courier New', monospace;
+    font-size: 0.78rem; color: #000;
+    border: 1px solid #000; padding: 3px 8px;
+    display: inline-block;
+  }
+
+  /* Ingredient row */
+  .ing-row { border-bottom: 1px solid #e0e0e0; padding: 10px 0; display: flex; gap: 16px; }
+  .ing-row:last-child { border-bottom: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<div id="tweaks-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <span style="font-weight:700;font-size:13px;">Tweaks</span>
+    <button id="close-tweaks" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;">×</button>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">View</span>
+    <select id="tweak-view">
+      <option value="recipe">Recipe Detail</option>
+      <option value="browse">Browse Grid</option>
+    </select>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Hero style</span>
+    <select id="tweak-hero">
+      <option value="overlay">Title overlay on image</option>
+      <option value="below">Title below image</option>
+    </select>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Meta bar layout</span>
+    <select id="tweak-meta">
+      <option value="inline">Inline with CTA</option>
+      <option value="stacked">Stacked above CTA</option>
+    </select>
+  </div>
+  <div class="tweak-row">
+    <span class="tweak-label">Browse columns</span>
+    <select id="tweak-cols">
+      <option value="3">3 columns</option>
+      <option value="2">2 columns</option>
+      <option value="4">4 columns</option>
+    </select>
+  </div>
+</div>
+
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+// ─── SCHEMA HELPERS (matching src/recipe.types.ts) ────────
+// Ingredient: { name, amount: number|number[], units, notes? }
+// Recipe: { id, name, description, prepTime: number, cookTime: number,
+//           servings: number, ingredients: IngredientGroup,
+//           instructions: (string|InstructionStep)[], notes?,
+//           tags?, ai_image_url?, stock_image_url?, image? }
+
+function fmtAmount(amount) {
+  if (Array.isArray(amount)) return amount.join('–');
+  // render common fractions nicely
+  const fracs = { 0.25: '¼', 0.5: '½', 0.75: '¾', 0.33: '⅓', 0.67: '⅔', 0.125: '⅛' };
+  const whole = Math.floor(amount);
+  const frac = Math.round((amount - whole) * 100) / 100;
+  const fracStr = fracs[frac] || (frac > 0 ? frac.toString() : '');
+  return whole > 0 ? `${whole}${fracStr}` : fracStr || amount.toString();
+}
+
+function fmtTime(minutes) {
+  if (!minutes || minutes === 0) return '—';
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return m > 0 ? `${h} hr ${m} min` : `${h} hr`;
+}
+
+// InstructionStep: { step: number, description: string }
+function getStepText(instruction) {
+  if (typeof instruction === 'string') return instruction;
+  return instruction.description;
+}
+
+// ─── MOCK DATA (typed per recipe.types.ts) ────────────────
+const SAMPLE_RECIPE = {
+  id: "rec_thai-peanut-noodles",
+  name: "Thai Peanut Noodles",
+  slug: "thai-peanut-noodles",
+  description: "Rich, creamy peanut sauce clings to silky rice noodles, brightened with fresh lime and a scatter of herbs. This is weeknight comfort at its most honest.",
+  prepTime: 15,
+  cookTime: 20,
+  servings: 4,
+  tags: ["quick", "thai-inspired", "peanut", "noodles", "comfort-food"],
+  ai_image_url: "https://images.unsplash.com/photo-1555126634-323283e090fa?w=1400&q=85&auto=format&fit=crop",
+  ingredients: {
+    wet: [
+      { name: "natural peanut butter", amount: 0.25, units: "cup", notes: "smooth" },
+      { name: "tamari or soy sauce", amount: 3, units: "tbsp" },
+      { name: "fresh lime juice", amount: 2, units: "tbsp" },
+      { name: "toasted sesame oil", amount: 1, units: "tbsp" },
+      { name: "maple syrup", amount: 1, units: "tbsp" },
+      { name: "rice vinegar", amount: 2, units: "tsp" },
+      { name: "sriracha", amount: 1, units: "tsp", notes: "or to taste" },
+    ],
+    dry: [
+      { name: "flat rice noodles", amount: 200, units: "g" },
+      { name: "garlic", amount: 2, units: "cloves", notes: "minced" },
+      { name: "fresh ginger", amount: 1, units: "tsp", notes: "grated" },
+    ],
+    other: [
+      { name: "shredded purple cabbage", amount: 1, units: "cup" },
+      { name: "carrot", amount: 1, units: "large", notes: "julienned" },
+      { name: "green onion", amount: 4, units: "stalks", notes: "thinly sliced" },
+      { name: "fresh cilantro", amount: 0.25, units: "cup" },
+      { name: "roasted peanuts", amount: 0.25, units: "cup", notes: "roughly chopped" },
+      { name: "lime", amount: 1, units: "", notes: "cut into wedges" },
+    ]
+  },
+  instructions: [
+    { step: 1, description: "Cook rice noodles according to package directions until just tender. Drain and rinse under cold water to stop cooking. Set aside." },
+    { step: 2, description: "Whisk together all the sauce ingredients — peanut butter, tamari, lime juice, sesame oil, maple syrup, rice vinegar, and sriracha — until completely smooth. If it's too thick, add 1–2 tablespoons of warm water." },
+    { step: 3, description: "In a large wok or skillet over medium heat, sauté the garlic and ginger in a small splash of sesame oil for 60 seconds until fragrant. Do not brown." },
+    { step: 4, description: "Add the drained noodles to the wok and pour the peanut sauce over everything. Toss well with tongs for 2–3 minutes until every strand is coated and heated through." },
+    { step: 5, description: "Remove from heat and fold in the cabbage and carrot. The residual heat will soften them just enough while keeping their crunch." },
+    { step: 6, description: "Divide between four bowls. Top generously with green onion, cilantro, and peanuts. Serve immediately with lime wedges on the side." },
+  ],
+  notes: "For a richer protein hit, add a block of extra-firm tofu (pressed and cubed, then pan-fried until golden) before tossing with the noodles. Leftovers keep well for 2 days — loosen with a splash of water when reheating.",
+};
+
+const BROWSE_RECIPES = [
+  { id: "rec_1", name: "Thai Peanut Noodles", slug: "thai-peanut-noodles", prepTime: 15, cookTime: 20, tags: ["quick", "noodles"], ai_image_url: "https://images.unsplash.com/photo-1555126634-323283e090fa?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_2", name: "Avocado Chocolate Mousse", slug: "avocado-chocolate-mousse", prepTime: 10, cookTime: 0, tags: ["dessert", "no-cook"], ai_image_url: "https://images.unsplash.com/photo-1624353365286-3f8d62daad51?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_3", name: "Spicy Lentil Tacos", slug: "spicy-lentil-tacos", prepTime: 10, cookTime: 25, tags: ["spicy", "mexican"], ai_image_url: "https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_4", name: "Golden Turmeric Soup", slug: "golden-turmeric-soup", prepTime: 10, cookTime: 30, tags: ["soup", "warming"], ai_image_url: "https://images.unsplash.com/photo-1547592180-85f173990554?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_5", name: "Crispy Chickpea Buddha Bowl", slug: "crispy-chickpea-buddha-bowl", prepTime: 20, cookTime: 30, tags: ["bowl", "chickpea"], ai_image_url: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_6", name: "Mushroom & Walnut Bolognese", slug: "mushroom-walnut-bolognese", prepTime: 15, cookTime: 40, tags: ["pasta", "italian"], ai_image_url: "https://images.unsplash.com/photo-1598866594230-a7c12756260f?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_7", name: "Roasted Beet & Lentil Salad", slug: "roasted-beet-lentil-salad", prepTime: 15, cookTime: 45, tags: ["salad", "beets"], ai_image_url: "https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_8", name: "Black Bean Enchiladas", slug: "black-bean-enchiladas", prepTime: 20, cookTime: 35, tags: ["mexican", "baked"], ai_image_url: "https://images.unsplash.com/photo-1534352956036-cd81e27dd615?w=800&q=80&auto=format&fit=crop" },
+  { id: "rec_9", name: "Miso Glazed Eggplant", slug: "miso-glazed-eggplant", prepTime: 10, cookTime: 25, tags: ["japanese", "umami"], ai_image_url: "https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=800&q=80&auto=format&fit=crop" },
+];
+
+// ─── HEADER ──────────────────────────────────────────────
+function SiteHeader({ onNav, currentView }) {
+  return (
+    <header className="ar-border-b" style={{ padding: '0 4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
+      <button onClick={() => onNav('browse')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 10, padding: 0 }}>
+        <img src="assets/favicon.svg" alt="VeganGenius Chef" width="28" height="28" />
+        <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1rem', letterSpacing: '-0.01em', color: '#000' }}>
+          VeganGenius Chef
+        </span>
+      </button>
+      <nav style={{ display: 'flex', gap: 0 }}>
+        <button onClick={() => onNav('browse')}
+          className="ar-border"
+          style={{ background: currentView === 'browse' ? '#000' : '#fff', color: currentView === 'browse' ? '#fff' : '#000', border: '1px solid #000', padding: '8px 20px', cursor: 'pointer', fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: -1 }}>
+          Browse
+        </button>
+        <button onClick={() => onNav('spa')}
+          style={{ background: '#fff', color: '#000', border: '1px solid #000', padding: '8px 20px', cursor: 'pointer', fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+          My Kitchen ↗
+        </button>
+      </nav>
+    </header>
+  );
+}
+
+// ─── RECIPE PAGE ──────────────────────────────────────────
+function RecipePage({ recipe, onNav, tweaks }) {
+  const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  function handleSave() {
+    if (saved) return;
+    setSaving(true);
+    setTimeout(() => {
+      setSaving(false);
+      setSaved(true);
+      setToast('Saved to your cookbook');
+      setTimeout(() => setToast(null), 3000);
+    }, 900);
+  }
+
+  const heroOverlay = tweaks.heroStyle === 'overlay';
+  const metaStacked = tweaks.metaLayout === 'stacked';
+
+  const MetaBar = () => (
+    <div className="ar-border-b" style={{
+      padding: metaStacked ? '2rem 4rem' : '0 4rem',
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: metaStacked ? 'flex-start' : 'center',
+      justifyContent: 'space-between',
+      gap: 24,
+      flexDirection: metaStacked ? 'column' : 'row',
+      minHeight: metaStacked ? 'auto' : 64,
+    }}>
+      {metaStacked && (
+        <div style={{ display: 'flex', gap: 48 }}>
+          {[['Prep Time', fmtTime(recipe.prepTime)], ['Cook Time', fmtTime(recipe.cookTime)], ['Servings', recipe.servings]].map(([label, val]) => (
+            <div key={label}>
+              <div className="ar-label" style={{ color: '#555', marginBottom: 4 }}>{label}</div>
+              <div style={{ fontFamily: "'Courier New', monospace", fontSize: '1rem', fontWeight: 400 }}>{val}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {!metaStacked && (
+        <div style={{ display: 'flex', gap: 48 }}>
+          {[['Prep Time', fmtTime(recipe.prepTime)], ['Cook Time', fmtTime(recipe.cookTime)], ['Servings', recipe.servings]].map(([label, val]) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span className="ar-label" style={{ color: '#777' }}>{label}</span>
+              <span style={{ fontFamily: "'Courier New', monospace", fontSize: '0.9rem' }}>{val}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <button onClick={handleSave} className={`save-cta${saved ? ' saved' : ''}`} style={{ minWidth: 200 }}>
+        {saving ? 'Saving…' : saved
+          ? <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Saved to Cookbook
+            </span>
+          : 'Save to Your Cookbook'}
+      </button>
+    </div>
+  );
+
+  return (
+    <div className="fade-in">
+      {/* Hero */}
+      <div style={{ position: 'relative', width: '100%', height: '70vh', minHeight: 480, overflow: 'hidden' }}>
+        <img src={recipe.ai_image_url || recipe.stock_image_url || recipe.image} alt={recipe.name}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        {/* AI badge */}
+        <div style={{ position: 'absolute', top: 20, right: 20, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', color: '#fff', fontFamily: "'Lato',sans-serif", fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 10px' }}>
+          AI Generated
+        </div>
+        {heroOverlay && (
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', padding: '3rem 4rem' }}>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+              {recipe.tags.map(t => (
+                <span key={t} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.72rem', color: 'rgba(255,255,255,0.8)', border: '1px solid rgba(255,255,255,0.4)', padding: '2px 8px' }}>#{t}</span>
+              ))}
+            </div>
+            <h1 className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', color: '#fff', lineHeight: 1.1, maxWidth: '70%', textShadow: '0 2px 8px rgba(0,0,0,0.3)' }}>
+              {recipe.name}
+            </h1>
+          </div>
+        )}
+      </div>
+
+      {/* Title below image */}
+      {!heroOverlay && (
+        <div className="ar-border-b" style={{ padding: '3rem 4rem' }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+            {recipe.tags.map(t => (
+              <span key={t} className="ar-tag">#{t}</span>
+            ))}
+          </div>
+          <h1 className="fade-up" style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 'clamp(2.5rem, 5vw, 4rem)', lineHeight: 1.1, color: '#000' }}>
+            {recipe.name}
+          </h1>
+        </div>
+      )}
+
+      <MetaBar />
+
+      {/* Description */}
+      <div style={{ padding: '2.5rem 4rem', borderBottom: '1px solid #000', maxWidth: '60ch' }}>
+        <p style={{ fontFamily: "'Playfair Display', serif", fontStyle: 'italic', fontSize: '1.15rem', lineHeight: 1.75, color: '#000' }}>
+          {recipe.description}
+        </p>
+      </div>
+
+      {/* Ingredients + Instructions */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #000' }}>
+        {/* Ingredients */}
+        <div className="ar-border-r" style={{ padding: '3rem 4rem' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1.75rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid #000' }}>
+            Ingredients
+          </h2>
+          {[['Wet', recipe.ingredients.wet], ['Dry', recipe.ingredients.dry], ['Other', recipe.ingredients.other]].map(([cat, items]) => (
+            <div key={cat} style={{ marginBottom: '1.5rem' }}>
+              <div className="ar-label" style={{ marginBottom: 8, color: '#555', paddingBottom: 4, borderBottom: '1px solid #e0e0e0' }}>{cat}</div>
+              {items.map((ing, i) => (
+                <div key={i} className="ing-row mono">
+                  <span style={{ fontWeight: 700, minWidth: 80, flexShrink: 0, fontSize: '0.82rem' }}>{fmtAmount(ing.amount)}{ing.units ? ` ${ing.units}` : ''}</span>
+                  <span style={{ fontSize: '0.82rem' }}>
+                    {ing.name}
+                    {ing.notes && <span style={{ color: '#666', fontStyle: 'italic' }}> ({ing.notes})</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+
+        {/* Instructions */}
+        <div style={{ padding: '3rem 4rem' }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1.75rem', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid #000' }}>
+            Method
+          </h2>
+          <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {recipe.instructions.map((instr, i) => (
+              <li key={i} className="recipe-step" style={{ display: 'flex', gap: 20, padding: '16px 0', borderBottom: i < recipe.instructions.length - 1 ? '1px solid #e8e8e8' : 'none' }}>
+                <span style={{ fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: '0.9rem', flexShrink: 0, minWidth: 24, paddingTop: 2, color: '#000' }}>{typeof instr === 'object' ? instr.step : i + 1}.</span>
+                <p className="mono" style={{ fontSize: '0.85rem', lineHeight: 1.7, color: '#000' }}>{getStepText(instr)}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </div>
+
+      {/* Chef's Notes */}
+      <div style={{ padding: '2.5rem 4rem', borderBottom: '1px solid #000', display: 'flex', gap: '4rem' }}>
+        <div style={{ flexShrink: 0 }}>
+          <div className="ar-label" style={{ marginBottom: 8 }}>Chef's Notes</div>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </div>
+        <p className="mono" style={{ fontSize: '0.85rem', lineHeight: 1.75, maxWidth: '70ch', color: '#000' }}>{recipe.notes}</p>
+      </div>
+
+      {/* Footer bar — share + tags */}
+      <div style={{ padding: '2rem 4rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 24 }}>
+        {/* Tags */}
+        {heroOverlay && (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            {recipe.tags.map(t => <span key={t} className="ar-tag">#{t}</span>)}
+          </div>
+        )}
+        {!heroOverlay && <div />}
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {/* Pinterest */}
+          <a href="#" aria-label="Share on Pinterest"
+            style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#000', textDecoration: 'none', border: '1px solid #000', padding: '8px 16px', fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'background 0.15s, color 0.15s' }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#000'; e.currentTarget.style.color = '#fff'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#000'; }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 01.083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
+            Save to Pinterest
+          </a>
+        </div>
+      </div>
+
+      {toast && <div className="toast">{toast}</div>}
+    </div>
+  );
+}
+
+// ─── BROWSE PAGE ──────────────────────────────────────────
+function BrowsePage({ recipes, onSelectRecipe, tweaks }) {
+  const cols = parseInt(tweaks.browseCols || '3');
+  const [page, setPage] = useState(1);
+  const perPage = 6;
+  const total = recipes.length;
+  const paged = recipes.slice((page - 1) * perPage, page * perPage);
+  const totalPages = Math.ceil(total / perPage);
+
+  return (
+    <div className="fade-in">
+      {/* Page header */}
+      <div className="ar-border-b" style={{ padding: '3rem 4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div className="ar-label" style={{ color: '#777', marginBottom: 12 }}>Public Recipes</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: 'clamp(2rem, 4vw, 3rem)', lineHeight: 1.1 }}>
+            Browse Recipes
+          </h1>
+        </div>
+        <span className="mono" style={{ fontSize: '0.82rem', color: '#555' }}>{total} recipes</span>
+      </div>
+
+      {/* Grid */}
+      <div style={{ padding: '4rem', display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 0, border: '1px solid #000', borderBottom: 'none', margin: '0' }}>
+        {paged.map((recipe, i) => (
+          <div key={recipe.slug} className="browse-card ar-border" style={{ borderTop: 'none', borderLeft: i % cols === 0 ? '1px solid #000' : 'none', overflow: 'hidden', borderRight: 'none', borderBottom: '1px solid #000', borderLeft: '1px solid #000', margin: -1 }}
+            onClick={() => onSelectRecipe(recipe.slug)}>
+            <div style={{ overflow: 'hidden', aspectRatio: '4/3', position: 'relative' }}>
+              <img src={recipe.ai_image_url || recipe.stock_image_url || recipe.image} alt={recipe.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div style={{ padding: '20px 24px', borderTop: '1px solid #000' }}>
+              <h3 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1.15rem', lineHeight: 1.25, marginBottom: 10, color: '#000' }}>
+                {recipe.name}
+              </h3>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <span className="mono" style={{ fontSize: '0.72rem', color: '#555' }}>Prep {fmtTime(recipe.prepTime)}</span>
+                <span className="mono" style={{ fontSize: '0.72rem', color: '#555' }}>Cook {fmtTime(recipe.cookTime)}</span>
+              </div>
+              {recipe.tags && (
+                <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {recipe.tags.slice(0, 2).map(t => <span key={t} style={{ fontFamily: "'Courier New', monospace", fontSize: '0.68rem', color: '#777' }}>#{t}</span>)}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="ar-border-t" style={{ padding: '2rem 4rem', display: 'flex', gap: 0, alignItems: 'center', justifyContent: 'space-between' }}>
+          <span className="mono" style={{ fontSize: '0.78rem', color: '#555' }}>
+            Page {page} of {totalPages}
+          </span>
+          <div style={{ display: 'flex' }}>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+              style={{ border: '1px solid #000', borderRight: 'none', background: '#fff', color: '#000', padding: '8px 18px', cursor: page === 1 ? 'not-allowed' : 'pointer', opacity: page === 1 ? 0.35 : 1, fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'background 0.15s' }}>
+              ← Prev
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => (
+              <button key={i} onClick={() => setPage(i + 1)}
+                style={{ border: '1px solid #000', borderRight: i < totalPages - 1 ? 'none' : '1px solid #000', background: page === i + 1 ? '#000' : '#fff', color: page === i + 1 ? '#fff' : '#000', padding: '8px 16px', cursor: 'pointer', fontFamily: "'Courier New', monospace", fontWeight: 700, fontSize: '0.85rem', transition: 'background 0.15s' }}>
+                {i + 1}
+              </button>
+            ))}
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+              style={{ border: '1px solid #000', borderLeft: 'none', background: '#fff', color: '#000', padding: '8px 18px', cursor: page === totalPages ? 'not-allowed' : 'pointer', opacity: page === totalPages ? 0.35 : 1, fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', transition: 'background 0.15s' }}>
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── SPA REDIRECT MODAL ───────────────────────────────────
+function SPAModal({ onClose }) {
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+      <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }} onClick={onClose} />
+      <div style={{ position: 'relative', background: '#fff', border: '1px solid #000', padding: '3rem', maxWidth: 420, width: '100%' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: 16, right: 20, background: 'none', border: 'none', cursor: 'pointer', fontSize: 24, lineHeight: 1, color: '#000' }}>×</button>
+        <div className="ar-label" style={{ marginBottom: 12, color: '#777' }}>VeganGenius Chef</div>
+        <h2 style={{ fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1.75rem', marginBottom: 16, lineHeight: 1.2 }}>
+          Your Kitchen Awaits
+        </h2>
+        <p className="mono" style={{ fontSize: '0.82rem', lineHeight: 1.7, marginBottom: 28, color: '#333' }}>
+          Sign in to generate AI recipes, build cookbooks, and save from the public site.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <button style={{ background: '#000', color: '#fff', border: '1px solid #000', padding: '13px 20px', fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Continue with Google
+          </button>
+          <button onClick={onClose} style={{ background: '#fff', color: '#000', border: '1px solid #000', padding: '13px 20px', fontFamily: "'Lato', sans-serif", fontWeight: 700, fontSize: '0.75rem', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>
+            Continue as Guest
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── APP ──────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "view": "recipe",
+  "heroStyle": "overlay",
+  "metaLayout": "inline",
+  "browseCols": "2"
+}/*EDITMODE-END*/;
+
+function App() {
+  const stored = (() => { try { return JSON.parse(localStorage.getItem('ar-state') || '{}'); } catch { return {}; } })();
+
+  const [view, setView] = useState(stored.view || TWEAK_DEFAULTS.view);
+  const [selectedSlug, setSelectedSlug] = useState('thai-peanut-noodles');
+  const [tweaks, setTweaks] = useState({ ...TWEAK_DEFAULTS, ...stored.tweaks });
+  const [showSPAModal, setShowSPAModal] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem('ar-state', JSON.stringify({ view, tweaks }));
+  }, [view, tweaks]);
+
+  // Tweaks panel wiring
+  useEffect(() => {
+    function onMessage(e) {
+      if (e.data?.type === '__activate_edit_mode') document.getElementById('tweaks-panel').classList.add('open');
+      if (e.data?.type === '__deactivate_edit_mode') document.getElementById('tweaks-panel').classList.remove('open');
+    }
+    window.addEventListener('message', onMessage);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  useEffect(() => {
+    const el = document.getElementById('tweaks-panel');
+    if (!el) return;
+    const viewSel = document.getElementById('tweak-view');
+    const heroSel = document.getElementById('tweak-hero');
+    const metaSel = document.getElementById('tweak-meta');
+    const colsSel = document.getElementById('tweak-cols');
+    const closeBtn = document.getElementById('close-tweaks');
+
+    function sync() {
+      if (viewSel) viewSel.value = view === 'recipe' ? 'recipe' : 'browse';
+      if (heroSel) heroSel.value = tweaks.heroStyle;
+      if (metaSel) metaSel.value = tweaks.metaLayout;
+      if (colsSel) colsSel.value = tweaks.browseCols;
+    }
+    sync();
+
+    function onChange() {
+      const newView = viewSel?.value || 'recipe';
+      const newTweaks = {
+        heroStyle: heroSel?.value || 'overlay',
+        metaLayout: metaSel?.value || 'inline',
+        browseCols: colsSel?.value || '3',
+      };
+      setView(newView);
+      setTweaks(newTweaks);
+      window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { view: newView, ...newTweaks } }, '*');
+    }
+
+    viewSel?.addEventListener('change', onChange);
+    heroSel?.addEventListener('change', onChange);
+    metaSel?.addEventListener('change', onChange);
+    colsSel?.addEventListener('change', onChange);
+    closeBtn?.addEventListener('click', () => el.classList.remove('open'));
+
+    return () => {
+      viewSel?.removeEventListener('change', onChange);
+      heroSel?.removeEventListener('change', onChange);
+      metaSel?.removeEventListener('change', onChange);
+      colsSel?.removeEventListener('change', onChange);
+    };
+  }, [tweaks, view]);
+
+  function handleNav(dest) {
+    if (dest === 'spa') { setShowSPAModal(true); return; }
+    setView(dest);
+  }
+
+  function handleSelectRecipe(slug) {
+    setSelectedSlug(slug);
+    setView('recipe');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  const recipe = SAMPLE_RECIPE; // In real SSR, fetched by slug
+
+  return (
+    <>
+      <SiteHeader onNav={handleNav} currentView={view} />
+      {view === 'recipe'
+        ? <RecipePage recipe={recipe} onNav={handleNav} tweaks={tweaks} />
+        : <BrowsePage recipes={BROWSE_RECIPES} onSelectRecipe={handleSelectRecipe} tweaks={tweaks} />
+      }
+      {showSPAModal && <SPAModal onClose={() => setShowSPAModal(false)} />}
+    </>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+</script>
+</body>
+</html>

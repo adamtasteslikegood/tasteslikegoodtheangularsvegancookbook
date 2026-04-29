@@ -23,3 +23,4 @@ exclude:
       - .zed
       # Plain HTML served by Express — not Angular templates
       - server/public
+      - eslint.config.js # <-- Add this line to ignore the config file
