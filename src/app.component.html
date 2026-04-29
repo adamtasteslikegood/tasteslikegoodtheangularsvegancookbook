@@ -361,8 +361,16 @@
                 <!-- v0.2 Anti-Recipe Distribution Controls -->
                 <div class="flex items-center gap-2 ml-2 pl-4 border-l border-stone-200">
                   <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold uppercase text-stone-400">Public</span>
+                    <span
+                      id="public-toggle-label"
+                      class="text-[10px] font-bold uppercase text-stone-400"
+                      >Public</span
+                    >
                     <button
+                      type="button"
+                      role="switch"
+                      [attr.aria-checked]="r.is_public"
+                      aria-labelledby="public-toggle-label"
                       (click)="togglePublic(r)"
                       class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
                       [class.bg-green-600]="r.is_public"
