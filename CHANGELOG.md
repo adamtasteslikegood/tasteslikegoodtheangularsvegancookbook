@@ -17,6 +17,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
 
+### Removed
+
+- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+
 ### Changed
 
 - Mark all `inject()` service references as `readonly` across Angular components and services ([TAS-2707](https://linear.app/tasteslikegood/issue/TAS-2707/find-a-small-improvement-copy))
