@@ -110,20 +110,58 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 
 In production all secrets come from Google Secret Manager, injected at Cloud Run runtime.
 
+## Branching strategy (FINAL)
+
+Both this repo and the `Backend/` submodule follow the same model:
+
+- **`main`** — release branch. Stable. Only the bot's release commit and merges from `dev` land here. Tags fire from `main`.
+- **`dev`** — integration branch. All feature work merges here first.
+- **`feat/*`, `fix/*`, `chore/*`** — short-lived branches off `dev`. PR back into `dev`.
+
+Never commit directly to `main` or `dev`. Always branch off `dev`.
+
+The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remote Backend` fast-forwards to the Backend integration tip. To ship a Backend change:
+
+1. PR into Backend `dev` (in `Backend/` submodule).
+2. After it lands, in this repo: `git submodule update --remote Backend`, commit the new pointer in a cookbook PR off `dev`, merge to `main`, release.
+
+There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
+
+## Database migrations
+
+Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). They are applied in production by a Cloud Run **Job** named `flask-backend-migrate`, wired into `cloudbuild.yaml` between "Push Flask Backend Version Tag" and "Deploy Flask Backend". The job:
+
+- Reuses the just-pushed `flask-backend:$SHORT_SHA` image
+- Overrides the container command to `flask db upgrade`
+- Mirrors the Flask service's env + secrets (`DATABASE_URL`, `FLASK_SECRET_KEY`, `FLASK_ENV=production`, etc.)
+- Runs in the same VPC/subnet so it can reach Cloud SQL via private IP
+- Runs to completion with `--wait`; a failure aborts the build and the old Flask revision keeps serving traffic
+
+When two PRs both add migrations off the same parent revision, Alembic ends up with branched heads and `flask db upgrade` refuses to run. Detect with `cd Backend && uv run flask db heads` (must be one line). To unify, generate a merge migration:
+
+```bash
+cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
+```
+
+Commit the resulting `*_merge_*.py` file with the PR. The merge migration's `upgrade()`/`downgrade()` are typically empty — it exists only to unify the DAG. Recipe of last resort if production is already broken: run the Cloud Run job manually with `gcloud run jobs execute flask-backend-migrate --region=us-central1 --wait`.
+
 ## Deployment
 
-Two Cloud Run services in `us-central1`:
+Two Cloud Run services in `us-central1`, plus one Cloud Run Job:
 
-- `express-frontend` — Node.js, port 8080, public
-- `flask-backend` — Python (gunicorn), port 5000, no public auth
+- `express-frontend` — Node.js service, port 8080, public
+- `flask-backend` — Python (gunicorn) service, port 5000, no public auth
+- `flask-backend-migrate` — Cloud Run **Job** that runs `flask db upgrade` before each Flask service deploy (see "Database migrations" above)
 
-`cloudbuild.yaml` builds both Docker images and deploys them in sequence. Express Dockerfile is at root; Flask Dockerfile is at `Backend/Dockerfile`.
+`cloudbuild.yaml` builds both Docker images, runs the migrate Job, then deploys both services in sequence. Express Dockerfile is at root; Flask Dockerfile is at `Backend/Dockerfile`.
 
 ### Release flow
 
-1. PR merges to `main` (only path that ships).
-2. `.github/workflows/release.yml` extracts `version` from `package.json`, creates the git tag `vX.Y.Z`, pushes the tag, and publishes a GitHub Release with the matching CHANGELOG section. Idempotent — re-running on an existing tag is a no-op.
-3. The tag push hits a **Cloud Build trigger configured on the GCP side** (not in this repo). The trigger watches for tag pushes matching the regex below and runs `cloudbuild.yaml` with `_VERSION=vX.Y.Z`.
+1. Feature work on a `feat/*` / `fix/*` / `chore/*` branch off `dev`. PR into `dev`.
+2. When ready to ship: PR `dev` → `main`, bumping `package.json` version + CHANGELOG. Merge.
+3. `.github/workflows/release.yml` extracts `version` from `package.json`, creates the git tag `vX.Y.Z`, pushes the tag, and publishes a GitHub Release with the matching CHANGELOG section. Idempotent — re-running on an existing tag is a no-op.
+4. The tag push hits a **Cloud Build trigger configured on the GCP side** (not in this repo). The trigger watches for tag pushes matching the regex below and runs `cloudbuild.yaml` with `_VERSION=vX.Y.Z`.
+5. `cloudbuild.yaml` builds both images, runs the `flask-backend-migrate` Job (blocking), then deploys Flask service, then Express service.
 
 ### Cloud Build tag-push trigger (production deploy)
 
@@ -166,11 +204,12 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
-- **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, branch `dev/backend_sub222`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
+- **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
   - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
-  - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev/backend_sub222` — commits on the tracked branch the pointer hasn't picked up yet
-  - `git submodule update --remote Backend` — fast-forward the pointer to the latest tracked branch tip when ready
-- **Branching** — ALWAYS create a new branch off `dev` before making any changes. Do not commit directly to `dev` or `main`.
+  - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev` — commits on `dev` the pointer hasn't picked up yet
+  - `git -C Backend log --oneline origin/main..origin/dev` — commits on `dev` not yet promoted to Backend `main`
+  - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
+  - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
 - **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
 
