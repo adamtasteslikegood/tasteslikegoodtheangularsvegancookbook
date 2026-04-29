@@ -119,6 +119,49 @@ Two Cloud Run services in `us-central1`:
 
 `cloudbuild.yaml` builds both Docker images and deploys them in sequence. Express Dockerfile is at root; Flask Dockerfile is at `Backend/Dockerfile`.
 
+### Release flow
+
+1. PR merges to `main` (only path that ships).
+2. `.github/workflows/release.yml` extracts `version` from `package.json`, creates the git tag `vX.Y.Z`, pushes the tag, and publishes a GitHub Release with the matching CHANGELOG section. Idempotent — re-running on an existing tag is a no-op.
+3. The tag push hits a **Cloud Build trigger configured on the GCP side** (not in this repo). The trigger watches for tag pushes matching the regex below and runs `cloudbuild.yaml` with `_VERSION=vX.Y.Z`.
+
+### Cloud Build tag-push trigger (production deploy)
+
+The tag-push trigger lives in Cloud Build — **GCP Console → Cloud Build → Triggers** (or `gcloud builds triggers list`). Its tag pattern MUST be:
+
+```
+^v[0-9]+\.[0-9]+\.[0-9]+$
+```
+
+Anchored, digits-only, leading `v`, no trailing pre-release or metadata. This is a deliberate gate so:
+
+- `v0.2.0`, `v1.0.0`, `v2.13.7` — match → production deploy fires
+- `v0.2.0-rc.1`, `v0.2.0-beta` — pre-release tags → **do not match**, no production deploy
+- `v0.2.0+build.123`, `v0.2.0+sha.abc` — metadata tags → **do not match**, no production deploy
+- `latest`, `dev`, `0.2.0` (missing leading `v`) — **do not match**
+
+If you ever need to ship a release candidate without triggering production, push a tag like `v0.3.0-rc.1` and it'll create a GitHub Release without a Cloud Run deploy. To verify the trigger is configured correctly:
+
+```bash
+gcloud builds triggers list --filter='name~deploy OR name~release' \
+  --format='value(name, github.push.tag, filename)'
+```
+
+The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9]+\.[0-9]+$`.
+
+## Startup (agent sessions)
+
+Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Code (or any compatible agent) starts a session in this directory, it auto-spawns the servers listed there as stdio child processes. Currently registered:
+
+- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, and `ATLASSIAN_PM_LINK.md` to Confluence on save.
+
+Requirements for `pm-daemon` to actually sync:
+
+- `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
+- `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
+
+To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
+
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
