@@ -107,7 +107,11 @@ steps:
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Migrate Job'
-    waitFor: ['Push Flask Backend Version Tag']
+    # Wait on the SHORT_SHA image push, not the SemVer tag push — the Job's
+    # --image refers to flask-backend:$SHORT_SHA, so as soon as that's in
+    # Artifact Registry the Job can be deployed in parallel with the version
+    # tag push (which is for service-image traceability, not migrations).
+    waitFor: ['Push Flask Backend Image']
     entrypoint: gcloud
     args:
       - run
