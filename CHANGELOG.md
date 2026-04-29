@@ -8,20 +8,48 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-### Fixed
+## [0.2.0] - 2026-04-29
 
-- Catch `shutdownValkey()` failures inside `createValkeyClient()` so a broken `quit()` cannot prevent reinitialization or fallback to in-memory rate limiting ([TAS-48](https://linear.app/tasteslikegood/issue/TAS-48/catch-quit-failures-before-reinitializing-valkey-client))
-- On startup, clear the cached authenticated user when the Flask session is gone instead of downgrading it to guest — prevents the header showing "Sign In" while Kitchen still lists the previously authenticated user's recipes ([TAS-2725](https://linear.app/tasteslikegood/issue/TAS-2725/bug-ui-shows-logged-out-state-login-button-while-still-displaying))
+The "Anti-Recipe Site" release. Public recipes can now be shared via clean URLs that crawlers and JS-flaky in-app browsers (Facebook, Instagram) render correctly. Recipe and image generation moved off the request thread onto Pub/Sub workers, so the UI returns instantly instead of holding the connection open for 30+ seconds.
 
-### Removed
+### Added
 
-- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
-
-### Removed
-
-- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- Public recipes: toggle "Make Public" on a saved recipe and share `/r/<slug>` — server-rendered HTML with photo, ingredients, instructions, and a working CTA. Indexed by Googlebot. ([TAS-2718](https://linear.app/tasteslikegood/issue/TAS-2718))
+- `/browse` index page lists every public recipe with author byline and pagination
+- `slug` and `is_public` columns on recipes plus a backfill script for existing entries
+- Async AI generation via Pub/Sub: `POST /api/generate` and `POST /api/generate_image` now return 202 instantly; recipes complete in the background and the UI polls for status
+- `/api/worker/recipe` and `/api/worker/image` HTTP push endpoints with OIDC verification — Pub/Sub signs each push with a JWT that the endpoints validate against `PUBSUB_INVOKER_SA` before processing
+- `scripts/gcloud/setup_pubsub.sh` and `scripts/gcloud/update_push_endpoints.sh` for one-time GCP infrastructure setup (topics, subscriptions, IAM, dead-letter queue)
+- Branching guidance in CLAUDE.md, COPILOT.md, and GEMINI.md: always branch off `dev`, never commit directly to `dev` or `main`
 
 ### Changed
+
+- SSR proxy routes (`/r`, `/browse`, `/sitemap.xml`) moved from `app.use()` to `app.get()` with rate limiting via `staticPageLimiter` — non-GET methods 404 cleanly, no bot POST spam reaches Flask
+- "Make Public" toggle replaced with proper `<button role="switch">` + `aria-labelledby` for screen reader support and to satisfy `@angular-eslint/template/label-has-associated-control`
+- `Recipe` model gains a `status` column (`pending`, `ready`, `error`) so the frontend can poll while async generation completes
+
+### Fixed
+
+- OAuth scope reduction: removed broad `cloud-platform` scope from user auth so the consent screen no longer triggers a Google security warning that was scaring away recipe-share recipients
+- `Backend/blueprints/worker_api_bp.py` import was missing from `app.py` — the container would have crashed on startup with `NameError`
+- Catch `shutdownValkey()` failures inside `createValkeyClient()` so a broken `quit()` cannot prevent reinitialization or fallback to in-memory rate limiting ([TAS-48](https://linear.app/tasteslikegood/issue/TAS-48/catch-quit-failures-before-reinitializing-valkey-client))
+- On startup, clear the cached authenticated user when the Flask session is gone instead of downgrading it to guest — prevents the header showing "Sign In" while Kitchen still lists the previously authenticated user's recipes ([TAS-2725](https://linear.app/tasteslikegood/issue/TAS-2725/bug-ui-shows-logged-out-state-login-button-while-still-displaying))
+- `.gitmodules` now points `gemstack` at the correct upstream (`adamtasteslikegood/gemstack`) so CI can fetch the recorded SHA
+
+### Removed
+
+- 38MB of stray ImageMagick PostScript dumps committed to repo root with cryptic names (`base64`, `json`, `logging`, `markdown`, `os`, `requests`, `sys`)
+- Broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json` ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- Standalone pull-based Pub/Sub worker scripts (`Backend/workers/recipe_worker.py`, `image_worker.py`, `run_workers.py`) — replaced by HTTP push endpoints
+- Duplicate `gemstack` entry in `.gitmodules`
+
+### Infrastructure
+
+- Cloud Run flask-backend env vars now include `GCP_PROJECT_ID` and `PUBSUB_INVOKER_SA` so the worker endpoints know which OIDC issuer to trust
+- New GCP service account `pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com` with `roles/run.invoker` on flask-backend; flask service account gains `roles/pubsub.publisher`
+- Push subscriptions configured with 600s ack-deadline (Imagen takes 30-90s), exponential retry backoff, and dead-letter routing to `generation-dlq` after 5 failed deliveries
+
+### Internal
 
 - Mark all `inject()` service references as `readonly` across Angular components and services ([TAS-2707](https://linear.app/tasteslikegood/issue/TAS-2707/find-a-small-improvement-copy))
 - Use `Number.parseInt()` instead of global `parseInt()` in `server/valkey.ts` for consistency with the rest of the codebase
