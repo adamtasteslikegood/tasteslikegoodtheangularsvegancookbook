@@ -56,9 +56,6 @@ let server: Server | null = null;
   // Must be mounted BEFORE express.json() so raw request bodies stream
   // through to Flask without being consumed by the JSON parser.
   app.use('/api', createFlaskProxy('API'));
-  app.use('/r', createFlaskProxy('Public Recipe'));
-  app.use('/browse', createFlaskProxy('Browse'));
-  app.use('/sitemap.xml', createFlaskProxy('Sitemap'));
 
   // Reduce default JSON payload limit to 50KB for security
   app.use(express.json({ limit: '50kb' }));
@@ -76,6 +73,16 @@ let server: Server | null = null;
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
+
+  // Flask SSR routes — individual public recipes, the browse index, and the
+  // sitemap must be proxied to Flask BEFORE the Angular catch-all so the HTML
+  // the crawler receives is server-rendered (not the empty SPA shell). Using
+  // .get() instead of .use() so non-GET methods 404 cleanly; staticPageLimiter
+  // applies the same rate limit as the privacy policy and SPA shell.
+  const ssrProxy = createFlaskProxy('SSR');
+  app.get('/r/*splat', staticPageLimiter, ssrProxy);
+  app.get('/browse', staticPageLimiter, ssrProxy);
+  app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
 
   app.get('{*path}', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
