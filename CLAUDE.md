@@ -124,6 +124,7 @@ Two Cloud Run services in `us-central1`:
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
 - **Backend submodule** — `Backend/` is a git submodule; always `git pull` inside it separately or use `git submodule update --remote`
+- **Branching** — ALWAYS create a new branch off `dev` before making any changes. Do not commit directly to `dev` or `main`.
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
 - **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
 

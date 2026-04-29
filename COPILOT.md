@@ -9,6 +9,7 @@ Keep suggestions aligned with the repo's deployment targets (Cloud Run) and mini
 
 ## Constraints
 
+- ALWAYS create a new branch off `dev` before making any changes. Do not commit directly to `dev` or `main`.
 - Use `VITE_`-prefixed environment variables for client-visible config.
 - Avoid adding server-side runtime dependencies unless explicitly requested.
 

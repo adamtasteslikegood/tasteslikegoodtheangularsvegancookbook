@@ -36,7 +36,7 @@ This project is a full-stack application featuring an Angular/React frontend and
 
 ## Development Conventions
 
-- **Version Control:** Follow guidelines in `BRANCHING_STRATEGY.md` and `CONTRIBUTING.md`.
+- **Version Control:** Follow guidelines in `BRANCHING_STRATEGY.md` and `CONTRIBUTING.md`. ALWAYS create a new branch off `dev` before making any changes — do not commit directly to `dev` or `main`.
 - **CI/CD:** PRs and commits are checked via GitHub Actions and Qodana. Ensure all tests pass before submitting a PR.
 - **Code Style:** Enforced by ESLint (frontend), Flake8 (backend - `.flake8`), and Prettier.
 - **Documentation:** Review `START_HERE.md` and `API.md` (in Backend) for detailed onboarding.
