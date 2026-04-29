@@ -2,17 +2,26 @@ node_modules
 npm-debug.log
 dist
 build
+coverage
 .env
 .env.local
 .env.*.local
+.envrc
 .git
 .gitignore
+.gitattributes
+.gitmodules
 README.md
 CONTRIBUTING.md
 AGENTS.md
 COPILOT.md
+GEMINI.md
+CLAUDE.md
 START_HERE.md
 QUICK_REFERENCE.md
+BRANCHING_STRATEGY.md
+CONVENTIONS.md
+DEV_QUICKSTART_ANTIRECIPE020.md
 LICENSE
 .editorconfig
 .vscode
@@ -25,10 +34,22 @@ LICENSE
 # Submodules and non-frontend code
 Backend/
 backend/
+alirez-claude-skills/
+gemstack/
 
-# CI/CD and tooling config
+# Python tooling (not used by the Express image)
+.venv
+.venv_sync
+uv.lock
+
+# CI/CD, agent, and tooling config
 .github/
 .claude/
+.codex/
+.gemini/
+.junie/
+.clawhub/
+.aiignore
 .agent-work/
 .terraform/
 *.tfstate
@@ -36,13 +57,38 @@ backend/
 cloudbuild.yaml
 pyproject.toml
 qodana-global-configurations.yaml
+qodana.yaml
+mkdocs.yml
+setup_mcp_secrets.sh
 
-# Non-app assets
+# Planning, docs, and PM artifacts
 docs/
+documentation/
 scripts/
 sample_html/
 sample_sessiondata.json
+Designs/
 Google Cloud App Designs/
+tasteslikegood-org-design0_2_0-files/
+claude-code-tresor/
+skills/
+plan.md
+roadmap.md
+planning_notes.md
+design-plan.md
+
+# PM / Atlassian / Jira data dumps
+auto_pm_mcp.json
+confluence_data.json
+confluence_spaces.json
+jira_data.json
+jira_issues.txt
+fetch_atlassian.py
+update_jira.py
+sync_docs_to_confluence.py
+
+# Misc artifacts
+adamtasteslikegood-2026-github-skyline.stl
 export
 fastagent.jsonl
 model_discovery_output.txt

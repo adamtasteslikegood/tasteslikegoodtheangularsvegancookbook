@@ -8,6 +8,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-04-29
+
+Post-v0.2.0 polish: repo hygiene, Cloud Run image trimming, agent-tooling wiring. No user-facing app changes.
+
+### Added
+
+- `.mcp.json` registers the `pm-daemon` MCP server (from `alirez-claude-skills/pm-daemon` via `scripts/pm/run_pm_daemon.sh`) so Claude Code, Codex, and other agents auto-spawn the daemon on session start. The daemon watches plan files (`plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`) and syncs them to Confluence in the background. Deletes orphaned `auto_pm_mcp.json` (wrong filename — Claude Code reads `.mcp.json`).
+- PM daemon (`alirez-claude-skills/pm-daemon`) gains recursive plan-file matching (uses `rglob`) and a `--watch-only` mode for running the watcher without MCP transport
+- "Always check the `Backend/` submodule repo for PRs and changes" guidance in CLAUDE.md and AGENTS.md, with `gh pr list -R adamtasteslikegood/tasteslikegood.com` and `git -C Backend log` commands. Backend/ is roughly half the project; missed PRs there have caused integration drift on past releases.
+- Cloud Build trigger regex documentation in CLAUDE.md — production deploys fire only on tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`, so pre-release tags like `v0.2.1-rc.1` or build-metadata tags like `v0.2.1+sha.abc` cannot accidentally trigger a production push.
+
+### Changed
+
+- Expand `.dockerignore` and `.gcloudignore` to keep planning, PM, AI/agent tooling (`.codex/`, `.gemini/`, `.junie/`, `.clawhub/`, `claude-code-tresor/`, `skills/`), Python venvs, and non-runtime submodules (`alirez-claude-skills/`, `gemstack/`) out of the Cloud Run build context. Smaller image, faster build, less surface area.
+- Clean up `.gitignore`: resolve unresolved `<<<<<<<` / `>>>>>>>` merge conflict markers that had silently been there (likely a missed conflict during a previous merge from `origin/main`), dedupe entries, add Python bytecode patterns, and stop ignoring `AGENTS.md` so the agent-facing guidance is actually tracked in git.
+
+### Fixed
+
+- Bump `alirez-claude-skills` submodule pointer to pick up recursive plan-file watching and `--watch-only` mode in `pm_daemon.py` (was silently uncommitted in the parent for ~3 days)
+
 ## [0.2.0] - 2026-04-29
 
 The "Anti-Recipe Site" release. Public recipes can now be shared via clean URLs that crawlers and JS-flaky in-app browsers (Facebook, Instagram) render correctly. Recipe and image generation moved off the request thread onto Pub/Sub workers, so the UI returns instantly instead of holding the connection open for 30+ seconds.

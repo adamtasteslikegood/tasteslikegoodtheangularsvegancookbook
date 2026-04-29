@@ -65,8 +65,7 @@ override.tf.json
 *_override.tf.json
 *.tf
 
-<<<<<<< HEAD
-# Agent skills & work (moved to separate repo)
+# Agent skills & work (moved to separate repo / generated locally)
 .agent/
 .agent-work/
 .claude/settings.local.json
@@ -77,37 +76,23 @@ override.tf.json
 .zed/
 .github/agents/
 .github/skills/
-AGENTS.md
+.clawhub/
+claude-code-tresor
+skills
 
+# Generated / local artifacts
 /export
 /fastagent.jsonl
 /uv.lock
 /#git-workflow.sh#
-=======
-# Agent/AI work directories
-.agent-work/
->>>>>>> origin/main
+sample_sessiondata.json
+model_discovery_output.txt
 
 # Temp and backup files
 #*#
 .#*
-<<<<<<< HEAD
-.clawhub/
-claude-code-tresor
-skills
-*.kate-swp
-=======
-*~
-/fastagent.jsonl
-/uv.lock
-/export
 
-<<<<<<< HEAD
-# Sample/test data (regenerate locally as needed)
-sample_sessiondata.json
-model_discovery_output.txt
-=======
-
-Google Cloud App Designs/.cloud_run_flask_plus_express.md.kate-swp
->>>>>>> origin/main
->>>>>>> origin/main
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
