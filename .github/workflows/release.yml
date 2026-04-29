@@ -34,7 +34,7 @@ jobs:
       github.actor != 'dependabot[bot]'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0 # full history so we can push tags
