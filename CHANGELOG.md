@@ -6,26 +6,42 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.2.0] - 2026-04-29
+
+### Added
+
+- Anti-Recipe Site distribution layer — public recipe pages reachable without auth (#2868)
+- Phase 4 Pub/Sub async AI generation — recipe + image jobs run in background workers (#2869)
+- Pub/Sub HTTP push workers with OIDC-signed invocation; `PUBSUB_INVOKER_SA` and `GCP_PROJECT_ID` wired into Flask runtime (#2870, #2892)
+- Server-side rendering for public recipe routes; SSR submodule integrated into the Express layer (#2893)
+- Branching strategy doc (`BRANCHING_STRATEGY.md`) — all changes branch off `dev` (#2888)
+- `alirez-claude-skills` and `gemstack` registered as proper git submodules (#2867)
+- PM daemon (`alirez-claude-skills/pm-daemon`) watches v0.2 plan files recursively and gains a `--watch-only` mode
+- Junie GitHub Actions workflow (#2884)
+- `Related Issues` section in the PR template (#2865)
 
 ### Fixed
 
 - Catch `shutdownValkey()` failures inside `createValkeyClient()` so a broken `quit()` cannot prevent reinitialization or fallback to in-memory rate limiting ([TAS-48](https://linear.app/tasteslikegood/issue/TAS-48/catch-quit-failures-before-reinitializing-valkey-client))
-- On startup, clear the cached authenticated user when the Flask session is gone instead of downgrading it to guest — prevents the header showing "Sign In" while Kitchen still lists the previously authenticated user's recipes ([TAS-2725](https://linear.app/tasteslikegood/issue/TAS-2725/bug-ui-shows-logged-out-state-login-button-while-still-displaying))
-
-### Removed
-
-- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
-
-### Removed
-
-- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- On startup, clear the cached authenticated user when the Flask session is gone instead of downgrading it to guest — prevents the header showing "Sign In" while Kitchen still lists the previously authenticated user's recipes ([TAS-2725](https://linear.app/tasteslikegood/issue/TAS-2725/bug-ui-shows-logged-out-state-login-button-while-still-displaying), #2860)
+- Preserve cached auth state on transient auth-check failures so a single network blip doesn't drop the user to guest
+- Replace bare label with `aria-labelledby` on the toggle button for keyboard/screen-reader accessibility (#2890)
+- Polish merged keyboard accessibility and finalize auth + keyboard handling
+- Drop the sensitive `cloud-platform` scope from user OAuth — Backend services use their own service-account credentials for GCP API access
+- Resolve Qodana template ESLint findings
 
 ### Changed
 
+- Repoint `gemstack` submodule url to `adamtasteslikegood/gemstack` and dedupe entries (#2894 prep)
 - Mark all `inject()` service references as `readonly` across Angular components and services ([TAS-2707](https://linear.app/tasteslikegood/issue/TAS-2707/find-a-small-improvement-copy))
 - Use `Number.parseInt()` instead of global `parseInt()` in `server/valkey.ts` for consistency with the rest of the codebase
 - Add descriptive context to bare `console.error()` in recipe import error handler
+- Expand `.dockerignore` and `.gcloudignore` to exclude planning, PM, AI/agent tooling, and non-runtime submodules from the Cloud Run build context (smaller images, faster builds)
+
+### Removed
+
+- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- Remove 38 MB of stray ImageMagick PostScript dumps from repo root (#2887)
 
 ## [0.1.0] - 2026-04-13
 
