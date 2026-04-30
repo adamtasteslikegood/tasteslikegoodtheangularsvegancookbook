@@ -157,12 +157,25 @@ def main():
         for pr in prs:
             rollup = pr.get("statusCheckRollup", "UNKNOWN")
             if isinstance(rollup, list) and rollup:
-                # Extract conclusions from check runs
-                conclusions = [c.get("conclusion", "UNKNOWN") for c in rollup]
-                has_fail = any(c == "FAILURE" for c in conclusions)
-                has_neutral = any(c == "NEUTRAL" for c in conclusions)
-                emoji = "❌" if has_fail else "⏳" if has_neutral else "✅"
-                status_summary = f"{len([c for c in conclusions if c=='SUCCESS'])}/{len(conclusions)} passed"
+                success_count = 0
+                has_fail = False
+                has_pending = False
+
+                for check in rollup:
+                    status = check.get("status")
+                    conclusion = check.get("conclusion")
+
+                    if conclusion == "FAILURE":
+                        has_fail = True
+                    elif status != "COMPLETED" or conclusion in (None, "NEUTRAL"):
+                        has_pending = True
+                    elif conclusion == "SUCCESS":
+                        success_count += 1
+                    else:
+                        has_pending = True
+
+                emoji = "❌" if has_fail else "⏳" if has_pending else "✅"
+                status_summary = f"{success_count}/{len(rollup)} passed"
             else:
                 emoji = "⏳"
                 status_summary = str(rollup)
