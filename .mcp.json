@@ -4,6 +4,11 @@
       "command": "bash",
       "args": ["scripts/pm/run_pm_daemon.sh"],
       "env": {}
+    },
+    "gbrain": {
+      "command": "gbrain",
+      "args": ["serve"],
+      "env": {}
     }
   }
 }

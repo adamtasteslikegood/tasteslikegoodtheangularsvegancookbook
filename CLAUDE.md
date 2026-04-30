@@ -220,3 +220,14 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+
+## GBrain Configuration (configured by /setup-gbrain)
+- Engine: postgres
+- Config file: ~/.gbrain/config.json (mode 0600)
+- Setup date: 2026-04-30
+- MCP registered: no (OpenCode — register `gbrain serve` manually in MCP config if desired)
+- Memory sync: off
+- Current repo policy: read-write
+- Database: Railway Postgres (shared with Hermes agent)
+- Pages: ~249 imported from this repo
+- Background job: gbrain embed --stale (PID 78503)
