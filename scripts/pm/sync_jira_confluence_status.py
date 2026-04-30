@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Fetch Jira issues, open PRs, and Confluence build-deploy status for v0.2.0/v0.2.1."""
+"""Fetch Jira issues, open PRs, and Confluence build-deploy status for v0.2.0/v0.2.1.
+
+Dependencies: requests, python-dotenv (not stdlib).
+Install before running: pip install -r scripts/pm/requirements.txt
+"""
 
 import base64
 import json
