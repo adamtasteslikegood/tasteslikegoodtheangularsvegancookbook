@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-04-30
+
+Hotfix on top of v0.2.2 — the migrate Job couldn't reach Cloud SQL.
+
+### Fixed
+
+- `cloudbuild.yaml`: add `--set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db` to the `flask-backend-migrate` Cloud Run Job. The `DATABASE_URL` secret is configured for a Cloud SQL Unix-socket connection (`postgresql://...?host=/cloudsql/<instance>`) — without this flag the socket path doesn't exist in the Job container and SQLAlchemy falls back to localhost, failing with `OperationalError: Is the server running locally and accepting connections on that socket?`. The v0.2.2 build aborted at "Execute Migrate Job" because of this; the new Flask revision was correctly *not* deployed (the gate worked), but no migration ran. v0.2.3 rebuilds with the corrected Job spec.
+
 ## [0.2.2] - 2026-04-30
 
 Production hotfix: restore recipe generation and auth on tasteslikegood.org.
