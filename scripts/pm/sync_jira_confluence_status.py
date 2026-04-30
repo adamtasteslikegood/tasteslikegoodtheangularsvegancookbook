@@ -13,43 +13,57 @@ from dotenv import load_dotenv
 # Load env
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-URL_BASE = os.environ.get("ATLASSIAN_URL", "tasteslikegood.atlassian.net")
-EMAIL = os.environ.get("ATLASSIAN_EMAIL")
-TOKEN = os.environ.get("ATLASSIAN_API_TOKEN")
+# Normalize ATLASSIAN_URL: strip any scheme so callers can set it as either
+# "tasteslikegood.atlassian.net" or "https://tasteslikegood.atlassian.net".
+_raw_url = os.environ.get("ATLASSIAN_URL", "tasteslikegood.atlassian.net")
+URL_BASE = _raw_url.strip().removeprefix("https://").removeprefix("http://").rstrip("/")
 
-def get_auth_headers():
-    auth_str = f"{EMAIL}:{TOKEN}"
-    auth_b64 = base64.b64encode(auth_str.encode("utf-8")).decode("utf-8")
+# REQUEST_TIMEOUT: 5 minutes – generous for slow Atlassian API responses.
+REQUEST_TIMEOUT = 300
+
+# Module-level placeholder; populated by main() after env-var validation.
+HEADERS: dict = {}
+
+
+def get_auth_headers(email: str, token: str) -> dict:
+    auth_b64 = base64.b64encode(f"{email}:{token}".encode("utf-8")).decode("utf-8")
     return {
         "Authorization": f"Basic {auth_b64}",
         "Content-Type": "application/json",
         "Accept": "application/json",
     }
 
-HEADERS = get_auth_headers()
-
 def fetch_jira_issues():
     """Fetch open issues from KAN project using GET /search/jql."""
     jql = 'project = KAN AND status != Done AND status != Closed ORDER BY updated DESC'
     url = f"https://{URL_BASE}/rest/api/3/search/jql"
-    params = {"jql": jql, "maxResults": 50, "fields": "summary,status,assignee,updated,issuetype,labels,description"}
-    resp = requests.get(url, headers=HEADERS, params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        print(f"Error fetching Jira issues: {resp.status_code} {resp.text}")
+    params = {"jql": jql, "maxResults": 50, "fields": "summary,status,assignee,updated,issuetype,labels"}
+    try:
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"Error fetching Jira issues: {resp.status_code} {resp.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching Jira issues: {e}")
         return None
+
 
 def fetch_recent_issues():
     """Fetch recently updated issues (last 30 days) using GET /search/jql."""
     jql = 'project = KAN AND updated >= -30d ORDER BY updated DESC'
     url = f"https://{URL_BASE}/rest/api/3/search/jql"
     params = {"jql": jql, "maxResults": 50, "fields": "summary,status,assignee,updated,issuetype,labels"}
-    resp = requests.get(url, headers=HEADERS, params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        print(f"Error fetching recent issues: {resp.status_code} {resp.text}")
+    try:
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"Error fetching recent issues: {resp.status_code} {resp.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching recent issues: {e}")
         return None
 
 def fetch_open_prs_from_github():
@@ -72,43 +86,57 @@ def fetch_open_prs_from_github():
         return []
 
 def search_confluence_for_versions():
-    """Search Confluence for v0.2.0 and v0.2.1 mentions."""
-    space_id = "11042818"  # TLG space
+    """Search Confluence page bodies for v0.2.0 and v0.2.1 mentions using CQL."""
+    url = f"https://{URL_BASE}/wiki/rest/api/search"
     results = {}
-    
+
     for version in ["v0.2.0", "v0.2.1", "0.2.0", "0.2.1", "build", "deploy"]:
-        url = f"https://{URL_BASE}/wiki/api/v2/spaces/{space_id}/pages"
-        params = {"title": version, "limit": 50}
+        cql = f'text ~ "{version}" AND type = "page" AND space.key = "TLG"'
+        params = {"cql": cql, "limit": 50, "expand": "metadata.labels"}
         try:
-            resp = requests.get(url, headers=HEADERS, params=params)
+            resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 results[version] = data.get("results", [])
-        except Exception as e:
-            print(f"Error searching Confluence for {version}: {e}")
-    
+            else:
+                print(f"Error searching Confluence for '{version}': {resp.status_code} {resp.text}")
+                results[version] = []
+        except requests.exceptions.RequestException as e:
+            print(f"Error searching Confluence for '{version}': {e}")
+            results[version] = []
+
     return results
+
 
 def fetch_confluence_children(parent_page_id="11796481"):
     """Fetch child pages under Project Documentation."""
     url = f"https://{URL_BASE}/wiki/api/v2/pages/{parent_page_id}/children"
     params = {"limit": 100}
-    resp = requests.get(url, headers=HEADERS, params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        print(f"Error fetching Confluence children: {resp.status_code}")
+    try:
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"Error fetching Confluence children: {resp.status_code} {resp.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching Confluence children: {e}")
         return None
+
 
 def fetch_confluence_page_content(page_id):
     """Fetch full content of a Confluence page."""
     url = f"https://{URL_BASE}/wiki/api/v2/pages/{page_id}"
     params = {"body-format": "storage"}
-    resp = requests.get(url, headers=HEADERS, params=params)
-    if resp.status_code == 200:
-        return resp.json()
-    else:
-        print(f"Error fetching page {page_id}: {resp.status_code}")
+    try:
+        resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
+        if resp.status_code == 200:
+            return resp.json()
+        else:
+            print(f"Error fetching page {page_id}: {resp.status_code} {resp.text}")
+            return None
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching page {page_id}: {e}")
         return None
 
 def check_page_for_versions(page_id, page_title):
@@ -134,6 +162,19 @@ def check_live_site():
         return {"status": None, "url": "https://tasteslikegood.org", "ok": False, "error": str(e)}
 
 def main():
+    global HEADERS
+
+    # Validate required Atlassian credentials before doing anything else.
+    email = os.environ.get("ATLASSIAN_EMAIL")
+    token = os.environ.get("ATLASSIAN_API_TOKEN")
+    missing = [name for name, val in (("ATLASSIAN_EMAIL", email), ("ATLASSIAN_API_TOKEN", token)) if not val]
+    if missing:
+        print(f"Error: missing required environment variable(s): {', '.join(missing)}")
+        print("Set them in .env or export them before running this script.")
+        raise SystemExit(1)
+
+    HEADERS = get_auth_headers(email, token)
+
     print("=" * 70)
     print("PM DAEMON SYNC: Jira Issues, Open PRs, Confluence Build-Deploy Status")
     print(f"Timestamp: {datetime.now().isoformat()}")
@@ -212,18 +253,21 @@ def main():
         print("  Could not fetch recent issues.")
     print()
 
-    # 5. Confluence search for versions
+    # 5. Confluence CQL search for versions
     print("## 5. CONFLUENCE PAGES MENTIONING v0.2.0 / v0.2.1 / BUILD / DEPLOY")
     cf_results = search_confluence_for_versions()
     found_any = False
-    for term, pages in cf_results.items():
-        if pages:
+    for term, hits in cf_results.items():
+        if hits:
             found_any = True
-            print(f"  Search term '{term}':")
-            for page in pages[:5]:
-                print(f"    - {page.get('title')} (ID: {page.get('id')})")
+            print(f"  CQL search '{term}':")
+            for hit in hits[:5]:
+                # CQL search results expose title at the top level; page ID is under content.id
+                page_title = hit.get("title") or hit.get("content", {}).get("title", "(no title)")
+                page_id = hit.get("content", {}).get("id", "")
+                print(f"    - {page_title} (ID: {page_id})")
     if not found_any:
-        print("  No direct title matches found. Checking child pages under Project Documentation...")
+        print("  No CQL matches found. Checking child pages under Project Documentation...")
         children = fetch_confluence_children()
         if children:
             for page in children.get("results", [])[:30]:
