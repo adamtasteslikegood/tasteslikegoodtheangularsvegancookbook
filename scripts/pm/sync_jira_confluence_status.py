@@ -167,7 +167,12 @@ def main():
     # Validate required Atlassian credentials before doing anything else.
     email = os.environ.get("ATLASSIAN_EMAIL")
     token = os.environ.get("ATLASSIAN_API_TOKEN")
-    missing = [name for name, val in (("ATLASSIAN_EMAIL", email), ("ATLASSIAN_API_TOKEN", token)) if not val]
+    # Build the list from string literals so only names (never values) are logged.
+    missing = []
+    if not email:
+        missing.append("ATLASSIAN_EMAIL")
+    if not token:
+        missing.append("ATLASSIAN_API_TOKEN")
     if missing:
         print(f"Error: missing required environment variable(s): {', '.join(missing)}")
         print("Set them in .env or export them before running this script.")
