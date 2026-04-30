@@ -115,6 +115,7 @@ def check_page_for_versions(page_id, page_title):
     """Check if a page mentions v0.2.0 or v0.2.1 in its content."""
     page = fetch_confluence_page_content(page_id)
     if not page:
+        print(f"Skipping Confluence page '{page_title}' ({page_id}): unable to fetch content")
         return False, []
     body = page.get("body", {}).get("storage", {}).get("value", "")
     text_lower = body.lower()
