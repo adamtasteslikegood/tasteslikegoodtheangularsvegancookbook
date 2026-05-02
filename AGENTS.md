@@ -126,6 +126,7 @@ git submodule foreach "git switch dev && git pull"  # align all to dev tip
 **This is the source for the `flask-backend` Cloud Run service.** The main repo pins which SHA of `adamtasteslikegood/tasteslikegood.com` (tracked branch `dev`) gets deployed to production alongside the frontend. Any drift between the pointer and real Backend state = production risk.
 
 **On every session start or before any merge/release:**
+
 ```bash
 # Open PRs in the Backend repo (any unlanded work?)
 gh pr list -R adamtasteslikegood/tasteslikegood.com --state open
