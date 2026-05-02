@@ -121,15 +121,28 @@ git pull --recurse-submodules            # daily pull
 git submodule foreach "git switch dev && git pull"  # align all to dev tip
 ```
 
-### `Backend/` submodule
+### `Backend/` submodule — CRITICAL
 
-Remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`.
+**This is the source for the `flask-backend` Cloud Run service.** The main repo pins which SHA of `adamtasteslikegood/tasteslikegood.com` (tracked branch `dev`) gets deployed to production alongside the frontend. Any drift between the pointer and real Backend state = production risk.
 
-- Before any backend work or release, check for unmerged upstream changes:
-  - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open`
-  - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev`
-- `cd Backend && uv run flask db heads` — must print exactly **one** line with `(head)`. Two heads = unmerged migrations, deploy will break.
-- To fast-forward the pointer: `git submodule update --remote Backend`
+**On every session start or before any merge/release:**
+```bash
+# Open PRs in the Backend repo (any unlanded work?)
+gh pr list -R adamtasteslikegood/tasteslikegood.com --state open
+
+# Commits on Backend dev not yet reflected in our pinned pointer
+git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev
+
+# Commits on Backend dev not yet promoted to Backend main
+git -C Backend log --oneline origin/main..origin/dev
+
+# Migration heads — MUST be exactly one line with (head)
+cd Backend && uv run flask db heads
+```
+
+- Two migration heads = unmerged branch: use `flask db merge` to unify before deploying
+- To fast-forward the pinned pointer: `git submodule update --remote Backend`
+- Production deploys whatever SHA the submodule pins when the release tag fires — check the pointer before every release merge
 
 ### `alirez-claude-skills/` submodule
 
