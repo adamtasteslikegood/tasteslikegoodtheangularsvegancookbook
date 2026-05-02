@@ -191,7 +191,7 @@ The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9
 
 Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Code (or any compatible agent) starts a session in this directory, it auto-spawns the servers listed there as stdio child processes. Currently registered:
 
-- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, and `ATLASSIAN_PM_LINK.md` to Confluence on save.
+- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `specs/plan.md`, `specs/roadmap.md`, `specs/planning_notes.md`, `specs/design-plan.md`, `specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `specs/SPRINT_0_PLAN.md`, and `specs/ATLASSIAN_PM_LINK.md` to Confluence on save.
 
 Requirements for `pm-daemon` to actually sync:
 

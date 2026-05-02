@@ -1,6 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to OpenCode and other coding agents working in this repository.
+For Claude Code sessions, see `CLAUDE.md` (both files are kept in sync for the core sections).
 
 ## Project
 
@@ -110,108 +111,118 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 
 In production all secrets come from Google Secret Manager, injected at Cloud Run runtime.
 
-## Branching strategy (FINAL)
+## Three submodules — always keep in sync
+
+This repo has three git submodules. On every fresh checkout or after pulling:
+
+```bash
+git submodule update --init --recursive  # first checkout
+git pull --recurse-submodules            # daily pull
+git submodule foreach "git switch dev && git pull"  # align all to dev tip
+```
+
+### `Backend/` submodule
+
+Remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`.
+
+- Before any backend work or release, check for unmerged upstream changes:
+  - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open`
+  - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev`
+- `cd Backend && uv run flask db heads` — must print exactly **one** line with `(head)`. Two heads = unmerged migrations, deploy will break.
+- To fast-forward the pointer: `git submodule update --remote Backend`
+
+### `alirez-claude-skills/` submodule
+
+Houses the `pm-daemon/` MCP server. The daemon auto-syncs PM planning files to Confluence (see "PM Daemon" section below).
+
+### `gemstack/` submodule
+
+GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
+
+## PM Daemon (`.mcp.json`)
+
+The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. It:
+
+1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio
+2. Runs a `watchdog` Observer that auto-syncs these files to Confluence on save:
+   - `specs/plan.md`
+   - `specs/roadmap.md`
+   - `specs/planning_notes.md`
+   - `specs/design-plan.md`
+   - `specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`
+   - `specs/SPRINT_0_PLAN.md`
+   - `specs/ATLASSIAN_PM_LINK.md`
+
+Requirements:
+- `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
+- `python3 -m venv` must work
+
+Verify: `ps -ef | grep pm_daemon | grep -v grep`
+
+## PM status script
+
+`scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
+- Jira issues from KAN project
+- Open GitHub PRs
+- Confluence page info
+- Production site health check
+
+Install deps: `pip install -r scripts/pm/requirements.txt`
+Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
+
+## Branching strategy
 
 Both this repo and the `Backend/` submodule follow the same model:
 
-- **`main`** — release branch. Stable. Only the bot's release commit and merges from `dev` land here. Tags fire from `main`.
+- **`main`** — release branch. Stable. Only the bot's release commit and merges from `dev` land here. Tags fire from `main`. `main` always matches the latest production tag.
 - **`dev`** — integration branch. All feature work merges here first.
 - **`feat/*`, `fix/*`, `chore/*`** — short-lived branches off `dev`. PR back into `dev`.
 
 Never commit directly to `main` or `dev`. Always branch off `dev`.
 
-The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remote Backend` fast-forwards to the Backend integration tip. To ship a Backend change:
-
-1. PR into Backend `dev` (in `Backend/` submodule).
-2. After it lands, in this repo: `git submodule update --remote Backend`, commit the new pointer in a cookbook PR off `dev`, merge to `main`, release.
-
-There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
+To ship a Backend change:
+1. PR into Backend `dev` (in `Backend/` submodule)
+2. After it lands: `git submodule update --remote Backend`, commit the new pointer in a cookbook PR off `dev`, merge to `main`, release
 
 ## Database migrations
 
-Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). They are applied in production by a Cloud Run **Job** named `flask-backend-migrate`, wired into `cloudbuild.yaml` between "Push Flask Backend Version Tag" and "Deploy Flask Backend". The job:
+Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). Applied in production by Cloud Run Job `flask-backend-migrate`.
 
-- Reuses the just-pushed `flask-backend:$SHORT_SHA` image
-- Overrides the container command to `flask db upgrade`
-- Mirrors the Flask service's env + secrets (`DATABASE_URL`, `FLASK_SECRET_KEY`, `FLASK_ENV=production`, etc.)
-- Runs in the same VPC/subnet so it can reach Cloud SQL via private IP
-- Runs to completion with `--wait`; a failure aborts the build and the old Flask revision keeps serving traffic
+When two PRs both add migrations off the same parent, detect branched heads:
+```bash
+cd Backend && uv run flask db heads  # must print exactly one line with (head)
+```
 
-When two PRs both add migrations off the same parent revision, Alembic ends up with branched heads and `flask db upgrade` refuses to run. Detect with `cd Backend && uv run flask db heads` (must be one line). To unify, generate a merge migration:
-
+To unify branched heads:
 ```bash
 cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
 ```
 
-Commit the resulting `*_merge_*.py` file with the PR. The merge migration's `upgrade()`/`downgrade()` are typically empty — it exists only to unify the DAG. Recipe of last resort if production is already broken: run the Cloud Run job manually with `gcloud run jobs execute flask-backend-migrate --region=us-central1 --wait`.
-
 ## Deployment
 
-Two Cloud Run services in `us-central1`, plus one Cloud Run Job:
+Two Cloud Run services + one Cloud Run Job in `us-central1`:
 
-- `express-frontend` — Node.js service, port 8080, public
-- `flask-backend` — Python (gunicorn) service, port 5000, no public auth
-- `flask-backend-migrate` — Cloud Run **Job** that runs `flask db upgrade` before each Flask service deploy (see "Database migrations" above)
-
-`cloudbuild.yaml` builds both Docker images, runs the migrate Job, then deploys both services in sequence. Express Dockerfile is at root; Flask Dockerfile is at `Backend/Dockerfile`.
+- `express-frontend` — Node.js, port 8080, public
+- `flask-backend` — Python (gunicorn), port 5000, no public auth
+- `flask-backend-migrate` — Cloud Run **Job** runs `flask db upgrade` before each Flask deploy
 
 ### Release flow
 
-1. Feature work on a `feat/*` / `fix/*` / `chore/*` branch off `dev`. PR into `dev`.
-2. When ready to ship: PR `dev` → `main`, bumping `package.json` version + CHANGELOG. Merge.
-3. `.github/workflows/release.yml` extracts `version` from `package.json`, creates the git tag `vX.Y.Z`, pushes the tag, and publishes a GitHub Release with the matching CHANGELOG section. Idempotent — re-running on an existing tag is a no-op.
-4. The tag push hits a **Cloud Build trigger configured on the GCP side** (not in this repo). The trigger watches for tag pushes matching the regex below and runs `cloudbuild.yaml` with `_VERSION=vX.Y.Z`.
-5. `cloudbuild.yaml` builds both images, runs the `flask-backend-migrate` Job (blocking), then deploys Flask service, then Express service.
+1. Feature work on `feat/*` / `fix/*` / `chore/*` off `dev`. PR into `dev`
+2. When ready to ship: PR `dev` → `main`, bump `package.json` version + CHANGELOG. Merge.
+3. `.github/workflows/release.yml` creates git tag `vX.Y.Z` and GitHub Release
+4. Tag push `^v[0-9]+\.[0-9]+\.[0-9]+$` triggers Cloud Build → `cloudbuild.yaml`
+5. `cloudbuild.yaml` builds images, runs migrate Job, deploys Flask then Express
 
-### Cloud Build tag-push trigger (production deploy)
-
-The tag-push trigger lives in Cloud Build — **GCP Console → Cloud Build → Triggers** (or `gcloud builds triggers list`). Its tag pattern MUST be:
-
-```
-^v[0-9]+\.[0-9]+\.[0-9]+$
-```
-
-Anchored, digits-only, leading `v`, no trailing pre-release or metadata. This is a deliberate gate so:
-
-- `v0.2.0`, `v1.0.0`, `v2.13.7` — match → production deploy fires
-- `v0.2.0-rc.1`, `v0.2.0-beta` — pre-release tags → **do not match**, no production deploy
-- `v0.2.0+build.123`, `v0.2.0+sha.abc` — metadata tags → **do not match**, no production deploy
-- `latest`, `dev`, `0.2.0` (missing leading `v`) — **do not match**
-
-If you ever need to ship a release candidate without triggering production, push a tag like `v0.3.0-rc.1` and it'll create a GitHub Release without a Cloud Run deploy. To verify the trigger is configured correctly:
-
-```bash
-gcloud builds triggers list --filter='name~deploy OR name~release' \
-  --format='value(name, github.push.tag, filename)'
-```
-
-The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9]+\.[0-9]+$`.
-
-## Startup (agent sessions)
-
-Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Code (or any compatible agent) starts a session in this directory, it auto-spawns the servers listed there as stdio child processes. Currently registered:
-
-- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, and `ATLASSIAN_PM_LINK.md` to Confluence on save.
-
-Requirements for `pm-daemon` to actually sync:
-
-- `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
-- `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
-
-To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
+Pre-release tags like `v0.3.0-rc.1` create a GitHub Release without triggering production deploy.
 
 ## Non-obvious patterns
 
-- **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
+- **Rate limiter** uses Valkey for distributed state; `server/valkey.ts` has open GH issues (#163, #162) for edge cases
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
-- **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
-  - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
-  - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev` — commits on `dev` the pointer hasn't picked up yet
-  - `git -C Backend log --oneline origin/main..origin/dev` — commits on `dev` not yet promoted to Backend `main`
-  - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
-  - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
+- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`
+- **PM planning docs** live in `specs/` directory (except AGENTS.md at repo root)
 
 ## Further reading
 
@@ -220,42 +231,5 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 - `docs/PHASE_3/` — database architecture and data models
 - `docs/DEPLOYMENT_CHECKLIST.md` — pre-production checklist
 - `docs/rate_limit.md` — rate limiting details
-
-## gstack
-
-Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__claude-in-chrome__*` tools directly.
-
-Available gstack skills:
-
-| Skill                  | Skill                    | Skill              | Skill                 |
-| ---------------------- | ------------------------ | ------------------ | --------------------- |
-| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review` | `/plan-design-review` |
-| `/design-consultation` | `/design-shotgun`        | `/design-html`     | `/review`             |
-| `/ship`                | `/land-and-deploy`       | `/canary`          | `/benchmark`          |
-| `/browse`              | `/connect-chrome`        | `/qa`              | `/qa-only`            |
-| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`    | `/retro`              |
-| `/investigate`         | `/document-release`      | `/codex`           | `/cso`                |
-| `/autoplan`            | `/plan-devex-review`     | `/devex-review`    | `/careful`            |
-| `/freeze`              | `/guard`                 | `/unfreeze`        | `/gstack-upgrade`     |
-| `/learn`               |                          |                    |                       |
-
-## Skill routing
-
-When the user's request matches an available skill, ALWAYS invoke it using the Skill
-tool as your FIRST action. Do NOT answer directly, do NOT use other tools first.
-The skill has specialized workflows that produce better results than ad-hoc answers.
-
-Key routing rules:
-
-- Product ideas, "is this worth building", brainstorming → invoke office-hours
-- Bugs, errors, "why is this broken", 500 errors → invoke investigate
-- Ship, deploy, push, create PR → invoke ship
-- QA, test the site, find bugs → invoke qa
-- Code review, check my diff → invoke review
-- Update docs after shipping → invoke document-release
-- Weekly retro → invoke retro
-- Design system, brand → invoke design-consultation
-- Visual audit, design polish → invoke design-review
-- Architecture review → invoke plan-eng-review
-- Save progress, checkpoint, resume → invoke checkpoint
-- Code quality, health check → invoke health
+- `specs/` — PM planning documents (plan, roadmap, design, etc.)
+- `BRANCHING_STRATEGY.md` — detailed branching and release conventions
