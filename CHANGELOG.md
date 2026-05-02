@@ -8,6 +8,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-04-30
+
+Hotfix on top of v0.2.2 — the migrate Job couldn't reach Cloud SQL.
+
+### Fixed
+
+- `cloudbuild.yaml`: add `--set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db` to the `flask-backend-migrate` Cloud Run Job. The `DATABASE_URL` secret is configured for a Cloud SQL Unix-socket connection (`postgresql://...?host=/cloudsql/<instance>`) — without this flag the socket path doesn't exist in the Job container and SQLAlchemy falls back to localhost, failing with `OperationalError: Is the server running locally and accepting connections on that socket?`. The v0.2.2 build aborted at "Execute Migrate Job" because of this; the new Flask revision was correctly _not_ deployed (the gate worked), but no migration ran. v0.2.3 rebuilds with the corrected Job spec.
+
+## [0.2.2] - 2026-04-30
+
+Production hotfix: restore recipe generation and auth on tasteslikegood.org.
+
+### Fixed
+
+- **Database migrations now run automatically before each Flask deploy.** A new Cloud Run **Job** (`flask-backend-migrate`) wired into `cloudbuild.yaml` runs `flask db upgrade` against Cloud SQL before the Flask service is redeployed. A failing migration aborts the build so the old Flask revision keeps serving traffic. This closes the gap that caused the v0.2.0/v0.2.1 production outage: schema-changing migrations (`recipe.status`, `recipe.slug`, `recipe.is_public`) shipped without ever being applied to prod.
+- **Backend submodule pointer bumped to `dev` tip (`15ba254`)**, which now contains an Alembic merge migration unifying the previously branched heads (`03da1e46c9a5` for `recipe.status` and `fc014cd27ab4` for `recipe.slug`/`recipe.is_public`). Without this merge, `flask db upgrade` would have refused to run on prod regardless of when it was called.
+- `.gitmodules`: Backend submodule branch tracker fixed from `dev/backend_sub222` (deleted upstream) → `dev`. `git submodule update --remote Backend` now resolves correctly again.
+
+### Changed
+
+- `CLAUDE.md` and `AGENTS.md`: explicit **Branching strategy (FINAL)** section codifies `main` = release, `dev` = integration, feature branches off `dev`. New **Database migrations** section documents the Cloud Run Job and the multi-PR head-conflict policy (`flask db merge`). Release flow updated to include the migrate step. Backend submodule non-obvious pattern rewritten with the current `dev` branch and `flask db heads` check.
+
 ## [0.2.1] - 2026-04-29
 
 Post-v0.2.0 polish: repo hygiene, Cloud Run image trimming, agent-tooling wiring. No user-facing app changes.

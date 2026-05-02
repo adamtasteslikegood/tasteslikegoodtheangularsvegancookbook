@@ -130,6 +130,14 @@ steps:
       - --tasks=1
       - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
+      # The DATABASE_URL secret is configured for Cloud SQL Unix-socket
+      # connection (postgresql://...?host=/cloudsql/<instance>), matching
+      # the Flask service. Without this flag the socket path doesn't exist
+      # in the Job container and SQLAlchemy falls back to localhost:5432
+      # ("Is the server running locally and accepting connections on that
+      # socket?"). The flask-backend Cloud Run service has the same
+      # `run.googleapis.com/cloudsql-instances` annotation set.
+      - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
       - --network=default
       - --subnet=default
       - --vpc-egress=private-ranges-only
