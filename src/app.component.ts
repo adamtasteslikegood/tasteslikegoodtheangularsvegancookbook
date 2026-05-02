@@ -27,7 +27,7 @@ export class AppComponent {
       const state = event.state as { view?: string } | null;
       if (state?.view === 'kitchen') {
         this.activeView.set('generator');
-      } else if (state?.view === 'recipe-detail' && this.activeView() === 'generator') {
+      } else if (state?.view === 'recipe-detail') {
         // Restore kitchen view (cookbook context preserved)
         this.activeView.set('kitchen');
       }
