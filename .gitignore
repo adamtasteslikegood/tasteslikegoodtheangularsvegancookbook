@@ -97,3 +97,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .gstack/
+
+# Agent runtime state
+.claude/scheduled_tasks.lock
+.omg/state/
