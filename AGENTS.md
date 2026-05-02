@@ -167,6 +167,7 @@ The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a v
    - `specs/ATLASSIAN_PM_LINK.md`
 
 Requirements:
+
 - `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
 - `python3 -m venv` must work
 
@@ -175,6 +176,7 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 ## PM status script
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
+
 - Jira issues from KAN project
 - Open GitHub PRs
 - Confluence page info
@@ -194,6 +196,7 @@ Both this repo and the `Backend/` submodule follow the same model:
 Never commit directly to `main` or `dev`. Always branch off `dev`.
 
 To ship a Backend change:
+
 1. PR into Backend `dev` (in `Backend/` submodule)
 2. After it lands: `git submodule update --remote Backend`, commit the new pointer in a cookbook PR off `dev`, merge to `main`, release
 
@@ -202,11 +205,13 @@ To ship a Backend change:
 Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). Applied in production by Cloud Run Job `flask-backend-migrate`.
 
 When two PRs both add migrations off the same parent, detect branched heads:
+
 ```bash
 cd Backend && uv run flask db heads  # must print exactly one line with (head)
 ```
 
 To unify branched heads:
+
 ```bash
 cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
 ```
