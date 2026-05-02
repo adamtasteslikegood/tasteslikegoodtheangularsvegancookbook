@@ -22,8 +22,9 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 _raw_url = os.environ.get("ATLASSIAN_URL", "tasteslikegood.atlassian.net")
 URL_BASE = _raw_url.strip().removeprefix("https://").removeprefix("http://").rstrip("/")
 
-# REQUEST_TIMEOUT: 5 minutes – generous for slow Atlassian API responses.
-REQUEST_TIMEOUT = 300
+# REQUEST_TIMEOUT: 30s for normal API calls, 60s for search which can be slower.
+REQUEST_TIMEOUT = 30
+SEARCH_TIMEOUT = 60
 
 # Module-level placeholder; populated by main() after env-var validation.
 HEADERS: dict = {}
@@ -98,7 +99,7 @@ def search_confluence_for_versions():
         cql = f'text ~ "{version}" AND type = "page" AND space.key = "TLG"'
         params = {"cql": cql, "limit": 50, "expand": "metadata.labels"}
         try:
-            resp = requests.get(url, headers=HEADERS, params=params, timeout=REQUEST_TIMEOUT)
+            resp = requests.get(url, headers=HEADERS, params=params, timeout=SEARCH_TIMEOUT)
             if resp.status_code == 200:
                 data = resp.json()
                 results[version] = data.get("results", [])
