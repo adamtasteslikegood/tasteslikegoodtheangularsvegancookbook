@@ -22,10 +22,14 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: return to generator (home) view
-    window.addEventListener('popstate', () => {
-      if (this.activeView() === 'kitchen') {
+    // Browser back button: restore previous view based on history state
+    window.addEventListener('popstate', (event) => {
+      const state = event.state as { view?: string } | null;
+      if (state?.view === 'kitchen') {
         this.activeView.set('generator');
+      } else if (state?.view === 'recipe-detail' && this.activeView() === 'generator') {
+        // Restore kitchen view (cookbook context preserved)
+        this.activeView.set('kitchen');
       }
     });
   }
@@ -698,6 +702,8 @@ export class AppComponent {
     this.isSaved.set(true);
     this.activeView.set('generator');
     this.isEditingNotes.set(false);
+    // Push history so browser back returns to the kitchen view
+    window.history.pushState({ view: 'recipe-detail' }, '', window.location.href);
   }
 
   // ─── Delete / Recycle Bin ────────────────────────────────────
