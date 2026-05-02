@@ -207,8 +207,9 @@ export class AuthService {
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
     // localStorage has it from the optimistic update in triggerImageGeneration.
+    const localMap = new Map(user.savedRecipes.map((r) => [r.id, r]));
     const mergedApi = recipes.map((apiRecipe) => {
-      const local = user.savedRecipes.find((r) => r.id === apiRecipe.id);
+      const local = localMap.get(apiRecipe.id);
       if (local?.ai_image_url && !apiRecipe.ai_image_url) {
         return { ...apiRecipe, ai_image_url: local.ai_image_url };
       }
