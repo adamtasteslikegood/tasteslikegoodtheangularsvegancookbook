@@ -1,0 +1,4 @@
+# Runtime dependencies for scripts/pm/sync_jira_confluence_status.py
+# Install with: pip install -r scripts/pm/requirements.txt
+requests>=2.31.0
+python-dotenv>=1.0.0
