@@ -30,7 +30,7 @@ jobs:
 
       - name: 'Qodana Scan'
         if: ${{ env.QODANA_TOKEN != '' }}
-        uses: JetBrains/qodana-action@v2025.3
+        uses: JetBrains/qodana-action@v2026.1
         with:
           pr-mode: false
         env:
