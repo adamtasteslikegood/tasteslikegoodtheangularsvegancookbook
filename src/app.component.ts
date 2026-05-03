@@ -28,6 +28,7 @@ export class AppComponent {
     window.addEventListener('popstate', (event) => {
       const state = event.state;
       if (state?.view === 'kitchen') {
+        this.authService.ensureGuestSession();
         this.activeView.set('kitchen');
       } else {
         this.activeView.set('generator');
