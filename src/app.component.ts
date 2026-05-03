@@ -32,6 +32,9 @@ export class AppComponent {
         this.activeView.set('kitchen');
       } else {
         this.activeView.set('generator');
+      } else if (state?.view === 'recipe-detail') {
+        // Restore kitchen view (cookbook context preserved)
+        this.activeView.set('kitchen');
       }
     });
   }
@@ -704,6 +707,8 @@ export class AppComponent {
     this.isSaved.set(true);
     this.activeView.set('generator');
     this.isEditingNotes.set(false);
+    // Push history so browser back returns to the kitchen view
+    window.history.pushState({ view: 'recipe-detail' }, '', window.location.href);
   }
 
   // ─── Delete / Recycle Bin ────────────────────────────────────
