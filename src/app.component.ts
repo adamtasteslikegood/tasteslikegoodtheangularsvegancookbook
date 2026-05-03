@@ -22,14 +22,19 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: restore previous view based on history state
+    // Browser history: switchView() pushes { view: 'kitchen' } when entering
+    // kitchen, so a popstate with that state means the user navigated forward
+    // to kitchen; a null/missing state means they navigated back to generator.
     window.addEventListener('popstate', (event) => {
-      const state = event.state as { view?: string } | null;
+      const state = event.state;
       if (state?.view === 'kitchen') {
-        this.activeView.set('generator');
+        this.authService.ensureGuestSession();
+        this.activeView.set('kitchen');
       } else if (state?.view === 'recipe-detail') {
         // Restore kitchen view (cookbook context preserved)
         this.activeView.set('kitchen');
+      } else {
+        this.activeView.set('generator');
       }
     });
   }
