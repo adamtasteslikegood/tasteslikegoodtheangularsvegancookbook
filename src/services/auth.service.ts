@@ -203,9 +203,6 @@ export class AuthService {
     // Merge recipes: keep any localStorage recipes NOT already in the API response
     const apiIds = new Set(recipes.map((r) => r.id));
     const localOnly = user.savedRecipes.filter((r) => !apiIds.has(r.id));
-<<<<<<< HEAD
-    const merged = [...recipes, ...localOnly];
-=======
 
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
@@ -220,7 +217,6 @@ export class AuthService {
     });
 
     const merged = [...mergedApi, ...localOnly];
->>>>>>> 45a31fb (fix: address review findings — restore skill routing, popstate guard, O(n) merge)
 
     // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response
     const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
