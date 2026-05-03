@@ -213,6 +213,27 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
 - **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
 
+## Skill routing
+
+When the user's request matches an available skill, ALWAYS load it using the `skill` tool as your FIRST action. Do NOT answer directly, do NOT use other tools first. The skill has specialized workflows that produce better results than ad-hoc answers.
+
+Key routing rules:
+
+- Product ideas, "is this worth building", brainstorming → load `office-hours`
+- Bugs, errors, "why is this broken", 500 errors → load `investigate`
+- Ship, deploy, push, create PR → load `ship`
+- QA, test the site, find bugs → load `qa`
+- Code review, check my diff → load `review`
+- Update docs after shipping → load `document-release`
+- Weekly retro → load `retro`
+- Design system, brand → load `design-consultation`
+- Visual audit, design polish → load `design-review`
+- Architecture review → load `plan-eng-review`
+- Save progress, checkpoint, resume → load `context-save` / `context-restore`
+- Code quality, health check → load `health`
+
+OpenCode loads skills from `.opencode/skills/` and `~/.config/opencode/skills/`. The full skill list is in the system prompt. When in doubt, check `available_skills` and load the closest match.
+
 ## Further reading
 
 - `Backend/API.md` — Flask API endpoint reference

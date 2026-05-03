@@ -23,8 +23,15 @@ export class AppComponent {
 
   constructor() {
     // Browser back button: return to generator (home) view
-    window.addEventListener('popstate', () => {
-      if (this.activeView() === 'kitchen') {
+    window.addEventListener('popstate', (event) => {
+      const state = event.state;
+      if (state?.view === 'recipe-detail') {
+        // Restore kitchen view when returning from recipe detail
+        this.activeView.set('kitchen');
+      } else if (this.activeView() === 'kitchen') {
+        this.activeView.set('generator');
+      } else {
+        // Default fallback (null state or generator view)
         this.activeView.set('generator');
       }
     });
