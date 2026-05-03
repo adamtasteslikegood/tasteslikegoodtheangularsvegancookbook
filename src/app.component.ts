@@ -22,9 +22,9 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: switchView() pushes { view: 'kitchen' } when entering
-    // kitchen, so a popstate with that state means the user pressed forward back
-    // to kitchen; a null/missing state means they pressed back from kitchen.
+    // Browser history: switchView() pushes { view: 'kitchen' } when entering
+    // kitchen, so a popstate with that state means the user navigated forward
+    // to kitchen; a null/missing state means they navigated back to generator.
     window.addEventListener('popstate', (event) => {
       const state = event.state;
       if (state?.view === 'kitchen') {
