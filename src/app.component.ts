@@ -30,11 +30,11 @@ export class AppComponent {
       if (state?.view === 'kitchen') {
         this.authService.ensureGuestSession();
         this.activeView.set('kitchen');
-      } else {
-        this.activeView.set('generator');
       } else if (state?.view === 'recipe-detail') {
         // Restore kitchen view (cookbook context preserved)
         this.activeView.set('kitchen');
+      } else {
+        this.activeView.set('generator');
       }
     });
   }
