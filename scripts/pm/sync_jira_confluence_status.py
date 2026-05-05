@@ -44,7 +44,8 @@ def _read_package_version() -> str:
         return ""
 
 
-CURRENT_VERSION = os.environ.get("RELEASE_VERSION") or _read_package_version() or "0.2.4"
+# Strip a leading 'v' so a tag-style RELEASE_VERSION (e.g. "v0.2.4") doesn't yield "vv0.2.4".
+CURRENT_VERSION = (os.environ.get("RELEASE_VERSION") or _read_package_version() or "0.2.4").removeprefix("v")
 # Family prefix, e.g. "0.2" from "0.2.4" — broadens search to catch sibling patch pages.
 VERSION_FAMILY = ".".join(CURRENT_VERSION.split(".")[:2])
 SEARCH_TERMS = [
