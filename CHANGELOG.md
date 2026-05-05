@@ -10,15 +10,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.2.4] - 2026-05-04
 
-Bug-fix release on top of v0.2.3 — corrects a UX regression in browser back-button handling and bumps the Backend submodule pointer onto the green `dev` tip after the test-fixture fix lands.
+Bug-fix release on top of v0.2.3, plus PM tooling and docs reorganization. Corrects two UX regressions (browser back button, AI image persistence), ships the new Jira/Confluence/PR sync script that PR #2903 introduced, moves planning docs into `specs/`, and bumps the Backend submodule onto the green `dev` tip after the test-fixture fix lands.
 
 ### Fixed
 
-- **Browser back button now restores the correct view.** `src/app.component.ts`'s `popstate` handler had its mappings inverted: returning to a `{view: 'kitchen'}` history entry switched the user to the generator (and vice versa). Pressing back from a recipe detail dropped users on the generator instead of the kitchen, and pressing back from the kitchen was effectively a no-op. The handler now mirrors the `pushState` calls in `switchView`/`viewRecipe` so back navigation matches user intent (KAN-related, surfaced in PR #2912 review).
+- **Browser back button now restores the correct view.** `src/app.component.ts`'s `popstate` handler had its mappings inverted: returning to a `{view: 'kitchen'}` history entry switched the user to the generator (and vice versa). Pressing back from a recipe detail dropped users on the generator instead of the kitchen, and pressing back from the kitchen was effectively a no-op. The handler now mirrors the `pushState` calls in `switchView`/`viewRecipe` so back navigation matches user intent.
+- **AI-generated recipe images survive a refresh.** `src/services/auth.service.ts`'s `hydrate()` now merges `ai_image_url` from localStorage into API recipe data when the backend hasn't persisted the image URL yet (Pub/Sub write hasn't landed). The merge uses a `Map` keyed by recipe id so the cost is O(n+m) instead of O(n·m).
+- **Public recipes show up at `/browse`.** Backend `create_recipe()` now syncs the `is_public` and `slug` columns from the recipe payload on create, update, and migration paths, so saving a recipe as public actually flips the DB column the listing query filters on.
 - **Backend test fixtures reliably bind to `:memory:`** — Backend issue [#118](https://github.com/adamtasteslikegood/tasteslikegood.com/issues/118). `tests/test_migration_backfill_slug.py` had been failing on every CI run since the SSR/data-model PR landed (`table recipe has no column named status`) because the fixture updated `SQLALCHEMY_DATABASE_URI` _after_ `create_app()` had already let Flask-SQLAlchemy latch onto the file-based dev DB. `create_app()` now accepts config kwargs that are applied before `db.init_app()`, and both the `test_migration_backfill_slug.py` and `test_public_ssr.py` fixtures use the new signature. Backend pytest is fully green again on the PR-gate workflow.
+- **PM sync scripts follow the docs into `specs/`.** `sync_docs_to_confluence.py` and `scripts/pm/atlassian_pm_link.py` had their planning-doc paths still pointing at repo root; both now read from `specs/` so the Confluence sync and PM briefing pick up the canonical locations again.
+
+### Added
+
+- **`scripts/pm/sync_jira_confluence_status.py`** — one-shot sync that prints production-site health, open GitHub PR check status, open + recently-updated Jira issues for the `KAN` project, and Confluence pages mentioning the current release. The release version is read from `package.json` (override with `RELEASE_VERSION`); `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID` and `ATLASSIAN_CONFLUENCE_KEY_PAGES` env vars let callers retarget the workspace without editing the script.
+- `scripts/pm/requirements.txt` declares the runtime deps (`requests`, `python-dotenv`).
 
 ### Changed
 
+- **Planning docs moved from repo root to `specs/`.** `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`. `CLAUDE.md`'s pm-daemon paths reference the new locations; the watcher in `alirez-claude-skills/pm-daemon/pm_daemon.py` matches by basename so it picked up the move automatically.
+- **`AGENTS.md` rewritten for OpenCode.** Removed the gstack-specific routing block, added a `Backend submodule` "CRITICAL" section, and added pointers to the PM tooling.
+- **`.gitignore`** now ignores `.claude/scheduled_tasks.lock` and `.omg/state/` (agent runtime state, not version-controlled).
 - Backend submodule pointer bumped to the post-#127 `dev` tip so the cookbook ships with the test-fixture fix in place. No runtime behavior changes.
 
 ## [0.2.3] - 2026-04-30

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Fetch Jira issues, open PRs, and Confluence build-deploy status for v0.2.0/v0.2.1.
+"""Fetch Jira issues, open PRs, and Confluence build-deploy status for the current release.
+
+The release version is read from package.json so the script tracks whatever
+version the repo is currently shipping; override with RELEASE_VERSION env var.
 
 Dependencies: requests, python-dotenv (not stdlib).
 Install before running: pip install -r scripts/pm/requirements.txt
@@ -8,14 +11,17 @@ Install before running: pip install -r scripts/pm/requirements.txt
 import base64
 import json
 import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
 # Load env
-load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+load_dotenv(REPO_ROOT / ".env")
 
 # Normalize ATLASSIAN_URL: strip any scheme so callers can set it as either
 # "tasteslikegood.atlassian.net" or "https://tasteslikegood.atlassian.net".
@@ -28,6 +34,58 @@ SEARCH_TIMEOUT = 60
 
 # Module-level placeholder; populated by main() after env-var validation.
 HEADERS: dict = {}
+
+
+def _read_package_version() -> str:
+    pkg = REPO_ROOT / "package.json"
+    try:
+        return json.loads(pkg.read_text(encoding="utf-8")).get("version", "")
+    except (OSError, json.JSONDecodeError):
+        return ""
+
+
+# Strip a leading 'v' so a tag-style RELEASE_VERSION (e.g. "v0.2.4") doesn't yield "vv0.2.4".
+CURRENT_VERSION = (os.environ.get("RELEASE_VERSION") or _read_package_version() or "0.2.4").removeprefix("v")
+# Family prefix, e.g. "0.2" from "0.2.4" — broadens search to catch sibling patch pages.
+VERSION_FAMILY = ".".join(CURRENT_VERSION.split(".")[:2])
+SEARCH_TERMS = [
+    f"v{CURRENT_VERSION}",
+    CURRENT_VERSION,
+    f"v{VERSION_FAMILY}",
+    VERSION_FAMILY,
+    "build",
+    "deploy",
+]
+PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMILY}", VERSION_FAMILY]
+
+# Confluence parent page ID for "Project Documentation" — override with
+# ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
+PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
+
+
+def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
+    """Parse `id1:Name 1,id2:Name 2,...` into [(id, name), ...]."""
+    if not raw:
+        return None
+    pairs: list[tuple[str, str]] = []
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry or ":" not in entry:
+            continue
+        page_id, _, name = entry.partition(":")
+        pairs.append((page_id.strip(), name.strip()))
+    return pairs or None
+
+
+KEY_PAGES_DEFAULT = [
+    ("11206769", "CHANGELOG"),
+    ("11206815", "DEPLOYMENT_CHECKLIST"),
+    ("11174061", "Optimized Deployment Prompt"),
+    ("11174080", "TERRAFORM_DEPLOYMENT_AUDIT"),
+    ("11304994", "v0.2 Execution Plan"),
+    ("11206731", "v0.2 Project Roadmap"),
+]
+KEY_PAGES = _parse_key_pages_env(os.environ.get("ATLASSIAN_CONFLUENCE_KEY_PAGES")) or KEY_PAGES_DEFAULT
 
 
 def get_auth_headers(email: str, token: str) -> dict:
@@ -72,10 +130,7 @@ def fetch_recent_issues():
         return None
 
 def fetch_open_prs_from_github():
-    """Fetch open PRs from GitHub."""
-    # Use gh CLI or GitHub API
-    # We'll use subprocess to call gh
-    import subprocess
+    """Fetch open PRs from GitHub via the gh CLI."""
     try:
         result = subprocess.run(
             ["gh", "pr", "list", "--state", "open", "--json", "number,title,headRefName,author,statusCheckRollup,updatedAt"],
@@ -91,11 +146,11 @@ def fetch_open_prs_from_github():
         return []
 
 def search_confluence_for_versions():
-    """Search Confluence page bodies for v0.2.0 and v0.2.1 mentions using CQL."""
+    """Search Confluence page bodies for the current release family using CQL."""
     url = f"https://{URL_BASE}/wiki/rest/api/search"
     results = {}
 
-    for version in ["v0.2.0", "v0.2.1", "0.2.0", "0.2.1", "build", "deploy"]:
+    for version in SEARCH_TERMS:
         cql = f'text ~ "{version}" AND type = "page" AND space.key = "TLG"'
         params = {"cql": cql, "limit": 50, "expand": "metadata.labels"}
         try:
@@ -113,7 +168,7 @@ def search_confluence_for_versions():
     return results
 
 
-def fetch_confluence_children(parent_page_id="11796481"):
+def fetch_confluence_children(parent_page_id: str = PARENT_DOCUMENTATION_PAGE_ID):
     """Fetch child pages under Project Documentation."""
     url = f"https://{URL_BASE}/wiki/api/v2/pages/{parent_page_id}/children"
     params = {"limit": 100}
@@ -145,7 +200,7 @@ def fetch_confluence_page_content(page_id):
         return None
 
 def check_page_for_versions(page_id, page_title):
-    """Check if a page mentions v0.2.0 or v0.2.1 in its content."""
+    """Check if a page mentions the current release (or its family) in its content."""
     page = fetch_confluence_page_content(page_id)
     if not page:
         print(f"Skipping Confluence page '{page_title}' ({page_id}): unable to fetch content")
@@ -153,8 +208,8 @@ def check_page_for_versions(page_id, page_title):
     body = page.get("body", {}).get("storage", {}).get("value", "")
     text_lower = body.lower()
     mentions = []
-    for version in ["v0.2.0", "v0.2.1", "0.2.0", "0.2.1"]:
-        if version in text_lower:
+    for version in PAGE_CHECK_VERSIONS:
+        if version.lower() in text_lower:
             mentions.append(version)
     return len(mentions) > 0, mentions
 
@@ -264,7 +319,9 @@ def main():
     print()
 
     # 5. Confluence CQL search for versions
-    print("## 5. CONFLUENCE PAGES MENTIONING v0.2.0 / v0.2.1 / BUILD / DEPLOY")
+    print(
+        f"## 5. CONFLUENCE PAGES MENTIONING v{CURRENT_VERSION} / v{VERSION_FAMILY} / BUILD / DEPLOY"
+    )
     cf_results = search_confluence_for_versions()
     found_any = False
     for term, hits in cf_results.items():
@@ -276,25 +333,29 @@ def main():
                 page_title = hit.get("title") or hit.get("content", {}).get("title", "(no title)")
                 page_id = hit.get("content", {}).get("id", "")
                 print(f"    - {page_title} (ID: {page_id})")
+    # Fetch the parent's child pages once and reuse for both the CQL fallback
+    # and the all-children overview below.
+    children = fetch_confluence_children()
     if not found_any:
         print("  No CQL matches found. Checking child pages under Project Documentation...")
-        children = fetch_confluence_children()
         if children:
+            title_keywords = list({
+                f"v{CURRENT_VERSION}".lower(),
+                CURRENT_VERSION.lower(),
+                f"v{VERSION_FAMILY}".lower(),
+                VERSION_FAMILY.lower(),
+                "deploy",
+                "build",
+                "release",
+                "changelog",
+            })
             for page in children.get("results", [])[:30]:
                 title = page.get("title", "")
-                if any(k in title.lower() for k in ["v0.2", "0.2", "deploy", "build", "release", "changelog"]):
+                if any(k in title.lower() for k in title_keywords):
                     print(f"    - {title} (ID: {page.get('id')})")
-    # Also scan content of key pages
+    # Also scan content of key pages (override list via ATLASSIAN_CONFLUENCE_KEY_PAGES).
     print("  Scanning content of key pages for version mentions...")
-    key_pages = [
-        ("11206769", "CHANGELOG"),
-        ("11206815", "DEPLOYMENT_CHECKLIST"),
-        ("11174061", "Optimized Deployment Prompt"),
-        ("11174080", "TERRAFORM_DEPLOYMENT_AUDIT"),
-        ("11304994", "v0.2 Execution Plan"),
-        ("11206731", "v0.2 Project Roadmap"),
-    ]
-    for page_id, page_name in key_pages:
+    for page_id, page_name in KEY_PAGES:
         has_mentions, versions = check_page_for_versions(page_id, page_name)
         if has_mentions:
             print(f"    ✅ {page_name} mentions: {', '.join(set(versions))}")
@@ -302,7 +363,6 @@ def main():
 
     # 6. Child pages overview
     print("## 6. ALL CONFLUENCE CHILD PAGES (Project Documentation)")
-    children = fetch_confluence_children()
     if children:
         for page in children.get("results", [])[:50]:
             print(f"  - {page.get('title')} (ID: {page.get('id')})")
