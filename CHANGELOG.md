@@ -8,6 +8,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-05-04
+
+Bug-fix release on top of v0.2.3 — corrects a UX regression in browser back-button handling and bumps the Backend submodule pointer onto the green `dev` tip after the test-fixture fix lands.
+
+### Fixed
+
+- **Browser back button now restores the correct view.** `src/app.component.ts`'s `popstate` handler had its mappings inverted: returning to a `{view: 'kitchen'}` history entry switched the user to the generator (and vice versa). Pressing back from a recipe detail dropped users on the generator instead of the kitchen, and pressing back from the kitchen was effectively a no-op. The handler now mirrors the `pushState` calls in `switchView`/`viewRecipe` so back navigation matches user intent (KAN-related, surfaced in PR #2912 review).
+- **Backend test fixtures reliably bind to `:memory:`** — Backend issue [#118](https://github.com/adamtasteslikegood/tasteslikegood.com/issues/118). `tests/test_migration_backfill_slug.py` had been failing on every CI run since the SSR/data-model PR landed (`table recipe has no column named status`) because the fixture updated `SQLALCHEMY_DATABASE_URI` _after_ `create_app()` had already let Flask-SQLAlchemy latch onto the file-based dev DB. `create_app()` now accepts config kwargs that are applied before `db.init_app()`, and both the `test_migration_backfill_slug.py` and `test_public_ssr.py` fixtures use the new signature. Backend pytest is fully green again on the PR-gate workflow.
+
+### Changed
+
+- Backend submodule pointer bumped to the post-#127 `dev` tip so the cookbook ships with the test-fixture fix in place. No runtime behavior changes.
+
 ## [0.2.3] - 2026-04-30
 
 Hotfix on top of v0.2.2 — the migrate Job couldn't reach Cloud SQL.
