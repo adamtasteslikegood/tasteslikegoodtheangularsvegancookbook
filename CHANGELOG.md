@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-05-06
+
+Hotfix on top of v0.2.4 — Google OAuth login was returning HTTP 500 for some returning users.
+
+### Fixed
+
+- **OAuth callback tolerates Google's scope bundling for returning users.** Backend [#128](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/128). Users who had previously consented to `cloud-platform` (from an earlier deploy that requested it before commit `d85e3dd` removed the scope) were getting `{"error":"Authentication failed"}` on every login attempt — Google was bundling the previously-granted scope back into the token response, and `oauthlib`'s strict `validate_token_parameters` was raising on the scope-set mismatch (`Scope has changed from "openid userinfo.email userinfo.profile" to "openid userinfo.profile cloud-platform userinfo.email"`). Two-part fix: (1) drop `include_granted_scopes="true"` from the `/api/auth/login` authorization URL since the cookbook already requests its full scope set up front, and (2) set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` at module import as defense-in-depth for accounts still carrying stale grants. Backend submodule bumped to `397ba90`.
+
 ## [0.2.4] - 2026-05-04
 
 Bug-fix release on top of v0.2.3, plus PM tooling and docs reorganization. Corrects two UX regressions (browser back button, AI image persistence), ships the new Jira/Confluence/PR sync script that PR #2903 introduced, moves planning docs into `specs/`, and bumps the Backend submodule onto the green `dev` tip after the test-fixture fix lands.
