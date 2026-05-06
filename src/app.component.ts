@@ -22,9 +22,16 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: return to generator (home) view
-    window.addEventListener('popstate', () => {
-      if (this.activeView() === 'kitchen') {
+    // Browser back button: restore previous view based on history state.
+    // event.state is the entry we're navigating *to*, so the mapping mirrors
+    // the pushState calls in switchView/viewRecipe: a 'kitchen' entry on the
+    // stack means we're returning to the cookbook list; the initial null
+    // entry means we're returning to the generator.
+    window.addEventListener('popstate', (event) => {
+      const state = event.state as { view?: string } | null;
+      if (state?.view === 'kitchen') {
+        this.activeView.set('kitchen');
+      } else {
         this.activeView.set('generator');
       }
     });
@@ -698,6 +705,8 @@ export class AppComponent {
     this.isSaved.set(true);
     this.activeView.set('generator');
     this.isEditingNotes.set(false);
+    // Push history so browser back returns to the kitchen view
+    window.history.pushState({ view: 'recipe-detail' }, '', window.location.href);
   }
 
   // ─── Delete / Recycle Bin ────────────────────────────────────

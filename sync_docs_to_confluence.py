@@ -69,9 +69,9 @@ def create_page(title, markdown_content):
         print(f"Error creating page {title}: {e}")
 
 files_to_upload = [
-    ("v0.2 Execution Plan", "plan.md"),
-    ("v0.2 Project Roadmap", "roadmap.md"),
-    ("v0.2 Planning Session Review & Notes", "planning_notes.md"),
+    ("v0.2 Execution Plan", "specs/plan.md"),
+    ("v0.2 Project Roadmap", "specs/roadmap.md"),
+    ("v0.2 Planning Session Review & Notes", "specs/planning_notes.md"),
 ]
 
 test_plan_files = glob.glob(os.path.expanduser('~/.gemstack/projects/adamtasteslikegood-tasteslikegoodtheangularsvegancookbook/adam-dev-test-plan-*.md'))
