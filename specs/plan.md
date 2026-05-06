@@ -1,5 +1,7 @@
 # Execution Plan: v0.2 Anti-Recipe Site
 
+> **Status (2026-05-06):** v0.2.0 shipped on 2026-04-29 and has since received five corrective releases (v0.2.1 → v0.2.5). All implementation checkboxes below describe the originally-merged code. See `roadmap.md` for the shipped list and `planning_notes.md` for the post-launch findings (migrations-not-running outage, `is_public` column never wired, OAuth scope bundling, and the open public-page SSR formatting regression).
+
 This tactical plan covers the immediate engineering tasks to implement the v0.2 Anti-Recipe Site distribution layer, as defined in the latest CEO review.
 
 ## 1. Data Model & Migrations
@@ -82,3 +84,11 @@ This tactical plan covers the immediate engineering tasks to implement the v0.2 
 
 1. Run `/plan-eng-review` on this plan to validate architecture, error handling (e.g., HTTP 410 Gone for unpublished recipes), migration safety, and testing strategy before implementation begins.
 2. After eng review passes, implement on a feature branch (`feat/v0.2-public-recipes`).
+
+## Post-launch status (2026-05-06)
+
+The four originally-unchecked items in §6 (User Journey, Interaction State Coverage, `/r/<slug>` Information Hierarchy, `/browse` Grid Hierarchy) are still open — **not** because they were deferred but because the public-page SSR is currently formatting/routing incorrectly in production. The Jinja templates from the original `tasteslikegood.com` repo were a better realization of these specs than what currently ships. Decision needed in `/plan-eng-review` for v0.3:
+
+- (a) Re-investigate the SSR routing — confirm whether `/r/<slug>` and `/browse` still hit the Jinja templates or whether Express is serving the Angular catch-all by mistake. Start at `server/proxy.ts` route ordering and `Backend/blueprints/recipes_api_bp.py` SSR handlers.
+- (b) Decide whether to keep the current Angular-rendered preview path or restore the original Jinja-only path (per Adam's review, the original Jinja was better-formatted).
+- (c) Once routing is correct, complete the four §6 design items against actual rendered output.
