@@ -68,3 +68,46 @@ Six releases shipped between 2026-04-29 and 2026-05-06. Most were corrective. Ca
 - The `release.yml` workflow plus the GCP-side tag-push Cloud Build trigger fire reliably; total release time from `dev → main` merge to production is ~8 minutes (incl. migrate Job).
 - `specs/` move (v0.2.4) was clean; `pm-daemon` watcher matches by basename so it didn't need code changes.
 - gbrain MCP server is configured but is **not** capturing release/incident memory for this project. Treat as "wired but unused" until v0.3 decides what's worth recording and how.
+
+## v-tlg-brain Initiative (planned, not yet wired)
+
+_Captured 2026-05-06_
+
+The PM/Atlassian-sync stack already has the right shape but isn't running end-to-end. Goal: turn it into a **versioned external mirror** of the project's `specs/*.md` files in Confluence — independent of git history, continuously updated by a background daemon, so any agent or human session can resume with full context without re-reading the repo from scratch.
+
+### Current state
+
+- **`scripts/pm/atlassian_pm_link.py`** — stdlib-only briefing generator. Reads `specs/{plan,roadmap,planning_notes,design-plan}.md` + Jira + Confluence and emits `.agent-work/pm/PROJECT_PM_BRIEFING.md`. Works today; needs to be on the agent-handoff path.
+- **`scripts/pm/sync_jira_confluence_status.py`** — release-time syncer. Reads version from `package.json`, fetches Jira/Confluence/PR status for that version. Works today; should be invoked by the release flow.
+- **`scripts/pm/run_pm_daemon.sh`** + **`alirez-claude-skills/pm-daemon/pm_daemon.py`** — FastMCP server + watchdog observer. Watches `specs/*.md` and is _intended_ to push updates to Confluence on save. Auto-spawned from `.mcp.json` per CLAUDE.md, but the actual sync path is incomplete (or silently no-oping when Atlassian creds aren't loaded).
+
+### Target architecture
+
+```
+specs/*.md  ──[watchdog on save]──►  pm-daemon  ──[flash/mini assistant]──►  Confluence (versioned)
+                                        ▲
+                                        │  (also serves FastMCP tools to agents over stdio)
+                                        │
+                                  any agent session
+```
+
+Key design decisions to make:
+
+1. **Token-cost optimization** — the daemon should not invoke a frontier model on every save. The user's plan: route Confluence-sync rendering through a Flash/Mini assistant (e.g., `claude-haiku-4-5-20251001` or Gemini Flash) so background syncs cost ~10× less than the agent doing the actual work.
+2. **Versioning** — Confluence's native page-version history is acceptable for v1; a richer diff view (e.g., embedded git-style blame) is v2.
+3. **Direction** — one-way (`specs/` → Confluence) for now. Two-way would create merge conflicts the daemon can't resolve.
+4. **Independence from git history** — the user explicitly does not want the daemon entangled with `git log`/commits. Confluence is a parallel persistence layer, not a derivative one.
+
+### Known gaps before v-tlg-brain is "working properly"
+
+- pm-daemon's Confluence write path is unverified. Watchdog detects saves; the next step is confirming pages actually update and that idempotency is correct.
+- Flash/mini assistant indirection is a design idea, not implemented. Currently the daemon would either no-op (no creds) or call the agent's main model.
+- No integration test. We need a fixture-driven check that "save `specs/roadmap.md` → Confluence page reflects the update within N seconds" before declaring this real.
+- No connection between the daemon and gbrain. Whether v-tlg-brain and gbrain converge or stay separate is an open question (gbrain is currently project-agnostic and largely empty for this repo).
+
+### Proposed next steps (do not start without prioritization)
+
+1. **End-to-end smoke test** — wire the daemon to a sandbox Confluence space, save `specs/roadmap.md`, confirm the page updates. If yes, the bones are sound; if no, decide build vs buy (e.g., GitHub Actions Confluence sync action).
+2. **Flash/mini swap** — once the path works, route the rendering step through a cheaper model. Measure cost-per-save before and after.
+3. **Wire to release flow** — call `sync_jira_confluence_status.py` from a Cloud Build step or post-merge hook so the v0.X.Y release page in Confluence is always current.
+4. **Decide v-tlg-brain vs gbrain** — either consolidate (gbrain becomes the back-end of v-tlg-brain) or stay separate (v-tlg-brain is project-scoped, gbrain is cross-project). Pick one before investing more.
