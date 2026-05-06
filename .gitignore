@@ -69,6 +69,7 @@ override.tf.json
 .agent/
 .agent-work/
 .claude/settings.local.json
+.claude/settings.json
 .codex/
 .copilot/
 .cursor/
