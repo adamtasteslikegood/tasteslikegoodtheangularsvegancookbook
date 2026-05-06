@@ -30,10 +30,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
 DEFAULT_CACHE = REPO_ROOT / ".agent-work" / "pm" / "atlassian-state.json"
 LOCAL_PM_FILES = [
-    "planning_notes.md",
-    "plan.md",
-    "roadmap.md",
-    "design-plan.md",
+    "specs/planning_notes.md",
+    "specs/plan.md",
+    "specs/roadmap.md",
+    "specs/design-plan.md",
 ]
 
 
