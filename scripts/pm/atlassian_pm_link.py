@@ -42,7 +42,7 @@ class Config:
     atlassian_url: str
     email: str
     api_token: str
-    jira_project_key: str = "KAN"
+    jira_project_key: str = "KAN,RCP,PLZA,TO"
     confluence_space_key: str = "TLG"
     confluence_space_id: str | None = None
     confluence_parent_page_id: str | None = None
@@ -112,7 +112,14 @@ class AtlassianClient:
         ]
         issues: list[dict[str, Any]] = []
         next_page_token: str | None = None
-        jql = f'project = "{self.config.jira_project_key}" ORDER BY updated DESC'
+        
+        # Support multiple project keys if provided as a comma-separated string
+        if "," in self.config.jira_project_key:
+            project_keys = self.config.jira_project_key.split(",")
+            projects_jql = ",".join(f'"{k.strip()}"' for k in project_keys)
+            jql = f'project IN ({projects_jql}) ORDER BY updated DESC'
+        else:
+            jql = f'project = "{self.config.jira_project_key}" ORDER BY updated DESC'
 
         while len(issues) < max_results:
             batch_size = min(100, max_results - len(issues))
