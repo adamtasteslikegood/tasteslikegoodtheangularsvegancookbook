@@ -259,3 +259,43 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+
+## GBrain Configuration (configured by /setup-gbrain)
+
+- Mode: local-stdio
+- Engine: postgres (Supabase Session Pooler)
+- gbrain version: 0.28.6 (upgraded from 0.18.x on 2026-05-07; schema v38)
+- Config file: `~/.gbrain/config.json` (mode 0600)
+- MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
+- Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
+- Artifacts sync: full
+- Current repo policy: read-write
+- Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
+
+## GBrain Search Guidance (configured by /sync-gbrain)
+<!-- gstack-gbrain-search-guidance:start -->
+
+GBrain is set up and synced on this machine. The agent should prefer gbrain
+over Grep when the question is semantic or when you don't know the exact
+identifier yet. Two indexed corpora available via the `gbrain` CLI:
+
+- This repo's code (registered as `gstack-code-<repo>` source).
+- `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
+  the existing federation pipeline).
+
+Prefer gbrain when:
+
+- "Where is X handled?" / semantic intent, no exact string yet:
+  `gbrain search "<terms>"` or `gbrain query "<question>"`
+- "Where is symbol Y defined?" / symbol-based code questions:
+  `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
+- "What calls Y?" / "What does Y depend on?":
+  `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
+- "What did we decide last time?" / past plans, retros, learnings:
+  `gbrain search "<terms>" --source gstack-brain-<user>`
+
+Grep is still right for known exact strings, regex, multiline patterns, and
+file globs. The brain auto-syncs incrementally on every gstack skill start.
+Run `/sync-gbrain` to force-refresh, `/sync-gbrain --full` for full reindex.
+
+<!-- gstack-gbrain-search-guidance:end -->
