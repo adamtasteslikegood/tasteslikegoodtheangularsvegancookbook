@@ -4,6 +4,16 @@
 
 This project is a full-stack application featuring an Angular/React frontend and a Python backend. It serves as a recipe platform or cookbook application ("tasteslikegoodtheangularsvegancookbook").
 
+**Jira Project Tracking:**
+- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
+- **Office Game:** `PLZA`, `TO`
+- **Future/Agent Skill UI:** `plz` (video game integration)
+
+**PM Automation:**
+- Scripts for syncing Jira and Confluence are located in `scripts/pm/`.
+- `scripts/pm/pm_daemon.py` - Background sync of planning docs (MCP server).
+- `scripts/pm/sync_jira_confluence_status.py` - Fetches live project status.
+
 **Key Technologies:**
 
 - **Frontend:** Angular/React (TypeScript, `angular.json`, `index.tsx`), Tailwind CSS (`tailwind.config.js`), Vitest (`vitest.config.ts`), ESLint.
