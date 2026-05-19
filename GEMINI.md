@@ -7,8 +7,6 @@ This project is a full-stack application featuring an Angular/React frontend and
 **Jira Project Tracking:**
 
 - **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Future/Agent Skill UI:** `plz` (video game integration)
 
 **PM Automation:**
 

@@ -63,7 +63,7 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
 # Jira projects to track
-JIRA_PROJECTS = os.environ.get("JIRA_PROJECTS", "KAN,RCP,PLZA,TO").split(",")
+JIRA_PROJECTS = os.environ.get("JIRA_PROJECTS", "KAN,RCP").split(",")
 
 def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
     """Parse `id1:Name 1,id2:Name 2,...` into [(id, name), ...]."""

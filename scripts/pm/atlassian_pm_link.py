@@ -42,7 +42,7 @@ class Config:
     atlassian_url: str
     email: str
     api_token: str
-    jira_project_key: str = "KAN,RCP,PLZA,TO"
+    jira_project_key: str = "KAN,RCP"
     confluence_space_key: str = "TLG"
     confluence_space_id: str | None = None
     confluence_parent_page_id: str | None = None
@@ -242,7 +242,7 @@ def load_config() -> Config:
         atlassian_url=merged["ATLASSIAN_URL"],
         email=merged["ATLASSIAN_EMAIL"],
         api_token=merged["ATLASSIAN_API_TOKEN"],
-        jira_project_key=merged.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN"),
+        jira_project_key=merged.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN,RCP"),
         confluence_space_key=merged.get("ATLASSIAN_CONFLUENCE_SPACE_KEY", "TLG"),
         confluence_space_id=merged.get("ATLASSIAN_CONFLUENCE_SPACE_ID") or None,
         confluence_parent_page_id=merged.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID") or "11796481",

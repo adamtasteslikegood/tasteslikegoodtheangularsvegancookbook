@@ -179,7 +179,6 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
 
 - Jira issues from KAN and RCP projects (Recipe Site)
-- Jira issues from PLZA and TO projects (Office Game)
 - Open GitHub PRs
 - Confluence page info
 - Production site health check
@@ -187,8 +186,6 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 **Jira Project Keys:**
 
 - **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
 
 Install deps: `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
