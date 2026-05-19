@@ -14,7 +14,7 @@
     "pm:check": "python3 scripts/pm/atlassian_pm_link.py check",
     "pm:brief": "python3 scripts/pm/atlassian_pm_link.py brief",
     "pm:sync": "python3 scripts/pm/atlassian_pm_link.py sync",
-    "pm:status": "python3 scripts/pm/sync_jira_confluence_status.py",
+    "pm:status": "bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py",
     "pm:daemon": "bash scripts/pm/run_pm_daemon.sh --watch-only",
     "lint": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --fix",
