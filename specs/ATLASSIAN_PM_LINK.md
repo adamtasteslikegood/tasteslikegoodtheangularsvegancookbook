@@ -119,6 +119,34 @@ npm run pm:daemon:stop       # stop the background daemon
 npm run pm:daemon:foreground # foreground debug mode
 ```
 
+## Pi session-log scaffolding (experimental)
+
+This repo now includes project-local pi resources under `.pi/`:
+
+- extension: `.pi/extensions/atlassian-aota/index.js`
+- prompts: `.pi/prompts/atlassian-session-log.md`, `.pi/prompts/atlassian-session-todo.md`
+- skill: `.pi/skills/atlassian-session-log/`
+
+Purpose:
+- create a durable session log before compaction or handoff
+- assess whether KAN / RCP / Confluence are aligned with the actual session
+- publish a non-destructive Confluence page per session log
+- optionally emit a KAN/RCP/Confluence follow-up TODO draft
+
+Supporting publisher:
+
+```bash
+bash scripts/pm/run_pm_script.sh publish_session_log.py --file <markdown-file>
+```
+
+Optional env var:
+
+```bash
+ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID=<page-id>
+```
+
+If unset, session logs publish under `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID`.
+
 ## Required environment
 
 ```bash
