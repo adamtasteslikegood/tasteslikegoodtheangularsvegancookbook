@@ -79,6 +79,8 @@ override.tf.json
 .clawhub/
 claude-code-tresor
 skills
+!.pi/skills/
+!.pi/skills/**
 
 # Generated / local artifacts
 /export
