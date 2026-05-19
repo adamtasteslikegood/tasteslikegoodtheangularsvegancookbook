@@ -185,6 +185,7 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 - Production site health check
 
 **Jira Project Keys:**
+
 - **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
 - **Office Game:** `PLZA`, `TO`
 - **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
