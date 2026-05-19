@@ -61,6 +61,19 @@ Prefer:
 - new Confluence pages
 - append-only logs
 - versioned updates
-- explicit references to branch, PR, and timestamp
+- explicit references to branch, PR, Jira issue, and timestamp
 
 Avoid destructive overwrites of historical narrative.
+
+## Sensitive data rule
+
+Durable Atlassian pages must never include:
+- raw API keys
+- raw bearer tokens
+- `.env` contents
+- secrets copied from terminal or chat transcripts
+
+If secrets appeared in-session, record only the operational fact:
+- that sensitive material was seen
+- that it was intentionally omitted from the durable page
+- whether rotation is recommended
