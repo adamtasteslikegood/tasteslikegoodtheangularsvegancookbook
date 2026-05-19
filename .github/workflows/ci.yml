@@ -148,3 +148,30 @@ jobs:
 
       - name: TypeScript check (server)
         run: npx tsc --noEmit -p server/tsconfig.server.json
+
+  backend-test:
+    name: Backend pytest
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # Backend/pyproject.toml pins requires-python to >=3.13,<3.14
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install backend dependencies
+        working-directory: Backend
+        run: uv sync
+
+      - name: Run pytest
+        working-directory: Backend
+        run: uv run pytest
