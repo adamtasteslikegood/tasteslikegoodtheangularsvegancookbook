@@ -98,6 +98,10 @@ __pycache__/
 *$py.class
 .gstack/
 
+# Python virtualenvs (created locally, e.g. scripts/pm/.venv by run_pm_daemon.sh)
+.venv/
+venv/
+
 # Agent runtime state
 .claude/scheduled_tasks.lock
 .omg/state/
