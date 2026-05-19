@@ -4,7 +4,7 @@ This repo has a lightweight PM/session bridge for Jira and Confluence. It is des
 
 ## Source Of Truth
 
-- Jira project: `KAN`
+- Jira projects: `KAN`, `RCP`
 - Confluence space: `TLG`
 - Local briefing output: `.agent-work/pm/PROJECT_PM_BRIEFING.md`
 - Local JSON cache: `.agent-work/pm/atlassian-state.json`
@@ -46,7 +46,7 @@ Runs the same briefing flow, then creates or updates the Confluence page named b
 
 ## MCP Daemon
 
-`auto_pm_mcp.json` defines a `pm-daemon` MCP server. It runs `scripts/pm/run_pm_daemon.sh`, which creates `alirez-claude-skills/pm-daemon/.venv` on first launch, installs the daemon requirements, and starts the file watcher/MCP tools.
+`auto_pm_mcp.json` defines a `pm-daemon` MCP server. It runs `scripts/pm/run_pm_daemon.sh`, which creates `scripts/pm/.venv` on first launch, installs the daemon requirements, and starts the file watcher/MCP tools.
 
 The daemon launcher requires Python `venv` support. On Debian/Ubuntu, install it with `sudo apt install python3.12-venv` if first launch reports that `ensurepip` is unavailable.
 
