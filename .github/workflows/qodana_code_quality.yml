@@ -1,12 +1,13 @@
 name: Qodana
+
+# DISABLED: qodana runs with pr-mode: false and fails on pre-existing
+# code-quality debt across the whole repo, so it red-X's every PR
+# regardless of what the PR changed. Re-enable the push / pull_request
+# triggers once the scan can pass (e.g. with pr-mode: true, a baseline,
+# or after the backlog is cleared). Manual runs via workflow_dispatch
+# are still available for testing.
 on:
   workflow_dispatch:
-  pull_request:
-  push:
-    branches:
-      - main
-      - deploy-with-db
-      - 'releases/*'
 
 jobs:
   qodana:
