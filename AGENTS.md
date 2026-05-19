@@ -202,6 +202,10 @@ Both this repo and the `Backend/` submodule follow the same model:
 
 Never commit directly to `main` or `dev`. Always branch off `dev`.
 
+## Commit and push cadence
+
+On feature branches, commit and push after every significant work-run so work is recoverable from the remote if the VM/session dies. Stage only intentional files, keep commits scoped, and push immediately after each local commit unless the user explicitly says not to.
+
 To ship a Backend change:
 
 1. PR into Backend `dev` (in `Backend/` submodule)

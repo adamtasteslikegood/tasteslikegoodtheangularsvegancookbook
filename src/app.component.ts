@@ -22,19 +22,34 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
+    this.syncViewFromLocation();
+
     // Browser back button: restore previous view based on history state.
     // event.state is the entry we're navigating *to*, so the mapping mirrors
     // the pushState calls in switchView/viewRecipe: a 'kitchen' entry on the
     // stack means we're returning to the cookbook list; the initial null
-    // entry means we're returning to the generator.
+    // entry means we're returning to the generator. We also honor #kitchen so
+    // SSR pages can deep-link directly into the cookbook SPA.
     window.addEventListener('popstate', (event) => {
       const state = event.state as { view?: string } | null;
-      if (state?.view === 'kitchen') {
+      if (state?.view === 'kitchen' || window.location.hash === '#kitchen') {
+        this.authService.ensureGuestSession();
         this.activeView.set('kitchen');
       } else {
         this.activeView.set('generator');
       }
     });
+
+    window.addEventListener('hashchange', () => this.syncViewFromLocation());
+  }
+
+  private syncViewFromLocation() {
+    if (window.location.hash === '#kitchen') {
+      this.authService.ensureGuestSession();
+      this.activeView.set('kitchen');
+      return;
+    }
+    this.activeView.set('generator');
   }
 
   // Kitchen State
