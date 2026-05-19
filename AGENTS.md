@@ -182,11 +182,15 @@ Requirements:
 Official session loop:
 
 ```bash
-npm run pm:start    # verify connectivity + build local briefing
-npm run pm:brief    # refresh local PM context
-npm run pm:sync     # publish non-destructive briefing update to Confluence
-npm run pm:status   # inspect live Jira + PR + Confluence + prod status
-npm run pm:daemon   # keep the PM daemon watching specs/
+npm run pm:start             # verify connectivity + build local briefing
+npm run pm:brief             # refresh local PM context
+npm run pm:sync              # publish non-destructive briefing update to Confluence
+npm run pm:status            # inspect live Jira + PR + Confluence + prod status
+npm run pm:daemon            # start the PM daemon in background on this VM
+npm run pm:daemon:status     # check if the daemon is alive
+npm run pm:daemon:logs       # tail daemon logs
+npm run pm:daemon:stop       # stop the background daemon
+npm run pm:daemon:foreground # foreground mode for debugging
 ```
 
 Verify: `ps -ef | grep pm_daemon | grep -v grep`
