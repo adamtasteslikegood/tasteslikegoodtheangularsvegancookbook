@@ -160,11 +160,15 @@ This repo has an official cross-agent PM workflow outside git:
 Quick commands:
 
 ```sh
-npm run pm:start    # connectivity check + local PM briefing
-npm run pm:brief    # refresh local PM briefing
-npm run pm:sync     # publish/update Confluence briefing
-npm run pm:status   # live Jira + PR + Confluence + prod snapshot
-npm run pm:daemon   # run the PM daemon watcher / MCP server helper
+npm run pm:start             # connectivity check + local PM briefing
+npm run pm:brief             # refresh local PM briefing
+npm run pm:sync              # publish/update Confluence briefing
+npm run pm:status            # live Jira + PR + Confluence + prod snapshot
+npm run pm:daemon            # start daemon in background on this VM
+npm run pm:daemon:status     # show pid + log path
+npm run pm:daemon:logs       # tail daemon log
+npm run pm:daemon:stop       # stop background daemon
+npm run pm:daemon:foreground # run watcher/MCP helper in foreground for debugging
 ```
 
 Put real Atlassian credentials in `.env` using the variables shown in `.env.example`.

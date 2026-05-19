@@ -107,12 +107,16 @@ It exists to:
 ## Commands
 
 ```bash
-npm run pm:start    # check connectivity + build local briefing
-npm run pm:brief    # rebuild local PM briefing
-npm run pm:sync     # rebuild briefing + publish/update Confluence briefing
-npm run pm:publish  # alias for pm:sync
-npm run pm:status   # live Jira + PR + Confluence + prod snapshot
-npm run pm:daemon   # run PM daemon in watch mode
+npm run pm:start             # check connectivity + build local briefing
+npm run pm:brief             # rebuild local PM briefing
+npm run pm:sync              # rebuild briefing + publish/update Confluence briefing
+npm run pm:publish           # alias for pm:sync
+npm run pm:status            # live Jira + PR + Confluence + prod snapshot
+npm run pm:daemon            # start the PM daemon in background on this VM
+npm run pm:daemon:status     # verify the daemon is alive
+npm run pm:daemon:logs       # tail daemon logs
+npm run pm:daemon:stop       # stop the background daemon
+npm run pm:daemon:foreground # foreground debug mode
 ```
 
 ## Required environment
