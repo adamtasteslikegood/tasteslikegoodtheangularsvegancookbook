@@ -155,9 +155,15 @@ GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
 
 ## PM Daemon (`.mcp.json`)
 
+Atlassian is the official cross-agent source of truth for this repo outside git:
+- **Jira KAN** = active execution state, branch/work ownership, in-flight tasks
+- **Jira RCP** = delivery state, epics, sprints, acceptance scope
+- **Confluence TLG** = durable planning/session narrative and docs
+- **`specs/*.md`** = local working copies that feed Confluence non-destructively
+
 The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `scripts/pm/pm_daemon.py` (consolidated from `alirez-claude-skills/pm-daemon/`). It:
 
-1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio
+1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`, `refresh_project_briefing`, `create_epic_from_roadmap`) over stdio
 2. Runs a `watchdog` Observer that auto-syncs these files to Confluence on save:
    - `specs/plan.md`
    - `specs/roadmap.md`
@@ -170,7 +176,18 @@ The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a v
 Requirements:
 
 - `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
+- set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP`
 - `python3 -m venv` must work
+
+Official session loop:
+
+```bash
+npm run pm:start    # verify connectivity + build local briefing
+npm run pm:brief    # refresh local PM context
+npm run pm:sync     # publish non-destructive briefing update to Confluence
+npm run pm:status   # inspect live Jira + PR + Confluence + prod status
+npm run pm:daemon   # keep the PM daemon watching specs/
+```
 
 Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
@@ -178,18 +195,17 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
 
-- Jira issues from KAN and RCP projects (Recipe Site)
-- Jira issues from PLZA and TO projects (Office Game)
+- Jira issues from KAN and RCP by default for this repo
 - Open GitHub PRs
 - Confluence page info
 - Production site health check
 
 **Jira Project Keys:**
-- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
+- **KAN** = active execution, branch/work ownership, in-flight state
+- **RCP** = delivery planning, epics, sprint scope, acceptance criteria
+- Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup
 
-Install deps: `pip install -r scripts/pm/requirements.txt`
+Install deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py` or `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
 
 ## Branching strategy
