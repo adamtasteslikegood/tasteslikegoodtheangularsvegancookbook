@@ -15,4 +15,7 @@ Requirements:
 - Treat **Confluence** as durable planning/session truth
 - Keep the output non-destructive and handoff-friendly
 - Explicitly assess whether Atlassian is aligned, partially aligned, or drifting from the work done in this session
+- Include concrete branch / PR / Jira / Confluence refs when available
+- Include PM sync health (`pm:start`, `pm:sync`, `pm:status`, daemon state) when known
+- Never include raw secrets, tokens, or `.env` values
 - Include concrete next actions for the next agent or teammate
