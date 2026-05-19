@@ -3,10 +3,9 @@ on:
   workflow_dispatch:
   pull_request:
   push:
-    branches:
-      - main
-      - deploy-with-db
-      - 'releases/*'
+    branches: # Specify your branches here
+      - main # The 'main' branch
+      - 'releases/*' # The release branches
 
 jobs:
   qodana:
@@ -15,23 +14,15 @@ jobs:
       contents: write
       pull-requests: write
       checks: write
-    env:
-      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_1818970254 }}
     steps:
-      - name: Skip when token is unavailable
-        if: ${{ env.QODANA_TOKEN == '' }}
-        run: echo "::notice::QODANA_TOKEN is not available (expected for dependabot or fork PRs). Skipping Qodana scan."
-
-      - uses: actions/checkout@v6
-        if: ${{ env.QODANA_TOKEN != '' }}
+      - uses: actions/checkout@v3
         with:
-          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-
+          ref: ${{ github.event.pull_request.head.sha }}  # to check out the actual pull request commit, not the merge commit
+          fetch-depth: 0  # a full history is required for pull request analysis
       - name: 'Qodana Scan'
-        if: ${{ env.QODANA_TOKEN != '' }}
-        uses: JetBrains/qodana-action@v2025.3
+        uses: JetBrains/qodana-action@v2026.1
         with:
           pr-mode: false
         env:
+          QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_1246413451 }}
           QODANA_ENDPOINT: 'https://qodana.cloud'
