@@ -225,19 +225,21 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__claude-in-chrome__*` tools directly.
 
+**Team setup:** gstack is not vendored into this repo (the `skills` and `.gstack/` `.gitignore` entries keep agent skills out of git). To get the skills below, run `./scripts/install-gstack.sh` once — it clones gstack into `~/.claude/skills/gstack` and registers the skills. Re-running it updates an existing install. Requires [bun](https://bun.sh).
+
 Available gstack skills:
 
-| Skill                  | Skill                    | Skill              | Skill                 |
-| ---------------------- | ------------------------ | ------------------ | --------------------- |
-| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review` | `/plan-design-review` |
-| `/design-consultation` | `/design-shotgun`        | `/design-html`     | `/review`             |
-| `/ship`                | `/land-and-deploy`       | `/canary`          | `/benchmark`          |
-| `/browse`              | `/connect-chrome`        | `/qa`              | `/qa-only`            |
-| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`    | `/retro`              |
-| `/investigate`         | `/document-release`      | `/codex`           | `/cso`                |
-| `/autoplan`            | `/plan-devex-review`     | `/devex-review`    | `/careful`            |
-| `/freeze`              | `/guard`                 | `/unfreeze`        | `/gstack-upgrade`     |
-| `/learn`               |                          |                    |                       |
+| Skill                  | Skill                    | Skill               | Skill                 |
+| ---------------------- | ------------------------ | ------------------- | --------------------- |
+| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review`  | `/plan-design-review` |
+| `/design-consultation` | `/design-shotgun`        | `/design-html`      | `/review`             |
+| `/ship`                | `/land-and-deploy`       | `/canary`           | `/benchmark`          |
+| `/browse`              | `/connect-chrome`        | `/qa`               | `/qa-only`            |
+| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`     | `/setup-gbrain`       |
+| `/retro`               | `/investigate`           | `/document-release` | `/document-generate`  |
+| `/codex`               | `/cso`                   | `/autoplan`         | `/plan-devex-review`  |
+| `/devex-review`        | `/careful`               | `/freeze`           | `/guard`              |
+| `/unfreeze`            | `/gstack-upgrade`        | `/learn`            |                       |
 
 ## Skill routing
 
