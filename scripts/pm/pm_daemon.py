@@ -263,6 +263,120 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
     except Exception as e:
         return f"Error creating Epic: {e}"
 
+# Parent page ID for session logs (created under Project Documentation)
+SESSION_LOGS_PARENT_ID = os.environ.get('CONFLUENCE_SESSION_LOGS_PARENT_ID', PARENT_PAGE_ID)
+
+def _render_session_log_html(
+    session_id: str,
+    agent_name: str,
+    summary: str,
+    key_decisions: list[str],
+    files_changed: list[str],
+    follow_up_items: list[str],
+    pr_links: list[str] | None = None,
+    duration_minutes: int | None = None,
+) -> str:
+    """Render an agent session log as Confluence storage-format HTML."""
+    from datetime import datetime, timezone
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    duration_str = f"{duration_minutes} min" if duration_minutes else "—"
+
+    decisions_html = "".join(f"<li>{d}</li>" for d in key_decisions) if key_decisions else "<li>None</li>"
+    files_html = "".join(f"<li><code>{f}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
+    followups_html = "".join(f"<li>{item}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
+    links_html = "".join(f"<li><a href=\"{link}\">{link}</a></li>" for link in (pr_links or []))
+
+    return f"""
+<ac:structured-macro ac:name="info"><ac:rich-text-body>
+<p><strong>Agent Session Log</strong> — {agent_name} | {timestamp}</p>
+</ac:rich-text-body></ac:structured-macro>
+
+<table>
+<tr><th>Session ID</th><td>{session_id}</td></tr>
+<tr><th>Agent</th><td>{agent_name}</td></tr>
+<tr><th>Timestamp</th><td>{timestamp}</td></tr>
+<tr><th>Duration</th><td>{duration_str}</td></tr>
+</table>
+
+<h2>Summary</h2>
+<p>{summary}</p>
+
+<h2>Key Decisions</h2>
+<ul>{decisions_html}</ul>
+
+<h2>Files Changed</h2>
+<ul>{files_html}</ul>
+
+<h2>Follow-up TODOs</h2>
+<ul>{followups_html}</ul>
+
+{"<h2>Related PRs / Issues</h2><ul>" + links_html + "</ul>" if links_html else ""}
+"""
+
+
+@mcp.tool()
+def log_agent_session(
+    summary: str,
+    agent_name: str = "Unknown Agent",
+    session_id: str = "",
+    key_decisions: list[str] | None = None,
+    files_changed: list[str] | None = None,
+    follow_up_items: list[str] | None = None,
+    pr_links: list[str] | None = None,
+    duration_minutes: int | None = None,
+) -> str:
+    """Log an agent session to Confluence as a structured page.
+
+    Creates a new page under the Session Logs parent with a standardized
+    template including summary, decisions, files changed, and follow-ups.
+    Call this at the end of a session to persist context before clearing.
+    """
+    if not HEADERS:
+        return "Error: Atlassian credentials missing. Cannot log session."
+
+    from datetime import datetime, timezone
+
+    if not session_id:
+        session_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+
+    title = f"Session Log: {agent_name} — {session_id}"
+
+    html_content = _render_session_log_html(
+        session_id=session_id,
+        agent_name=agent_name,
+        summary=summary,
+        key_decisions=key_decisions or [],
+        files_changed=files_changed or [],
+        follow_up_items=follow_up_items or [],
+        pr_links=pr_links,
+        duration_minutes=duration_minutes,
+    )
+
+    payload = {
+        "spaceId": SPACE_ID,
+        "status": "current",
+        "title": title,
+        "parentId": SESSION_LOGS_PARENT_ID,
+        "body": {
+            "representation": "storage",
+            "value": html_content,
+        },
+    }
+
+    url = f"https://{URL_BASE}/wiki/api/v2/pages"
+    try:
+        response = requests.post(url, headers=HEADERS, json=payload, timeout=TIMEOUT)
+        if response.status_code in [200, 201]:
+            page_id = response.json().get("id", "")
+            page_url = f"https://{URL_BASE}/wiki/spaces/TLG/pages/{page_id}"
+            return f"Session logged successfully: {title}\nConfluence URL: {page_url}"
+        else:
+            return f"Failed to log session: {response.status_code} {response.text}"
+    except Exception as e:
+        return f"Error logging session: {e}"
+
+
 def start_watcher(workspace_dir: str):
     logger.info(f"Starting file watcher on workspace: {workspace_dir}")
     event_handler = PMFileEventHandler(workspace_dir)
