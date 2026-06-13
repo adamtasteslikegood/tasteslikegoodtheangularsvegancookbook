@@ -35,6 +35,50 @@ export class AppComponent {
         this.activeView.set('generator');
       }
     });
+
+    // Handle ?save=<slug> from SSR "Save to Cookbook" CTA.
+    // Fetches the public recipe by slug and saves it to the guest/user cookbook.
+    const params = new URLSearchParams(window.location.search);
+    const saveSlug = params.get('save');
+    if (saveSlug) {
+      // Clean the URL to avoid re-triggering on refresh
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState(null, '', cleanUrl);
+      this.handleSaveFromSSR(saveSlug);
+    }
+  }
+
+  /**
+   * Fetches a public recipe by slug from the API and saves it to the
+   * current user/guest cookbook. Triggered by the ?save=<slug> query param
+   * from the SSR "Save to Cookbook" CTA.
+   */
+  private async handleSaveFromSSR(slug: string) {
+    try {
+      const response = await fetch(`/api/recipes/public/${slug}`);
+      if (!response.ok) {
+        console.warn(`Could not fetch recipe for slug "${slug}": ${response.status}`);
+        return;
+      }
+      const recipeData = await response.json();
+      const recipe: Recipe = {
+        id: recipeData.id || crypto.randomUUID(),
+        name: recipeData.name || 'Saved Recipe',
+        ingredients: recipeData.ingredients || [],
+        instructions: recipeData.instructions || [],
+        prepTime: recipeData.prepTime ?? null,
+        cookTime: recipeData.cookTime ?? null,
+        servings: recipeData.servings ?? null,
+        description: recipeData.description || '',
+        tags: recipeData.tags || [],
+        notes: recipeData.notes || '',
+      };
+      this.authService.saveRecipe(recipe);
+      await this.persistenceService.saveRecipe(recipe);
+      this.activeView.set('kitchen');
+    } catch (err) {
+      console.error('Failed to save recipe from SSR CTA:', err);
+    }
   }
 
   // Kitchen State
