@@ -62,11 +62,15 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
-# Jira projects to track; strip whitespace so "KAN, RCP" in the env var still works
-_raw_jira_projects = os.environ.get("JIRA_PROJECTS", "KAN,RCP")
+# Read the documented var first; fall back to the legacy JIRA_PROJECTS for older setups.
+# .strip() tolerates "KAN, RCP" style spacing in either var.
+_raw_jira_projects = (
+    os.environ.get("ATLASSIAN_JIRA_PROJECT_KEY")
+    or os.environ.get("JIRA_PROJECTS")
+    or "KAN,RCP"
+)
 JIRA_PROJECTS = [p.strip() for p in _raw_jira_projects.split(",") if p.strip()]
 if not JIRA_PROJECTS:
-    # Fall back to defaults if JIRA_PROJECTS is empty or only commas/whitespace
     JIRA_PROJECTS = ["KAN", "RCP"]
 
 def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
