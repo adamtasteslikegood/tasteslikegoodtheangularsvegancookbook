@@ -55,15 +55,15 @@ npm run dev                                  # Angular on :3000 (proxies /api �
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Angular dev server (port 3000) |
-| `npm run build` | Production build (Angular + Express) |
-| `npm start` | Production server (port 8080) |
-| `npm run lint` | ESLint check |
-| `npm run format` | Prettier format |
-| `npm run type-check` | TypeScript type check |
-| `npm test` | Vitest (server tests) |
+| Command              | Description                          |
+| -------------------- | ------------------------------------ |
+| `npm run dev`        | Angular dev server (port 3000)       |
+| `npm run build`      | Production build (Angular + Express) |
+| `npm start`          | Production server (port 8080)        |
+| `npm run lint`       | ESLint check                         |
+| `npm run format`     | Prettier format                      |
+| `npm run type-check` | TypeScript type check                |
+| `npm test`           | Vitest (server tests)                |
 
 ## Architecture
 
@@ -87,6 +87,7 @@ See [docs/architecture/](docs/architecture/) for ADRs and diagrams.
 ## Deployment
 
 Two Cloud Run services in `us-central1`:
+
 - `express-frontend` — Node.js (Angular + proxy)
 - `flask-backend` — Python (API + AI + auth + DB)
 

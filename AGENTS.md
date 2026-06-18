@@ -156,6 +156,7 @@ GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
 ## PM Daemon (`.mcp.json`)
 
 Atlassian is the official cross-agent source of truth for this repo outside git:
+
 - **Jira KAN** = active execution state, branch/work ownership, in-flight tasks
 - **Jira RCP** = delivery state, epics, sprints, acceptance scope
 - **Confluence TLG** = durable planning/session narrative and docs
@@ -205,6 +206,7 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 - Production site health check
 
 **Jira Project Keys:**
+
 - **KAN** = active execution, branch/work ownership, in-flight state
 - **RCP** = delivery planning, epics, sprint scope, acceptance criteria
 - Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup
