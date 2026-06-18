@@ -8,6 +8,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-18
+
+Feature release: server-rendered recipe/browse pages with a Save-to-Cookbook flow, Atlassian/PM tooling, a repository cleanup, and a batch of dependency updates.
+
+### Added
+
+- **SSR recipe & browse pages with a "Save to Cookbook" CTA.** Public recipes render server-side. The CTA deep-links into the SPA via `?save=<slug>`; `AppComponent.handleSaveFromSSR()` fetches the recipe from `/api/recipes/public/<slug>` and saves it to the guest/user cookbook, then cleans the URL. A `#kitchen` hash deep-links straight into the cookbook view (`syncViewFromLocation`).
+- **Public recipe save flow** wired into the kitchen.
+- **Atlassian / PM tooling.** `.pi/` Atlassian AOTA extension, session-log skill + schemas, background pm-daemon controls, and session-log publishing scripts. New `docs/PM_TOOLING.md` and `.github/CODEOWNERS`.
+
+### Changed
+
+- **Repository cleanup.** Reorganized docs, moved scripts under `scripts/git` and `scripts/pm`, removed clutter (a stray email file, Confluence JSON dumps, a GitHub-skyline STL, `scripts/output.md`, etc.), and rewrote the README.
+- `.gitignore` now ignores Python virtualenvs (`scripts/pm/.venv`).
+- **Backend submodule** bumped to `4e13cb8` (public recipe API). ⚠️ This pin must be confirmed against Backend `dev` before tagging — see the release PR notes.
+
+### Dependencies
+
+- helmet 8.1→8.2, ioredis 5.10→5.11, google-auth-library 10.6→10.7, @google-cloud/secret-manager 6.1.1→6.1.3, globals 17.5→17.6, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.11, eslint 10.x, prettier 3.8.4, @typescript-eslint/eslint-plugin 8.61.
+- **Major bumps:** `@google/genai` 1.50→2.8 (not imported in TypeScript — version-only), `rate-limit-redis` 4.3→5.0 (API-compatible with the existing `RedisStore` usage in `server/security.ts`), `express-rate-limit` →8.5.1.
+- Docker base image `node:25-alpine` → `node:26-alpine`; GitHub Actions group bumps.
+- Held `@angular-eslint/*` at 21.x — the 22.x line requires Angular 22, and this release targets Angular 21.
+
 ## [0.2.5] - 2026-05-06
 
 Hotfix on top of v0.2.4 — Google OAuth login was returning HTTP 500 for some returning users.
