@@ -22,7 +22,7 @@ Feature release: server-rendered recipe/browse pages with a Save-to-Cookbook flo
 
 - **Repository cleanup.** Reorganized docs, moved scripts under `scripts/git` and `scripts/pm`, removed clutter (a stray email file, Confluence JSON dumps, a GitHub-skyline STL, `scripts/output.md`, etc.), and rewrote the README.
 - `.gitignore` now ignores Python virtualenvs (`scripts/pm/.venv`).
-- **Backend submodule** bumped to `4e13cb8` (public recipe API). ⚠️ This pin must be confirmed against Backend `dev` before tagging — see the release PR notes.
+- **Backend submodule** bumped to `10910bc`, the Backend `dev` integration tip. This pin supersedes the earlier unpushed `4e13cb8` candidate (which was never pushed to the Backend remote). `10910bc` carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), and the latest dependency bumps. Verified resolvable against `origin/dev`.
 
 ### Dependencies
 
