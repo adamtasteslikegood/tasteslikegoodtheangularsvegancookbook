@@ -69,8 +69,16 @@ export class AppComponent {
    * from the SSR "Save to Cookbook" CTA.
    */
   private async handleSaveFromSSR(slug: string) {
+    // Validate the slug against a strict allow-list before using it in the
+    // request URL. The value comes from the `?save=<slug>` query param, so
+    // interpolating it raw would allow client-side request forgery
+    // (path traversal / host manipulation).
+    if (!/^[a-z0-9-]+$/i.test(slug)) {
+      console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
+      return;
+    }
     try {
-      const response = await fetch(`/api/recipes/public/${slug}`);
+      const response = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`);
       if (!response.ok) {
         console.warn(`Could not fetch recipe for slug "${slug}": ${response.status}`);
         return;
