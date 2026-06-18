@@ -92,7 +92,7 @@ export class AppComponent {
       const recipe: Recipe = {
         id: recipeData.id || crypto.randomUUID(),
         name: recipeData.name || 'Saved Recipe',
-        ingredients: recipeData.ingredients || [],
+        ingredients: recipeData.ingredients || {},
         instructions: recipeData.instructions || [],
         prepTime: recipeData.prepTime ?? 0,
         cookTime: recipeData.cookTime ?? 0,
@@ -101,7 +101,9 @@ export class AppComponent {
         tags: recipeData.tags || [],
         notes: recipeData.notes || '',
       };
-      this.authService.saveRecipe(recipe);
+      // persistenceService.saveRecipe writes localStorage first (via
+      // auth.saveRecipe) and then syncs to the API, so a separate
+      // authService.saveRecipe call here would be a redundant double-write.
       await this.persistenceService.saveRecipe(recipe);
       this.activeView.set('kitchen');
     } catch (err) {
