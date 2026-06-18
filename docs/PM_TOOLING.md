@@ -47,7 +47,7 @@ Creates structured Confluence pages for each agent session with:
 
 **Template:** See `scripts/pm/templates/session_log.md`
 
-**Confluence location:** Pages are created under the Session Logs parent page (configured via `CONFLUENCE_SESSION_LOGS_PARENT_ID` env var, defaults to the Project Documentation parent).
+**Confluence location:** Pages are created under the Session Logs parent page (configured via `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` env var, defaults to the Project Documentation parent).
 
 ### 3. Jira/Confluence Status (`scripts/pm/sync_jira_confluence_status.py`)
 
