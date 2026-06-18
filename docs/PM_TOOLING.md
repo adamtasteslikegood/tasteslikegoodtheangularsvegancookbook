@@ -63,7 +63,7 @@ cd scripts/pm && python sync_jira_confluence_status.py
 
 ### 4. Atlassian Link Utility (`scripts/pm/atlassian_pm_link.py`)
 
-Standalone utility for Atlassian API operations. Dependency-free (uses only stdlib + requests).
+Standalone utility for Atlassian API operations. Dependency-free (uses only the Python stdlib — `urllib`, no `requests`).
 
 ## Configuration
 
