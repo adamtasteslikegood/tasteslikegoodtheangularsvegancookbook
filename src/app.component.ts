@@ -32,7 +32,12 @@ export class AppComponent {
     // SSR pages can deep-link directly into the cookbook SPA.
     window.addEventListener('popstate', (event) => {
       const state = event.state as { view?: string } | null;
-      if (state?.view === 'kitchen' || window.location.hash === '#kitchen') {
+      // Prefer the explicit history-state view set by in-app pushState
+      // navigation. Fall back to the #kitchen hash only for the initial
+      // SSR entry (no view in its state), so a lingering hash can't
+      // override back/forward to a generator entry.
+      const view = state?.view ?? (window.location.hash === '#kitchen' ? 'kitchen' : 'generator');
+      if (view === 'kitchen') {
         this.authService.ensureGuestSession();
         this.activeView.set('kitchen');
       } else {
