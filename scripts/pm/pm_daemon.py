@@ -2,6 +2,7 @@ import os
 import sys
 import logging
 import base64
+import subprocess
 import requests
 import markdown
 from pathlib import Path
@@ -51,34 +52,44 @@ else:
 
 SPACE_ID = os.environ.get('CONFLUENCE_SPACE_ID', "11042818")  # TLG space ID
 PARENT_PAGE_ID = os.environ.get('CONFLUENCE_PARENT_PAGE_ID', "11796481")  # Project Documentation page ID
+BRIEFING_FILE = Path('.agent-work/pm/PROJECT_PM_BRIEFING.md')
 
 # Initialize FastMCP server
 mcp = FastMCP("PM Daemon")
 
-WATCHED_FILES = [
-    "plan.md",
-    "roadmap.md",
-    "planning_notes.md",
-    "design-plan.md",
-    "SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
-    "SPRINT_0_PLAN.md",
-    "ATLASSIAN_PM_LINK.md",
+CANONICAL_PM_FILES = [
+    Path("specs/plan.md"),
+    Path("specs/roadmap.md"),
+    Path("specs/planning_notes.md"),
+    Path("specs/design-plan.md"),
+    Path("specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md"),
+    Path("specs/SPRINT_0_PLAN.md"),
+    Path("specs/ATLASSIAN_PM_LINK.md"),
 ]
+WATCHED_FILES = [path.name for path in CANONICAL_PM_FILES]
 
 class PMFileEventHandler(FileSystemEventHandler):
     def __init__(self, workspace_dir):
         self.workspace_dir = Path(workspace_dir)
+        self.canonical_files = [self.workspace_dir / path for path in CANONICAL_PM_FILES]
         super().__init__()
+
+    def _is_canonical_pm_file(self, filepath: Path) -> bool:
+        try:
+            resolved = filepath.resolve()
+        except FileNotFoundError:
+            return False
+        return any(resolved == candidate.resolve() for candidate in self.canonical_files if candidate.exists())
 
     def on_modified(self, event):
         if event.is_directory:
             return
-        
+
         filepath = Path(event.src_path)
-        if filepath.name in WATCHED_FILES:
+        if self._is_canonical_pm_file(filepath):
             logger.info(f"Detected change in {filepath.name}. Triggering PM sync...")
             self.sync_to_confluence(filepath)
-            
+
     def sync_to_confluence(self, filepath) -> bool:
         """Sync a file to Confluence. Returns True on success, False otherwise."""
         if not HEADERS:
@@ -171,46 +182,49 @@ def get_project_status() -> str:
     Call this tool at the beginning of a session to brief the agent on what to do.
     """
     workspace_dir = Path(os.getcwd())
+    briefing_path = workspace_dir / BRIEFING_FILE
+    if briefing_path.exists():
+        try:
+            content = briefing_path.read_text(encoding="utf-8", errors="replace")
+            return "CURRENT PM BRIEFING:\n" + content[:12000] + ("..." if len(content) > 12000 else "")
+        except Exception as e:
+            logger.error(f"Failed to read {briefing_path}: {e}")
+
     status = []
-    for filename in WATCHED_FILES:
-        matches = [workspace_dir / filename, *workspace_dir.rglob(filename)]
-        seen_paths = set()
-        for filepath in matches:
-            if not filepath.exists() or filepath in seen_paths:
-                continue
-            seen_paths.add(filepath)
-            try:
-                content = filepath.read_text(encoding="utf-8", errors="replace")
-                label = str(filepath.relative_to(workspace_dir))
-                status.append(f"--- {label} ---\n{content[:1500]}" + ("..." if len(content) > 1500 else ""))
-            except Exception as e:
-                logger.error(f"Failed to read {filepath}: {e}")
-    
+    for relative_path in CANONICAL_PM_FILES:
+        filepath = workspace_dir / relative_path
+        if not filepath.exists():
+            continue
+        try:
+            content = filepath.read_text(encoding="utf-8", errors="replace")
+            label = str(filepath.relative_to(workspace_dir))
+            status.append(f"--- {label} ---\n{content[:1500]}" + ("..." if len(content) > 1500 else ""))
+        except Exception as e:
+            logger.error(f"Failed to read {filepath}: {e}")
+
     if not status:
         return "No local planning files found in the current workspace."
-    
+
     return "CURRENT PM BRIEFING:\n" + "\n".join(status)
 
 @mcp.tool()
 def sync_pm_documents() -> str:
-    """Force a sync of the local PM documents to Jira/Confluence.
-    Call this tool when you want to immediately update Jira/Confluence based on local file changes.
+    """Force a non-destructive sync of the local PM documents to Confluence.
+    Call this tool when you want to immediately publish planning-doc changes.
+    Jira remains the source of truth for issue status and delivery workflow.
     """
     workspace_dir = Path(os.getcwd())
     handler = PMFileEventHandler(workspace_dir)
     synced = []
     failed = []
-    for filename in WATCHED_FILES:
-        matches = [workspace_dir / filename, *workspace_dir.rglob(filename)]
-        seen_paths = set()
-        for filepath in matches:
-            if not filepath.exists() or filepath in seen_paths:
-                continue
-            seen_paths.add(filepath)
-            if handler.sync_to_confluence(filepath):
-                synced.append(str(filepath.relative_to(workspace_dir)))
-            else:
-                failed.append(str(filepath.relative_to(workspace_dir)))
+    for relative_path in CANONICAL_PM_FILES:
+        filepath = workspace_dir / relative_path
+        if not filepath.exists():
+            continue
+        if handler.sync_to_confluence(filepath):
+            synced.append(str(filepath.relative_to(workspace_dir)))
+        else:
+            failed.append(str(filepath.relative_to(workspace_dir)))
             
     result = []
     if synced:
@@ -224,13 +238,47 @@ def sync_pm_documents() -> str:
     return ". ".join(result) + ". The PM Daemon has finished updating the documents in Atlassian."
 
 @mcp.tool()
+def refresh_project_briefing(publish: bool = False) -> str:
+    """Refresh the project PM briefing from Jira + Confluence.
+    Set publish=true to also update the Confluence briefing page.
+    """
+    script = Path(os.getcwd()) / 'scripts/pm/atlassian_pm_link.py'
+    if not script.exists():
+        return f"Error: briefing script not found at {script}"
+
+    mode = 'sync' if publish else 'brief'
+    try:
+        result = subprocess.run(
+            [sys.executable, str(script), mode],
+            cwd=os.getcwd(),
+            capture_output=True,
+            text=True,
+            timeout=180,
+            check=False,
+        )
+    except Exception as e:
+        return f"Error refreshing PM briefing: {e}"
+
+    output = (result.stdout or '').strip()
+    error = (result.stderr or '').strip()
+    if result.returncode != 0:
+        return f"PM briefing refresh failed ({result.returncode}): {error or output}"
+    return output or f"PM briefing refresh complete via '{mode}'."
+
+
+@mcp.tool()
 def create_epic_from_roadmap(epic_name: str, description: str, project_key: str = None) -> str:
-    """Create a new Epic in Jira based on roadmap planning."""
+    """Create a new Epic in the delivery Jira project based on roadmap planning."""
     if not HEADERS:
         return "Error: Atlassian credentials missing."
-    
-    # Use provided project_key, or fall back to env var, or default to KAN
-    target_project = project_key or os.environ.get('JIRA_PROJECT_KEY', 'KAN')
+
+    # Default epics into the delivery project (RCP), not the execution board (KAN).
+    target_project = (
+        project_key
+        or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
+        or os.environ.get('JIRA_PROJECT_KEY')
+        or 'RCP'
+    )
         
     url = f"https://{URL_BASE}/rest/api/3/issue"
     payload = {

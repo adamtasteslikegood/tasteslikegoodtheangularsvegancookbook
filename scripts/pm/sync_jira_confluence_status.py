@@ -62,8 +62,26 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
+def _jira_projects() -> list[str]:
+    explicit = os.environ.get("JIRA_PROJECTS") or os.environ.get("ATLASSIAN_JIRA_PROJECTS")
+    if explicit:
+        parts = [part.strip() for part in explicit.split(",") if part.strip()]
+    else:
+        parts = [
+            os.environ.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN"),
+            os.environ.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY", "RCP"),
+        ]
+    ordered: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        if part and part not in seen:
+            ordered.append(part)
+            seen.add(part)
+    return ordered or ["KAN", "RCP"]
+
+
 # Jira projects to track
-JIRA_PROJECTS = os.environ.get("JIRA_PROJECTS", "KAN,RCP,PLZA,TO").split(",")
+JIRA_PROJECTS = _jira_projects()
 
 def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
     """Parse `id1:Name 1,id2:Name 2,...` into [(id, name), ...]."""

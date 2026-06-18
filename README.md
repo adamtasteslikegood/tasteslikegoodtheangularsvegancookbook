@@ -148,6 +148,31 @@ docker run --rm -p 8080:8080 \
 
 A sample `cloudbuild.yaml` is included for building and deploying to Cloud Run. Update the substitutions at the top of the file to match your project, service name, and region.
 
+## Atlassian PM workflow
+
+This repo has an official cross-agent PM workflow outside git:
+
+- **Jira KAN** = active execution state, who is working on what now
+- **Jira RCP** = delivery state, epics, sprints, acceptance scope
+- **Confluence TLG** = durable planning/session context and documentation
+- **`specs/*.md`** = local working copies that sync non-destructively into Confluence
+
+Quick commands:
+
+```sh
+npm run pm:start             # connectivity check + local PM briefing
+npm run pm:brief             # refresh local PM briefing
+npm run pm:sync              # publish/update Confluence briefing
+npm run pm:status            # live Jira + PR + Confluence + prod snapshot
+npm run pm:daemon            # start daemon in background on this VM
+npm run pm:daemon:status     # show pid + log path
+npm run pm:daemon:logs       # tail daemon log
+npm run pm:daemon:stop       # stop background daemon
+npm run pm:daemon:foreground # run watcher/MCP helper in foreground for debugging
+```
+
+Put real Atlassian credentials in `.env` using the variables shown in `.env.example`.
+
 ## Contributing
 
 See `CONTRIBUTING.md` for setup notes and workflow.
