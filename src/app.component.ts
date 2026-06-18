@@ -79,6 +79,9 @@ export class AppComponent {
       console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
       return;
     }
+    // Ensure a guest session exists so the save persists for first-time,
+    // unauthenticated visitors arriving from an SSR page.
+    this.authService.ensureGuestSession();
     try {
       const response = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`);
       if (!response.ok) {
@@ -91,9 +94,9 @@ export class AppComponent {
         name: recipeData.name || 'Saved Recipe',
         ingredients: recipeData.ingredients || [],
         instructions: recipeData.instructions || [],
-        prepTime: recipeData.prepTime ?? null,
-        cookTime: recipeData.cookTime ?? null,
-        servings: recipeData.servings ?? null,
+        prepTime: recipeData.prepTime ?? 0,
+        cookTime: recipeData.cookTime ?? 0,
+        servings: recipeData.servings ?? 0,
         description: recipeData.description || '',
         tags: recipeData.tags || [],
         notes: recipeData.notes || '',
