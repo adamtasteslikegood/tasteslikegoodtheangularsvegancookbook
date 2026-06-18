@@ -104,7 +104,9 @@ export class AppComponent {
       // PersistenceService.saveRecipe already writes through to AuthService
       // (local state) before syncing, so a single call is enough.
       await this.persistenceService.saveRecipe(recipe);
-      this.activeView.set('kitchen');
+      // Use switchView so the kitchen history entry is pushed and the browser
+      // Back button behaves consistently with the rest of the app.
+      this.switchView('kitchen');
     } catch (err) {
       console.error('Failed to save recipe from SSR CTA:', err);
     }
