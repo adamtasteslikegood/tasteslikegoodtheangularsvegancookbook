@@ -92,7 +92,7 @@ export class AppComponent {
       const recipe: Recipe = {
         id: recipeData.id || crypto.randomUUID(),
         name: recipeData.name || 'Saved Recipe',
-        ingredients: recipeData.ingredients || [],
+        ingredients: recipeData.ingredients || {},
         instructions: recipeData.instructions || [],
         prepTime: recipeData.prepTime ?? 0,
         cookTime: recipeData.cookTime ?? 0,
@@ -101,7 +101,8 @@ export class AppComponent {
         tags: recipeData.tags || [],
         notes: recipeData.notes || '',
       };
-      this.authService.saveRecipe(recipe);
+      // PersistenceService.saveRecipe already writes through to AuthService
+      // (local state) before syncing, so a single call is enough.
       await this.persistenceService.saveRecipe(recipe);
       this.activeView.set('kitchen');
     } catch (err) {
