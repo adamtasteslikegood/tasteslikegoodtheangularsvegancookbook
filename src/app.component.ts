@@ -47,9 +47,11 @@ export class AppComponent {
     const params = new URLSearchParams(window.location.search);
     const saveSlug = params.get('save');
     if (saveSlug) {
-      // Clean the URL to avoid re-triggering on refresh
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState(null, '', cleanUrl);
+      // Remove only the 'save' param to avoid re-triggering on refresh,
+      // preserving any other query params and the hash.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('save');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
       this.handleSaveFromSSR(saveSlug);
     }
   }

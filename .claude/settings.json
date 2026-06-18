@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/projects/tasteslikegoodtheangularsvegancookbook/.claude/hooks/check-gstack.sh"
+            "command": ".claude/hooks/check-gstack.sh"
           }
         ]
       }
