@@ -1,0 +1,1150 @@
+finding.name,finding.canonical_name,finding.parent,finding.resource_name,finding.cai_resource,finding.state,finding.category,finding.external_uri,finding.source_properties,finding.security_marks.name,finding.security_marks.marks,finding.security_marks.canonical_name,finding.event_time,finding.create_time,finding.property_data_types,finding.severity,finding.mute,finding.mute_info.static_mute.state,finding.mute_info.static_mute.apply_time,finding.mute_info.dynamic_mute_records,finding.finding_class,finding.indicator.ip_addresses,finding.indicator.domains,finding.indicator.signatures,finding.indicator.uris,finding.vulnerability.cve.id,finding.vulnerability.cve.references,finding.vulnerability.cve.cvssv3,finding.vulnerability.cve.upstream_fix_available,finding.vulnerability.cve.impact,finding.vulnerability.cve.exploitation_activity,finding.vulnerability.cve.observed_in_the_wild,finding.vulnerability.cve.zero_day,finding.vulnerability.cve.exploit_release_date,finding.vulnerability.cve.first_exploitation_date,finding.vulnerability.offending_package.package_name,finding.vulnerability.offending_package.cpe_uri,finding.vulnerability.offending_package.package_type,finding.vulnerability.offending_package.package_version,finding.vulnerability.fixed_package.package_name,finding.vulnerability.fixed_package.cpe_uri,finding.vulnerability.fixed_package.package_type,finding.vulnerability.fixed_package.package_version,finding.vulnerability.security_bulletin.bulletin_id,finding.vulnerability.security_bulletin.submission_time,finding.vulnerability.security_bulletin.suggested_upgrade_version,finding.vulnerability.provider_risk_score,finding.vulnerability.reachable,finding.vulnerability.cwes,finding.mute_update_time,finding.external_systems,finding.mitre_attack.primary_tactic,finding.mitre_attack.primary_techniques,finding.mitre_attack.additional_tactics,finding.mitre_attack.additional_techniques,finding.mitre_attack.version,finding.access.principal_email,finding.access.caller_ip,finding.access.caller_ip_geo.region_code,finding.access.user_agent_family,finding.access.user_agent,finding.access.service_name,finding.access.method_name,finding.access.principal_subject,finding.access.service_account_key_name,finding.access.service_account_delegation_info,finding.access.user_name,finding.connections,finding.mute_initiator,finding.processes,finding.contacts,finding.compliances,finding.original_provider_id,finding.cloud_provider,finding.parent_display_name,finding.description,finding.exfiltration.sources,finding.exfiltration.targets,finding.exfiltration.total_exfiltrated_bytes,finding.iam_bindings,finding.next_steps,finding.module_name,finding.containers,finding.kubernetes.pods,finding.kubernetes.nodes,finding.kubernetes.node_pools,finding.kubernetes.roles,finding.kubernetes.bindings,finding.kubernetes.access_reviews,finding.kubernetes.objects,finding.database.name,finding.database.display_name,finding.database.user_name,finding.database.query,finding.database.grantees,finding.database.version,finding.attack_exposure.score,finding.attack_exposure.latest_calculation_time,finding.attack_exposure.attack_exposure_result,finding.attack_exposure.state,finding.attack_exposure.exposed_high_value_resources_count,finding.attack_exposure.exposed_medium_value_resources_count,finding.attack_exposure.exposed_low_value_resources_count,finding.files,finding.cloud_dlp_inspection.inspect_job,finding.cloud_dlp_inspection.info_type,finding.cloud_dlp_inspection.info_type_count,finding.cloud_dlp_inspection.full_scan,finding.cloud_dlp_data_profile.data_profile,finding.cloud_dlp_data_profile.parent_type,finding.cloud_dlp_data_profile.info_types,finding.kernel_rootkit.name,finding.kernel_rootkit.unexpected_code_modification,finding.kernel_rootkit.unexpected_read_only_data_modification,finding.kernel_rootkit.unexpected_ftrace_handler,finding.kernel_rootkit.unexpected_kprobe_handler,finding.kernel_rootkit.unexpected_kernel_code_pages,finding.kernel_rootkit.unexpected_system_call_handler,finding.kernel_rootkit.unexpected_interrupt_handler,finding.kernel_rootkit.unexpected_processes_in_runqueue,finding.org_policies,finding.job.name,finding.job.state,finding.job.error_code,finding.job.location,finding.application.base_uri,finding.application.full_uri,finding.ip_rules.direction,finding.ip_rules.allowed.ip_rules,finding.ip_rules.denied.ip_rules,finding.ip_rules.source_ip_ranges,finding.ip_rules.destination_ip_ranges,finding.ip_rules.exposed_services,finding.backup_disaster_recovery.backup_template,finding.backup_disaster_recovery.policies,finding.backup_disaster_recovery.host,finding.backup_disaster_recovery.applications,finding.backup_disaster_recovery.storage_pool,finding.backup_disaster_recovery.policy_options,finding.backup_disaster_recovery.profile,finding.backup_disaster_recovery.appliance,finding.backup_disaster_recovery.backup_type,finding.backup_disaster_recovery.backup_create_time,finding.security_posture.name,finding.security_posture.revision_id,finding.security_posture.posture_deployment_resource,finding.security_posture.posture_deployment,finding.security_posture.changed_policy,finding.security_posture.policy_set,finding.security_posture.policy,finding.security_posture.policy_drift_details,finding.log_entries,finding.load_balancers,finding.cloud_armor.security_policy.name,finding.cloud_armor.security_policy.type,finding.cloud_armor.security_policy.preview,finding.cloud_armor.requests.ratio,finding.cloud_armor.requests.short_term_allowed,finding.cloud_armor.requests.long_term_allowed,finding.cloud_armor.requests.long_term_denied,finding.cloud_armor.adaptive_protection.confidence,finding.cloud_armor.attack.volume_pps_long,finding.cloud_armor.attack.volume_bps_long,finding.cloud_armor.attack.classification,finding.cloud_armor.attack.volume_pps,finding.cloud_armor.attack.volume_bps,finding.cloud_armor.threat_vector,finding.cloud_armor.duration.seconds,finding.cloud_armor.duration.nanos,finding.apigee.organization,finding.apigee.environment,finding.apigee.security_profile_id,finding.notebook.name,finding.notebook.service,finding.notebook.last_author,finding.notebook.notebook_update_time,finding.toxic_combination.attack_exposure_score,finding.toxic_combination.related_findings,finding.group_memberships,finding.disk.name,finding.risks,finding.deactivation_reason.reason,finding.data_access_events,finding.data_flow_events,finding.networks,finding.data_retention_deletion_events,finding.affected_resources.count,finding.affected_resources.vulnerable_resources,finding.ai_model.name,finding.ai_model.domain,finding.ai_model.library,finding.ai_model.location,finding.ai_model.publisher,finding.ai_model.deployment_platform,finding.ai_model.display_name,finding.ai_model.usage_category,finding.domains,finding.remediation_details.remediation_intent,finding.remediation_details.repository_uri,finding.remediation_details.pull_request_uri,finding.remediation_details.remediation_explanation,finding.remediation_details.remediation_state,finding.remediation_details.remediation_error,finding.remediation_details.pr_generation_time,finding.remediation_details.owner,finding.chokepoint.related_findings,finding.data_protection_key_governance.violations,finding.compliance_details.frameworks,finding.compliance_details.cloud_control.cloud_control_name,finding.compliance_details.cloud_control.type,finding.compliance_details.cloud_control.policy_type,finding.compliance_details.cloud_control.version,finding.compliance_details.cloud_control_deployment_names,finding.vertex_ai.datasets,finding.vertex_ai.pipelines,finding.crypto_key_name,finding.launch_state,finding.artifact_guard_policies.resource_id,finding.artifact_guard_policies.failing_policies,finding.secret.type,finding.secret.status.last_updated_time,finding.secret.status.validity,finding.secret.environment_variable.key,finding.secret.file_path.path,finding.external_exposure.private_ip_address,finding.external_exposure.private_port,finding.external_exposure.exposed_service,finding.external_exposure.public_ip_address,finding.external_exposure.public_port,finding.external_exposure.exposed_endpoint,finding.external_exposure.load_balancer_firewall_policy,finding.external_exposure.service_firewall_policy,finding.external_exposure.forwarding_rule,finding.external_exposure.backend_service,finding.external_exposure.instance_group,finding.external_exposure.network_endpoint_group,finding.policy_violation_summary.policy_violations_count,finding.policy_violation_summary.conformant_resources_count,finding.policy_violation_summary.evaluation_errors_count,finding.policy_violation_summary.out_of_scope_resources_count,resource.name,resource.display_name,resource.type,resource.cloud_provider,resource.service,resource.location,resource.gcp_metadata.project,resource.gcp_metadata.project_display_name,resource.gcp_metadata.parent,resource.gcp_metadata.parent_display_name,resource.gcp_metadata.folders,resource.gcp_metadata.organization,resource.aws_metadata.organization.id,resource.aws_metadata.organizational_units,resource.aws_metadata.account.id,resource.aws_metadata.account.name,resource.azure_metadata.management_groups,resource.azure_metadata.subscription.id,resource.azure_metadata.subscription.display_name,resource.azure_metadata.resource_group.id,resource.azure_metadata.resource_group.name,resource.azure_metadata.tenant.id,resource.azure_metadata.tenant.display_name,resource.resource_path.nodes,resource.resource_path_string,resource.tags,resource.application.name,resource.application.attributes.criticality,resource.application.attributes.environment,resource.application.attributes.developer_owners,resource.application.attributes.operator_owners,resource.application.attributes.business_owners,resource.adc_application.name,resource.adc_application.attributes.criticality,resource.adc_application.attributes.environment,resource.adc_application.attributes.developer_owners,resource.adc_application.attributes.operator_owners,resource.adc_application.attributes.business_owners,resource.adc_application_template.name,resource.adc_shared_template.name
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/3db3c08fc5f2732b0eb2bae6655a5a2b,projects/746675616486/sources/12648698945721524096/locations/global/findings/3db3c08fc5f2732b0eb2bae6655a5a2b,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_CONNECTIONS_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_connections\"" database flag with the value \""On\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_connections_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Enabling the \""log_connections\"" setting causes each attempted connection to the server to be logged, along with successful completion of client authentication.""
+},{
+\
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""iso"": [{
+      ""version"": ""2022"",
+      ""ids"": [""A.5.28"", ""A.8.15""]
+    }],
+    ""pci"": [{
+      ""version"": ""4.0"",
+      ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+    }],
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.2.2""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.3""]
+    }, {
+      ""version"": ""1.3"",
+      ""ids"": [""6.2.2""]
+    }, {
+      ""version"": ""2.0"",
+      ""ids"": [""6.2.2""]
+    }],
+    ""ccm"": [{
+      ""version"": ""4"",
+      ""ids"": [""DSP-17""]
+    }],
+    ""cisControls"": [{
+      ""version"": ""8.0"",
+      ""ids"": [""8.5""]
+    }],
+    ""nistCsf"": [{
+      ""version"": ""1.0"",
+      ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+    }],
+    ""soc2"": [{
+      ""version"": ""2017"",
+      ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+    }],
+    ""nist"": [{
+      ""version"": ""r5"",
+      ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/3db3c08fc5f2732b0eb2bae6655a5a2b/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:15.078Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""iso"": {
+        },
+        ""pci"": {
+        },
+        ""cis"": {
+        },
+        ""ccm"": {
+        },
+        ""cisControls"": {
+        },
+        ""nistCsf"": {
+        },
+        ""soc2"": {
+        },
+        ""nist"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""ccm"",
+  ""version"": ""4"",
+  ""ids"": [""DSP-17""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.2.2""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.3""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.3"",
+  ""ids"": [""6.2.2""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""2.0"",
+  ""ids"": [""6.2.2""]
+},{
+  ""standard"": ""cis-controls"",
+  ""version"": ""8.0"",
+  ""ids"": [""8.5""]
+},{
+  ""standard"": ""iso-27001"",
+  ""version"": ""2022"",
+  ""ids"": [""A.5.28"", ""A.8.15""]
+},{
+  ""standard"": ""nist-csf"",
+  ""version"": ""1.0"",
+  ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+},{
+  ""standard"": ""nist800-53"",
+  ""version"": ""r5"",
+  ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+},{
+  ""standard"": ""pci-dss"",
+  ""version"": ""4.0"",
+  ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+},{
+  ""standard"": ""soc2"",
+  ""version"": ""2017"",
+  ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"Enabling the ""log_connections"" setting causes each attempted connection to the server to be logged, along with successful completion of client authentication.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/4146f80168756545701f5563fcc9d151,projects/746675616486/sources/12648698945721524096/locations/global/findings/4146f80168756545701f5563fcc9d151,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_DISCONNECTIONS_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_disconnections\"" database flag with the value \""On\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_disconnections_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Enabling the \u003cb\u003elog_disconnections\u003c/b\u003e setting creates log entries at the end of each session. The logs are useful in troubleshooting issues and confirming unusual activity across a time period.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""iso"": [{
+      ""version"": ""2022"",
+      ""ids"": [""A.5.28"", ""A.8.15""]
+    }],
+    ""pci"": [{
+      ""version"": ""4.0"",
+      ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+    }],
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.2.3""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.4""]
+    }, {
+      ""version"": ""1.3"",
+      ""ids"": [""6.2.3""]
+    }, {
+      ""version"": ""2.0"",
+      ""ids"": [""6.2.3""]
+    }],
+    ""ccm"": [{
+      ""version"": ""4"",
+      ""ids"": [""DSP-17""]
+    }],
+    ""cisControls"": [{
+      ""version"": ""8.0"",
+      ""ids"": [""8.5""]
+    }],
+    ""nistCsf"": [{
+      ""version"": ""1.0"",
+      ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+    }],
+    ""soc2"": [{
+      ""version"": ""2017"",
+      ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+    }],
+    ""nist"": [{
+      ""version"": ""r5"",
+      ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/4146f80168756545701f5563fcc9d151/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:14.917Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""iso"": {
+        },
+        ""pci"": {
+        },
+        ""cis"": {
+        },
+        ""ccm"": {
+        },
+        ""cisControls"": {
+        },
+        ""nistCsf"": {
+        },
+        ""soc2"": {
+        },
+        ""nist"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""ccm"",
+  ""version"": ""4"",
+  ""ids"": [""DSP-17""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.2.3""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.4""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.3"",
+  ""ids"": [""6.2.3""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""2.0"",
+  ""ids"": [""6.2.3""]
+},{
+  ""standard"": ""cis-controls"",
+  ""version"": ""8.0"",
+  ""ids"": [""8.5""]
+},{
+  ""standard"": ""iso-27001"",
+  ""version"": ""2022"",
+  ""ids"": [""A.5.28"", ""A.8.15""]
+},{
+  ""standard"": ""nist-csf"",
+  ""version"": ""1.0"",
+  ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+},{
+  ""standard"": ""nist800-53"",
+  ""version"": ""r5"",
+  ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+},{
+  ""standard"": ""pci-dss"",
+  ""version"": ""4.0"",
+  ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+},{
+  ""standard"": ""soc2"",
+  ""version"": ""2017"",
+  ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,Enabling the <b>log_disconnections</b> setting creates log entries at the end of each session. The logs are useful in troubleshooting issues and confirming unusual activity across a time period.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/6e787f4434b56b2fd2639886dc7f6dfe,projects/746675616486/sources/12648698945721524096/locations/global/findings/6e787f4434b56b2fd2639886dc7f6dfe,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_DURATION_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_duration\"" database flag with the value \""on\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_duration_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""The \""log_duration\"" flag in this Cloud SQL instance is not set to On. When activated, this setting causes the execution time and duration of each completed statement to be logged. Monitoring the amount of time it takes to execute queries can be crucial in identifying slow queries and troubleshooting database issues.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""cis"": [{
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.5""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/6e787f4434b56b2fd2639886dc7f6dfe/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:14.952Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""cis"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.5""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"The ""log_duration"" flag in this Cloud SQL instance is not set to On. When activated, this setting causes the execution time and duration of each completed statement to be logged. Monitoring the amount of time it takes to execute queries can be crucial in identifying slow queries and troubleshooting database issues.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/73ff252bdda76b4a8abe91495a9da023,projects/746675616486/sources/12648698945721524096/locations/global/findings/73ff252bdda76b4a8abe91495a9da023,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_CHECKPOINTS_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_checkpoints\"" database flag with the value \""On\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_checkpoints_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Enabling \""log_checkpoints\"" causes checkpoints and restart points to be logged in the server log. Some statistics are included in the log messages, including the number of buffers written and the time spent writing them.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.2.1""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.1""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/73ff252bdda76b4a8abe91495a9da023/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:15.037Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""cis"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.2.1""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.1""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"Enabling ""log_checkpoints"" causes checkpoints and restart points to be logged in the server log. Some statistics are included in the log messages, including the number of buffers written and the time spent writing them.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/a0b4a43ffb2c88c0f0cb15aa2f33e15a,projects/746675616486/sources/12648698945721524096/locations/global/findings/a0b4a43ffb2c88c0f0cb15aa2f33e15a,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_LOCK_WAITS_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_lock_waits\"" database flag with the value \""On\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_lock_waits_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Enabling the \""log_lock_waits\"" setting creates log entries when a session waits longer than \""deadlock_timeout\"" to acquire a lock. The logs are useful in determining if lock waits are causing poor performance.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.2.4""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.6""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/a0b4a43ffb2c88c0f0cb15aa2f33e15a/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:15.004Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""cis"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.2.4""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.6""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"Enabling the ""log_lock_waits"" setting creates log entries when a session waits longer than ""deadlock_timeout"" to acquire a lock. The logs are useful in determining if lock waits are causing poor performance.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/a94bafb3b98293b54ed4996a738a1330,projects/746675616486/sources/12648698945721524096/locations/global/findings/a94bafb3b98293b54ed4996a738a1330,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,AUTO_BACKUP_DISABLED,https://console.cloud.google.com/sql/instances/vegangenius-db/backups?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to the Edit page for this Cloud SQL instance (https://console.cloud.google.com/sql/instances/vegangenius-db/backups?project\u003dcomdottasteslikegood). In the \""Auto backups\"" section, select \""Automate backups\"", choose a backup window, then click \""Save\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_auto_backup_disabled\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Automated backups for MySql database instances are disabled.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""iso"": [{
+      ""ids"": [""A.12.3.1""]
+    }, {
+      ""version"": ""2022"",
+      ""ids"": [""A.8.13""]
+    }],
+    ""hipaa"": [{
+      ""ids"": [""164.308(a)(7)(ii)""]
+    }],
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.7""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.7""]
+    }, {
+      ""version"": ""1.3"",
+      ""ids"": [""6.7""]
+    }, {
+      ""version"": ""2.0"",
+      ""ids"": [""6.7""]
+    }],
+    ""cisControls"": [{
+      ""version"": ""8.0"",
+      ""ids"": [""11.2""]
+    }],
+    ""nistCsf"": [{
+      ""version"": ""1.0"",
+      ""ids"": [""PR-IP-4""]
+    }],
+    ""nist"": [{
+      ""ids"": [""CP-9""]
+    }, {
+      ""version"": ""r5"",
+      ""ids"": [""CP-10"", ""CP-9""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/a94bafb3b98293b54ed4996a738a1330/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:14.968Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""iso"": {
+        },
+        ""hipaa"": {
+        },
+        ""cis"": {
+        },
+        ""cisControls"": {
+        },
+        ""nistCsf"": {
+        },
+        ""nist"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.7""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.7""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.3"",
+  ""ids"": [""6.7""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""2.0"",
+  ""ids"": [""6.7""]
+},{
+  ""standard"": ""cis-controls"",
+  ""version"": ""8.0"",
+  ""ids"": [""11.2""]
+},{
+  ""standard"": ""hipaa"",
+  ""ids"": [""164.308(a)(7)(ii)""]
+},{
+  ""standard"": ""iso"",
+  ""ids"": [""A.12.3.1""]
+},{
+  ""standard"": ""iso-27001"",
+  ""version"": ""2022"",
+  ""ids"": [""A.8.13""]
+},{
+  ""standard"": ""nist"",
+  ""ids"": [""CP-9""]
+},{
+  ""standard"": ""nist-csf"",
+  ""version"": ""1.0"",
+  ""ids"": [""PR-IP-4""]
+},{
+  ""standard"": ""nist800-53"",
+  ""version"": ""r5"",
+  ""ids"": [""CP-10"", ""CP-9""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,Automated backups for MySql database instances are disabled.,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""category"": ""DATA""
+}]",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/aab2559f5542fc7b8224f6e9d8ecb626,projects/746675616486/sources/12648698945721524096/locations/global/findings/aab2559f5542fc7b8224f6e9d8ecb626,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SSL_NOT_ENFORCED,https://console.cloud.google.com/sql/instances/vegangenius-db/connections?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and verify that the instance is running by looking for a green checkmark icon next to the instance name. If it is not running, then click on the \""START\"" button. (The instance must be running in order to perform the next remediation step, but need not remain running afterwards.) Go to https://console.cloud.google.com/sql/instances/vegangenius-db/connections?project\u003dcomdottasteslikegood and the listed SSL settings provide two options. If you want to enforce only the SSL, but not require client certificates click the \""Allow only SSL connections\"" button, otherwise if you want to enforce SSL as well as require client certificates click the \""Require trusted client certificates\"" button.""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_ssl_not_enforced\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""To avoid leaking sensitive data in transit through unencrypted communications, all incoming connections to your SQL database instance should use SSL. Learn more at: https://cloud.google.com/sql/docs/mysql/configure-ssl-instance""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""iso"": [{
+      ""ids"": [""A.13.2.1"", ""A.14.1.3"", ""A.8.2.3""]
+    }],
+    ""pci"": [{
+      ""ids"": [""4.1""]
+    }],
+    ""cis"": [{
+      ""version"": ""2.0"",
+      ""ids"": [""6.4""]
+    }],
+    ""nist"": [{
+      ""ids"": [""SC-7""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/aab2559f5542fc7b8224f6e9d8ecb626/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:15.044Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""iso"": {
+        },
+        ""pci"": {
+        },
+        ""cis"": {
+        },
+        ""nist"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",HIGH,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""2.0"",
+  ""ids"": [""6.4""]
+},{
+  ""standard"": ""iso"",
+  ""ids"": [""A.13.2.1"", ""A.14.1.3"", ""A.8.2.3""]
+},{
+  ""standard"": ""nist"",
+  ""ids"": [""SC-7""]
+},{
+  ""standard"": ""pci"",
+  ""ids"": [""4.1""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"To avoid leaking sensitive data in transit through unencrypted communications, all incoming connections to your SQL database instance should use SSL. Learn more at: https://cloud.google.com/sql/docs/mysql/configure-ssl-instance",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/aad496eb174706e763605052853a84f6,projects/746675616486/sources/12648698945721524096/locations/global/findings/aad496eb174706e763605052853a84f6,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_TEMP_FILES,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". Under the \""Database flags\"" section, set the \""log_temp_files\"" database flag with the value \""0\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_temp_files\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""Temporary files can be created for sorts, hashes, and temporary query results. Setting the \""log_temp_files\"" flag to \""0\"" causes all temporary files information to be logged. Logging all temporary files is useful to identifying potencial performance issues.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""cis"": [{
+      ""version"": ""1.1"",
+      ""ids"": [""6.2.6""]
+    }, {
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.15""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/aad496eb174706e763605052853a84f6/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:14.970Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""cis"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",MEDIUM,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""cis"",
+  ""version"": ""1.1"",
+  ""ids"": [""6.2.6""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.15""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"Temporary files can be created for sorts, hashes, and temporary query results. Setting the ""log_temp_files"" flag to ""0"" causes all temporary files information to be logged. Logging all temporary files is useful to identifying potencial performance issues.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
+organizations/47228803552/sources/12648698945721524096/locations/global/findings/fbcc648d10ee10153e7916dfccbb1bb5,projects/746675616486/sources/12648698945721524096/locations/global/findings/fbcc648d10ee10153e7916dfccbb1bb5,organizations/47228803552/sources/12648698945721524096/locations/global,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,ACTIVE,SQL_LOG_STATEMENT,https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project=comdottasteslikegood,"[{
+  ""key"": ""Recommendation"",
+  ""value"": ""Go to https://console.cloud.google.com/sql/instances/vegangenius-db/overview?project\u003dcomdottasteslikegood and click \""Edit\"". In the \""Database flags\"" section, set the \""log_statement\"" database flag to \""ddl\"".""
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": ""Add the security mark \""allow_sql_log_statement\"" to the asset with a value of \""true\"" to prevent this finding from being activated again.""
+},{
+  ""key"": ""Explanation"",
+  ""value"": ""The \""log_statement\"" flag in this Cloud SQL instance is not set to \""ddl\"". The value of this flag controls which SQL statements are logged. Logging helps troubleshoot operational problems and permits forensic analysis. If this flag isn\u0027t set to the correct value, relevant information might be skipped or might be hidden in too many messages. A value of \u0027ddl\u0027 (all data definition statements) is recommended unless otherwise directed by your organization\u0027s logging policy.""
+},{
+  ""key"": ""ScannerName"",
+  ""value"": ""SQL_SCANNER""
+},{
+  ""key"": ""ResourcePath"",
+  ""value"": [""projects/comdottasteslikegood/"", ""folders/866856909820/"", ""organizations/47228803552/""]
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""iso"": [{
+      ""version"": ""2022"",
+      ""ids"": [""A.5.28"", ""A.8.15""]
+    }],
+    ""pci"": [{
+      ""version"": ""4.0"",
+      ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+    }],
+    ""cis"": [{
+      ""version"": ""1.2"",
+      ""ids"": [""6.2.7""]
+    }, {
+      ""version"": ""1.3"",
+      ""ids"": [""6.2.4""]
+    }, {
+      ""version"": ""2.0"",
+      ""ids"": [""6.2.4""]
+    }],
+    ""ccm"": [{
+      ""version"": ""4"",
+      ""ids"": [""DSP-17""]
+    }],
+    ""cisControls"": [{
+      ""version"": ""8.0"",
+      ""ids"": [""8.5""]
+    }],
+    ""nistCsf"": [{
+      ""version"": ""1.0"",
+      ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+    }],
+    ""soc2"": [{
+      ""version"": ""2017"",
+      ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+    }],
+    ""nist"": [{
+      ""version"": ""r5"",
+      ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+    }]
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": 0.0
+}]",organizations/47228803552/sources/12648698945721524096/locations/global/findings/fbcc648d10ee10153e7916dfccbb1bb5/securityMarks,,,2026-03-09T12:28:14.403Z,2026-03-09T12:28:15.039Z,"[{
+  ""key"": ""ResourcePath"",
+  ""value"": {
+  }
+},{
+  ""key"": ""ReactivationCount"",
+  ""value"": {
+    ""primitive_data_type"": ""NUMBER""
+  }
+},{
+  ""key"": ""Explanation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""ScannerName"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""compliance_standards"",
+  ""value"": {
+    ""struct_value"": {
+      ""fields"": {
+        ""iso"": {
+        },
+        ""pci"": {
+        },
+        ""cis"": {
+        },
+        ""ccm"": {
+        },
+        ""cisControls"": {
+        },
+        ""nistCsf"": {
+        },
+        ""soc2"": {
+        },
+        ""nist"": {
+        }
+      }
+    }
+  }
+},{
+  ""key"": ""ExceptionInstructions"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+},{
+  ""key"": ""Recommendation"",
+  ""value"": {
+    ""primitive_data_type"": ""STRING""
+  }
+}]",LOW,UNDEFINED,UNDEFINED,1970-01-01T00:00:00Z,,MISCONFIGURATION,,,,,,,,,,,,,,,,,,,,,,,,,,,,,1970-01-01T00:00:00Z,,,,,,,,,,,,,,,,,,,,,,"[{
+  ""standard"": ""ccm"",
+  ""version"": ""4"",
+  ""ids"": [""DSP-17""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.2"",
+  ""ids"": [""6.2.7""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""1.3"",
+  ""ids"": [""6.2.4""]
+},{
+  ""standard"": ""cis"",
+  ""version"": ""2.0"",
+  ""ids"": [""6.2.4""]
+},{
+  ""standard"": ""cis-controls"",
+  ""version"": ""8.0"",
+  ""ids"": [""8.5""]
+},{
+  ""standard"": ""iso-27001"",
+  ""version"": ""2022"",
+  ""ids"": [""A.5.28"", ""A.8.15""]
+},{
+  ""standard"": ""nist-csf"",
+  ""version"": ""1.0"",
+  ""ids"": [""DE-AE-3"", ""DE-CM-1""]
+},{
+  ""standard"": ""nist800-53"",
+  ""version"": ""r5"",
+  ""ids"": [""AU-12"", ""AU-3"", ""AU-7""]
+},{
+  ""standard"": ""pci-dss"",
+  ""version"": ""4.0"",
+  ""ids"": [""10.2.1"", ""10.2.1.2"", ""10.2.1.5"", ""9.4.5""]
+},{
+  ""standard"": ""soc2"",
+  ""version"": ""2017"",
+  ""ids"": [""CC5.2.3"", ""CC7.2.1"", ""CC7.2.2"", ""CC7.2.3""]
+}]",SECURITY_HEALTH_ADVISOR,GOOGLE_CLOUD_PLATFORM,Security Health Analytics,"The ""log_statement"" flag in this Cloud SQL instance is not set to ""ddl"". The value of this flag controls which SQL statements are logged. Logging helps troubleshoot operational problems and permits forensic analysis. If this flag isn't set to the correct value, relevant information might be skipped or might be hidden in too many messages. A value of 'ddl' (all data definition statements) is recommended unless otherwise directed by your organization's logging policy.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,//cloudsql.googleapis.com/projects/comdottasteslikegood/instances/vegangenius-db,vegangenius-db,google.cloud.sql.Instance,GOOGLE_CLOUD_PLATFORM,sqladmin.googleapis.com,us-central1-a,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,//cloudresourcemanager.googleapis.com/projects/746675616486,comdottasteslikegood,"[{
+  ""resource_folder"": ""//cloudresourcemanager.googleapis.com/folders/866856909820"",
+  ""resource_folder_display_name"": ""Tasteslikegood""
+}]",organizations/47228803552,,,,,,,,,,,,"[{
+  ""node_type"": ""GCP_PROJECT"",
+  ""id"": ""projects/746675616486"",
+  ""display_name"": ""comdottasteslikegood""
+},{
+  ""node_type"": ""GCP_FOLDER"",
+  ""id"": ""folders/866856909820"",
+  ""display_name"": ""Tasteslikegood""
+},{
+  ""node_type"": ""GCP_ORGANIZATION"",
+  ""id"": ""organizations/47228803552""
+}]",organizations/47228803552/folders/866856909820/projects/746675616486,,,,,,,,,,,,,,,
