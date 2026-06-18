@@ -7,6 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Data dumps / API cache (never commit)
+confluence_data.json
+confluence_spaces.json
+jira_data.json
+jira_issues.txt
+metadata.json
+
 node_modules
 dist
 dist-ssr
