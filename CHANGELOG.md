@@ -26,7 +26,7 @@ Feature release: server-rendered recipe/browse pages with a Save-to-Cookbook flo
 
 ### Dependencies
 
-- helmet 8.1→8.2, ioredis 5.10→5.11, google-auth-library 10.6→10.7, @google-cloud/secret-manager 6.1.1→6.1.3, globals 17.5→17.6, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.11, eslint 10.x, prettier 3.8.4, @typescript-eslint/eslint-plugin 8.61.
+- helmet 8.1→8.2, ioredis 5.10→5.11, google-auth-library 10.6→10.7, @google-cloud/secret-manager 6.1.1→6.1.3, globals 17.5→17.6, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.16, hono override →4.12.26 (clears two high-severity advisories), eslint 10.x, prettier 3.8.4, @typescript-eslint/eslint-plugin 8.61.
 - **Major bumps:** `@google/genai` 1.50→2.8 (not imported in TypeScript — version-only), `rate-limit-redis` 4.3→5.0 (API-compatible with the existing `RedisStore` usage in `server/security.ts`), `express-rate-limit` →8.5.1.
 - Docker base image `node:25-alpine` → `node:26-alpine`; GitHub Actions group bumps.
 - Held `@angular-eslint/*` at 21.x — the 22.x line requires Angular 22, and this release targets Angular 21.
