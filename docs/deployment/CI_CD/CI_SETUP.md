@@ -139,7 +139,7 @@ The CI workflow does **not** require API keys for build, lint, and type-check jo
 
 ### Tests fail in CI but pass locally
 
-- Check Node.js version (CI uses Node 20)
+- Check Node.js version (CI uses Node 26)
 - Ensure environment variables are set in CI (if needed)
 - Check for platform-specific issues (line endings, paths)
 

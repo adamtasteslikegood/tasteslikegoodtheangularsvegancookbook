@@ -129,7 +129,7 @@ uv run pytest --cov=.
 | **Coverage Tool**   | V8                     | pytest-cov         |
 | **Security Scan**   | None (yet)             | Safety             |
 | **CI Jobs**         | 4                      | 4                  |
-| **Runtime**         | Node 20                | Python 3.13        |
+| **Runtime**         | Node 26                | Python 3.13        |
 | **Branches**        | deploy-with-db         | dev/backend_sub222 |
 | **Status**          | ✅ Tested & passing    | ✅ Ready to test   |
 

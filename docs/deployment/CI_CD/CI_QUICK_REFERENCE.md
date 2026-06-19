@@ -83,6 +83,6 @@ npm run test
 
 ### CI failing but local passes
 
-- Check Node.js version (CI uses Node 20)
+- Check Node.js version (CI uses Node 26)
 - Ensure you committed all files
 - Check for environment variable issues
