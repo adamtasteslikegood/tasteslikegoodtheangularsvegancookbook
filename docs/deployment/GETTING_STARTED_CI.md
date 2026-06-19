@@ -93,7 +93,7 @@ Some existing code may not follow the new linting rules. Options:
 
 ### Node version mismatch
 
-The CI uses Node 20. To check your local version:
+The CI uses Node 26. To check your local version:
 
 ```bash
 node --version

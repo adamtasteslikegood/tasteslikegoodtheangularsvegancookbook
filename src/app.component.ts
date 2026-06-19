@@ -76,11 +76,15 @@ export class AppComponent {
    * from the SSR "Save to Cookbook" CTA.
    */
   private async handleSaveFromSSR(slug: string) {
-    // Validate the slug against a strict allow-list before using it in the
-    // request URL. The value comes from the `?save=<slug>` query param, so
-    // interpolating it raw would allow client-side request forgery
-    // (path traversal / host manipulation).
-    if (!/^[a-z0-9-]+$/i.test(slug)) {
+    // Slugs are stored lowercase server-side, so normalize (trim + lowercase)
+    // before validating — otherwise a mixed-case ?save= value would pass the
+    // allow-list and then 404.
+    const normalizedSlug = slug.trim().toLowerCase();
+    // Validate against a strict allow-list before using it in the request URL.
+    // The value comes from the `?save=<slug>` query param, so interpolating it
+    // raw would allow client-side request forgery (path traversal / host
+    // manipulation).
+    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
       console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
       return;
     }
@@ -88,9 +92,9 @@ export class AppComponent {
     // unauthenticated visitors arriving from an SSR page.
     this.authService.ensureGuestSession();
     try {
-      const response = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`);
+      const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);
       if (!response.ok) {
-        console.warn(`Could not fetch recipe for slug "${slug}": ${response.status}`);
+        console.warn(`Could not fetch recipe for slug "${normalizedSlug}": ${response.status}`);
         return;
       }
       const recipeData = await response.json();

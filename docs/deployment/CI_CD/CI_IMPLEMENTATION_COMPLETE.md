@@ -210,7 +210,7 @@ npm run format      # Format the code
 ### If GitHub Actions fails but local passes:
 
 - Ensure you committed all new files (especially configs)
-- Check that you're using Node 20 locally
+- Check that you're using Node 26 locally
 - Review the Actions logs in GitHub
 
 ---

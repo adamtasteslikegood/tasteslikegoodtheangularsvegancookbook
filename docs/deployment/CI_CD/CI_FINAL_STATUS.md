@@ -111,7 +111,7 @@ When you push, GitHub Actions will run:
 3. **Test** - Vitest with coverage
 4. **Type Check** - TypeScript compilation
 
-All jobs run in parallel on Node 20.
+All jobs run in parallel on Node 26.
 
 ---
 
