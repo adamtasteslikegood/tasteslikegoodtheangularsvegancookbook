@@ -95,7 +95,12 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      # On push events the 'format' job auto-commits any Prettier fixes, so
+      # running format:check in parallel would race and produce a false failure.
+      # Gate format:check to pull_request events only, where the format job
+      # does not run and the check is the only enforcement gate.
       - name: Check formatting with Prettier
+        if: github.event_name == 'pull_request'
         run: npm run format:check
 
   test:
