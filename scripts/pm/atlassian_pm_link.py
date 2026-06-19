@@ -229,22 +229,31 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+# Canonical default project set, kept in sync with Config.jira_project_key
+# and scripts/pm/sync_jira_confluence_status.py.
+DEFAULT_JIRA_PROJECTS = ["KAN", "RCP", "PLZA", "TO"]
+
+
 def _jira_project_keys(merged: dict[str, str]) -> str:
     explicit = merged.get("JIRA_PROJECTS") or merged.get("ATLASSIAN_JIRA_PROJECTS")
     if explicit:
         parts = [part.strip() for part in explicit.split(",") if part.strip()]
     else:
-        parts = [
-            merged.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN"),
-            merged.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY", "RCP"),
-        ]
+        primary = merged.get("ATLASSIAN_JIRA_PROJECT_KEY")
+        delivery = merged.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY")
+        if primary or delivery:
+            parts = [primary or "KAN", delivery or "RCP"]
+        else:
+            # No project env vars set — fall back to the comprehensive default
+            # so behavior matches Config.jira_project_key.
+            parts = list(DEFAULT_JIRA_PROJECTS)
     ordered: list[str] = []
     seen: set[str] = set()
     for part in parts:
         if part and part not in seen:
             ordered.append(part)
             seen.add(part)
-    return ",".join(ordered) or "KAN,RCP"
+    return ",".join(ordered) or ",".join(DEFAULT_JIRA_PROJECTS)
 
 
 def load_config() -> Config:

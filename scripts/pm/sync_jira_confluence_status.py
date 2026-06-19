@@ -62,22 +62,31 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
+# Canonical default project set, kept in sync with
+# scripts/pm/atlassian_pm_link.py (Config.jira_project_key).
+DEFAULT_JIRA_PROJECTS = ["KAN", "RCP", "PLZA", "TO"]
+
+
 def _jira_projects() -> list[str]:
     explicit = os.environ.get("JIRA_PROJECTS") or os.environ.get("ATLASSIAN_JIRA_PROJECTS")
     if explicit:
         parts = [part.strip() for part in explicit.split(",") if part.strip()]
     else:
-        parts = [
-            os.environ.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN"),
-            os.environ.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY", "RCP"),
-        ]
+        primary = os.environ.get("ATLASSIAN_JIRA_PROJECT_KEY")
+        delivery = os.environ.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY")
+        if primary or delivery:
+            parts = [primary or "KAN", delivery or "RCP"]
+        else:
+            # No project env vars set — fall back to the comprehensive default
+            # so behavior matches atlassian_pm_link.Config.jira_project_key.
+            parts = list(DEFAULT_JIRA_PROJECTS)
     ordered: list[str] = []
     seen: set[str] = set()
     for part in parts:
         if part and part not in seen:
             ordered.append(part)
             seen.add(part)
-    return ordered or ["KAN", "RCP"]
+    return ordered or list(DEFAULT_JIRA_PROJECTS)
 
 
 # Jira projects to track
