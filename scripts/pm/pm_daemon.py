@@ -134,12 +134,23 @@ class PMFileEventHandler(FileSystemEventHandler):
                 results = resp.json().get('results', [])
                 if results:
                     page_id = results[0]['id']
-                    # Get current version
+                    # Get current version. If we can't read it, abort instead of
+                    # POSTing with a stale version=1 — an update against an
+                    # existing page would be rejected by Confluence (or risk
+                    # clobbering it).
                     page_resp = requests.get(f"https://{URL_BASE}/wiki/api/v2/pages/{page_id}", headers=HEADERS, timeout=TIMEOUT)
                     if page_resp.status_code == 200:
                         version = page_resp.json().get('version', {}).get('number', 0) + 1
+                    else:
+                        logger.error(
+                            f"Could not read current version of existing page {page_id} "
+                            f"(HTTP {page_resp.status_code}); aborting sync of '{title}'"
+                        )
+                        return False
         except Exception as e:
-            logger.error(f"Error checking page existence: {e}")
+            # Don't swallow and continue with version=1; abort this file's sync.
+            logger.error(f"Error checking page existence for '{title}': {e}")
+            return False
 
         payload = {
             "spaceId": SPACE_ID,
