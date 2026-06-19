@@ -95,9 +95,13 @@ export class AppComponent {
       }
       const recipeData = await response.json();
       const recipe: Recipe = {
-        id: recipeData.id || crypto.randomUUID(),
+        // Always assign a fresh id: a saved copy is a new entry in the user's
+        // cookbook. Reusing the source public recipe's id makes the API POST
+        // collide with the existing row (409 → treated as success), so it would
+        // never persist to the server cookbook / other devices.
+        id: crypto.randomUUID(),
         name: recipeData.name || 'Saved Recipe',
-        ingredients: recipeData.ingredients || {},
+        ingredients: recipeData.ingredients || { wet: [], dry: [], other: [] },
         instructions: recipeData.instructions || [],
         prepTime: recipeData.prepTime ?? 0,
         cookTime: recipeData.cookTime ?? 0,
@@ -110,7 +114,9 @@ export class AppComponent {
       // auth.saveRecipe) and then syncs to the API, so a separate
       // authService.saveRecipe call here would be a redundant double-write.
       await this.persistenceService.saveRecipe(recipe);
-      this.activeView.set('kitchen');
+      // Use switchView so the kitchen history entry is pushed and the browser
+      // Back button behaves consistently with the rest of the app.
+      this.switchView('kitchen');
     } catch (err) {
       console.error('Failed to save recipe from SSR CTA:', err);
     }

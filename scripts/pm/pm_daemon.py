@@ -1,5 +1,6 @@
 import os
 import sys
+import html
 import logging
 import base64
 import subprocess
@@ -330,10 +331,16 @@ def _render_session_log_html(
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     duration_str = f"{duration_minutes} min" if duration_minutes else "—"
 
-    decisions_html = "".join(f"<li>{d}</li>" for d in key_decisions) if key_decisions else "<li>None</li>"
-    files_html = "".join(f"<li><code>{f}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
-    followups_html = "".join(f"<li>{item}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
-    links_html = "".join(f"<li><a href=\"{link}\">{link}</a></li>" for link in (pr_links or []))
+    # Escape all caller-provided values before embedding them in Confluence
+    # storage-format HTML to prevent injection / broken rendering.
+    agent_name = html.escape(agent_name)
+    summary = html.escape(summary)
+    session_id = html.escape(session_id)
+
+    decisions_html = "".join(f"<li>{html.escape(d)}</li>" for d in key_decisions) if key_decisions else "<li>None</li>"
+    files_html = "".join(f"<li><code>{html.escape(f)}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
+    followups_html = "".join(f"<li>{html.escape(item)}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
+    links_html = "".join(f"<li><a href=\"{html.escape(link, quote=True)}\">{html.escape(link)}</a></li>" for link in (pr_links or []))
 
     return f"""
 <ac:structured-macro ac:name="info"><ac:rich-text-body>
