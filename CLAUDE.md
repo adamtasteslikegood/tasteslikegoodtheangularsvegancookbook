@@ -273,6 +273,7 @@ Key routing rules:
 - Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
 
 ## GBrain Search Guidance (configured by /sync-gbrain)
+
 <!-- gstack-gbrain-search-guidance:start -->
 
 GBrain is set up and synced on this machine. The agent should prefer gbrain
