@@ -16,7 +16,7 @@ Complete CI/CD infrastructure implemented for **both** the Angular/Express front
 
 - **Language:** TypeScript
 - **Package Manager:** npm
-- **Runtime:** Node.js 20
+- **Runtime:** Node.js 26
 - **Frameworks:** Angular 21 + Express
 
 ### Tools Configured

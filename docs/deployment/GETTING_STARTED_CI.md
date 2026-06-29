@@ -102,8 +102,8 @@ node --version
 If you're on a different version, consider using [nvm](https://github.com/nvm-sh/nvm):
 
 ```bash
-nvm install 20
-nvm use 20
+nvm install 26
+nvm use 26
 ```
 
 ### Tests fail
