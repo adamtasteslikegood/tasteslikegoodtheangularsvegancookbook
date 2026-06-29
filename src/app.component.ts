@@ -45,7 +45,16 @@ export class AppComponent {
       }
     });
 
-    window.addEventListener('hashchange', () => this.syncViewFromLocation());
+    window.addEventListener('hashchange', () => {
+      // Only react to the #kitchen deep-link. Don't force the generator view
+      // on unrelated hash changes — that would override in-app navigation
+      // (e.g. the user is already in the kitchen and an anchor link fires a
+      // hashchange). Leaving the kitchen is driven by switchView/popstate.
+      if (window.location.hash === '#kitchen') {
+        this.authService.ensureGuestSession();
+        this.activeView.set('kitchen');
+      }
+    });
 
     // Handle ?save=<slug> from SSR "Save to Cookbook" CTA.
     // Fetches the public recipe by slug and saves it to the guest/user cookbook.
@@ -274,6 +283,14 @@ export class AppComponent {
       this.authService.ensureGuestSession();
       // Push history state so browser back returns to generator
       window.history.pushState({ view: 'kitchen' }, '', window.location.href);
+    } else if (window.location.hash === '#kitchen') {
+      // Clear the lingering #kitchen hash (left by an SSR deep-link) when
+      // returning to the generator, and record an explicit generator state on
+      // this entry. Otherwise the hash persists for the whole session and
+      // popstate's hash fallback would wrongly resolve a generator history
+      // entry back to kitchen.
+      const url = new URL(window.location.href);
+      window.history.replaceState({ view: 'generator' }, '', url.pathname + url.search);
     }
   }
 
