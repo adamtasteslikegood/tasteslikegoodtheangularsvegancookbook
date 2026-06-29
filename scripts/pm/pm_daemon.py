@@ -52,6 +52,7 @@ else:
     logger.warning("Atlassian credentials missing from .env")
 
 SPACE_ID = os.environ.get('CONFLUENCE_SPACE_ID', "11042818")  # TLG space ID
+SPACE_KEY = os.environ.get('CONFLUENCE_SPACE_KEY', "TLG")  # space key used in human-facing /wiki/spaces/<KEY> URLs
 PARENT_PAGE_ID = os.environ.get('CONFLUENCE_PARENT_PAGE_ID', "11796481")  # Project Documentation page ID
 BRIEFING_FILE = Path('.agent-work/pm/PROJECT_PM_BRIEFING.md')
 
@@ -435,7 +436,7 @@ def log_agent_session(
         response = requests.post(url, headers=HEADERS, json=payload, timeout=TIMEOUT)
         if response.status_code in [200, 201]:
             page_id = response.json().get("id", "")
-            page_url = f"https://{URL_BASE}/wiki/spaces/TLG/pages/{page_id}"
+            page_url = f"https://{URL_BASE}/wiki/spaces/{SPACE_KEY}/pages/{page_id}"
             return f"Session logged successfully: {title}\nConfluence URL: {page_url}"
         else:
             return f"Failed to log session: {response.status_code} {response.text}"
