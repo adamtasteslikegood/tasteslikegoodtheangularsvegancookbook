@@ -30,7 +30,7 @@ Browser → Angular 21 SPA → Express reverse-proxy (:8080) → Flask API (:500
 
 ## Quick Start
 
-**Prerequisites:** Node.js 20+, Python 3.11+, [uv](https://docs.astral.sh/uv/)
+**Prerequisites:** Node.js 26+, Python 3.11+, [uv](https://docs.astral.sh/uv/)
 
 ```bash
 # 1. Clone with submodules

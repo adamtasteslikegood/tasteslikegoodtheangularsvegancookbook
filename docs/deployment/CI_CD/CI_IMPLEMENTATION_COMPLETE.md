@@ -58,7 +58,7 @@ This document summarizes the CI/CD infrastructure that has been implemented for 
 **Workflow File** (`.github/workflows/ci.yml`)
 
 - ✅ Runs on push/PR to `main` or `develop`
-- ✅ Uses Node.js 20 (LTS)
+- ✅ Uses Node.js 26
 - ✅ Four parallel jobs:
   1. **Build** - Compiles project, uploads artifacts
   2. **Lint** - ESLint + Prettier checks
