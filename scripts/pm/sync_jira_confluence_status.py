@@ -12,11 +12,16 @@ import base64
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+
+# Make sibling modules importable when run as a script from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _jira_projects import resolve_jira_projects  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -62,31 +67,10 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
-# Canonical default project set, kept in sync with
-# scripts/pm/atlassian_pm_link.py (Config.jira_project_key).
-DEFAULT_JIRA_PROJECTS = ["KAN", "RCP", "PLZA", "TO"]
-
-
 def _jira_projects() -> list[str]:
-    explicit = os.environ.get("JIRA_PROJECTS") or os.environ.get("ATLASSIAN_JIRA_PROJECTS")
-    if explicit:
-        parts = [part.strip() for part in explicit.split(",") if part.strip()]
-    else:
-        primary = os.environ.get("ATLASSIAN_JIRA_PROJECT_KEY")
-        delivery = os.environ.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY")
-        if primary or delivery:
-            parts = [primary or "KAN", delivery or "RCP"]
-        else:
-            # No project env vars set — fall back to the comprehensive default
-            # so behavior matches atlassian_pm_link.Config.jira_project_key.
-            parts = list(DEFAULT_JIRA_PROJECTS)
-    ordered: list[str] = []
-    seen: set[str] = set()
-    for part in parts:
-        if part and part not in seen:
-            ordered.append(part)
-            seen.add(part)
-    return ordered or list(DEFAULT_JIRA_PROJECTS)
+    # Shared resolver (see _jira_projects.py) so this and atlassian_pm_link.py
+    # can't drift.
+    return resolve_jira_projects(os.environ.get)
 
 
 # Jira projects to track

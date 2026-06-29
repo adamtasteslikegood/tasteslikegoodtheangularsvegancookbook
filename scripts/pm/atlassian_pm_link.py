@@ -26,6 +26,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+# Make sibling modules importable whether this file is run as a script or
+# imported (e.g. by publish_session_log.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _jira_projects import resolve_jira_projects  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
 DEFAULT_CACHE = REPO_ROOT / ".agent-work" / "pm" / "atlassian-state.json"
@@ -229,31 +234,10 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
-# Canonical default project set, kept in sync with Config.jira_project_key
-# and scripts/pm/sync_jira_confluence_status.py.
-DEFAULT_JIRA_PROJECTS = ["KAN", "RCP", "PLZA", "TO"]
-
-
 def _jira_project_keys(merged: dict[str, str]) -> str:
-    explicit = merged.get("JIRA_PROJECTS") or merged.get("ATLASSIAN_JIRA_PROJECTS")
-    if explicit:
-        parts = [part.strip() for part in explicit.split(",") if part.strip()]
-    else:
-        primary = merged.get("ATLASSIAN_JIRA_PROJECT_KEY")
-        delivery = merged.get("ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY")
-        if primary or delivery:
-            parts = [primary or "KAN", delivery or "RCP"]
-        else:
-            # No project env vars set — fall back to the comprehensive default
-            # so behavior matches Config.jira_project_key.
-            parts = list(DEFAULT_JIRA_PROJECTS)
-    ordered: list[str] = []
-    seen: set[str] = set()
-    for part in parts:
-        if part and part not in seen:
-            ordered.append(part)
-            seen.add(part)
-    return ",".join(ordered) or ",".join(DEFAULT_JIRA_PROJECTS)
+    # Shared resolver (see _jira_projects.py) so this and
+    # sync_jira_confluence_status.py can't drift.
+    return ",".join(resolve_jira_projects(merged.get))
 
 
 def load_config() -> Config:
