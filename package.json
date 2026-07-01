@@ -28,7 +28,7 @@
     "@angular/platform-browser": "21.2.10",
     "@google-cloud/secret-manager": "^6.1.1",
     "@google/genai": "^1.50.1",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.5.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
     "express-validator": "^7.3.2",
@@ -58,7 +58,7 @@
     "globals": "^17.7.0",
     "prettier": "^3.8.3",
     "typescript": ">=5.9 <6",
-    "vite": "^8.0.10",
+    "vite": "^8.1.2",
     "vitest": "^4.0.8"
   }
 }
