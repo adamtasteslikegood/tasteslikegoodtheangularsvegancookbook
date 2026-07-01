@@ -19,7 +19,7 @@ jobs:
 
       - uses: JetBrains/junie-github-action@v1
         with:
-          junie_api_key: ${{ secrets.JUNIE_API_KEY }}
+          google_api_key: ${{ secrets.GEMINI_API_KEY }}
           use_single_comment: "true"
           prompt: "code-review"
           # model: "claude-opus-4-5-20251101"  # Optional: specify which model to use
