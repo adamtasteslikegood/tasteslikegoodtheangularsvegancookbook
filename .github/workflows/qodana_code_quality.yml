@@ -16,7 +16,7 @@ jobs:
       pull-requests: write
       checks: write
     env:
-      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN_1818970254 }}
+      QODANA_TOKEN: ${{ secrets.QODANA_TOKEN }}
     steps:
       - name: Skip when token is unavailable
         if: ${{ env.QODANA_TOKEN == '' }}
