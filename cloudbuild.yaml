@@ -91,14 +91,81 @@ steps:
     waitFor: ['Tag Flask Backend Version']
     args: [push, '$_IMAGE_REGISTRY/flask-backend:$_VERSION']
 
+  # ── Database migration ───────────────────────────────────────────────────────
+  # Migrations run as a Cloud Run Job that reuses the just-pushed flask-backend
+  # image and overrides the command to `flask db upgrade`. The job runs to
+  # completion BEFORE the Flask service is redeployed, so a failing migration
+  # aborts the build and the old Flask revision keeps serving traffic.
+  #
+  # Why a Job and not an init container: Cloud Run services don't support init
+  # containers, and running migrations on every Flask cold-start would race
+  # under concurrency. A one-shot Job is the canonical pattern.
+  #
+  # The job's env + secrets MUST mirror the Flask service so config.py and
+  # create_app() resolve identically — otherwise FLASK_SECRET_KEY fail-fast or
+  # a missing DATABASE_URL secret will surface here, not in service logs.
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Migrate Job'
+    # Wait on the SHORT_SHA image push, not the SemVer tag push — the Job's
+    # --image refers to flask-backend:$SHORT_SHA, so as soon as that's in
+    # Artifact Registry the Job can be deployed in parallel with the version
+    # tag push (which is for service-image traceability, not migrations).
+    waitFor: ['Push Flask Backend Image']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - flask-backend-migrate
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --command=flask
+      - --args=db,upgrade
+      - --max-retries=1
+      - --task-timeout=600
+      - --cpu=1
+      - --memory=1Gi
+      - --parallelism=1
+      - --tasks=1
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
+      # The DATABASE_URL secret is configured for Cloud SQL Unix-socket
+      # connection (postgresql://...?host=/cloudsql/<instance>), matching
+      # the Flask service. Without this flag the socket path doesn't exist
+      # in the Job container and SQLAlchemy falls back to localhost:5432
+      # ("Is the server running locally and accepting connections on that
+      # socket?"). The flask-backend Cloud Run service has the same
+      # `run.googleapis.com/cloudsql-instances` annotation set.
+      - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
+      - --quiet
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Execute Migrate Job'
+    waitFor: ['Deploy Migrate Job']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - flask-backend-migrate
+      - --region=$_REGION
+      - --wait
+      - --quiet
+
   # ── Deploy ───────────────────────────────────────────────────────────────────
   # KAN-30: Flask backend deploys first; Express frontend waits on its completion
   # so the new frontend never serves against the old API during rollout.
+  # The migrate Job above must succeed before the Flask service is redeployed
+  # so a broken migration cannot land alongside a code change that depends on it.
 
   # 4. Deploy Flask Backend
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Flask Backend'
-    waitFor: ['Push Flask Backend Version Tag']
+    waitFor: ['Execute Migrate Job']
     entrypoint: gcloud
     args:
       - run
@@ -111,7 +178,12 @@ steps:
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images
+      # GCP_PROJECT_ID + PUBSUB_INVOKER_SA wire the Pub/Sub push handlers
+       # (Backend/blueprints/worker_api_bp.py). PUBSUB_INVOKER_SA is the email
+      # of the SA Pub/Sub uses to OIDC-sign push requests; created by
+      # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
+      # fails closed with 503.
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
       - --no-allow-unauthenticated
       - --quiet

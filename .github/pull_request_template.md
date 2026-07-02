@@ -2,6 +2,21 @@
 
 <!-- Provide a brief description of the changes in this PR -->
 
+## Related Issues
+
+<!--
+  Link issues this PR closes or relates to.
+  GitHub only auto-closes issues when this PR is merged if you use a closing
+  keyword such as Closes, Fixes, or Resolves.
+  Use "Relates to" to link an issue without closing it.
+
+  Examples:
+    Closes #123
+    Fixes #456
+    Resolves #789
+    Relates to #101
+-->
+
 ## Type of Change
 
 - [ ] Bug fix (non-breaking change which fixes an issue)

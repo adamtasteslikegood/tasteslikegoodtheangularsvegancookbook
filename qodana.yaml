@@ -2,7 +2,7 @@
 # WARNING: Do not store sensitive information in this file, as its contents will be included in the Qodana report. #
 ####################################################################################################################
 version: '1.0'
-linter: jetbrains/qodana-js:2025.3
+linter: jetbrains/qodana-js:2026.1
 
 # Install npm dependencies so ESLint and Angular type resolution work correctly
 bootstrap: npm ci
@@ -23,3 +23,4 @@ exclude:
       - .zed
       # Plain HTML served by Express — not Angular templates
       - server/public
+      - eslint.config.js # <-- Add this line to ignore the config file

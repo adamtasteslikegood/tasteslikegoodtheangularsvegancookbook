@@ -1,0 +1,10 @@
+fastmcp
+# Install with: pip install -r scripts/pm/requirements.txt
+markdown
+mcp
+python-dotenv
+python-dotenv>=1.0.0
+requests
+requests>=2.31.0
+# Runtime dependencies for scripts/pm/sync_jira_confluence_status.py
+watchdog
