@@ -98,6 +98,9 @@ __pycache__/
 *$py.class
 .gstack/
 
+# pm-daemon virtualenv (auto-created on session startup, see .mcp.json)
+scripts/pm/.venv/
+
 # Agent runtime state
 .claude/scheduled_tasks.lock
 .omg/state/
