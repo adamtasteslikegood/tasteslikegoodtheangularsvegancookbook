@@ -7,11 +7,37 @@ import angularTemplatePlugin from '@angular-eslint/eslint-plugin-template';
 import angularTemplateParser from '@angular-eslint/template-parser';
 import prettierConfig from 'eslint-config-prettier';
 
+// Normalize flat-config exports that may be a single object or an array.
+const collectRules = (configEntry, preferredName) => {
+  if (!configEntry) return {};
+  const entries = Array.isArray(configEntry) ? configEntry : [configEntry];
+
+  if (preferredName) {
+    const preferred = entries.find((entry) => entry?.name === preferredName);
+    if (preferred?.rules) return preferred.rules;
+  }
+
+  return entries.reduce((rules, entry) => ({ ...rules, ...(entry?.rules ?? {}) }), {});
+};
+
 // Locate the TypeScript-specific rules from the flat config by name rather than
 // by positional index so the config stays correct if the array order changes.
-const tsRecommendedRules =
-  tsPlugin.configs['flat/recommended'].find((c) => c.name === 'typescript-eslint/recommended')
-    ?.rules ?? {};
+const tsRecommendedRules = collectRules(
+  tsPlugin.configs['flat/recommended'],
+  'typescript-eslint/recommended',
+);
+const angularRecommendedRules = collectRules(
+  angularPlugin.configs?.recommended,
+  '@angular-eslint/recommended',
+);
+const angularTemplateRecommendedRules = collectRules(
+  angularTemplatePlugin.configs?.recommended,
+  '@angular-eslint/template/recommended',
+);
+const angularTemplateAccessibilityRules = collectRules(
+  angularTemplatePlugin.configs?.accessibility,
+  '@angular-eslint/template/accessibility',
+);
 
 export default [
   // Global ignores (replaces .eslintignore)
@@ -42,7 +68,7 @@ export default [
     },
     rules: {
       ...tsRecommendedRules,
-      ...(angularPlugin.configs?.recommended?.rules ?? {}),
+      ...angularRecommendedRules,
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'prefer-const': ['error', { destructuring: 'all' }],
@@ -90,8 +116,8 @@ export default [
       '@angular-eslint/template': angularTemplatePlugin,
     },
     rules: {
-      ...(angularTemplatePlugin.configs?.recommended?.rules ?? {}),
-      ...(angularTemplatePlugin.configs?.accessibility?.rules ?? {}),
+      ...angularTemplateRecommendedRules,
+      ...angularTemplateAccessibilityRules,
     },
   },
 
