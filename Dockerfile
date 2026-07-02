@@ -1,5 +1,5 @@
 # Build stage
-FROM node:25-alpine AS build
+FROM node:22.22.3-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
@@ -8,7 +8,7 @@ RUN npm run build
 RUN npm prune --omit=dev
 
 # Runtime stage
-FROM node:25-alpine
+FROM node:22.22.3-alpine
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=build /app/dist ./dist
