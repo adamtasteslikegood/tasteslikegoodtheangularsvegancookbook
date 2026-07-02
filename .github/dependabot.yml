@@ -39,6 +39,8 @@ updates:
       angular:
         patterns:
           - '@angular/*'
+          - '@angular-eslint/*'
+          - '@angular-devkit/*'
       # Testing tools (vitest, coverage)
       testing:
         patterns:
@@ -50,7 +52,6 @@ updates:
           - 'eslint'
           - 'eslint-*'
           - '@typescript-eslint/*'
-          - '@angular-eslint/*'
           - 'prettier'
       # TypeScript and type definitions
       types:
@@ -66,6 +67,15 @@ updates:
           - 'postcss'
     # Ignore known breaking major updates that require manual migration
     ignore:
+      # Angular major upgrades must be coordinated with Angular ESLint and project migrations.
+      - dependency-name: '@angular/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@angular-eslint/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@angular-devkit/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
       # Tailwind v4 requires @tailwindcss/postcss plugin and full config migration.
       # Review periodically — remove this ignore when ready to migrate (see postcss.config.js).
       - dependency-name: 'tailwindcss'
