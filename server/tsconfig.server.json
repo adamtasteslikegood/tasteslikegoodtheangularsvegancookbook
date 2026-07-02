@@ -7,6 +7,7 @@
     "rootDir": "./",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
+    "ignoreDeprecations": "6.0",
     "strict": true,
     "skipLibCheck": true,
     "types": ["node"]

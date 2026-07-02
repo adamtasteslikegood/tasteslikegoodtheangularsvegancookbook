@@ -658,11 +658,9 @@
                       {{ $index + 1 }}
                     </div>
                     <div class="flex-1 pt-1">
-                      @if (isString(inst)) {
-                        <p class="text-stone-700 leading-relaxed text-lg">{{ inst }}</p>
-                      } @else {
-                        <p class="text-stone-700 leading-relaxed text-lg">{{ inst.description }}</p>
-                      }
+                      <p class="text-stone-700 leading-relaxed text-lg">
+                        {{ instructionText(inst) }}
+                      </p>
                     </div>
                   </div>
                 }
