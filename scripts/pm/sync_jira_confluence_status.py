@@ -62,6 +62,8 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
+# Jira projects to track
+JIRA_PROJECTS = os.environ.get("JIRA_PROJECTS", "KAN,RCP,PLZA,TO").split(",")
 
 def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
     """Parse `id1:Name 1,id2:Name 2,...` into [(id, name), ...]."""
@@ -97,8 +99,9 @@ def get_auth_headers(email: str, token: str) -> dict:
     }
 
 def fetch_jira_issues():
-    """Fetch open issues from KAN project using GET /search/jql."""
-    jql = 'project = KAN AND status != Done AND status != Closed ORDER BY updated DESC'
+    """Fetch open issues from tracked projects using GET /search/jql."""
+    project_list = ",".join(f'"{p}"' for p in JIRA_PROJECTS)
+    jql = f'project IN ({project_list}) AND status != Done AND status != Closed ORDER BY updated DESC'
     url = f"https://{URL_BASE}/rest/api/3/search/jql"
     params = {"jql": jql, "maxResults": 50, "fields": "summary,status,assignee,updated,issuetype,labels"}
     try:
@@ -115,7 +118,8 @@ def fetch_jira_issues():
 
 def fetch_recent_issues():
     """Fetch recently updated issues (last 30 days) using GET /search/jql."""
-    jql = 'project = KAN AND updated >= -30d ORDER BY updated DESC'
+    project_list = ",".join(f'"{p}"' for p in JIRA_PROJECTS)
+    jql = f'project IN ({project_list}) AND updated >= -30d ORDER BY updated DESC'
     url = f"https://{URL_BASE}/rest/api/3/search/jql"
     params = {"jql": jql, "maxResults": 50, "fields": "summary,status,assignee,updated,issuetype,labels"}
     try:
@@ -293,7 +297,7 @@ def main():
     print()
 
     # 3. Jira Open Issues
-    print("## 3. OPEN JIRA ISSUES (KAN Project)")
+    print(f"## 3. OPEN JIRA ISSUES ({', '.join(JIRA_PROJECTS)} Projects)")
     issues = fetch_jira_issues()
     if issues:
         print(f"  Total open issues: {issues.get('total', 0)}")
