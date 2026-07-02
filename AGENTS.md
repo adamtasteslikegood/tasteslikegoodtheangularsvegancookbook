@@ -155,7 +155,7 @@ GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
 
 ## PM Daemon (`.mcp.json`)
 
-The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. It:
+The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `scripts/pm/pm_daemon.py` (consolidated from `alirez-claude-skills/pm-daemon/`). It:
 
 1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio
 2. Runs a `watchdog` Observer that auto-syncs these files to Confluence on save:
@@ -178,10 +178,17 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
 
-- Jira issues from KAN project
+- Jira issues from KAN and RCP projects (Recipe Site)
+- Jira issues from PLZA and TO projects (Office Game)
 - Open GitHub PRs
 - Confluence page info
 - Production site health check
+
+**Jira Project Keys:**
+
+- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
+- **Office Game:** `PLZA`, `TO`
+- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
 
 Install deps: `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
