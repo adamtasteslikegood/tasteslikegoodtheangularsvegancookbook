@@ -42,7 +42,7 @@ export default [
     },
     rules: {
       ...tsRecommendedRules,
-      ...angularPlugin.configs.recommended.rules,
+      ...(angularPlugin.configs?.recommended?.rules ?? {}),
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       'prefer-const': ['error', { destructuring: 'all' }],
@@ -90,8 +90,8 @@ export default [
       '@angular-eslint/template': angularTemplatePlugin,
     },
     rules: {
-      ...angularTemplatePlugin.configs.recommended.rules,
-      ...angularTemplatePlugin.configs.accessibility.rules,
+      ...(angularTemplatePlugin.configs?.recommended?.rules ?? {}),
+      ...(angularTemplatePlugin.configs?.accessibility?.rules ?? {}),
     },
   },
 
