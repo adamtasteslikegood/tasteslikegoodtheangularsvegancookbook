@@ -53,7 +53,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
-### Layer 1 — Angular 21 SPA (`src/`)
+### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
@@ -155,7 +155,7 @@ GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
 
 ## PM Daemon (`.mcp.json`)
 
-The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. It:
+The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `scripts/pm/pm_daemon.py` (consolidated from `alirez-claude-skills/pm-daemon/`). It:
 
 1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio
 2. Runs a `watchdog` Observer that auto-syncs these files to Confluence on save:
@@ -178,10 +178,17 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
 
-- Jira issues from KAN project
+- Jira issues from KAN and RCP projects (Recipe Site)
+- Jira issues from PLZA and TO projects (Office Game)
 - Open GitHub PRs
 - Confluence page info
 - Production site health check
+
+**Jira Project Keys:**
+
+- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
+- **Office Game:** `PLZA`, `TO`
+- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
 
 Install deps: `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
@@ -240,7 +247,7 @@ Pre-release tags like `v0.3.0-rc.1` create a GitHub Release without triggering p
 - **Rate limiter** uses Valkey for distributed state; `server/valkey.ts` has open GH issues (#163, #162) for edge cases
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`
+- **TypeScript is pinned with Angular toolchain** — `package.json` pins `typescript` to `6.0.3` (aligned with Angular 22); major upgrades are coordinated manually.
 - **PM planning docs** live in `specs/` directory (except AGENTS.md at repo root)
 
 ## Skill routing

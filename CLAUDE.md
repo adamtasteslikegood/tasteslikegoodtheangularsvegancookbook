@@ -52,7 +52,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
-### Layer 1 — Angular 21 SPA (`src/`)
+### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
@@ -211,7 +211,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
+- **TypeScript is pinned with Angular toolchain** — `package.json` pins `typescript` to `6.0.3` (aligned with Angular 22); major upgrades are coordinated manually via Dependabot policy.
 
 ## Further reading
 
@@ -259,3 +259,44 @@ Key routing rules:
 - Architecture review → invoke plan-eng-review
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
+
+## GBrain Configuration (configured by /setup-gbrain)
+
+- Mode: local-stdio
+- Engine: postgres (Supabase Session Pooler)
+- gbrain version: 0.28.6 (upgraded from 0.18.x on 2026-05-07; schema v38)
+- Config file: `~/.gbrain/config.json` (mode 0600)
+- MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
+- Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
+- Artifacts sync: full
+- Current repo policy: read-write
+- Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
+
+## GBrain Search Guidance (configured by /sync-gbrain)
+
+<!-- gstack-gbrain-search-guidance:start -->
+
+GBrain is set up and synced on this machine. The agent should prefer gbrain
+over Grep when the question is semantic or when you don't know the exact
+identifier yet. Two indexed corpora available via the `gbrain` CLI:
+
+- This repo's code (registered as `gstack-code-<repo>` source).
+- `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
+  the existing federation pipeline).
+
+Prefer gbrain when:
+
+- "Where is X handled?" / semantic intent, no exact string yet:
+  `gbrain search "<terms>"` or `gbrain query "<question>"`
+- "Where is symbol Y defined?" / symbol-based code questions:
+  `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
+- "What calls Y?" / "What does Y depend on?":
+  `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
+- "What did we decide last time?" / past plans, retros, learnings:
+  `gbrain search "<terms>" --source gstack-brain-<user>`
+
+Grep is still right for known exact strings, regex, multiline patterns, and
+file globs. The brain auto-syncs incrementally on every gstack skill start.
+Run `/sync-gbrain` to force-refresh, `/sync-gbrain --full` for full reindex.
+
+<!-- gstack-gbrain-search-guidance:end -->
