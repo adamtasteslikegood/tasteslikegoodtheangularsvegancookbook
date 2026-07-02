@@ -67,7 +67,7 @@ updates:
           - 'postcss'
     # Ignore known breaking major updates that require manual migration
     ignore:
-      # Angular major upgrades must be coordinated with Angular ESLint and project migrations.
+      # Angular and TypeScript major upgrades must be coordinated with Angular ESLint and project migrations.
       - dependency-name: '@angular/*'
         update-types: ['version-update:semver-major']
       - dependency-name: '@angular-eslint/*'
