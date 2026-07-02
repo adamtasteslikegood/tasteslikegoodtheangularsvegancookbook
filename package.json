@@ -35,7 +35,7 @@
     "google-auth-library": "^10.6.2",
     "helmet": "^8.1.0",
     "ioredis": "^5.10.1",
-    "rate-limit-redis": "^4.3.1",
+    "rate-limit-redis": "^5.0.0",
     "rxjs": "^7.8.2",
     "tailwindcss": "^3.4.19"
   },
