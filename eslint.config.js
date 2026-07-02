@@ -24,19 +24,19 @@ const collectRules = (configEntry, preferredName) => {
 // by positional index so the config stays correct if the array order changes.
 const tsRecommendedRules = collectRules(
   tsPlugin.configs['flat/recommended'],
-  'typescript-eslint/recommended',
+  'typescript-eslint/recommended'
 );
 const angularRecommendedRules = collectRules(
   angularPlugin.configs?.recommended,
-  '@angular-eslint/recommended',
+  '@angular-eslint/recommended'
 );
 const angularTemplateRecommendedRules = collectRules(
   angularTemplatePlugin.configs?.recommended,
-  '@angular-eslint/template/recommended',
+  '@angular-eslint/template/recommended'
 );
 const angularTemplateAccessibilityRules = collectRules(
   angularTemplatePlugin.configs?.accessibility,
-  '@angular-eslint/template/accessibility',
+  '@angular-eslint/template/accessibility'
 );
 
 export default [
