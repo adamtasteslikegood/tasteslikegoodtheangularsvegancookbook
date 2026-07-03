@@ -409,10 +409,15 @@ def _run_probe(probe: dict, minutes_back: int) -> list[str]:
 
     lines: list[str] = []
     series_count = 0
+    truncated = False
     for ts in results:
         series_count += 1
         if series_count > MAX_SERIES_PER_PROBE:
-            continue
+            # Stop consuming the stream — a broad query can return far more
+            # series than we display, and draining it just to count is wasted
+            # API time.
+            truncated = True
+            break
         values = [v for v in (_point_value(p) for p in ts.points) if v is not None]
         if not values:
             continue
@@ -430,9 +435,10 @@ def _run_probe(probe: dict, minutes_back: int) -> list[str]:
             f"mean {_fmt(mean, unit)} | max {_fmt(peak, unit)} "
             f"({len(values)} pts @{alignment_seconds}s){warn}"
         )
-    if series_count > MAX_SERIES_PER_PROBE:
+    if truncated:
         lines.append(
-            f"  - {probe['name']}: … {series_count - MAX_SERIES_PER_PROBE} more series omitted"
+            f"  - {probe['name']}: … more series omitted (showing first "
+            f"{MAX_SERIES_PER_PROBE}; narrow the filter or group_by for full coverage)"
         )
     return lines
 
