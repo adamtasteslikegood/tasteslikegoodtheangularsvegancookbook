@@ -1,0 +1,4 @@
+# Runtime dependencies for scripts/monitoring/gcp_mcp_server.py
+# Install with: pip install -r scripts/monitoring/requirements.txt
+mcp>=1.2.0
+google-cloud-monitoring>=2.21.0

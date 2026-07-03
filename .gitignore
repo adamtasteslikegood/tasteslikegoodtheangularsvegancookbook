@@ -79,6 +79,7 @@ override.tf.json
 .clawhub/
 claude-code-tresor
 skills
+!.claude/skills/
 
 # Generated / local artifacts
 /export
@@ -96,6 +97,9 @@ model_discovery_output.txt
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Python virtualenvs (created on demand by MCP launcher scripts)
+.venv/
 .gstack/
 
 # Agent runtime state
