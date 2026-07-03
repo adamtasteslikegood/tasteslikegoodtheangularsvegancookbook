@@ -441,11 +441,13 @@ def _check_component(component: str, minutes_back: int) -> str:
     probes = COMPONENTS[component]
     out = [f"## {component} (last {minutes_back} min, project {PROJECT_ID})"]
     any_data = False
+    any_error = False
     for probe in probes:
         try:
             lines = _run_probe(probe, minutes_back)
         except Exception as exc:  # noqa: BLE001 — surface API errors to the agent
             out.append(f"  - {probe['name']}: query failed: {exc}")
+            any_error = True
             continue
         if lines:
             any_data = True
@@ -453,12 +455,20 @@ def _check_component(component: str, minutes_back: int) -> str:
         elif not probe.get("optional"):
             out.append(f"  - {probe['name']}: no data in window")
     if not any_data:
-        out.append(
-            "  No metrics found for any probe. Either the component is idle/has no "
-            "traffic, or metric names differ for this deployment — call "
-            "list_available_metrics with a prefix like 'memorystore.googleapis.com/' "
-            "to discover the exact metric types, then query_metric to fetch them."
-        )
+        if any_error:
+            out.append(
+                "  No metrics retrieved — one or more queries FAILED (see errors "
+                "above). This is an access/API problem, not evidence the component "
+                "is idle or unhealthy; fix credentials/permissions first."
+            )
+        else:
+            out.append(
+                "  No metrics found for any probe. Either the component is idle/has "
+                "no traffic, or metric names differ for this deployment — call "
+                "list_available_metrics with a prefix like "
+                "'memorystore.googleapis.com/' to discover the exact metric types, "
+                "then query_metric to fetch them."
+            )
     return "\n".join(out)
 
 
