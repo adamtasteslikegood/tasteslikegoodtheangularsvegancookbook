@@ -1,0 +1,122 @@
+# GCP System Health Monitor — MCP Server Setup
+
+A stdio MCP server (`scripts/monitoring/gcp_mcp_server.py`) that lets Claude
+query live Cloud Monitoring telemetry for the production stack and run the
+**"Run System Health Check"** routine. It covers:
+
+| Component  | GCP resource                                        |
+| ---------- | --------------------------------------------------- |
+| `frontend` | Cloud Run service `express-frontend`                 |
+| `backend`  | Cloud Run service `flask-backend`                    |
+| `database` | Cloud SQL instance `comdottasteslikegood:vegangenius-db` |
+| `valkey`   | Memorystore Valkey rate-limiter store                |
+| `pubsub`   | Generation topics + push subscriptions (incl. DLQ)   |
+
+```
+[ Claude (Code or Desktop) ]
+         │  stdio MCP
+         ▼
+[ scripts/monitoring/gcp_mcp_server.py ]
+         │  service-account auth (read-only)
+         ▼
+[ Cloud Monitoring API ] ──> live component telemetry
+```
+
+## 1. Prerequisites
+
+- A service account with **`roles/monitoring.viewer`** on project
+  `comdottasteslikegood`, and its JSON key downloaded somewhere **outside the
+  repo** (e.g. `~/gcp-keys/monitoring-viewer.json`). Never commit the key.
+  `monitoring.viewer` is sufficient for everything this server does —
+  Pub/Sub metrics are read through the Monitoring API, so `pubsub.viewer` is
+  not required.
+- `python3` with venv support (`sudo apt install python3.12-venv` on
+  Debian/Ubuntu). The launcher script creates its own venv on first run and
+  installs `mcp` + `google-cloud-monitoring`.
+
+## 2. Configuration
+
+Add to the repo-root `.env` (already gitignored):
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/monitoring-viewer.json
+GCP_PROJECT_ID=comdottasteslikegood   # optional, this is the default
+```
+
+Optional overrides (defaults match production): `EXPRESS_SERVICE`,
+`FLASK_SERVICE`, `CLOUDSQL_INSTANCE`.
+
+## 3. Claude Code (this repo)
+
+Nothing else to do — the server is registered in `.mcp.json` as
+`gcp-monitor` and auto-spawns when a session starts in this directory, same
+as `pm-daemon`. Verify with `ps -ef | grep gcp_mcp_server`.
+
+## 4. Claude Desktop
+
+Edit the desktop config file:
+
+- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
+
+Merge in (adjust the repo path and key path to your machine):
+
+```json
+{
+  "mcpServers": {
+    "gcp-monitor": {
+      "command": "bash",
+      "args": [
+        "/absolute/path/to/tasteslikegoodtheangularsvegancookbook/scripts/monitoring/run_gcp_monitor.sh"
+      ],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/absolute/path/to/monitoring-viewer.json",
+        "GCP_PROJECT_ID": "comdottasteslikegood"
+      }
+    }
+  }
+}
+```
+
+Fully restart Claude Desktop, then check for `GCP-Metrics-Monitor` under the
+tools icon in the chat input.
+
+To recreate the routine in Desktop, make a Project ("System Health
+Analysis") and paste the routine from
+`.claude/skills/system-health-check/SKILL.md` into its Custom Instructions.
+Trigger it with: **Run System Health Check**.
+
+## 5. Tools exposed
+
+- `check_system_health(target_component="all", minutes_back=15)` — summarized
+  metrics (latest | mean | max per series) for one component or the whole
+  stack. Aliases: `redis`→`valkey`, `db`/`sql`→`database`. ⚠️ flags mark
+  values beyond healthy thresholds (CPU/mem ≥ 80%, latency p95 > 2 s, Pub/Sub
+  backlog > 10, unacked age > 5 min, any 5xx traffic).
+- `list_available_metrics(prefix, limit=50)` — discover metric descriptors,
+  e.g. `list_available_metrics("memorystore.googleapis.com/")`. Useful when a
+  probe reports no data and you need the exact metric names for this
+  deployment.
+- `query_metric(metric_type, minutes_back, aligner, group_by, extra_filter)` —
+  ad-hoc query for any metric the curated probes don't cover.
+
+## 6. Running the routine
+
+In Claude Code, say **"Run System Health Check"** or invoke
+`/system-health-check`. Claude collects telemetry for all five components,
+correlates anomalies across them (e.g. Pub/Sub backlog growth vs Cloud SQL
+CPU spikes), and writes a structured SRE report with remediation
+suggestions.
+
+## Troubleshooting
+
+- **"Cannot initialize GCP Monitoring client"** — `GOOGLE_APPLICATION_CREDENTIALS`
+  is unset or points to a missing file. Relative paths are resolved against
+  the repo root.
+- **`403 PERMISSION_DENIED`** — the service account lacks
+  `roles/monitoring.viewer` on the project, or the Monitoring API is disabled.
+- **Every valkey probe reports no data** — Memorystore metric names vary by
+  product generation; run `list_available_metrics("memorystore.googleapis.com/")`
+  (and `"redis.googleapis.com/"`) and query what exists via `query_metric`.
+- **Stale venv after dependency bumps** — delete `scripts/monitoring/.venv`
+  and let the launcher rebuild it.
