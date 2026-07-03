@@ -2,12 +2,18 @@
   "mcpServers": {
     "pm-daemon": {
       "command": "bash",
-      "args": ["scripts/pm/run_pm_daemon.sh"],
+      "args": [
+        "-c",
+        "exec \"$(git rev-parse --show-toplevel)/scripts/pm/run_pm_daemon.sh\""
+      ],
       "env": {}
     },
     "gcp-monitor": {
       "command": "bash",
-      "args": ["scripts/monitoring/run_gcp_monitor.sh"],
+      "args": [
+        "-c",
+        "exec \"$(git rev-parse --show-toplevel)/scripts/monitoring/run_gcp_monitor.sh\""
+      ],
       "env": {}
     }
   }
