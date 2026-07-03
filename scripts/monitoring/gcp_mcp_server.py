@@ -519,8 +519,9 @@ def list_available_metrics(prefix: str, limit: int = 50) -> str:
     data (e.g. prefix 'memorystore.googleapis.com/' or 'redis.googleapis.com/').
 
     :param prefix: metric.type prefix, e.g. 'run.googleapis.com/'.
-    :param limit: max descriptors to return (default 50).
+    :param limit: max descriptors to return (default 50, max 200).
     """
+    limit = max(1, min(int(limit), 200))
     try:
         client = _metrics_client()
         descriptors = client.list_metric_descriptors(
@@ -535,7 +536,7 @@ def list_available_metrics(prefix: str, limit: int = 50) -> str:
                 f"- {descriptor.type} ({descriptor.metric_kind.name}/"
                 f"{descriptor.value_type.name}, unit={descriptor.unit or '-'})"
             )
-            if len(lines) >= max(1, limit):
+            if len(lines) >= limit:
                 break
         return "\n".join(lines) or f"No metric descriptors match prefix '{prefix}'."
     except Exception as exc:  # noqa: BLE001
