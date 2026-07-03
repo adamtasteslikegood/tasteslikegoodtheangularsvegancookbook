@@ -6,7 +6,7 @@
  * is unavailable or VALKEY_HOST is not set.
  */
 
-import Redis, { type RedisOptions } from 'ioredis';
+import { Redis, type RedisOptions } from 'ioredis';
 import { GoogleAuth } from 'google-auth-library';
 
 // Token refresh interval (45 min — tokens last 60 min, 15-min buffer prevents
