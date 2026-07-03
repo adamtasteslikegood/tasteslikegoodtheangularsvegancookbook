@@ -22,9 +22,16 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: return to generator (home) view
-    window.addEventListener('popstate', () => {
-      if (this.activeView() === 'kitchen') {
+    // Browser back button: restore previous view based on history state.
+    // event.state is the entry we're navigating *to*, so the mapping mirrors
+    // the pushState calls in switchView/viewRecipe: a 'kitchen' entry on the
+    // stack means we're returning to the cookbook list; the initial null
+    // entry means we're returning to the generator.
+    window.addEventListener('popstate', (event) => {
+      const state = event.state as { view?: string } | null;
+      if (state?.view === 'kitchen') {
+        this.activeView.set('kitchen');
+      } else {
         this.activeView.set('generator');
       }
     });
@@ -698,6 +705,8 @@ export class AppComponent {
     this.isSaved.set(true);
     this.activeView.set('generator');
     this.isEditingNotes.set(false);
+    // Push history so browser back returns to the kitchen view
+    window.history.pushState({ view: 'recipe-detail' }, '', window.location.href);
   }
 
   // ─── Delete / Recycle Bin ────────────────────────────────────
@@ -763,6 +772,49 @@ export class AppComponent {
 
   updatePortions(multiplier: number) {
     this.servingsMultiplier.set(multiplier);
+  }
+
+  // ─── v0.2 Distribution Methods ────────────────────────────
+
+  async togglePublic(recipe: Recipe) {
+    const nextState = !recipe.is_public;
+    recipe.is_public = nextState;
+
+    // If making public and slug is missing, generate one
+    if (nextState && !recipe.slug) {
+      recipe.slug = recipe.name
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, '')
+        .replace(/[\s_-]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
+
+    try {
+      await this.persistenceService.saveRecipe(recipe);
+      this.authService.saveRecipe(recipe); // Update local state
+    } catch (err) {
+      console.error('Failed to toggle public state:', err);
+      recipe.is_public = !nextState; // Revert on failure
+    }
+  }
+
+  async updateSlug(recipe: Recipe) {
+    if (!recipe.slug?.trim()) return;
+
+    // Clean the slug
+    recipe.slug = recipe.slug
+      .toLowerCase()
+      .trim()
+      .replace(/[\s_-]+/g, '-')
+      .replace(/[^\w-]/g, '');
+
+    try {
+      await this.persistenceService.saveRecipe(recipe);
+      this.authService.saveRecipe(recipe); // Update local state
+    } catch (err) {
+      console.error('Failed to update slug:', err);
+    }
   }
 
   formatAmount(amount: number | number[]): string {
