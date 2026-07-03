@@ -2,7 +2,7 @@ import rateLimit, { type Store } from 'express-rate-limit';
 import RedisStore, { type RedisReply } from 'rate-limit-redis';
 import helmet from 'helmet';
 import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import type Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 
 /**
  * Security Configuration
