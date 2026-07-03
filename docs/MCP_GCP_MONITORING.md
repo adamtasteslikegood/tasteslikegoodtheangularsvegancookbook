@@ -44,7 +44,11 @@ GCP_PROJECT_ID=comdottasteslikegood   # optional, this is the default
 ```
 
 Optional overrides (defaults match production): `EXPRESS_SERVICE`,
-`FLASK_SERVICE`, `CLOUDSQL_INSTANCE`.
+`FLASK_SERVICE`, `CLOUDSQL_INSTANCE`, `VALKEY_INSTANCE`
+(default `vegangenius-valkey`), and comma-separated `PUBSUB_TOPICS` /
+`PUBSUB_SUBSCRIPTIONS` (default: the generation pipeline resources from
+`scripts/gcloud/setup_pubsub.sh`; set to an empty string to query
+project-wide).
 
 ## 3. Claude Code (this repo)
 

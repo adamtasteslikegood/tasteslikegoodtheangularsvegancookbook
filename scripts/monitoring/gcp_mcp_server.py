@@ -25,6 +25,7 @@ Configuration (env vars, or repo-root `.env`):
 import datetime
 import os
 from pathlib import Path
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -60,6 +61,45 @@ EXPRESS_SERVICE = os.environ.get("EXPRESS_SERVICE", "express-frontend")
 FLASK_SERVICE = os.environ.get("FLASK_SERVICE", "flask-backend")
 CLOUDSQL_INSTANCE = os.environ.get("CLOUDSQL_INSTANCE", "vegangenius-db")
 CLOUDSQL_DATABASE_ID = f"{PROJECT_ID}:{CLOUDSQL_INSTANCE}"
+# Memorystore instance backing the Express rate limiter
+# (docs/plans/valkey_pubsub_integration_plan.md).
+VALKEY_INSTANCE = os.environ.get("VALKEY_INSTANCE", "vegangenius-valkey")
+# Generation pipeline resources provisioned by scripts/gcloud/setup_pubsub.sh.
+# Comma-separated env overrides; set to an empty string to query project-wide.
+PUBSUB_TOPICS = [
+    t.strip()
+    for t in os.environ.get(
+        "PUBSUB_TOPICS", "recipe-generation,image-generation,generation-dlq"
+    ).split(",")
+    if t.strip()
+]
+PUBSUB_SUBSCRIPTIONS = [
+    s.strip()
+    for s in os.environ.get(
+        "PUBSUB_SUBSCRIPTIONS",
+        "recipe-generation-push-sub,image-generation-push-sub,generation-dlq-sub",
+    ).split(",")
+    if s.strip()
+]
+
+
+def _label_scope(label: str, values: list[str], match: str = "eq") -> str:
+    """Build an AND-able filter clause restricting `label` to `values`.
+
+    Returns '' when values is empty (unscoped). `match='ends_with'` matches on
+    suffix — useful when a resource label may hold a full resource path.
+    """
+    if not values:
+        return ""
+    if match == "ends_with":
+        if len(values) == 1:
+            return f' AND {label} = ends_with("{values[0]}")'
+        clauses = " OR ".join(f'{label} = ends_with("{v}")' for v in values)
+        return f" AND ({clauses})"
+    if len(values) == 1:
+        return f' AND {label} = "{values[0]}"'
+    quoted = ", ".join(f'"{v}"' for v in values)
+    return f" AND {label} = one_of({quoted})"
 
 MAX_SERIES_PER_PROBE = 12
 
@@ -139,6 +179,11 @@ def _cloud_run_probes(service_name: str) -> list[dict]:
 
 def _build_components() -> dict[str, list[dict]]:
     sql = f'resource.labels.database_id = "{CLOUDSQL_DATABASE_ID}"'
+    valkey_scope = _label_scope(
+        "resource.labels.instance_id", [VALKEY_INSTANCE], match="ends_with"
+    )
+    sub_scope = _label_scope("resource.labels.subscription_id", PUBSUB_SUBSCRIPTIONS)
+    topic_scope = _label_scope("resource.labels.topic_id", PUBSUB_TOPICS)
     return {
         "frontend": _cloud_run_probes(EXPRESS_SERVICE),
         "backend": _cloud_run_probes(FLASK_SERVICE),
@@ -175,11 +220,14 @@ def _build_components() -> dict[str, list[dict]]:
         ],
         # The rate limiter runs on Memorystore Valkey; probes for the older
         # Memorystore Redis metric names are included as fallbacks and are
-        # reported quietly when empty (`optional`).
+        # reported quietly when empty (`optional`). ends_with matching keeps
+        # the scope correct whether instance_id holds the bare ID or a full
+        # projects/.../instances/<id> path.
         "valkey": [
             {
                 "name": "Node CPU utilization",
-                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/cpu/utilization"',
+                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/cpu/utilization"'
+                + valkey_scope,
                 "aligner": "ALIGN_MEAN",
                 "unit": "%",
                 "warn_above": 0.8,
@@ -187,7 +235,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Node memory utilization",
-                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/memory/utilization"',
+                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/memory/utilization"'
+                + valkey_scope,
                 "aligner": "ALIGN_MEAN",
                 "unit": "%",
                 "warn_above": 0.8,
@@ -195,7 +244,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Connected clients",
-                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/clients/connected_clients"',
+                "filter": 'metric.type = "memorystore.googleapis.com/instance/node/clients/connected_clients"'
+                + valkey_scope,
                 "aligner": "ALIGN_MEAN",
                 "reducer": "REDUCE_SUM",
                 "group_by": [],
@@ -204,7 +254,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Memory usage ratio (Memorystore Redis)",
-                "filter": 'metric.type = "redis.googleapis.com/stats/memory/usage_ratio"',
+                "filter": 'metric.type = "redis.googleapis.com/stats/memory/usage_ratio"'
+                + valkey_scope,
                 "aligner": "ALIGN_MEAN",
                 "unit": "%",
                 "warn_above": 0.8,
@@ -212,7 +263,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Connected clients (Memorystore Redis)",
-                "filter": 'metric.type = "redis.googleapis.com/clients/connected"',
+                "filter": 'metric.type = "redis.googleapis.com/clients/connected"'
+                + valkey_scope,
                 "aligner": "ALIGN_MEAN",
                 "reducer": "REDUCE_SUM",
                 "group_by": [],
@@ -223,7 +275,8 @@ def _build_components() -> dict[str, list[dict]]:
         "pubsub": [
             {
                 "name": "Undelivered messages (backlog)",
-                "filter": 'metric.type = "pubsub.googleapis.com/subscription/num_undelivered_messages"',
+                "filter": 'metric.type = "pubsub.googleapis.com/subscription/num_undelivered_messages"'
+                + sub_scope,
                 "aligner": "ALIGN_MAX",
                 "reducer": "REDUCE_MAX",
                 "group_by": ["resource.labels.subscription_id"],
@@ -232,7 +285,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Oldest unacked message age",
-                "filter": 'metric.type = "pubsub.googleapis.com/subscription/oldest_unacked_message_age"',
+                "filter": 'metric.type = "pubsub.googleapis.com/subscription/oldest_unacked_message_age"'
+                + sub_scope,
                 "aligner": "ALIGN_MAX",
                 "reducer": "REDUCE_MAX",
                 "group_by": ["resource.labels.subscription_id"],
@@ -241,7 +295,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Push request rate",
-                "filter": 'metric.type = "pubsub.googleapis.com/subscription/push_request_count"',
+                "filter": 'metric.type = "pubsub.googleapis.com/subscription/push_request_count"'
+                + sub_scope,
                 "aligner": "ALIGN_RATE",
                 "reducer": "REDUCE_SUM",
                 "group_by": [
@@ -252,7 +307,8 @@ def _build_components() -> dict[str, list[dict]]:
             },
             {
                 "name": "Publish rate",
-                "filter": 'metric.type = "pubsub.googleapis.com/topic/send_request_count"',
+                "filter": 'metric.type = "pubsub.googleapis.com/topic/send_request_count"'
+                + topic_scope,
                 "aligner": "ALIGN_RATE",
                 "reducer": "REDUCE_SUM",
                 "group_by": ["resource.labels.topic_id"],
@@ -287,7 +343,7 @@ def _series_key(ts) -> str:
     return ", ".join(parts) or "all"
 
 
-def _point_value(point) -> float | None:
+def _point_value(point) -> Optional[float]:
     from google.cloud import monitoring_v3
 
     which = monitoring_v3.TypedValue.pb(point.value).WhichOneof("value")
@@ -309,7 +365,9 @@ def _fmt(value: float, unit: str) -> str:
         return f"{value:.0f} ms"
     if unit == "s":
         return f"{value:.0f} s"
-    return f"{value:.0f}"
+    # 'count' and unknown units: %g keeps integers clean (3 → "3") without
+    # rounding away fractional values (0.8 → "0.8")
+    return f"{value:g}"
 
 
 def _run_probe(probe: dict, minutes_back: int) -> list[str]:
