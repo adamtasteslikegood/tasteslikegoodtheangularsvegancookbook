@@ -104,6 +104,9 @@ for pair in "${PAIRS[@]}"; do
 
   log "Ensuring push subscription ${SUB} → ${PUSH_URL}"
   if ! gcloud pubsub subscriptions describe "$SUB" >/dev/null 2>&1; then
+    # --expiration-period=never: same rationale as the DLQ sub above — the
+    # default 31-day inactivity expiration would delete these during a long
+    # idle stretch and silently break the generation pipeline.
     gcloud pubsub subscriptions create "$SUB" \
       --topic="$TOPIC" \
       --push-endpoint="$PUSH_URL" \
@@ -113,7 +116,8 @@ for pair in "${PAIRS[@]}"; do
       --min-retry-delay=10s \
       --max-retry-delay=600s \
       --dead-letter-topic="$DLQ_TOPIC" \
-      --max-delivery-attempts=5
+      --max-delivery-attempts=5 \
+      --expiration-period=never
   else
     log "  already exists (run update_push_endpoints.sh if Flask URL changed)"
   fi
