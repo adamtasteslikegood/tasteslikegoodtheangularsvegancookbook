@@ -37,19 +37,32 @@ require() {
 }
 
 require gcloud
+require python3
 gcloud config set project "$PROJECT_ID" >/dev/null
 
-# ── 1. Fetch the instance CA certificate ────────────────────────────────────
-log "Fetching CA cert for Memorystore instance ${VALKEY_INSTANCE} (${REGION})"
+# ── 1. Fetch the instance CA bundle ─────────────────────────────────────────
+# During CA rotation multiple CAs are active at once; the bundle must contain
+# every certificate or TLS breaks again mid-rotation. Node's tls.ca accepts
+# concatenated PEM certs in a single value.
+log "Fetching CA bundle for Memorystore instance ${VALKEY_INSTANCE} (${REGION})"
 CA_PEM="$(gcloud memorystore instances get-certificate-authority "$VALKEY_INSTANCE" \
-  --location="$REGION" \
-  --format='value(managedServerCa.caCerts[0].certificates[0])')"
+  --location="$REGION" --format=json | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+certs = [
+    cert
+    for ca in data.get("managedServerCa", {}).get("caCerts", [])
+    for cert in ca.get("certificates", [])
+]
+print("\n".join(c.strip() for c in certs))
+')"
 
 if [[ "$CA_PEM" != *"BEGIN CERTIFICATE"* ]]; then
-  echo "ERROR: response does not look like a PEM certificate:"
+  echo "ERROR: response does not look like a PEM certificate bundle:"
   echo "$CA_PEM" | head -3
   exit 1
 fi
+log "Bundle contains $(grep -c 'BEGIN CERTIFICATE' <<<"$CA_PEM") certificate(s)"
 
 # ── 2. Create the secret / add a version only when the CA changed ──────────
 if ! gcloud secrets describe "$SECRET_NAME" >/dev/null 2>&1; then
