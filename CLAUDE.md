@@ -52,7 +52,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
-### Layer 1 — Angular 21 SPA (`src/`)
+### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
@@ -211,7 +211,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
+- **TypeScript is pinned with Angular toolchain** — `package.json` pins `typescript` to `6.0.3` (aligned with Angular 22); major upgrades are coordinated manually via Dependabot policy.
 
 ## Further reading
 
