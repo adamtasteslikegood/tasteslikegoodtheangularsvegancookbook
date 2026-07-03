@@ -46,10 +46,18 @@ GCP_PROJECT_ID=comdottasteslikegood
 
 Optional overrides (defaults match production): `EXPRESS_SERVICE`,
 `FLASK_SERVICE`, `CLOUDSQL_INSTANCE`, `VALKEY_INSTANCE`
-(default `vegangenius-valkey`), and comma-separated `PUBSUB_TOPICS` /
-`PUBSUB_SUBSCRIPTIONS` (default: the generation pipeline resources from
-`scripts/gcloud/setup_pubsub.sh`; set to an empty string to query
-project-wide).
+(default `veganchef-valkeymem` — the deployed instance name, which differs
+from the `vegangenius-valkey` in the planning doc), and comma-separated
+`PUBSUB_TOPICS` / `PUBSUB_SUBSCRIPTIONS` (default: the generation pipeline
+resources from `scripts/gcloud/setup_pubsub.sh`; set to an empty string to
+query project-wide).
+
+First-time tip: pre-build the venv before your first agent session so the
+initial MCP spawn doesn't race the client's startup timeout:
+
+```bash
+bash scripts/monitoring/run_gcp_monitor.sh --bootstrap-only
+```
 
 ## 3. Claude Code (this repo)
 
@@ -115,6 +123,12 @@ suggestions.
 
 ## Troubleshooting
 
+- **Tools never register on the very first session** — the cold-start pip
+  install can exceed the MCP client's startup timeout, so the server gets
+  killed mid-bootstrap and no tools appear. Run
+  `bash scripts/monitoring/run_gcp_monitor.sh --bootstrap-only` once (or
+  start a fresh session — the launcher detects the interrupted install via
+  a stamp file and finishes it), then the next session registers normally.
 - **"Cannot initialize GCP Monitoring client"** — `GOOGLE_APPLICATION_CREDENTIALS`
   is unset or points to a missing file. Relative paths are resolved against
   the repo root.

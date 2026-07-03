@@ -62,9 +62,10 @@ EXPRESS_SERVICE = os.environ.get("EXPRESS_SERVICE", "express-frontend")
 FLASK_SERVICE = os.environ.get("FLASK_SERVICE", "flask-backend")
 CLOUDSQL_INSTANCE = os.environ.get("CLOUDSQL_INSTANCE", "vegangenius-db")
 CLOUDSQL_DATABASE_ID = f"{PROJECT_ID}:{CLOUDSQL_INSTANCE}"
-# Memorystore instance backing the Express rate limiter
-# (docs/plans/valkey_pubsub_integration_plan.md).
-VALKEY_INSTANCE = os.environ.get("VALKEY_INSTANCE", "vegangenius-valkey")
+# Memorystore instance backing the Express rate limiter. The planning doc
+# named it vegangenius-valkey, but the deployed instance is
+# veganchef-valkeymem (confirmed via metric discovery on first live run).
+VALKEY_INSTANCE = os.environ.get("VALKEY_INSTANCE", "veganchef-valkeymem")
 # Generation pipeline resources provisioned by scripts/gcloud/setup_pubsub.sh.
 # Comma-separated env overrides; set to an empty string to query project-wide.
 PUBSUB_TOPICS = [
@@ -532,11 +533,19 @@ def list_available_metrics(prefix: str, limit: int = 50) -> str:
                 "filter": f'metric.type = starts_with("{prefix}")',
             }
         )
+        from google.api import metric_pb2
+
         lines = []
         for descriptor in descriptors:
+            # MetricDescriptor is a raw protobuf message (google.api), so the
+            # enum fields are plain ints — .name would raise AttributeError.
+            kind = metric_pb2.MetricDescriptor.MetricKind.Name(descriptor.metric_kind)
+            value_type = metric_pb2.MetricDescriptor.ValueType.Name(
+                descriptor.value_type
+            )
             lines.append(
-                f"- {descriptor.type} ({descriptor.metric_kind.name}/"
-                f"{descriptor.value_type.name}, unit={descriptor.unit or '-'})"
+                f"- {descriptor.type} ({kind}/{value_type}, "
+                f"unit={descriptor.unit or '-'})"
             )
             if len(lines) >= limit:
                 break
