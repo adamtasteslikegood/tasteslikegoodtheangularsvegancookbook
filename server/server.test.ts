@@ -208,6 +208,7 @@ describe('createValkeyClient', () => {
     delete process.env.VALKEY_PORT;
     delete process.env.VALKEY_AUTH_MODE;
     delete process.env.VALKEY_TLS_INSECURE;
+    delete process.env.VALKEY_CA_CERT;
   });
 
   afterEach(async () => {
@@ -220,6 +221,7 @@ describe('createValkeyClient', () => {
     delete process.env.VALKEY_AUTH_MODE;
     delete process.env.VALKEY_PORT;
     delete process.env.VALKEY_TLS_INSECURE;
+    delete process.env.VALKEY_CA_CERT;
   });
 
   it('returns null when VALKEY_HOST is not set', async () => {
@@ -248,6 +250,32 @@ describe('createValkeyClient', () => {
         tls: expect.any(Object),
       })
     );
+  });
+
+  it('sets tls.ca from VALKEY_CA_CERT when VALKEY_AUTH_MODE=iam', async () => {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIFakeCaCert\n-----END CERTIFICATE-----\n';
+    process.env.VALKEY_HOST = '10.0.0.1';
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    process.env.VALKEY_CA_CERT = pem;
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tls: expect.objectContaining({ ca: pem }),
+      })
+    );
+    // Supplying a CA must not weaken verification
+    const callArg = (MockRedis.mock.calls[0] as unknown[])?.[0] as { tls: Record<string, unknown> };
+    expect(callArg.tls).not.toHaveProperty('rejectUnauthorized');
+  });
+
+  it('does not set tls.ca when VALKEY_CA_CERT is unset', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    const callArg = (MockRedis.mock.calls[0] as unknown[])?.[0] as { tls: Record<string, unknown> };
+    expect(callArg.tls).not.toHaveProperty('ca');
   });
 
   it('does NOT set password or tls when VALKEY_AUTH_MODE is not iam', async () => {
