@@ -28,6 +28,8 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+from google.api import metric_pb2
+from google.cloud import monitoring_v3
 from mcp.server.fastmcp import FastMCP
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -124,8 +126,6 @@ def _metrics_client():
                     "such file exists. Fix the path in .env (repo root) or the "
                     "MCP env block."
                 )
-            from google.cloud import monitoring_v3
-
             _client = monitoring_v3.MetricServiceClient()
         return _client
 
@@ -349,8 +349,6 @@ def _series_key(ts) -> str:
 
 
 def _point_value(point) -> Optional[float]:
-    from google.cloud import monitoring_v3
-
     which = monitoring_v3.TypedValue.pb(point.value).WhichOneof("value")
     if which == "double_value":
         return point.value.double_value
@@ -378,8 +376,6 @@ def _fmt(value: float, unit: str) -> str:
 def _run_probe(probe: dict, minutes_back: int) -> list[str]:
     """Execute one metric query and return formatted summary lines
     (empty list = no data)."""
-    from google.cloud import monitoring_v3
-
     client = _metrics_client()
     now = datetime.datetime.now(datetime.timezone.utc)
     start = now - datetime.timedelta(minutes=minutes_back)
@@ -533,8 +529,6 @@ def list_available_metrics(prefix: str, limit: int = 50) -> str:
                 "filter": f'metric.type = starts_with("{prefix}")',
             }
         )
-        from google.api import metric_pb2
-
         lines = []
         for descriptor in descriptors:
             # MetricDescriptor is a raw protobuf message (google.api), so the
