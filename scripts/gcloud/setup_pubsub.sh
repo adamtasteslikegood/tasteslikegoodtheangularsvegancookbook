@@ -71,10 +71,14 @@ done
 # ── 3. Dead-letter subscription so DLQ is actually drainable ───────────────
 log "Ensuring DLQ subscription ${DLQ_SUB}"
 if ! gcloud pubsub subscriptions describe "$DLQ_SUB" >/dev/null 2>&1; then
+  # --expiration-period=never: the default 31-day inactivity expiration
+  # auto-deletes an idle DLQ sub (its normal state), silently dropping any
+  # future dead-letters — this happened in production, 2026-07.
   gcloud pubsub subscriptions create "$DLQ_SUB" \
     --topic="$DLQ_TOPIC" \
     --message-retention-duration=7d \
-    --ack-deadline=60
+    --ack-deadline=60 \
+    --expiration-period=never
 else
   log "  already exists"
 fi
