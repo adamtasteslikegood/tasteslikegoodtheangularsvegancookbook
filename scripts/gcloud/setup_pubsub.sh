@@ -71,12 +71,17 @@ done
 # ── 3. Dead-letter subscription so DLQ is actually drainable ───────────────
 log "Ensuring DLQ subscription ${DLQ_SUB}"
 if ! gcloud pubsub subscriptions describe "$DLQ_SUB" >/dev/null 2>&1; then
+  # --expiration-period=never: the default 31-day inactivity expiration
+  # auto-deletes an idle DLQ sub (its normal state), silently dropping any
+  # future dead-letters — this happened in production, 2026-07.
   gcloud pubsub subscriptions create "$DLQ_SUB" \
     --topic="$DLQ_TOPIC" \
     --message-retention-duration=7d \
-    --ack-deadline=60
+    --ack-deadline=60 \
+    --expiration-period=never
 else
-  log "  already exists"
+  log "  already exists — ensuring it never expires"
+  gcloud pubsub subscriptions update "$DLQ_SUB" --expiration-period=never >/dev/null
 fi
 
 # ── 4. Resolve Flask URL for push endpoints ────────────────────────────────
@@ -100,6 +105,9 @@ for pair in "${PAIRS[@]}"; do
 
   log "Ensuring push subscription ${SUB} → ${PUSH_URL}"
   if ! gcloud pubsub subscriptions describe "$SUB" >/dev/null 2>&1; then
+    # --expiration-period=never: same rationale as the DLQ sub above — the
+    # default 31-day inactivity expiration would delete these during a long
+    # idle stretch and silently break the generation pipeline.
     gcloud pubsub subscriptions create "$SUB" \
       --topic="$TOPIC" \
       --push-endpoint="$PUSH_URL" \
@@ -109,9 +117,11 @@ for pair in "${PAIRS[@]}"; do
       --min-retry-delay=10s \
       --max-retry-delay=600s \
       --dead-letter-topic="$DLQ_TOPIC" \
-      --max-delivery-attempts=5
+      --max-delivery-attempts=5 \
+      --expiration-period=never
   else
-    log "  already exists (run update_push_endpoints.sh if Flask URL changed)"
+    log "  already exists — ensuring it never expires (run update_push_endpoints.sh if Flask URL changed)"
+    gcloud pubsub subscriptions update "$SUB" --expiration-period=never >/dev/null
   fi
 done
 
