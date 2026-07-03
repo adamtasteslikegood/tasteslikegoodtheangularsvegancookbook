@@ -80,7 +80,8 @@ if ! gcloud pubsub subscriptions describe "$DLQ_SUB" >/dev/null 2>&1; then
     --ack-deadline=60 \
     --expiration-period=never
 else
-  log "  already exists"
+  log "  already exists — ensuring it never expires"
+  gcloud pubsub subscriptions update "$DLQ_SUB" --expiration-period=never >/dev/null
 fi
 
 # ── 4. Resolve Flask URL for push endpoints ────────────────────────────────
@@ -119,7 +120,8 @@ for pair in "${PAIRS[@]}"; do
       --max-delivery-attempts=5 \
       --expiration-period=never
   else
-    log "  already exists (run update_push_endpoints.sh if Flask URL changed)"
+    log "  already exists — ensuring it never expires (run update_push_endpoints.sh if Flask URL changed)"
+    gcloud pubsub subscriptions update "$SUB" --expiration-period=never >/dev/null
   fi
 done
 
