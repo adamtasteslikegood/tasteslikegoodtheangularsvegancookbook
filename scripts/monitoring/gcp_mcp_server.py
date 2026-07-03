@@ -24,6 +24,7 @@ Configuration (env vars, or repo-root `.env`):
 
 import datetime
 import os
+import threading
 from pathlib import Path
 from typing import Optional
 
@@ -106,23 +107,26 @@ MAX_SERIES_PER_PROBE = 12
 mcp = FastMCP("GCP-Metrics-Monitor")
 
 _client = None
+_client_lock = threading.Lock()
 
 
 def _metrics_client():
     """Create the Monitoring client lazily so the server still starts (and
     returns actionable tool errors) when credentials are missing."""
     global _client
-    if _client is None:
-        creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-        if creds and not os.path.isfile(creds):
-            raise RuntimeError(
-                f"GOOGLE_APPLICATION_CREDENTIALS points to '{creds}' but no such "
-                "file exists. Fix the path in .env (repo root) or the MCP env block."
-            )
-        from google.cloud import monitoring_v3
+    with _client_lock:
+        if _client is None:
+            creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+            if creds and not os.path.isfile(creds):
+                raise RuntimeError(
+                    f"GOOGLE_APPLICATION_CREDENTIALS points to '{creds}' but no "
+                    "such file exists. Fix the path in .env (repo root) or the "
+                    "MCP env block."
+                )
+            from google.cloud import monitoring_v3
 
-        _client = monitoring_v3.MetricServiceClient()
-    return _client
+            _client = monitoring_v3.MetricServiceClient()
+        return _client
 
 
 def _cloud_run_probes(service_name: str) -> list[dict]:
