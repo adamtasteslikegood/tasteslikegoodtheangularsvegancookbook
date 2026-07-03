@@ -428,11 +428,13 @@ def _run_probe(probe: dict, minutes_back: int) -> list[str]:
         latest, mean, peak = values[0], sum(values) / len(values), max(values)
         unit = probe["unit"]
         key = _series_key(ts)
+        # Flag on the window peak, not just the latest point — a spike that
+        # recovered mid-window is still an incident worth surfacing.
         warn = ""
         warn_above = probe.get("warn_above")
-        if warn_above is not None and latest > warn_above:
-            warn = "  ⚠️"
-        if "5xx" in key and latest > 0:
+        if warn_above is not None and peak > warn_above:
+            warn = "  ⚠️" if latest > warn_above else "  ⚠️ (peaked, since recovered)"
+        if "5xx" in key and peak > 0:
             warn = "  ⚠️ 5xx errors present"
         lines.append(
             f"  - {probe['name']} [{key}]: latest {_fmt(latest, unit)} | "

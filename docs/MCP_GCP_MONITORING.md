@@ -40,7 +40,8 @@ Add to the repo-root `.env` (already gitignored):
 
 ```bash
 GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/monitoring-viewer.json
-GCP_PROJECT_ID=comdottasteslikegood   # optional, this is the default
+# GCP_PROJECT_ID is optional; comdottasteslikegood is the default
+GCP_PROJECT_ID=comdottasteslikegood
 ```
 
 Optional overrides (defaults match production): `EXPRESS_SERVICE`,
