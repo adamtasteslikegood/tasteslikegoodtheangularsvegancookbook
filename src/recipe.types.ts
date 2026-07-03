@@ -33,4 +33,6 @@ export interface Recipe {
   ai_image_url?: string;
   user_id?: string;
   image?: string;
+  is_public?: boolean;
+  slug?: string;
 }
