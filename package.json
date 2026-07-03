@@ -28,7 +28,7 @@
     "@angular/platform-browser": "22.0.5",
     "@google-cloud/secret-manager": "^6.1.1",
     "@google/genai": "^1.50.1",
-    "autoprefixer": "^10.5.0",
+    "autoprefixer": "^10.5.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.1",
     "express-validator": "^7.3.2",
