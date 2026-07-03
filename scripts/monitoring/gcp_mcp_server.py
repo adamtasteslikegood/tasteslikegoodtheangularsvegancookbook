@@ -471,6 +471,7 @@ def query_metric(
     aligner: str = "ALIGN_MEAN",
     group_by: str = "",
     extra_filter: str = "",
+    unit: str = "count",
 ) -> str:
     """Ad-hoc query for any Cloud Monitoring metric (escape hatch when the
     curated check_system_health probes don't cover what you need).
@@ -484,6 +485,9 @@ def query_metric(
         e.g. 'resource.labels.service_name,metric.labels.response_code_class'.
     :param extra_filter: appended to the filter with AND,
         e.g. 'resource.labels.service_name = "flask-backend"'.
+    :param unit: how to format values: 'count' (default), '%' (0–1 ratios),
+        'req/s', 'ms', or 's'. Match it to the metric's actual unit —
+        e.g. '%' for utilization ratios, 'ms' for request_latencies.
     """
     minutes_back = max(1, min(int(minutes_back), 1440))
     filter_str = f'metric.type = "{metric_type}"'
@@ -493,7 +497,7 @@ def query_metric(
         "name": metric_type,
         "filter": filter_str,
         "aligner": aligner,
-        "unit": "count",
+        "unit": unit,
     }
     if group_by:
         probe["reducer"] = "REDUCE_SUM"
