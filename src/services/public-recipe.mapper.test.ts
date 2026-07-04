@@ -31,4 +31,16 @@ describe('buildSavedRecipeFromPublic', () => {
     expect(recipe.ai_image_url).toBeUndefined();
     expect(recipe.stock_image_url).toBeUndefined();
   });
+
+  it('preserves explicit empty strings instead of replacing them with defaults', () => {
+    const recipe = buildSavedRecipeFromPublic({
+      name: '',
+      description: '',
+      notes: '',
+    });
+
+    expect(recipe.name).toBe('');
+    expect(recipe.description).toBe('');
+    expect(recipe.notes).toBe('');
+  });
 });
