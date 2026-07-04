@@ -22,19 +22,117 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
+    this.syncViewFromLocation();
+
     // Browser back button: restore previous view based on history state.
     // event.state is the entry we're navigating *to*, so the mapping mirrors
     // the pushState calls in switchView/viewRecipe: a 'kitchen' entry on the
     // stack means we're returning to the cookbook list; the initial null
-    // entry means we're returning to the generator.
+    // entry means we're returning to the generator. We also honor #kitchen so
+    // SSR pages can deep-link directly into the cookbook SPA.
     window.addEventListener('popstate', (event) => {
       const state = event.state as { view?: string } | null;
-      if (state?.view === 'kitchen') {
+      // Prefer the explicit history-state view set by in-app pushState
+      // navigation. Fall back to the #kitchen hash only for the initial
+      // SSR entry (no view in its state), so a lingering hash can't
+      // override back/forward to a generator entry.
+      const view = state?.view ?? (window.location.hash === '#kitchen' ? 'kitchen' : 'generator');
+      if (view === 'kitchen') {
+        this.authService.ensureGuestSession();
         this.activeView.set('kitchen');
       } else {
         this.activeView.set('generator');
       }
     });
+
+    window.addEventListener('hashchange', () => {
+      // Only react to the #kitchen deep-link. Don't force the generator view
+      // on unrelated hash changes — that would override in-app navigation
+      // (e.g. the user is already in the kitchen and an anchor link fires a
+      // hashchange). Leaving the kitchen is driven by switchView/popstate.
+      if (window.location.hash === '#kitchen') {
+        this.authService.ensureGuestSession();
+        this.activeView.set('kitchen');
+      }
+    });
+
+    // Handle ?save=<slug> from SSR "Save to Cookbook" CTA.
+    // Fetches the public recipe by slug and saves it to the guest/user cookbook.
+    const params = new URLSearchParams(window.location.search);
+    const saveSlug = params.get('save');
+    if (saveSlug) {
+      // Remove only the 'save' param to avoid re-triggering on refresh,
+      // preserving any other query params and the hash.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('save');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      this.handleSaveFromSSR(saveSlug);
+    }
+  }
+
+  private syncViewFromLocation() {
+    if (window.location.hash === '#kitchen') {
+      this.authService.ensureGuestSession();
+      this.activeView.set('kitchen');
+      return;
+    }
+    this.activeView.set('generator');
+  }
+
+  /**
+   * Fetches a public recipe by slug from the API and saves it to the
+   * current user/guest cookbook. Triggered by the ?save=<slug> query param
+   * from the SSR "Save to Cookbook" CTA.
+   */
+  private async handleSaveFromSSR(slug: string) {
+    // Slugs are stored lowercase server-side, so normalize (trim + lowercase)
+    // before validating — otherwise a mixed-case ?save= value would pass the
+    // allow-list and then 404.
+    const normalizedSlug = slug.trim().toLowerCase();
+    // Validate against a strict allow-list before using it in the request URL.
+    // The value comes from the `?save=<slug>` query param, so interpolating it
+    // raw would allow client-side request forgery (path traversal / host
+    // manipulation).
+    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+      console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
+      return;
+    }
+    // Ensure a guest session exists so the save persists for first-time,
+    // unauthenticated visitors arriving from an SSR page.
+    this.authService.ensureGuestSession();
+    try {
+      const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);
+      if (!response.ok) {
+        console.warn(`Could not fetch recipe for slug "${normalizedSlug}": ${response.status}`);
+        return;
+      }
+      const recipeData = await response.json();
+      const recipe: Recipe = {
+        // Always assign a fresh id: a saved copy is a new entry in the user's
+        // cookbook. Reusing the source public recipe's id makes the API POST
+        // collide with the existing row (409 → treated as success), so it would
+        // never persist to the server cookbook / other devices.
+        id: crypto.randomUUID(),
+        name: recipeData.name || 'Saved Recipe',
+        ingredients: recipeData.ingredients || { wet: [], dry: [], other: [] },
+        instructions: recipeData.instructions || [],
+        prepTime: recipeData.prepTime ?? 0,
+        cookTime: recipeData.cookTime ?? 0,
+        servings: recipeData.servings ?? 0,
+        description: recipeData.description || '',
+        tags: recipeData.tags || [],
+        notes: recipeData.notes || '',
+      };
+      // persistenceService.saveRecipe writes localStorage first (via
+      // auth.saveRecipe) and then syncs to the API, so a separate
+      // authService.saveRecipe call here would be a redundant double-write.
+      await this.persistenceService.saveRecipe(recipe);
+      // Use switchView so the kitchen history entry is pushed and the browser
+      // Back button behaves consistently with the rest of the app.
+      this.switchView('kitchen');
+    } catch (err) {
+      console.error('Failed to save recipe from SSR CTA:', err);
+    }
   }
 
   // Kitchen State
@@ -185,6 +283,14 @@ export class AppComponent {
       this.authService.ensureGuestSession();
       // Push history state so browser back returns to generator
       window.history.pushState({ view: 'kitchen' }, '', window.location.href);
+    } else if (window.location.hash === '#kitchen') {
+      // Clear the lingering #kitchen hash (left by an SSR deep-link) when
+      // returning to the generator, and record an explicit generator state on
+      // this entry. Otherwise the hash persists for the whole session and
+      // popstate's hash fallback would wrongly resolve a generator history
+      // entry back to kitchen.
+      const url = new URL(window.location.href);
+      window.history.replaceState({ view: 'generator' }, '', url.pathname + url.search);
     }
   }
 

@@ -79,7 +79,7 @@ postcss.config.js            # PostCSS (Tailwind + autoprefixer)
 eslint.config.js             # Flat ESLint config (TS + Angular + Prettier)
 vitest.config.ts             # Vitest config (server tests only)
 proxy.conf.json              # Dev proxy: /api → localhost:5000 (Flask)
-Dockerfile                   # Multi-stage build (node:20-alpine)
+Dockerfile                   # Multi-stage build (node:26-alpine)
 cloudbuild.yaml              # GCB pipeline: build + push + deploy both services
 package.json                 # npm scripts, dependencies
 .env.example                 # Environment variable template

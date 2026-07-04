@@ -26,6 +26,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+# Make sibling modules importable whether this file is run as a script or
+# imported (e.g. by publish_session_log.py).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _jira_projects import resolve_jira_projects  # noqa: E402
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
 DEFAULT_CACHE = REPO_ROOT / ".agent-work" / "pm" / "atlassian-state.json"
@@ -229,6 +234,12 @@ def load_env_file(path: Path) -> dict[str, str]:
     return values
 
 
+def _jira_project_keys(merged: dict[str, str]) -> str:
+    # Shared resolver (see _jira_projects.py) so this and
+    # sync_jira_confluence_status.py can't drift.
+    return ",".join(resolve_jira_projects(merged.get))
+
+
 def load_config() -> Config:
     env = load_env_file(REPO_ROOT / ".env")
     merged = {**env, **os.environ}
@@ -242,7 +253,7 @@ def load_config() -> Config:
         atlassian_url=merged["ATLASSIAN_URL"],
         email=merged["ATLASSIAN_EMAIL"],
         api_token=merged["ATLASSIAN_API_TOKEN"],
-        jira_project_key=merged.get("ATLASSIAN_JIRA_PROJECT_KEY", "KAN"),
+        jira_project_key=_jira_project_keys(merged),
         confluence_space_key=merged.get("ATLASSIAN_CONFLUENCE_SPACE_KEY", "TLG"),
         confluence_space_id=merged.get("ATLASSIAN_CONFLUENCE_SPACE_ID") or None,
         confluence_parent_page_id=merged.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID") or "11796481",
@@ -463,16 +474,18 @@ def build_markdown(config: Config, issues: list[dict[str, Any]], pages: list[dic
             "",
             "## Recommended Session Startup",
             "",
-            "1. Read this briefing first for Jira status, Confluence session context, and local PM docs.",
-            "2. Use active and blocker sections to choose the next implementation or PM task.",
-            "3. Update Jira and Confluence after changing scope, status, or planning documents.",
-            "4. Regenerate with `npm run pm:brief` or publish with `npm run pm:sync`.",
+            "1. Start sessions with `npm run pm:start` or at minimum `npm run pm:brief`.",
+            "2. Treat KAN as the who/what/now board for active branches, assignees, and in-flight work.",
+            "3. Treat RCP as the delivery board for epics, sprint commitments, and acceptance criteria.",
+            "4. Treat Confluence as the durable planning/session narrative source and sync non-destructively.",
+            "5. Regenerate with `npm run pm:brief`, publish with `npm run pm:sync`, and inspect live state with `npm run pm:status`.",
             "",
             "## Source Of Truth Notes",
             "",
-            "- Jira is treated as the authoritative task/status source.",
-            "- Confluence is treated as the authoritative planning/session narrative source.",
-            "- Local markdown files are treated as working copies and should be synced when they change.",
+            "- Jira KAN is the authoritative source for active execution ownership and branch-level work tracking.",
+            "- Jira RCP is the authoritative source for delivery planning: epics, sprints, scope, and acceptance criteria.",
+            "- Confluence is the authoritative historical context and planning narrative source, updated non-destructively.",
+            "- Local markdown files are working copies that feed Confluence; they should be synced after planning changes.",
             "",
         ]
     )

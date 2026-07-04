@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.22.3'
+          node-version: '26'
           cache: npm
       - run: npm ci
       - run: npm run lint
@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.22.3'
+          node-version: '26'
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit -p tsconfig.json
@@ -53,7 +53,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.22.3'
+          node-version: '26'
           cache: npm
       - run: npm ci
       - run: npm run build
@@ -72,7 +72,7 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
-          node-version: '22.22.3'
+          node-version: '26'
           cache: npm
       - run: npm ci
       # Coverage thresholds are enforced by vitest.config.ts:

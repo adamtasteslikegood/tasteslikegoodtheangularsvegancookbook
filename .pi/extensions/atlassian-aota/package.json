@@ -1,0 +1,5 @@
+{
+  "name": "atlassian-aota-extension",
+  "private": true,
+  "type": "module"
+}
