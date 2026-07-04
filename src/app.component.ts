@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
-import { Ingredient, IngredientGroup, Recipe } from './recipe.types';
+import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 
 @Component({
   selector: 'app-root',
@@ -938,5 +938,9 @@ export class AppComponent {
 
   isString(val: unknown): boolean {
     return typeof val === 'string';
+  }
+
+  instructionText(step: string | InstructionStep): string {
+    return typeof step === 'string' ? step : step.description;
   }
 }

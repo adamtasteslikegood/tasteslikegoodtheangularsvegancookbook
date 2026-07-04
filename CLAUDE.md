@@ -52,7 +52,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
-### Layer 1 — Angular 21 SPA (`src/`)
+### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
@@ -193,6 +193,8 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 
 - `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `specs/plan.md`, `specs/roadmap.md`, `specs/planning_notes.md`, `specs/design-plan.md`, `specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `specs/SPRINT_0_PLAN.md`, and `specs/ATLASSIAN_PM_LINK.md` to Confluence on save.
 
+- `gcp-monitor` — runs `scripts/monitoring/run_gcp_monitor.sh`, which creates its venv on first run, then launches `scripts/monitoring/gcp_mcp_server.py`. Exposes read-only Cloud Monitoring tools (`check_system_health`, `list_available_metrics`, `query_metric`) covering the production stack (Cloud Run frontend/backend, Cloud SQL, Valkey, Pub/Sub). Requires `GOOGLE_APPLICATION_CREDENTIALS` (+ optional `GCP_PROJECT_ID`) in `.env`; without them the tools register but return a credential error instead of metrics. The `/system-health-check` skill (`.claude/skills/system-health-check/`) drives the full SRE health-report routine. Setup: `docs/MCP_GCP_MONITORING.md`.
+
 Requirements for `pm-daemon` to actually sync:
 
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
@@ -211,7 +213,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript 6.x is blocked** — `package.json` pins `typescript >= 5.9 < 7`; Dependabot is configured to skip TS major bumps
+- **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular must move together, manually. Dependabot ignores `@angular/*` semver-major updates; when upgrading Angular, bump `typescript`, all `@angular/*`, and `@angular-eslint/*` in the same PR
 
 ## Further reading
 
@@ -225,19 +227,21 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__claude-in-chrome__*` tools directly.
 
+**Team setup:** gstack is not vendored into this repo (the `skills` and `.gstack/` `.gitignore` entries keep agent skills out of git). To get the skills below, run `./scripts/install-gstack.sh` once — it clones gstack into `~/.claude/skills/gstack` and registers the skills. Re-running it updates an existing install. Requires [bun](https://bun.sh) and `git`.
+
 Available gstack skills:
 
-| Skill                  | Skill                    | Skill              | Skill                 |
-| ---------------------- | ------------------------ | ------------------ | --------------------- |
-| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review` | `/plan-design-review` |
-| `/design-consultation` | `/design-shotgun`        | `/design-html`     | `/review`             |
-| `/ship`                | `/land-and-deploy`       | `/canary`          | `/benchmark`          |
-| `/browse`              | `/connect-chrome`        | `/qa`              | `/qa-only`            |
-| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`    | `/retro`              |
-| `/investigate`         | `/document-release`      | `/codex`           | `/cso`                |
-| `/autoplan`            | `/plan-devex-review`     | `/devex-review`    | `/careful`            |
-| `/freeze`              | `/guard`                 | `/unfreeze`        | `/gstack-upgrade`     |
-| `/learn`               |                          |                    |                       |
+| Skill                  | Skill                    | Skill               | Skill                 |
+| ---------------------- | ------------------------ | ------------------- | --------------------- |
+| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review`  | `/plan-design-review` |
+| `/design-consultation` | `/design-shotgun`        | `/design-html`      | `/review`             |
+| `/ship`                | `/land-and-deploy`       | `/canary`           | `/benchmark`          |
+| `/browse`              | `/connect-chrome`        | `/qa`               | `/qa-only`            |
+| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`     | `/setup-gbrain`       |
+| `/retro`               | `/investigate`           | `/document-release` | `/document-generate`  |
+| `/codex`               | `/cso`                   | `/autoplan`         | `/plan-devex-review`  |
+| `/devex-review`        | `/careful`               | `/freeze`           | `/guard`              |
+| `/unfreeze`            | `/gstack-upgrade`        | `/learn`            |                       |
 
 ## Skill routing
 
