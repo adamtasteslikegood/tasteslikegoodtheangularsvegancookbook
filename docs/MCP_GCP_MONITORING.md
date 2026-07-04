@@ -102,8 +102,8 @@ Configure the environment on claude.ai → **Code** → environment settings:
    for attempt in 1 2 3; do
      /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
        'mcp>=1.2.0' 'google-cloud-monitoring>=2.21.0' && break
-     echo "pip attempt $attempt failed; retrying in 10s" >&2
-     sleep 10
+     echo "pip attempt $attempt of 3 failed" >&2
+     if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
    /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
