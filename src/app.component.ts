@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
+import { buildSavedRecipeFromPublic } from './services/public-recipe.mapper';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 
 @Component({
@@ -97,6 +98,10 @@ export class AppComponent {
       console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
       return;
     }
+    // Wait for the startup auth check so the save lands in the reconciled
+    // session — writing into a cached-but-stale authenticated session gets
+    // wiped by clearStaleAuthenticatedSession() right after.
+    await this.authService.ready;
     // Ensure a guest session exists so the save persists for first-time,
     // unauthenticated visitors arriving from an SSR page.
     this.authService.ensureGuestSession();
@@ -107,22 +112,7 @@ export class AppComponent {
         return;
       }
       const recipeData = await response.json();
-      const recipe: Recipe = {
-        // Always assign a fresh id: a saved copy is a new entry in the user's
-        // cookbook. Reusing the source public recipe's id makes the API POST
-        // collide with the existing row (409 → treated as success), so it would
-        // never persist to the server cookbook / other devices.
-        id: crypto.randomUUID(),
-        name: recipeData.name || 'Saved Recipe',
-        ingredients: recipeData.ingredients || { wet: [], dry: [], other: [] },
-        instructions: recipeData.instructions || [],
-        prepTime: recipeData.prepTime ?? 0,
-        cookTime: recipeData.cookTime ?? 0,
-        servings: recipeData.servings ?? 0,
-        description: recipeData.description || '',
-        tags: recipeData.tags || [],
-        notes: recipeData.notes || '',
-      };
+      const recipe: Recipe = buildSavedRecipeFromPublic(recipeData);
       // persistenceService.saveRecipe writes localStorage first (via
       // auth.saveRecipe) and then syncs to the API, so a separate
       // authService.saveRecipe call here would be a redundant double-write.
