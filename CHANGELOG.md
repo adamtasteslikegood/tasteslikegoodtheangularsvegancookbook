@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-07-04
+
+Deploy hotfix. The v0.3.0 tag was cut but its Cloud Build died in the `flask-backend-migrate` job (`ModuleNotFoundError: flask_cors`) before either service deployed — production kept serving v0.2.5 throughout. v0.3.1 is v0.3.0 plus the dependency fix; it is the release that actually ships the v0.3.0 feature set.
+
+### Fixed
+
+- **Backend image lost 14 runtime dependencies** (Backend [#140](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/140)): a Dependabot uv-group bump (Backend #133) regenerated `requirements.txt` — which the Dockerfile installs from — dropping flask-cors, flask-migrate, flask-sqlalchemy, alembic, psycopg2-binary, google-cloud-storage, google-cloud-pubsub, redis and more. `google-cloud-storage`/`google-cloud-pubsub`/`redis` are now declared in `pyproject.toml` (they were imported by services but never listed there), `requirements.txt` is regenerated from `uv.lock`, and a new Backend CI step fails on any future drift between the two. Backend submodule pin: `2baccf2` → `b359743`.
+
 ## [0.3.0] - 2026-07-04
 
 Feature release: server-rendered public recipe/browse pages with a styled shell and Save-to-Cookbook flow, the Angular 22 + TypeScript 6 upgrade, GCP monitoring tooling, a production Valkey TLS fix, Atlassian/PM tooling, a repository cleanup, and a batch of dependency updates.
