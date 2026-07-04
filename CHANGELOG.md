@@ -8,28 +8,34 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-06-18
+## [0.3.0] - 2026-07-04
 
-Feature release: server-rendered recipe/browse pages with a Save-to-Cookbook flow, Atlassian/PM tooling, a repository cleanup, and a batch of dependency updates.
+Feature release: server-rendered public recipe/browse pages with a styled shell and Save-to-Cookbook flow, the Angular 22 + TypeScript 6 upgrade, GCP monitoring tooling, a production Valkey TLS fix, Atlassian/PM tooling, a repository cleanup, and a batch of dependency updates.
 
 ### Added
 
 - **SSR recipe & browse pages with a "Save to Cookbook" CTA.** Public recipes render server-side. The CTA deep-links into the SPA via `?save=<slug>`; `AppComponent.handleSaveFromSSR()` fetches the recipe from `/api/recipes/public/<slug>` and saves it to the guest/user cookbook, then cleans the URL. A `#kitchen` hash deep-links straight into the cookbook view (`syncViewFromLocation`).
+- **Styled public shell + SEO** (Backend [#132](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/132)): `base_public.html` layout with design tokens (`tokens.css`, `recipe-site.css`), canonical/Open Graph/JSON-LD metadata, Pinterest share, and a dynamic `/sitemap.xml` of public routes.
 - **Public recipe save flow** wired into the kitchen.
+- **GCP monitoring MCP server + "Run System Health Check" routine** (#3008, #3020): read-only Cloud Monitoring tools covering Cloud Run, Cloud SQL, Valkey, and Pub/Sub, with an SRE health-report skill.
 - **Atlassian / PM tooling.** `.pi/` Atlassian AOTA extension, session-log skill + schemas, background pm-daemon controls, and session-log publishing scripts. New `docs/PM_TOOLING.md` and `.github/CODEOWNERS`.
+
+### Fixed
+
+- **Production Valkey TLS trust** (#3027): Memorystore server certs chain to a Google-managed private CA, so every Express instance failed TLS verification and silently fell back to in-memory rate limiting. The new `VALKEY_CA_CERT` secret (full CA bundle, created by `scripts/gcloud/setup_valkey_ca.sh`) is passed as `tls.ca`, keeping verification enabled. Closes #163.
 
 ### Changed
 
+- **Angular 21 → 22 and TypeScript → 6.0.3** (#3009), with `@angular-eslint/*` 22.x moved in lockstep.
 - **Repository cleanup.** Reorganized docs, moved scripts under `scripts/git` and `scripts/pm`, removed clutter (a stray email file, Confluence JSON dumps, a GitHub-skyline STL, `scripts/output.md`, etc.), and rewrote the README.
 - `.gitignore` now ignores Python virtualenvs (`scripts/pm/.venv`).
-- **Backend submodule** bumped to `10910bc`, the Backend `dev` integration tip. This pin supersedes the earlier unpushed `4e13cb8` candidate (which was never pushed to the Backend remote). `10910bc` carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), and the latest dependency bumps. Verified resolvable against `origin/dev`.
+- **Backend submodule** bumped to `308ea06`, the Backend `dev` integration tip. It carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), the styled public shell + SEO (#132), removal of the failing Gemini Dispatch CI pipeline (#138), and the latest dependency bumps. Verified resolvable against `origin/dev`.
 
 ### Dependencies
 
-- helmet 8.1→8.2, ioredis 5.10→5.11, google-auth-library 10.6→10.7, @google-cloud/secret-manager 6.1.1→6.1.3, globals 17.5→17.6, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.16, hono override →4.12.26 (clears two high-severity advisories), eslint 10.x, prettier 3.8.4, @typescript-eslint/eslint-plugin 8.61.
-- **Major bumps:** `@google/genai` 1.50→2.8 (not imported in TypeScript — version-only), `rate-limit-redis` 4.3→5.0 (API-compatible with the existing `RedisStore` usage in `server/security.ts`), `express-rate-limit` →8.5.1.
-- Docker base image `node:25-alpine` → `node:26-alpine`; GitHub Actions group bumps.
-- Held `@angular-eslint/*` at 21.x — the 22.x line requires Angular 22, and this release targets Angular 21.
+- helmet 8.1→8.2, ioredis 5.10→5.11.1, google-auth-library 10.6→10.9, @google-cloud/secret-manager 6.1.1→6.2.0, globals 17.5→17.7, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.16, hono override →4.12.26 (clears two high-severity advisories), eslint 10.6, prettier 3.9.4, @typescript-eslint/eslint-plugin 8.62.
+- **Major bumps:** `@google/genai` 1.50→2.x (not imported in TypeScript — version-only), `rate-limit-redis` 4.3→5.0 (API-compatible with the existing `RedisStore` usage in `server/security.ts`), `express-rate-limit` →8.5.2.
+- Docker base image `node:25-alpine` → `node:26-alpine`, with CI `node-version` pinned to 26 to match; GitHub Actions group bumps.
 
 ## [0.2.5] - 2026-05-06
 
