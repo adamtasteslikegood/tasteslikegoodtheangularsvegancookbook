@@ -135,6 +135,58 @@ describe('AuthService auth-check startup behavior', () => {
     );
   });
 
+  it('ensureGuestSession does not restore a cached authenticated session while the auth check is pending', async () => {
+    const cachedUser = createAuthenticatedUser();
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+    // Auth check never resolves within the test — simulates the in-flight window
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
+
+    const authService = new AuthService();
+    authService.ensureGuestSession();
+
+    // Must neither render the possibly-stale user nor clobber their cache
+    expect(authService.currentUser()).toBeNull();
+    expect(JSON.parse(localStorage.getItem(AuthService.SESSION_STORAGE_KEY) || '{}')).toEqual(
+      cachedUser
+    );
+  });
+
+  it('ensureGuestSession restores a cached guest session while the auth check is pending', async () => {
+    const guestUser: User = {
+      id: 'guest-1',
+      name: 'Guest Chef',
+      isGuest: true,
+      authProvider: 'guest',
+      savedRecipes: [],
+      cookbooks: [],
+      deletedRecipes: [],
+    };
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(guestUser));
+
+    vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
+
+    const authService = new AuthService();
+    authService.ensureGuestSession();
+
+    expect(authService.currentUser()).toEqual(guestUser);
+  });
+
+  it('exposes a ready promise that resolves once the auth check completes', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await authService.ready;
+
+    expect(authService.authLoading()).toBe(false);
+  });
+
   it('preserves cached authenticated state when auth-check fails with a transport error', async () => {
     const cachedUser = createAuthenticatedUser();
     localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));

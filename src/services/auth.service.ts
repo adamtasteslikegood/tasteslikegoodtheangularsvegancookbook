@@ -25,8 +25,11 @@ export class AuthService {
   private readonly STORAGE_KEY_SESSION = AuthService.SESSION_STORAGE_KEY;
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
+  /** Resolves once the startup auth check has completed and local state is reconciled. */
+  readonly ready: Promise<void>;
+
   constructor() {
-    this.init();
+    this.ready = this.init();
   }
 
   // ─── Initialization ───────────────────────────────────────────
@@ -188,7 +191,14 @@ export class AuthService {
     // check resolves.)
     const existing = this.getLocalSession();
     if (existing) {
-      this.currentUser.set(existing);
+      // A cached *authenticated* session may be stale while the startup auth
+      // check is still in flight: restoring it would briefly render another
+      // user's data on shared devices, and a save written into it disappears
+      // if clearStaleAuthenticatedSession() wipes it moments later. Callers
+      // that need a session for a save must await `ready` first.
+      if (existing.isGuest || !this.authLoading()) {
+        this.currentUser.set(existing);
+      }
       return;
     }
 
