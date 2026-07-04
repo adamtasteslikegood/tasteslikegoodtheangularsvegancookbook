@@ -53,7 +53,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream — mounted **before** `express.json()` so Flask handles body parsing itself. Flask's `url_for(_external=True)` resolves correctly via `X-Forwarded-*` headers set by Express. Angular only ever uses relative URLs (`/api/...`).
 
-### Layer 1 — Angular 21 SPA (`src/`)
+### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
 - Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)

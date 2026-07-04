@@ -28,8 +28,9 @@ Debian/Ubuntu example: sudo apt install python3.12-venv
 EOF
     exit 1
   fi
-  "$venv_python" -m pip install --upgrade pip >/dev/null
-  "$venv_python" -m pip install -r "$requirements"
+  # stderr so stdout stays clean for callers that parse script output
+  "$venv_python" -m pip install --upgrade pip >&2
+  "$venv_python" -m pip install -r "$requirements" >&2
 fi
 
 shift
