@@ -8,6 +8,7 @@ on:
 jobs:
   review:
     runs-on: ubuntu-latest
+    if: github.event.sender.type != 'Bot'
     permissions:
       contents: read
       pull-requests: write
