@@ -207,6 +207,10 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 **Jira Project Keys:**
 
+- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
+- **Office Game:** `PLZA`, `TO`
+- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
+
 - **KAN** = active execution, branch/work ownership, in-flight state
 - **RCP** = delivery planning, epics, sprint scope, acceptance criteria
 - Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup

@@ -8,7 +8,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'github-actions'
@@ -28,7 +28,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'javascript'
@@ -70,6 +70,11 @@ updates:
       # Review periodically — remove this ignore when ready to migrate (see postcss.config.js).
       - dependency-name: 'tailwindcss'
         update-types: ['version-update:semver-major']
+      # Angular majors require TypeScript majors (e.g. Angular 22 needs TS >=6.0,
+      # which the root typescript pin deliberately blocks). Angular major upgrades
+      # are manual migrations — see PR #2996 which broke npm ci on dev.
+      - dependency-name: '@angular/*'
+        update-types: ['version-update:semver-major']
     open-pull-requests-limit: 15
 
   # -------------------------
@@ -79,7 +84,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'docker'

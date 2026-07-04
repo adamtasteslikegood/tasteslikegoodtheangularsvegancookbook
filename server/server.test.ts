@@ -23,7 +23,7 @@ const { MockRedis } = vi.hoisted(() => {
 // ── Module mocks ───────────────────────────────────────────────────────────
 
 // Mock ioredis so tests never open real TCP connections
-vi.mock('ioredis', () => ({ default: MockRedis }));
+vi.mock('ioredis', () => ({ default: MockRedis, Redis: MockRedis }));
 
 // Mock google-auth-library so tests never call GCP IAM APIs.
 // GoogleAuth must be a regular function (not arrow) to support `new GoogleAuth()`.
@@ -54,13 +54,13 @@ vi.mock('rate-limit-redis', () => ({
 
 describe('createApiLimiter', () => {
   it('should return a middleware function', async () => {
-    const { createApiLimiter } = await import('./security');
+    const { createApiLimiter } = await import('./security.js');
     const limiter = createApiLimiter();
     expect(typeof limiter).toBe('function');
   });
 
   it('should accept custom windowMs and max parameters', async () => {
-    const { createApiLimiter } = await import('./security');
+    const { createApiLimiter } = await import('./security.js');
     const limiter = createApiLimiter(null, 5000, 10);
     expect(typeof limiter).toBe('function');
   });
@@ -68,37 +68,37 @@ describe('createApiLimiter', () => {
 
 describe('shouldSkipRateLimiting', () => {
   it('skips /health', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/health' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(true);
   });
 
   it('skips /recipes/<uuid>/image', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/image' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(true);
   });
 
   it('skips /recipes/<short-id>/image', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/recipes/abc123/image' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(true);
   });
 
   it('does not skip /recipes (list endpoint)', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/recipes' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(false);
   });
 
   it('does not skip /generate', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/generate' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(false);
   });
 
   it('does not skip /recipes/<uuid>/data (non-image sub-paths)', async () => {
-    const { shouldSkipRateLimiting } = await import('./security');
+    const { shouldSkipRateLimiting } = await import('./security.js');
     const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/data' } as Request;
     expect(shouldSkipRateLimiting(req)).toBe(false);
   });
@@ -106,7 +106,7 @@ describe('shouldSkipRateLimiting', () => {
 
 describe('createExpensiveOperationLimiter', () => {
   it('should return a middleware function', async () => {
-    const { createExpensiveOperationLimiter } = await import('./security');
+    const { createExpensiveOperationLimiter } = await import('./security.js');
     const limiter = createExpensiveOperationLimiter();
     expect(typeof limiter).toBe('function');
   });
@@ -114,13 +114,13 @@ describe('createExpensiveOperationLimiter', () => {
 
 describe('createRequestLogger', () => {
   it('should return a middleware function', async () => {
-    const { createRequestLogger } = await import('./security');
+    const { createRequestLogger } = await import('./security.js');
     const logger = createRequestLogger();
     expect(typeof logger).toBe('function');
   });
 
   it('should call next() and log on response finish', async () => {
-    const { createRequestLogger } = await import('./security');
+    const { createRequestLogger } = await import('./security.js');
     const logger = createRequestLogger();
 
     const listeners: Record<string, () => void> = {};
@@ -143,14 +143,14 @@ describe('createRequestLogger', () => {
 
 describe('createErrorHandler', () => {
   it('should return a function with arity 4 (Express error handler signature)', async () => {
-    const { createErrorHandler } = await import('./security');
+    const { createErrorHandler } = await import('./security.js');
     const handler = createErrorHandler();
     expect(typeof handler).toBe('function');
     expect(handler.length).toBe(4);
   });
 
   it('should respond with 500 and a generic message for unhandled errors', async () => {
-    const { createErrorHandler } = await import('./security');
+    const { createErrorHandler } = await import('./security.js');
     const handler = createErrorHandler();
 
     const jsonMock = vi.fn();
@@ -169,7 +169,7 @@ describe('createErrorHandler', () => {
   });
 
   it('should delegate to next() if headers are already sent', async () => {
-    const { createErrorHandler } = await import('./security');
+    const { createErrorHandler } = await import('./security.js');
     const handler = createErrorHandler();
 
     const req = { method: 'GET', path: '/api/health' } as Request;
@@ -208,6 +208,7 @@ describe('createValkeyClient', () => {
     delete process.env.VALKEY_PORT;
     delete process.env.VALKEY_AUTH_MODE;
     delete process.env.VALKEY_TLS_INSECURE;
+    delete process.env.VALKEY_CA_CERT;
   });
 
   afterEach(async () => {
@@ -220,6 +221,7 @@ describe('createValkeyClient', () => {
     delete process.env.VALKEY_AUTH_MODE;
     delete process.env.VALKEY_PORT;
     delete process.env.VALKEY_TLS_INSECURE;
+    delete process.env.VALKEY_CA_CERT;
   });
 
   it('returns null when VALKEY_HOST is not set', async () => {
@@ -248,6 +250,32 @@ describe('createValkeyClient', () => {
         tls: expect.any(Object),
       })
     );
+  });
+
+  it('sets tls.ca from VALKEY_CA_CERT when VALKEY_AUTH_MODE=iam', async () => {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIFakeCaCert\n-----END CERTIFICATE-----\n';
+    process.env.VALKEY_HOST = '10.0.0.1';
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    process.env.VALKEY_CA_CERT = pem;
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    expect(MockRedis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tls: expect.objectContaining({ ca: pem }),
+      })
+    );
+    // Supplying a CA must not weaken verification
+    const callArg = (MockRedis.mock.calls[0] as unknown[])?.[0] as { tls: Record<string, unknown> };
+    expect(callArg.tls).not.toHaveProperty('rejectUnauthorized');
+  });
+
+  it('does not set tls.ca when VALKEY_CA_CERT is unset', async () => {
+    process.env.VALKEY_HOST = '10.0.0.1';
+    process.env.VALKEY_AUTH_MODE = 'iam';
+    const { createValkeyClient } = await import('./valkey.js');
+    await createValkeyClient();
+    const callArg = (MockRedis.mock.calls[0] as unknown[])?.[0] as { tls: Record<string, unknown> };
+    expect(callArg.tls).not.toHaveProperty('ca');
   });
 
   it('does NOT set password or tls when VALKEY_AUTH_MODE is not iam', async () => {
@@ -411,7 +439,7 @@ describe('applySecurityMiddleware', () => {
   });
 
   it('registers at least one middleware (helmet) on the app', async () => {
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
     expect(useMock).toHaveBeenCalled();
@@ -419,7 +447,7 @@ describe('applySecurityMiddleware', () => {
 
   it('registers X-Robots-Tag middleware in production (two app.use calls)', async () => {
     process.env.NODE_ENV = 'production';
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
     expect(useMock).toHaveBeenCalledTimes(2);
@@ -427,7 +455,7 @@ describe('applySecurityMiddleware', () => {
 
   it('does not register X-Robots-Tag middleware outside production', async () => {
     process.env.NODE_ENV = 'development';
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
     expect(useMock).toHaveBeenCalledTimes(1);
@@ -435,7 +463,7 @@ describe('applySecurityMiddleware', () => {
 
   it('X-Robots-Tag middleware sets header for HTML page requests', async () => {
     process.env.NODE_ENV = 'production';
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
 
@@ -459,7 +487,7 @@ describe('applySecurityMiddleware', () => {
 
   it('X-Robots-Tag middleware skips /api/ paths', async () => {
     process.env.NODE_ENV = 'production';
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
 
@@ -483,7 +511,7 @@ describe('applySecurityMiddleware', () => {
 
   it('X-Robots-Tag middleware skips non-HTML requests', async () => {
     process.env.NODE_ENV = 'production';
-    const { applySecurityMiddleware } = await import('./security');
+    const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
 
@@ -510,7 +538,7 @@ describe('applySecurityMiddleware', () => {
 
 describe('createApiLimiter with non-null Valkey client', () => {
   it('builds a RedisStore when a Valkey client is provided', async () => {
-    const { createApiLimiter } = await import('./security');
+    const { createApiLimiter } = await import('./security.js');
     const limiter = createApiLimiter({ call: vi.fn() } as unknown as Parameters<
       typeof createApiLimiter
     >[0]);
@@ -520,7 +548,7 @@ describe('createApiLimiter with non-null Valkey client', () => {
 
 describe('createExpensiveOperationLimiter with non-null Valkey client', () => {
   it('builds a RedisStore when a Valkey client is provided', async () => {
-    const { createExpensiveOperationLimiter } = await import('./security');
+    const { createExpensiveOperationLimiter } = await import('./security.js');
     const limiter = createExpensiveOperationLimiter({ call: vi.fn() } as unknown as Parameters<
       typeof createExpensiveOperationLimiter
     >[0]);
@@ -556,7 +584,7 @@ describe('createFlaskProxy Host header', () => {
       },
     }));
 
-    const { createFlaskProxy } = await import('./proxy');
+    const { createFlaskProxy } = await import('./proxy.js');
     const handler = createFlaskProxy('Test');
 
     const req = {
