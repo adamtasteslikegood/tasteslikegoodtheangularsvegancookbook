@@ -127,6 +127,18 @@ The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remot
 
 There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
 
+## Pull request lifecycle
+
+Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
+
+- **Monitor it.** While the PR is open, check for new review comments, inline comments, and failing checks (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`, `gh pr checks <n>`). Re-check whenever you return to the PR and before declaring any related work done — a PR with unaddressed feedback is not finished.
+- **Answer every comment.** For each piece of reviewer feedback, do one of two things: push a fix commit and reply confirming what changed, or reply with a concrete technical rebuttal explaining why no change is needed. Never leave feedback unanswered or silently ignored. Apply the `superpowers:receiving-code-review` skill — verify claims against the code before agreeing or pushing a fix.
+- **Sign replies posted on Adam's behalf.** Replies go out under Adam's GitHub account, so make authorship explicit by ending each one with a note like:
+
+  > _Replied by Claude on Adam's behalf — Co-authored-by: Claude <noreply@anthropic.com>_
+
+- **Loop until merged.** Repeat monitor → fix or rebut → reply until the PR is merged (or closed, or Adam says stop). If feedback requires a judgment call only Adam can make — scope changes, product decisions — surface it to him instead of guessing, but still reply on the thread noting it's awaiting his call.
+
 ## Database migrations
 
 Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). They are applied in production by a Cloud Run **Job** named `flask-backend-migrate`, wired into `cloudbuild.yaml` between "Push Flask Backend Version Tag" and "Deploy Flask Backend". The job:
