@@ -19,7 +19,7 @@ Generate recipes from natural-language prompts • AI food photography • Organ
 Vegangenius Chef is a full-stack vegan recipe app with three tiers:
 
 ```
-Browser → Angular 21 SPA → Express reverse-proxy (:8080) → Flask API (:5000) → Cloud SQL
+Browser → Angular 22 SPA → Express reverse-proxy (:8080) → Flask API (:5000) → Cloud SQL
 ```
 
 - **Generate** vegan recipes via Google Gemini (`gemini-2.5-flash`)
@@ -70,7 +70,7 @@ npm run dev                                  # Angular on :3000 (proxies /api �
 See [docs/architecture/](docs/architecture/) for ADRs and diagrams.
 
 ```
-├── src/                 # Angular 21 SPA (signals, standalone components)
+├── src/                 # Angular 22 SPA (signals, standalone components)
 ├── server/              # Express reverse proxy + static hosting
 ├── Backend/             # Flask API (submodule: tasteslikegood.com)
 ├── scripts/             # Utility scripts (PM tooling, git, gcloud)

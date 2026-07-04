@@ -172,6 +172,34 @@ describe('AuthService auth-check startup behavior', () => {
     expect(authService.currentUser()).toEqual(guestUser);
   });
 
+  it('creates a guest after an unauthenticated check when ensureGuestSession was deferred mid-check', async () => {
+    const cachedUser = createAuthenticatedUser();
+    localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+    let resolveCheck!: (value: unknown) => void;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockReturnValue(new Promise((resolve) => (resolveCheck = resolve)))
+    );
+
+    const authService = new AuthService();
+    // Deferred: cached session is authenticated and the check is in flight
+    authService.ensureGuestSession();
+    expect(authService.currentUser()).toBeNull();
+
+    resolveCheck({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ authenticated: false }),
+    });
+    await authService.ready;
+
+    // The stale session was wiped; the deferred request must not strand the
+    // caller with no session — a fresh guest is created instead.
+    const user = authService.currentUser();
+    expect(user).not.toBeNull();
+    expect(user?.isGuest).toBe(true);
+  });
+
   it('exposes a ready promise that resolves once the auth check completes', async () => {
     vi.stubGlobal(
       'fetch',

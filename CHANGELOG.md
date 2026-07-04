@@ -14,7 +14,7 @@ Feature release: server-rendered public recipe/browse pages with a styled shell 
 
 ### Added
 
-- **SSR recipe & browse pages with a "Save to Cookbook" CTA.** Public recipes render server-side. The CTA deep-links into the SPA via `?save=<slug>`; `AppComponent.handleSaveFromSSR()` fetches the recipe from `/api/recipes/public/<slug>` and saves it to the guest/user cookbook, then cleans the URL. A `#kitchen` hash deep-links straight into the cookbook view (`syncViewFromLocation`).
+- **SSR recipe & browse pages with a "Save to Cookbook" CTA.** Public recipes render server-side. The CTA is a server-rendered link to `/?save=<slug>#kitchen`; `AppComponent.handleSaveFromSSR()` fetches the recipe from the new `GET /api/recipes/public/<slug>` JSON endpoint (Backend [#139](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/139)) and saves it to the guest/user cookbook through the session-aware flow (fresh id, image fields preserved), then cleans the URL. A `#kitchen` hash deep-links straight into the cookbook view (`syncViewFromLocation`).
 - **Styled public shell + SEO** (Backend [#132](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/132)): `base_public.html` layout with design tokens (`tokens.css`, `recipe-site.css`), canonical/Open Graph/JSON-LD metadata, Pinterest share, and a dynamic `/sitemap.xml` of public routes.
 - **Public recipe save flow** wired into the kitchen.
 - **GCP monitoring MCP server + "Run System Health Check" routine** (#3008, #3020): read-only Cloud Monitoring tools covering Cloud Run, Cloud SQL, Valkey, and Pub/Sub, with an SRE health-report skill.
@@ -23,13 +23,14 @@ Feature release: server-rendered public recipe/browse pages with a styled shell 
 ### Fixed
 
 - **Production Valkey TLS trust** (#3027): Memorystore server certs chain to a Google-managed private CA, so every Express instance failed TLS verification and silently fell back to in-memory rate limiting. The new `VALKEY_CA_CERT` secret (full CA bundle, created by `scripts/gcloud/setup_valkey_ca.sh`) is passed as `tls.ca`, keeping verification enabled. Closes #163.
+- **SSR save flow hardened** (#3031, Backend #139): saves from public pages no longer race the startup auth check (a stale cached authenticated session could swallow the save), keep their `ai_image_url`/`stock_image_url`, and always get a fresh id so they sync server-side. The old inline localStorage CTA (which bypassed all of this) is replaced by the server-backed flow above.
 
 ### Changed
 
 - **Angular 21 → 22 and TypeScript → 6.0.3** (#3009), with `@angular-eslint/*` 22.x moved in lockstep.
 - **Repository cleanup.** Reorganized docs, moved scripts under `scripts/git` and `scripts/pm`, removed clutter (a stray email file, Confluence JSON dumps, a GitHub-skyline STL, `scripts/output.md`, etc.), and rewrote the README.
 - `.gitignore` now ignores Python virtualenvs (`scripts/pm/.venv`).
-- **Backend submodule** bumped to `308ea06`, the Backend `dev` integration tip. It carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), the styled public shell + SEO (#132), removal of the failing Gemini Dispatch CI pipeline (#138), and the latest dependency bumps. Verified resolvable against `origin/dev`.
+- **Backend submodule** bumped to `2baccf2`, the Backend `dev` integration tip. It carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), the styled public shell + SEO (#132), the public recipe JSON endpoint + SPA-routed Save CTA (#139), removal of the failing Gemini Dispatch CI pipeline (#138), and the latest dependency bumps. Verified resolvable against `origin/dev`.
 
 ### Dependencies
 
