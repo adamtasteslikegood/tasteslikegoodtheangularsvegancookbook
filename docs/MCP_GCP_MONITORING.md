@@ -4,13 +4,13 @@ A stdio MCP server (`scripts/monitoring/gcp_mcp_server.py`) that lets Claude
 query live Cloud Monitoring telemetry for the production stack and run the
 **"Run System Health Check"** routine. It covers:
 
-| Component  | GCP resource                                        |
-| ---------- | --------------------------------------------------- |
-| `frontend` | Cloud Run service `express-frontend`                 |
-| `backend`  | Cloud Run service `flask-backend`                    |
+| Component  | GCP resource                                             |
+| ---------- | -------------------------------------------------------- |
+| `frontend` | Cloud Run service `express-frontend`                     |
+| `backend`  | Cloud Run service `flask-backend`                        |
 | `database` | Cloud SQL instance `comdottasteslikegood:vegangenius-db` |
-| `valkey`   | Memorystore Valkey rate-limiter store                |
-| `pubsub`   | Generation topics + push subscriptions (incl. DLQ)   |
+| `valkey`   | Memorystore Valkey rate-limiter store                    |
+| `pubsub`   | Generation topics + push subscriptions (incl. DLQ)       |
 
 ```
 [ Claude (Code or Desktop) ]
@@ -65,7 +65,45 @@ Nothing else to do — the server is registered in `.mcp.json` as
 `gcp-monitor` and auto-spawns when a session starts in this directory, same
 as `pm-daemon`. Verify with `ps -ef | grep gcp_mcp_server`.
 
-## 4. Claude Desktop
+## 4. Claude Code cloud environments (web sessions & scheduled routines)
+
+Cloud sessions clone this repo, so `.mcp.json` auto-spawns `gcp-monitor`
+there too — but the cloud VM has neither your `.env` nor the key file. Cloud
+environments only carry **single-line** env vars (there is no secrets vault
+yet), so the key travels base64-encoded and the server materializes it to a
+gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
+
+1. Encode the key locally, straight to the clipboard (don't echo it):
+
+   ```bash
+   base64 < /path/to/monitoring-viewer.json | tr -d '\n' | wl-copy   # or xclip/pbcopy
+   ```
+
+   (`tr -d '\n'` keeps this portable — GNU `base64` wraps at 76 columns by
+   default and macOS/BSD `base64` has no `-w` flag.)
+
+2. On claude.ai → **Code** → the environment your routine uses → environment
+   settings → **Environment variables**, add:
+
+   ```
+   GOOGLE_APPLICATION_CREDENTIALS_B64=<paste the base64 blob>
+   GCP_PROJECT_ID=comdottasteslikegood
+   ```
+
+   (`GCP_PROJECT_ID` is optional — it's the default.)
+
+3. Make sure the environment's **network access** allows package installs —
+   the launcher pip-installs its venv on first run and the server calls
+   `monitoring.googleapis.com`.
+
+Note: environment variables are visible to anyone who can edit that cloud
+environment, and any cloud session using it can read the key — acceptable
+here because the service account is read-only (`roles/monitoring.viewer`),
+but don't reuse this pattern for write-capable credentials. A key _path_ in
+`GOOGLE_APPLICATION_CREDENTIALS` that resolves to a real file always wins
+over the B64 var, so local setups are unaffected.
+
+## 5. Claude Desktop
 
 Edit the desktop config file:
 
@@ -99,7 +137,7 @@ Analysis") and paste the routine from
 `.claude/skills/system-health-check/SKILL.md` into its Custom Instructions.
 Trigger it with: **Run System Health Check**.
 
-## 5. Tools exposed
+## 6. Tools exposed
 
 - `check_system_health(target_component="all", minutes_back=15)` — summarized
   metrics (latest | mean | max per series) for one component or the whole
@@ -113,7 +151,7 @@ Trigger it with: **Run System Health Check**.
 - `query_metric(metric_type, minutes_back, aligner, group_by, extra_filter)` —
   ad-hoc query for any metric the curated probes don't cover.
 
-## 6. Running the routine
+## 7. Running the routine
 
 In Claude Code, say **"Run System Health Check"** or invoke
 `/system-health-check`. Claude collects telemetry for all five components,
