@@ -70,10 +70,40 @@ as `pm-daemon`. Verify with `ps -ef | grep gcp_mcp_server`.
 Cloud sessions clone this repo, so `.mcp.json` auto-spawns `gcp-monitor`
 there too — but the cloud VM has neither your `.env` nor the key file. Cloud
 environments only carry **single-line** env vars (there is no secrets vault
-yet), so the key travels base64-encoded and the server materializes it to a
-gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
+yet), so the key travels base64-encoded; the server decodes it in memory and
+hands it straight to the Monitoring client (it never touches disk).
 
-1. Encode the key locally, straight to the clipboard (don't echo it):
+Two cloud-specific traps this section works around:
+
+- **Every routine run is a fresh VM.** Without preparation, the launcher
+  pip-installs its venv on every run (~45 s+), which loses the race against
+  the MCP client's 30 s startup timeout — the server gets killed
+  mid-bootstrap and no tools register.
+- **The environment's setup script runs _before_ the repo is cloned**, so it
+  cannot call anything in `scripts/`. It must build the venv at a fixed
+  path outside the repo; the launcher (`run_gcp_monitor.sh`) detects a
+  usable venv at `$GCP_MONITOR_VENV` or `/opt/gcp-monitor-venv` and uses it
+  instead of bootstrapping. The filesystem is snapshotted after the setup
+  script and reused by later runs (cache expires ~weekly and on
+  setup-script/network-host edits).
+
+Configure the environment on claude.ai → **Code** → environment settings:
+
+1. **Setup script** — build the venv at the fixed path (repo isn't cloned
+   yet, so the dependency list is inlined; keep it in sync with
+   `scripts/monitoring/requirements.txt`):
+
+   ```bash
+   #!/bin/bash
+   set -euo pipefail
+   python3 -m venv /opt/gcp-monitor-venv
+   /opt/gcp-monitor-venv/bin/pip install --upgrade pip
+   /opt/gcp-monitor-venv/bin/pip install 'mcp>=1.2.0' 'google-cloud-monitoring>=2.21.0'
+   chmod -R a+rX /opt/gcp-monitor-venv
+   ```
+
+2. Encode the key locally, straight to the clipboard (don't echo it —
+   and don't copy from a terminal that shows a `%` end-of-output marker):
 
    ```bash
    base64 < /path/to/monitoring-viewer.json | tr -d '\n' | wl-copy   # or xclip/pbcopy
@@ -82,19 +112,20 @@ gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
    (`tr -d '\n'` keeps this portable — GNU `base64` wraps at 76 columns by
    default and macOS/BSD `base64` has no `-w` flag.)
 
-2. On claude.ai → **Code** → the environment your routine uses → environment
-   settings → **Environment variables**, add:
+3. **Environment variables**:
 
    ```
    GOOGLE_APPLICATION_CREDENTIALS_B64=<paste the base64 blob>
    GCP_PROJECT_ID=comdottasteslikegood
+   MCP_TIMEOUT=120000
    ```
 
-   (`GCP_PROJECT_ID` is optional — it's the default.)
+   (`GCP_PROJECT_ID` is optional — it's the default. `MCP_TIMEOUT` is in
+   milliseconds and covers the slow rebuild after a snapshot-cache
+   expiry.)
 
-3. Make sure the environment's **network access** allows package installs —
-   the launcher pip-installs its venv on first run and the server calls
-   `monitoring.googleapis.com`.
+4. Make sure the environment's **network access** allows PyPI (for the
+   setup script) and `monitoring.googleapis.com` (for the server).
 
 Note: environment variables are visible to anyone who can edit that cloud
 environment, and any cloud session using it can read the key — acceptable
