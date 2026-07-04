@@ -1,157 +1,131 @@
 <div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+<img width="1200" height="475" alt="Vegangenius Chef" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+
+# Vegangenius Chef
+
+**AI-powered vegan recipe generator & personal cookbook**
+
+Generate recipes from natural-language prompts • AI food photography • Organize cookbooks • SSR public recipe pages
+
+[![CI](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 </div>
 
-# Run and deploy your AI Studio app
+---
 
-This contains everything you need to run your app locally.
+## Overview
 
-View your app in AI Studio: https://ai.studio/apps/drive/1w9LViQc2JzP_kEmp0tyb5CpuqaiKD-bT
+Vegangenius Chef is a full-stack vegan recipe app with three tiers:
 
-## Run Locally
-
-**Prerequisites:** Node.js, Python 3.9+
-
-### Frontend & Express Server
-
-1. Install dependencies:
-   `npm install`
-2. Set your API key in the environment for the backend server:
-   - `GEMINI_API_KEY=...` (preferred)
-   - `VITE_API_KEY=...` (fallback)
-3. Build the app and backend:
-   `npm run build`
-4. Start the server (serves the UI + /api endpoints):
-   `npm start`
-
-### Flask Backend (Phase 3 - Database Support)
-
-The Flask backend provides Google OAuth authentication and database-backed recipe storage.
-
-**This project uses `uv` for Python dependency management** - it's significantly faster than pip and handles virtual environments automatically.
-
-1. Install uv (if not already installed):
-
-   ```sh
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   # Or on Arch: yay -S uv
-   ```
-
-2. Set up Python environment:
-
-   ```sh
-   cd Backend
-   uv sync  # Installs all dependencies, creates .venv automatically
-   ```
-
-3. Configure environment variables (copy `.env.example` to `.env`):
-
-   ```sh
-   cp .env.example .env
-   # Edit .env and set:
-   # - GOOGLE_API_KEY (for Gemini)
-   # - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET (for OAuth)
-   # - DATABASE_URL (optional, defaults to SQLite)
-   ```
-
-4. Initialize database (Phase 3):
-
-   ```sh
-   ./init_database.sh
-   # OR manually:
-   export FLASK_APP=app.py
-   uv run flask db init
-   uv run flask db migrate -m "Initial schema"
-   uv run flask db upgrade
-   ```
-
-5. Start Flask backend:
-   ```sh
-   uv run python app.py
-   ```
-   The backend runs on `http://localhost:5000`
-
-For detailed database setup, see the Backend repository documentation.  
-For uv usage, see [`docs/UV_INTEGRATION_SUMMARY.md`](docs/UV_INTEGRATION_SUMMARY.md).
-
-6. **Database Maintenance** (if upgrading from older versions):
-
-   ```sh
-   # Fix recipe ID consistency (one-time migration)
-   cd Backend
-   python scripts/fix_recipe_ids.py
-
-   # Verify the fix
-   python scripts/test_recipe_id_fix.py
-   ```
-
-   See [`docs/RECIPE_ID_FIX.md`](docs/RECIPE_ID_FIX.md) for details on the dual-ID issue fix.
-
-### Full Stack Development
-
-Run both servers simultaneously:
-
-- **Angular dev server**: `ng serve` (port 3000)
-- **Express server**: `npm run dev` (port 8080)
-- **Flask backend**: `cd Backend && python app.py` (port 5000)
-
-The Angular dev server proxies `/api/auth/*` requests to Flask (see `proxy.conf.json`).
-
-## CI/CD
-
-This project includes comprehensive CI checks via GitHub Actions:
-
-- ✅ **Build** - Compiles Angular app and Express server
-- ✅ **Lint** - ESLint + Prettier code quality checks
-- ✅ **Test** - Vitest test suite with coverage
-- ✅ **Type Check** - TypeScript compilation verification
-- ✅ **Qodana global configuration upload** - Publishes shared Qodana configs after `QODANA_CONFIGURATIONS_TOKEN` is added to GitHub Actions secrets
-
-**Quick commands:**
-
-```sh
-npm run lint         # Check code quality
-npm run format       # Format code with Prettier
-npm run test         # Run tests
-npm run build        # Build project
-
-export $(grep -v '^#' .env | xargs)  # Set environment variables from .env
-npm run dev          # Run both servers
+```
+Browser → Angular 22 SPA → Express reverse-proxy (:8080) → Flask API (:5000) → Cloud SQL
 ```
 
-**See:** [`docs/CI_CD/CI_QUICK_REFERENCE.md`](docs/CI_CD/CI_QUICK_REFERENCE.md) for all commands and [`docs/CI_CD/CI_SETUP.md`](docs/CI_CD/CI_SETUP.md) for detailed setup.
+- **Generate** vegan recipes via Google Gemini (`gemini-2.5-flash`)
+- **AI food photos** via Google Imagen (`imagen-4.0-generate-001`)
+- **Save & organize** recipes into named cookbooks
+- **Publish** recipes as SSR pages at `/r/<slug>` for SEO & sharing
+- **Auth** via Google OAuth or guest mode (localStorage)
 
-### Qodana global configuration
+## Quick Start
 
-This repository now includes a minimal Qodana global configuration catalog based on JetBrains' sample repository:
+**Prerequisites:** Node.js 26+, Python 3.11+, [uv](https://docs.astral.sh/uv/)
 
-- `qodana-global-configurations.yaml`
-- `base/qodana.yaml`
-- `frontend/qodana.yaml`
-- `backend/qodana.yaml`
-- `.github/workflows/upload-global-configuration.yml`
+```bash
+# 1. Clone with submodules
+git clone --recurse-submodules https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook.git
+cd tasteslikegoodtheangularsvegancookbook
 
-After adding the `QODANA_CONFIGURATIONS_TOKEN` secret in GitHub Actions, pushes to `main` or `develop` (or a manual workflow dispatch) will upload these shared configurations to your Qodana Cloud organization.
+# 2. Frontend + Express proxy
+npm install
+cp .env.example .env.local   # Set GEMINI_API_KEY, FLASK_BACKEND_URL
 
-## Docker (optional)
+# 3. Flask backend
+cd Backend
+uv sync
+cp .env.example .env         # Set GOOGLE_API_KEY, GOOGLE_CLIENT_ID, etc.
+./init_database.sh
+cd ..
 
-Build and run a production container locally:
-
-```sh
-docker build -t vegangenius-chef .
-docker run --rm -p 8080:8080 \
-  -e GEMINI_API_KEY=your_key_here \
-  vegangenius-chef
+# 4. Run (three terminals)
+cd Backend && uv run python app.py          # Flask on :5000
+npm run dev                                  # Angular on :3000 (proxies /api → :5000)
 ```
 
-## Cloud Build (optional)
+## Commands
 
-A sample `cloudbuild.yaml` is included for building and deploying to Cloud Run. Update the substitutions at the top of the file to match your project, service name, and region.
+| Command              | Description                          |
+| -------------------- | ------------------------------------ |
+| `npm run dev`        | Angular dev server (port 3000)       |
+| `npm run build`      | Production build (Angular + Express) |
+| `npm start`          | Production server (port 8080)        |
+| `npm run lint`       | ESLint check                         |
+| `npm run format`     | Prettier format                      |
+| `npm run type-check` | TypeScript type check                |
+| `npm test`           | Vitest (server tests)                |
+
+## Architecture
+
+See [docs/architecture/](docs/architecture/) for ADRs and diagrams.
+
+```
+├── src/                 # Angular 22 SPA (signals, standalone components)
+├── server/              # Express reverse proxy + static hosting
+├── Backend/             # Flask API (submodule: tasteslikegood.com)
+├── scripts/             # Utility scripts (PM tooling, git, gcloud)
+├── specs/               # PM planning docs (synced to Confluence)
+├── docs/                # All documentation
+│   ├── architecture/    # ADRs, diagrams, rate limiting
+│   ├── guides/          # Developer guides, quickstart
+│   ├── deployment/      # Cloud Build, CI/CD checklists
+│   ├── security/        # Security docs & guidelines
+│   └── phases/          # Historical phase documentation
+└── public/              # Static assets (privacy policy, etc.)
+```
+
+## Deployment
+
+Two Cloud Run services in `us-central1`:
+
+- `express-frontend` — Node.js (Angular + proxy)
+- `flask-backend` — Python (API + AI + auth + DB)
+
+See [docs/deployment/DEPLOYMENT_CHECKLIST.md](docs/deployment/DEPLOYMENT_CHECKLIST.md) for the full checklist.
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml
+```
+
+## Atlassian PM workflow
+
+This repo has an official cross-agent PM workflow outside git:
+
+- **Jira KAN** = active execution state, who is working on what now
+- **Jira RCP** = delivery state, epics, sprints, acceptance scope
+- **Confluence TLG** = durable planning/session context and documentation
+- **`specs/*.md`** = local working copies that sync non-destructively into Confluence
+
+Quick commands:
+
+```sh
+npm run pm:start             # connectivity check + local PM briefing
+npm run pm:brief             # refresh local PM briefing
+npm run pm:sync              # publish/update Confluence briefing
+npm run pm:status            # live Jira + PR + Confluence + prod snapshot
+npm run pm:daemon            # start daemon in background on this VM
+npm run pm:daemon:status     # show pid + log path
+npm run pm:daemon:logs       # tail daemon log
+npm run pm:daemon:stop       # stop background daemon
+npm run pm:daemon:foreground # run watcher/MCP helper in foreground for debugging
+```
+
+Put real Atlassian credentials in `.env` using the variables shown in `.env.example`.
 
 ## Contributing
 
-See `CONTRIBUTING.md` for setup notes and workflow.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow, branching strategy, and code style.
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE`.
+[MIT](LICENSE)

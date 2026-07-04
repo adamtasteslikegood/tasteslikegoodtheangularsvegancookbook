@@ -127,6 +127,18 @@ The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remot
 
 There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
 
+## Pull request lifecycle
+
+Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
+
+- **Monitor it.** While the PR is open, check for new review comments, inline comments, and failing checks (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`, `gh pr checks <n>`). Re-check whenever you return to the PR and before declaring any related work done — a PR with unaddressed feedback is not finished.
+- **Answer every comment.** For each piece of reviewer feedback, do one of two things: push a fix commit and reply confirming what changed, or reply with a concrete technical rebuttal explaining why no change is needed. Never leave feedback unanswered or silently ignored. Verify claims against the code before agreeing or pushing a fix (the `superpowers:receiving-code-review` skill covers this — apply it when the superpowers plugin is installed).
+- **Sign replies posted on Adam's behalf.** Replies go out under Adam's GitHub account, so make authorship explicit by ending each one with a plain attribution line (`Co-authored-by:` trailers belong in commit messages, not comments):
+
+  > _Replied by Claude on Adam's behalf_
+
+- **Loop until merged.** Repeat monitor → fix or rebut → reply until the PR is merged (or closed, or Adam says stop). If feedback requires a judgment call only Adam can make — scope changes, product decisions — surface it to him instead of guessing, but still reply on the thread noting it's awaiting his call.
+
 ## Database migrations
 
 Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). They are applied in production by a Cloud Run **Job** named `flask-backend-migrate`, wired into `cloudbuild.yaml` between "Push Flask Backend Version Tag" and "Deploy Flask Backend". The job:
@@ -191,7 +203,9 @@ The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9
 
 Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Code (or any compatible agent) starts a session in this directory, it auto-spawns the servers listed there as stdio child processes. Currently registered:
 
-- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `alirez-claude-skills/pm-daemon/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `specs/plan.md`, `specs/roadmap.md`, `specs/planning_notes.md`, `specs/design-plan.md`, `specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `specs/SPRINT_0_PLAN.md`, and `specs/ATLASSIAN_PM_LINK.md` to Confluence on save.
+- `pm-daemon` — runs `scripts/pm/run_pm_daemon.sh`, which creates the venv on first run if missing, then launches `scripts/pm/pm_daemon.py`. The daemon does two things in one process: serves the FastMCP tools (`get_project_status`, `sync_pm_documents`, `refresh_project_briefing`, `create_epic_from_roadmap`, `log_agent_session`) over stdio for the agent, and runs a `watchdog` Observer in the background that syncs `specs/plan.md`, `specs/roadmap.md`, `specs/planning_notes.md`, `specs/design-plan.md`, `specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `specs/SPRINT_0_PLAN.md`, and `specs/ATLASSIAN_PM_LINK.md` to Confluence on save.
+
+- `gcp-monitor` — runs `scripts/monitoring/run_gcp_monitor.sh`, which creates its venv on first run, then launches `scripts/monitoring/gcp_mcp_server.py`. Exposes read-only Cloud Monitoring tools (`check_system_health`, `list_available_metrics`, `query_metric`) covering the production stack (Cloud Run frontend/backend, Cloud SQL, Valkey, Pub/Sub). Requires `GOOGLE_APPLICATION_CREDENTIALS` (+ optional `GCP_PROJECT_ID`) in `.env`; without them the tools register but return a credential error instead of metrics. The `/system-health-check` skill (`.claude/skills/system-health-check/`) drives the full SRE health-report routine. Setup: `docs/MCP_GCP_MONITORING.md`.
 
 Requirements for `pm-daemon` to actually sync:
 
@@ -211,7 +225,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript is pinned with Angular toolchain** — `package.json` pins `typescript` to `6.0.3` (aligned with Angular 22); major upgrades are coordinated manually via Dependabot policy.
+- **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular must move together, manually. Dependabot ignores `@angular/*` semver-major updates; when upgrading Angular, bump `typescript`, all `@angular/*`, and `@angular-eslint/*` in the same PR
 
 ## Further reading
 
@@ -225,19 +239,21 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__claude-in-chrome__*` tools directly.
 
+**Team setup:** gstack is not vendored into this repo (the `skills` and `.gstack/` `.gitignore` entries keep agent skills out of git). To get the skills below, run `./scripts/install-gstack.sh` once — it clones gstack into `~/.claude/skills/gstack` and registers the skills. Re-running it updates an existing install. Requires [bun](https://bun.sh) and `git`.
+
 Available gstack skills:
 
-| Skill                  | Skill                    | Skill              | Skill                 |
-| ---------------------- | ------------------------ | ------------------ | --------------------- |
-| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review` | `/plan-design-review` |
-| `/design-consultation` | `/design-shotgun`        | `/design-html`     | `/review`             |
-| `/ship`                | `/land-and-deploy`       | `/canary`          | `/benchmark`          |
-| `/browse`              | `/connect-chrome`        | `/qa`              | `/qa-only`            |
-| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`    | `/retro`              |
-| `/investigate`         | `/document-release`      | `/codex`           | `/cso`                |
-| `/autoplan`            | `/plan-devex-review`     | `/devex-review`    | `/careful`            |
-| `/freeze`              | `/guard`                 | `/unfreeze`        | `/gstack-upgrade`     |
-| `/learn`               |                          |                    |                       |
+| Skill                  | Skill                    | Skill               | Skill                 |
+| ---------------------- | ------------------------ | ------------------- | --------------------- |
+| `/office-hours`        | `/plan-ceo-review`       | `/plan-eng-review`  | `/plan-design-review` |
+| `/design-consultation` | `/design-shotgun`        | `/design-html`      | `/review`             |
+| `/ship`                | `/land-and-deploy`       | `/canary`           | `/benchmark`          |
+| `/browse`              | `/connect-chrome`        | `/qa`               | `/qa-only`            |
+| `/design-review`       | `/setup-browser-cookies` | `/setup-deploy`     | `/setup-gbrain`       |
+| `/retro`               | `/investigate`           | `/document-release` | `/document-generate`  |
+| `/codex`               | `/cso`                   | `/autoplan`         | `/plan-devex-review`  |
+| `/devex-review`        | `/careful`               | `/freeze`           | `/guard`              |
+| `/unfreeze`            | `/gstack-upgrade`        | `/learn`            |                       |
 
 ## Skill routing
 

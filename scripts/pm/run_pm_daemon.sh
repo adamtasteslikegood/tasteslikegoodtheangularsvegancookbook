@@ -16,8 +16,10 @@ Debian/Ubuntu example: sudo apt install python3.12-venv
 EOF
     exit 1
   fi
-  "$venv_python" -m pip install --upgrade pip >/dev/null
-  "$venv_python" -m pip install -r "$requirements"
+  # stdout is the MCP JSON-RPC channel — pip output must go to stderr or it
+  # corrupts the protocol stream on first run
+  "$venv_python" -m pip install --upgrade pip >&2
+  "$venv_python" -m pip install -r "$requirements" >&2
 fi
 
 cd "$repo_root"
