@@ -155,9 +155,16 @@ GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
 
 ## PM Daemon (`.mcp.json`)
 
+Atlassian is the official cross-agent source of truth for this repo outside git:
+
+- **Jira KAN** = active execution state, branch/work ownership, in-flight tasks
+- **Jira RCP** = delivery state, epics, sprints, acceptance scope
+- **Confluence TLG** = durable planning/session narrative and docs
+- **`specs/*.md`** = local working copies that feed Confluence non-destructively
+
 The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a venv and launches `scripts/pm/pm_daemon.py` (consolidated from `alirez-claude-skills/pm-daemon/`). It:
 
-1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`) over stdio
+1. Serves FastMCP tools (`sync_pm_documents`, `get_project_status`, `refresh_project_briefing`, `create_epic_from_roadmap`) over stdio
 2. Runs a `watchdog` Observer that auto-syncs these files to Confluence on save:
    - `specs/plan.md`
    - `specs/roadmap.md`
@@ -170,7 +177,22 @@ The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a v
 Requirements:
 
 - `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
+- set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP`
 - `python3 -m venv` must work
+
+Official session loop:
+
+```bash
+npm run pm:start             # verify connectivity + build local briefing
+npm run pm:brief             # refresh local PM context
+npm run pm:sync              # publish non-destructive briefing update to Confluence
+npm run pm:status            # inspect live Jira + PR + Confluence + prod status
+npm run pm:daemon            # start the PM daemon in background on this VM
+npm run pm:daemon:status     # check if the daemon is alive
+npm run pm:daemon:logs       # tail daemon logs
+npm run pm:daemon:stop       # stop the background daemon
+npm run pm:daemon:foreground # foreground mode for debugging
+```
 
 Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
@@ -178,8 +200,7 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
 
-- Jira issues from KAN and RCP projects (Recipe Site)
-- Jira issues from PLZA and TO projects (Office Game)
+- Jira issues from KAN and RCP by default for this repo
 - Open GitHub PRs
 - Confluence page info
 - Production site health check
@@ -190,7 +211,11 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 - **Office Game:** `PLZA`, `TO`
 - **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
 
-Install deps: `pip install -r scripts/pm/requirements.txt`
+- **KAN** = active execution, branch/work ownership, in-flight state
+- **RCP** = delivery planning, epics, sprint scope, acceptance criteria
+- Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup
+
+Install deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py` or `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`
 
 ## Branching strategy
@@ -202,6 +227,10 @@ Both this repo and the `Backend/` submodule follow the same model:
 - **`feat/*`, `fix/*`, `chore/*`** — short-lived branches off `dev`. PR back into `dev`.
 
 Never commit directly to `main` or `dev`. Always branch off `dev`.
+
+## Commit and push cadence
+
+On feature branches, commit and push after every significant work-run so work is recoverable from the remote if the VM/session dies. Stage only intentional files, keep commits scoped, and push immediately after each local commit unless the user explicitly says not to.
 
 To ship a Backend change:
 
@@ -247,7 +276,7 @@ Pre-release tags like `v0.3.0-rc.1` create a GitHub Release without triggering p
 - **Rate limiter** uses Valkey for distributed state; `server/valkey.ts` has open GH issues (#163, #162) for edge cases
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
-- **TypeScript is pinned with Angular toolchain** — `package.json` pins `typescript` to `6.0.3` (aligned with Angular 22); major upgrades are coordinated manually.
+- **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular move together, manually
 - **PM planning docs** live in `specs/` directory (except AGENTS.md at repo root)
 
 ## Skill routing

@@ -12,11 +12,16 @@ import base64
 import json
 import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
+
+# Make sibling modules importable when run as a script from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _jira_projects import resolve_jira_projects  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -62,8 +67,14 @@ PAGE_CHECK_VERSIONS = [f"v{CURRENT_VERSION}", CURRENT_VERSION, f"v{VERSION_FAMIL
 # ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID if the workspace is restructured.
 PARENT_DOCUMENTATION_PAGE_ID = os.environ.get("ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID", "11796481")
 
+def _jira_projects() -> list[str]:
+    # Shared resolver (see _jira_projects.py) so this and atlassian_pm_link.py
+    # can't drift.
+    return resolve_jira_projects(os.environ.get)
+
+
 # Jira projects to track
-JIRA_PROJECTS = os.environ.get("JIRA_PROJECTS", "KAN,RCP,PLZA,TO").split(",")
+JIRA_PROJECTS = _jira_projects()
 
 def _parse_key_pages_env(raw: str | None) -> list[tuple[str, str]] | None:
     """Parse `id1:Name 1,id2:Name 2,...` into [(id, name), ...]."""

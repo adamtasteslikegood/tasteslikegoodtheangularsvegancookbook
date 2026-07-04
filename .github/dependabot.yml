@@ -8,7 +8,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'github-actions'
@@ -28,7 +28,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'javascript'
@@ -67,7 +67,10 @@ updates:
           - 'postcss'
     # Ignore known breaking major updates that require manual migration
     ignore:
-      # Angular and TypeScript major upgrades must be coordinated with Angular ESLint and project migrations.
+      # Angular majors require TypeScript majors (e.g. Angular 22 needs TS >=6.0,
+      # which the root typescript pin deliberately blocks). Angular major upgrades
+      # are manual migrations coordinated with @angular-eslint and the TS pin —
+      # see PR #2996 which broke npm ci on dev.
       - dependency-name: '@angular/*'
         update-types: ['version-update:semver-major']
       - dependency-name: '@angular-eslint/*'
@@ -89,7 +92,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'docker'

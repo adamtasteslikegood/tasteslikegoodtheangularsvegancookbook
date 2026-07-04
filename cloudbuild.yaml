@@ -203,7 +203,10 @@ steps:
       - --image=$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
       - --region=$_REGION
       - --min-instances=0
-      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
+      # VALKEY_CA_CERT: Memorystore's Google-managed CA cert, created by
+      # scripts/gcloud/setup_valkey_ca.sh. Without it TLS verification of the
+      # Valkey endpoint fails and rate limiting falls back to in-memory (#163).
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
       - --allow-unauthenticated
       - --quiet
 

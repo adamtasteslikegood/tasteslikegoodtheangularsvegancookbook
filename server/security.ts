@@ -2,7 +2,7 @@ import rateLimit, { type Store } from 'express-rate-limit';
 import RedisStore, { type RedisReply } from 'rate-limit-redis';
 import helmet from 'helmet';
 import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
-import type Redis from 'ioredis';
+import type { Redis } from 'ioredis';
 
 /**
  * Security Configuration
@@ -31,7 +31,7 @@ function getClientIp(req: Request): string {
 function buildRedisStore(valkeyClient: Redis | null, prefix: string): Store | undefined {
   if (!valkeyClient) return undefined;
   return new RedisStore({
-    // rate-limit-redis v4 expects a sendCommand returning a Promise
+    // rate-limit-redis v5 expects a sendCommand returning a Promise
     sendCommand: (...args: string[]) =>
       valkeyClient.call(args[0], ...args.slice(1)) as unknown as Promise<RedisReply>,
     prefix,

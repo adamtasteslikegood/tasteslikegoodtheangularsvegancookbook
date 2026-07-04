@@ -25,8 +25,15 @@ export class AuthService {
   private readonly STORAGE_KEY_SESSION = AuthService.SESSION_STORAGE_KEY;
   private readonly API_BASE = environment.flaskApiUrl; // '' = relative (proxied)
 
+  /** Resolves once the startup auth check has completed and local state is reconciled. */
+  readonly ready: Promise<void>;
+
+  /** True when ensureGuestSession() was called during the auth check but had
+   *  to defer (cached non-guest session) — honored once init() reconciles. */
+  private pendingGuestEnsure = false;
+
   constructor() {
-    this.init();
+    this.ready = this.init();
   }
 
   // ─── Initialization ───────────────────────────────────────────
@@ -50,6 +57,16 @@ export class AuthService {
       }
     } finally {
       this.authLoading.set(false);
+      // A caller asked for a session while the check was in flight but was
+      // deferred because the cached session wasn't a guest. If reconciliation
+      // wiped that session, honor the request now so the caller isn't
+      // stranded with no session at all (saves would silently no-op).
+      if (this.pendingGuestEnsure) {
+        this.pendingGuestEnsure = false;
+        if (!this.currentUser()) {
+          this.ensureGuestSession();
+        }
+      }
     }
   }
 
@@ -177,18 +194,40 @@ export class AuthService {
    * Allows full use of the app without signing in.
    */
   ensureGuestSession() {
-    if (!this.currentUser()) {
-      const guestUser: User = {
-        id: crypto.randomUUID(),
-        name: 'Guest Chef',
-        isGuest: true,
-        authProvider: 'guest',
-        savedRecipes: [],
-        cookbooks: [],
-      };
-      this.currentUser.set(guestUser);
-      this.saveLocalSession(guestUser);
+    if (this.currentUser()) return;
+
+    // init() may still be awaiting /api/auth/check, so currentUser() is null
+    // even when a session already exists in localStorage. Restore that first
+    // instead of overwriting it with a fresh empty guest — otherwise a
+    // returning guest who opens a ?save= or #kitchen URL loses their saved
+    // recipes to this startup race. (Matches what init()'s loadLocalSession
+    // does; any stale authenticated session is still cleared once the auth
+    // check resolves.)
+    const existing = this.getLocalSession();
+    if (existing) {
+      // A cached *authenticated* session may be stale while the startup auth
+      // check is still in flight: restoring it would briefly render another
+      // user's data on shared devices, and a save written into it disappears
+      // if clearStaleAuthenticatedSession() wipes it moments later. Callers
+      // that need a session for a save must await `ready` first.
+      if (existing.isGuest || !this.authLoading()) {
+        this.currentUser.set(existing);
+      } else {
+        this.pendingGuestEnsure = true;
+      }
+      return;
     }
+
+    const guestUser: User = {
+      id: crypto.randomUUID(),
+      name: 'Guest Chef',
+      isGuest: true,
+      authProvider: 'guest',
+      savedRecipes: [],
+      cookbooks: [],
+    };
+    this.currentUser.set(guestUser);
+    this.saveLocalSession(guestUser);
   }
 
   /**

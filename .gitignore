@@ -7,6 +7,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Data dumps / API cache (never commit)
+confluence_data.json
+confluence_spaces.json
+jira_data.json
+jira_issues.txt
+metadata.json
+
 node_modules
 dist
 dist-ssr
@@ -16,6 +23,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+# Service-account key materialized from GOOGLE_APPLICATION_CREDENTIALS_B64
+scripts/monitoring/.gcp-sa-key.json
 
 # Angular
 .angular/
@@ -79,6 +88,9 @@ override.tf.json
 .clawhub/
 claude-code-tresor
 skills
+!.pi/skills/
+!.pi/skills/**
+!.claude/skills/
 
 # Generated / local artifacts
 /export
@@ -96,8 +108,12 @@ model_discovery_output.txt
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Python virtualenvs (created on demand by MCP launcher scripts)
+.venv/
 .gstack/
 
 # Agent runtime state
 .claude/scheduled_tasks.lock
 .omg/state/
+scripts/pm/.venv/
