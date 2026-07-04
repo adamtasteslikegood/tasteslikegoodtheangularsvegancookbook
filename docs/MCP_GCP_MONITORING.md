@@ -91,16 +91,27 @@ Configure the environment on claude.ai → **Code** → environment settings:
 
 1. **Setup script** — build the venv at the fixed path (repo isn't cloned
    yet, so the dependency list is inlined; keep it in sync with
-   `scripts/monitoring/requirements.txt`):
+   `scripts/monitoring/requirements.txt`). PyPI reads from the cloud VM
+   time out sporadically, so the install retries and the final import
+   check is what actually gates success:
 
    ```bash
    #!/bin/bash
    set -euo pipefail
    python3 -m venv /opt/gcp-monitor-venv
-   /opt/gcp-monitor-venv/bin/pip install --upgrade pip
-   /opt/gcp-monitor-venv/bin/pip install 'mcp>=1.2.0' 'google-cloud-monitoring>=2.21.0'
+   for attempt in 1 2 3; do
+     /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
+       'mcp>=1.2.0' 'google-cloud-monitoring>=2.21.0' && break
+     echo "pip attempt $attempt failed; retrying in 10s" >&2
+     sleep 10
+   done
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
    ```
+
+   (No `pip install --upgrade pip` — the venv's bundled pip installs these
+   wheels fine, and every extra download is another chance to hit a
+   transient timeout.)
 
 2. Encode the key locally, straight to the clipboard (don't echo it —
    and don't copy from a terminal that shows a `%` end-of-output marker):
