@@ -83,6 +83,9 @@ if _creds_b64 and not (_creds and os.path.isfile(_creds)):
         _key_path = Path(__file__).resolve().parent / ".gcp-sa-key.json"
         _fd = os.open(_key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
         with os.fdopen(_fd, "wb") as _fh:
+            # mode on os.open only applies at creation — re-tighten in case a
+            # previous run (or manual copy) left the file with broader perms
+            os.fchmod(_fh.fileno(), 0o600)
             _fh.write(_key_bytes)
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_key_path)
 

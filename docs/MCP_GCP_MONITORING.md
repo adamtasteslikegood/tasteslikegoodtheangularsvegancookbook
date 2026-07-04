@@ -76,8 +76,11 @@ gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
 1. Encode the key locally, straight to the clipboard (don't echo it):
 
    ```bash
-   base64 -w0 < /path/to/monitoring-viewer.json | wl-copy   # or xclip/pbcopy
+   base64 < /path/to/monitoring-viewer.json | tr -d '\n' | wl-copy   # or xclip/pbcopy
    ```
+
+   (`tr -d '\n'` keeps this portable — GNU `base64` wraps at 76 columns by
+   default and macOS/BSD `base64` has no `-w` flag.)
 
 2. On claude.ai → **Code** → the environment your routine uses → environment
    settings → **Environment variables**, add:
