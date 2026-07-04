@@ -1,0 +1,13 @@
+# Default owner for everything in the repo
+* @adamtasteslikegood
+
+# Backend (Flask) submodule
+Backend/ @adamtasteslikegood
+
+# Infrastructure & deployment
+cloudbuild.yaml @adamtasteslikegood
+Dockerfile @adamtasteslikegood
+.github/workflows/ @adamtasteslikegood
+
+# PM tooling
+scripts/pm/ @adamtasteslikegood

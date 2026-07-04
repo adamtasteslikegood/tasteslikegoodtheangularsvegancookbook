@@ -177,18 +177,31 @@ export class AuthService {
    * Allows full use of the app without signing in.
    */
   ensureGuestSession() {
-    if (!this.currentUser()) {
-      const guestUser: User = {
-        id: crypto.randomUUID(),
-        name: 'Guest Chef',
-        isGuest: true,
-        authProvider: 'guest',
-        savedRecipes: [],
-        cookbooks: [],
-      };
-      this.currentUser.set(guestUser);
-      this.saveLocalSession(guestUser);
+    if (this.currentUser()) return;
+
+    // init() may still be awaiting /api/auth/check, so currentUser() is null
+    // even when a session already exists in localStorage. Restore that first
+    // instead of overwriting it with a fresh empty guest — otherwise a
+    // returning guest who opens a ?save= or #kitchen URL loses their saved
+    // recipes to this startup race. (Matches what init()'s loadLocalSession
+    // does; any stale authenticated session is still cleared once the auth
+    // check resolves.)
+    const existing = this.getLocalSession();
+    if (existing) {
+      this.currentUser.set(existing);
+      return;
     }
+
+    const guestUser: User = {
+      id: crypto.randomUUID(),
+      name: 'Guest Chef',
+      isGuest: true,
+      authProvider: 'guest',
+      savedRecipes: [],
+      cookbooks: [],
+    };
+    this.currentUser.set(guestUser);
+    this.saveLocalSession(guestUser);
   }
 
   /**

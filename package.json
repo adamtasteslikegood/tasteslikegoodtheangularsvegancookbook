@@ -1,7 +1,7 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "ng serve",
@@ -11,6 +11,18 @@
     "test": "vitest",
     "test:ci": "vitest run --coverage",
     "test:watch": "vitest watch",
+    "pm:start": "npm run pm:check && npm run pm:brief",
+    "pm:check": "python3 scripts/pm/atlassian_pm_link.py check",
+    "pm:brief": "python3 scripts/pm/atlassian_pm_link.py brief",
+    "pm:sync": "python3 scripts/pm/atlassian_pm_link.py sync",
+    "pm:publish": "npm run pm:sync",
+    "pm:status": "bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py",
+    "pm:daemon": "npm run pm:daemon:start",
+    "pm:daemon:start": "bash scripts/pm/daemon_control.sh start",
+    "pm:daemon:stop": "bash scripts/pm/daemon_control.sh stop",
+    "pm:daemon:status": "bash scripts/pm/daemon_control.sh status",
+    "pm:daemon:logs": "bash scripts/pm/daemon_control.sh logs",
+    "pm:daemon:foreground": "bash scripts/pm/run_pm_daemon.sh --watch-only",
     "lint": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.ts\" \"server/**/*.ts\" --fix",
     "format": "prettier --write \"src/**/*.{ts,html,css,json}\" \"server/**/*.ts\" \"*.{js,json,md}\"",
@@ -27,7 +39,7 @@
     "@angular/forms": "22.0.5",
     "@angular/platform-browser": "22.0.5",
     "@google-cloud/secret-manager": "^6.2.0",
-    "@google/genai": "^1.50.1",
+    "@google/genai": "^2.8.0",
     "autoprefixer": "^10.5.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
@@ -47,8 +59,7 @@
     "@angular-eslint/template-parser": "22.0.0",
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
-    "@types/express-rate-limit": "^6.0.0",
-    "@types/node": "^25.6.0",
+    "@types/node": "^25.6.2",
     "@typescript-eslint/eslint-plugin": "^8.62.1",
     "@typescript-eslint/parser": "^8.20.0",
     "@vitest/coverage-v8": "^4.1.9",
@@ -60,5 +71,8 @@
     "typescript": "6.0.3",
     "vite": "^8.0.16",
     "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "hono": "4.12.26"
   }
 }
