@@ -8,6 +8,29 @@ venv_python="$venv_dir/bin/python"
 requirements="$mon_dir/requirements.txt"
 deps_stamp="$venv_dir/.deps-installed"
 
+# Claude Code cloud environments build the venv in the environment's setup
+# script, which runs BEFORE the repo is cloned — so it can't live at
+# $venv_dir and instead sits at a fixed path baked into the snapshot (see
+# docs/MCP_GCP_MONITORING.md). Use it when it's real, skipping the slow
+# in-repo bootstrap that races the MCP client's startup timeout.
+for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
+  prebuilt_python="$prebuilt/bin/python"
+  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - <<'EOF' 2>/dev/null
+import importlib.util as u
+import sys
+
+sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)
+EOF
+  then
+    if [[ "${1:-}" == "--bootstrap-only" ]]; then
+      echo "Prebuilt venv OK: $prebuilt" >&2
+      exit 0
+    fi
+    cd "$repo_root"
+    exec "$prebuilt_python" "$mon_dir/gcp_mcp_server.py" "$@"
+  fi
+done
+
 # The stamp is written only after pip succeeds, so an interrupted first run
 # (e.g. the MCP client's startup timeout killing us mid-install) re-installs
 # on the next launch instead of exec'ing a half-built venv.
