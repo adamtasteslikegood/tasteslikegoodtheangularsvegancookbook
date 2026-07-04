@@ -289,7 +289,8 @@ Key routing rules:
 - Transcript ingest: incremental (initial bulk of 24 files done 2026-07-04)
 - Current repo policy: read-write (code imported: 134 pages, 831 chunks, embedded)
 - Trust policy: personal
-- Rollback backup: old 0.18.x brain (252 pages, last write 2026-05-07) preserved untouched in the `railway` database on the same Railway server
+- Rollback backup: old 0.18.x brain (252 pages, last write 2026-05-07)
+  preserved untouched in the `railway` database on the same Railway server
 
 ## GBrain Search Guidance (configured by /sync-gbrain)
 
