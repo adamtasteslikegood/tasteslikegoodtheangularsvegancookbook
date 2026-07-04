@@ -116,6 +116,11 @@ export async function createValkeyClient(): Promise<Redis | null> {
     if (authMode === 'iam') {
       const { token, email } = await getIAMToken();
       const tlsOptions: Record<string, unknown> = {};
+      // Memorystore server certs chain to a Google-managed private CA that the
+      // system trust store can't verify — trust it explicitly via VALKEY_CA_CERT.
+      if (process.env.VALKEY_CA_CERT) {
+        tlsOptions.ca = process.env.VALKEY_CA_CERT;
+      }
       if (process.env.VALKEY_TLS_INSECURE === 'true') {
         tlsOptions.rejectUnauthorized = false;
         console.warn(
