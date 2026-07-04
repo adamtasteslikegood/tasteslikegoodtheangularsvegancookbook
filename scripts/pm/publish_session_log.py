@@ -12,7 +12,9 @@ from atlassian_pm_link import AtlassianClient, AtlassianError, load_config, mark
 
 
 def default_title(markdown_path: Path) -> str:
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    # Seconds precision: two logs published in the same minute would otherwise
+    # collide on Confluence's unique page-title constraint.
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     stem = markdown_path.stem.replace("_", " ").replace("-", " ").strip()
     return f"Session Log - {timestamp} - {stem}" if stem else f"Session Log - {timestamp}"
 

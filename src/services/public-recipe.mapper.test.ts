@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSavedRecipeFromPublic } from './public-recipe.mapper';
 
 describe('buildSavedRecipeFromPublic', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('preserves image fields and assigns a fresh id', () => {
     vi.stubGlobal('crypto', { randomUUID: () => 'fresh-uuid' });
 
@@ -16,8 +20,6 @@ describe('buildSavedRecipeFromPublic', () => {
     expect(recipe.id).not.toBe('public-id');
     expect(recipe.ai_image_url).toBe('https://img.example/ai.png');
     expect(recipe.stock_image_url).toBe('https://img.example/stock.jpg');
-
-    vi.unstubAllGlobals();
   });
 
   it('fills safe defaults for missing fields without inventing image urls', () => {
