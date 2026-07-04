@@ -17,13 +17,20 @@ every tool in this server — Pub/Sub metrics are read through the Monitoring
 API, not the Pub/Sub admin API.
 
 Configuration (env vars, or repo-root `.env`):
-    GOOGLE_APPLICATION_CREDENTIALS  path to the service-account JSON key
+    GOOGLE_APPLICATION_CREDENTIALS      path to the service-account JSON key
+    GOOGLE_APPLICATION_CREDENTIALS_B64  base64 of the key JSON itself — for
+                                        Claude Code cloud environments, which
+                                        only carry single-line env vars; used
+                                        when no key file path resolves
     GCP_PROJECT_ID                  defaults to comdottasteslikegood
     EXPRESS_SERVICE / FLASK_SERVICE / CLOUDSQL_INSTANCE  resource overrides
 """
 
+import base64
 import datetime
+import json
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import Optional
@@ -54,7 +61,30 @@ _load_dotenv(REPO_ROOT / ".env")
 # the same entry works regardless of the agent's working directory.
 _creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 if _creds and not os.path.isabs(_creds):
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(REPO_ROOT / _creds)
+    _creds = str(REPO_ROOT / _creds)
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _creds
+
+# Claude Code cloud environments (web sessions / scheduled routines) have no
+# key file on disk and only carry single-line env vars, so the key travels as
+# base64-encoded JSON. Materialize it to a gitignored 0600 file. A key *path*
+# that resolves to a real file wins, keeping local setups unaffected.
+_creds_b64 = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_B64")
+if _creds_b64 and not (_creds and os.path.isfile(_creds)):
+    try:
+        _key_bytes = base64.b64decode(_creds_b64, validate=True)
+        json.loads(_key_bytes)
+    except ValueError as exc:
+        print(
+            "WARNING: GOOGLE_APPLICATION_CREDENTIALS_B64 is not valid "
+            f"base64-encoded JSON; ignoring it ({exc})",
+            file=sys.stderr,
+        )
+    else:
+        _key_path = Path(__file__).resolve().parent / ".gcp-sa-key.json"
+        _fd = os.open(_key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(_fd, "wb") as _fh:
+            _fh.write(_key_bytes)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_key_path)
 
 PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "comdottasteslikegood")
 PROJECT_NAME = f"projects/{PROJECT_ID}"
@@ -122,7 +152,8 @@ def _metrics_client():
                 raise RuntimeError(
                     f"GOOGLE_APPLICATION_CREDENTIALS points to '{creds}' but no "
                     "such file exists. Fix the path in .env (repo root) or the "
-                    "MCP env block."
+                    "MCP env block, or supply the key as "
+                    "GOOGLE_APPLICATION_CREDENTIALS_B64 (base64 of the JSON)."
                 )
             from google.cloud import monitoring_v3
 

@@ -23,6 +23,8 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+# Service-account key materialized from GOOGLE_APPLICATION_CREDENTIALS_B64
+scripts/monitoring/.gcp-sa-key.json
 
 # Angular
 .angular/
