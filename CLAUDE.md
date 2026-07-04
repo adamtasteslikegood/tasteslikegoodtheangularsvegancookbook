@@ -289,6 +289,7 @@ Key routing rules:
 - Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
 
 ## GBrain Search Guidance (configured by /sync-gbrain)
+
 <!-- gstack-gbrain-search-guidance:start -->
 
 GBrain is set up and synced on this machine. The agent should prefer gbrain
@@ -311,19 +312,21 @@ symbols; on a non-code-aware pack `--dream` completes but the graph stays empty
 and reports a WARN. `code-def`/`code-refs` need the same extraction.
 
 Two indexed corpora available via the `gbrain` CLI:
+
 - This worktree's code (auto-pinned via `.gbrain-source`).
 - `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
   the existing federation pipeline).
 
 Prefer gbrain when:
+
 - "Where is X handled?" / semantic intent, no exact string yet:
-    `gbrain search "<terms>"` or `gbrain query "<question>"`
+  `gbrain search "<terms>"` or `gbrain query "<question>"`
 - "Where is symbol Y defined?" / symbol-based code questions:
-    `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
+  `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
 - "What calls Y?" / "What does Y depend on?":
-    `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
+  `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
 - "What did we decide last time?" / past plans, retros, learnings:
-    `gbrain search "<terms>" --source gstack-brain-<user>`
+  `gbrain search "<terms>" --source gstack-brain-<user>`
 
 Grep is still right for known exact strings, regex, multiline patterns, and
 file globs. Run `/sync-gbrain` after meaningful code changes; for ongoing
