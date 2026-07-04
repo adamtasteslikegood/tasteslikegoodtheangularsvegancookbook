@@ -28,6 +28,10 @@ export class AuthService {
   /** Resolves once the startup auth check has completed and local state is reconciled. */
   readonly ready: Promise<void>;
 
+  /** True when ensureGuestSession() was called during the auth check but had
+   *  to defer (cached non-guest session) — honored once init() reconciles. */
+  private pendingGuestEnsure = false;
+
   constructor() {
     this.ready = this.init();
   }
@@ -53,6 +57,16 @@ export class AuthService {
       }
     } finally {
       this.authLoading.set(false);
+      // A caller asked for a session while the check was in flight but was
+      // deferred because the cached session wasn't a guest. If reconciliation
+      // wiped that session, honor the request now so the caller isn't
+      // stranded with no session at all (saves would silently no-op).
+      if (this.pendingGuestEnsure) {
+        this.pendingGuestEnsure = false;
+        if (!this.currentUser()) {
+          this.ensureGuestSession();
+        }
+      }
     }
   }
 
@@ -198,6 +212,8 @@ export class AuthService {
       // that need a session for a save must await `ready` first.
       if (existing.isGuest || !this.authLoading()) {
         this.currentUser.set(existing);
+      } else {
+        this.pendingGuestEnsure = true;
       }
       return;
     }
