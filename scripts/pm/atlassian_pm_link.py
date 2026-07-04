@@ -47,7 +47,7 @@ class Config:
     atlassian_url: str
     email: str
     api_token: str
-    jira_project_key: str = "KAN,RCP,PLZA,TO"
+    jira_project_key: str = "KAN,RCP"
     confluence_space_key: str = "TLG"
     confluence_space_id: str | None = None
     confluence_parent_page_id: str | None = None

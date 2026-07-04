@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
-# Canonical default project set (matches Config.jira_project_key).
-DEFAULT_JIRA_PROJECTS = ["KAN", "RCP", "PLZA", "TO"]
+# Canonical default project set for this repo.
+DEFAULT_JIRA_PROJECTS = ["KAN", "RCP"]
 
 
 def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
@@ -19,8 +19,7 @@ def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
     ``get`` is a lookup callable such as ``dict.get`` or ``os.environ.get``.
     Precedence: explicit ``JIRA_PROJECTS`` / ``ATLASSIAN_JIRA_PROJECTS`` (CSV)
     wins; else the individual ``ATLASSIAN_JIRA_PROJECT_KEY`` /
-    ``ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY`` vars; else the comprehensive
-    default set.
+    ``ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY`` vars; else the repo default set.
     """
     explicit = get("JIRA_PROJECTS") or get("ATLASSIAN_JIRA_PROJECTS")
     if explicit:
