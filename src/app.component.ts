@@ -102,8 +102,8 @@ export class AppComponent {
     // session — writing into a cached-but-stale authenticated session gets
     // wiped by clearStaleAuthenticatedSession() right after.
     await this.authService.ready;
-    // Ensure a guest session exists so the save persists for first-time,
-    // unauthenticated visitors arriving from an SSR page.
+    // Ensure a session exists so the save persists — a no-op for signed-in
+    // users; creates a guest for first-time visitors arriving from an SSR page.
     this.authService.ensureGuestSession();
     try {
       const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);

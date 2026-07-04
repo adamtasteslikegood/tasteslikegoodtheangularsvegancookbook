@@ -38,7 +38,8 @@ require() {
 
 require gcloud
 require python3
-gcloud config set project "$PROJECT_ID" >/dev/null
+# --project is passed per command: mutating the user's global gcloud
+# config from a setup script is a rude side effect.
 
 # ── 1. Fetch the instance CA bundle ─────────────────────────────────────────
 # During CA rotation multiple CAs are active at once; the bundle must contain
@@ -46,7 +47,7 @@ gcloud config set project "$PROJECT_ID" >/dev/null
 # concatenated PEM certs in a single value.
 log "Fetching CA bundle for Memorystore instance ${VALKEY_INSTANCE} (${REGION})"
 CA_PEM="$(gcloud memorystore instances get-certificate-authority "$VALKEY_INSTANCE" \
-  --location="$REGION" --format=json | python3 -c '
+  --project="$PROJECT_ID" --location="$REGION" --format=json | python3 -c '
 import json, sys
 data = json.load(sys.stdin)
 certs = [
@@ -65,23 +66,24 @@ fi
 log "Bundle contains $(grep -c 'BEGIN CERTIFICATE' <<<"$CA_PEM") certificate(s)"
 
 # ── 2. Create the secret / add a version only when the CA changed ──────────
-if ! gcloud secrets describe "$SECRET_NAME" >/dev/null 2>&1; then
+if ! gcloud secrets describe "$SECRET_NAME" --project="$PROJECT_ID" >/dev/null 2>&1; then
   log "Creating secret ${SECRET_NAME}"
   printf '%s\n' "$CA_PEM" | gcloud secrets create "$SECRET_NAME" \
+    --project="$PROJECT_ID" \
     --replication-policy=automatic \
     --data-file=-
 else
-  CURRENT="$(gcloud secrets versions access latest --secret="$SECRET_NAME" 2>/dev/null || true)"
+  CURRENT="$(gcloud secrets versions access latest --secret="$SECRET_NAME" --project="$PROJECT_ID" 2>/dev/null || true)"
   if [[ "$CURRENT" == "$CA_PEM" ]]; then
     log "Secret ${SECRET_NAME} already holds the current CA — nothing to do"
   else
     log "CA changed — adding new version to ${SECRET_NAME}"
-    printf '%s\n' "$CA_PEM" | gcloud secrets versions add "$SECRET_NAME" --data-file=-
+    printf '%s\n' "$CA_PEM" | gcloud secrets versions add "$SECRET_NAME" --project="$PROJECT_ID" --data-file=-
   fi
 fi
 
 # ── 3. Grant the Express runtime SA access to the secret ───────────────────
-RUNTIME_SA="$(gcloud run services describe "$EXPRESS_SERVICE" --region="$REGION" \
+RUNTIME_SA="$(gcloud run services describe "$EXPRESS_SERVICE" --project="$PROJECT_ID" --region="$REGION" \
   --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || true)"
 if [[ -z "$RUNTIME_SA" ]]; then
   PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
@@ -90,7 +92,7 @@ if [[ -z "$RUNTIME_SA" ]]; then
 fi
 
 log "Granting roles/secretmanager.secretAccessor on ${SECRET_NAME} to ${RUNTIME_SA}"
-gcloud secrets add-iam-policy-binding "$SECRET_NAME" \
+gcloud secrets add-iam-policy-binding "$SECRET_NAME" --project="$PROJECT_ID" \
   --member="serviceAccount:${RUNTIME_SA}" \
   --role="roles/secretmanager.secretAccessor" >/dev/null
 
