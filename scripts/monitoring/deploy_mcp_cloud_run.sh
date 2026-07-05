@@ -91,9 +91,22 @@ gcloud run deploy "$SERVICE" \
   --quiet
 
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')"
+TOKEN="$(gcloud secrets versions access latest --secret="$SECRET_NAME" --project="$PROJECT_ID" 2>/dev/null || true)"
 echo
-echo "Deployed. Register this as a Claude custom connector:"
-echo "  MCP server URL : ${URL}/mcp"
-echo "  Auth header    : Authorization: Bearer <token from secret $SECRET_NAME>"
+echo "Deployed. Register as a Claude custom connector."
 echo
-echo "Token: gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"
+echo "claude.ai / Claude Code web (Settings -> Connectors -> Add custom connector):"
+echo "  Its UI has no header field, so the token rides in the URL. Paste this as"
+echo "  the URL and leave the OAuth Client ID / Secret fields BLANK:"
+if [[ -n "$TOKEN" ]]; then
+  echo "    ${URL}/mcp?key=${TOKEN}"
+else
+  echo "    ${URL}/mcp?key=<token>   (fetch <token> with the command below)"
+fi
+echo
+echo "Claude Code CLI / Desktop / API (header auth — keeps the token out of URLs & logs):"
+echo "  URL:    ${URL}/mcp"
+echo "  Header: Authorization: Bearer <token>"
+echo
+echo "Fetch the token:"
+echo "  gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"
