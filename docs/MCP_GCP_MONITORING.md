@@ -101,7 +101,7 @@ Configure the environment on claude.ai → **Code** → environment settings:
    python3 -m venv /opt/gcp-monitor-venv
    for attempt in 1 2 3; do
      /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
-       'mcp>=1.2.0' 'google-cloud-monitoring>=2.21.0' && break
+       'mcp>=1.10.0' 'google-cloud-monitoring>=2.21.0' && break
      echo "pip attempt $attempt of 3 failed" >&2
      if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
@@ -144,6 +144,83 @@ here because the service account is read-only (`roles/monitoring.viewer`),
 but don't reuse this pattern for write-capable credentials. A key _path_ in
 `GOOGLE_APPLICATION_CREDENTIALS` that resolves to a real file always wins
 over the B64 var, so local setups are unaffected.
+
+> **Better option for cloud sessions & routines:** the stdio path above is
+> fragile in the cloud — Claude Code's cloud/routine environment does **not**
+> spawn the `.mcp.json` stdio servers at all (only remote connectors show up
+> there), so routines fall back to invoking the script directly. Section 4.5
+> hosts the same server as a remote connector and removes that whole class of
+> problem, along with the base64 key.
+
+## 4.5. Hosted remote connector (Cloud Run) — recommended for cloud/routines
+
+The same `gcp_mcp_server.py` also serves its tools over **authenticated
+Streamable HTTP** (`MCP_TRANSPORT=http`). Hosted on Cloud Run and registered as
+a Claude **custom connector**, it becomes a first-class tool in exactly the
+place the stdio path can't reach: web sessions and scheduled routines, whose
+tool registry only wires up remote connectors.
+
+Two wins over the stdio/base64 setup:
+
+- **Keyless.** The Cloud Run service runs _as_ a service account with
+  `roles/monitoring.viewer`; the Monitoring client picks up ADC. There is no
+  key file and no `GOOGLE_APPLICATION_CREDENTIALS_B64` — nothing to leak from an
+  environment-variable pane.
+- **Headless-safe auth.** The connector carries a static bearer token on every
+  request (no interactive OAuth grant that a non-interactive routine might not
+  have), so it behaves identically in a routine and on your desktop.
+
+### Deploy
+
+One idempotent script provisions the service account, the token secret, and the
+Cloud Run service:
+
+```bash
+scripts/monitoring/deploy_mcp_cloud_run.sh
+# override defaults if needed:
+PROJECT_ID=comdottasteslikegood REGION=us-central1 \
+  scripts/monitoring/deploy_mcp_cloud_run.sh
+```
+
+It prints the connector URL (`https://<service-url>/mcp`) and the command to
+read the generated token:
+
+```bash
+gcloud secrets versions access latest --secret=MCP_AUTH_TOKEN --project=comdottasteslikegood
+```
+
+Ingress is public because Claude's servers must reach it and can't authenticate
+with GCP IAM — **the bearer token is the access control.** It gates every
+request except `/healthz` (an unauthenticated liveness probe that reveals
+nothing); the server refuses to start in HTTP mode if `MCP_AUTH_TOKEN` is unset,
+so it can never accidentally serve metrics open. Rotate by adding a new secret
+version and re-running the deploy script.
+
+### Register the connector in Claude
+
+In Claude (Settings → Connectors → Add custom connector), point it at the
+`/mcp` URL and set the auth header:
+
+```
+URL:            https://<service-url>/mcp
+Authorization:  Bearer <token from MCP_AUTH_TOKEN>
+```
+
+Once connected, `check_system_health`, `list_available_metrics`, and
+`query_metric` appear as tools in cloud sessions and routines — no `.mcp.json`,
+no venv, no base64 key. The `/system-health-check` skill drives them the same
+way it drives the stdio server.
+
+### Run the HTTP server locally (optional)
+
+```bash
+MCP_TRANSPORT=http MCP_AUTH_TOKEN=dev-secret PORT=8080 \
+  scripts/monitoring/run_gcp_monitor.sh --http
+curl -s localhost:8080/healthz   # -> ok
+```
+
+Local runs still resolve credentials the normal way (`.env` key path or
+`GOOGLE_APPLICATION_CREDENTIALS_B64`); only Cloud Run relies on ADC.
 
 ## 5. Claude Desktop
 
