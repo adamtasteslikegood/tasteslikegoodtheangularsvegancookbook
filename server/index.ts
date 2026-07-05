@@ -101,7 +101,9 @@ export const ready = (async () => {
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
 
-  if (process.env.VITEST) return;
+  // Skip the real listener under test runners: Vitest sets VITEST itself,
+  // and NODE_ENV=test covers any other harness importing this module.
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') return;
 
   server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);

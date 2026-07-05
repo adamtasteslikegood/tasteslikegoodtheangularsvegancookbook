@@ -23,6 +23,10 @@ let flaskStub: http.Server;
 let expressServer: http.Server;
 let baseUrl: string;
 
+// Captured so the env overrides below can be restored for other test files.
+const originalVitestEnv = process.env.VITEST;
+const originalFlaskUrl = process.env.FLASK_BACKEND_URL;
+
 beforeAll(async () => {
   // Stub Flask backend: serves the SSR stylesheet and browse page.
   flaskStub = http.createServer((req, res) => {
@@ -42,6 +46,9 @@ beforeAll(async () => {
 
   // Must be set before importing index.ts — proxy.ts reads it at import time.
   process.env.FLASK_BACKEND_URL = `http://127.0.0.1:${flaskPort}`;
+  // Vitest sets this itself, but make the dependency explicit: index.ts must
+  // see it (or NODE_ENV=test) to skip binding the real listener on import.
+  process.env.VITEST = process.env.VITEST || 'true';
 
   const { app, ready } = await import('./index.js');
   await ready;
@@ -52,6 +59,16 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  if (originalVitestEnv === undefined) {
+    delete process.env.VITEST;
+  } else {
+    process.env.VITEST = originalVitestEnv;
+  }
+  if (originalFlaskUrl === undefined) {
+    delete process.env.FLASK_BACKEND_URL;
+  } else {
+    process.env.FLASK_BACKEND_URL = originalFlaskUrl;
+  }
   await new Promise<void>((resolve) => expressServer.close(() => resolve()));
   await new Promise<void>((resolve) => flaskStub.close(() => resolve()));
 });
