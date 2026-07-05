@@ -711,15 +711,18 @@ def _run_http() -> None:
             file=sys.stderr,
         )
         sys.exit(1)
-    # The token becomes a URL path segment, so it must be URL-safe. The deploy
-    # script generates a base64url token (unreserved chars only); reject anything
-    # else rather than silently mount a broken/again-guessable path.
-    if not re.fullmatch(r"[A-Za-z0-9._~\-]+", token):
+    # The token becomes a URL path segment, so it must be safe there. Allowed:
+    # unreserved chars (A-Z a-z 0-9 - . _ ~) plus '=', which is a valid path
+    # sub-delim (RFC 3986) — this keeps tokens minted by the earlier deploy
+    # script working, since `openssl rand -base64 32 | tr '+/' '-_'` leaves the
+    # trailing '=' padding. Reject anything else (space, /, ?, #, %, …) rather
+    # than silently mount a broken/again-guessable path.
+    if not re.fullmatch(r"[A-Za-z0-9._~=\-]+", token):
         print(
-            "FATAL: MCP_AUTH_TOKEN must contain only URL-safe unreserved "
-            "characters (A-Z a-z 0-9 - . _ ~) so it can be embedded in the "
-            "endpoint path. Regenerate it, e.g. `openssl rand -base64 32 | "
-            "tr '+/' '-_' | tr -d '=\\n'`.",
+            "FATAL: MCP_AUTH_TOKEN must contain only URL-path-safe characters "
+            "(A-Z a-z 0-9 - . _ ~ =) so it can be embedded in the endpoint "
+            "path. Regenerate it, e.g. `openssl rand -base64 32 | "
+            "tr '+/' '-_' | tr -d '\\n'`.",
             file=sys.stderr,
         )
         sys.exit(1)
