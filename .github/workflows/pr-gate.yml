@@ -103,6 +103,8 @@ jobs:
         run: uv sync
       - name: Run pytest
         working-directory: Backend
+        env:
+          PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
   # ── Changelog ─────────────────────────────────────────────────────────────
