@@ -207,6 +207,8 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 
 - `gcp-monitor` — runs `scripts/monitoring/run_gcp_monitor.sh`, which creates its venv on first run, then launches `scripts/monitoring/gcp_mcp_server.py`. Exposes read-only Cloud Monitoring tools (`check_system_health`, `list_available_metrics`, `query_metric`) covering the production stack (Cloud Run frontend/backend, Cloud SQL, Valkey, Pub/Sub). Requires `GOOGLE_APPLICATION_CREDENTIALS` (+ optional `GCP_PROJECT_ID`) in `.env`; without them the tools register but return a credential error instead of metrics. The `/system-health-check` skill (`.claude/skills/system-health-check/`) drives the full SRE health-report routine. Setup: `docs/MCP_GCP_MONITORING.md`.
 
+  **Cloud sessions & routines** don't spawn `.mcp.json` stdio servers (their tool registry only wires up remote connectors), so `gcp-monitor` is unreachable there via stdio — routines have to invoke the script directly as a workaround. The same server also runs over authenticated Streamable HTTP (`MCP_TRANSPORT=http`): deploy it to Cloud Run with `scripts/monitoring/deploy_mcp_cloud_run.sh` (keyless — runs as a `roles/monitoring.viewer` SA via ADC, no base64 key; bearer-token auth from a Secret Manager `MCP_AUTH_TOKEN`) and register the printed `/mcp` URL as a Claude **custom connector**. Routines then get the tools first-class. See `docs/MCP_GCP_MONITORING.md` § 4.5.
+
 Requirements for `pm-daemon` to actually sync:
 
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
@@ -279,14 +281,19 @@ Key routing rules:
 ## GBrain Configuration (configured by /setup-gbrain)
 
 - Mode: local-stdio
-- Engine: postgres (Supabase Session Pooler)
-- gbrain version: 0.28.6 (upgraded from 0.18.x on 2026-05-07; schema v38)
+- Engine: postgres (Railway TCP proxy, dedicated `gbrain` database; schema v122)
+- gbrain version: 0.42.56.0 (reconfigured 2026-07-04 to Railway Postgres)
+- Embeddings: openai:text-embedding-3-large (1536d)
+- chat/expansion: openai:gpt-5.2
 - Config file: `~/.gbrain/config.json` (mode 0600)
 - MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
 - Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
-- Artifacts sync: full
-- Current repo policy: read-write
-- Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
+- Artifacts sync: full (federated source `gstack-artifacts-adam`)
+- Transcript ingest: incremental (initial bulk of 24 files done 2026-07-04)
+- Current repo policy: read-write (code imported: 134 pages, 831 chunks, embedded)
+- Trust policy: personal
+- Rollback backup: old 0.18.x brain (252 pages, last write 2026-05-07)
+  preserved untouched in the `railway` database on the same Railway server
 
 ## GBrain Search Guidance (configured by /sync-gbrain)
 
@@ -294,9 +301,26 @@ Key routing rules:
 
 GBrain is set up and synced on this machine. The agent should prefer gbrain
 over Grep when the question is semantic or when you don't know the exact
-identifier yet. Two indexed corpora available via the `gbrain` CLI:
+identifier yet.
 
-- This repo's code (registered as `gstack-code-<repo>` source).
+**This worktree is pinned to a worktree-scoped code source** via the
+`.gbrain-source` file in the repo root (kubectl-style context).
+`gbrain code-def`, `code-refs`, `code-callers`, `code-callees`, `search`, and
+`query` from anywhere under this worktree route to that source by default —
+no `--source` flag needed (gbrain >= 0.41.38.0; on older gbrain the call-graph
+commands need `--source "$(cat .gbrain-source)"`). Conductor sibling worktrees
+of the same repo each have their own pin and their own indexed pages, so
+semantic results match the code on disk here.
+
+Call-graph queries (`code-callers`/`code-callees`) also need the graph to be
+built first — run `/sync-gbrain --dream` (or `--full`) if they return
+`count: 0`. This only works if this source's gbrain schema pack extracts code
+symbols; on a non-code-aware pack `--dream` completes but the graph stays empty
+and reports a WARN. `code-def`/`code-refs` need the same extraction.
+
+Two indexed corpora available via the `gbrain` CLI:
+
+- This worktree's code (auto-pinned via `.gbrain-source`).
 - `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
   the existing federation pipeline).
 
@@ -312,7 +336,14 @@ Prefer gbrain when:
   `gbrain search "<terms>" --source gstack-brain-<user>`
 
 Grep is still right for known exact strings, regex, multiline patterns, and
-file globs. The brain auto-syncs incrementally on every gstack skill start.
-Run `/sync-gbrain` to force-refresh, `/sync-gbrain --full` for full reindex.
+file globs. Run `/sync-gbrain` after meaningful code changes; for ongoing
+auto-sync across all worktrees, run `gbrain autopilot --install` once per
+machine — gbrain's daemon handles incremental refresh on a schedule.
+
+Safety: don't run `/sync-gbrain` while `gbrain autopilot` is active — the
+orchestrator refuses destructive source ops when it detects a running autopilot
+to avoid racing it (#1734). Prefer registering user repos with `gbrain sources
+add --path <dir>` (no `--url`): URL-managed sources can auto-reclone, and the
+sync code walk for them requires an explicit `--allow-reclone` opt-in.
 
 <!-- gstack-gbrain-search-guidance:end -->

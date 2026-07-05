@@ -12,7 +12,8 @@ import {
 import { createFlaskProxy } from './proxy.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 
-const app = express();
+// Exported for route-mounting integration tests (server/routes.test.ts).
+export const app = express();
 const port = Number.parseInt(process.env.PORT || '8080', 10);
 const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
@@ -24,7 +25,9 @@ app.set('trust proxy', 1);
 let server: Server | null = null;
 
 // ── Async startup ───────────────────────────────────────────────
-(async () => {
+// Exported so tests can await route mounting; under Vitest the routes are
+// mounted but the HTTP listener is not started (tests call app.listen(0)).
+export const ready = (async () => {
   // Connect to Valkey for shared rate limiting (falls back to in-memory)
   const valkeyClient = await createValkeyClient();
 
@@ -83,6 +86,13 @@ let server: Server | null = null;
   app.get('/r/*splat', staticPageLimiter, ssrProxy);
   app.get('/browse', staticPageLimiter, ssrProxy);
   app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
+  // The SSR templates link their stylesheets via Flask's /static/ (e.g.
+  // /static/css/tokens.css). Without this route those requests fall through
+  // to the SPA catch-all, which answers with index.html as text/html — and
+  // Helmet's X-Content-Type-Options: nosniff makes browsers refuse to apply
+  // it, so the public pages render completely unstyled. Mounted after
+  // express.static so Angular build assets (if any collide) still win.
+  app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
   app.get('{*path}', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
@@ -91,13 +101,19 @@ let server: Server | null = null;
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
 
+  // Skip the real listener under test runners: Vitest sets VITEST itself,
+  // and NODE_ENV=test covers any other harness importing this module.
+  if (process.env.VITEST || process.env.NODE_ENV === 'test') return;
+
   server = app.listen(port, () => {
     console.log(`Server listening on port ${port}`);
     console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`Flask backend → ${flaskUrl}`);
     console.log(`Rate limit store: ${valkeyClient ? 'Valkey' : 'in-memory'}`);
   });
-})().catch((err) => {
+})();
+
+ready.catch((err) => {
   console.error('Fatal error during server startup:', err);
   process.exit(1);
 });
