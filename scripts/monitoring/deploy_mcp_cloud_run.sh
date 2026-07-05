@@ -101,8 +101,14 @@ gcloud run deploy "$SERVICE" \
 
 # Verify ingress is actually public (the --allow-unauthenticated bind can be
 # silently refused by an org policy). allUsers with run.invoker == reachable.
+# Check specifically for allUsers bound to roles/run.invoker (what actually makes
+# the service reachable) — flatten members, keep only the run.invoker binding,
+# and match allUsers exactly, so allUsers under some other role can't read as
+# "public".
 if gcloud run services get-iam-policy "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
-     --format 'value(bindings.members)' 2>/dev/null | grep -q 'allUsers'; then
+     --flatten='bindings[].members' \
+     --filter='bindings.role=roles/run.invoker' \
+     --format='value(bindings.members)' 2>/dev/null | grep -qx 'allUsers'; then
   PUBLIC="yes"
 else
   PUBLIC="NO"
