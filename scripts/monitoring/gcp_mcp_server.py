@@ -714,7 +714,7 @@ def _run_http() -> None:
     # The token becomes a URL path segment, so it must be URL-safe. The deploy
     # script generates a base64url token (unreserved chars only); reject anything
     # else rather than silently mount a broken/again-guessable path.
-    if not re.fullmatch(r"[A-Za-z0-9._~-]+", token):
+    if not re.fullmatch(r"[A-Za-z0-9._~\-]+", token):
         print(
             "FATAL: MCP_AUTH_TOKEN must contain only URL-safe unreserved "
             "characters (A-Z a-z 0-9 - . _ ~) so it can be embedded in the "
