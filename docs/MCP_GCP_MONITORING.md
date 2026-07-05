@@ -154,9 +154,9 @@ over the B64 var, so local setups are unaffected.
 
 ## 4.5. Hosted remote connector (Cloud Run) — recommended for cloud/routines
 
-The same `gcp_mcp_server.py` also serves its tools over **authenticated
-Streamable HTTP** (`MCP_TRANSPORT=http`). Hosted on Cloud Run and registered as
-a Claude **custom connector**, it becomes a first-class tool in exactly the
+The same `gcp_mcp_server.py` also serves its tools over **Streamable HTTP**
+(`MCP_TRANSPORT=http`) at a secret URL path. Hosted on Cloud Run and registered
+as a Claude **custom connector**, it becomes a first-class tool in exactly the
 place the stdio path can't reach: web sessions and scheduled routines, whose
 tool registry only wires up remote connectors.
 
@@ -166,9 +166,10 @@ Two wins over the stdio/base64 setup:
   `roles/monitoring.viewer`; the Monitoring client picks up ADC. There is no
   key file and no `GOOGLE_APPLICATION_CREDENTIALS_B64` — nothing to leak from an
   environment-variable pane.
-- **Headless-safe auth.** The connector carries a static bearer token on every
-  request (no interactive OAuth grant that a non-interactive routine might not
-  have), so it behaves identically in a routine and on your desktop.
+- **Headless-safe auth.** Access is a capability URL (secret in the path), so
+  there's no interactive OAuth grant that a non-interactive routine might not
+  have — it behaves identically in a routine and on your desktop. See
+  "Why a secret URL path" below for why this, and not a bearer header or OAuth.
 
 ### Deploy
 
@@ -182,50 +183,57 @@ PROJECT_ID=comdottasteslikegood REGION=us-central1 \
   scripts/monitoring/deploy_mcp_cloud_run.sh
 ```
 
-It prints the connector URL (`https://<service-url>/mcp`) and the command to
-read the generated token:
+It prints the connector URL (`https://<service-url>/<token>/mcp`) and the command
+to read the generated token:
 
 ```bash
 gcloud secrets versions access latest --secret=MCP_AUTH_TOKEN --project=comdottasteslikegood
 ```
 
-Ingress is public because Claude's servers must reach it and can't authenticate
-with GCP IAM — **the bearer token is the access control.** It gates every
-request except `/healthz` (an unauthenticated liveness probe that reveals
-nothing); the server refuses to start in HTTP mode if `MCP_AUTH_TOKEN` is unset,
-so it can never accidentally serve metrics open. Rotate by adding a new secret
-version and re-running the deploy script.
+### Why a secret URL path (not a bearer header or OAuth)
+
+Two hard constraints from how Claude's connector authenticates drove this design:
+
+1. **Cloud Run ingress must allow unauthenticated access.** Claude's servers are
+   not GCP principals, so an IAM-gated service rejects them at Google's front
+   door — the connector then shows a **Google sign-in** error. The deploy script
+   passes `--allow-unauthenticated`; the secret path (below) is the real access
+   control. ⚠️ If an org policy (`constraints/iam.allowedPolicyMemberDomains`,
+   Domain Restricted Sharing) blocks binding `allUsers`, the service stays
+   private and the connector can't reach it — that policy must be exempted. The
+   script warns if the service isn't actually public after deploy.
+2. **The app must look _authless_ to Claude.** The claude.ai "Add custom
+   connector" dialog takes only a URL (no header field —
+   [anthropics/claude-ai-mcp#112], closed as not-planned), and it reads any
+   `401 + WWW-Authenticate` as "this server needs OAuth", launching a sign-in
+   flow the server doesn't implement (→ *"Couldn't register … sign-in service …
+   add an OAuth Client ID"*). A `?key=` query string also isn't reliably carried
+   on the discovery probe.
+
+So the MCP endpoint is served at **`/<token>/mcp`** with no auth gate: the
+correct path returns `200`, everything else `404` — no `401`, no
+`WWW-Authenticate`, so Claude connects as a plain authless server. **The secret
+path is the credential** (a capability URL): treat the whole URL as the secret,
+keep it off public pages, and rotate the token (new secret version + redeploy) if
+it leaks — it appears in request logs like any URL. The server refuses to start
+if `MCP_AUTH_TOKEN` is unset or not URL-safe, so it can't serve at a guessable
+path. `/healthz` stays open as an unauthenticated liveness probe.
 
 ### Register the connector in Claude
 
-The server accepts the token **two ways** — pick the one your client supports:
-
-**claude.ai / Claude Code web (the path that reaches cloud routines).** Its
-"Add custom connector" dialog (Settings → Connectors) takes only a URL and an
-optional OAuth Client ID/Secret — it has **no field for a bearer header or
-custom headers** ([anthropics/claude-ai-mcp#112], closed as not-planned). So the
-token rides in the URL as a query parameter, and you **leave the OAuth fields
-blank** (they drive an OAuth 2.1 + PKCE handshake this server doesn't implement —
-filling them in just makes the connection fail):
+In **Settings → Connectors → Add custom connector**, paste the URL and **leave
+the OAuth Client ID / Secret fields blank**:
 
 ```
-URL: https://<service-url>/mcp?key=<token from MCP_AUTH_TOKEN>
+URL: https://<service-url>/<token from MCP_AUTH_TOKEN>/mcp
 ```
 
-Trade-off: a URL-embedded token shows up in request logs (Cloud Run's
-load-balancer logs included). That's acceptable for a read-only
-`monitoring.viewer` token — rotate it (new secret version + redeploy) if it's
-ever exposed.
-
-**Claude Code CLI / Desktop / the API MCP connector** support a real header, so
-use that — it keeps the secret out of URLs and logs:
+The same URL works from the Claude Code CLI / Desktop / the API MCP connector —
+no header needed:
 
 ```
-URL:            https://<service-url>/mcp
-Authorization:  Bearer <token from MCP_AUTH_TOKEN>
+claude mcp add --transport http gcp-monitor https://<service-url>/<token>/mcp
 ```
-
-e.g. `claude mcp add --transport http gcp-monitor https://<service-url>/mcp --header "Authorization: Bearer <token>"`.
 
 Once connected, `check_system_health`, `list_available_metrics`, and
 `query_metric` appear as tools in cloud sessions and routines — no `.mcp.json`,
@@ -234,12 +242,64 @@ way it drives the stdio server.
 
 [anthropics/claude-ai-mcp#112]: https://github.com/anthropics/claude-ai-mcp/issues/112
 
+### Alternative host: Railway (when Cloud Run can't be public)
+
+If an org policy blocks making the Cloud Run service public — Domain-Restricted
+Sharing (`constraints/iam.allowedPolicyMemberDomains`) refusing the `allUsers`
+bind — host the **same server** on any public-by-default platform instead. It
+needs no code changes and leaves the prod project's DRS untouched. Railway
+example:
+
+1. **Get a read-only key.** Reuse the `monitoring-viewer.json` from § 4 if you
+   still have it, or mint one:
+
+   ```bash
+   SA="gcp-monitor-railway@comdottasteslikegood.iam.gserviceaccount.com"
+   gcloud iam service-accounts create gcp-monitor-railway \
+     --project=comdottasteslikegood \
+     --display-name="GCP monitoring MCP (Railway, read-only)"
+   gcloud projects add-iam-policy-binding comdottasteslikegood \
+     --member="serviceAccount:$SA" --role=roles/monitoring.viewer --condition=None
+   gcloud iam service-accounts keys create /tmp/mon-key.json --iam-account="$SA"
+   base64 < /tmp/mon-key.json | tr -d '\n'   # copy this blob, then:
+   rm /tmp/mon-key.json
+   ```
+
+   ⚠️ If `constraints/iam.disableServiceAccountKeyCreation` is also enforced,
+   key creation is blocked too — exempt it, or fall back to a separate GCP
+   project for the Cloud Run host.
+
+2. **Create the Railway service** from this repo and set its **Root Directory**
+   to `scripts/monitoring` — Railway builds the `Dockerfile` there automatically.
+
+3. **Set Railway variables** (Railway injects `PORT` itself):
+
+   ```
+   MCP_TRANSPORT=http
+   MCP_AUTH_TOKEN=<token: openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'>
+   GOOGLE_APPLICATION_CREDENTIALS_B64=<the base64 blob from step 1>
+   GCP_PROJECT_ID=comdottasteslikegood
+   ```
+
+4. **Register** in Claude (Settings → Connectors → Add custom connector, OAuth
+   fields blank):
+
+   ```
+   https://<your-app>.up.railway.app/<MCP_AUTH_TOKEN>/mcp
+   ```
+
+The server decodes the base64 key in memory (never to disk) and authenticates
+the Monitoring client with it. The only trade-off vs Cloud Run is that you're
+back to managing a read-only key — acceptable for `monitoring.viewer`, and
+rotatable by swapping the Railway variable.
+
 ### Run the HTTP server locally (optional)
 
 ```bash
 MCP_TRANSPORT=http MCP_AUTH_TOKEN=dev-secret PORT=8080 \
   scripts/monitoring/run_gcp_monitor.sh --http
-curl -s localhost:8080/healthz   # -> ok
+curl -s localhost:8080/healthz            # -> ok
+curl -s localhost:8080/dev-secret/mcp ... # MCP endpoint lives under the token
 ```
 
 Local runs still resolve credentials the normal way (`.env` key path or
