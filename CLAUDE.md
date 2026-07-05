@@ -281,7 +281,8 @@ Key routing rules:
 - Mode: local-stdio
 - Engine: postgres (Railway TCP proxy, dedicated `gbrain` database; schema v122)
 - gbrain version: 0.42.56.0 (reconfigured 2026-07-04 to Railway Postgres)
-- Embeddings: openai:text-embedding-3-large (1536d); chat/expansion: openai:gpt-5.2
+- Embeddings: openai:text-embedding-3-large (1536d)
+- chat/expansion: openai:gpt-5.2
 - Config file: `~/.gbrain/config.json` (mode 0600)
 - MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
 - Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
