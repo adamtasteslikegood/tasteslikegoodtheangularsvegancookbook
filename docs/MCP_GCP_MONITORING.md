@@ -70,10 +70,51 @@ as `pm-daemon`. Verify with `ps -ef | grep gcp_mcp_server`.
 Cloud sessions clone this repo, so `.mcp.json` auto-spawns `gcp-monitor`
 there too — but the cloud VM has neither your `.env` nor the key file. Cloud
 environments only carry **single-line** env vars (there is no secrets vault
-yet), so the key travels base64-encoded and the server materializes it to a
-gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
+yet), so the key travels base64-encoded; the server decodes it in memory and
+hands it straight to the Monitoring client (it never touches disk).
 
-1. Encode the key locally, straight to the clipboard (don't echo it):
+Two cloud-specific traps this section works around:
+
+- **Every routine run is a fresh VM.** Without preparation, the launcher
+  pip-installs its venv on every run (~45 s+), which loses the race against
+  the MCP client's 30 s startup timeout — the server gets killed
+  mid-bootstrap and no tools register.
+- **The environment's setup script runs _before_ the repo is cloned**, so it
+  cannot call anything in `scripts/`. It must build the venv at a fixed
+  path outside the repo; the launcher (`run_gcp_monitor.sh`) detects a
+  usable venv at `$GCP_MONITOR_VENV` or `/opt/gcp-monitor-venv` and uses it
+  instead of bootstrapping. The filesystem is snapshotted after the setup
+  script and reused by later runs (cache expires ~weekly and on
+  setup-script/network-host edits).
+
+Configure the environment on claude.ai → **Code** → environment settings:
+
+1. **Setup script** — build the venv at the fixed path (repo isn't cloned
+   yet, so the dependency list is inlined; keep it in sync with
+   `scripts/monitoring/requirements.txt`). PyPI reads from the cloud VM
+   time out sporadically, so the install retries and the final import
+   check is what actually gates success:
+
+   ```bash
+   #!/bin/bash
+   set -euo pipefail
+   python3 -m venv /opt/gcp-monitor-venv
+   for attempt in 1 2 3; do
+     /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
+       'mcp>=1.10.0' 'google-cloud-monitoring>=2.21.0' && break
+     echo "pip attempt $attempt of 3 failed" >&2
+     if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
+   done
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)'
+   chmod -R a+rX /opt/gcp-monitor-venv
+   ```
+
+   (No `pip install --upgrade pip` — the venv's bundled pip installs these
+   wheels fine, and every extra download is another chance to hit a
+   transient timeout.)
+
+2. Encode the key locally, straight to the clipboard (don't echo it —
+   and don't copy from a terminal that shows a `%` end-of-output marker):
 
    ```bash
    base64 < /path/to/monitoring-viewer.json | tr -d '\n' | wl-copy   # or xclip/pbcopy
@@ -82,19 +123,20 @@ gitignored `scripts/monitoring/.gcp-sa-key.json` (0600) at startup.
    (`tr -d '\n'` keeps this portable — GNU `base64` wraps at 76 columns by
    default and macOS/BSD `base64` has no `-w` flag.)
 
-2. On claude.ai → **Code** → the environment your routine uses → environment
-   settings → **Environment variables**, add:
+3. **Environment variables**:
 
    ```
    GOOGLE_APPLICATION_CREDENTIALS_B64=<paste the base64 blob>
    GCP_PROJECT_ID=comdottasteslikegood
+   MCP_TIMEOUT=120000
    ```
 
-   (`GCP_PROJECT_ID` is optional — it's the default.)
+   (`GCP_PROJECT_ID` is optional — it's the default. `MCP_TIMEOUT` is in
+   milliseconds and covers the slow rebuild after a snapshot-cache
+   expiry.)
 
-3. Make sure the environment's **network access** allows package installs —
-   the launcher pip-installs its venv on first run and the server calls
-   `monitoring.googleapis.com`.
+4. Make sure the environment's **network access** allows PyPI (for the
+   setup script) and `monitoring.googleapis.com` (for the server).
 
 Note: environment variables are visible to anyone who can edit that cloud
 environment, and any cloud session using it can read the key — acceptable
@@ -102,6 +144,106 @@ here because the service account is read-only (`roles/monitoring.viewer`),
 but don't reuse this pattern for write-capable credentials. A key _path_ in
 `GOOGLE_APPLICATION_CREDENTIALS` that resolves to a real file always wins
 over the B64 var, so local setups are unaffected.
+
+> **Better option for cloud sessions & routines:** the stdio path above is
+> fragile in the cloud — Claude Code's cloud/routine environment does **not**
+> spawn the `.mcp.json` stdio servers at all (only remote connectors show up
+> there), so routines fall back to invoking the script directly. Section 4.5
+> hosts the same server as a remote connector and removes that whole class of
+> problem, along with the base64 key.
+
+## 4.5. Hosted remote connector (Cloud Run) — recommended for cloud/routines
+
+The same `gcp_mcp_server.py` also serves its tools over **authenticated
+Streamable HTTP** (`MCP_TRANSPORT=http`). Hosted on Cloud Run and registered as
+a Claude **custom connector**, it becomes a first-class tool in exactly the
+place the stdio path can't reach: web sessions and scheduled routines, whose
+tool registry only wires up remote connectors.
+
+Two wins over the stdio/base64 setup:
+
+- **Keyless.** The Cloud Run service runs _as_ a service account with
+  `roles/monitoring.viewer`; the Monitoring client picks up ADC. There is no
+  key file and no `GOOGLE_APPLICATION_CREDENTIALS_B64` — nothing to leak from an
+  environment-variable pane.
+- **Headless-safe auth.** The connector carries a static bearer token on every
+  request (no interactive OAuth grant that a non-interactive routine might not
+  have), so it behaves identically in a routine and on your desktop.
+
+### Deploy
+
+One idempotent script provisions the service account, the token secret, and the
+Cloud Run service:
+
+```bash
+scripts/monitoring/deploy_mcp_cloud_run.sh
+# override defaults if needed:
+PROJECT_ID=comdottasteslikegood REGION=us-central1 \
+  scripts/monitoring/deploy_mcp_cloud_run.sh
+```
+
+It prints the connector URL (`https://<service-url>/mcp`) and the command to
+read the generated token:
+
+```bash
+gcloud secrets versions access latest --secret=MCP_AUTH_TOKEN --project=comdottasteslikegood
+```
+
+Ingress is public because Claude's servers must reach it and can't authenticate
+with GCP IAM — **the bearer token is the access control.** It gates every
+request except `/healthz` (an unauthenticated liveness probe that reveals
+nothing); the server refuses to start in HTTP mode if `MCP_AUTH_TOKEN` is unset,
+so it can never accidentally serve metrics open. Rotate by adding a new secret
+version and re-running the deploy script.
+
+### Register the connector in Claude
+
+The server accepts the token **two ways** — pick the one your client supports:
+
+**claude.ai / Claude Code web (the path that reaches cloud routines).** Its
+"Add custom connector" dialog (Settings → Connectors) takes only a URL and an
+optional OAuth Client ID/Secret — it has **no field for a bearer header or
+custom headers** ([anthropics/claude-ai-mcp#112], closed as not-planned). So the
+token rides in the URL as a query parameter, and you **leave the OAuth fields
+blank** (they drive an OAuth 2.1 + PKCE handshake this server doesn't implement —
+filling them in just makes the connection fail):
+
+```
+URL: https://<service-url>/mcp?key=<token from MCP_AUTH_TOKEN>
+```
+
+Trade-off: a URL-embedded token shows up in request logs (Cloud Run's
+load-balancer logs included). That's acceptable for a read-only
+`monitoring.viewer` token — rotate it (new secret version + redeploy) if it's
+ever exposed.
+
+**Claude Code CLI / Desktop / the API MCP connector** support a real header, so
+use that — it keeps the secret out of URLs and logs:
+
+```
+URL:            https://<service-url>/mcp
+Authorization:  Bearer <token from MCP_AUTH_TOKEN>
+```
+
+e.g. `claude mcp add --transport http gcp-monitor https://<service-url>/mcp --header "Authorization: Bearer <token>"`.
+
+Once connected, `check_system_health`, `list_available_metrics`, and
+`query_metric` appear as tools in cloud sessions and routines — no `.mcp.json`,
+no venv, no base64 key. The `/system-health-check` skill drives them the same
+way it drives the stdio server.
+
+[anthropics/claude-ai-mcp#112]: https://github.com/anthropics/claude-ai-mcp/issues/112
+
+### Run the HTTP server locally (optional)
+
+```bash
+MCP_TRANSPORT=http MCP_AUTH_TOKEN=dev-secret PORT=8080 \
+  scripts/monitoring/run_gcp_monitor.sh --http
+curl -s localhost:8080/healthz   # -> ok
+```
+
+Local runs still resolve credentials the normal way (`.env` key path or
+`GOOGLE_APPLICATION_CREDENTIALS_B64`); only Cloud Run relies on ADC.
 
 ## 5. Claude Desktop
 

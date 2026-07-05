@@ -16,28 +16,62 @@ GOOGLE_APPLICATION_CREDENTIALS. `roles/monitoring.viewer` is sufficient for
 every tool in this server — Pub/Sub metrics are read through the Monitoring
 API, not the Pub/Sub admin API.
 
+Transports:
+    stdio (default)     for local `.mcp.json` spawns and Claude Desktop.
+    streamable-http     for a hosted remote MCP server registered as a Claude
+                        custom connector — the only kind of MCP server that
+                        Claude Code's cloud/routine environment wires up (it
+                        does not spawn the stdio servers from `.mcp.json`). Set
+                        MCP_TRANSPORT=http (or pass --http). See
+                        docs/MCP_GCP_MONITORING.md § "Hosted remote connector".
+
 Configuration (env vars, or repo-root `.env`):
     GOOGLE_APPLICATION_CREDENTIALS      path to the service-account JSON key
     GOOGLE_APPLICATION_CREDENTIALS_B64  base64 of the key JSON itself — for
                                         Claude Code cloud environments, which
                                         only carry single-line env vars; used
-                                        when no key file path resolves
+                                        when no key file path resolves. NOT
+                                        needed on Cloud Run, where the service
+                                        runs as a service account and the
+                                        Monitoring client picks up ADC.
     GCP_PROJECT_ID                  defaults to comdottasteslikegood
     EXPRESS_SERVICE / FLASK_SERVICE / CLOUDSQL_INSTANCE  resource overrides
+
+HTTP-transport-only configuration:
+    MCP_TRANSPORT                   'http'/'streamable-http' to serve over HTTP;
+                                    anything else (default) uses stdio.
+    MCP_AUTH_TOKEN                  shared secret required on every request,
+                                    presented as `Authorization: Bearer <token>`
+                                    (preferred) or a `?key=<token>` query param
+                                    (for the claude.ai connector UI, which has no
+                                    header field). Mandatory in HTTP mode — the
+                                    server refuses to start without it rather
+                                    than expose metrics unauthenticated.
+    PORT                            listen port in HTTP mode (default 8080;
+                                    Cloud Run injects this).
 """
 
 import base64
 import datetime
+import hmac
 import json
 import os
 import sys
 import threading
 from pathlib import Path
 from typing import Optional
+from urllib.parse import parse_qs
 
 from mcp.server.fastmcp import FastMCP
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+_RESOLVED = Path(__file__).resolve()
+# In the repo the server lives at scripts/monitoring/<file>, so parents[2] is
+# the repo root — used to locate .env and to resolve a relative
+# GOOGLE_APPLICATION_CREDENTIALS path. In the Cloud Run image the file sits at
+# /app/<file> with no such ancestor (and neither .env nor a relative key path is
+# used there — auth is ADC + env vars), so fall back to the file's directory
+# instead of raising IndexError at import and crashing the container.
+REPO_ROOT = _RESOLVED.parents[2] if len(_RESOLVED.parents) > 2 else _RESOLVED.parent
 
 
 def _load_dotenv(path: Path) -> None:
@@ -641,5 +675,111 @@ def query_metric(
     return "\n".join(lines) or f"No data for {metric_type} in the last {minutes_back} min."
 
 
+class _BearerAuthMiddleware:
+    """Pure-ASGI gate requiring the shared token on HTTP requests.
+
+    The token may arrive two ways:
+      - `Authorization: Bearer <token>` header — preferred; used by Claude Code
+        (`claude mcp add --header`), the API MCP connector, and direct clients.
+        Keeps the secret out of URLs and request logs.
+      - `?key=<token>` query parameter — because Claude's claude.ai custom-
+        connector UI takes only a URL and has no field for a bearer header or
+        custom headers (anthropics/claude-ai-mcp#112), so the token has to ride
+        in the URL there. Trade-off: a URL-embedded token is visible in request
+        logs (Cloud Run's load-balancer logs included), so rotate it if exposed
+        and prefer the header wherever the client supports one.
+
+    Implemented as raw ASGI (not Starlette's BaseHTTPMiddleware) so it never
+    buffers the streaming/SSE responses the MCP transport relies on. Non-HTTP
+    scopes (lifespan, websocket) and exempt paths pass straight through.
+    """
+
+    def __init__(self, app, token: str, exempt_paths: frozenset[str]):
+        self.app = app
+        self._token = token
+        self._expected = f"Bearer {token}"
+        self.exempt_paths = exempt_paths
+
+    def _authorized(self, scope) -> bool:
+        # Constant-time compares so a wrong token can't be recovered by timing.
+        # ASGI delivers headers as a list of (name, value) byte pairs; scan it
+        # directly rather than dict()-ing it, which would silently keep only the
+        # last of any duplicate header.
+        presented = ""
+        for name, value in scope.get("headers") or ():
+            if name == b"authorization":
+                presented = value.decode("latin-1")
+                break
+        if hmac.compare_digest(presented, self._expected):
+            return True
+        query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
+        return any(hmac.compare_digest(v, self._token) for v in query.get("key", ()))
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
+            await self.app(scope, receive, send)
+            return
+        if self._authorized(scope):
+            await self.app(scope, receive, send)
+            return
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 401,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"www-authenticate", b'Bearer realm="gcp-monitor"'),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": b'{"error":"unauthorized"}'})
+
+
+def _run_http() -> None:
+    """Serve the MCP tools over authenticated Streamable HTTP (for Cloud Run)."""
+    # Strip so a secret provisioned with a stray trailing newline/space (a very
+    # easy mistake with `echo | gcloud secrets versions add`) doesn't silently
+    # become a token that never matches the header, and a whitespace-only value
+    # fails closed rather than "authenticating".
+    token = (os.environ.get("MCP_AUTH_TOKEN") or "").strip()
+    if not token:
+        print(
+            "FATAL: MCP_AUTH_TOKEN is unset or blank. Refusing to serve the "
+            "monitoring tools over HTTP without authentication. Set "
+            "MCP_AUTH_TOKEN (from Secret Manager on Cloud Run) and retry.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    import uvicorn
+    from starlette.responses import PlainTextResponse
+    from starlette.routing import Route
+
+    async def _healthz(_request):
+        # Unauthenticated liveness probe — deliberately reveals nothing.
+        return PlainTextResponse("ok")
+
+    app = mcp.streamable_http_app()
+    # Cloud Run's startup/liveness probes and any uptime check hit /healthz
+    # without a token, so it must sit outside the auth gate.
+    app.router.routes.append(Route("/healthz", _healthz, methods=["GET"]))
+    app.add_middleware(
+        _BearerAuthMiddleware, token=token, exempt_paths=frozenset({"/healthz"})
+    )
+
+    port = int(os.environ.get("PORT", "8080"))
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+
+
+def main() -> None:
+    transport = os.environ.get("MCP_TRANSPORT", "stdio").strip().lower()
+    if "--http" in sys.argv:
+        transport = "http"
+    if transport in ("http", "streamable-http"):
+        _run_http()
+    else:
+        mcp.run(transport="stdio")
+
+
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    main()

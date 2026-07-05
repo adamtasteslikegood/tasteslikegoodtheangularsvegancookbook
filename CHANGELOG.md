@@ -8,6 +8,26 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-07-05
+
+Regression-fix release for v0.3.1: restores styling on the server-rendered public pages, makes async recipe generation retry transient model failures, and un-shadows the dynamic sitemap. Also brings the GCP monitoring MCP server to Cloud Run as an authenticated Claude connector and gates PRs targeting `dev` with the full CI suite.
+
+### Fixed
+
+- **Public SSR pages render styled again** ([#3047](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3047), [#3048](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3048)): Express proxied `/r/*`, `/browse`, and `/sitemap.xml` to Flask but not `/static/*`, so the SSR templates' stylesheet requests fell through to the SPA catch-all and came back as `index.html` (`text/html`) — Helmet's `X-Content-Type-Options: nosniff` then made browsers refuse to apply them, leaving every public page unstyled. `GET /static/*` is now proxied to Flask (mounted after `express.static`, so Angular build assets still win on collision). `server/index.ts` exports `app` and a `ready` promise with the listener skipped under `VITEST`/`NODE_ENV=test`, backed by new route-mounting integration tests (`server/routes.test.ts`).
+- **Async recipe generation survives flaky model responses** (Backend [#141](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/141) via [#3049](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3049)): `gemini-3.1-pro-preview` intermittently returns truncated JSON, and the Pub/Sub worker was single-shot with only "Unknown error" logging — users saw "generation failed during async processing". The worker now retries transient generation failures up to `GENERATION_MAX_ATTEMPTS` (default 3) and failure records carry the real error message (validation failures wrapped as `ValidationError`). Backend submodule `b359743` → `ef594bf`.
+- **Dynamic sitemap unshadowed** ([#3041](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3041)): a stale static `public/sitemap.xml` was served by `express.static` ahead of the Flask proxy route, hiding the dynamic sitemap of public recipes shipped in v0.3.1. Deleted.
+
+### Added
+
+- **GCP monitoring served over HTTP for Claude connectors** ([#3051](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3051), [#3052](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3052)): the gcp-monitor MCP server can now run as an authenticated Streamable-HTTP service on Cloud Run — keyless (runs as a `roles/monitoring.viewer` service account via ADC), bearer-token auth from Secret Manager, token also accepted via `?key=` query param for connector UIs without header support — with a Dockerfile and `deploy_mcp_cloud_run.sh`. Cloud routines get the monitoring tools first-class instead of shelling out to scripts.
+- **gcp-monitor cloud-session resilience** ([#3043](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3043), [#3044](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3044), [#3046](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3046)): prebuilt-venv fast path so the stdio server survives cloud-routine cold starts, retries around transient PyPI timeouts in the setup script, and project MCP servers pre-approved in `.claude/settings.json` for cloud sessions.
+
+### Changed
+
+- **CI: pull requests targeting `dev` now run the lint/test/build gate** ([#3050](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3050)) — previously the gate only ran on pushes, so a broken PR could merge green.
+- Docs: GBrain config + search guidance in `CLAUDE.md` refreshed ([#3042](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3042), [#3045](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3045)); `docs/MCP_GCP_MONITORING.md` expanded with the Cloud Run connector setup (§ 4.5).
+
 ## [0.3.1] - 2026-07-04
 
 Deploy hotfix. The v0.3.0 tag was cut but its Cloud Build died in the `flask-backend-migrate` job (`ModuleNotFoundError: flask_cors`) before either service deployed — production kept serving v0.2.5 throughout. v0.3.1 is v0.3.0 plus the dependency fix; it is the release that actually ships the v0.3.0 feature set.

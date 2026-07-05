@@ -30,4 +30,9 @@ jobs:
         run: uv sync
       - name: Run pytest
         working-directory: Backend
+        env:
+          # services/pubsub_service.py builds its Pub/Sub client at import
+          # time; without this the suite needs real ADC and dies with
+          # DefaultCredentialsError (same env as pr-gate.yml's pytest job).
+          PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
