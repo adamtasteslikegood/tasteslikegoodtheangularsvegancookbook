@@ -61,7 +61,14 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+_RESOLVED = Path(__file__).resolve()
+# In the repo the server lives at scripts/monitoring/<file>, so parents[2] is
+# the repo root — used to locate .env and to resolve a relative
+# GOOGLE_APPLICATION_CREDENTIALS path. In the Cloud Run image the file sits at
+# /app/<file> with no such ancestor (and neither .env nor a relative key path is
+# used there — auth is ADC + env vars), so fall back to the file's directory
+# instead of raising IndexError at import and crashing the container.
+REPO_ROOT = _RESOLVED.parents[2] if len(_RESOLVED.parents) > 2 else _RESOLVED.parent
 
 
 def _load_dotenv(path: Path) -> None:
@@ -703,12 +710,16 @@ class _BearerAuthMiddleware:
 
 def _run_http() -> None:
     """Serve the MCP tools over authenticated Streamable HTTP (for Cloud Run)."""
-    token = os.environ.get("MCP_AUTH_TOKEN")
+    # Strip so a secret provisioned with a stray trailing newline/space (a very
+    # easy mistake with `echo | gcloud secrets versions add`) doesn't silently
+    # become a token that never matches the header, and a whitespace-only value
+    # fails closed rather than "authenticating".
+    token = (os.environ.get("MCP_AUTH_TOKEN") or "").strip()
     if not token:
         print(
-            "FATAL: MCP_AUTH_TOKEN is unset. Refusing to serve the monitoring "
-            "tools over HTTP without authentication. Set MCP_AUTH_TOKEN (from "
-            "Secret Manager on Cloud Run) and retry.",
+            "FATAL: MCP_AUTH_TOKEN is unset or blank. Refusing to serve the "
+            "monitoring tools over HTTP without authentication. Set "
+            "MCP_AUTH_TOKEN (from Secret Manager on Cloud Run) and retry.",
             file=sys.stderr,
         )
         sys.exit(1)
