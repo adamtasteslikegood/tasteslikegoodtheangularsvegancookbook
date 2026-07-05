@@ -1215,6 +1215,7 @@
       >
         <button
           (click)="closeAuthModal()"
+          aria-label="Close sign-in dialog"
           class="absolute top-4 right-4 text-stone-400 hover:text-stone-600"
         >
           <svg
@@ -1395,7 +1396,11 @@
       >
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-stone-800 serif">Write Recipe</h3>
-          <button (click)="closeManualEntryModal()" class="text-stone-400 hover:text-stone-600">
+          <button
+            (click)="closeManualEntryModal()"
+            aria-label="Close write recipe dialog"
+            class="text-stone-400 hover:text-stone-600"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               class="h-6 w-6"
@@ -1544,6 +1549,7 @@
                 </div>
                 <button
                   (click)="addManualIngredient()"
+                  aria-label="Add ingredient"
                   class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
                   <svg
@@ -1577,6 +1583,7 @@
                     </div>
                     <button
                       (click)="removeManualIngredient($index)"
+                      aria-label="Remove ingredient"
                       class="text-red-400 hover:text-red-600"
                     >
                       <svg
@@ -1626,6 +1633,7 @@
                     <p class="flex-1 text-sm text-stone-700">{{ inst }}</p>
                     <button
                       (click)="removeManualInstruction($index)"
+                      aria-label="Remove step"
                       class="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-500"
                     >
                       <svg
