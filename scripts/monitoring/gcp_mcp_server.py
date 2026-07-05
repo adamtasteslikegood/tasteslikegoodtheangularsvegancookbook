@@ -702,8 +702,14 @@ class _BearerAuthMiddleware:
 
     def _authorized(self, scope) -> bool:
         # Constant-time compares so a wrong token can't be recovered by timing.
-        headers = dict(scope.get("headers") or [])
-        presented = headers.get(b"authorization", b"").decode("latin-1")
+        # ASGI delivers headers as a list of (name, value) byte pairs; scan it
+        # directly rather than dict()-ing it, which would silently keep only the
+        # last of any duplicate header.
+        presented = ""
+        for name, value in scope.get("headers") or ():
+            if name == b"authorization":
+                presented = value.decode("latin-1")
+                break
         if hmac.compare_digest(presented, self._expected):
             return True
         query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
