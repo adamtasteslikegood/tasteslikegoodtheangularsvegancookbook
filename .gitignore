@@ -117,3 +117,4 @@ __pycache__/
 .claude/scheduled_tasks.lock
 .omg/state/
 scripts/pm/.venv/
+.gbrain-source
