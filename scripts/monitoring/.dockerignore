@@ -1,0 +1,10 @@
+# Keep the build context minimal — only the server + its requirements are
+# needed. Everything else in scripts/monitoring/ (venvs, launcher, stamps) is
+# for the stdio path and must not bloat or leak into the image.
+.venv/
+__pycache__/
+*.pyc
+.deps-installed
+.gcp-sa-key.json
+run_gcp_monitor.sh
+deploy_mcp_cloud_run.sh
