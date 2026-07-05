@@ -1370,7 +1370,8 @@
           </button>
           <button
             (click)="createCookbook()"
-            class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20"
+            [disabled]="!newCookbookName().trim()"
+            class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Create
           </button>
