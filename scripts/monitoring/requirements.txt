@@ -6,6 +6,9 @@
 # releases but the pin is unified so both transports share one venv/image.
 mcp>=1.10.0
 google-cloud-monitoring>=2.21.0
-# Only used by the HTTP transport (_run_http); ships with mcp's server extra but
-# pinned explicitly so the Cloud Run image doesn't depend on that being present.
+# Only used by the HTTP transport (_run_http); both ship with mcp's server
+# extra, but gcp_mcp_server.py imports starlette directly and uvicorn is the
+# HTTP entrypoint, so both are pinned explicitly — the Cloud Run image must
+# not depend on mcp's dependency graph keeping them around.
+starlette>=0.40.0
 uvicorn>=0.30.0
