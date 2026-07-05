@@ -242,6 +242,57 @@ way it drives the stdio server.
 
 [anthropics/claude-ai-mcp#112]: https://github.com/anthropics/claude-ai-mcp/issues/112
 
+### Alternative host: Railway (when Cloud Run can't be public)
+
+If an org policy blocks making the Cloud Run service public — Domain-Restricted
+Sharing (`constraints/iam.allowedPolicyMemberDomains`) refusing the `allUsers`
+bind — host the **same server** on any public-by-default platform instead. It
+needs no code changes and leaves the prod project's DRS untouched. Railway
+example:
+
+1. **Get a read-only key.** Reuse the `monitoring-viewer.json` from § 4 if you
+   still have it, or mint one:
+
+   ```bash
+   SA="gcp-monitor-railway@comdottasteslikegood.iam.gserviceaccount.com"
+   gcloud iam service-accounts create gcp-monitor-railway \
+     --project=comdottasteslikegood \
+     --display-name="GCP monitoring MCP (Railway, read-only)"
+   gcloud projects add-iam-policy-binding comdottasteslikegood \
+     --member="serviceAccount:$SA" --role=roles/monitoring.viewer --condition=None
+   gcloud iam service-accounts keys create /tmp/mon-key.json --iam-account="$SA"
+   base64 < /tmp/mon-key.json | tr -d '\n'   # copy this blob, then:
+   rm /tmp/mon-key.json
+   ```
+
+   ⚠️ If `constraints/iam.disableServiceAccountKeyCreation` is also enforced,
+   key creation is blocked too — exempt it, or fall back to a separate GCP
+   project for the Cloud Run host.
+
+2. **Create the Railway service** from this repo and set its **Root Directory**
+   to `scripts/monitoring` — Railway builds the `Dockerfile` there automatically.
+
+3. **Set Railway variables** (Railway injects `PORT` itself):
+
+   ```
+   MCP_TRANSPORT=http
+   MCP_AUTH_TOKEN=<token: openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n'>
+   GOOGLE_APPLICATION_CREDENTIALS_B64=<the base64 blob from step 1>
+   GCP_PROJECT_ID=comdottasteslikegood
+   ```
+
+4. **Register** in Claude (Settings → Connectors → Add custom connector, OAuth
+   fields blank):
+
+   ```
+   https://<your-app>.up.railway.app/<MCP_AUTH_TOKEN>/mcp
+   ```
+
+The server decodes the base64 key in memory (never to disk) and authenticates
+the Monitoring client with it. The only trade-off vs Cloud Run is that you're
+back to managing a read-only key — acceptable for `monitoring.viewer`, and
+rotatable by swapping the Railway variable.
+
 ### Run the HTTP server locally (optional)
 
 ```bash
