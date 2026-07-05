@@ -691,11 +691,12 @@ def _run_http() -> None:
       connector's discovery probe.
 
     So instead the server looks like a plain **authless** remote MCP server that
-    happens to live at an unguessable path: `/{token}/mcp` returns 200 and
-    everything else 404s — no 401, no `WWW-Authenticate`, so Claude connects with
-    no OAuth. The secret path IS the credential (a capability URL): treat the
-    whole URL as the secret, keep it off public pages, and rotate the token if it
-    leaks (it appears in request logs like any URL).
+    happens to live at an unguessable path: `/{token}/mcp` returns 200 and every
+    other path 404s — no 401, no `WWW-Authenticate`, so Claude connects with no
+    OAuth. (The one exception is `/healthz`, an unauthenticated 200 liveness
+    probe that reveals nothing.) The secret path IS the credential (a capability
+    URL): treat the whole URL as the secret, keep it off public pages, and rotate
+    the token if it leaks (it appears in request logs like any URL).
 
     Cloud Run must additionally allow **unauthenticated** invocations — with
     IAM-gated ingress, Google rejects Claude at the door (its own sign-in), well
