@@ -721,8 +721,8 @@ def _run_http() -> None:
         print(
             "FATAL: MCP_AUTH_TOKEN must contain only URL-path-safe characters "
             "(A-Z a-z 0-9 - . _ ~ =) so it can be embedded in the endpoint "
-            "path. Regenerate it, e.g. `openssl rand -base64 32 | "
-            "tr '+/' '-_' | tr -d '\\n'`.",
+            "path. Regenerate it the way the deploy script does, e.g. `openssl "
+            "rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'`.",
             file=sys.stderr,
         )
         sys.exit(1)
