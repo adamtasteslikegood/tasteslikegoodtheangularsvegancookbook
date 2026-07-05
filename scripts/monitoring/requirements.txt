@@ -1,4 +1,11 @@
 # Runtime dependencies for scripts/monitoring/gcp_mcp_server.py
 # Install with: pip install -r scripts/monitoring/requirements.txt
-mcp>=1.2.0
+#
+# mcp >= 1.10 is required for the Streamable HTTP transport used by the hosted
+# Cloud Run connector (mcp.streamable_http_app()); stdio mode works on older
+# releases but the pin is unified so both transports share one venv/image.
+mcp>=1.10.0
 google-cloud-monitoring>=2.21.0
+# Only used by the HTTP transport (_run_http); ships with mcp's server extra but
+# pinned explicitly so the Cloud Run image doesn't depend on that being present.
+uvicorn>=0.30.0
