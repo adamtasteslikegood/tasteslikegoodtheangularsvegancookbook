@@ -40,11 +40,13 @@ Configuration (env vars, or repo-root `.env`):
 HTTP-transport-only configuration:
     MCP_TRANSPORT                   'http'/'streamable-http' to serve over HTTP;
                                     anything else (default) uses stdio.
-    MCP_AUTH_TOKEN                  shared secret required on every request as
-                                    `Authorization: Bearer <token>`. Mandatory
-                                    in HTTP mode — the server refuses to start
-                                    without it rather than expose metrics
-                                    unauthenticated.
+    MCP_AUTH_TOKEN                  shared secret required on every request,
+                                    presented as `Authorization: Bearer <token>`
+                                    (preferred) or a `?key=<token>` query param
+                                    (for the claude.ai connector UI, which has no
+                                    header field). Mandatory in HTTP mode — the
+                                    server refuses to start without it rather
+                                    than expose metrics unauthenticated.
     PORT                            listen port in HTTP mode (default 8080;
                                     Cloud Run injects this).
 """
@@ -58,6 +60,7 @@ import sys
 import threading
 from pathlib import Path
 from typing import Optional
+from urllib.parse import parse_qs
 
 from mcp.server.fastmcp import FastMCP
 
@@ -673,7 +676,18 @@ def query_metric(
 
 
 class _BearerAuthMiddleware:
-    """Pure-ASGI gate requiring `Authorization: Bearer <token>` on HTTP requests.
+    """Pure-ASGI gate requiring the shared token on HTTP requests.
+
+    The token may arrive two ways:
+      - `Authorization: Bearer <token>` header — preferred; used by Claude Code
+        (`claude mcp add --header`), the API MCP connector, and direct clients.
+        Keeps the secret out of URLs and request logs.
+      - `?key=<token>` query parameter — because Claude's claude.ai custom-
+        connector UI takes only a URL and has no field for a bearer header or
+        custom headers (anthropics/claude-ai-mcp#112), so the token has to ride
+        in the URL there. Trade-off: a URL-embedded token is visible in request
+        logs (Cloud Run's load-balancer logs included), so rotate it if exposed
+        and prefer the header wherever the client supports one.
 
     Implemented as raw ASGI (not Starlette's BaseHTTPMiddleware) so it never
     buffers the streaming/SSE responses the MCP transport relies on. Non-HTTP
@@ -682,17 +696,30 @@ class _BearerAuthMiddleware:
 
     def __init__(self, app, token: str, exempt_paths: frozenset[str]):
         self.app = app
+        self._token = token
         self._expected = f"Bearer {token}"
         self.exempt_paths = exempt_paths
+
+    def _authorized(self, scope) -> bool:
+        # Constant-time compares so a wrong token can't be recovered by timing.
+        # ASGI delivers headers as a list of (name, value) byte pairs; scan it
+        # directly rather than dict()-ing it, which would silently keep only the
+        # last of any duplicate header.
+        presented = ""
+        for name, value in scope.get("headers") or ():
+            if name == b"authorization":
+                presented = value.decode("latin-1")
+                break
+        if hmac.compare_digest(presented, self._expected):
+            return True
+        query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
+        return any(hmac.compare_digest(v, self._token) for v in query.get("key", ()))
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
             await self.app(scope, receive, send)
             return
-        headers = dict(scope.get("headers") or [])
-        presented = headers.get(b"authorization", b"").decode("latin-1")
-        # Constant-time compare so a wrong token can't be recovered by timing.
-        if hmac.compare_digest(presented, self._expected):
+        if self._authorized(scope):
             await self.app(scope, receive, send)
             return
         await send(

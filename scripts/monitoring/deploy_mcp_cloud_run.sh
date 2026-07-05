@@ -92,8 +92,27 @@ gcloud run deploy "$SERVICE" \
 
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')"
 echo
-echo "Deployed. Register this as a Claude custom connector:"
-echo "  MCP server URL : ${URL}/mcp"
-echo "  Auth header    : Authorization: Bearer <token from secret $SECRET_NAME>"
+echo "Deployed. Register as a Claude custom connector."
 echo
-echo "Token: gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"
+echo "claude.ai / Claude Code web (Settings -> Connectors -> Add custom connector):"
+echo "  Its UI has no header field, so the token rides in the URL. Use this as the"
+echo "  URL and leave the OAuth Client ID / Secret fields BLANK:"
+if [[ "${PRINT_TOKEN:-0}" == "1" ]]; then
+  # Opt-in only: the full token lands in terminal scrollback / CI logs / shared
+  # transcripts, so it's not printed by default. `tr -d '\r\n'` strips any
+  # trailing newline a manually-added secret version may carry, so the pasted
+  # URL matches what the server expects.
+  TOKEN="$(gcloud secrets versions access latest --secret="$SECRET_NAME" --project="$PROJECT_ID" 2>/dev/null | tr -d '\r\n' || true)"
+  echo "    ${URL}/mcp?key=${TOKEN:-<token>}"
+else
+  echo "    ${URL}/mcp?key=<token>"
+  echo "  (token withheld from output by default; re-run with PRINT_TOKEN=1 to"
+  echo "   inline it, or fetch it with the command below)"
+fi
+echo
+echo "Claude Code CLI / Desktop / API (header auth — keeps the token out of URLs & logs):"
+echo "  URL:    ${URL}/mcp"
+echo "  Header: Authorization: Bearer <token>"
+echo
+echo "Fetch the token:"
+echo "  gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"

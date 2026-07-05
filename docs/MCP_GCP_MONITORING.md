@@ -198,18 +198,41 @@ version and re-running the deploy script.
 
 ### Register the connector in Claude
 
-In Claude (Settings → Connectors → Add custom connector), point it at the
-`/mcp` URL and set the auth header:
+The server accepts the token **two ways** — pick the one your client supports:
+
+**claude.ai / Claude Code web (the path that reaches cloud routines).** Its
+"Add custom connector" dialog (Settings → Connectors) takes only a URL and an
+optional OAuth Client ID/Secret — it has **no field for a bearer header or
+custom headers** ([anthropics/claude-ai-mcp#112], closed as not-planned). So the
+token rides in the URL as a query parameter, and you **leave the OAuth fields
+blank** (they drive an OAuth 2.1 + PKCE handshake this server doesn't implement —
+filling them in just makes the connection fail):
+
+```
+URL: https://<service-url>/mcp?key=<token from MCP_AUTH_TOKEN>
+```
+
+Trade-off: a URL-embedded token shows up in request logs (Cloud Run's
+load-balancer logs included). That's acceptable for a read-only
+`monitoring.viewer` token — rotate it (new secret version + redeploy) if it's
+ever exposed.
+
+**Claude Code CLI / Desktop / the API MCP connector** support a real header, so
+use that — it keeps the secret out of URLs and logs:
 
 ```
 URL:            https://<service-url>/mcp
 Authorization:  Bearer <token from MCP_AUTH_TOKEN>
 ```
 
+e.g. `claude mcp add --transport http gcp-monitor https://<service-url>/mcp --header "Authorization: Bearer <token>"`.
+
 Once connected, `check_system_health`, `list_available_metrics`, and
 `query_metric` appear as tools in cloud sessions and routines — no `.mcp.json`,
 no venv, no base64 key. The `/system-health-check` skill drives them the same
 way it drives the stdio server.
+
+[anthropics/claude-ai-mcp#112]: https://github.com/anthropics/claude-ai-mcp/issues/112
 
 ### Run the HTTP server locally (optional)
 
