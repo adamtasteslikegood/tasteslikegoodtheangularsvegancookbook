@@ -54,8 +54,9 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
 
 # ── 2. Secret path token ─────────────────────────────────────────────────────
 # The token becomes a URL path segment (the endpoint is /<token>/mcp), so it must
-# be URL-safe: base64url with the '=' padding stripped (the server rejects any
-# non-unreserved char).
+# be URL-path-safe. New tokens are base64url with the '=' padding stripped for a
+# clean URL; the server also accepts '=' (a path sub-delim) so legacy padded
+# tokens keep working, but rejects anything else (space, /, ?, #, %, …).
 if ! gcloud secrets describe "$SECRET_NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
   echo "Creating secret $SECRET_NAME with a freshly generated token"
   gcloud secrets create "$SECRET_NAME" \
