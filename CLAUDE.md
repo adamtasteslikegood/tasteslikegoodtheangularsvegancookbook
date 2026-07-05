@@ -279,14 +279,19 @@ Key routing rules:
 ## GBrain Configuration (configured by /setup-gbrain)
 
 - Mode: local-stdio
-- Engine: postgres (Supabase Session Pooler)
-- gbrain version: 0.28.6 (upgraded from 0.18.x on 2026-05-07; schema v38)
+- Engine: postgres (Railway TCP proxy, dedicated `gbrain` database; schema v122)
+- gbrain version: 0.42.56.0 (reconfigured 2026-07-04 to Railway Postgres)
+- Embeddings: openai:text-embedding-3-large (1536d)
+- chat/expansion: openai:gpt-5.2
 - Config file: `~/.gbrain/config.json` (mode 0600)
 - MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
 - Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
-- Artifacts sync: full
-- Current repo policy: read-write
-- Pre-upgrade backup: `~/.gstack-...-gbrain.../Backups/pg_dumps/` (Railway pg_dump, retained as rollback)
+- Artifacts sync: full (federated source `gstack-artifacts-adam`)
+- Transcript ingest: incremental (initial bulk of 24 files done 2026-07-04)
+- Current repo policy: read-write (code imported: 134 pages, 831 chunks, embedded)
+- Trust policy: personal
+- Rollback backup: old 0.18.x brain (252 pages, last write 2026-05-07)
+  preserved untouched in the `railway` database on the same Railway server
 
 ## GBrain Search Guidance (configured by /sync-gbrain)
 
