@@ -207,6 +207,8 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 
 - `gcp-monitor` — runs `scripts/monitoring/run_gcp_monitor.sh`, which creates its venv on first run, then launches `scripts/monitoring/gcp_mcp_server.py`. Exposes read-only Cloud Monitoring tools (`check_system_health`, `list_available_metrics`, `query_metric`) covering the production stack (Cloud Run frontend/backend, Cloud SQL, Valkey, Pub/Sub). Requires `GOOGLE_APPLICATION_CREDENTIALS` (+ optional `GCP_PROJECT_ID`) in `.env`; without them the tools register but return a credential error instead of metrics. The `/system-health-check` skill (`.claude/skills/system-health-check/`) drives the full SRE health-report routine. Setup: `docs/MCP_GCP_MONITORING.md`.
 
+  **Cloud sessions & routines** don't spawn `.mcp.json` stdio servers (their tool registry only wires up remote connectors), so `gcp-monitor` is unreachable there via stdio — routines have to invoke the script directly as a workaround. The same server also runs over authenticated Streamable HTTP (`MCP_TRANSPORT=http`): deploy it to Cloud Run with `scripts/monitoring/deploy_mcp_cloud_run.sh` (keyless — runs as a `roles/monitoring.viewer` SA via ADC, no base64 key; bearer-token auth from a Secret Manager `MCP_AUTH_TOKEN`) and register the printed `/mcp` URL as a Claude **custom connector**. Routines then get the tools first-class. See `docs/MCP_GCP_MONITORING.md` § 4.5.
+
 Requirements for `pm-daemon` to actually sync:
 
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
