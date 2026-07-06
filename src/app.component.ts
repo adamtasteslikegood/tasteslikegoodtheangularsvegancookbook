@@ -363,6 +363,11 @@ export class AppComponent {
   }
 
   nextManualStep() {
+    // Commit a typed-but-unadded ingredient row so leaving the step doesn't
+    // silently discard it (addManualIngredient no-ops on an empty name).
+    if (this.manualStep() === 2) {
+      this.addManualIngredient();
+    }
     this.manualStep.update((s) => s + 1);
   }
 
@@ -395,6 +400,11 @@ export class AppComponent {
   }
 
   async saveManualRecipe() {
+    // Commit any typed-but-unadded ingredient/instruction rows so saving
+    // doesn't silently discard them (both add methods no-op on empty input).
+    this.addManualIngredient();
+    this.addManualInstruction();
+
     const info = this.manualRecipe();
 
     // Group Ingredients
