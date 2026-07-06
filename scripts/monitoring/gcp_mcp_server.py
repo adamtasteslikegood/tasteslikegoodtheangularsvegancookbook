@@ -50,7 +50,15 @@ HTTP-transport-only configuration:
                                     can't send headers and treats a 401 as an
                                     OAuth prompt (see _run_http docstring).
     PORT                            listen port in HTTP mode (default 8080;
-                                    Cloud Run injects this).
+                                    Cloud Run / Railway injects this).
+    MCP_ALLOWED_HOSTS               optional comma-separated Host allowlist. When
+                                    set, the SDK's DNS-rebinding protection is
+                                    enabled and only these Hosts are accepted.
+                                    When unset (default), that protection is off
+                                    so the connector works behind any TLS proxy —
+                                    otherwise the SDK's localhost-only default
+                                    rejects the proxied Host ("Invalid Host
+                                    header", seen by the client as 421).
 """
 
 import base64
@@ -730,10 +738,53 @@ def _run_http() -> None:
     import uvicorn
     from starlette.responses import PlainTextResponse
     from starlette.routing import Route
+    from mcp.server.transport_security import TransportSecuritySettings
 
     async def _healthz(_request):
         # Unauthenticated liveness probe — deliberately reveals nothing.
         return PlainTextResponse("ok")
+
+    # The MCP SDK's DNS-rebinding guard defaults to a localhost-only Host
+    # allowlist, so behind a TLS proxy (Railway/Cloud Run) it rejects every
+    # request with "Invalid Host header" (surfaces to the client as 421). That
+    # guard exists to protect browser-reachable *localhost* servers from
+    # malicious web pages — not the threat model for a public server whose
+    # access control is the secret URL path. Disable it by default so the
+    # connector works behind any proxy; an operator who wants it on can pin the
+    # host(s) with MCP_ALLOWED_HOSTS (comma-separated).
+    allowed_hosts = [
+        h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()
+    ]
+    if allowed_hosts:
+        # A proxied Host header may or may not carry an explicit port
+        # (`app.example.com` vs `app.example.com:443`), and the SDK matches
+        # allowed_hosts by exact string or a `host:*` any-port pattern. Expand
+        # each entry so the operator doesn't have to guess what the proxy sends:
+        # a bare host also allows `host:*`, and a `host:port` entry also allows
+        # the bare host.
+        expanded_hosts: list[str] = []
+        bare_hosts: list[str] = []
+        for h in allowed_hosts:
+            bare = h.split(":", 1)[0]
+            bare_hosts.append(bare)
+            expanded_hosts.append(h)
+            expanded_hosts.append(bare if ":" in h else f"{h}:*")
+        expanded_hosts = list(dict.fromkeys(expanded_hosts))
+        origins = list(
+            dict.fromkeys(
+                [f"https://{b}" for b in bare_hosts]
+                + [f"https://{b}:*" for b in bare_hosts]
+            )
+        )
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=True,
+            allowed_hosts=expanded_hosts,
+            allowed_origins=origins,
+        )
+    else:
+        mcp.settings.transport_security = TransportSecuritySettings(
+            enable_dns_rebinding_protection=False,
+        )
 
     # Mount the MCP endpoint under the secret path. Knowing the path is the
     # credential; the app carries no separate auth gate, so it never emits a 401
