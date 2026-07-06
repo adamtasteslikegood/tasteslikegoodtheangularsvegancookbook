@@ -40,27 +40,28 @@ Configuration (env vars, or repo-root `.env`):
 HTTP-transport-only configuration:
     MCP_TRANSPORT                   'http'/'streamable-http' to serve over HTTP;
                                     anything else (default) uses stdio.
-    MCP_AUTH_TOKEN                  shared secret required on every request,
-                                    presented as `Authorization: Bearer <token>`
-                                    (preferred) or a `?key=<token>` query param
-                                    (for the claude.ai connector UI, which has no
-                                    header field). Mandatory in HTTP mode — the
-                                    server refuses to start without it rather
-                                    than expose metrics unauthenticated.
+    MCP_AUTH_TOKEN                  URL-safe shared secret; the MCP endpoint is
+                                    served at `/<MCP_AUTH_TOKEN>/mcp` and knowing
+                                    that path is the credential (a capability
+                                    URL). Mandatory in HTTP mode — the server
+                                    refuses to start without it rather than serve
+                                    the tools at a guessable path. Chosen over a
+                                    bearer header because Claude's connector UI
+                                    can't send headers and treats a 401 as an
+                                    OAuth prompt (see _run_http docstring).
     PORT                            listen port in HTTP mode (default 8080;
                                     Cloud Run injects this).
 """
 
 import base64
 import datetime
-import hmac
 import json
 import os
+import re
 import sys
 import threading
 from pathlib import Path
 from typing import Optional
-from urllib.parse import parse_qs
 
 from mcp.server.fastmcp import FastMCP
 
@@ -675,78 +676,53 @@ def query_metric(
     return "\n".join(lines) or f"No data for {metric_type} in the last {minutes_back} min."
 
 
-class _BearerAuthMiddleware:
-    """Pure-ASGI gate requiring the shared token on HTTP requests.
-
-    The token may arrive two ways:
-      - `Authorization: Bearer <token>` header — preferred; used by Claude Code
-        (`claude mcp add --header`), the API MCP connector, and direct clients.
-        Keeps the secret out of URLs and request logs.
-      - `?key=<token>` query parameter — because Claude's claude.ai custom-
-        connector UI takes only a URL and has no field for a bearer header or
-        custom headers (anthropics/claude-ai-mcp#112), so the token has to ride
-        in the URL there. Trade-off: a URL-embedded token is visible in request
-        logs (Cloud Run's load-balancer logs included), so rotate it if exposed
-        and prefer the header wherever the client supports one.
-
-    Implemented as raw ASGI (not Starlette's BaseHTTPMiddleware) so it never
-    buffers the streaming/SSE responses the MCP transport relies on. Non-HTTP
-    scopes (lifespan, websocket) and exempt paths pass straight through.
-    """
-
-    def __init__(self, app, token: str, exempt_paths: frozenset[str]):
-        self.app = app
-        self._token = token
-        self._expected = f"Bearer {token}"
-        self.exempt_paths = exempt_paths
-
-    def _authorized(self, scope) -> bool:
-        # Constant-time compares so a wrong token can't be recovered by timing.
-        # ASGI delivers headers as a list of (name, value) byte pairs; scan it
-        # directly rather than dict()-ing it, which would silently keep only the
-        # last of any duplicate header.
-        presented = ""
-        for name, value in scope.get("headers") or ():
-            if name == b"authorization":
-                presented = value.decode("latin-1")
-                break
-        if hmac.compare_digest(presented, self._expected):
-            return True
-        query = parse_qs(scope.get("query_string", b"").decode("latin-1"))
-        return any(hmac.compare_digest(v, self._token) for v in query.get("key", ()))
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope.get("path") in self.exempt_paths:
-            await self.app(scope, receive, send)
-            return
-        if self._authorized(scope):
-            await self.app(scope, receive, send)
-            return
-        await send(
-            {
-                "type": "http.response.start",
-                "status": 401,
-                "headers": [
-                    (b"content-type", b"application/json"),
-                    (b"www-authenticate", b'Bearer realm="gcp-monitor"'),
-                ],
-            }
-        )
-        await send({"type": "http.response.body", "body": b'{"error":"unauthorized"}'})
-
-
 def _run_http() -> None:
-    """Serve the MCP tools over authenticated Streamable HTTP (for Cloud Run)."""
-    # Strip so a secret provisioned with a stray trailing newline/space (a very
-    # easy mistake with `echo | gcloud secrets versions add`) doesn't silently
-    # become a token that never matches the header, and a whitespace-only value
-    # fails closed rather than "authenticating".
+    """Serve the MCP tools over Streamable HTTP behind a secret URL path.
+
+    Why a secret *path* and not a bearer header or `?key=` query:
+
+    - Claude's claude.ai custom-connector UI (the path that reaches cloud
+      routines) takes only a URL — no field for an Authorization header
+      (anthropics/claude-ai-mcp#112).
+    - It reads any `401 + WWW-Authenticate` as "this server needs OAuth" and
+      launches a sign-in flow this server doesn't implement, so a bearer/query
+      *gate* makes registration fail at the OAuth step ("Couldn't register …
+      sign-in service"). A query string also isn't reliably carried on the
+      connector's discovery probe.
+
+    So instead the server looks like a plain **authless** remote MCP server that
+    happens to live at an unguessable path: `/{token}/mcp` returns 200 and every
+    other path 404s — no 401, no `WWW-Authenticate`, so Claude connects with no
+    OAuth. (The one exception is `/healthz`, an unauthenticated 200 liveness
+    probe that reveals nothing.) The secret path IS the credential (a capability
+    URL): treat the whole URL as the secret, keep it off public pages, and rotate
+    the token if it leaks (it appears in request logs like any URL).
+
+    Cloud Run must additionally allow **unauthenticated** invocations — with
+    IAM-gated ingress, Google rejects Claude at the door (its own sign-in), well
+    before this app is reached. See deploy_mcp_cloud_run.sh / docs § 4.5.
+    """
     token = (os.environ.get("MCP_AUTH_TOKEN") or "").strip()
     if not token:
         print(
             "FATAL: MCP_AUTH_TOKEN is unset or blank. Refusing to serve the "
-            "monitoring tools over HTTP without authentication. Set "
+            "monitoring tools over HTTP without a secret path. Set "
             "MCP_AUTH_TOKEN (from Secret Manager on Cloud Run) and retry.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    # The token becomes a URL path segment, so it must be safe there. Allowed:
+    # unreserved chars (A-Z a-z 0-9 - . _ ~) plus '=', which is a valid path
+    # sub-delim (RFC 3986) — this keeps tokens minted by the earlier deploy
+    # script working, since `openssl rand -base64 32 | tr '+/' '-_'` leaves the
+    # trailing '=' padding. Reject anything else (space, /, ?, #, %, …) rather
+    # than silently mount a broken/again-guessable path.
+    if not re.fullmatch(r"[A-Za-z0-9._~=\-]+", token):
+        print(
+            "FATAL: MCP_AUTH_TOKEN must contain only URL-path-safe characters "
+            "(A-Z a-z 0-9 - . _ ~ =) so it can be embedded in the endpoint "
+            "path. Regenerate it the way the deploy script does, e.g. `openssl "
+            "rand -base64 32 | tr '+/' '-_' | tr -d '=\\n'`.",
             file=sys.stderr,
         )
         sys.exit(1)
@@ -759,15 +735,20 @@ def _run_http() -> None:
         # Unauthenticated liveness probe — deliberately reveals nothing.
         return PlainTextResponse("ok")
 
+    # Mount the MCP endpoint under the secret path. Knowing the path is the
+    # credential; the app carries no separate auth gate, so it never emits a 401
+    # (which would trip Claude's OAuth flow). A request to any other path — /mcp,
+    # a wrong token, / — just 404s.
+    mcp.settings.streamable_http_path = f"/{token}/mcp"
     app = mcp.streamable_http_app()
-    # Cloud Run's startup/liveness probes and any uptime check hit /healthz
-    # without a token, so it must sit outside the auth gate.
     app.router.routes.append(Route("/healthz", _healthz, methods=["GET"]))
-    app.add_middleware(
-        _BearerAuthMiddleware, token=token, exempt_paths=frozenset({"/healthz"})
-    )
 
     port = int(os.environ.get("PORT", "8080"))
+    print(
+        f"gcp-monitor MCP serving at path /{'*' * 8}/mcp (token redacted) on "
+        f"port {port}",
+        file=sys.stderr,
+    )
     uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
 
 
