@@ -363,6 +363,13 @@ suggestions.
 
 ## Troubleshooting
 
+- **Hosted connector returns 421 / logs `Invalid Host header`** — the MCP SDK's
+  DNS-rebinding protection defaults to a localhost-only Host allowlist, so behind
+  a TLS proxy (Railway/Cloud Run) it rejects the proxied Host. The server
+  disables that protection by default in HTTP mode, so this only appears if
+  you've set `MCP_ALLOWED_HOSTS` and the incoming Host isn't in it — add the
+  proxy's public hostname (e.g. `myapp.up.railway.app`) to the list, or unset
+  the var to accept any Host (the secret URL path is the access control).
 - **Tools never register on the very first session** — the cold-start pip
   install can exceed the MCP client's startup timeout, so the server gets
   killed mid-bootstrap and no tools appear. Run
