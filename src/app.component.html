@@ -384,9 +384,12 @@
                         ></span>
                       </button>
                     </div>
-                  } @else {
+                  } @else if (isSaved()) {
                     <!-- Guests can't publish: no accountable identity behind
-                         public pages. The server enforces this too. -->
+                         public pages. The server enforces this too. Gated on
+                         isSaved() so the CTA never sends a guest into the
+                         OAuth redirect with an unsaved, unrecoverable recipe
+                         still only in memory. -->
                     <button
                       type="button"
                       (click)="openAuthModal()"
@@ -396,7 +399,7 @@
                       Sign in to publish
                     </button>
                   }
-                  @if (r.is_public) {
+                  @if (canPublish() && r.is_public) {
                     <div class="flex items-center gap-2 ml-1 animate-[fadeIn_0.2s]">
                       <input
                         type="text"
