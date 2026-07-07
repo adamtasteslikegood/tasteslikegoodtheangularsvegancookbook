@@ -324,7 +324,7 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
         return f"Error creating Epic: {e}"
 
 # Parent page ID for session logs (created under Project Documentation)
-SESSION_LOGS_PARENT_ID = os.environ.get('CONFLUENCE_SESSION_LOGS_PARENT_ID', PARENT_PAGE_ID)
+SESSION_LOGS_PARENT_ID = os.environ.get('ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID') or os.environ.get('CONFLUENCE_SESSION_LOGS_PARENT_ID', PARENT_PAGE_ID)
 
 def _render_session_log_html(
     session_id: str,
