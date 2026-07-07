@@ -882,7 +882,19 @@ export class AppComponent {
 
   // ─── v0.2 Distribution Methods ────────────────────────────
 
+  /** Publishing is OAuth-gated: guests have no accountable identity, so the
+   *  server forces is_public=false for them — the UI must not pretend
+   *  otherwise. */
+  canPublish = computed(() => {
+    const user = this.authService.currentUser();
+    return !!user && !user.isGuest;
+  });
+
   async togglePublic(recipe: Recipe) {
+    if (!this.canPublish()) {
+      this.openAuthModal();
+      return;
+    }
     const nextState = !recipe.is_public;
     recipe.is_public = nextState;
 
