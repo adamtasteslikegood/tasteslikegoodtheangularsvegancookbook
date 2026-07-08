@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session start: sync before you act (ALWAYS DO THIS FIRST)
+
+Local checkouts on this machine routinely lag `origin`, and parallel agent sessions (other machines, cloud sessions, routines) may already be working the same area. Skipping these checks has repeatedly produced duplicate fixes and conflicting branches. Run them at session start, and again immediately before creating any branch or worktree:
+
+1. **Fetch, always.** `git fetch origin --prune && git -C Backend fetch --prune`. `git status` alone never contacts the remote — do not trust it for freshness.
+2. **Check divergence.** `scripts/git/ahead-behind.sh --submodules` shows ahead/behind for the repo and `Backend/` in one shot (fallback: `git log --oneline HEAD..origin/dev`, repeated inside `Backend/`). If local `dev` is behind, fast-forward it. Base every new branch on the remote tip, not the local branch: `git switch -c fix/<topic> origin/dev`.
+3. **Scan in-flight work before writing code.** `gh pr list --state open` here, `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` for Backend, and `git branch -r --sort=-committerdate | head` for fresh unmerged branches. Read anything that touches the same files or area as the task — it may already solve part of it, or be about to conflict. Surface overlaps to Adam and build on the in-flight work instead of duplicating it.
+4. **Check cross-session context.** Jira (KAN/RCP) and Confluence are the source of truth across agents, machines, and sessions. Skim the PM briefing and the latest entries under Confluence → Agent Session Logs for related work in flight or recent decisions that constrain the task.
+5. **Respect commit/push order for submodule work.** When a change spans `Backend/`, use `scripts/git/git-workflow.sh` — it commits submodules before the parent repo and pushes in the correct order (supports `--dry-run` and `--interactive`).
+
+Only after these checks: create the branch or worktree and start the work.
+
 ## Project
 
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
