@@ -887,7 +887,7 @@ export class AppComponent {
    *  otherwise. */
   canPublish = computed(() => {
     const user = this.authService.currentUser();
-    return !!user && !user.isGuest;
+    return !!user && user.isGuest === false;
   });
 
   async togglePublic(recipe: Recipe) {
