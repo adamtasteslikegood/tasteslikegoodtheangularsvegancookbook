@@ -36,6 +36,7 @@ def main() -> None:
     parent_id = (
         args.parent_id
         or os.environ.get("ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID")
+        or os.environ.get("CONFLUENCE_SESSION_LOGS_PARENT_ID")
         or config.confluence_parent_page_id
     )
     title = args.title or default_title(markdown_path)
