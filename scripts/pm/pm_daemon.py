@@ -441,7 +441,22 @@ def log_agent_session(
                 page_url = f"https://{URL_BASE}/wiki{webui_path}" if webui_path.startswith("/spaces") else f"https://{URL_BASE}{webui_path}"
             else:
                 page_url = f"https://{URL_BASE}/wiki/pages/viewpage.action?pageId={page_id}"
-            return f"Session logged successfully: {title}\nConfluence URL: {page_url}"
+            # The Agent Session Logs index requires every entry to carry this
+            # label for CQL filtering. Labels aren't supported on the v2 page
+            # create payload, so apply via the v1 API; best-effort only.
+            label_note = ""
+            try:
+                label_resp = requests.post(
+                    f"https://{URL_BASE}/wiki/rest/api/content/{page_id}/label",
+                    headers=HEADERS,
+                    json=[{"prefix": "global", "name": "agent-session-log"}],
+                    timeout=TIMEOUT,
+                )
+                if label_resp.status_code not in [200, 201]:
+                    label_note = f"\nWarning: agent-session-log label not applied: {label_resp.status_code}"
+            except Exception as e:
+                label_note = f"\nWarning: agent-session-log label not applied: {e}"
+            return f"Session logged successfully: {title}\nConfluence URL: {page_url}{label_note}"
         else:
             return f"Failed to log session: {response.status_code} {response.text}"
     except Exception as e:

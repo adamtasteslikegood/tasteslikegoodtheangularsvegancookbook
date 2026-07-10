@@ -55,6 +55,19 @@ def main() -> None:
     print(f"Created Confluence session log page {page_id}: {title}")
     print(f"URL: {config.base_url}/wiki/spaces/{config.confluence_space_key}/pages/{page_id}")
 
+    # The Agent Session Logs index requires the agent-session-log label on
+    # every entry (CQL filtering). Labels can't ride on the v2 create payload,
+    # so apply via the v1 API; a label failure shouldn't fail the publish.
+    try:
+        client.request_json(
+            "POST",
+            f"/wiki/rest/api/content/{page_id}/label",
+            payload=[{"prefix": "global", "name": "agent-session-log"}],
+        )
+        print("Label: agent-session-log")
+    except AtlassianError as exc:
+        print(f"Warning: agent-session-log label not applied: {exc}")
+
 
 if __name__ == "__main__":
     try:
