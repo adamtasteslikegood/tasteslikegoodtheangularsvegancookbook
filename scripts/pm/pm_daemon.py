@@ -453,7 +453,7 @@ def log_agent_session(
                     timeout=TIMEOUT,
                 )
                 if label_resp.status_code not in [200, 201]:
-                    label_note = f"\nWarning: agent-session-log label not applied: {label_resp.status_code}"
+                    label_note = f"\nWarning: agent-session-log label not applied: {label_resp.status_code} {label_resp.text[:200]}"
             except Exception as e:
                 label_note = f"\nWarning: agent-session-log label not applied: {e}"
             return f"Session logged successfully: {title}\nConfluence URL: {page_url}{label_note}"
