@@ -335,6 +335,12 @@ def _render_session_log_html(
     follow_up_items: list[str],
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Render an agent session log as Confluence storage-format HTML."""
     from datetime import datetime, timezone
@@ -352,6 +358,12 @@ def _render_session_log_html(
     files_html = "".join(f"<li><code>{html.escape(f)}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
     followups_html = "".join(f"<li>{html.escape(item)}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
     links_html = "".join(f"<li><a href=\"{html.escape(link, quote=True)}\">{html.escape(link)}</a></li>" for link in (pr_links or []))
+    jira_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (jira_updates or [])) or "<li>No Jira/RCP delivery updates recorded.</li>"
+    kan_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (kan_updates or [])) or "<li>No KAN execution updates recorded.</li>"
+    branch = html.escape(branch or "—")
+    kan_issue = html.escape(kan_issue or "—")
+    rcp_issue = html.escape(rcp_issue or "—")
+    alignment = html.escape(atlassian_alignment or "Not assessed")
 
     return f"""
 <ac:structured-macro ac:name="info"><ac:rich-text-body>
@@ -363,7 +375,13 @@ def _render_session_log_html(
 <tr><th>Agent</th><td>{agent_name}</td></tr>
 <tr><th>Timestamp</th><td>{timestamp}</td></tr>
 <tr><th>Duration</th><td>{duration_str}</td></tr>
+<tr><th>Branch</th><td>{branch}</td></tr>
+<tr><th>KAN issue</th><td>{kan_issue}</td></tr>
+<tr><th>RCP issue</th><td>{rcp_issue}</td></tr>
 </table>
+
+<h2>Atlassian Alignment</h2>
+<p>{alignment}</p>
 
 <h2>Summary</h2>
 <p>{summary}</p>
@@ -373,6 +391,12 @@ def _render_session_log_html(
 
 <h2>Files Changed</h2>
 <ul>{files_html}</ul>
+
+<h2>KAN Execution Updates</h2>
+<ul>{kan_updates_html}</ul>
+
+<h2>RCP / Delivery Updates</h2>
+<ul>{jira_updates_html}</ul>
 
 <h2>Follow-up TODOs</h2>
 <ul>{followups_html}</ul>
@@ -391,6 +415,12 @@ def log_agent_session(
     follow_up_items: list[str] | None = None,
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Log an agent session to Confluence as a structured page.
 
@@ -417,6 +447,12 @@ def log_agent_session(
         follow_up_items=follow_up_items or [],
         pr_links=pr_links,
         duration_minutes=duration_minutes,
+        branch=branch,
+        kan_issue=kan_issue,
+        rcp_issue=rcp_issue,
+        atlassian_alignment=atlassian_alignment,
+        jira_updates=jira_updates,
+        kan_updates=kan_updates,
     )
 
     payload = {

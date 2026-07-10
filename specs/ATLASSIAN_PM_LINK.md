@@ -83,6 +83,7 @@ Run:
 
 ```bash
 npm run pm:brief
+npm run pm:reflect
 npm run pm:sync
 npm run pm:status
 ```
@@ -109,6 +110,7 @@ It exists to:
 ```bash
 npm run pm:start             # check connectivity + build local briefing
 npm run pm:brief             # rebuild local PM briefing
+npm run pm:reflect           # write local git-to-Jira/KAN reflection
 npm run pm:sync              # rebuild briefing + publish/update Confluence briefing
 npm run pm:publish           # alias for pm:sync
 npm run pm:status            # live Jira + PR + Confluence + prod snapshot
