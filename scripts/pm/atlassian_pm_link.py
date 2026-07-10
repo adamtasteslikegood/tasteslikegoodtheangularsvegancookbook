@@ -80,7 +80,8 @@ class AtlassianClient:
         path: str,
         *,
         query: dict[str, Any] | None = None,
-        payload: dict[str, Any] | None = None,
+        # list payloads: some v1 endpoints (e.g. content labels) take a JSON array
+        payload: dict[str, Any] | list[Any] | None = None,
     ) -> dict[str, Any]:
         url = self.config.base_url + path
         if query:

@@ -47,7 +47,9 @@ Creates structured Confluence pages for each agent session with:
 
 **Template:** See `scripts/pm/templates/session_log.md`
 
-**Confluence location:** Pages are created under the Session Logs parent page (configured via `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` env var, or its alias `CONFLUENCE_SESSION_LOGS_PARENT_ID`; defaults to the Project Documentation parent).
+**Confluence location:** Pages are created under the Session Logs parent page (configured via `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` env var, or its alias `CONFLUENCE_SESSION_LOGS_PARENT_ID`; defaults to the Project Documentation parent). Point it at the "Agent Session Logs" index page (`34635777` in the TLG space) — the separate "AI Session Logs" page is reserved for conversational Rovo sessions.
+
+**Label:** Both `log_agent_session` and `publish_session_log.py` automatically apply the `agent-session-log` label to each page, per the Agent Session Logs index conventions. Filter with CQL: `type = page AND label = "agent-session-log"`.
 
 ### 3. Jira/Confluence Status (`scripts/pm/sync_jira_confluence_status.py`)
 
