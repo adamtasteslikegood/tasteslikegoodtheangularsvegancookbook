@@ -71,6 +71,7 @@ import threading
 from pathlib import Path
 from typing import Optional
 
+from google.api import metric_pb2
 from mcp.server.fastmcp import FastMCP
 
 _RESOLVED = Path(__file__).resolve()
@@ -614,8 +615,6 @@ def list_available_metrics(prefix: str, limit: int = 50) -> str:
                 "filter": f'metric.type = starts_with("{prefix.replace(chr(34), "")}")',
             }
         )
-        from google.api import metric_pb2
-
         lines = []
         for descriptor in descriptors:
             # MetricDescriptor is a raw protobuf message (google.api), so the
