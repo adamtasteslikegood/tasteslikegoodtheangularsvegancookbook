@@ -38,10 +38,12 @@ The daemon watches `specs/` for changes to these files and auto-syncs them to Co
 ### 2. Session Logging (`log_agent_session`)
 
 Creates structured Confluence pages for each agent session with:
-- Session metadata (ID, agent, timestamp, duration)
+- Session metadata (ID, agent, timestamp, duration, branch)
 - Summary of work completed
 - Key decisions and trade-offs
 - Files changed
+- KAN execution refs/updates so active branch work is visible on the board
+- RCP delivery refs/updates when sprint, epic, release, acceptance, or scope changes
 - Follow-up TODOs
 - Links to related PRs/issues
 
@@ -65,7 +67,7 @@ cd scripts/pm && python sync_jira_confluence_status.py
 
 ### 4. Atlassian Link Utility (`scripts/pm/atlassian_pm_link.py`)
 
-Standalone utility for Atlassian API operations. Dependency-free (uses only the Python stdlib — `urllib`, no `requests`).
+Standalone utility for Atlassian API operations. Dependency-free (uses only the Python stdlib — `urllib`, no `requests`). The `brief`, `reflect`, and `sync` commands write `.agent-work/pm/JIRA_KAN_WORK_REFLECTION.md`, which compares local git state (branch, changed tracked files, recent issue keys) with fetched Jira state and names the KAN/RCP update needed before handoff. Use `npm run pm:reflect` when you only need the local work-to-board alignment check.
 
 ## Configuration
 
@@ -84,7 +86,9 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 | `ATLASSIAN_CONFLUENCE_SPACE_ID` | `11042818` | Target Confluence space |
 | `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID` | `11796481` | Parent page for synced docs |
 | `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
-| `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Default Jira project for epics |
+| `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Execution Jira project for active work |
+| `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
+| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings |
 
 ## Skills
 
