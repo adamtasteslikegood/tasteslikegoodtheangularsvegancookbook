@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session start: sync before you act (ALWAYS DO THIS FIRST)
+
+Local checkouts on this machine routinely lag `origin`, and parallel agent sessions (other machines, cloud sessions, routines) may already be working the same area. Skipping these checks has repeatedly produced duplicate fixes and conflicting branches. Run them at session start, and again immediately before creating any branch or worktree:
+
+1. **Fetch, always.** `git fetch origin --prune && git submodule update --init Backend && git -C Backend fetch --prune`. Initializing the submodule first ensures `git -C Backend fetch` never fails on a partial or fresh checkout. `Backend` is the only _required_ submodule — `alirez-claude-skills` and `gemstack` are optional skill collections; do not force-init them. `git status` alone never contacts the remote — do not trust it for freshness.
+2. **Check divergence.** `scripts/git/ahead-behind.sh --base dev . Backend` shows ahead/behind for the repo and `Backend/` in one shot (`--base dev` pins the comparison to `dev` regardless of either repo's default branch; naming `. Backend` explicitly skips the optional submodules, which may be uninitialized). Step 1 must run first: against an _uninitialized_ `Backend/` the script does not fail — it silently reports the parent repo's branches under the Backend heading. Fallback: `git log --oneline dev..origin/dev`, repeated as `git -C Backend log --oneline dev..origin/dev`. If local `dev` is behind, fast-forward it with `git switch dev && git pull --ff-only` (never merge — `--ff-only` aborts rather than create an accidental merge commit). In a secondary worktree, `git switch dev` fails when `dev` is checked out elsewhere — that's fine: skip the fast-forward and just branch from `origin/dev`. Base every new branch on the remote tip, not the local branch: `git switch -c fix/<topic> origin/dev`.
+3. **Map the task onto the repo, then scan in-flight work.** First identify which files/areas the task will touch. Then look for anyone already there: `gh pr list --state open` here, `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` for Backend, `git branch -r --sort=-committerdate | head` for fresh unmerged branches, and `git log --oneline -10 origin/dev -- <paths>` for recent landings in those areas. Read anything that overlaps — it may already solve part of the task, supersede it, or be about to conflict. Surface overlaps to Adam and build on the in-flight work instead of duplicating it.
+4. **Check cross-session context.** Jira (KAN/RCP) and Confluence are the source of truth across agents, machines, and sessions. Skim the PM briefing and the latest entries under Confluence → Agent Session Logs for related work in flight or recent decisions that constrain the task.
+5. **Respect commit/push order for submodule work.** When a change spans `Backend/`, use `scripts/git/git-workflow.sh` — it commits submodules before the parent repo and pushes in the correct order (supports `--dry-run` and `--interactive`).
+
+Only after these checks: create the branch or worktree and start the work.
+
 ## Project
 
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
@@ -207,7 +219,7 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 
 - `gcp-monitor` — runs `scripts/monitoring/run_gcp_monitor.sh`, which creates its venv on first run, then launches `scripts/monitoring/gcp_mcp_server.py`. Exposes read-only Cloud Monitoring tools (`check_system_health`, `list_available_metrics`, `query_metric`) covering the production stack (Cloud Run frontend/backend, Cloud SQL, Valkey, Pub/Sub). Requires `GOOGLE_APPLICATION_CREDENTIALS` (+ optional `GCP_PROJECT_ID`) in `.env`; without them the tools register but return a credential error instead of metrics. The `/system-health-check` skill (`.claude/skills/system-health-check/`) drives the full SRE health-report routine. Setup: `docs/MCP_GCP_MONITORING.md`.
 
-  **Cloud sessions & routines** don't spawn `.mcp.json` stdio servers (their tool registry only wires up remote connectors), so `gcp-monitor` is unreachable there via stdio — routines have to invoke the script directly as a workaround. The same server also runs over Streamable HTTP (`MCP_TRANSPORT=http`) at a secret URL path: deploy it to Cloud Run with `scripts/monitoring/deploy_mcp_cloud_run.sh` (keyless — runs as a `roles/monitoring.viewer` SA via ADC, no base64 key) and register the printed `https://<service>/<token>/mcp` URL as a Claude **custom connector** (OAuth fields blank). The server is authless-looking with the `MCP_AUTH_TOKEN` secret as the URL path — Claude's connector UI can't send a header and reads a 401 as an OAuth prompt, and Cloud Run ingress must allow unauthenticated access (IAM-gated = Google sign-in error). Routines then get the tools first-class. See `docs/MCP_GCP_MONITORING.md` § 4.5.
+  `gcp-monitor` is available in cloud sessions as a first-class MCP connector. Streamable HTTP deployment (`MCP_TRANSPORT=http`) remains documented for connector hosting and setup details (see `docs/MCP_GCP_MONITORING.md` § 4.5).
 
 Requirements for `pm-daemon` to actually sync:
 

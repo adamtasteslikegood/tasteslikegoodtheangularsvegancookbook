@@ -47,7 +47,7 @@ Creates structured Confluence pages for each agent session with:
 
 **Template:** See `scripts/pm/templates/session_log.md`
 
-**Confluence location:** Pages are created under the Session Logs parent page (configured via `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` env var, defaults to the Project Documentation parent).
+**Confluence location:** Pages are created under the Session Logs parent page (configured via `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` env var, or its alias `CONFLUENCE_SESSION_LOGS_PARENT_ID`; defaults to the Project Documentation parent).
 
 ### 3. Jira/Confluence Status (`scripts/pm/sync_jira_confluence_status.py`)
 
@@ -81,7 +81,7 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 |----------|---------|-------------|
 | `ATLASSIAN_CONFLUENCE_SPACE_ID` | `11042818` | Target Confluence space |
 | `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID` | `11796481` | Parent page for synced docs |
-| `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs |
+| `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
 | `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Default Jira project for epics |
 
 ## Skills
