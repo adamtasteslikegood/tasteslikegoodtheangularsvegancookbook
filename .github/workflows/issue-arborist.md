@@ -16,7 +16,7 @@ network:
 
 tools:
   github:
-    lockdown: true
+    lockdown: false
     toolsets:
       - issues
     min-integrity: none # This workflow is allowed to examine and comment on any issues
