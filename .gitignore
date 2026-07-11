@@ -94,6 +94,9 @@ skills
 !.claude/skills/
 
 # Generated / local artifacts
+/_capability_check_*.md
+/confluence_page_*.html
+/copilot-session-*.md
 /export
 /fastagent.jsonl
 /uv.lock

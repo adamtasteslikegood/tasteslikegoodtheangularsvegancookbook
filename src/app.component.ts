@@ -342,6 +342,11 @@ export class AppComponent {
   }
 
   // Manual Entry Methods
+  private resetManualEntryDrafts() {
+    this.newIngredient.set({ name: '', amount: 1, units: '', type: 'dry' });
+    this.newInstruction.set('');
+  }
+
   openManualEntryModal() {
     this.manualStep.set(1);
     this.manualRecipe.set({
@@ -355,10 +360,12 @@ export class AppComponent {
     });
     this.manualIngredients.set([]);
     this.manualInstructions.set([]);
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(true);
   }
 
   closeManualEntryModal() {
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(false);
   }
 
