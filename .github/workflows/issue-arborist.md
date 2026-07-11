@@ -16,6 +16,7 @@ network:
 
 tools:
   github:
+    # Use the built-in GITHUB_TOKEN; this repository has no custom gh-aw PAT secret.
     lockdown: false
     toolsets:
       - issues
