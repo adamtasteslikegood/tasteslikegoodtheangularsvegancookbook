@@ -52,14 +52,18 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role roles/monitoring.viewer \
   --condition None >/dev/null
 
-# ── 2. Bearer token secret ──────────────────────────────────────────────────
+# ── 2. Secret path token ─────────────────────────────────────────────────────
+# The token becomes a URL path segment (the endpoint is /<token>/mcp), so it must
+# be URL-path-safe. New tokens are base64url with the '=' padding stripped for a
+# clean URL; the server also accepts '=' (a path sub-delim) so legacy padded
+# tokens keep working, but rejects anything else (space, /, ?, #, %, …).
 if ! gcloud secrets describe "$SECRET_NAME" --project "$PROJECT_ID" >/dev/null 2>&1; then
   echo "Creating secret $SECRET_NAME with a freshly generated token"
   gcloud secrets create "$SECRET_NAME" \
     --project "$PROJECT_ID" \
     --replication-policy automatic
-  # 32 random bytes, URL-safe — plenty for a bearer secret.
-  openssl rand -base64 32 | tr -d '\n' | tr '+/' '-_' \
+  # 32 random bytes, base64url, no '=' padding — URL-path-safe.
+  openssl rand -base64 32 | tr -d '\n' | tr '+/' '-_' | tr -d '=' \
     | gcloud secrets versions add "$SECRET_NAME" --project "$PROJECT_ID" --data-file=-
   echo "Generated a new token — retrieve it for the connector config with:"
   echo "  gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"
@@ -75,6 +79,12 @@ gcloud secrets add-iam-policy-binding "$SECRET_NAME" \
   --condition None >/dev/null
 
 # ── 3. Deploy the Cloud Run service ─────────────────────────────────────────
+# --allow-unauthenticated is REQUIRED: Claude's servers are not GCP principals,
+# so IAM-gated ingress rejects them at Google's front door (its own sign-in) long
+# before this app runs. The secret URL path is the actual access control. If an
+# org policy (constraints/iam.allowedPolicyMemberDomains — Domain Restricted
+# Sharing) blocks binding allUsers, this flag fails and the service stays private;
+# that org policy must be exempted for the connector to be reachable.
 echo "Deploying $SERVICE from $SOURCE_DIR"
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT_ID" \
@@ -90,29 +100,48 @@ gcloud run deploy "$SERVICE" \
   --port 8080 \
   --quiet
 
+# Verify ingress is actually public (the --allow-unauthenticated bind can be
+# silently refused by an org policy). allUsers with run.invoker == reachable.
+# Check specifically for allUsers bound to roles/run.invoker (what actually makes
+# the service reachable) — flatten members, keep only the run.invoker binding,
+# and match allUsers exactly, so allUsers under some other role can't read as
+# "public".
+if gcloud run services get-iam-policy "$SERVICE" --project "$PROJECT_ID" --region "$REGION" \
+     --flatten='bindings[].members' \
+     --filter='bindings.role=roles/run.invoker' \
+     --format='value(bindings.members)' 2>/dev/null | grep -qx 'allUsers'; then
+  PUBLIC="yes"
+else
+  PUBLIC="NO"
+fi
+
 URL="$(gcloud run services describe "$SERVICE" --project "$PROJECT_ID" --region "$REGION" --format 'value(status.url)')"
 echo
-echo "Deployed. Register as a Claude custom connector."
-echo
-echo "claude.ai / Claude Code web (Settings -> Connectors -> Add custom connector):"
-echo "  Its UI has no header field, so the token rides in the URL. Use this as the"
-echo "  URL and leave the OAuth Client ID / Secret fields BLANK:"
+if [[ "$PUBLIC" != "yes" ]]; then
+  echo "!! WARNING: this service does NOT allow unauthenticated access (allUsers"
+  echo "   is not bound to roles/run.invoker). Claude cannot reach it and the"
+  echo "   connector will fail with a Google sign-in error. Likely an org policy"
+  echo "   (Domain Restricted Sharing) blocking allUsers — get it exempted, then"
+  echo "   re-run, or: gcloud run services add-iam-policy-binding $SERVICE \\"
+  echo "     --region=$REGION --member=allUsers --role=roles/run.invoker"
+  echo
+fi
+echo "Deployed. Register as a Claude custom connector (Settings -> Connectors ->"
+echo "Add custom connector). Paste this as the URL and leave the OAuth Client ID /"
+echo "Secret fields BLANK — the server is authless and the secret IS the path:"
 if [[ "${PRINT_TOKEN:-0}" == "1" ]]; then
-  # Opt-in only: the full token lands in terminal scrollback / CI logs / shared
-  # transcripts, so it's not printed by default. `tr -d '\r\n'` strips any
-  # trailing newline a manually-added secret version may carry, so the pasted
-  # URL matches what the server expects.
+  # Opt-in only: the whole URL is the secret, so it's withheld from output by
+  # default (terminal scrollback / CI logs / shared transcripts). tr strips any
+  # trailing newline/CR a manually-added secret version may carry.
   TOKEN="$(gcloud secrets versions access latest --secret="$SECRET_NAME" --project="$PROJECT_ID" 2>/dev/null | tr -d '\r\n' || true)"
-  echo "    ${URL}/mcp?key=${TOKEN:-<token>}"
+  echo "    ${URL}/${TOKEN:-<token>}/mcp"
 else
-  echo "    ${URL}/mcp?key=<token>"
-  echo "  (token withheld from output by default; re-run with PRINT_TOKEN=1 to"
-  echo "   inline it, or fetch it with the command below)"
+  echo "    ${URL}/<token>/mcp"
+  echo "  (token withheld by default; re-run with PRINT_TOKEN=1 to inline it, or"
+  echo "   fetch it with the command below)"
 fi
 echo
-echo "Claude Code CLI / Desktop / API (header auth — keeps the token out of URLs & logs):"
-echo "  URL:    ${URL}/mcp"
-echo "  Header: Authorization: Bearer <token>"
+echo "The same URL works from Claude Code CLI / Desktop / the API connector too."
 echo
 echo "Fetch the token:"
 echo "  gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"

@@ -323,8 +323,8 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
     except Exception as e:
         return f"Error creating Epic: {e}"
 
-# Parent page ID for session logs (created under Project Documentation)
-SESSION_LOGS_PARENT_ID = os.environ.get('CONFLUENCE_SESSION_LOGS_PARENT_ID', PARENT_PAGE_ID)
+# Parent page ID for session logs; falls back to the Project Documentation parent when unset
+SESSION_LOGS_PARENT_ID = os.environ.get('ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID') or os.environ.get('CONFLUENCE_SESSION_LOGS_PARENT_ID', PARENT_PAGE_ID)
 
 def _render_session_log_html(
     session_id: str,
@@ -335,6 +335,12 @@ def _render_session_log_html(
     follow_up_items: list[str],
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Render an agent session log as Confluence storage-format HTML."""
     from datetime import datetime, timezone
@@ -352,6 +358,12 @@ def _render_session_log_html(
     files_html = "".join(f"<li><code>{html.escape(f)}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
     followups_html = "".join(f"<li>{html.escape(item)}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
     links_html = "".join(f"<li><a href=\"{html.escape(link, quote=True)}\">{html.escape(link)}</a></li>" for link in (pr_links or []))
+    jira_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (jira_updates or [])) or "<li>No Jira/RCP delivery updates recorded.</li>"
+    kan_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (kan_updates or [])) or "<li>No KAN execution updates recorded.</li>"
+    branch = html.escape(branch or "—")
+    kan_issue = html.escape(kan_issue or "—")
+    rcp_issue = html.escape(rcp_issue or "—")
+    alignment = html.escape(atlassian_alignment or "Not assessed")
 
     return f"""
 <ac:structured-macro ac:name="info"><ac:rich-text-body>
@@ -363,7 +375,13 @@ def _render_session_log_html(
 <tr><th>Agent</th><td>{agent_name}</td></tr>
 <tr><th>Timestamp</th><td>{timestamp}</td></tr>
 <tr><th>Duration</th><td>{duration_str}</td></tr>
+<tr><th>Branch</th><td>{branch}</td></tr>
+<tr><th>KAN issue</th><td>{kan_issue}</td></tr>
+<tr><th>RCP issue</th><td>{rcp_issue}</td></tr>
 </table>
+
+<h2>Atlassian Alignment</h2>
+<p>{alignment}</p>
 
 <h2>Summary</h2>
 <p>{summary}</p>
@@ -373,6 +391,12 @@ def _render_session_log_html(
 
 <h2>Files Changed</h2>
 <ul>{files_html}</ul>
+
+<h2>KAN Execution Updates</h2>
+<ul>{kan_updates_html}</ul>
+
+<h2>RCP / Delivery Updates</h2>
+<ul>{jira_updates_html}</ul>
 
 <h2>Follow-up TODOs</h2>
 <ul>{followups_html}</ul>
@@ -391,6 +415,12 @@ def log_agent_session(
     follow_up_items: list[str] | None = None,
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Log an agent session to Confluence as a structured page.
 
@@ -417,6 +447,12 @@ def log_agent_session(
         follow_up_items=follow_up_items or [],
         pr_links=pr_links,
         duration_minutes=duration_minutes,
+        branch=branch,
+        kan_issue=kan_issue,
+        rcp_issue=rcp_issue,
+        atlassian_alignment=atlassian_alignment,
+        jira_updates=jira_updates,
+        kan_updates=kan_updates,
     )
 
     payload = {
@@ -441,7 +477,22 @@ def log_agent_session(
                 page_url = f"https://{URL_BASE}/wiki{webui_path}" if webui_path.startswith("/spaces") else f"https://{URL_BASE}{webui_path}"
             else:
                 page_url = f"https://{URL_BASE}/wiki/pages/viewpage.action?pageId={page_id}"
-            return f"Session logged successfully: {title}\nConfluence URL: {page_url}"
+            # The Agent Session Logs index requires every entry to carry this
+            # label for CQL filtering. Labels aren't supported on the v2 page
+            # create payload, so apply via the v1 API; best-effort only.
+            label_note = ""
+            try:
+                label_resp = requests.post(
+                    f"https://{URL_BASE}/wiki/rest/api/content/{page_id}/label",
+                    headers=HEADERS,
+                    json=[{"prefix": "global", "name": "agent-session-log"}],
+                    timeout=TIMEOUT,
+                )
+                if label_resp.status_code not in [200, 201]:
+                    label_note = f"\nWarning: agent-session-log label not applied: {label_resp.status_code} {label_resp.text[:200]}"
+            except Exception as e:
+                label_note = f"\nWarning: agent-session-log label not applied: {e}"
+            return f"Session logged successfully: {title}\nConfluence URL: {page_url}{label_note}"
         else:
             return f"Failed to log session: {response.status_code} {response.text}"
     except Exception as e:

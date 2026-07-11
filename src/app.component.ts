@@ -342,6 +342,11 @@ export class AppComponent {
   }
 
   // Manual Entry Methods
+  private resetManualEntryDrafts() {
+    this.newIngredient.set({ name: '', amount: 1, units: '', type: 'dry' });
+    this.newInstruction.set('');
+  }
+
   openManualEntryModal() {
     this.manualStep.set(1);
     this.manualRecipe.set({
@@ -355,14 +360,21 @@ export class AppComponent {
     });
     this.manualIngredients.set([]);
     this.manualInstructions.set([]);
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(true);
   }
 
   closeManualEntryModal() {
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(false);
   }
 
   nextManualStep() {
+    // Commit a typed-but-unadded ingredient row so leaving the step doesn't
+    // silently discard it (addManualIngredient no-ops on an empty name).
+    if (this.manualStep() === 2) {
+      this.addManualIngredient();
+    }
     this.manualStep.update((s) => s + 1);
   }
 
@@ -395,6 +407,11 @@ export class AppComponent {
   }
 
   async saveManualRecipe() {
+    // Commit any typed-but-unadded ingredient/instruction rows so saving
+    // doesn't silently discard them (both add methods no-op on empty input).
+    this.addManualIngredient();
+    this.addManualInstruction();
+
     const info = this.manualRecipe();
 
     // Group Ingredients
@@ -872,7 +889,19 @@ export class AppComponent {
 
   // ─── v0.2 Distribution Methods ────────────────────────────
 
+  /** Publishing is OAuth-gated: guests have no accountable identity, so the
+   *  server forces is_public=false for them — the UI must not pretend
+   *  otherwise. */
+  canPublish = computed(() => {
+    const user = this.authService.currentUser();
+    return !!user && user.isGuest === false;
+  });
+
   async togglePublic(recipe: Recipe) {
+    if (!this.canPublish()) {
+      this.openAuthModal();
+      return;
+    }
     const nextState = !recipe.is_public;
     recipe.is_public = nextState;
 
