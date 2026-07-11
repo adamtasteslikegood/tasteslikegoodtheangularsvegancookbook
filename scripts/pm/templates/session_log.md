@@ -13,6 +13,9 @@
 | **Agent** | {agent_name} |
 | **Timestamp** | {timestamp} |
 | **Duration** | {duration} |
+| **Branch** | `{branch}` |
+| **KAN Issue** | {kan_issue} |
+| **RCP Issue** | {rcp_issue} |
 
 ## Summary
 
@@ -27,6 +30,23 @@
 
 - `{file_1}`
 - `{file_2}`
+
+## Atlassian Alignment
+
+- Verdict: {aligned_partially_aligned_or_drifting}
+- KAN: {execution_state_visible_or_missing}
+- RCP: {delivery_scope_impact_or_none}
+- Confluence: {session_log_and_docs_status}
+
+## KAN Execution Updates
+
+- {branch_owner_status_blocker_or_next_action_update}
+- {kan_issue_to_create_or_update_if_work_is_active}
+
+## RCP Delivery Updates
+
+- {epic_sprint_acceptance_or_scope_update}
+- {write_no_delivery_scope_change_if_not_applicable}
 
 ## Follow-up TODOs
 
