@@ -5,6 +5,6 @@ Backend
 package-lock.json
 
 # Parked agent artifacts (preserved verbatim; see #3086 / KAN-82)
-_capability_check_41145.md
+_capability_check_*.md
 copilot-session-*.md
 confluence_page_*.html
