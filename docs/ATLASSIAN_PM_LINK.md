@@ -38,10 +38,15 @@ Verifies Jira and Confluence connectivity without writing files.
 
 ```sh
 npm run pm:brief
-npm run pm:reflect
 ```
 
 Fetches Jira issues and Confluence planning/session pages, then writes the local briefing, cache, and `.agent-work/pm/JIRA_KAN_WORK_REFLECTION.md`. The reflection file compares local git state to Jira refs so KAN can show the work actually happening on branches/worktrees. It also refreshes `jira_issues.txt` for older workflows when requested.
+
+```sh
+npm run pm:reflect
+```
+
+Standalone alternative that regenerates only the work reflection file without refreshing the full briefing or cache. `pm:brief` and `pm:sync` already write this file, so use `pm:reflect` when you want the reflection-only view without paying the cost of a full briefing.
 
 ```sh
 npm run pm:sync
