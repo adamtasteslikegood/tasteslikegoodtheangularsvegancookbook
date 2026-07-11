@@ -1,5 +1,8 @@
 {
-  "enabledMcpjsonServers": ["pm-daemon", "gcp-monitor"],
+  "enabledMcpjsonServers": [
+    "pm-daemon",
+    "gcp-monitor"
+  ],
   "hooks": {
     "PreToolUse": [
       {

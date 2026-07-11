@@ -8,6 +8,32 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-11
+
+Stability and automation release. Fixes cookbook editing regressions, makes authenticated publishing explicit, hardens the hosted GCP monitoring connector, repairs the repository's agentic workflows, and adds active-work reflection for Jira/KAN.
+
+### Fixed
+
+- **Recipe editing no longer loses ingredient data** ([#3057](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3057)): the wizard preserves ingredient groups while editing, cookbook creation rejects blank names, and modal controls now have accessible labels.
+- **Abandoned manual-entry rows no longer leak into later recipes** ([#3098](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3098)): closing or reopening manual recipe entry clears pending ingredient and instruction drafts before the next save.
+- **Publishing is limited to signed-in users** ([#3066](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3066), Backend [#142](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/142)): guests see a clear "Sign in to publish" action instead of a control that cannot complete, while the backend rejects guest publishing and migrates previously guest-published rows safely.
+- **Hosted gcp-monitor connector reliability** ([#3058](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3058), [#3060](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3060), [#3078](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3078)): secret-path routing now works with connector registration, reverse-proxy host validation no longer rejects Cloud Run traffic, and `metric_pb2` is imported consistently.
+- **PM session-log configuration matches the documented environment variables** ([#3065](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3065), [#3079](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3079)): session logs target the Agent Session Logs index and receive the expected label.
+- **Agentic workflows compile and run again** ([#3077](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3077), [#3091](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3091), [#3093](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3093)): Daily Repo Status uses the current gh-aw runtime, and Issue Arborist now uses the built-in GitHub token with a regenerated lock file whose frontmatter hash matches its source.
+- **Backend operational endpoints are safer and accurate** (Backend [#147](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/147)): `/api/migrate` requires an admin token and `/api/status` performs a working database health probe.
+
+### Added
+
+- **Issue Arborist automation** ([#3089](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3089), [#3093](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3093)): periodically groups strongly related GitHub issues into parent/sub-issue relationships, with compiler-generated maintenance for expiring safe outputs.
+- **Jira/KAN work reflection** ([#3080](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3080)): `npm run pm:reflect` compares the active branch, changed files, recent commits, and referenced issues with KAN/RCP, then writes board-alignment recommendations under `.agent-work/pm/`.
+- **Reverse-engineered product reference** ([#3082](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3082)): documents current pages, API inventory, data model, enums, and platform behavior under `prd/`.
+
+### Changed
+
+- Angular 22.0.5 -> 22.0.6, `@google/genai` 2.10 -> 2.11, Vite 8.0.16 -> 8.1.4, Node types 25 -> 26, plus testing and linting patch updates ([#3000](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3000), [#3071](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3071), [#3073](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3073), [#3074](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3074), [#3075](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3075), [#3076](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3076)).
+- Backend submodule `ef594bf` -> `3883f00`, adding authenticated publishing enforcement and the operational endpoint fixes above. Alembic remains on one head (`e91b47a2c5d3`).
+- Repository and agent-tooling pointers were refreshed, runtime artifacts were explicitly parked/ignored, and session-start synchronization guidance was tightened ([#3068](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3068), [#3085](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3085)).
+
 ## [0.3.2] - 2026-07-05
 
 Regression-fix release for v0.3.1: restores styling on the server-rendered public pages, makes async recipe generation retry transient model failures, and un-shadows the dynamic sitemap. Also brings the GCP monitoring MCP server to Cloud Run as an authenticated Claude connector and gates PRs targeting `dev` with the full CI suite.

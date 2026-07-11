@@ -16,6 +16,7 @@ Use this markdown structure for every generated session log.
 ## Relevant Refs
 - Root PR:
 - Backend PR:
+- Branch / worktree:
 - KAN issue:
 - RCP issue:
 - Prior Confluence refs:
@@ -34,9 +35,9 @@ Short narrative of what happened in this session.
 
 ## Atlassian Alignment
 - Verdict: Aligned | Partially aligned | Drifting
-- KAN:
-- RCP:
-- Confluence:
+- KAN: active branch/work ownership, blockers, handoffs, and next action are visible or the missing update is named
+- RCP: delivery scope, epic, sprint, or acceptance impact is visible, or explicitly marked no delivery-scope change
+- Confluence: session log and relevant planning/docs update status
 - PM daemon / sync status:
 
 ## Atlassian Sync Status
@@ -59,16 +60,17 @@ Short narrative of what happened in this session.
 
 ## Artifacts Created
 - PRs
-- Jira updates
+- Jira/KAN updates
+- Jira/RCP updates
 - docs / scripts / extensions / skills
 - other durable outputs
 
 ## Recommended Updates
 ### Jira KAN
-- execution-side updates to make
+- execution-side updates to make: branch/work owner, current status, blocker/handoff, next action, PR/file refs
 
 ### Jira RCP
-- delivery-side updates to make
+- delivery-side updates to make only when sprint, epic, release, acceptance, or scope changed; otherwise write "No RCP update required"
 
 ### Confluence
 - durable context pages or docs to update

@@ -86,6 +86,7 @@ override.tf.json
 .github/agents/
 .github/skills/
 .clawhub/
+.rovodev/
 claude-code-tresor
 skills
 !.pi/skills/
@@ -93,6 +94,9 @@ skills
 !.claude/skills/
 
 # Generated / local artifacts
+/_capability_check_*.md
+/confluence_page_*.html
+/copilot-session-*.md
 /export
 /fastagent.jsonl
 /uv.lock
@@ -118,3 +122,4 @@ __pycache__/
 .omg/state/
 scripts/pm/.venv/
 .gbrain-source
+.claude/worktrees
