@@ -83,10 +83,11 @@ Run:
 
 ```bash
 npm run pm:brief
-npm run pm:reflect
 npm run pm:sync
 npm run pm:status
 ```
+
+`pm:brief` and `pm:sync` both write `.agent-work/pm/JIRA_KAN_WORK_REFLECTION.md`, so the default handoff flow does not need a separate `pm:reflect` step. Run `npm run pm:reflect` on its own only when you want the reflection report without the full briefing/sync round-trip.
 
 That ensures:
 
