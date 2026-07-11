@@ -462,17 +462,17 @@ def build_work_reflection(config: Config, issues: list[dict[str, Any]]) -> dict[
     # silently break when a non-default project key is configured. The
     # configured value is a CSV of project keys; by convention the first is
     # execution (e.g. KAN) and the second, when present, is delivery (RCP).
-project_keys = [part.strip() for part in config.jira_project_key.split(",") if part.strip()]
-execution_key = (project_keys[0] if project_keys else "KAN").upper()
-delivery_key = (project_keys[1] if len(project_keys) > 1 else execution_key).upper()
-active_kan = [
-    issue for issue in issues
-    if str(issue.get("key", "")).upper().startswith(f"{execution_key}-") and not is_done(issue)
-]
-active_rcp = [
-    issue for issue in issues
-    if str(issue.get("key", "")).upper().startswith(f"{delivery_key}-") and not is_done(issue)
-]
+    project_keys = [part.strip() for part in config.jira_project_key.split(",") if part.strip()]
+    execution_key = (project_keys[0] if project_keys else "KAN").upper()
+    delivery_key = (project_keys[1] if len(project_keys) > 1 else execution_key).upper()
+    active_kan = [
+        issue for issue in issues
+        if str(issue.get("key", "")).upper().startswith(f"{execution_key}-") and not is_done(issue)
+    ]
+    active_rcp = [
+        issue for issue in issues
+        if str(issue.get("key", "")).upper().startswith(f"{delivery_key}-") and not is_done(issue)
+    ]
     workstreams = Counter(infer_workstream_from_path(path) for path in files)
     git_unavailable = branch == "unknown" and not files and not commits
     untracked_refs = not referenced_keys and not git_unavailable and (branch != "dev" or files)
