@@ -87,6 +87,8 @@ npm run pm:sync
 npm run pm:status
 ```
 
+`pm:brief` and `pm:sync` both write `.agent-work/pm/JIRA_KAN_WORK_REFLECTION.md`, so the default handoff flow does not need a separate `pm:reflect` step. Run `npm run pm:reflect` on its own only when you want the reflection report without the full briefing/sync round-trip.
+
 That ensures:
 
 - the local PM briefing is fresh
@@ -109,6 +111,7 @@ It exists to:
 ```bash
 npm run pm:start             # check connectivity + build local briefing
 npm run pm:brief             # rebuild local PM briefing
+npm run pm:reflect           # write local git-to-Jira/KAN reflection
 npm run pm:sync              # rebuild briefing + publish/update Confluence briefing
 npm run pm:publish           # alias for pm:sync
 npm run pm:status            # live Jira + PR + Confluence + prod snapshot

@@ -22,6 +22,7 @@ import textwrap
 import urllib.error
 import urllib.parse
 import urllib.request
+import subprocess
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,7 @@ from _jira_projects import resolve_jira_projects  # noqa: E402
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
 DEFAULT_CACHE = REPO_ROOT / ".agent-work" / "pm" / "atlassian-state.json"
+DEFAULT_WORK_REFLECTION = REPO_ROOT / ".agent-work" / "pm" / "JIRA_KAN_WORK_REFLECTION.md"
 LOCAL_PM_FILES = [
     "specs/planning_notes.md",
     "specs/plan.md",
@@ -358,6 +360,215 @@ def summarize_local_pm_files() -> list[dict[str, str]]:
     return summaries
 
 
+
+def run_git(args: list[str]) -> str:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=REPO_ROOT,
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+def current_branch() -> str:
+    # `git branch --show-current` prints the branch name on a normal checkout
+    # and an empty string on a detached HEAD. Fall back to a short SHA so the
+    # reflection can still identify what's checked out; reserve "unknown" for
+    # cases where git is genuinely unavailable (not a worktree, not installed,
+    # command timed out).
+    branch = run_git(["branch", "--show-current"])
+    if branch:
+        return branch
+    sha = run_git(["rev-parse", "--short", "HEAD"])
+    if sha:
+        return f"detached@{sha}"
+    return "unknown"
+
+
+def changed_files() -> list[str]:
+    output = run_git(["status", "--short", "--untracked-files=no"])
+    files: list[str] = []
+    for line in output.splitlines():
+        if not line.strip() or len(line) < 4:
+            continue
+        path = line[3:].strip()
+        if " -> " in path:
+            path = path.rsplit(" -> ", 1)[1]
+        files.append(path)
+    return files
+
+
+def recent_commits(limit: int = 10) -> list[str]:
+    output = run_git(["log", f"-n{limit}", "--pretty=format:%h %s"])
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
+def extract_issue_keys(*values: str) -> list[str]:
+    seen: set[str] = set()
+    keys: list[str] = []
+    for value in values:
+        for key in re.findall(r"\b[A-Z][A-Z0-9]+-\d+\b", value or ""):
+            if key not in seen:
+                keys.append(key)
+                seen.add(key)
+    return keys
+
+
+def issue_lookup(issues: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {str(issue.get("key", "")): issue for issue in issues if issue.get("key")}
+
+
+def issue_summary(config: Config, issue: dict[str, Any] | None, key: str) -> str:
+    if issue:
+        fields = issue.get("fields", {})
+        return (
+            f"[{key}]({config.base_url}/browse/{key}) - {fields.get('summary', 'No summary')} "
+            f"[{issue_type(issue)}, {status_name(issue)}, {assignee_name(issue)}]"
+        )
+    return f"[{key}]({config.base_url}/browse/{key}) - referenced in git, not present in fetched Jira results (may be outside --max-issues); verify in Jira or rerun with a higher --max-issues"
+
+
+def infer_workstream_from_path(path: str) -> str:
+    if path.startswith("scripts/pm/") or path.startswith(".pi/"):
+        return "PM/session automation"
+    if path.startswith("specs/") or path.startswith("docs/"):
+        return "planning/documentation"
+    if path.startswith("Backend/"):
+        return "Flask backend"
+    if path.startswith("server/"):
+        return "Express proxy"
+    if path.startswith("src/"):
+        return "Angular frontend"
+    if path.startswith(".github/"):
+        return "GitHub workflow"
+    return "repository maintenance"
+
+
+def build_work_reflection(config: Config, issues: list[dict[str, Any]]) -> dict[str, Any]:
+    branch = current_branch()
+    files = changed_files()
+    commits = recent_commits()
+    issue_map = issue_lookup(issues)
+    referenced_keys = extract_issue_keys(branch, "\n".join(commits), "\n".join(files))
+    referenced_issues = [issue_summary(config, issue_map.get(key), key) for key in referenced_keys]
+    # Derive execution/delivery project keys from config so counts don't
+    # silently break when a non-default project key is configured. The
+    # configured value is a CSV of project keys; by convention the first is
+    # execution (e.g. KAN) and the second, when present, is delivery (RCP).
+    project_keys = [part.strip() for part in config.jira_project_key.split(",") if part.strip()]
+    execution_key = (project_keys[0] if project_keys else "KAN").upper()
+    delivery_key = (project_keys[1] if len(project_keys) > 1 else execution_key).upper()
+    active_kan = [
+        issue for issue in issues
+        if str(issue.get("key", "")).upper().startswith(f"{execution_key}-") and not is_done(issue)
+    ]
+    active_rcp = [
+        issue for issue in issues
+        if str(issue.get("key", "")).upper().startswith(f"{delivery_key}-") and not is_done(issue)
+    ]
+    workstreams = Counter(infer_workstream_from_path(path) for path in files)
+    git_unavailable = branch == "unknown" and not files and not commits
+    untracked_refs = not referenced_keys and not git_unavailable and (branch != "dev" or files)
+    jira_status = (
+        "Git unavailable"
+        if git_unavailable
+        else "Linked"
+        if referenced_keys
+        else "Needs KAN link"
+        if files or branch != "dev"
+        else "Clean no-op"
+    )
+
+    recommendations: list[str] = []
+    if git_unavailable:
+        recommendations.append(
+            "Git state unavailable (not a git worktree or git not installed); cannot infer KAN linkage from local changes."
+        )
+    elif untracked_refs:
+        recommendations.append(
+            f"Create or update a {execution_key} execution issue for branch `{branch}` with the changed-file summary and current next action."
+        )
+    if files:
+        recommendations.append(f"Add branch/PR/file refs to the active {execution_key} issue before handoff.")
+    if active_rcp and (referenced_keys or files):
+        recommendations.append(
+            f"If this work changes sprint, epic, release, or acceptance scope, update the relevant {delivery_key} issue; otherwise leave {delivery_key} unchanged."
+        )
+    if not recommendations:
+        recommendations.append("No Jira update is required from local git state alone.")
+
+    return {
+        "branch": branch,
+        "changed_files": files,
+        "recent_commits": commits,
+        "referenced_issue_keys": referenced_keys,
+        "referenced_issues": referenced_issues,
+        "active_kan_count": len(active_kan),
+        "active_rcp_count": len(active_rcp),
+        "workstreams": workstreams,
+        "jira_status": jira_status,
+        "recommendations": recommendations,
+    }
+
+
+def format_work_reflection(config: Config, reflection: dict[str, Any]) -> str:
+    generated = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    lines = [
+        "# Jira/KAN Work Reflection",
+        "",
+        f"Generated: {generated}",
+        f"Branch: `{reflection['branch']}`",
+        f"Jira linkage status: **{reflection['jira_status']}**",
+        "",
+        "## Local Git Signal",
+        "",
+    ]
+    files = reflection["changed_files"]
+    if files:
+        for path in files[:30]:
+            lines.append(f"- `{path}` ({infer_workstream_from_path(path)})")
+        if len(files) > 30:
+            lines.append(f"- …and {len(files) - 30} more changed files")
+    else:
+        lines.append("- No modified tracked files detected.")
+
+    lines.extend(["", "## Referenced Jira Issues", ""])
+    if reflection["referenced_issues"]:
+        lines.extend(f"- {item}" for item in reflection["referenced_issues"])
+    else:
+        lines.append("- No Jira issue key found in branch name, recent commit subjects, or changed tracked file paths.")
+
+    lines.extend(["", "## Workstream Signals", ""])
+    if reflection["workstreams"]:
+        for stream, count in reflection["workstreams"].most_common():
+            lines.append(f"- {stream}: {count} changed file(s)")
+    else:
+        lines.append("- No local file-change signal.")
+
+    lines.extend(["", "## Recommended Jira/KAN Updates", ""])
+    for item in reflection["recommendations"]:
+        lines.append(f"- {item}")
+
+    lines.extend(
+        [
+            "",
+            "## Board Role Reminder",
+            "",
+            "- KAN should reflect active branch/work ownership, blockers, handoffs, and immediate next actions.",
+            "- RCP should reflect delivery scope, epics, sprint commitments, and acceptance changes only when this work affects them.",
+            "- Confluence should receive the durable session narrative and PM drift notes.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
 def issue_line(config: Config, issue: dict[str, Any]) -> str:
     key = issue.get("key", issue.get("id", "UNKNOWN"))
     fields = issue.get("fields", {})
@@ -379,6 +590,7 @@ def build_markdown(config: Config, issues: list[dict[str, Any]], pages: list[dic
     active = [issue for issue in open_issues if status_name(issue).lower() in {"in progress", "in review", "review"}]
     recent = issues[:15]
     local_pm = summarize_local_pm_files()
+    work_reflection = build_work_reflection(config, issues)
 
     lines = [
         "# Project PM Briefing",
@@ -395,6 +607,14 @@ def build_markdown(config: Config, issues: list[dict[str, Any]], pages: list[dic
         f"- Active issues: {len(active)}",
         f"- Blockers or critical items: {len(blockers)}",
         f"- Confluence planning/session pages fetched: {len(pages)}",
+        f"- Local git/Jira linkage: {work_reflection['jira_status']}",
+        "",
+        "## Current Work Reflection",
+        "",
+        f"- Branch: `{work_reflection['branch']}`",
+        f"- Changed tracked files: {len(work_reflection['changed_files'])}",
+        f"- Referenced Jira issues: {', '.join(work_reflection['referenced_issue_keys']) if work_reflection['referenced_issue_keys'] else 'None detected'}",
+        "- Recommended board action: " + work_reflection['recommendations'][0],
         "",
         "## Status Counts",
         "",
@@ -605,13 +825,36 @@ def run_brief(args: argparse.Namespace) -> int:
         "jira_issues": issues,
         "confluence_pages": pages,
     }
+    reflection = build_work_reflection(config, issues)
+    reflection_body = format_work_reflection(config, reflection)
+    state["work_reflection"] = {**reflection, "workstreams": dict(reflection["workstreams"])}
     write_outputs(markdown_body, state, Path(args.output), Path(args.cache))
+    reflection_path = Path(args.work_reflection_output)
+    reflection_path.parent.mkdir(parents=True, exist_ok=True)
+    reflection_path.write_text(reflection_body, encoding="utf-8")
     if args.update_legacy_files:
         update_legacy_jira_issues(config, issues)
     print(f"Wrote PM briefing: {Path(args.output)}")
+    print(f"Wrote work reflection: {reflection_path}")
     print(f"Wrote Atlassian cache: {Path(args.cache)}")
     return 0
 
+
+
+def run_reflect(args: argparse.Namespace) -> int:
+    config = load_config()
+    client = AtlassianClient(config)
+    issues = client.fetch_jira_issues(args.max_issues)
+    reflection = build_work_reflection(config, issues)
+    reflection_body = format_work_reflection(config, reflection)
+    reflection_path = Path(args.work_reflection_output)
+    reflection_path.parent.mkdir(parents=True, exist_ok=True)
+    reflection_path.write_text(reflection_body, encoding="utf-8")
+    print(f"Wrote work reflection: {reflection_path}")
+    print(f"Jira/KAN linkage: {reflection['jira_status']}")
+    for item in reflection["recommendations"]:
+        print(f"- {item}")
+    return 0
 
 def run_sync(args: argparse.Namespace) -> int:
     config = load_config()
@@ -628,11 +871,18 @@ def run_sync(args: argparse.Namespace) -> int:
         "jira_issues": issues,
         "confluence_pages": pages,
     }
+    reflection = build_work_reflection(config, issues)
+    reflection_body = format_work_reflection(config, reflection)
+    state["work_reflection"] = {**reflection, "workstreams": dict(reflection["workstreams"])}
     write_outputs(markdown_body, state, Path(args.output), Path(args.cache))
+    reflection_path = Path(args.work_reflection_output)
+    reflection_path.parent.mkdir(parents=True, exist_ok=True)
+    reflection_path.write_text(reflection_body, encoding="utf-8")
     if args.update_legacy_files:
         update_legacy_jira_issues(config, issues)
     result = client.publish_confluence_page(markdown_body)
     print(f"Wrote PM briefing: {Path(args.output)}")
+    print(f"Wrote work reflection: {reflection_path}")
     print(f"Wrote Atlassian cache: {Path(args.cache)}")
     print(f"Confluence sync: {result}")
     return 0
@@ -660,6 +910,11 @@ def build_parser() -> argparse.ArgumentParser:
         subparser.add_argument("--output", default=str(DEFAULT_OUTPUT), help="Markdown briefing output path.")
         subparser.add_argument("--cache", default=str(DEFAULT_CACHE), help="JSON cache output path.")
         subparser.add_argument(
+            "--work-reflection-output",
+            default=str(DEFAULT_WORK_REFLECTION),
+            help="Markdown output path for local git-to-Jira/KAN reflection.",
+        )
+        subparser.add_argument(
             "--update-legacy-files",
             action="store_true",
             help="Also refresh legacy jira_issues.txt for older workflows.",
@@ -672,6 +927,10 @@ def build_parser() -> argparse.ArgumentParser:
     sync = subparsers.add_parser("sync", help="Write a local briefing and publish/update it in Confluence.")
     add_common(sync)
     sync.set_defaults(func=run_sync)
+
+    reflect = subparsers.add_parser("reflect", help="Write the local git-to-Jira/KAN work reflection without Confluence sync.")
+    add_common(reflect)
+    reflect.set_defaults(func=run_reflect)
 
     check = subparsers.add_parser("check", help="Verify Jira and Confluence connectivity without writing files.")
     check.set_defaults(func=run_check)

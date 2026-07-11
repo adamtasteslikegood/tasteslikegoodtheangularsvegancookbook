@@ -11,6 +11,8 @@ Focus override: $@
 
 Requirements:
 - Separate execution updates for **KAN** from delivery updates for **RCP**
+- For KAN, include branch/worktree, current status, blocker or handoff, next action, and PR/file refs
+- For RCP, create TODOs only for sprint, epic, release, acceptance, or scope changes; otherwise say no RCP update is required
 - Call out Confluence documentation follow-ups separately
 - Keep each TODO small, explicit, and branch/PR aware
 - Include branch / PR / Jira / session-log refs where available
