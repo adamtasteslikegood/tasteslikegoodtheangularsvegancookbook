@@ -13,12 +13,16 @@ this service never syncs code, so there is exactly one writer per concern.
 ## Deploy (one-time)
 
 ```bash
-cd scripts/gbrain-maintenance
+# from the repo root
 railway login
 railway link          # pick the Railway project that hosts the gbrain Postgres
 railway add --service gbrain-maintenance
-railway up --service gbrain-maintenance
+railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
 ```
+
+The explicit path + `--path-as-root` makes this directory the upload root no
+matter where the command runs from, so Railway builds *this* Dockerfile and
+reads *this* `railway.json` (never the repo-root Express Dockerfile).
 
 Then set service variables (Dashboard → gbrain-maintenance → Variables):
 
@@ -45,4 +49,5 @@ the local CLI hasn't seen. gbrain is NOT on npm (the npm `gbrain` package is
 an unrelated GPU library); it builds from `github.com/garrytan/gbrain`.
 
 **When local gbrain upgrades:** update `GBRAIN_COMMIT` in the Dockerfile to
-`git -C ~/gbrain rev-parse HEAD` and redeploy (`railway up`).
+`git -C ~/gbrain rev-parse HEAD` and redeploy
+(`railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance`).
