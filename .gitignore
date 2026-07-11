@@ -86,6 +86,7 @@ override.tf.json
 .github/agents/
 .github/skills/
 .clawhub/
+.rovodev/
 claude-code-tresor
 skills
 !.pi/skills/
