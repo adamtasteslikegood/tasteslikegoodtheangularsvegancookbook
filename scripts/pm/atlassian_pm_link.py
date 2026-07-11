@@ -378,7 +378,18 @@ def run_git(args: list[str]) -> str:
 
 
 def current_branch() -> str:
-    return run_git(["branch", "--show-current"]) or "unknown"
+    # `git branch --show-current` prints the branch name on a normal checkout
+    # and an empty string on a detached HEAD. Fall back to a short SHA so the
+    # reflection can still identify what's checked out; reserve "unknown" for
+    # cases where git is genuinely unavailable (not a worktree, not installed,
+    # command timed out).
+    branch = run_git(["branch", "--show-current"])
+    if branch:
+        return branch
+    sha = run_git(["rev-parse", "--short", "HEAD"])
+    if sha:
+        return f"detached@{sha}"
+    return "unknown"
 
 
 def changed_files() -> list[str]:
@@ -447,8 +458,21 @@ def build_work_reflection(config: Config, issues: list[dict[str, Any]]) -> dict[
     issue_map = issue_lookup(issues)
     referenced_keys = extract_issue_keys(branch, "\n".join(commits), "\n".join(files))
     referenced_issues = [issue_summary(config, issue_map.get(key), key) for key in referenced_keys]
-    active_kan = [issue for issue in issues if str(issue.get("key", "")).startswith("KAN-") and not is_done(issue)]
-    active_rcp = [issue for issue in issues if str(issue.get("key", "")).startswith("RCP-") and not is_done(issue)]
+    # Derive execution/delivery project keys from config so counts don't
+    # silently break when a non-default project key is configured. The
+    # configured value is a CSV of project keys; by convention the first is
+    # execution (e.g. KAN) and the second, when present, is delivery (RCP).
+    project_keys = [part.strip() for part in config.jira_project_key.split(",") if part.strip()]
+    execution_key = project_keys[0] if project_keys else "KAN"
+    delivery_key = project_keys[1] if len(project_keys) > 1 else execution_key
+    active_kan = [
+        issue for issue in issues
+        if str(issue.get("key", "")).startswith(f"{execution_key}-") and not is_done(issue)
+    ]
+    active_rcp = [
+        issue for issue in issues
+        if str(issue.get("key", "")).startswith(f"{delivery_key}-") and not is_done(issue)
+    ]
     workstreams = Counter(infer_workstream_from_path(path) for path in files)
     git_unavailable = branch == "unknown" and not files and not commits
     untracked_refs = not referenced_keys and not git_unavailable and (branch != "dev" or files)
@@ -469,13 +493,13 @@ def build_work_reflection(config: Config, issues: list[dict[str, Any]]) -> dict[
         )
     elif untracked_refs:
         recommendations.append(
-            f"Create or update a KAN execution issue for branch `{branch}` with the changed-file summary and current next action."
+            f"Create or update a {execution_key} execution issue for branch `{branch}` with the changed-file summary and current next action."
         )
     if files:
-        recommendations.append("Add branch/PR/file refs to the active KAN issue before handoff.")
+        recommendations.append(f"Add branch/PR/file refs to the active {execution_key} issue before handoff.")
     if active_rcp and (referenced_keys or files):
         recommendations.append(
-            "If this work changes sprint, epic, release, or acceptance scope, update the relevant RCP issue; otherwise leave RCP unchanged."
+            f"If this work changes sprint, epic, release, or acceptance scope, update the relevant {delivery_key} issue; otherwise leave {delivery_key} unchanged."
         )
     if not recommendations:
         recommendations.append("No Jira update is required from local git state alone.")
