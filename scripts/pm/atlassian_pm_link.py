@@ -421,7 +421,7 @@ def issue_summary(config: Config, issue: dict[str, Any] | None, key: str) -> str
             f"[{key}]({config.base_url}/browse/{key}) - {fields.get('summary', 'No summary')} "
             f"[{issue_type(issue)}, {status_name(issue)}, {assignee_name(issue)}]"
         )
-    return f"[{key}]({config.base_url}/browse/{key}) - referenced in git, not present in fetched Jira result set"
+    return f"[{key}]({config.base_url}/browse/{key}) - referenced in git, not present in fetched Jira results (may be outside --max-issues); verify in Jira or rerun with a higher --max-issues"
 
 
 def infer_workstream_from_path(path: str) -> str:
