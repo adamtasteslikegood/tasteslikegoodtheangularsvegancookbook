@@ -119,3 +119,4 @@ __pycache__/
 .omg/state/
 scripts/pm/.venv/
 .gbrain-source
+.claude/worktrees
