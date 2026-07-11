@@ -450,18 +450,33 @@ def build_work_reflection(config: Config, issues: list[dict[str, Any]]) -> dict[
     active_kan = [issue for issue in issues if str(issue.get("key", "")).startswith("KAN-") and not is_done(issue)]
     active_rcp = [issue for issue in issues if str(issue.get("key", "")).startswith("RCP-") and not is_done(issue)]
     workstreams = Counter(infer_workstream_from_path(path) for path in files)
-    untracked_refs = not referenced_keys and (branch != "dev" or files)
-    jira_status = "Linked" if referenced_keys else "Needs KAN link" if files or branch != "dev" else "Clean no-op"
+    git_unavailable = branch == "unknown" and not files and not commits
+    untracked_refs = not referenced_keys and not git_unavailable and (branch != "dev" or files)
+    jira_status = (
+        "Git unavailable"
+        if git_unavailable
+        else "Linked"
+        if referenced_keys
+        else "Needs KAN link"
+        if files or branch != "dev"
+        else "Clean no-op"
+    )
 
     recommendations: list[str] = []
-    if untracked_refs:
+    if git_unavailable:
+        recommendations.append(
+            "Git state unavailable (not a git worktree or git not installed); cannot infer KAN linkage from local changes."
+        )
+    elif untracked_refs:
         recommendations.append(
             f"Create or update a KAN execution issue for branch `{branch}` with the changed-file summary and current next action."
         )
     if files:
         recommendations.append("Add branch/PR/file refs to the active KAN issue before handoff.")
     if active_rcp and (referenced_keys or files):
-        recommendations.append("If this work changes sprint, epic, release, or acceptance scope, update the relevant RCP issue; otherwise leave RCP unchanged.")
+        recommendations.append(
+            "If this work changes sprint, epic, release, or acceptance scope, update the relevant RCP issue; otherwise leave RCP unchanged."
+        )
     if not recommendations:
         recommendations.append("No Jira update is required from local git state alone.")
 
