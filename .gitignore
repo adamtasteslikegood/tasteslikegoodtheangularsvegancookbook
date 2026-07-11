@@ -115,6 +115,7 @@ __pycache__/
 .gstack/
 
 # Agent runtime state
+.claude/worktrees/
 .claude/scheduled_tasks.lock
 .omg/state/
 scripts/pm/.venv/
