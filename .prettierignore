@@ -4,7 +4,7 @@ server/dist
 Backend
 package-lock.json
 
-# Parked agent artifacts (preserved verbatim; see #3086 / KAN-82)
+# Generated operator artifacts (kept outside git)
 _capability_check_*.md
 copilot-session-*.md
 confluence_page_*.html
