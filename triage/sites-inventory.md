@@ -30,7 +30,7 @@ outside the MCP OAuth grant).
 | PLZA   | 10110 Tasteslikegood Plaza  | global        | 11075586 |
 | ARTZEN | artazzendotcom              | collaboration | 13631492 |
 | ~712020b8ee911e... | Adam Schoen (personal)  | personal | 7766016  |
-| ~712020a1ad64fe... | Allison Lunn (personal) | personal | 6258691  |
+| ~712020a1... | (second collaborator's personal space — name redacted, public repo) | personal | 6258691  |
 
 ## Site 2 — tasteslikegood-dev.atlassian.net (intended: public-facing service site)
 

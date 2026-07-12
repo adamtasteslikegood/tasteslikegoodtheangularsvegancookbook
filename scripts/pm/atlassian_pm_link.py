@@ -255,11 +255,13 @@ def load_config() -> Config:
 
     # Defense-in-depth: refuse any site other than the repo's allowlisted
     # Atlassian site (raises AtlassianGuardError on violation — the -dev
-    # service site once received misfiled work items).
-    validate_atlassian_site(merged["ATLASSIAN_URL"])
+    # service site once received misfiled work items). Use the normalized
+    # hostname it returns so a pasted URL with a path (e.g. .../wiki) can't
+    # leak into base_url and corrupt every request URL.
+    atlassian_host = validate_atlassian_site(merged["ATLASSIAN_URL"])
 
     return Config(
-        atlassian_url=merged["ATLASSIAN_URL"],
+        atlassian_url=atlassian_host,
         email=merged["ATLASSIAN_EMAIL"],
         api_token=merged["ATLASSIAN_API_TOKEN"],
         jira_project_key=_jira_project_keys(merged),
