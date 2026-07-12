@@ -4,11 +4,16 @@ This repo has a lightweight PM/session bridge for Jira and Confluence. It is des
 
 ## Source Of Truth
 
+- Atlassian site: `tasteslikegood.atlassian.net` (the ONLY site for work items)
 - Jira execution project: `KAN`
 - Jira delivery project: `RCP`
 - Confluence space: `TLG`
 - Local briefing output: `.agent-work/pm/PROJECT_PM_BRIEFING.md`
 - Local JSON cache: `.agent-work/pm/atlassian-state.json`
+
+`scripts/pm/_atlassian_guard.py` enforces this: any other site (including the
+`tasteslikegood-dev.atlassian.net` service shell) or any Jira project outside
+`KAN`/`RCP` is refused with an error at config load.
 
 ## Required Environment
 

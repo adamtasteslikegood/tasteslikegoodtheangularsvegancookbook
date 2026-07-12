@@ -4,11 +4,11 @@
 
 This project is a full-stack application featuring an Angular/React frontend and a Python backend. It serves as a recipe platform or cookbook application ("tasteslikegoodtheangularsvegancookbook").
 
-**Jira Project Tracking:**
+**Jira Project Tracking** (all on `tasteslikegood.atlassian.net` — the only site for work items):
 
-- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Future/Agent Skill UI:** `plz` (video game integration)
+- **Recipe app (Vegan Genius Chef):** `KAN` (tasks/bugs), `RCP` (releases) — the ONLY projects this repo's tooling may touch (enforced by `scripts/pm/_atlassian_guard.py`)
+- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`
+- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen as `TOSVC` ("SERVICE-HOLD — do not use")
 
 **PM Automation:**
 

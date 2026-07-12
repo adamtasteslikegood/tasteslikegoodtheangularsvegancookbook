@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Callable, Optional
 
+from _atlassian_guard import validate_jira_project_keys
+
 # Canonical default project set for this repo.
 DEFAULT_JIRA_PROJECTS = ["KAN", "RCP"]
 
@@ -20,6 +22,9 @@ def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
     Precedence: explicit ``JIRA_PROJECTS`` / ``ATLASSIAN_JIRA_PROJECTS`` (CSV)
     wins; else the individual ``ATLASSIAN_JIRA_PROJECT_KEY`` /
     ``ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY`` vars; else the repo default set.
+
+    Every resolved key is validated against the repo allowlist (KAN, RCP);
+    anything else raises AtlassianGuardError (see _atlassian_guard.py).
     """
     explicit = get("JIRA_PROJECTS") or get("ATLASSIAN_JIRA_PROJECTS")
     if explicit:
@@ -37,4 +42,6 @@ def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
         if part and part not in seen:
             ordered.append(part)
             seen.add(part)
-    return ordered or list(DEFAULT_JIRA_PROJECTS)
+    # Defense-in-depth: refuse any project outside the repo allowlist instead
+    # of silently proceeding (raises AtlassianGuardError on violation).
+    return validate_jira_project_keys(ordered or DEFAULT_JIRA_PROJECTS)

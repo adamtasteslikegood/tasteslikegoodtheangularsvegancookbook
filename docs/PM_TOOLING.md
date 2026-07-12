@@ -77,7 +77,21 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 |----------|-------------|
 | `ATLASSIAN_EMAIL` | Atlassian account email |
 | `ATLASSIAN_API_TOKEN` | Atlassian API token |
-| `ATLASSIAN_URL` | Atlassian instance (default: `tasteslikegood.atlassian.net`) |
+| `ATLASSIAN_URL` | Atlassian instance (default: `tasteslikegood.atlassian.net` — the only allowed value, see allowlist below) |
+
+### Site and project allowlist
+
+`scripts/pm/_atlassian_guard.py` enforces a defense-in-depth allowlist across all
+PM scripts (added after tooling once pointed at the wrong site and misfiled work
+items):
+
+- **Site:** `tasteslikegood.atlassian.net` is the ONLY Atlassian site for work
+  items. Any other host — including the `tasteslikegood-dev.atlassian.net`
+  service-site shell, whose former `TO` project is frozen as `TOSVC`
+  ("SERVICE-HOLD — do not use") — raises `AtlassianGuardError` at config load.
+- **Jira projects:** this repo's tooling may only touch `KAN` and `RCP`. Any
+  other key (e.g. the plaza-game `PLZG`/`TO`) is refused with an error naming
+  the allowlist. Tests: `python3 -m unittest discover -s scripts/pm -p 'test_*.py'`.
 
 ### Optional Environment Variables
 
@@ -88,7 +102,7 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 | `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
 | `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Execution Jira project for active work |
 | `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
-| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings |
+| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (values outside `KAN,RCP` are refused by the allowlist) |
 
 ## Skills
 

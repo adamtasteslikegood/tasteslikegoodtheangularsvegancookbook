@@ -99,17 +99,32 @@ is OUT of scope.
 
 ## Phase 2 — Separation (mutations, main site only)
 
-- [ ] 2.1 Move/clone misfiled recipe items -> RCP or KAN; label originals
+- [x] 2.1 Move/clone misfiled recipe items -> RCP or KAN; label originals
       triage-moved-<date> where team/company-managed moves force clones.
       Verify: JQL on targets shows moved keys; write triage/counts-after.md.
-- [ ] 2.2 Move/clone misfiled plaza items -> PLZG or TO(main). Same verify.
-- [ ] 2.3 After Adam's disposition of dev-unique items, migrate keepers to
+      DONE 2026-07-12: 13 TO-main items cloned to KAN-83…95 with
+      migrated-from-TO labels + description markers; originals labeled,
+      commented with clone key, closed. TO-main now has 0 open issues.
+      (Note: the other 33 "misfiled" TO-main items were bot noise closed
+      earlier, not moved — per Adam's disposition.)
+- [x] 2.2 Move/clone misfiled plaza items -> PLZG or TO(main). Same verify.
+      DONE 2026-07-12 as NO-OP: classification found zero misfiled plaza
+      items on the main site; dev's 17 plaza items are all duplicates of
+      existing PLZG/TO-main content and freeze in place.
+- [x] 2.3 After Adam's disposition of dev-unique items, migrate keepers to
       the main site, then rename dev TO key/name (e.g. TOSVC /
       "SERVICE-HOLD — do not use") and set a banner description. DO NOT
       delete it.
       Verify: dev site has no project keyed TO; description states frozen.
-- [ ] GATE 2: counts-after reconciles with counts-before + classification
+      DONE 2026-07-12: dev TO-36 → RCP-38 (closed as historical Done —
+      v0.3.x shipped); dev project re-keyed TO→TOSVC, renamed "SERVICE-HOLD
+      — do not use (frozen 2026-07-12)" with banner description. Dev project
+      list verified: DEMO, JIA, TOSVC only. Nothing deleted.
+- [x] GATE 2: counts-after reconciles with counts-before + classification
       (no item lost); dev-TO frozen.
+      PASSED 2026-07-12: every project total = before + clones (235 → 249,
+      +14 clones); open counts all match expectations (TO-main 0); spot-check
+      TO-80/KAN-87 pair verified. Full ledger in triage/counts-after.md.
 
 ## Phase 3 — Guardrails (each sub-task delegable to a subagent)
 
@@ -159,22 +174,31 @@ is OUT of scope.
   preserve-before-freeze details: TO-14 (v0.1.0 correction), TO-41 (GH#121 +
   4 draft-PR triage list), TO-1/TO-5 (Release-v0.3.0 / ReleaseBlocker
   labels). See dev-unique-items.md.
-- **Duplicate closes — AWAITING "Execute" from Adam.** Proposal ready in
-  triage/triplicates-proposal.md: close 5 main-site duplicates (RCP-32,
-  KAN-21, KAN-63, KAN-71, TO-122 — keepers KAN-17, KAN-68, RCP-2, KAN-77,
-  KAN-82), 11 dev-side copies need nothing (freeze with dev-TO), 3 flagged
-  judgment calls not proposed for close (KAN-73/RCP-19 pairing, KAN-78/79
-  GH-tag collision, TO-80 is a Phase 2.1 move not a dedup). PLZG's own April
-  duplicates are already closed (that WAS the 2026-04-28 cleanup).
+- ~~Duplicate closes~~ RESOLVED 2026-07-12: Adam reviewed
+  triage/triplicates-proposal.md and said Execute. All 5 closed (RCP-32→
+  KAN-17, KAN-21→KAN-68, KAN-63→RCP-2, KAN-71→KAN-77, TO-122→KAN-82) with
+  duplicate + cleanup-2026-07-12 labels and keeper-pointer comments; all
+  verified Done. Still flagged, no action: KAN-73/RCP-19 pairing and
+  KAN-78/79 GH-tag collision (Adam judgment, low stakes); TO-80 queued as a
+  Phase 2.1 move.
 
 ## Log
 
+- 2026-07-12 (Phase 2 complete): Adam approved ("make it so"). 13 TO-main
+  recipe items migrated to KAN-83…95; dev TO-36 → RCP-38 (historical Done);
+  dev-TO frozen AND re-keyed to TOSVC (key rename succeeded via REST). GATE 2
+  passed with full server-side reconciliation: 235 → 249 (+14 clones), zero
+  lost, TO-main at 0 open. Remaining: Phase 3 guardrails (3.1–3.4) + two soft
+  flags (KAN-73/RCP-19, KAN-78/79).
 - 2026-07-12 (later): Adam approved unknowns + bot-ticket closes. 51 issues
   closed + verified (10 GitGuardian false-positives, KAN-14 filler, 40
-  repo-status bot tickets; TO-113 already Done). Duplicate-close proposal (5
-  main-site closes) written to triage/triplicates-proposal.md — awaiting
-  Adam's "Execute". Open counts now: RCP 31, KAN 20, PLZG 43, TO-main 11,
-  TO-dev 33 (before dedup).
+  repo-status bot tickets; TO-113 already Done).
+- 2026-07-12 (dedup): Adam reviewed the proposal and executed. 5 duplicates
+  closed + verified. Server-verified open counts, reconciling exactly with
+  totals (235 preserved, nothing lost): RCP 31, KAN 17, PLZG 37, TO-main 13,
+  TO-dev 33. Mutations so far: 56 closes + 2 empty-project deletes; zero
+  moves yet. Next up: 2.1 — move TO-main's 13 remaining open recipe items
+  (incl. TO-80) to KAN/RCP, then 2.3 dev-TO freeze after TO-36 disposition.
 - 2026-07-11: Worktree chore+atlassian-pm-triage created off origin/dev; plan seeded.
 - 2026-07-11: Phase 0 complete (this session). Inventory + exports in triage/;
   all counts server-verified; GATE 0 passed with zero writes. -dev site is NOT

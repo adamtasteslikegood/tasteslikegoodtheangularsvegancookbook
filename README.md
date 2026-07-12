@@ -99,12 +99,15 @@ gcloud builds submit --config=cloudbuild.yaml
 
 ## Atlassian PM workflow
 
-This repo has an official cross-agent PM workflow outside git:
+This repo has an official cross-agent PM workflow outside git (all on `tasteslikegood.atlassian.net` — the only Atlassian site for work items):
 
 - **Jira KAN** = active execution state, who is working on what now
 - **Jira RCP** = delivery state, epics, sprints, acceptance scope
 - **Confluence TLG** = durable planning/session context and documentation
 - **`specs/*.md`** = local working copies that sync non-destructively into Confluence
+
+The PM tooling is hard-locked to that site and to the `KAN`/`RCP` projects by
+`scripts/pm/_atlassian_guard.py`; any other site or project is refused with an error.
 
 Quick commands:
 

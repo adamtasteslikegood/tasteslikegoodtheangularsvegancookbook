@@ -224,6 +224,7 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 Requirements for `pm-daemon` to actually sync:
 
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
+- `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` enforces this allowlist across all `scripts/pm/` tooling and also restricts Jira writes/reads to the `KAN` and `RCP` projects; any other site (including the `tasteslikegood-dev.atlassian.net` service shell) or project key raises a loud error instead of proceeding.
 - `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
 
 To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.

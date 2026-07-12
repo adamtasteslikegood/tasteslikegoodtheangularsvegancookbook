@@ -1,4 +1,9 @@
-# Duplicate/triplicate proposal — AWAITING ADAM'S "Execute" (2026-07-12)
+# Duplicate/triplicate proposal — EXECUTED 2026-07-12 (Adam approved)
+
+All 5 section-A closes performed and verified Done with labels + keeper
+comments; results in closures-dedup-2026-07-12.json. Verified open counts
+after: RCP 31, KAN 17, PLZG 37, TO-main 13, TO-dev 33 (the preview at the
+bottom of this file was estimated before execution and is superseded).
 
 Scope: all open (non-Done) issues across RCP / KAN / TO-main / TO-dev after
 today's 51 closures, grouped by GitHub-issue reference + normalized summary.
