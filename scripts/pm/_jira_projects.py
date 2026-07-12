@@ -23,8 +23,11 @@ def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
     wins; else the individual ``ATLASSIAN_JIRA_PROJECT_KEY`` /
     ``ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY`` vars; else the repo default set.
 
-    Every resolved key is validated against the repo allowlist (KAN, RCP);
-    anything else raises AtlassianGuardError (see _atlassian_guard.py).
+    Every resolved key is validated against the repo READ-ONLY allowlist
+    (KAN, RCP, plus PLZG/TO for cross-project rollups) — both consumers of
+    this resolver only read Jira. Anything else raises AtlassianGuardError
+    (see _atlassian_guard.py). Write paths validate separately with the
+    strict KAN/RCP write allowlist.
     """
     explicit = get("JIRA_PROJECTS") or get("ATLASSIAN_JIRA_PROJECTS")
     if explicit:
@@ -42,6 +45,6 @@ def resolve_jira_projects(get: Callable[[str], Optional[str]]) -> list[str]:
         if part and part not in seen:
             ordered.append(part)
             seen.add(part)
-    # Defense-in-depth: refuse any project outside the repo allowlist instead
-    # of silently proceeding (raises AtlassianGuardError on violation).
-    return validate_jira_project_keys(ordered or DEFAULT_JIRA_PROJECTS)
+    # Defense-in-depth: refuse any project outside the read-only allowlist
+    # instead of silently proceeding (raises AtlassianGuardError on violation).
+    return validate_jira_project_keys(ordered or DEFAULT_JIRA_PROJECTS, read_only=True)

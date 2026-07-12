@@ -91,6 +91,21 @@ class TestJiraProjectAllowlist(unittest.TestCase):
         self.assertEqual(validate_jira_project_key(" kan "), "KAN")
         self.assertEqual(validate_jira_project_keys(["KAN", "RCP"]), ["KAN", "RCP"])
 
+    def test_read_only_admits_plaza_projects(self):
+        """Rollup/briefing paths may READ the plaza projects, never write."""
+        self.assertEqual(validate_jira_project_key("PLZG", read_only=True), "PLZG")
+        self.assertEqual(validate_jira_project_key("TO", read_only=True), "TO")
+        self.assertEqual(
+            validate_jira_project_keys(["KAN", "RCP", "PLZG", "TO"], read_only=True),
+            ["KAN", "RCP", "PLZG", "TO"],
+        )
+
+    def test_read_only_still_refuses_frozen_and_unknown_keys(self):
+        for key in ("TOSVC", "ABC", ""):
+            with self.subTest(key=key):
+                with self.assertRaises(AtlassianGuardError):
+                    validate_jira_project_key(key, read_only=True)
+
 
 class TestResolverIntegration(unittest.TestCase):
     """resolve_jira_projects (shared by the PM scripts) enforces the allowlist."""
@@ -102,8 +117,14 @@ class TestResolverIntegration(unittest.TestCase):
         env = {"JIRA_PROJECTS": "RCP,KAN"}
         self.assertEqual(resolve_jira_projects(env.get), ["RCP", "KAN"])
 
-    def test_disallowed_csv_is_refused(self):
+    def test_plaza_csv_passes_read_only_resolution(self):
+        # Both resolver consumers only read Jira, so cross-project rollups
+        # including the plaza projects are allowed here.
         env = {"JIRA_PROJECTS": "KAN,PLZG"}
+        self.assertEqual(resolve_jira_projects(env.get), ["KAN", "PLZG"])
+
+    def test_unknown_csv_is_refused(self):
+        env = {"JIRA_PROJECTS": "KAN,ABC"}
         with self.assertRaises(AtlassianGuardError):
             resolve_jira_projects(env.get)
 

@@ -214,7 +214,7 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
 - **KAN** = active execution, branch/work ownership, in-flight state
 - **RCP** = delivery planning, epics, sprint scope, acceptance criteria
-- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: anything outside `KAN,RCP` is refused with an error
+- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: writes are limited to `KAN,RCP`; read-only rollups/briefings may also include `PLZG,TO`. Anything else (incl. `TOSVC`) is refused with an error
 
 Install deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py` or `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`

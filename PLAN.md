@@ -148,6 +148,19 @@ is OUT of scope.
 
 ## Blocked (needs Adam)
 
+- **GitGuardian→Jira double-filing fix (dashboard-side, only Adam can).**
+  dashboard.gitguardian.com (workspace 847072) → Settings → Integrations →
+  Jira: there are likely two project mappings (RCP and PLZG) or duplicate
+  integration configs. Remove the Jira issue-creation mapping, or point it at
+  exactly ONE destination (if kept: KAN + a security label for cookbook-repo
+  alerts; non-cookbook repos shouldn't file here at all). Verify on the next
+  incident: at most one Jira issue, in the intended project.
+- **Bot-firehose verdict 2026-07-12 (no repo change made):** the Jira copies
+  of [repo-status] reports were filed by the scripts/pm API token and stopped
+  2026-05-29; the guard now hard-blocks that path. The GitHub-issue side is
+  the intended product (Adam fixed it via TO-113; succeeded 2026-07-12) and
+  was left alone. Optional cleanup: 46 open [repo-status]/[aw]-failure GitHub
+  issues could be bulk-closed.
 - ~~Scope: DR + TT~~ RESOLVED 2026-07-12: Adam confirmed both empty; verified
   0 issues twice, deleted via REST with enableUndo=true (Jira recycle bin,
   ~60-day restore window). DEMO + JIA on -dev remain untouched (service-site
