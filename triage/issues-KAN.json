@@ -1,0 +1,696 @@
+{
+ "site": "https://tasteslikegood.atlassian.net",
+ "project": "KAN",
+ "count": 40,
+ "issues": [
+  {
+   "key": "KAN-1",
+   "summary": "Sync Github Repositories with Jira",
+   "description": "Summary\nThe task is to sync Github repositories with Jira.\nContext\nThis issue involves integrating Github repositories with the Jira platform.\nAcceptance criteria\nSuccessful synchronization of Github repositories with Jira.\nOther information\nN/A",
+   "type": "Intergrations",
+   "status": "In Review",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-03-24T11:52:55.186-0700",
+   "updated": "2026-04-27T22:13:50.466-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-77",
+   "summary": "Repository Setup and Configuration, Cleanup and Maintenance",
+   "description": "Configure the Main branch of the project repository and sub-repositories to be used only when the application is released (with a New Semantic Version Named) and/Or when it is the same version as the Deployed Production image(s): in which case the (deployed) project tags should match up with the main/master (default) branch and the corresponding SemVer name and number of the deployed codebase should match up with the corresponding Version Name and tag (including the build metadata) for the Cloud Run:Service:Revision that is currently serving traffic in the connected Google Cloud Project with the \u201cEnvironment:Production\u201d tag binding.  {todo:replace this string with the gcp property syntax that is the same as the previous statement tags/bindings..}",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Bug:ToDo:NeedsCreateIssue",
+    "Catching_Up",
+    "Config/Setup:ApplyingStandards",
+    "Configuration:Setup:NEW",
+    "Dev:FeatReady:PRisOPEN",
+    "Dev:NeedsReview",
+    "Dev:Ready/ReviewCompleate:NeedsTesting",
+    "Feat:New:ToDo:NeedsAssignment:NOTinVCS",
+    "Feat:Ready:NeedsReview",
+    "Feat:Ready:PRopen",
+    "Frontend",
+    "Github",
+    "Integrations",
+    "Isuse:Fix:PRopen",
+    "Last_Steps-shipping_soon",
+    "Maintainence",
+    "Ready2Ship:NeedsReivew",
+    "Ready_for_Staging",
+    "VersionControl",
+    "project:ops"
+   ],
+   "created": "2026-04-04T18:57:59.327-0700",
+   "updated": "2026-04-27T22:12:22.130-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-71",
+   "summary": "CLONE - Repository Setup and Configuration, Cleanup and Maintenance",
+   "description": "Configure the Main branch of the project repository and sub-repositories to be used only when the application is released (with a New Semantic Version Named) and/Or when it is the same version as the Deployed Production image(s): in which case the (deployed) project tags should match up with the main/master (default) branch and the corresponding SemVer name and number of the deployed codebase should match up with the corresponding Version Name and tag (including the build metadata) for the Cloud Run:Service:Revision that is currently serving traffic in the connected Google Cloud Project with the \u201cEnvironment:Production\u201d tag binding.  {todo:replace this string with the gcp property syntax that is the same as the previous statement tags/bindings..}",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Bug:ToDo:NeedsCreateIssue",
+    "Catching_Up",
+    "Config/Setup:ApplyingStandards",
+    "Configuration:Setup:NEW",
+    "Dev:FeatReady:PRisOPEN",
+    "Dev:NeedsReview",
+    "Dev:Ready/ReviewCompleate:NeedsTesting",
+    "Feat:New:ToDo:NeedsAssignment:NOTinVCS",
+    "Feat:Ready:NeedsReview",
+    "Feat:Ready:PRopen",
+    "Frontend",
+    "Github",
+    "Integrations",
+    "Isuse:Fix:PRopen",
+    "Last_Steps-shipping_soon",
+    "Maintainence",
+    "Ready2Ship:NeedsReivew",
+    "Ready_for_Staging",
+    "VersionControl",
+    "project:ops"
+   ],
+   "created": "2026-04-04T19:16:23.633-0700",
+   "updated": "2026-04-27T22:12:25.117-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-14",
+   "summary": "This work item will elaborate and refine the Jira issue description so it is clear, structured, and actionable. Transform a brief or incomplete summary into a detailled description that communicates the problem, context, goals, and expected outcomes.",
+   "description": "Summary\nThis work item aims to elaborate and refine the existing summary section of the Jira description so that it clearly communicates the purpose, context, and intended outcomes of the task. The focus is on transforming a brief or incomplete summary into a well-structured, professional, and actionable description that can be understood quickly by all stakeholders.\nThe enhanced summary will correct any typographical errors, clarify ambiguous phrasing, and ensure that key details about the work are captured. Where concrete information is not yet available, structured placeholders are provided so the team can efficiently complete the description without reworking the format.\nBy improving the clarity and completeness of the summary, this task supports better alignment among contributors, smoother handoffs, and more accurate planning and estimation.\nBackground\nDescribe the context that led to this work item, including any prior decisions, related initiatives, or problems with the current summary that prompted this improvement.\nObjective\nClearly state what this work item must achieve in terms of the updated summary (for example, making it unambiguous, aligned with project goals, and immediately actionable for the delivery team).\nScope\nOutline what aspects of the Jira description are in scope for refinement, such as the main summary line, supporting paragraphs, and any structured sections that clarify requirements or expectations.\nOut of scope\nSpecify any work that will not be addressed as part of this item, such as implementing the underlying feature, updating technical documentation, or changing acceptance criteria owned by another team.\nSuccess criteria\nDefine how success will be measured for the revised summary, for example: stakeholders can understand the intent of the work without additional explanation, the summary is free from errors, and it provides enough context for planning and prioritisation.\nRisks and dependencies\nCapture any risks or dependencies that cou",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-10T06:49:35.688-0700",
+   "updated": "2026-04-27T22:13:47.477-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-15",
+   "summary": "get first github item (branch, commit, pr, etc.) using jira wrk item # on github too reference it and then appear on jira/attlassian confirming successful integration.",
+   "description": "Objective\nIntegrate Jira with GitHub to retrieve the first GitHub item associated with a Jira work item.\nContext\nThis issue aims to establish a connection between Jira and GitHub. The goal is to reference GitHub items like branches, commits, or pull requests using Jira work item numbers.\nScope\nIncluded:\nFetching the first GitHub item related to a Jira work item.\nEnsuring the integration displays confirmation in Jira/Atlassian.\nNot Included:\nAdditional features beyond the first item retrieval.\nAny unrelated integrations.\nSuccess criteria\nSuccessful retrieval of the first GitHub item (branch, commit, PR).\nConfirmation of integration visible in Jira/Atlassian.\nAccurate referencing of GitHub items using Jira work item numbers.\nRisks and dependencies\nPotential issues with API connectivity between Jira and GitHub.\nDependency on the correct configuration of both Jira and GitHub accounts.\nOther information\nN/A",
+   "type": "Epic",
+   "status": "In Review",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-10T06:55:23.376-0700",
+   "updated": "2026-04-27T22:12:45.520-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-16",
+   "summary": "Catch quit failures before reinitializing Valkey client",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/163\nProblem\nWhen the singleton guard detects an unhealthy existing client, it calls shutdownValkey() directly inside the catch path. If client.quit() rejects (common when the socket is already broken), that rejection escapes createValkeyClient() and prevents the intended reinitialization/fallback path from running.\nThis means a transient Redis failure during a second initialization attempt can bubble up as a hard failure instead of recovering gracefully.\nSteps to Reproduce\nInitialize Valkey client successfully\nBreak the socket/connection\nTrigger a second call to createValkeyClient()\nObserve the rejection from client.quit() escapes instead of falling through to reinit\nExpected Behavior\nquit() failures should be caught within the shutdown path so that createValkeyClient() can proceed with reinitialization/fallback.\nAcceptance Criteria\nclient.quit() rejections are caught inside the shutdown/catch path\ncreateValkeyClient() successfully reinitializes after a transient connection failure\nUnit test covers the quit-failure + reinit scenario",
+   "type": "Bug",
+   "status": "Done",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-11T16:41:40.205-0700",
+   "updated": "2026-04-27T22:13:44.095-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-17",
+   "summary": "VALKEY_HOST unset after prior init causes stale client handle leak in createValkeyClient()",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/162\nProblem\nThe singleton guard docstring says an existing healthy client is returned immediately, but the function still returns null early when VALKEY_HOST is unset. If createValkeyClient() was previously called with VALKEY_HOST set, then later calls with VALKEY_HOST removed will return null while leaving the existing client (and any refresh timer) running.\nThis is inconsistent with the docs and can leak handles in tests/dev reloads.\nExpected Behavior\nEither:\nCheck/clean up the existing client before the VALKEY_HOST early-return, OR\nUpdate the docs to explicitly describe this behavior\nAcceptance Criteria\nNo handle/timer leaks when VALKEY_HOST is unset after a prior successful init\nBehavior matches documentation\nTest covers the VALKEY_HOST-removed-after-init scenario",
+   "type": "Bug",
+   "status": "To Do",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-11T16:41:41.692-0700",
+   "updated": "2026-04-27T22:13:40.514-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-19",
+   "summary": "Set up Numbered Versioning on build/deploy CI/CD pipeline",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/102\nSummary\nIntegrate semantic versioning into the CI/CD pipeline so that every build and deployment is tagged with a version number automatically.\nGoals\nEvery build artifact is versioned\nVersion is derived from git tags (semver: MAJOR.MINOR.PATCH)\nDeploy pipeline stamps version into build output\nAcceptance Criteria\nCI pipeline reads/bumps version from git tag or package.json\nBuild artifacts include version in filename or metadata\nVersion visible in deployed app (e.g. footer or /version endpoint)",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-11T16:41:49.656-0700",
+   "updated": "2026-04-27T22:13:37.310-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-21",
+   "summary": "Establish PR size and reviewability best practices",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/100\nSummary\nDefine and document guidelines for keeping pull requests small, focused, and easy to review. Optionally enforce limits via CI or GitHub settings.\nGoals\nPRs are consistently reviewable (recommended: <400 lines changed)\nContributors know what's expected before opening a PR\nReduce review friction and merge delays\nScope\nWrite PR guidelines (size limits, description template, checklist)\nAdd a PULL_REQUEST_TEMPLATE.md to the repo\nOptionally add a CI check that warns on oversized PRs\nDocument in CONTRIBUTING.md or README\nAcceptance Criteria\nPULL_REQUEST_TEMPLATE.md exists in repo\nGuidelines documented and accessible\nTeam aware of expectations",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "documentation",
+    "project:ops"
+   ],
+   "created": "2026-04-11T16:41:59.001-0700",
+   "updated": "2026-04-27T22:13:34.380-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-22",
+   "summary": "Set up Copilot instructions for this repository",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/7\nSummary\nConfigure GitHub Copilot custom instructions for this repository so that Copilot suggestions are tailored to the project's stack, conventions, and patterns.\nGoals\nCopilot suggestions align with Angular + Flask architecture\nInstructions reflect naming conventions, file structure, and coding standards\nReduce time spent rejecting irrelevant suggestions\nAcceptance Criteria\n.github/copilot-instructions.md exists and is populated\nInstructions cover: stack overview, coding conventions, file structure, do/don't patterns\nTeam members confirm improved suggestion quality",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:ops"
+   ],
+   "created": "2026-04-11T16:42:02.212-0700",
+   "updated": "2026-04-27T22:13:31.233-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-24",
+   "summary": "Fix stack trace / exception detail exposure in Flask API responses",
+   "description": "Summary\nCodeQL (py/stack-trace-exposure) flagged multiple locations where internal exception details, error messages, and stack traces are returned directly to API clients. This can expose internal infrastructure details (model names, file paths, error types) to end users.\nAffected locations\nblueprints/api_bp.py:133, 135, 141, 158, 161, 180, 199\nblueprints/auth_api_bp.py:105, 219\nblueprints/generation_bp.py:312\nExample (generation_bp.py:312)\nreturn (f\"Sorry, there was an error generating the recipe. Details: {last_error_message}\", 500)last_error_message contains exception type names, model names, and internal error strings that should never reach the client.\nAcceptance Criteria\nAll API error responses return generic user-facing messages (e.g. \"An internal error occurred\")\nInternal exception details are logged server-side only (not returned in response body)\nCodeQL py/stack-trace-exposure alerts resolved on next scan\nApplies to both JSON API endpoints and legacy HTML form endpoints",
+   "type": "Bug",
+   "status": "Done",
+   "labels": [
+    "project:ops",
+    "security"
+   ],
+   "created": "2026-04-12T12:33:31.180-0700",
+   "updated": "2026-04-27T22:13:28.178-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-76",
+   "summary": "DevOps & Cloud Infrastructure",
+   "description": "Scope: Cloud Run deployment, CI/CD pipelines, Docker, Google Cloud operations.\\n\\nIncludes:\\n- cloudbuild.yaml maintenance\\n- Cloud Run service configuration (express-frontend, flask-backend)\\n- Docker image builds and optimizations\\n- Google Cloud Ops / Stackdriver monitoring and alerting\\n- GitHub Actions CI workflows\\n- Database migrations (Alembic/Flask-Migrate)\\n- Secret Manager integration\\n- Terraform infrastructure\\n\\n*Services:* Cloud Run (us-central1), Cloud SQL (PostgreSQL), Secret Manager, Cloud Build, Artifact Registry",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "CloudRun",
+    "DevOps",
+    "GCP",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:25:34.093-0700",
+   "updated": "2026-04-27T22:12:22.632-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-72",
+   "summary": "Security & Reliability",
+   "description": "Scope: Security hardening, rate limiting, monitoring, and reliability work.\\n\\nIncludes:\\n- Helmet.js security header configuration\\n- Valkey/Redis rate limiter improvements (see TO-3, )\\n- Input validation (express-validator)\\n- Google OAuth security\\n- HTTPS/SSL configuration\\n- Dependency audits and vulnerability patching\\n- Production readiness checklist items\\n\\n*Related issues:* TO-3 (Valkey singleton-guard),  (Valkey quit failures)\\n*Key files:* server/security.ts, server/valkey.ts, server/validation.ts",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Reliability",
+    "Security",
+    "Valkey",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:25:38.235-0700",
+   "updated": "2026-04-27T22:12:24.608-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-66",
+   "summary": "Atlassian / Knowledge Base / Tooling",
+   "description": "Execution-side source of truth\nThis work makes the Atlassian operating model official for the SSR recipes workstream.\nKAN tracks the active execution state for this work: branch ownership, PR status, and who is actively moving it.\nThis branch codifies KAN as execution truth, RCP as delivery truth, and Confluence as durable planning/session truth.\nThe PM daemon now syncs only canonical specs/ files and the repo now exposes pm:start, pm:sync, and pm:status as the official loop.\nCurrent implementation refs\nCookbook branch: feat/ssr-recipes-cc\nCookbook PR: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/2955\nBackend branch: feat/ssr-recipes-cc\nBackend PR: https://github.com/adamtasteslikegood/tasteslikegood.com/pull/134",
+   "type": "Task",
+   "status": "In Review",
+   "labels": [
+    "Atlassian",
+    "Documentation",
+    "Tooling",
+    "pm-workflow",
+    "project:ops",
+    "source-of-truth",
+    "ssr-recipes"
+   ],
+   "created": "2026-04-13T04:28:12.299-0700",
+   "updated": "2026-05-19T09:37:27.712-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-73",
+   "summary": "[GH#104] Add or enforce CI for Angular+Flask: builds, lint, and tests",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/104\\n\\nEnforce CI checks on all PRs covering:\\n- Angular: npm run lint, npm run type-check, npm run test:ci\\n- Express: npm run format:check\\n- Flask/Backend: pytest, lint (ruff/flake8)\\n\\nRequired checks should block merge if failing. Both repos (main + Backend submodule) need CI configured.\\n\\n*Labels:* CI/CD",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "DevOps",
+    "GH-Issue",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:11.704-0700",
+   "updated": "2026-04-27T22:12:24.201-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-79",
+   "summary": "[GH#103] Set up numbered versioning \u2014 publish official releases",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/103\\n\\nEstablish semantic versioning for the project:\\n- Define version scheme (SemVer: MAJOR.MINOR.PATCH)\\n- Tag releases in git (git tag -a v1.0.0)\\n- Create GitHub Releases with changelog\\n- Align Cloud Run revision tags with git SemVer tags\\n- Document release process\\n\\nRelated: GH#102 (versioning on CI/CD pipeline), GH#101 (first published release)",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "DevOps",
+    "GH-Issue",
+    "Versioning",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:16.460-0700",
+   "updated": "2026-04-27T22:12:21.186-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-78",
+   "summary": "[GH#102] Set up numbered versioning on build/deploy CI/CD pipeline",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/102\\n\\nIntegrate versioning into the CI/CD pipeline:\\n- Auto-tag builds with SemVer on merge to main\\n- Pass version number to Cloud Build and Cloud Run revision labels\\n- Include version in Docker image tags\\n- Surface version in /api/health endpoint response\\n\\nRelated: GH#103 (version scheme), GH#101 (first release)",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "DevOps",
+    "GH-Issue",
+    "Versioning",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:19.137-0700",
+   "updated": "2026-04-27T22:12:21.646-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-63",
+   "summary": "[GH#101] Create first published GitHub Release (v1.0.0)",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/101\\n\\nPublish the first official GitHub Release:\\n- Choose the correct commit as v1.0.0 baseline\\n- Write release notes summarizing Phase 1-4 work\\n- Tag and publish via GitHub Releases\\n- Verify Cloud Run production revision matches\\n\\nDependency: GH#103 (versioning scheme must be defined first)",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "DevOps",
+    "GH-Issue",
+    "Versioning",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:22.887-0700",
+   "updated": "2026-04-27T22:12:29.072-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-68",
+   "summary": "[GH#100] Establish PR size/reviewability best practices",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/100\\n\\nDocument and enforce PR best practices:\\n- Define max PR size guideline (e.g., <400 lines changed)\\n- Add PR description template (.github/pull_request_template.md)\\n- Define review requirements (who reviews what)\\n- Add CODEOWNERS file if applicable\\n- Document in CONTRIBUTING.md\\n\\n*Labels:* documentation",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Documentation",
+    "GH-Issue",
+    "Process",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:26.080-0700",
+   "updated": "2026-04-27T22:12:26.757-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-70",
+   "summary": "[Backend GH#73] CI/CD - are Backend CI checks actually working?",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/73\\n*Repo:* Backend submodule (tasteslikegood.com)\\n\\nInvestigate whether CI backend checks are correctly running and blocking merges:\\n- Verify GitHub Actions workflow triggers for Backend repo\\n- Confirm pytest runs on every PR\\n- Confirm lint runs on every PR\\n- Check that failed checks block merges\\n- Relate to open bug TO-5 (pytest failure in generate_ai_image)\\n\\n*Labels:* bug, question, python, javascript, CI/CD",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "Bug",
+    "CI-CD",
+    "GH-Issue",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:35.219-0700",
+   "updated": "2026-04-27T22:12:25.665-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-64",
+   "summary": "[Backend GH#72] Document `.agent/skills` purpose and usage in Backend repo",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/72\\n*Repo:* Backend submodule (tasteslikegood.com)\\n\\nThe Backend/.agent/skills/ directory contains many skill files but has no documentation explaining:\\n- What .agent/skills/ is and how it's used\\n- Which agent framework consumes these skills\\n- How to add new skills\\n- Whether these should be in .gitignore\\n\\nAdd documentation to Backend/agents.md or a dedicated Backend/.agent/README.md.\\n\\n*Labels:* documentation, enhancement, good first issue",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "Documentation",
+    "GH-Issue",
+    "good-first-issue",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:40.022-0700",
+   "updated": "2026-04-27T22:12:28.572-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-62",
+   "summary": "[Backend GH#71] Add/enforce CI for lint, tests, and required checks in Backend",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/71\\n*Repo:* Backend submodule (tasteslikegood.com)\\n\\nSet up robust CI for the Flask backend:\\n- pytest \u2014 all tests must pass\\n- ruff or flake8 lint check\\n- Type checking (mypy or pyright) if applicable\\n- Make checks required on PRs (block merge on failure)\\n- Ensure uv sync works cleanly in CI environment\\n\\nRelates to TO-16 (main repo CI) and TO-5 (pytest currently failing).\\n\\n*Labels:* enhancement, python, CI/CD",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "CI-CD",
+    "GH-Issue",
+    "Python",
+    "project:ops"
+   ],
+   "created": "2026-04-13T04:31:44.380-0700",
+   "updated": "2026-04-27T22:12:29.505-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-25",
+   "summary": "Add Express-layer request validation with body buffering (v1.1.0)",
+   "description": "Context\nserver/validation.ts was removed in v1.0.0 because it was dead code \u2014 express-validator requires a parsed request body, but the Express proxy (createFlaskProxy) must mount before express.json() so the raw body stream can be piped to Flask. Once the body is consumed by any Express middleware, Flask receives an empty request.\nFlask already validates all AI endpoints (validate_generation_input() in generation_api_bp.py), so there is no security gap in v1.0.0.\nAdditionally, the removed validateImageRequest was checking for recipeName + keywords in the body, but the actual endpoint is POST /api/generate_image/<recipe_id> \u2014 a mismatched contract that could never have been wired correctly.\nWhat needs to be done\nDesign and implement a proper Express validation layer that works with the streaming proxy. Options to evaluate:\nBody-buffer approach \u2014 Read the raw body as a Buffer before the proxy, validate, then reconstruct a readable stream for the proxy to pipe to Flask.\nhttp-proxy-middleware with fixRequestBody \u2014 Replace the custom proxy.ts with http-proxy-middleware, which supports body-parser integration via fixRequestBody.\nValidation at the edge only \u2014 Use HTTP header or query-param validation at Express (Content-Type checks, size limits) and keep body validation in Flask.\nAcceptance criteria\nPOST /api/generate validates prompt: string, 1\u2013500 characters, at Express layer before the request hits Flask\nPOST /api/generate_image/<id> validates route param format at Express layer\nBody is correctly forwarded to Flask (Flask receives the same payload the browser sent)\nNo regression on auth, recipe, or collections endpoints\nUnit tests cover the validation middleware\nNotes\nThe current proxy.ts uses req.pipe(proxyReq) \u2014 any solution must preserve raw streaming for non-AI routes\nSee ADR for the original proxy design decision (Express single-origin pattern)",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "express",
+    "project:ops",
+    "security",
+    "v1.1.0"
+   ],
+   "created": "2026-04-13T10:42:26.175-0700",
+   "updated": "2026-04-27T22:13:24.927-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-26",
+   "summary": "CI/CD: Split into pr-gate.yml + release.yml \u2014 auto trigger on dev\u2192main PR",
+   "description": "Goal\\n\\nReplace the keyword-based gcbuildanddeploy trigger with a fully automatic two-workflow CI/CD pipeline.\\n\\n## Current state\\n\\ngc-build-deploy.yml only fires when commit messages or PR body contain gcbuild/gcdeploy/gcbuildanddeploy keywords. Manual, error-prone, not enforced.\\n\\n## Target\\n\\n**pr-gate.yml** \u2014 fires on pull_request targeting main from any dev* branch:\\n- Frontend: lint, type-check, test, build\\n- Backend: pytest via submodule\\n- CHANGELOG validation\\n- Coverage threshold enforcement\\n- All jobs are required status checks (branch protection)\\n\\n**release.yml** \u2014 fires on push to main (i.e. after PR merge):\\n- Extract version from package.json\\n- Create git tag v{version}\\n- Extract CHANGELOG excerpt\\n- Create GitHub Release\\n- Submit Cloud Build with version substitution\\n- Post deploy result as PR comment\\n\\n## Acceptance criteria\\n\\n- Opening a PR from dev to main automatically triggers all quality gates\\n- Merging the PR automatically creates a tagged GitHub Release and deploys to Cloud Run\\n- No manual keyword needed\\n- Branch protection on main requires pr-gate status checks to pass before merge is allowed",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "automation",
+    "cicd",
+    "project:ops",
+    "v1.1.0"
+   ],
+   "created": "2026-04-13T10:58:43.260-0700",
+   "updated": "2026-04-27T22:13:21.217-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-27",
+   "summary": "CI/CD: Add Backend pytest to PR gate \u2014 Flask submodule must pass before merge",
+   "description": "Goal\\n\\nRun pytest against the Backend submodule as a required gate on every PR to main.\\n\\n## Current state\\n\\nbackend-submodule-audit in gc-build-deploy.yml only checks that the Backend/ directory exists and is non-empty. No Python tests run. A broken Flask change can merge to main undetected.\\n\\n## Implementation\\n\\nAdd a backend-ci job to pr-gate.yml:\\n\\nyaml\\nbackend-ci:\\n  name: Backend Python tests\\n  runs-on: ubuntu-latest\\n  steps:\\n    - uses: actions/checkout@v4\\n      with:\\n        submodules: recursive\\n    - uses: actions/setup-python@v5\\n      with:\\n        python-version: '3.12'\\n    - name: Install uv\\n      run: pip install uv\\n    - name: Install dependencies\\n      run: cd Backend && uv sync\\n    - name: Run pytest\\n      run: cd Backend && uv run pytest --tb=short\\n    - name: Upload coverage\\n      uses: actions/upload-artifact@v4\\n      with:\\n        name: backend-coverage\\n        path: Backend/htmlcov/\\n\\n\\n## Acceptance criteria\\n\\n- pytest runs on every PR to main\\n- Failing tests block merge\\n- Coverage report uploaded as artifact",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "backend",
+    "cicd",
+    "project:ops",
+    "testing"
+   ],
+   "created": "2026-04-13T10:58:49.555-0700",
+   "updated": "2026-04-27T22:13:15.177-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-28",
+   "summary": "CI/CD: Auto SemVer tagging + GitHub Release on merge to main",
+   "description": "Goal\\n\\nEvery merge to main automatically creates a SemVer git tag and a GitHub Release, so deployed images are always traceable to an exact version.\\n\\n## Current state\\n\\nImages are tagged only with $SHORT_SHA. No v1.0.0 tag exists. You cannot determine what version is running in Cloud Run from the image tag alone.\\n\\n## Implementation in release.yml\\n\\nyaml\\n- name: Extract version\\n  id: version\\n  run: echo \\\"version=$(node -p \\\"require('./package.json').version\\\")\\\" >> $GITHUB_OUTPUT\\n\\n- name: Create git tag\\n  run: |\\n    git tag v${{ steps.version.outputs.version }}\\n    git push origin v${{ steps.version.outputs.version }}\\n\\n- name: Extract changelog excerpt\\n  id: changelog\\n  run: |\\n    # Extract section between current version header and previous\\n    ...\\n\\n- name: Create GitHub Release\\n  uses: softprops/action-gh-release@v2\\n  with:\\n    tag_name: v${{ steps.version.outputs.version }}\\n    name: v${{ steps.version.outputs.version }}\\n    body: ${{ steps.changelog.outputs.excerpt }}\\n    draft: false\\n    prerelease: false\\n\\n\\n## Acceptance criteria\\n\\n- Every merge to main produces a v{major}.{minor}.{patch} git tag\\n- A GitHub Release is created with CHANGELOG excerpt as body\\n- Tag collision (same version merged twice) is detected and fails gracefully\\n- package.json version bump is required as part of the PR process",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "project:ops",
+    "release",
+    "semver"
+   ],
+   "created": "2026-04-13T10:58:57.846-0700",
+   "updated": "2026-04-27T22:13:11.154-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-29",
+   "summary": "CI/CD: Set FLASK_ENV=production in cloudbuild.yaml Flask deploy step",
+   "description": "Goal\\n\\nAdd FLASK_ENV=production to the --set-env-vars flag in the Flask Cloud Run deploy step so that production-only guards introduced in v1.0.0 actually activate.\\n\\n## Why this is critical\\n\\nTwo security fixes added in v1.0.0 check os.environ.get(\\\"FLASK_ENV\\\") == \\\"production\\\":\\n\\n1. CRITICAL-2 \u2014 OAUTHLIB_INSECURE_TRANSPORT guard: without FLASK_ENV=production, the insecure transport flag remains set in Cloud Run\\n2. CRITICAL-4 \u2014 FLASK_SECRET_KEY fail-fast: without FLASK_ENV=production, a missing secret key silently generates an ephemeral key instead of crashing at startup\\n\\n## Fix\\n\\nIn cloudbuild.yaml step Deploy Flask Backend, add to --set-env-vars:\\n\\n\\nFLASK_ENV=production\\n\\n\\n## Acceptance criteria\\n\\n- FLASK_ENV=production is present in the Flask Cloud Run service env vars after deploy\\n- OAUTHLIB_INSECURE_TRANSPORT is NOT set in the Cloud Run environment\\n- Missing FLASK_SECRET_KEY causes deployment startup failure (fast-fail)\\n- Verified via gcloud run services describe flask-backend --format=json | jq '.spec.template.spec.containers[].env'",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "cloudbuild",
+    "project:ops",
+    "security"
+   ],
+   "created": "2026-04-13T10:59:06.071-0700",
+   "updated": "2026-04-27T22:13:07.357-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-30",
+   "summary": "CI/CD: Fix deploy ordering \u2014 Flask backend must fully deploy before Express frontend",
+   "description": "Goal\\n\\nEnsure Flask backend is fully deployed and serving before the Express frontend is updated, eliminating the rollout window where new frontend code hits old Flask API.\\n\\n## Current state\\n\\nIn cloudbuild.yaml:\\n- Deploy Express Frontend waits on Push Express Frontend Image (its own push)\\n- Deploy Flask Backend waits on Push Flask Backend Image (its own push)\\n- Both deploys run in parallel \u2014 for 30-60 seconds, new Angular code can be live while old Flask handles /api/generate\\n\\n## Fix\\n\\nChange Deploy Express Frontend to also wait on Deploy Flask Backend:\\n\\nyaml\\n- name: 'Deploy Express Frontend'\\n  id: 'Deploy Express Frontend'\\n  waitFor: ['Push Express Frontend Image', 'Deploy Flask Backend']  # \u2190 add this\\n\\n\\nThis adds ~60s to total deploy time but eliminates version skew.\\n\\n## Acceptance criteria\\n\\n- Express frontend Cloud Run revision goes live only after Flask backend revision is healthy\\n- Total build+deploy pipeline time is acceptable (target < 8 minutes end-to-end)\\n- Verified by checking Cloud Run revision timestamps in GCP console after a deploy",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "cloudbuild",
+    "project:ops",
+    "reliability"
+   ],
+   "created": "2026-04-13T10:59:13.157-0700",
+   "updated": "2026-04-27T22:13:03.723-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-31",
+   "summary": "CI/CD: Fix ci.yml branch targets (develop \u2192 dev) + add coverage threshold",
+   "description": "Goal\\n\\nFix ci.yml to target the actual integration branch name and enforce a minimum test coverage threshold.\\n\\n## Issues\\n\\n1. ci.yml has branches: [main, develop] \u2014 the integration branch is dev (or dev/*), not develop. CI never runs on feature PRs targeting dev.\\n2. Tests run and upload a coverage report but there is no enforced minimum. Coverage can silently drop to 0%.\\n\\n## Fixes\\n\\n### Branch targets\\nyaml\\non:\\n  push:\\n    branches: [main, dev, 'dev/**']\\n  pull_request:\\n    branches: [main, dev]\\n\\n\\n### Coverage threshold (Vitest)\\nIn vitest.config.ts or package.json:\\njson\\n\\\"coverage\\\": {\\n  \\\"thresholds\\\": {\\n    \\\"lines\\\": 70,\\n    \\\"functions\\\": 70,\\n    \\\"branches\\\": 60\\n  }\\n}\\n\\n\\nOr enforce in the workflow step:\\nbash\\nnpm run test:ci -- --coverage.thresholds.lines=70\\n\\n\\n## Acceptance criteria\\n\\n- CI runs on PRs targeting dev (not just main)\\n- Build fails if coverage drops below threshold\\n- Threshold values agreed and documented",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "coverage",
+    "project:ops",
+    "testing"
+   ],
+   "created": "2026-04-13T10:59:21.180-0700",
+   "updated": "2026-04-27T22:12:59.363-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-32",
+   "summary": "CI/CD: Tag Docker images with SemVer alongside SHORT_SHA in cloudbuild.yaml",
+   "description": "Goal\\n\\nTag every production Docker image with both $SHORT_SHA (for traceability) and the SemVer version (e.g. v1.0.0) so images can be pulled by version and rollbacks are unambiguous.\\n\\n## Current state\\n\\nImages are only tagged $SHORT_SHA. You cannot docker pull flask-backend:v1.0.0.\\n\\n## Implementation\\n\\nIn cloudbuild.yaml, after pushing $SHORT_SHA images, add a re-tag step:\\n\\nyaml\\n- name: gcr.io/cloud-builders/docker\\n  id: 'Tag Express Frontend with version'\\n  waitFor: ['Push Express Frontend Image']\\n  args:\\n    - tag\\n    - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA\\n    - $_IMAGE_REGISTRY/express-frontend:$_VERSION\\n\\n- name: gcr.io/cloud-builders/docker\\n  id: 'Push Express Frontend Version Tag'\\n  waitFor: ['Tag Express Frontend with version']\\n  args: [push, '$_IMAGE_REGISTRY/express-frontend:$_VERSION']\\n\\n\\nThe _VERSION substitution is passed from release.yml when it calls gcloud builds submit --substitutions=_VERSION=v1.0.0,...\\n\\n## Acceptance criteria\\n\\n- Both flask-backend:v1.0.0 and flask-backend:abc1234 exist in Artifact Registry after deploy\\n- latest tag also updated on each release\\n- Rollback procedure documented: gcloud run deploy --image=.../flask-backend:v0.9.0",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "docker",
+    "project:ops",
+    "release",
+    "semver"
+   ],
+   "created": "2026-04-13T10:59:29.822-0700",
+   "updated": "2026-04-27T22:12:54.633-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-33",
+   "summary": "CI/CD: Add CHANGELOG.md validation gate on dev\u2192main PR",
+   "description": "Goal\\n\\nBlock merges to main if CHANGELOG.md has not been updated in the PR, ensuring every release has documented changes.\\n\\n## Implementation\\n\\nAdd a step to pr-gate.yml:\\n\\nyaml\\n- name: Validate CHANGELOG updated\\n  run: |\\n    if ! git diff --name-only origin/main...HEAD | grep -q 'CHANGELOG.md'; then\\n      echo \\\"\u274c CHANGELOG.md must be updated before merging to main\\\"\\n      echo \\\"Add an entry under the [Unreleased] section or create a new version section\\\"\\n      exit 1\\n    fi\\n    # Also verify the version in package.json has a matching section in CHANGELOG\\n    VERSION=$(node -p \\\"require('./package.json').version\\\")\\n    if ! grep -q \\\"## \\\\[$VERSION\\\\]\\\" CHANGELOG.md && ! grep -q '## \\\\[Unreleased\\\\]' CHANGELOG.md; then\\n      echo \\\"\u274c No matching version section or [Unreleased] section found in CHANGELOG.md\\\"\\n      exit 1\\n    fi\\n    echo \\\"\u2705 CHANGELOG.md updated\\\"\\n\\n\\n## Acceptance criteria\\n\\n- PR to main that does not touch CHANGELOG.md fails the gate\\n- CHANGELOG format follows Keep a Changelog convention\\n- [Unreleased] section is acceptable (release.yml converts it to versioned section on merge)",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cicd",
+    "documentation",
+    "project:ops",
+    "release"
+   ],
+   "created": "2026-04-13T10:59:36.993-0700",
+   "updated": "2026-04-27T22:12:50.741-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "KAN-67",
+   "summary": "[repo-status] Daily Status Report \u2014 April 20, 2026 \ud83c\udf31",
+   "description": "\ud83c\udf1f Vegangenius Chef \u2014 Daily Status\nDate: April 20, 2026 \u00b7 Branch: dev \u2192 main\n\ud83d\ude80 Highlights\nA fresh bug surfaced today on the auth front, and the agentic tooling layer is richer than ever. The codebase is in good shape with two actionable PRs waiting for review. Let's keep the momentum! \ud83d\udcaa\n\ud83d\udc1b New Issue Today\n#2858 \u2014 Auth UI Mismatch ()\nA session-state bug was filed this morning: recipes appear in authenticated mode while the UI still shows the \"Login\" button. This happens on browser re-open when a prior session exists.\nRoot cause area: mismatch between the persisted session/token and the Angular AuthService signal state on startup\nPriority: \ud83d\udd34 High \u2014 visible to returning users; damages trust in the login flow\nSuggested approach: ensure AuthService calls /api/auth/check on app init and properly reflects the session result in the auth signal before PersistenceService loads recipes\n\ud83d\udccb Open PRs\nPR \nTitle \nStatus \n#2856 \nUse npm-installed Copilot CLI in Daily Repo Status workflow \n\ud83d\udd35 Draft \u2014 needs promotion + review \n#2843 \nfix(TAS-8): decouple image_service from Flask request context \n\ud83d\udfe1 Open \u2014 99/99 tests passing, ready to merge \n\ud83e\udd16 Recent Activity (since April 19)\nAgent Ecosystem Finalized\nThree new agents landed in .github/agents/ over the last 48 hours:\nAtlassian Requirements \u2192 Jira \u2014 structured epic + story creation with duplicate detection \ud83d\uddc2\ufe0f\nCI Cleaner \u2014 automated CI maintenance \ud83d\udd27\nGitHub Agentic Workflows \u2014 documentation agent for gh aw tooling \ud83d\udcda\nInfrastructure Polish\neslint.config.js added to Qodana ignore list \u2014 no more false positives in static analysis \u2705\nDependabot merged 7 GitHub Actions bumps in one shot (actions-all group) \u2705\ndependency-submission.yml removed \u2014 native GitHub dependency detection is now in charge\n\u2705 Actionable Next Steps\nFix bug #2858 () \ud83d\udd34 \u2014 Auth UI mismatch on re-open. Check that AuthService.checkSession() is await}}ed before recipes load; verify the auth signal is set before {{PersistenceService's effect() runs.\nPromote PR #2856 from Draft \u2192 Ready \u2014",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-20T06:14:11.831-0700",
+   "updated": "2026-04-27T22:12:27.198-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-74",
+   "summary": "[repo-status] Daily Status Report \u2014 April 21, 2026 \ud83c\udf31",
+   "description": "\ud83c\udf1f Vegangenius Chef \u2014 Daily Status\nDate: April 21, 2026 \u00b7 Branch: dev\n\ud83d\ude80 Big Wins Since Yesterday\nYesterday was an absolute powerhouse of shipping! The team landed two major architecture upgrades that dramatically improve scalability and public discoverability.\n\u26a1 Phase 4: Pub/Sub Async AI Generation (merged #2869 + #2870)\nThe app now generates recipes and images asynchronously \u2014 no more blocking HTTP calls! Highlights:\n/api/generate returns HTTP 202 immediately, with generation happening in the background\nPub/Sub workers migrated to Cloud Run HTTP Push endpoints (/api/worker/recipe, /api/worker/image) \u2014 true serverless scale-to-zero, no 24/7 background worker needed\nAngular frontend updated with a polling service to pick up results\nRecipe database model extended with a status field to track generation progress\nThis is a huge reliability and cost win. \ud83c\udf89\n\ud83d\udd10 Security Fix: Google Cloud Scope (commits e9d8c76, bd11b6b)\nRemoved an overly broad cloud-platform scope from the user OAuth flow \u2014 a good least-privilege tightening that closes a potential privilege escalation path.\n\ud83d\udd27 Submodule Plumbing Fixed (PR #2867)\nalirez-claude-skills and gemstack are now properly registered in .gitmodules with correct URLs. git submodule update --init alirez-claude-skills gemstack will now work for all contributors.\n\ud83c\udd95 Hot Off the Press \u2014 Opened Today\n#2871 \u2014 feat(ssr): SSR Routes for /r/*, /browse, /sitemap.xml\nThis PR mounts SSR proxy routes in Express before the Angular catch-all, so crawlers get server-rendered HTML from Flask instead of the empty SPA shell. Also bumps Backend with 8 new pytest cases (pagination, N+1 guard, public/private visibility) bringing Flask tests to 109 total. \ud83d\udd77\ufe0f Big SEO win!\n\ud83d\udccb Open PRs\nPR \nTitle \nStatus \n#2871 \nfeat(ssr): Route /r/*, /browse, /sitemap.xml to Flask \n\ud83d\udfe2 New today \u2014 needs review \n#2856 \nFix npm-installed Copilot CLI in daily workflow \n\ud83d\udfe1 Open \u2014 review + merge \n#2843 \nfix(TAS-8): decouple image_service from Flask request context \n\ud83d\udfe1 Open \u2014 99/99 tests \u2705,",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-21T06:13:27.881-0700",
+   "updated": "2026-04-27T22:12:23.689-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-81",
+   "summary": "[repo-status] Daily Status Report \u2014 April 22, 2026 \ud83c\udf31",
+   "description": "\ud83c\udf1f Vegangenius Chef \u2014 Daily Status\nDate: April 22, 2026 \u00b7 Branch: dev\n\ud83d\ude80 Recent Highlights\nThe repo has been on a hot streak! The async architecture overhaul from the past two days is a landmark leap forward, and today brings a fresh developer tooling addition.\n\ud83d\udee0\ufe0f Today's Commit\nAdd Bash redirection cheatsheet + git-ahead tool \u2014 a handy developer-experience addition that rounds out the utility scripts folder. Small but useful! \ud83d\udd27\n\u26a1 Still Fresh \u2014 Phase 4 Pub/Sub Async AI (landed April 20)\nThe biggest structural change in recent memory is now live on dev:\n/api/generate \u2192 returns HTTP 202 instantly; Pub/Sub workers process recipes in the background\nWorkers migrated to Cloud Run HTTP Push endpoints (/api/worker/recipe, /api/worker/image) \u2014 true serverless, scale-to-zero, no idle costs\nAngular polling service picks up generated recipes without blocking the UI\nRecipe model extended with a status field\nThis is a significant reliability, scalability, and cost improvement. \ud83c\udf89\n\ud83c\udf10 SSR Routes PR #2871 \u2014 Needs Review\nMounts /r/_, /browse, and /sitemap.xml in Express _before* the Angular catch-all, so search crawlers get real Flask-rendered HTML instead of an empty SPA shell. Comes bundled with:\n8 new pytest cases (pagination, N+1 guard, public/private visibility)\nFlask test suite now at 109 tests \u2705\n\ud83d\udccb Open PRs\nPR \nTitle \nStatus \n#2871 \nfeat(ssr): route /r/*, /browse, /sitemap.xml to Flask (TAS-2718) \n\ud83d\udfe2 Ready \u2014 needs review \n#2856 \nUse npm-installed Copilot CLI in Daily Repo Status workflow \n\ud83d\udfe1 Ready \u2014 awaiting merge \n#2843 \nfix(TAS-8): decouple image_service from Flask request context \n\ud83d\udfe1 99/99 tests \u2705 \u2014 ready to land \n\ud83d\udc1b Open Issues to Watch\nIssue \nTitle \nPriority \n#2858 \nAuth UI mismatch on browser re-open () \n\ud83d\udd34 High \n#100 \nEstablish PR size/reviewability best practices \n\ud83d\udfe1 Medium \n#7 \nSet up Copilot instructions \n\u2705 Can close \n\ud83d\udcca Quick Stats\nMetric \nValue \nCommits today \n1 \nCommits past 48h \n15 \nOpen PRs \n3 \nOpen issues \n5 \nBackend pytest suite \n109 tests \u2705 \nBig features shipped this wee",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-22T06:15:21.039-0700",
+   "updated": "2026-04-27T22:12:20.318-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-69",
+   "summary": "[repo-status] Daily Status Report \u2014 April 23, 2026 \ud83c\udf31",
+   "description": "\ud83c\udf1f Vegangenius Chef \u2014 Daily Status\nDate: April 23, 2026 \u00b7 Branch: dev\n\ud83c\udf89 Win to Celebrate\nIssue #2858 () is closed! \ud83d\udd10 The auth UI mismatch bug \u2014 where recipes loaded while the login button still showed \u2014 was fixed and closed as completed on April 20. One less high-priority bug on the board!\n\ud83d\udccb Open PRs \u2014 All Actionable\nThree PRs are ready and waiting to land. These have been open for several days:\nPR \nTitle \nOpen Since \nStatus \n#2871 \nfeat(ssr): route /r/*, /browse, /sitemap.xml to Flask \nApr 21 \n\ud83d\udfe2 Needs review \u2014 depends on upstream Backend PR #114 \n#2856 \nFix npm-installed Copilot CLI in Daily Repo Status workflow \nApr 18 \n\ud83d\udfe1 Ready to merge \u2014 CI/CD fix \n#2843 \nfix(TAS-8): decouple image_service from Flask request context \nApr 16 \n\ud83d\udfe1 99/99 tests \u2705 \u2014 overdue for merge \nPR #2843 has been open the longest (7 days) with a perfect test suite. It should land today.\n\ud83c\udfd7\ufe0f Architecture \u2014 Where Things Stand\nThe Phase 4 async pipeline shipped last week and is now the backbone of recipe generation on dev:\n/api/generate \u2192 returns HTTP 202 immediately; Pub/Sub workers handle generation in the background\nCloud Run push workers at /api/worker/recipe and /api/worker/image \u2014 scale-to-zero, no idle costs\nAngular polling picks up results; recipe model has a status field\nFlask test suite: 109 tests passing \u2705\n\ud83d\udc1b Issues to Address\nIssue \nTitle \nNotes \n#2855 \nDaily Repo Status workflow failed (Apr 18) \nExpires Apr 25 \u2014 PR #2856 is the fix \n#100 \nPR size/reviewability best practices \nLong-standing doc gap \n#7 \nSet up Copilot instructions \n\u2705 Done \u2014 ready to close \n\u2705 Recommended Next Steps\nMerge PR #2843 \ud83c\udfc1 \u2014 Image service decoupling has 99/99 tests, zero open feedback, been open 7 days. Just needs the merge button clicked.\nMerge PR #2856 \ud83d\udd27 \u2014 Fixes the flaky daily-status workflow. Merging this prevents future workflow failure issues like #2855.\nReview PR #2871 \ud83d\udd77\ufe0f \u2014 SSR routes are a meaningful SEO win. Confirm upstream Backend PR tasteslikegood.com#114 is merged, then do a manual curl smoke test before",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-23T06:15:10.989-0700",
+   "updated": "2026-04-27T22:12:26.227-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-75",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 24, 2026",
+   "description": "\ud83c\udf1f Vegangenius Chef \u2014 Daily Status\nDate: April 24, 2026 \u00b7 Branch: dev\n\ud83d\ude80 Big Week Recap \u2014 Async Architecture Lands!\nThe past few days have been massive for the backend architecture. The team shipped Phase 4 Pub/Sub async AI generation and immediately followed it up by migrating workers to serverless HTTP push endpoints. The app can now scale to zero without sacrificing background processing. \ud83c\udf89\n\u2705 Recent Commits (Last ~72h)\nDate \nCommit \nApr 21 \n\ud83d\udee0\ufe0f Added Bash redirection cheatsheet + git-ahead dev tool \nApr 21 \n\ud83d\udce6 Updated Backend & gemstack submodules \nApr 20 \n\u2705 #2870 \u2014 Pub/Sub workers \u2192 HTTP push endpoints (true serverless scale-to-zero) \nApr 20 \n\u2705 #2869 \u2014 Phase 4 Pub/Sub async AI generation (202 responses + polling) \nApr 20 \n\ud83d\udd10 Security fix: removed cloud-platform OAuth scope from user auth \nApr 20 \n\u2705 #2868 \u2014 Anti-Recipe Site v0.2 distribution layer + Jira sync scripts \nApr 20 \n\u2705 #2867 \u2014 Registered alirez-claude-skills & gemstack as proper git submodules \n\ud83d\udcec Open PRs (9 total)\n\ud83c\udf31 Feature / Fix PRs \u2014 Needs Attention\nPR \nTitle \nStatus \n#2871 \nfeat(ssr): Route /r/*, /browse, /sitemap.xml to Flask (TAS-2718) \n\u26a0\ufe0f Merge conflicts \u2014 needs rebase \n#2856 \nUse npm-installed Copilot CLI + restore Daily Status workflow validation \n\ud83d\udd50 Open 4 days \n#2843 \nfix(TAS-8): Decouple image_service from Flask request context \n\ud83d\udd50 Open 4 days \n\ud83e\udd16 Dependabot (6 fresh PRs today \u2014 ready to merge)\nPR \nUpdate \n#2880 \nexpress-rate-limit 8.3.2 \u2192 8.4.0 \n#2879 \nvite 8.0.8 \u2192 8.0.10 (build-tools group) \n#2878 \nLinting group \u2014 3 updates \n#2877 \nGitHub Actions \u2014 7 updates \n#2876 \nTesting group \u2014 2 updates \n#2875 \nAngular group \u2014 8 updates \n\ud83d\udcca Project Health\nArea \nStatus \nAsync AI generation (Phase 4) \n\u2705 Shipped \nServerless worker architecture \n\u2705 Shipped \nOAuth security hardening \n\u2705 Shipped \nSSR routes (TAS-2718) \n\ud83d\udd04 In progress \u2014 needs rebase \nImage service context fix (TAS-8) \n\u23f3 Pending review \nDependency freshness \n\ud83d\udfe1 6 Dependabot PRs queued today \n\ud83c\udfaf Recommended Next Steps\nRebase PR #2871 (feat(ssr)) \u2014 merge conf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-24T06:14:05.415-0700",
+   "updated": "2026-04-27T22:12:23.162-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-80",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 25, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status Report\nDate: April 25, 2026 \u00b7 Branch: dev \u2192 main\n\ud83d\ude80 Recent Highlights\n\u2705 Phase 4 Complete \u2014 Async AI Generation via Pub/Sub!\nTwo major PRs landed on April 20th, completing the serverless async pipeline:\n#2869 \u2014 Implemented Phase 4 Pub/Sub async AI generation: HTTP 202 responses, pub/sub producers, background workers, recipe status field in DB, and Angular polling service\n#2870 \u2014 Migrated pub/sub workers to Cloud Run HTTP Push endpoints \u2014 true serverless scale-to-zero with no 24/7 background worker needed \ud83c\udf89\n\ud83d\udd12 Security Fix\nRemoved sensitive cloud-platform OAuth scope from user auth (April 20) \u2014 tightening the permission surface for Google OAuth flows\n\ud83c\udfd7\ufe0f Infrastructure & Tooling\n#2867 \u2014 Fixed alirez-claude-skills and gemstack as proper git submodules (URL mappings restored)\nAnti-Recipe Site v0.2 distribution layer shipped (#2868), with Alirez-Claude skills integration\nAdded Bash redirection cheatsheet + git-ahead tool to developer toolkit (April 21)\n\ud83d\udcec Open Pull Requests (5)\n# \nPR \nStatus \n#2882 \nfeat(docs): PR size/reviewability best practices () \n\ud83d\udfe1 Open \n#2871 \nfeat(ssr): Route /r/*, /browse, /sitemap.xml \u2192 Flask (TAS-2718) \n\ud83d\udfe1 Open \n#2877 \nci: Bump actions-all group (7 updates) \n\ud83d\udfe1 Open \n#2880 \nbuild(deps): bump express-rate-limit 8.3.2 \u2192 8.4.1 \n\ud83d\udfe1 Open \n#2876 \nbuild(deps): bump testing group (2 updates) \n\ud83d\udfe1 Open \n\u2705 Recently Merged\nbuild(deps): Angular group (8 updates) #2875\nbuild(deps): Linting group (3 updates) #2878\nbuild(deps): Vite 8.0.8 \u2192 8.0.10 #2879\n\ud83d\udc1b Open Issues (non-status)\n# \nIssue \n#100 \nEstablish PR size/reviewability best practices (documentation) \n#2855 \nDaily Repo Status workflow failed (April 19) \n\ud83d\udcca Project Health\nArea \nStatus \nAsync AI Pipeline \n\u2705 Phase 4 complete \nServerless Workers \n\u2705 HTTP Push endpoints live \nDependency Updates \n\u2705 Angular + linting + Vite merged \nSSR Routes \n\ud83d\udea7 PR #2871 in review \nPR Size Guidelines \n\ud83d\udea7 PR #2882 + Issue #100 in progress \nSubmodule Health \n\u2705 All 3 submodules properly registered \n\ud83d\udca1 Recomm",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-25T06:11:49.984-0700",
+   "updated": "2026-04-27T22:12:20.769-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-65",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 26, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status Report\nDate: April 26, 2026 \u00b7 Branch: dev \u2192 main\n\ud83d\ude80 Today's Highlights\n\ud83e\udd16 Junie AI Agent Onboarded!\nPR #2884 landed this morning \u2014 Junie GitHub Actions workflows are now live:\nJunie Ask \u2014 AI Q&A directly in the repo\nJunie Code Review \u2014 automated code review on PRs\nPair that with the new MCP config for linear-server (.junie/mcp/mcp.json, commit 9053873) and the tooling ecosystem is looking seriously powerful. \ud83d\udee0\ufe0f\n\ud83d\udd04 Dependency Hygiene \u2014 Looking Clean\nA wave of Dependabot merges landed on April 24\u201326:\n#2877 \u2014 7 CI actions bumped (checkout \u2192 v6, setup-python \u2192 v6, and more)\n#2875 \u2014 Angular group (8 packages updated)\n#2878 \u2014 Linting group (3 packages)\n#2879 \u2014 Vite patched (8.0.8 \u2192 8.0.10)\n\ud83d\udccb Open PRs \u2014 Needs Attention\nPR \nTitle \nStatus \n#2882 \nfeat(docs): PR size/reviewability best practices () \n\u23f3 Ready for review \n#2871 \nfeat(ssr): Route /r/*, /browse, /sitemap.xml to Flask (TAS-2718) \n\u23f3 Ready for review \n#2880 \nbuild(deps): Bump express-rate-limit 8.3.2 \u2192 8.4.1 \n\u23f3 Dependabot open \n#2876 \nbuild(deps): Testing group bump (2 packages) \n\u23f3 Dependabot open \n#2856 \nCI: Restore npm-installed Copilot CLI + daily status validation \n\u23f3 Needs attention \n\ud83c\udfd7\ufe0f Recent Architecture Wins (Phase 4 Complete \ud83c\udf89)\nPhase 4 shipped on April 20th \u2014 the async AI generation pipeline is fully live:\nHTTP 202 responses \u2014 recipe generation is now non-blocking\nPub/Sub producers + HTTP push worker endpoints (/api/worker/recipe, /api/worker/image) \u2014 true serverless scale-to-zero on Cloud Run\nAngular polling service \u2014 frontend gracefully awaits async results\nAnti-Recipe Site v0.2 distribution layer also landed\n\ud83c\udfaf Recommended Next Steps\nReview & merge PR #2871 (SSR routing for Flask) \u2014 this unlocks SEO-critical routes\nReview & merge PR #2882 (PR size best practices docs) \u2014 quick win for team process\nMerge the 2 open Dependabot PRs (#2876, #2880) to keep deps current\nResolve PR #2856 \u2014 restoring Copilot CLI validation will improve daily status workflow reliability\nClose stale dail",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-26T06:12:02.234-0700",
+   "updated": "2026-04-27T22:12:28.151-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-61",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 27, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status Report\nDate: April 27, 2026 \u00b7 Branch: dev \u2192 main\n\ud83d\ude80 Recent Highlights\n\ud83e\udd16 Junie AI Agent is Live! (April 26)\nPR #2884 landed \u2014 Junie GitHub Actions workflows are now active in the repo:\nJunie Ask \u2014 AI Q&A directly in issue/PR comments\nJunie Code Review \u2014 automated code review on every PR\nPair that with the new MCP config for linear-server (.junie/mcp/mcp.json, commit 9053873) and the tooling ecosystem around this project is seriously impressive. \ud83d\udee0\ufe0f\n\u26a1 Async Architecture: Phase 4 Complete (April 20)\nThe pub/sub async AI generation pipeline is fully shipped:\nPR #2869 \u2014 Phase 4: Pub/Sub async recipe + image generation (HTTP 202, background workers, Angular polling)\nPR #2870 \u2014 Workers migrated to Cloud Run HTTP Push endpoints \u2014 true serverless scale-to-zero, no 24/7 workers needed \ud83c\udf89\nSecurity fix: removed sensitive cloud-platform OAuth scope from user auth\n\ud83c\udfa8 Anti-Recipe Site v0.2 (April 20)\nPR #2868 shipped the v0.2 design files for the anti-recipe distribution layer and integrated alirez-claude-skills. The site strategy is taking shape!\n\ud83d\udccb Open Pull Requests\nPR \nTitle \nStatus \n#2882 \nfeat(docs): PR size/reviewability best practices () \n\ud83d\udfe1 Open \n#2880 \nbuild(deps): bump express-rate-limit 8.3.2 \u2192 8.4.1 \n\ud83d\udfe2 Dependabot \u2014 auto-mergeable \n#2876 \nbuild(deps): bump testing group (2 updates) \n\ud83d\udfe2 Dependabot \u2014 auto-mergeable \n#2871 \nfeat(ssr): route /r/*, /browse, /sitemap.xml to Flask (TAS-2718) \n\ud83d\udd35 In Progress \n#2856 \nFix daily-repo-status: use npm-installed Copilot CLI \n\ud83d\udcdd Draft \n\ud83d\udc1b Open Issues\n# \nTitle \nNotes \n#100 \nEstablish PR size/reviewability best practices \nPR #2882 addresses this \n\u2705 Actionable Next Steps\nMerge PR #2880 + #2876 \ud83d\udfe2 \u2014 Two Dependabot bumps (express-rate-limit, testing libs) are ready to auto-merge. Safe and routine.\nReview PR #2882 \u2014 The PR size / reviewability best practices doc () is open; merging this closes issue #100 and gives the team clearer contribution guidelines.\nReview PR #2871 \u2014 SSR route forwarding (/r/*, /browse, /sitema",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "project:ops",
+    "report"
+   ],
+   "created": "2026-04-27T06:15:05.985-0700",
+   "updated": "2026-04-27T22:12:30.040-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "KAN-82",
+   "summary": "chore: prune stale .claude/worktrees (~1.6 GB) \u2014 audit done, cleanup deferred",
+   "description": "Prune the stale git worktrees under .claude/worktrees/ (~1.6 GB, 9 worktrees) and decide whether the directory should be gitignored. Deferred from the 2026-07-11 session to a dedicated cleanup session (part of the upcoming repo-wide cleanup/docs planning). Full audit table, per-worktree assessment, and cleanup commands are in GitHub issue #3086:https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3086\nStatus at audit time (2026-07-11):\nAll 9 worktrees have clean working trees.\n7 branches fully pushed to origin (safe to remove worktrees; commits survive on remote).\npm-jira-kan-sync must be KEPT while PR #3080 is open.\nstatus-check-2026-06-04: empty (0 commits ahead), removable.\nchore+gbrain-railway-claude-md: 2 local-only commits, verified fully superseded by newer CLAUDE.md content on dev \u2014 removable.\nRe-verify the audit (dirty files / unpushed commits / open PRs) before deleting anything.\n[Filed by Claude on Adam's behalf]",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "agent-filed",
+    "chore",
+    "cleanup"
+   ],
+   "created": "2026-07-11T02:52:51.569-0700",
+   "updated": "2026-07-11T02:52:51.698-0700",
+   "resolution": null,
+   "parent": null
+  }
+ ]
+}
