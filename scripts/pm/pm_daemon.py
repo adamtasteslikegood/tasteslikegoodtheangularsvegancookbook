@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 # Make sibling modules importable whether this file is run as a script or imported.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _atlassian_guard import validate_atlassian_site, validate_jira_project_key
+from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -293,13 +293,18 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
 
     # Default epics into the delivery project (RCP), not the execution board (KAN).
     # validate_jira_project_key raises AtlassianGuardError for anything outside
-    # the repo allowlist (KAN, RCP) — e.g. the plaza-game projects PLZG/TO.
-    target_project = validate_jira_project_key(
-        project_key
-        or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
-        or os.environ.get('JIRA_PROJECT_KEY')
-        or 'RCP'
-    )
+    # the repo write allowlist (KAN, RCP) — e.g. the plaza-game projects PLZG/TO.
+    # Surface that as a normal tool error string so MCP callers get a clean
+    # failure response instead of a tool-level exception.
+    try:
+        target_project = validate_jira_project_key(
+            project_key
+            or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
+            or os.environ.get('JIRA_PROJECT_KEY')
+            or 'RCP'
+        )
+    except AtlassianGuardError as exc:
+        return f"Error: {exc}"
 
     url = f"https://{URL_BASE}/rest/api/3/issue"
     payload = {

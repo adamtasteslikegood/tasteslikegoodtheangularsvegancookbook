@@ -106,8 +106,9 @@ This repo has an official cross-agent PM workflow outside git (all on `tasteslik
 - **Confluence TLG** = durable planning/session context and documentation
 - **`specs/*.md`** = local working copies that sync non-destructively into Confluence
 
-The PM tooling is hard-locked to that site and to the `KAN`/`RCP` projects by
-`scripts/pm/_atlassian_guard.py`; any other site or project is refused with an error.
+The PM tooling is hard-locked to that site by `scripts/pm/_atlassian_guard.py`:
+Jira writes are limited to `KAN`/`RCP`, read-only rollups/briefings may also
+include `PLZG`/`TO`, and any other site or project key is refused with an error.
 
 Quick commands:
 

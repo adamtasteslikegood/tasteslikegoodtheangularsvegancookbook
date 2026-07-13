@@ -89,9 +89,11 @@ items):
   items. Any other host — including the `tasteslikegood-dev.atlassian.net`
   service-site shell, whose former `TO` project is frozen as `TOSVC`
   ("SERVICE-HOLD — do not use") — raises `AtlassianGuardError` at config load.
-- **Jira projects:** this repo's tooling may only touch `KAN` and `RCP`. Any
-  other key (e.g. the plaza-game `PLZG`/`TO`) is refused with an error naming
-  the allowlist. Tests: `python3 -m unittest discover -s scripts/pm -p 'test_*.py'`.
+- **Jira projects:** writes are limited to `KAN` and `RCP`. Read-only
+  rollups/briefings (the `resolve_jira_projects()` consumers) may also include
+  the plaza-game `PLZG`/`TO`. Any other key — including the frozen `TOSVC` —
+  is refused with an error naming the allowlist.
+  Tests: `python3 -m unittest discover -s scripts/pm -p 'test_*.py'`.
 
 ### Optional Environment Variables
 
@@ -102,7 +104,7 @@ items):
 | `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
 | `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Execution Jira project for active work |
 | `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
-| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (values outside `KAN,RCP` are refused by the allowlist) |
+| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (read-only: `KAN,RCP,PLZG,TO` allowed; anything else refused by the allowlist) |
 
 ## Skills
 
