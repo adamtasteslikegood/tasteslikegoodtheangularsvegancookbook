@@ -31,7 +31,7 @@
 
 <!--
   PRs should be small and focused. Large PRs are hard to review thoroughly
-  and increase the risk of bugs slipping through. See docs/CONTRIBUTING.md
+  and increase the risk of bugs slipping through. See docs/guides/CONTRIBUTING.md
   for guidance on splitting large PRs.
 -->
 

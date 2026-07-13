@@ -110,7 +110,7 @@ jobs:
             const emoji   = isLarge ? '🚨' : '⚠️';
             const level   = isLarge ? 'Large PR' : 'PR Size Warning';
             const repoUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}`;
-            const guideUrl = `${repoUrl}/blob/main/docs/CONTRIBUTING.md#pr-size--reviewability`;
+            const guideUrl = `${repoUrl}/blob/main/docs/guides/CONTRIBUTING.md#pr-size--reviewability`;
             const advice  = isLarge
               ? `This PR is **very large**. Please consider splitting it into smaller, focused PRs before requesting a review. See the [PR Size & Reviewability](${guideUrl}) guide.`
               : `This PR exceeds the recommended size. If it cannot be split further, please add a note in the PR description explaining why. See the [PR Size & Reviewability](${guideUrl}) guide.`;
