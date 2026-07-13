@@ -1,0 +1,7 @@
+# Example values only. Copy to terraform.tfvars and fill in real credentials.
+# WARNING: never put real keys in this .example file — it is committed.
+# terraform.tfvars itself is gitignored (see .gitignore: *.tfvars), and real
+# values should come from a secret store (GCP Secret Manager), not from disk.
+project_id      = "comdottasteslikegood"
+datadog_api_key = "<your-datadog-api-key>"
+datadog_app_key = "<your-datadog-app-key>"
