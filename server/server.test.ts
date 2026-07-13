@@ -812,3 +812,14 @@ describe('createRequestLogger log injection prevention', () => {
     errorSpy.mockRestore();
   });
 });
+
+describe('sanitizeForLog unicode line separators', () => {
+  it('replaces raw U+2028/U+2029 (rendered as line breaks by many log sinks)', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/api/ forged')).toBe('/api/_forged');
+    expect(sanitizeForLog('/api/ forged')).toBe('/api/_forged');
+    // Percent-encoded forms stay literal text — the sanitizer never decodes,
+    // so %E2%80%A8 can't become a real line separator in the first place.
+    expect(sanitizeForLog('/api/%E2%80%A8forged')).toBe('/api/%E2%80%A8forged');
+  });
+});

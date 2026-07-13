@@ -124,9 +124,11 @@ export function sanitizeForLog(value: string | null | undefined): string {
   return (
     value
       // Replace all C0 control characters (0x00-0x1F, which includes \n, \r,
-      // and ESC/0x1B) and DEL (0x7F) with a visible placeholder.
+      // and ESC/0x1B), DEL (0x7F), and the Unicode line separators U+2028 and
+      // U+2029 (rendered as line breaks by many log sinks) with a visible
+      // placeholder.
       // eslint-disable-next-line no-control-regex
-      .replace(/[\x00-\x1f\x7f]/g, '_')
+      .replace(/[\x00-\x1f\x7f\u2028\u2029]/g, '_')
       // Defense-in-depth newline strip -- a no-op after the pass above, but it
       // is the exact shape CodeQL's js/log-injection query recognizes as a
       // sanitizer: its StringReplaceSanitizer only models a replace of "\n"
