@@ -5,17 +5,19 @@
  *
  * Boots the real Express app against a stub Flask backend that echoes back
  * exactly what it received, so the tests can assert both that invalid
- * requests never reach Flask and that valid requests arrive byte-identical
- * to what the client sent (issue #3083).
+ * requests never reach Flask and that valid requests arrive as exactly the
+ * bytes that were validated (issue #3083).
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { gzipSync } from 'node:zlib';
 
 interface EchoedRequest {
   method: string | undefined;
   url: string | undefined;
   contentLength: string | undefined;
+  contentEncoding: string | undefined;
   body: string;
 }
 
@@ -39,6 +41,7 @@ beforeAll(async () => {
         method: req.method,
         url: req.url,
         contentLength: req.headers['content-length'],
+        contentEncoding: req.headers['content-encoding'],
         body: Buffer.concat(chunks).toString('utf8'),
       });
       res.writeHead(202, { 'content-type': 'application/json' });
@@ -94,6 +97,24 @@ describe('POST /api/generate validation', () => {
     expect(flaskRequests).toHaveLength(1);
     expect(flaskRequests[0].url).toBe('/api/generate');
     expect(flaskRequests[0].body).toBe(payload);
+    expect(flaskRequests[0].contentLength).toBe(String(Buffer.byteLength(payload)));
+  });
+
+  it('replays a gzip-encoded request as identity-encoded decompressed bytes', async () => {
+    // body-parser inflates encoded bodies before the verify hook captures
+    // them, so the buffered replay holds DECOMPRESSED bytes. The proxy must
+    // therefore strip content-encoding and describe the decompressed length,
+    // or Flask would try to gunzip plain JSON.
+    const payload = JSON.stringify({ prompt: 'A hearty winter stew with lentils' });
+    const res = await fetch(`${baseUrl}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-encoding': 'gzip' },
+      body: gzipSync(payload),
+    });
+    expect(res.status).toBe(202);
+    expect(flaskRequests).toHaveLength(1);
+    expect(flaskRequests[0].body).toBe(payload);
+    expect(flaskRequests[0].contentEncoding).toBeUndefined();
     expect(flaskRequests[0].contentLength).toBe(String(Buffer.byteLength(payload)));
   });
 

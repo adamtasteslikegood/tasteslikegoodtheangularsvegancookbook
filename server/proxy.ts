@@ -45,7 +45,12 @@ export function createFlaskProxy(label = 'Flask') {
       'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || req.protocol,
     };
     if (rawBody !== undefined) {
-      headers['content-length'] = String(rawBody.length);
+      // body-parser inflates encoded bodies (gzip/deflate/br) BEFORE its
+      // verify hook captures them, so rawBody is always identity-encoded.
+      // Drop the client's content-encoding and recompute content-length so
+      // the forwarded headers describe the bytes actually sent to Flask.
+      headers['content-length'] = String(Buffer.byteLength(rawBody));
+      delete headers['content-encoding'];
       delete headers['transfer-encoding'];
     }
     const options: http.RequestOptions = {
@@ -80,7 +85,8 @@ export function createFlaskProxy(label = 'Flask') {
 
     if (rawBody !== undefined) {
       // AI endpoints: the validation layer consumed the stream; send the
-      // buffered bytes it captured (identical to what the client sent).
+      // buffered bytes it captured — the bytes that were validated
+      // (post-decompression if the request was encoded).
       proxyReq.end(rawBody);
     } else {
       // Stream the raw request body through to Flask.

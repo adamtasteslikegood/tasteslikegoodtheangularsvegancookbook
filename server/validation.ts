@@ -6,9 +6,9 @@
  * middleware here must NOT leave the body stream consumed-but-unforwarded:
  * for the two expensive AI endpoints this module buffers the JSON body
  * (capped at AI_REQUEST_BODY_LIMIT), validates it with express-validator,
- * and stashes the original raw bytes on req.rawBody so the proxy can replay
- * them to Flask verbatim. Every other /api/* route is untouched and keeps
- * the raw streaming behavior.
+ * and stashes the exact bytes it validated on req.rawBody so the proxy can
+ * replay them to Flask. Every other /api/* route is untouched and keeps the
+ * raw streaming behavior.
  *
  * Rules mirror Flask's own checks (Backend/blueprints/generation_bp.py
  * validate_generation_input and generation_api_bp.py) so a request rejected
@@ -36,8 +36,10 @@ const MODEL_NAME_RE = /^[A-Za-z0-9._/-]{1,128}$/;
 
 /**
  * JSON body parser scoped to the AI endpoints. The verify hook captures the
- * raw bytes before parsing so the proxy can forward exactly what the client
- * sent (identical bytes, identical Content-Length).
+ * buffered bytes before parsing so the proxy can forward the bytes that were
+ * validated (post-decompression if the request was encoded — body-parser
+ * inflates gzip/deflate/br bodies before verify runs, which is why the proxy
+ * strips content-encoding and recomputes content-length when replaying).
  */
 function createAiBodyParser() {
   return express.json({
