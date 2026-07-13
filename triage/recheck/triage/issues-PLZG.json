@@ -1,0 +1,1109 @@
+{
+ "site": "https://tasteslikegood.atlassian.net",
+ "project": "PLZG",
+ "count": 69,
+ "issues": [
+  {
+   "key": "PLZG-37",
+   "summary": "Phase 0 \u2014 Pre-work: Data Prep & Content Definition",
+   "description": "All foundational work that must be completed before writing a single line of Godot code. Includes exporting the agent directory to JSON, defining open content items (assistant name, company name, art direction), and establishing data formats.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:27.283-0700",
+   "updated": "2026-04-27T22:13:13.663-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-23",
+   "summary": "Phase 1 \u2014 Godot 4 Prototype (Weeks 1\u20133)",
+   "description": "Build the 3D office world with first-person navigation, NPC proximity-dialogue, the agent data layer, assistant chat UI, and the unlock gate system. Critical path: M1 \u2192 M4 \u2192 M8. If you can walk through a lobby, approach an NPC, and see their agent info \u2014 Phase 1 is proven.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:30.091-0700",
+   "updated": "2026-04-27T22:13:18.602-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-29",
+   "summary": "Phase 2 \u2014 I/O Bridge: Live Agent Output (Weeks 4\u20136)",
+   "description": "Connect the Godot game world to real agent CLI processes via a local Python WebSocket bridge. M8 is the proof-of-concept milestone: walk up to an NPC \u2192 type a question \u2192 real agent response appears in the dialogue panel. The game becomes the tool.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:32.848-0700",
+   "updated": "2026-04-27T22:13:16.357-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-32",
+   "summary": "Phase 3 \u2014 Polish, All 9 Floors & Full Tutorial Arc",
+   "description": "Post-prototype expansion: all 9 department floors, full NPC set, NPC animations + pathfinding, complete Week 1 tutorial arc, real assistant API connection, streaming I/O visualization, art pass, ambient sound. Define specifics once M8 is working.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:35.136-0700",
+   "updated": "2026-04-27T22:13:14.683-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-66",
+   "summary": "Define in-world assistant \u2014 name and personality",
+   "description": "The always-on navigation companion that appears as a chat overlay (not an agent NPC). Warm, slightly playful tone. Separate from the employee characters \u2014 this is the player's guide to the office world itself. Name and personality should feel intentional, not generic. Worth designing carefully before scripting any dialogue.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:48.996-0700",
+   "updated": "2026-04-27T22:13:09.401-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-64",
+   "summary": "Define tutorial startup \u2014 company name and backstory",
+   "description": "The fictional startup the player has been building with the founder before Day 0. Should feel like a real startup \u2014 not a placeholder. Name, what the product does, how far along it is. This is the emotional context for why the new office matters. The company name and backstory will appear in Founder call dialogue (Day 0) and throughout the tutorial arc.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:51.608-0700",
+   "updated": "2026-04-27T22:13:10.397-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-75",
+   "summary": "Export 137 agent .md files to agents.json",
+   "description": "Convert the full employee directory from .md format to a single agents.json file. Required before Milestone 3 (AgentRegistry autoload). Schema per agent: { name, role, dept, color, description, tools }. Verify all 137 entries parse correctly and the structure matches the planned AgentRegistry.gd loader. Source: adamtasteslikegood/claude-code-tresor.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:55.251-0700",
+   "updated": "2026-04-27T22:13:05.426-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-76",
+   "summary": "Define art direction and rough visual moodboard",
+   "description": "Even a rough direction helps grey-boxing decisions. Questions to answer: interior style (modern tech-office? brutalist? warm indie?), lighting mood (warm and lived-in or cool and corporate?), color palette consistency with the 9 department color codes. One or two reference images / screenshots is enough to unblock M2.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:19:58.765-0700",
+   "updated": "2026-04-27T22:13:04.986-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-77",
+   "summary": "M1 \u2014 Install Godot 4 + first-person controller (~1 hour)",
+   "description": "Download Godot 4 from godotengine.org (~80MB, no install needed). Open Asset Library inside Godot \u2192 search \"First Person\" \u2192 download the FPS demo. Hit Play and walk around. That working FPS controller is your foundation. Create a new project and copy the CharacterBody3D controller into it. Done when: player walks, looks around, has collision.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:07.750-0700",
+   "updated": "2026-04-27T22:13:04.536-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-78",
+   "summary": "M2 \u2014 Grey-box the office layout (4\u20136 hours)",
+   "description": "Build the entire office space with plain CSGBox3D geometry before any textures or art. Rooms to block out: lobby/entrance, player's office, server room, engineering floor (open plan), war room/meeting room, 2\u20133 locked corridors. Add Area3D doorway triggers on each room entrance. Bake NavigationRegion3D for pathfinding. Done when: you can walk through the whole space and it feels right to navigate. Do NOT add art until this is validated.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:12.170-0700",
+   "updated": "2026-04-27T22:13:04.067-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-79",
+   "summary": "M3 \u2014 Agent data layer: load employee directory as game data (~2 hours)",
+   "description": "Convert agents.json (from Phase 0) into the game's data layer. Create autoload/AgentRegistry.gd that loads agents.json at startup and returns agent data by ID. Create autoload/GameEvents.gd with core signals: npc_approached, npc_left, task_completed, floor_unlocked. Create autoload/GameState.gd with unlock tracking. Add all three to Project \u2192 Autoload. Done when: AgentRegistry.get_agent(\"systems-architect\") returns correct data in-game.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:16.197-0700",
+   "updated": "2026-04-27T22:13:03.584-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-80",
+   "summary": "M4 \u2014 First NPC + proximity dialogue (~3 hours) [CRITICAL PATH]",
+   "description": "The core loop. NPC scene: CharacterBody3D + Area3D proximity trigger + Label3D name tag. npc.gd reads from AgentRegistry by agent_id export var. When player enters proximity \u2192 GameEvents.npc_approached fires \u2192 HUD dialogue panel populates from agent data. First NPC: Systems Architect in the server room. Done when: walk up \u2192 panel shows agent name + role + description. Walk away \u2192 panel hides. This template is used for all future NPCs.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:21.117-0700",
+   "updated": "2026-04-27T22:13:03.124-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-81",
+   "summary": "M5 \u2014 Assistant chat UI overlay (~4 hours)",
+   "description": "Always-on CanvasLayer chat panel (NOT an NPC). Toggle with Tab or tilde key. Contains: scrollable message history, LineEdit input, Send button. Returns scripted/hardcoded responses in Phase 1. This is the player's always-on companion separate from the agent NPCs \u2014 it handles navigation, schedule, and task check-ins. Phase 2 upgrade: swap scripted responses for HTTP/WebSocket calls to real API.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:24.930-0700",
+   "updated": "2026-04-27T22:13:02.655-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-82",
+   "summary": "M6 \u2014 Unlock gate system + 2D building map (~5 hours)",
+   "description": "GameState.complete_task() checks unlock gate rules and calls unlock_floor(). Door triggers check GameState.is_unlocked(). 2D building map widget in HUD: rooms are colored rects using department colors, locked rooms grey, updates on GameEvents.floor_unlocked. Default unlocked: lobby + server room. First unlock gate: complete first sprint task \u2192 engineering floor unlocks. Done when: completing a mock task unlocks a door and the map updates.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:28.518-0700",
+   "updated": "2026-04-27T22:13:02.208-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-84",
+   "summary": "M7 \u2014 Python WebSocket bridge (~1 day)",
+   "description": "A small Python process running alongside the game on the same machine. Godot sends task requests over local WebSocket (ws://localhost:8765); bridge spawns agent CLI subprocess, captures stdout, returns result as JSON. No cloud, no deployment, no auth. Install: pip install websockets. Test standalone with wscat before wiring into Godot. Then write ws_client.gd in Godot and test the full round-trip: Godot sends \u2192 bridge receives (log) \u2192 bridge returns \u2192 Godot receives (log).",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:39.033-0700",
+   "updated": "2026-04-27T22:13:01.086-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-85",
+   "summary": "M8 \u2014 First live agent output in-world [PROTOTYPE COMPLETE] (2\u20134 hours)",
+   "description": "Wire it all together: walk up to Systems Architect NPC \u2192 dialogue panel opens \u2192 player types a real question \u2192 ws_client.send_task() fires \u2192 bridge invokes @systems-architect via CLI \u2192 response JSON returns to Godot \u2192 output appears in dialogue panel \u2192 response also logged to inbox. This is the milestone where the game becomes the tool. Everything after this point is polish and expansion.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:43.433-0700",
+   "updated": "2026-04-27T22:13:00.482-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-83",
+   "summary": "Phase 3 planning \u2014 define specifics once M8 is working",
+   "description": "Post-M8 expansion work. Rough scope: all 9 department floors fully blocked out and textured, full NPC set (all dept leads + core 8 agents), NPC idle animations + pathfinding, complete Day 0\u20135 tutorial arc with full dialogue scripts, real assistant API connection (replace scripted responses), streaming I/O output visualization, ambient sound design, art pass. Break this into sub-tasks after M8 is validated \u2014 no point defining granular tasks before the core loop works.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "project:plaza"
+   ],
+   "created": "2026-04-13T07:20:48.360-0700",
+   "updated": "2026-04-27T22:13:01.712-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-4",
+   "summary": "Godot 4 Game \u2014 Agent Knowledge Base Explorer",
+   "description": "A first-person 3D office game built in Godot 4 where players explore a 9-floor building and interact with NPCs representing AI agents. Milestones: Phase 0 (data prep), Phase 1 (3D prototype), Phase 2 (live agent I/O bridge), Phase 3 (polish + full tutorial arc). Critical path: M1 \u2192 M4 \u2192 M8 (first live agent output in-world). Migrated from TO-19\u2013TO-35.",
+   "type": "Epic",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:10:22.925-0700",
+   "updated": "2026-04-27T22:20:15.752-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-86",
+   "summary": "Phase 0 \u2014 Pre-work: Data Prep & Content Definition",
+   "description": "All foundational work that must be completed before writing a single line of Godot code. Includes exporting the agent directory to JSON, defining open content items (assistant name, company name, art direction), and establishing data formats.\nMigrated from TO-19",
+   "type": "Story",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:10:30.179-0700",
+   "updated": "2026-04-27T22:12:59.960-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-3",
+   "summary": "Phase 1 \u2014 Godot 4 Prototype (Weeks 1\u20133)",
+   "description": "Build the 3D office world with first-person navigation, NPC proximity-dialogue, the agent data layer, assistant chat UI, and the unlock gate system. Critical path: M1 \u2192 M4 \u2192 M8. If you can walk through a lobby, approach an NPC, and see their agent info \u2014 Phase 1 is proven.\nMigrated from TO-20",
+   "type": "Story",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:10:34.299-0700",
+   "updated": "2026-04-27T22:20:15.989-0700",
+   "resolution": null,
+   "parent": "PLZG-4"
+  },
+  {
+   "key": "PLZG-87",
+   "summary": "Phase 2 \u2014 I/O Bridge: Live Agent Output (Weeks 4\u20136)",
+   "description": "Connect the Godot game world to real agent CLI processes via a local Python WebSocket bridge. M8 is the proof-of-concept milestone: walk up to an NPC \u2192 type a question \u2192 real agent response appears in the dialogue panel. The game becomes the tool.\nMigrated from TO-21",
+   "type": "Story",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:10:38.061-0700",
+   "updated": "2026-04-27T22:12:59.558-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-2",
+   "summary": "Phase 3 \u2014 Polish, All 9 Floors & Full Tutorial Arc",
+   "description": "Post-prototype expansion: all 9 department floors, full NPC set, NPC animations + pathfinding, complete Week 1 tutorial arc, real assistant API connection, streaming I/O visualization, art pass, ambient sound. Define specifics once M8 is working.\nMigrated from TO-22",
+   "type": "Story",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:10:40.805-0700",
+   "updated": "2026-04-27T22:13:26.787-0700",
+   "resolution": null,
+   "parent": "PLZG-4"
+  },
+  {
+   "key": "PLZG-88",
+   "summary": "Define in-world assistant \u2014 name and personality",
+   "description": "The always-on navigation companion that appears as a chat overlay (not an agent NPC). Warm, slightly playful tone. Separate from the employee characters \u2014 this is the player's guide to the office world itself. Name and personality should feel intentional, not generic. Worth designing carefully before scripting any dialogue.\\n\\n_Migrated from TO-23_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:11.852-0700",
+   "updated": "2026-04-27T22:12:59.112-0700",
+   "resolution": null,
+   "parent": "PLZG-86"
+  },
+  {
+   "key": "PLZG-89",
+   "summary": "Define tutorial startup \u2014 company name and backstory",
+   "description": "The fictional startup the player has been building with the founder before Day 0. Should feel like a real startup \u2014 not a placeholder. Name, what the product does, how far along it is. This is the emotional context for why the new office matters. The company name and backstory will appear in Founder call dialogue (Day 0) and throughout the tutorial arc.\\n\\n_Migrated from TO-24_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:20.848-0700",
+   "updated": "2026-04-27T22:12:58.559-0700",
+   "resolution": null,
+   "parent": "PLZG-86"
+  },
+  {
+   "key": "PLZG-90",
+   "summary": "Export 137 agent .md files to agents.json",
+   "description": "Convert the full employee directory from .md format to a single agents.json file. Required before Milestone 3 (AgentRegistry autoload). Schema per agent: { name, role, dept, color, description, tools }. Verify all 137 entries parse correctly and the structure matches the planned AgentRegistry.gd loader. Source: adamtasteslikegood/claude-code-tresor.\\n\\n_Migrated from TO-25_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:26.296-0700",
+   "updated": "2026-04-27T22:12:58.019-0700",
+   "resolution": null,
+   "parent": "PLZG-86"
+  },
+  {
+   "key": "PLZG-91",
+   "summary": "Define art direction and rough visual moodboard",
+   "description": "Even a rough direction helps grey-boxing decisions. Questions to answer: interior style (modern tech-office? brutalist? warm indie?), lighting mood (warm and lived-in or cool and corporate?), color palette consistency with the 9 department color codes. One or two reference images / screenshots is enough to unblock M2.\\n\\n_Migrated from TO-26_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:30.034-0700",
+   "updated": "2026-04-27T22:12:57.551-0700",
+   "resolution": null,
+   "parent": "PLZG-86"
+  },
+  {
+   "key": "PLZG-8",
+   "summary": "M1 \u2014 Install Godot 4 + first-person controller (~1 hour)",
+   "description": "Download Godot 4 from godotengine.org (~80MB, no install needed). Open Asset Library inside Godot, search \"First Person\", download the FPS demo. Hit Play and walk around. That working FPS controller is your foundation. Create a new project and copy the CharacterBody3D controller into it. Done when: player walks, looks around, has collision.\\n\\n_Migrated from TO-27_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:35.187-0700",
+   "updated": "2026-04-27T22:13:23.795-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-13",
+   "summary": "M2 \u2014 Grey-box the office layout (4\u20136 hours)",
+   "description": "Build the entire office space with plain CSGBox3D geometry before any textures or art. Rooms: lobby/entrance, player's office, server room, engineering floor (open plan), war room/meeting room, 2\u20133 locked corridors. Add Area3D doorway triggers on each room entrance. Bake NavigationRegion3D for pathfinding. Done when: you can walk through the whole space and it feels right to navigate. Do NOT add art until this is validated.\\n\\n_Migrated from TO-28_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:40.476-0700",
+   "updated": "2026-04-27T22:13:22.309-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-19",
+   "summary": "M3 \u2014 Agent data layer: load employee directory as game data (~2 hours)",
+   "description": "Convert agents.json (from Phase 0) into the game's data layer. Create autoload/AgentRegistry.gd that loads agents.json at startup and returns agent data by ID. Create autoload/GameEvents.gd with core signals: npc_approached, npc_left, task_completed, floor_unlocked. Create autoload/GameState.gd with unlock tracking. Add all three to Project \u2192 Autoload. Done when: AgentRegistry.get_agent(\"systems-architect\") returns correct data in-game.\\n\\n_Migrated from TO-29_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:45.103-0700",
+   "updated": "2026-04-27T22:13:20.252-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-24",
+   "summary": "M4 \u2014 First NPC + proximity dialogue (~3 hours) [CRITICAL PATH]",
+   "description": "The core loop. NPC scene: CharacterBody3D + Area3D proximity trigger + Label3D name tag. npc.gd reads from AgentRegistry by agent_id export var. When player enters proximity \u2192 GameEvents.npc_approached fires \u2192 HUD dialogue panel populates from agent data. First NPC: Systems Architect in the server room. Done when: walk up \u2192 panel shows agent name + role + description. Walk away \u2192 panel hides. This template is used for all future NPCs.\\n\\n_Migrated from TO-30_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:12:50.549-0700",
+   "updated": "2026-04-27T22:13:18.176-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-30",
+   "summary": "M5 \u2014 Assistant chat UI overlay (~4 hours)",
+   "description": "Always-on CanvasLayer chat panel (NOT an NPC). Toggle with Tab or tilde key. Contains: scrollable message history, LineEdit input, Send button. Returns scripted/hardcoded responses in Phase 1. This is the player's always-on companion separate from the agent NPCs \u2014 it handles navigation, schedule, and task check-ins. Phase 2 upgrade: swap scripted responses for HTTP/WebSocket calls to real API.\\n\\n_Migrated from TO-31_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:13:02.408-0700",
+   "updated": "2026-04-27T22:13:15.845-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-35",
+   "summary": "M6 \u2014 Unlock gate system + 2D building map (~5 hours)",
+   "description": "GameState.complete_task() checks unlock gate rules and calls unlock_floor(). Door triggers check GameState.is_unlocked(). 2D building map widget in HUD: rooms are colored rects using department colors, locked rooms grey, updates on GameEvents.floor_unlocked. Default unlocked: lobby + server room. First unlock gate: complete first sprint task \u2192 engineering floor unlocks. Done when: completing a mock task unlocks a door and the map updates.\\n\\n_Migrated from TO-32_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:13:07.750-0700",
+   "updated": "2026-04-27T22:13:14.177-0700",
+   "resolution": null,
+   "parent": "PLZG-3"
+  },
+  {
+   "key": "PLZG-92",
+   "summary": "M7 \u2014 Python WebSocket bridge (~1 day)",
+   "description": "A small Python process running alongside the game on the same machine. Godot sends task requests over local WebSocket (ws://localhost:8765); bridge spawns agent CLI subprocess, captures stdout, returns result as JSON. No cloud, no deployment, no auth. Install: pip install websockets. Test standalone with wscat before wiring into Godot. Then write ws_client.gd in Godot and test the full round-trip: Godot sends \u2192 bridge receives (log) \u2192 bridge returns \u2192 Godot receives (log).\\n\\n_Migrated from TO-33_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:13:12.986-0700",
+   "updated": "2026-04-27T22:12:57.138-0700",
+   "resolution": null,
+   "parent": "PLZG-87"
+  },
+  {
+   "key": "PLZG-93",
+   "summary": "M8 \u2014 First live agent output in-world [PROTOTYPE COMPLETE] (2\u20134 hours)",
+   "description": "Wire it all together: walk up to Systems Architect NPC \u2192 dialogue panel opens \u2192 player types a real question \u2192 ws_client.send_task() fires \u2192 bridge invokes @systems-architect via CLI \u2192 response JSON returns to Godot \u2192 output appears in dialogue panel \u2192 response also logged to inbox. This is the milestone where the game becomes the tool. Everything after this point is polish and expansion.\\n\\n_Migrated from TO-34_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:13:18.106-0700",
+   "updated": "2026-04-27T22:12:56.657-0700",
+   "resolution": null,
+   "parent": "PLZG-87"
+  },
+  {
+   "key": "PLZG-5",
+   "summary": "Phase 3 planning \u2014 define specifics once M8 is working",
+   "description": "Post-M8 expansion work. Rough scope: all 9 department floors fully blocked out and textured, full NPC set (all dept leads + core 8 agents), NPC idle animations + pathfinding, complete Day 0\u20135 tutorial arc with full dialogue scripts, real assistant API connection (replace scripted responses), streaming I/O output visualization, ambient sound design, art pass. Break this into sub-tasks after M8 is validated \u2014 no point defining granular tasks before the core loop works.\\n\\n_Migrated from TO-35_",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:plaza"
+   ],
+   "created": "2026-04-15T03:13:23.588-0700",
+   "updated": "2026-04-27T22:13:25.392-0700",
+   "resolution": null,
+   "parent": "PLZG-2"
+  },
+  {
+   "key": "PLZG-6",
+   "summary": "M1 \u2014 Godot setup",
+   "description": "Phase 1 milestone \u2014 Godot prototype foundation.\nGoal\nGodot 4 installed, base project created, player character moves with collision.\nChecklist\nDownload Godot 4Run First Person Shooter demo \u2014 confirm movement worksCreate new projectImport FPS CharacterBody3D controller into new projectConfirm player walks, looks around, has collisionBlockers\nOpen question #5 (web export vs desktop) should be resolved before starting \u2014 project settings differ.\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:08.926-0700",
+   "updated": "2026-04-27T22:13:24.966-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-7",
+   "summary": "M2 \u2014 Grey-box office",
+   "description": "Phase 1 milestone \u2014 blocked-out 3D space the player can walk through.\nGoal\nPlayer can walk through lobby \u2192 player office \u2192 server room \u2192 engineering floor \u2192 war room. Each room has a trigger, navigation is baked. Prototype feels spatially correct.\nChecklist\nBlock out lobbyBlock out player officeBlock out server roomBlock out engineering floor (open plan)Block out war room / meeting roomAdd 2\u20133 locked corridors (future floors)Add Area3D doorway triggers on each room entranceBake NavigationRegion3D for the full floorPlaytest: does it feel right to walk through?Dependencies\nM1 must be complete (player controller works)\nOpen question #3 (art direction) doesn't block grey-box but unblocks texturing later\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:15.331-0700",
+   "updated": "2026-04-27T22:13:24.409-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-9",
+   "summary": "M3 \u2014 Agent data layer",
+   "description": "Phase 1 milestone \u2014 data + state infrastructure.\nGoal\nAgent fleet loaded from JSON, registry queryable, game events + state tracking autoloaded. Foundation for NPC wiring and unlock logic.\nChecklist\n[ ] Create data/agents.json from directory\n[ ] Create autoload/AgentRegistry.gd\n[ ] Add AgentRegistry to Project \u2192 Autoload\n[ ] Test: AgentRegistry.get_agent(\"systems-architect\") returns correct data\n[ ] Create autoload/GameEvents.gd with core signals\n[ ] Create autoload/GameState.gd with unlock/task tracking\nDependencies\nPre-work: export 137 agent .md files \u2192 agents.json (tracked as separate Task)\nOpen question #7 (save game format) blocks GameState.gd\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:22.336-0700",
+   "updated": "2026-04-27T22:13:23.336-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-11",
+   "summary": "M4 \u2014 First NPC",
+   "description": "Phase 1 milestone \u2014 first interactive NPC in the server room.\nGoal\nWalk up to Systems Architect NPC \u2192 dialogue panel shows with agent info \u2192 walk away \u2192 panel hides.\nChecklist\n[ ] Create NPC scene (CharacterBody3D + Area3D + Label3D)\n[ ] Write npc.gd with agent_id export + proximity signal\n[ ] Place Systems Architect NPC in server room\n[ ] Create basic HUD dialogue panel (CanvasLayer)\n[ ] Wire GameEvents.npc_approached \u2192 dialogue panel populates from agent data\n[ ] Playtest: walk up to NPC \u2192 panel shows \u2192 walk away \u2192 panel hides\nDependencies\nM2 (server room exists)\nM3 (AgentRegistry available)\nOpen question #12 (dialogue branching) may significantly affect scope\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:28.161-0700",
+   "updated": "2026-04-27T22:13:22.843-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-14",
+   "summary": "M5 \u2014 Assistant chat UI",
+   "description": "Phase 1 milestone \u2014 assistant overlay the player can toggle and chat with (scripted responses for now).\nGoal\nTab or ~ opens chat overlay. Player types a message, gets a scripted response from the in-world assistant. Messages persist in scroll history.\nChecklist\n[ ] Create assistant overlay (CanvasLayer)\n[ ] Build chat panel UI (message list + input + send button)\n[ ] Implement toggle keypress (Tab or ~)\n[ ] Add scripted responses for Day 0/1 context\n[ ] Add basic message history (scroll container)\n[ ] Playtest: toggle chat, send a message, get a response\nDependencies\nOpen question #1 (assistant character name) \u2014 blocks, needed for scripted responses\nScripted responses will be swapped for real agent API in M8\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:42.544-0700",
+   "updated": "2026-04-27T22:13:21.845-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-15",
+   "summary": "M6 \u2014 Unlock + map system",
+   "description": "Phase 1 milestone \u2014 progression mechanics.\nGoal\nCompleting a task unlocks a door. The 2D building map widget updates to reflect new unlocked zones.\nChecklist\nImplement GameState.complete_task() with gate checksImplement GameState.unlock_floor() + is_unlocked()Wire door triggers to GameState.is_unlocked()Build 2D building map widget in HUDConnect GameEvents.floor_unlocked \u2192 map updates colorTest: complete a task \u2192 door unlocks \u2192 map updatesDependencies\nM3 (GameState autoload exists)\nM2 (doors/corridors to gate)\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-1",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:47.975-0700",
+   "updated": "2026-04-27T22:13:21.346-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-17",
+   "summary": "M7 \u2014 Python bridge",
+   "description": "Phase 2 milestone \u2014 WebSocket bridge between Godot and real agent CLI processes.\nGoal\nGodot can send a task to a Python WebSocket server \u2192 server spawns the right agent CLI as subprocess \u2192 response streams back to Godot.\nChecklist\n[ ] Install Python websockets: pip install websockets\n[ ] Write bridge.py (WebSocket server + subprocess agent invocation)\n[ ] Test bridge standalone: send it a task via wscat or websocat, verify agent CLI response returns\n[ ] Write ws_client.gd in Godot\n[ ] Test: Godot sends a task \u2192 bridge receives it (log to console)\n[ ] Test: bridge returns a response \u2192 Godot receives and logs it\nRisks\nSubprocess management (concurrent tasks, zombies, timeouts) is load-bearing\nOpen question #11 (agent response latency UX) becomes urgent once this is working\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-2",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:28:54.655-0700",
+   "updated": "2026-04-27T22:13:20.826-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-20",
+   "summary": "M8 \u2014 First live agent output in-world",
+   "description": "Phase 2 milestone \u2014 Prototype complete.\nGoal\nWalk up to NPC \u2192 type a real question \u2192 real agent response appears in-world. End-to-end vertical slice.\nChecklist\n[ ] Wire dialogue panel \"send\" button \u2192 ws_client.send_task()\n[ ] Wire ws_client.response_received \u2192 dialogue panel updates with output\n[ ] Wire response \u2192 also logs to inbox\n[ ] Test end-to-end: walk up to NPC \u2192 type question \u2192 real agent response appears\n[ ] MILESTONE: Prototype complete\nDependencies\nM4 (NPC dialogue panel exists)\nM7 (bridge works)\nOpen question #6 (agent error handling in-world) should be answered before this ships\nCompletion signal\nThis issue closing = prototype complete. Time to step back, play the build, and decide Phase 3 scope.\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "cleanup-2026-04-28",
+    "duplicate",
+    "milestone",
+    "phase-2",
+    "project:plaza",
+    "prototype-complete"
+   ],
+   "created": "2026-04-18T02:29:00.727-0700",
+   "updated": "2026-04-27T22:13:19.715-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-22",
+   "summary": "Phase 3 \u2014 Polish + expansion (backlog)",
+   "description": "Backlog placeholder \u2014 specifics locked once M8 ships. Do not start work inside until prototype is complete.\nRough scope\nWorld\nAll 9 department floors blocked out\nTextures / basic materials applied\nLighting pass (day/night? warm office lighting?)\nAmbient sound (HVAC hum, distant typing, coffee machine)\nNPCs\nAll 9 department lead NPCs placed and scripted\nCore 8 agents placed in server room\nNPC animations (idle, talking, working)\nNPC pathfinding (walk between rooms)\nTutorial\nFull Day 0 cutscene (Founder call)\nDay 1\u20135 scenes scripted and implemented\nUnlock gates for all 9 departments\nTutorial completion state \u2192 free play\nAssistant\nConnect assistant chat to real API (not scripted)\nSchedule view\nInbox with task history\nNotification system\nI/O visualization\nTask status indicator while agent is running\nStreaming output (show response as it arrives)\nError handling / failed task display\nMulti-agent task orchestration visualization\nConfluence\nSee PM Task Tracker",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "backlog",
+    "cleanup-2026-04-28",
+    "duplicate",
+    "phase-3",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:21.818-0700",
+   "updated": "2026-04-27T22:13:19.236-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "PLZG-62",
+   "summary": "Content: in-world assistant \u2014 name and personality",
+   "description": "Blocks M5 (assistant chat UI).\nThe in-world assistant is the player's primary ambient voice \u2014 needs a name and a personality that feels like a real startup tool, not a generic AI mascot.\nDeliverables:\nName (single word preferred)\n1-paragraph personality description: tone, vocabulary, what they do / don't do\n5\u201310 sample utterances for Day 0 / Day 1 contexts\nScope: Non-technical \u2014 design + writing decision, not code.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m5",
+    "content",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:26.165-0700",
+   "updated": "2026-04-27T22:13:11.392-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-54",
+   "summary": "Content: tutorial startup \u2014 company name",
+   "description": "Blocks M4 dialogue scripts.\nThe fictional company the player is joining. Name sets the tone for every NPC line and every document the player sees in-world.\nDeliverables:\nCompany name\n1\u20132 sentence description (what do they do, what stage)\nFounder name (used in Day 0 video call)\nScope: Writing decision. Should feel like a real early-stage startup, not a joke name.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m4",
+    "content",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:30.194-0700",
+   "updated": "2026-04-27T22:13:13.229-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-56",
+   "summary": "Content: player character \u2014 name / customization options",
+   "description": "How the player is identified in-world.\nDeliverables:\nDefault name (if none set)\nCustomization options? (name, pronouns, cosmetic?) \u2014 or locked to a canonical character?\nHow is name used in dialogue? (NPCs address the player by name? Or only assistant does?)\nScope: Design decision with downstream impact on dialogue variable injection.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m4",
+    "content",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:33.895-0700",
+   "updated": "2026-04-27T22:13:12.786-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-58",
+   "summary": "Content: Day 0 dialogue script \u2014 Founder video call",
+   "description": "Full script for the Day 0 onboarding cutscene.\nContext: Player just joined. Founder calls via video to brief them.\nDeliverables:\nOpening line\nCore mission briefing (what is the company, what does the player do)\nTour teaser (what they'll unlock)\nHandoff to assistant\nScope: ~150\u2013250 word script + stage directions (camera, cuts, UI overlays).\nBlocks: M4 (if Day 0 runs before first NPC) or Phase 3 tutorial polish (if Day 0 is saved for full tutorial cut).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m4",
+    "content",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:43.783-0700",
+   "updated": "2026-04-27T22:13:12.388-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-60",
+   "summary": "Content: Day 1 dialogue scripts \u2014 Systems Architect, Security Auditor",
+   "description": "First two NPC conversations the player experiences in the prototype.\nSystems Architect (server room NPC \u2014 placed in M4):\nIntro dialogue (when player approaches)\nScripted response to 2\u20133 common \"what do you do?\" queries\nHandoff line when player completes first task\nSecurity Auditor (second NPC):\nIntro dialogue\nScripted response to 2\u20133 queries\nHandoff line\nScope: ~100 words per NPC per dialogue branch. Tone consistent with company personality (depends on TO-45).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m4",
+    "blocks-m5",
+    "content",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:48.730-0700",
+   "updated": "2026-04-27T22:13:11.921-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-63",
+   "summary": "Content: visual / art direction",
+   "description": "Even a rough moodboard helps grey-boxing decisions.\nDeliverables:\n8\u201312 reference images (or sketches) showing desired aesthetic\nShort description: \"It looks like ___ with ___ from ___\"\nColor palette (3\u20135 colors + accent)\nMaterial vibe: clean/corporate? retrofuturist? cozy/warm?\nUI visual language: flat/minimal? skeuomorphic? glassmorphic?\nScope: Doesn't block M1 or M2 grey-box, but blocks Phase 3 texturing and UI polish.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-phase-3",
+    "content",
+    "design",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:53.955-0700",
+   "updated": "2026-04-27T22:13:10.924-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-65",
+   "summary": "Content: sound direction",
+   "description": "Ambient sound design direction.\nDeliverables:\nAmbient office sound layers (HVAC, distant typing, coffee machine, server hum, etc) \u2014 rough list\nMusic tone (none? ambient loops? dynamic stings on events?)\nNPC voice handling (text-only? subtitled speech? synthesized voice?)\nScope: Direction doc, not actual asset production. Informs Phase 3 ambient sound work.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-phase-3",
+    "content",
+    "design",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:29:57.611-0700",
+   "updated": "2026-04-27T22:13:09.930-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-67",
+   "summary": "Data prep: export 137 agent .md files \u2192 agents.json",
+   "description": "Pre-work for M3.\nWalk the agent directory from the source repo, serialize every agent definition to a single JSON file.\nDeliverables:\ndata/agents.json with 137 entries\nEach entry: { id, name, role, dept, color, description, tools }\nValidation script: python validate_agents.py reports any missing fields\nSource: https://github.com/adamtasteslikegood/claude-code-tresor",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m3",
+    "data-prep",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:08.135-0700",
+   "updated": "2026-04-27T22:13:08.948-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-71",
+   "summary": "Data prep: verify agents.json schema",
+   "description": "Pre-work for M3.\nConfirm the JSON schema matches what AgentRegistry.gd will expect.\nDeliverables:\nJSON Schema definition file (or doc) covering: name, role, dept, color, description, tools\nValidator that runs against data/agents.json and passes cleanly\nFlag any agent that has missing or non-conforming fields\nDepends on TO-52 (the JSON file must exist).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m3",
+    "data-prep",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:12.446-0700",
+   "updated": "2026-04-27T22:13:07.198-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-72",
+   "summary": "Data prep: define scene / dialogue data format",
+   "description": "Decide how dialogue scripts are authored and loaded.\nOptions:\nJSON files (easy to edit externally, weak typing)\nGDScript Resources (strong typing, requires Godot editor to edit)\nInk / other dialogue DSL (excellent for branching, adds a dependency)\nDeliverables:\nDecision + example file of the chosen format\nDocument for writers on how to add new dialogue\nBlocks: M4 dialogue scripting if the format needs to be in place before authoring.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "architecture",
+    "blocks-m4",
+    "data-prep",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:17.208-0700",
+   "updated": "2026-04-27T22:13:06.732-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-73",
+   "summary": "Data prep: define player profile save format",
+   "description": "How GameState persists across sessions.\nTied to Open Question #7.\nOptions:\nJSON file on disk (portable, inspectable)\nGodot Resource (.tres) (type-safe, harder to debug externally)\nNeither \u2014 in-memory only for prototype, save support deferred to Phase 3\nDeliverables:\nDecision + example save file\nLoad / save implementation in GameState.gd\nError handling for corrupt / missing save\nBlocks: M3 (GameState.gd can ship without save, but full M3 requires this decision).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "architecture",
+    "blocks-m3",
+    "data-prep",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:22.194-0700",
+   "updated": "2026-04-27T22:13:06.279-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-74",
+   "summary": "Decide: web export vs desktop",
+   "description": "Open question #5 \u2014 blocks M1.\nGodot supports both targets, but project settings and some plugin compatibility differ.\nOptions:\nWeb (HTML5 export): Frictionless share link, weaker performance, limited FS access, no subprocess (kills the live agent bridge)\nDesktop (Win/Mac/Linux): Full capability, higher distribution friction, requires installer\nRecommendation: Desktop. The WebSocket bridge + Python subprocess in M7 is incompatible with a pure web export. Web can come later as a demo-only read-only version.\nDeliverable: Decision logged. Godot project settings aligned. Export template installed.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m1",
+    "decision",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:34.690-0700",
+   "updated": "2026-04-27T22:13:05.858-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-68",
+   "summary": "Decide: save game format",
+   "description": "Open question #7 \u2014 blocks M3 (full GameState.gd).\nOptions:\nJSON file (human-readable, easy to debug externally, no type safety)\nGodot Resource .tres (type-safe, editor-friendly, opaque externally)\nDon't implement save for prototype \u2014 defer to Phase 3\nLinked to data prep issue TO-55.\nDeliverable: Decision + one-line rationale.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m3",
+    "decision",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:37.901-0700",
+   "updated": "2026-04-27T22:13:08.513-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-69",
+   "summary": "Decide: how to handle agent errors in-world",
+   "description": "Open question #6 \u2014 blocks M8.\nReal agent calls will fail sometimes: timeout, API error, subprocess crash. How should the game surface that?\nOptions:\nNPC says \"I'm unavailable right now\" (diegetic, nice but hides info)\nError toast / message in inbox (out-of-world, clear)\nVisual effect on the NPC (glitch, sparks) + diegetic message\nSilent retry with spinner\nDeliverable: Decision + UX mockup or description.\nClosely related to Open Question #11 (latency UX).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m8",
+    "decision",
+    "project:plaza",
+    "ux"
+   ],
+   "created": "2026-04-18T02:30:44.107-0700",
+   "updated": "2026-04-27T22:13:08.070-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-70",
+   "summary": "Decide: platform target (Win / Mac / Linux)",
+   "description": "Open question #8 \u2014 informs Phase 3 polish.\nGodot exports all three, but test time multiplies per platform. Pick primary for first playtest cohort.\nContext: Adam's dev machine is Linux. Most indie playtesters are Win/Mac.\nOptions:\nLinux-first (dev parity, fast feedback, tiny audience)\nMac-first (common dev playtester base)\nWindows-first (largest gaming audience)\nAll three from day one\nDeliverable: Primary platform + secondary platforms + when secondaries enter the build/test loop.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "decision",
+    "phase-3",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:49.178-0700",
+   "updated": "2026-04-27T22:13:07.669-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-25",
+   "summary": "Decide: multiplayer scope",
+   "description": "Open question #4 \u2014 affects Phase 3+.\nSingle-user for the prototype is locked. But does the post-prototype vision include multiplayer?\nOptions:\nNever (single-player, narrative-driven game)\nAsync (shared office, async chat, persistent world state)\nLive co-op (multiple players in the same office simultaneously)\nWhy now: Even deferred, the answer informs Save format (TO-55), GameState.gd (TO-38), and data architecture decisions in M3. Knowing \"never\" simplifies; knowing \"maybe\" means keep options open.\nDeliverable: Direction + one-line rationale, even if \"deferred pending playtest\".",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "decision",
+    "phase-3",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:30:58.684-0700",
+   "updated": "2026-04-27T22:13:17.762-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-26",
+   "summary": "Decide: agent response latency UX",
+   "description": "Bonus decision surfaced during import \u2014 becomes urgent at M7.\nReal agent CLI calls take 5\u201390+ seconds. How does the game handle that wait?\nOptions:\n\"Thinking\" animation on the NPC (classic, safe)\nLoading bar / spinner in dialogue panel\nTime passes visibly in the game world (clock ticks, ambient NPCs move) \u2014 most immersive, most work\nPlayer can walk away and come back when done (async notifications)\nDeliverable: UX pattern picked + scope for implementation. Can ship M8 with a simple spinner then upgrade in Phase 3.\nRelated: TO-58 (error handling UX).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "blocks-m7",
+    "decision",
+    "project:plaza",
+    "ux"
+   ],
+   "created": "2026-04-18T02:31:04.979-0700",
+   "updated": "2026-04-27T22:13:17.264-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-28",
+   "summary": "Decide: dialogue branching model",
+   "description": "Bonus decision surfaced during import \u2014 significantly affects M4 scope.\nAre NPC conversations:\nMulti-turn, open-input: Player types freeform queries \u2192 agent responds. Maximum fidelity, matches the real-agent bridge in M8, but harder to script.\nSingle-shot, menu-driven: Player picks from 3\u20135 options \u2192 agent responds. Classic RPG model, easier to script, but loses the \"real agent\" conceit.\nHybrid: Scripted openings with canned options, then transitions to freeform when the player engages the assistant overlay.\nWhy this matters: The dialogue data format (TO-54) depends on this.\nDeliverable: Model chosen + example for one NPC.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "architecture",
+    "blocks-m4",
+    "decision",
+    "project:plaza",
+    "ux"
+   ],
+   "created": "2026-04-18T02:31:10.860-0700",
+   "updated": "2026-04-27T22:13:16.825-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-31",
+   "summary": "Decide: in-game time model",
+   "description": "Bonus decision surfaced during import.\nDoes one \"day\" in-game = one play session? Or does time pass while idle?\nOptions:\nSession = day: Save/load discrete units. Linear progression. Simple.\nReal-time persistent: World state advances between sessions. Complex, atmospheric.\nTask-driven: Time advances when tasks complete, not on wall clock. Good match for the agent-based gameplay loop.\nAffects: Tutorial pacing (is Day 0 \u2192 Day 5 linear or spread out?), save format (TO-55), assistant notification model.\nDeliverable: Model chosen + implication for M6 unlock logic.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "decision",
+    "design",
+    "project:plaza"
+   ],
+   "created": "2026-04-18T02:31:16.259-0700",
+   "updated": "2026-04-27T22:13:15.438-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-95",
+   "summary": "A new Generic Password vulnerability has been found",
+   "description": "A secret of type Generic Password has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/90e22c22e20ee46954b3b7c02be77491669573ca#diff-4263ae6644efd367a217278b135c32e6a383b1a442fd3406e0dce51c38a73ddaR76docker-compose.ci.yml76Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538961",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "32538961",
+    "76",
+    "adamtasteslikegood/gbrain",
+    "docker-compose.ci.yml"
+   ],
+   "created": "2026-05-06T14:20:00.760-0700",
+   "updated": "2026-05-06T14:20:01.138-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-94",
+   "summary": "A new Bearer Token vulnerability has been found",
+   "description": "A secret of type Bearer Token has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/736e8de1ecd8aeeee6ce11fd6788c39d818f0ae4#diff-ec44f9a4ab69538c7358b7fdf4554b45e610bdfe421aa838942d022716061502R81test/eval-capture-scrub.test.ts81Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538962",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "32538962",
+    "81",
+    "adamtasteslikegood/gbrain",
+    "test/eval-capture-scrub.test.ts"
+   ],
+   "created": "2026-05-06T14:20:00.760-0700",
+   "updated": "2026-05-06T14:20:01.120-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-96",
+   "summary": "A new PostgreSQL Credentials vulnerability has been found",
+   "description": "A secret of type PostgreSQL Credentials has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/ecebd5552a37ea992bdae507654081b5326e04a5#diff-68554a83416cb0dc26af312268fd38ba6024f0f1b222d37b984fd2d2032a26d5R28test/config.test.ts28Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538963",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "28",
+    "32538963",
+    "adamtasteslikegood/gbrain",
+    "test/config.test.ts"
+   ],
+   "created": "2026-05-06T14:20:00.762-0700",
+   "updated": "2026-05-06T14:20:01.120-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-97",
+   "summary": "A new Generic Password vulnerability has been found",
+   "description": "A secret of type Generic Password has been detected in your GitHub Repository \"adamtasteslikegood/alirez-claude-skills\".\nLink to the secret: https://github.com/adamtasteslikegood/alirez-claude-skills/commit/8fd073c49d251b087835fc53b64030eb64f0e395#diff-e81127f579d411c29ecdc3966e5dbd28833236c7b83815badcf33f38f553f157R49business-operations/skills/procurement-optimizer/scripts/spend_categorizer.py49Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/33617475",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "33617475",
+    "49",
+    "adamtasteslikegood/alirez-claude-skills",
+    "business-operations/skills/procurement-optimizer/scripts/spend_categorizer.py"
+   ],
+   "created": "2026-06-03T15:02:46.201-0700",
+   "updated": "2026-06-03T15:02:46.832-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-98",
+   "summary": "A new Bearer Token vulnerability has been found",
+   "description": "A secret of type Bearer Token has been detected in your GitHub Repository \"adamtasteslikegood/gstack\".\nLink to the secret: https://github.com/adamtasteslikegood/gstack/commit/9fd03fae9e74f5daa7a138366aca8f86c7367c5c#diff-affa2d1df71ede07f89196465ef0df6d16693ecfaa09ad2f2bf72ba1b4ce33efR141test/redact-engine.test.ts141Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/34494493",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "141",
+    "34494493",
+    "adamtasteslikegood/gstack",
+    "test/redact-engine.test.ts"
+   ],
+   "created": "2026-07-02T19:07:54.915-0700",
+   "updated": "2026-07-02T19:07:55.334-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "PLZG-99",
+   "summary": "A new Generic High Entropy Secret vulnerability has been found",
+   "description": "A secret of type Generic High Entropy Secret has been detected in your GitHub Repository \"adamtasteslikegood/gstack\".\nLink to the secret: https://github.com/adamtasteslikegood/gstack/commit/dedfe42ef00908171055b120734380650757b9b1#diff-affa2d1df71ede07f89196465ef0df6d16693ecfaa09ad2f2bf72ba1b4ce33efR90test/redact-engine.test.ts90Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/34494492",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "34494492",
+    "90",
+    "adamtasteslikegood/gstack",
+    "test/redact-engine.test.ts"
+   ],
+   "created": "2026-07-02T19:07:54.916-0700",
+   "updated": "2026-07-02T19:07:55.335-0700",
+   "resolution": null,
+   "parent": null
+  }
+ ]
+}
