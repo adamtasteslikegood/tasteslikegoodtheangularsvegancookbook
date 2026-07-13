@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import base64
 import time
@@ -7,9 +8,15 @@ from pathlib import Path
 import requests
 import markdown
 
-# Simple .env parser
+# Make sibling modules importable when run as a script from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import validate_atlassian_site  # noqa: E402
+
+# Simple .env parser — anchored to the repo root so the script reads THIS
+# repo's .env regardless of cwd (never a foreign .env from the caller's dir).
+REPO_ROOT = Path(__file__).resolve().parents[2]
 env_vars = {}
-with open('.env', 'r') as f:
+with open(REPO_ROOT / '.env', 'r') as f:
     for line in f:
         line = line.strip()
         if line and not line.startswith('#'):
@@ -18,7 +25,9 @@ with open('.env', 'r') as f:
                 key, val = parts
                 env_vars[key.strip()] = val.strip().strip("'\"")
 
-url_base = env_vars.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net')
+# Raises AtlassianGuardError if pointed at any site other than the repo's
+# allowlisted tasteslikegood.atlassian.net (e.g. the -dev service site).
+url_base = validate_atlassian_site(env_vars.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net'))
 email = env_vars.get('ATLASSIAN_EMAIL')
 token = env_vars.get('ATLASSIAN_API_TOKEN')
 

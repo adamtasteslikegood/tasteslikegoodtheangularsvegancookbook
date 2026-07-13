@@ -1,0 +1,651 @@
+{
+ "site": "https://tasteslikegood-dev.atlassian.net",
+ "project": "TO",
+ "count": 41,
+ "issues": [
+  {
+   "key": "TO-1",
+   "summary": "Repository Setup and Configuration, Cleanup and Maintenance",
+   "description": "Configure the Main branch of the project repository and sub-repositories to be used only when the application is released (with a New Semantic Version Named) and/Or when it is the same version as the Deployed Production image(s): in which case the (deployed) project tags should match up with the main/master (default) branch and the corresponding SemVer name and number of the deployed codebase should match up with the corresponding Version Name and tag (including the build metadata) for the Cloud Run:Service:Revision that is currently serving traffic in the connected Google Cloud Project with the \u201cEnvironment:Production\u201d tag binding.  {todo:replace this string with the gcp property syntax that is the same as the previous statement tags/bindings..}",
+   "type": "Workstream",
+   "status": "In Progress",
+   "labels": [
+    "Backend",
+    "Bug:ToDo:NeedsCreateIssue",
+    "Catching_Up",
+    "Config/Setup:ApplyingStandards",
+    "Configuration:Setup:NEW",
+    "Dev:FeatReady:PRisOPEN",
+    "Dev:NeedsReview",
+    "Dev:Ready/ReviewCompleate:NeedsTesting",
+    "Feat:New:ToDo:NeedsAssignment:NOTinVCS",
+    "Feat:Ready:NeedsReview",
+    "Feat:Ready:PRopen",
+    "Frontend",
+    "Github",
+    "Integrations",
+    "Isuse:Fix:PRopen",
+    "Last_Steps-shipping_soon",
+    "Maintainence",
+    "Ready2Ship:NeedsReivew",
+    "Ready_for_Staging",
+    "Release-v0.3.0",
+    "VersionControl"
+   ],
+   "created": "2026-04-04T18:57:59.327-0700",
+   "updated": "2026-07-01T13:39:36.700-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-2",
+   "summary": "CLONE - Repository Setup and Configuration, Cleanup and Maintenance",
+   "description": "Configure the Main branch of the project repository and sub-repositories to be used only when the application is released (with a New Semantic Version Named) and/Or when it is the same version as the Deployed Production image(s): in which case the (deployed) project tags should match up with the main/master (default) branch and the corresponding SemVer name and number of the deployed codebase should match up with the corresponding Version Name and tag (including the build metadata) for the Cloud Run:Service:Revision that is currently serving traffic in the connected Google Cloud Project with the \u201cEnvironment:Production\u201d tag binding.  {todo:replace this string with the gcp property syntax that is the same as the previous statement tags/bindings..}",
+   "type": "Workstream",
+   "status": "Done",
+   "labels": [
+    "Backend",
+    "Bug:ToDo:NeedsCreateIssue",
+    "Catching_Up",
+    "Config/Setup:ApplyingStandards",
+    "Configuration:Setup:NEW",
+    "Dev:FeatReady:PRisOPEN",
+    "Dev:NeedsReview",
+    "Dev:Ready/ReviewCompleate:NeedsTesting",
+    "Feat:New:ToDo:NeedsAssignment:NOTinVCS",
+    "Feat:Ready:NeedsReview",
+    "Feat:Ready:PRopen",
+    "Frontend",
+    "Github",
+    "Integrations",
+    "Isuse:Fix:PRopen",
+    "Last_Steps-shipping_soon",
+    "Maintainence",
+    "Ready2Ship:NeedsReivew",
+    "Ready_for_Staging",
+    "VersionControl"
+   ],
+   "created": "2026-04-04T19:16:23.633-0700",
+   "updated": "2026-04-13T08:48:29.892-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-3",
+   "summary": "[GH#162] VALKEY_HOST singleton-guard: early return leaves orphaned client running",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/162\\n\\nProblem:\\nIn server/valkey.ts, createValkeyClient() returns null early when VALKEY_HOST is unset, even if a client was previously created with that variable set. This leaves the existing client (and any refresh timer) running, creating a resource leak.\\n\\nThe documented behavior says an existing healthy client should be returned immediately \u2014 the implementation contradicts this.\\n\\nSteps to reproduce:\\n1. Call createValkeyClient() with VALKEY_HOST set\\n2. Unset VALKEY_HOST\\n3. Call createValkeyClient() again \u2014 returns null but existing client still runs\\n\\nFix options:\\n- Clean up the existing client before the early return (call shutdownValkey() first)\\n- OR update the docs to reflect actual behavior\\n\\nPriority: P1 \u2014 labeled by original reviewer\\nAffects: Rate limiter distributed state across Express replicas",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "Backend",
+    "Bug",
+    "GH-Issue",
+    "RateLimiting",
+    "Valkey"
+   ],
+   "created": "2026-04-13T04:24:16.380-0700",
+   "updated": "2026-04-13T18:22:54.688-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-4",
+   "summary": "[GH#163] Catch quit() failures before reinitializing Valkey client",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/163\\n\\nProblem:\\nIn server/valkey.ts, when the singleton guard detects an unhealthy client, it calls shutdownValkey() which attempts client.quit(). If client.quit() fails (common with broken sockets), the rejection prevents reinitialization and recovery.\\n\\nResult: transient Redis/Valkey failures escalate into hard failures instead of recovering gracefully.\\n\\nExpected behavior:\\nIf client.quit() throws/rejects, the reinit should proceed anyway \u2014 the old broken connection should be discarded and a fresh client created.\\n\\nFix:\\nWrap client.quit() in try/catch (or .catch(() => {})) so that quit failures are swallowed and reinitialization continues.\\n\\nPriority: P1 \u2014 flagged in code review\\nAffects: Rate limiter resilience; impacts KAN-17 in legacy tracking",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "Backend",
+    "Bug",
+    "GH-Issue",
+    "RateLimiting",
+    "Valkey"
+   ],
+   "created": "2026-04-13T04:24:21.420-0700",
+   "updated": "2026-04-13T18:22:56.289-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-5",
+   "summary": "[GH#103] Pytest failing \u2014 Flask context error in generate_ai_image()",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/103\\n\\nRepo: Backend submodule (tasteslikegood.com)\\n\\nProblem:\\nTests fail because generate_ai_image() attempts to access Flask request-bound objects (session, request context) without an active application context.\\n\\nError: RuntimeError: Working outside of request context\\n\\nRoot cause:\\nThe function accesses Flask's session or request objects directly without first checking if a request context is active.\\n\\nFix:\\nGuard session access with flask.has_request_context() checks, e.g.:\\npython\\nif flask.has_request_context():\\n    user_credentials = session.get('credentials')\\nelse:\\n    user_credentials = None\\n\\n\\nLabels: bug, python, CI/CD\\nAffects: CI pipeline \u2014 tests fail on PR, blocking merges",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "Bug",
+    "CI-CD",
+    "GH-Issue",
+    "Python",
+    "Release-v0.3.0",
+    "ReleaseBlocker",
+    "pytest"
+   ],
+   "created": "2026-04-13T04:24:27.038-0700",
+   "updated": "2026-07-01T13:53:53.522-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-6",
+   "summary": "Frontend \u2014 Angular 21 SPA Development",
+   "description": "Scope: All work on the Angular 21 SPA (src/ in main repo).\\n\\nIncludes:\\n- Standalone components with Signals API\\n- GeminiService, AuthService, PersistenceService\\n- UI/UX improvements\\n- Recipe generation UI\\n- Cookbook management UI\\n- Guest \u2194 OAuth data migration flows\\n\\nTech stack: Angular 21, TypeScript, Signals API (no RxJS), index.tsx\\nDev server: port 3000",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [
+    "Angular",
+    "Frontend"
+   ],
+   "created": "2026-04-13T04:25:10.753-0700",
+   "updated": "2026-04-13T04:25:10.849-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-7",
+   "summary": "Backend \u2014 Flask API (Python) Development",
+   "description": "Scope: All work on the Flask backend (Backend/ submodule \u2014 tasteslikegood.com).\\n\\nIncludes:\\n- Blueprint development (auth, generation, recipes, collections)\\n- SQLAlchemy models and Alembic migrations\\n- Gemini / Imagen AI service integration\\n- JSON Schema validation\\n- pytest test suite maintenance\\n\\nTech stack: Python/Flask, SQLAlchemy, Alembic, uv, pytest\\nPorts: :5000 (dev), gunicorn (prod)\\nSubmodule: https://github.com/adamtasteslikegood/tasteslikegood.com",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Flask",
+    "Python"
+   ],
+   "created": "2026-04-13T04:25:13.682-0700",
+   "updated": "2026-04-13T04:26:51.772-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-8",
+   "summary": "DevOps & Cloud Infrastructure",
+   "description": "Scope: Cloud Run deployment, CI/CD pipelines, Docker, Google Cloud operations.\\n\\nIncludes:\\n- cloudbuild.yaml maintenance\\n- Cloud Run service configuration (express-frontend, flask-backend)\\n- Docker image builds and optimizations\\n- Google Cloud Ops / Stackdriver monitoring and alerting\\n- GitHub Actions CI workflows\\n- Database migrations (Alembic/Flask-Migrate)\\n- Secret Manager integration\\n- Terraform infrastructure\\n\\nServices: Cloud Run (us-central1), Cloud SQL (PostgreSQL), Secret Manager, Cloud Build, Artifact Registry",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "CloudRun",
+    "DevOps",
+    "GCP"
+   ],
+   "created": "2026-04-13T04:25:34.093-0700",
+   "updated": "2026-04-13T19:57:40.921-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-9",
+   "summary": "Security & Reliability",
+   "description": "Scope: Security hardening, rate limiting, monitoring, and reliability work.\\n\\nIncludes:\\n- Helmet.js security header configuration\\n- Valkey/Redis rate limiter improvements (see TO-3, TO-4)\\n- Input validation (express-validator)\\n- Google OAuth security\\n- HTTPS/SSL configuration\\n- Dependency audits and vulnerability patching\\n- Production readiness checklist items\\n\\nRelated issues: TO-3 (Valkey singleton-guard), TO-4 (Valkey quit failures)\\nKey files: server/security.ts, server/valkey.ts, server/validation.ts",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [
+    "Reliability",
+    "Security",
+    "Valkey"
+   ],
+   "created": "2026-04-13T04:25:38.235-0700",
+   "updated": "2026-04-13T04:26:50.255-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-10",
+   "summary": "Atlassian / Knowledge Base / Tooling",
+   "description": "Scope: Jira configuration, Confluence documentation, tooling integrations, and developer experience.\\n\\nIncludes:\\n- Confluence knowledge base maintenance\\n- Jira project configuration (workflows, dashboards, automation)\\n- GitHub \u2194 Jira issue sync\\n- Google Cloud Ops alerts in Jira\\n- Atlassian for Google Workspace (Google Chat, Google Drive)\\n- Mermaid macro setup in Confluence\\n- CI/CD status reporting\\n\\nRelated: This workstream tracks the meta-work of keeping the knowledge base and tooling current.",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [
+    "Atlassian",
+    "Documentation",
+    "Tooling"
+   ],
+   "created": "2026-04-13T04:28:12.299-0700",
+   "updated": "2026-04-13T04:28:12.571-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-11",
+   "summary": "[GH#104] Add or enforce CI for Angular+Flask: builds, lint, and tests",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/104\\n\\nEnforce CI checks on all PRs covering:\\n- Angular: npm run lint, npm run type-check, npm run test:ci\\n- Express: npm run format:check\\n- Flask/Backend: pytest, lint (ruff/flake8)\\n\\nRequired checks should block merge if failing. Both repos (main + Backend submodule) need CI configured.\\n\\nLabels: CI/CD",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "CI-CD",
+    "DevOps",
+    "GH-Issue"
+   ],
+   "created": "2026-04-13T04:31:11.704-0700",
+   "updated": "2026-04-13T18:22:57.364-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-12",
+   "summary": "[GH#103] Set up numbered versioning \u2014 publish official releases",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/103\\n\\nEstablish semantic versioning for the project:\\n- Define version scheme (SemVer: MAJOR.MINOR.PATCH)\\n- Tag releases in git (git tag -a v1.0.0)\\n- Create GitHub Releases with changelog\\n- Align Cloud Run revision tags with git SemVer tags\\n- Document release process\\n\\nRelated: GH#102 (versioning on CI/CD pipeline), GH#101 (first published release)",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "DevOps",
+    "GH-Issue",
+    "Versioning"
+   ],
+   "created": "2026-04-13T04:31:16.460-0700",
+   "updated": "2026-04-13T18:22:58.478-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-13",
+   "summary": "[GH#102] Set up numbered versioning on build/deploy CI/CD pipeline",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/102\\n\\nIntegrate versioning into the CI/CD pipeline:\\n- Auto-tag builds with SemVer on merge to main\\n- Pass version number to Cloud Build and Cloud Run revision labels\\n- Include version in Docker image tags\\n- Surface version in /api/health endpoint response\\n\\nRelated: GH#103 (version scheme), GH#101 (first release)",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "CI-CD",
+    "DevOps",
+    "GH-Issue",
+    "Versioning"
+   ],
+   "created": "2026-04-13T04:31:19.137-0700",
+   "updated": "2026-04-13T18:22:59.713-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-14",
+   "summary": "[GH#101] Create first published GitHub Release (v0.1.0)",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/101\nPublish the first official GitHub Release:\nChoose the correct commit as v0.1.0 baseline\nWrite release notes summarizing Phase 1-4 work\nTag and publish via GitHub Releases\nVerify Cloud Run production revision matches\nDependency: GH#103 (versioning scheme must be defined first)\nNote (2026-07-01): corrected version number from v1.0.0 to v0.1.0 to match SemVer scheme; v0.3.0 release in progress.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "DevOps",
+    "GH-Issue",
+    "Release-v0.3.0",
+    "Versioning"
+   ],
+   "created": "2026-04-13T04:31:22.887-0700",
+   "updated": "2026-07-01T13:44:04.696-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-15",
+   "summary": "[GH#100] Establish PR size/reviewability best practices",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/100\\n\\nDocument and enforce PR best practices:\\n- Define max PR size guideline (e.g., <400 lines changed)\\n- Add PR description template (.github/pull_request_template.md)\\n- Define review requirements (who reviews what)\\n- Add CODEOWNERS file if applicable\\n- Document in CONTRIBUTING.md\\n\\nLabels: documentation",
+   "type": "Task",
+   "status": "In Progress",
+   "labels": [
+    "Documentation",
+    "GH-Issue",
+    "Process"
+   ],
+   "created": "2026-04-13T04:31:26.080-0700",
+   "updated": "2026-07-01T13:44:20.832-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-16",
+   "summary": "[Backend GH#73] CI/CD - are Backend CI checks actually working?",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/73\\nRepo: Backend submodule (tasteslikegood.com)\\n\\nInvestigate whether CI backend checks are correctly running and blocking merges:\\n- Verify GitHub Actions workflow triggers for Backend repo\\n- Confirm pytest runs on every PR\\n- Confirm lint runs on every PR\\n- Check that failed checks block merges\\n- Relate to open bug TO-5 (pytest failure in generate_ai_image)\\n\\nLabels: bug, question, python, javascript, CI/CD",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "Backend-Submodule",
+    "Bug",
+    "CI-CD",
+    "GH-Issue"
+   ],
+   "created": "2026-04-13T04:31:35.219-0700",
+   "updated": "2026-04-13T18:23:00.802-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-17",
+   "summary": "[Backend GH#72] Document `.agent/skills` purpose and usage in Backend repo",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/72\\nRepo: Backend submodule (tasteslikegood.com)\\n\\nThe Backend/.agent/skills/ directory contains many skill files but has no documentation explaining:\\n- What .agent/skills/ is and how it's used\\n- Which agent framework consumes these skills\\n- How to add new skills\\n- Whether these should be in .gitignore\\n\\nAdd documentation to Backend/agents.md or a dedicated Backend/.agent/README.md.\\n\\nLabels: documentation, enhancement, good first issue",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "Documentation",
+    "GH-Issue",
+    "good-first-issue"
+   ],
+   "created": "2026-04-13T04:31:40.022-0700",
+   "updated": "2026-04-13T18:23:27.273-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-18",
+   "summary": "[Backend GH#71] Add/enforce CI for lint, tests, and required checks in Backend",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/71\\nRepo: Backend submodule (tasteslikegood.com)\\n\\nSet up robust CI for the Flask backend:\\n- pytest \u2014 all tests must pass\\n- ruff or flake8 lint check\\n- Type checking (mypy or pyright) if applicable\\n- Make checks required on PRs (block merge on failure)\\n- Ensure uv sync works cleanly in CI environment\\n\\nRelates to TO-16 (main repo CI) and TO-5 (pytest currently failing).\\n\\nLabels: enhancement, python, CI/CD",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "Backend-Submodule",
+    "CI-CD",
+    "GH-Issue",
+    "Python"
+   ],
+   "created": "2026-04-13T04:31:44.380-0700",
+   "updated": "2026-04-13T18:23:01.964-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-19",
+   "summary": "Phase 0 \u2014 Pre-work: Data Prep & Content Definition",
+   "description": "All foundational work that must be completed before writing a single line of Godot code. Includes exporting the agent directory to JSON, defining open content items (assistant name, company name, art direction), and establishing data formats.",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:27.283-0700",
+   "updated": "2026-04-13T07:19:27.603-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-20",
+   "summary": "Phase 1 \u2014 Godot 4 Prototype (Weeks 1\u20133)",
+   "description": "Build the 3D office world with first-person navigation, NPC proximity-dialogue, the agent data layer, assistant chat UI, and the unlock gate system. Critical path: M1 \u2192 M4 \u2192 M8. If you can walk through a lobby, approach an NPC, and see their agent info \u2014 Phase 1 is proven.",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:30.091-0700",
+   "updated": "2026-04-13T07:19:30.153-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-21",
+   "summary": "Phase 2 \u2014 I/O Bridge: Live Agent Output (Weeks 4\u20136)",
+   "description": "Connect the Godot game world to real agent CLI processes via a local Python WebSocket bridge. M8 is the proof-of-concept milestone: walk up to an NPC \u2192 type a question \u2192 real agent response appears in the dialogue panel. The game becomes the tool.",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:32.848-0700",
+   "updated": "2026-04-13T07:19:32.937-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-22",
+   "summary": "Phase 3 \u2014 Polish, All 9 Floors & Full Tutorial Arc",
+   "description": "Post-prototype expansion: all 9 department floors, full NPC set, NPC animations + pathfinding, complete Week 1 tutorial arc, real assistant API connection, streaming I/O visualization, art pass, ambient sound. Define specifics once M8 is working.",
+   "type": "Workstream",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:35.136-0700",
+   "updated": "2026-04-13T07:19:35.201-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-23",
+   "summary": "Define in-world assistant \u2014 name and personality",
+   "description": "The always-on navigation companion that appears as a chat overlay (not an agent NPC). Warm, slightly playful tone. Separate from the employee characters \u2014 this is the player's guide to the office world itself. Name and personality should feel intentional, not generic. Worth designing carefully before scripting any dialogue.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:48.996-0700",
+   "updated": "2026-04-13T07:19:49.081-0700",
+   "resolution": null,
+   "parent": "TO-19"
+  },
+  {
+   "key": "TO-24",
+   "summary": "Define tutorial startup \u2014 company name and backstory",
+   "description": "The fictional startup the player has been building with the founder before Day 0. Should feel like a real startup \u2014 not a placeholder. Name, what the product does, how far along it is. This is the emotional context for why the new office matters. The company name and backstory will appear in Founder call dialogue (Day 0) and throughout the tutorial arc.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:51.608-0700",
+   "updated": "2026-04-13T07:19:51.718-0700",
+   "resolution": null,
+   "parent": "TO-19"
+  },
+  {
+   "key": "TO-25",
+   "summary": "Export 137 agent .md files to agents.json",
+   "description": "Convert the full employee directory from .md format to a single agents.json file. Required before Milestone 3 (AgentRegistry autoload). Schema per agent: { name, role, dept, color, description, tools }. Verify all 137 entries parse correctly and the structure matches the planned AgentRegistry.gd loader. Source: adamtasteslikegood/claude-code-tresor.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:55.251-0700",
+   "updated": "2026-04-13T07:19:55.425-0700",
+   "resolution": null,
+   "parent": "TO-19"
+  },
+  {
+   "key": "TO-26",
+   "summary": "Define art direction and rough visual moodboard",
+   "description": "Even a rough direction helps grey-boxing decisions. Questions to answer: interior style (modern tech-office? brutalist? warm indie?), lighting mood (warm and lived-in or cool and corporate?), color palette consistency with the 9 department color codes. One or two reference images / screenshots is enough to unblock M2.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:19:58.765-0700",
+   "updated": "2026-04-13T07:19:58.956-0700",
+   "resolution": null,
+   "parent": "TO-19"
+  },
+  {
+   "key": "TO-27",
+   "summary": "M1 \u2014 Install Godot 4 + first-person controller (~1 hour)",
+   "description": "Download Godot 4 from godotengine.org (~80MB, no install needed). Open Asset Library inside Godot \u2192 search \"First Person\" \u2192 download the FPS demo. Hit Play and walk around. That working FPS controller is your foundation. Create a new project and copy the CharacterBody3D controller into it. Done when: player walks, looks around, has collision.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:07.750-0700",
+   "updated": "2026-04-13T07:20:07.919-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-28",
+   "summary": "M2 \u2014 Grey-box the office layout (4\u20136 hours)",
+   "description": "Build the entire office space with plain CSGBox3D geometry before any textures or art. Rooms to block out: lobby/entrance, player's office, server room, engineering floor (open plan), war room/meeting room, 2\u20133 locked corridors. Add Area3D doorway triggers on each room entrance. Bake NavigationRegion3D for pathfinding. Done when: you can walk through the whole space and it feels right to navigate. Do NOT add art until this is validated.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:12.170-0700",
+   "updated": "2026-04-13T07:20:12.264-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-29",
+   "summary": "M3 \u2014 Agent data layer: load employee directory as game data (~2 hours)",
+   "description": "Convert agents.json (from Phase 0) into the game's data layer. Create autoload/AgentRegistry.gd that loads agents.json at startup and returns agent data by ID. Create autoload/GameEvents.gd with core signals: npc_approached, npc_left, task_completed, floor_unlocked. Create autoload/GameState.gd with unlock tracking. Add all three to Project \u2192 Autoload. Done when: AgentRegistry.get_agent(\"systems-architect\") returns correct data in-game.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:16.197-0700",
+   "updated": "2026-04-13T07:20:16.295-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-30",
+   "summary": "M4 \u2014 First NPC + proximity dialogue (~3 hours) [CRITICAL PATH]",
+   "description": "The core loop. NPC scene: CharacterBody3D + Area3D proximity trigger + Label3D name tag. npc.gd reads from AgentRegistry by agent_id export var. When player enters proximity \u2192 GameEvents.npc_approached fires \u2192 HUD dialogue panel populates from agent data. First NPC: Systems Architect in the server room. Done when: walk up \u2192 panel shows agent name + role + description. Walk away \u2192 panel hides. This template is used for all future NPCs.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:21.117-0700",
+   "updated": "2026-04-13T07:20:21.209-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-31",
+   "summary": "M5 \u2014 Assistant chat UI overlay (~4 hours)",
+   "description": "Always-on CanvasLayer chat panel (NOT an NPC). Toggle with Tab or tilde key. Contains: scrollable message history, LineEdit input, Send button. Returns scripted/hardcoded responses in Phase 1. This is the player's always-on companion separate from the agent NPCs \u2014 it handles navigation, schedule, and task check-ins. Phase 2 upgrade: swap scripted responses for HTTP/WebSocket calls to real API.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:24.930-0700",
+   "updated": "2026-04-13T07:20:25.025-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-32",
+   "summary": "M6 \u2014 Unlock gate system + 2D building map (~5 hours)",
+   "description": "GameState.complete_task() checks unlock gate rules and calls unlock_floor(). Door triggers check GameState.is_unlocked(). 2D building map widget in HUD: rooms are colored rects using department colors, locked rooms grey, updates on GameEvents.floor_unlocked. Default unlocked: lobby + server room. First unlock gate: complete first sprint task \u2192 engineering floor unlocks. Done when: completing a mock task unlocks a door and the map updates.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:28.518-0700",
+   "updated": "2026-04-13T07:20:28.659-0700",
+   "resolution": null,
+   "parent": "TO-20"
+  },
+  {
+   "key": "TO-33",
+   "summary": "M7 \u2014 Python WebSocket bridge (~1 day)",
+   "description": "A small Python process running alongside the game on the same machine. Godot sends task requests over local WebSocket (ws://localhost:8765); bridge spawns agent CLI subprocess, captures stdout, returns result as JSON. No cloud, no deployment, no auth. Install: pip install websockets. Test standalone with wscat before wiring into Godot. Then write ws_client.gd in Godot and test the full round-trip: Godot sends \u2192 bridge receives (log) \u2192 bridge returns \u2192 Godot receives (log).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:39.033-0700",
+   "updated": "2026-04-13T07:20:39.130-0700",
+   "resolution": null,
+   "parent": "TO-21"
+  },
+  {
+   "key": "TO-34",
+   "summary": "M8 \u2014 First live agent output in-world [PROTOTYPE COMPLETE] (2\u20134 hours)",
+   "description": "Wire it all together: walk up to Systems Architect NPC \u2192 dialogue panel opens \u2192 player types a real question \u2192 ws_client.send_task() fires \u2192 bridge invokes @systems-architect via CLI \u2192 response JSON returns to Godot \u2192 output appears in dialogue panel \u2192 response also logged to inbox. This is the milestone where the game becomes the tool. Everything after this point is polish and expansion.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:43.433-0700",
+   "updated": "2026-04-13T07:20:43.553-0700",
+   "resolution": null,
+   "parent": "TO-21"
+  },
+  {
+   "key": "TO-35",
+   "summary": "Phase 3 planning \u2014 define specifics once M8 is working",
+   "description": "Post-M8 expansion work. Rough scope: all 9 department floors fully blocked out and textured, full NPC set (all dept leads + core 8 agents), NPC idle animations + pathfinding, complete Day 0\u20135 tutorial arc with full dialogue scripts, real assistant API connection (replace scripted responses), streaming I/O output visualization, ambient sound design, art pass. Break this into sub-tasks after M8 is validated \u2014 no point defining granular tasks before the core loop works.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-13T07:20:48.360-0700",
+   "updated": "2026-04-13T07:20:48.460-0700",
+   "resolution": null,
+   "parent": "TO-22"
+  },
+  {
+   "key": "TO-36",
+   "summary": "Ship v0.3.0 \u2014 merge release PR #2981, tag, deploy to Cloud Run",
+   "description": "Umbrella ticket for shipping v0.3.0 of tasteslikegood.org.\nRelease vehicle: Frontend PR #2981 \"release(v0.3.0): align Backend submodule pin to valid dev tip 10910bc\" \u2014 https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/2981\nChecklist:\nMerge fix PR #2843 (TAS-8 \u2014 unblocks pytest, see TO-5)\nMerge backend PR #120 \"catch main up to dev\" (backend main is stale; last backend tag is v0.1.11 vs frontend v0.2.5) \u2014 https://github.com/adamtasteslikegood/tasteslikegood.com/pull/120\nVerify Cloud Build tag-push trigger regex before tagging (see #2898 ticket)\nMerge release PR #2981\nTag v0.3.0 on main (both repos per TO-1 convention)\nDeploy flask-backend then express-frontend (Cloud Run, us-central1)\nSmoke test: recipe generation, OAuth login, guest\u2192OAuth migration\nPublish GitHub Release with notes\nVerify serving revisions match v0.3.0 tag (TO-1 alignment)\nRelated: TO-1, TO-5, TO-14. Track release scope with JQL: labels = Release-v0.3.0",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CloudRun",
+    "DevOps",
+    "Release-v0.3.0",
+    "Versioning"
+   ],
+   "created": "2026-07-01T13:52:55.327-0700",
+   "updated": "2026-07-01T13:53:58.113-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-37",
+   "summary": "[GH#2898] Verify Cloud Build tag-push trigger regex before tagging v0.3.0",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/2898\nVerify the Cloud Build tag-push trigger regex matches ^v[0-9]+\\.[0-9]+\\.[0-9]+$ in project comdottasteslikegood.\nWhy release-critical: if the regex is wrong, pushing the v0.3.0 tag will not fire the build/deploy pipeline at all. Must be verified BEFORE tagging v0.3.0.\nVerify with: gcloud builds triggers list --project comdottasteslikegood --format=\"table(name, triggerTemplate.tagName, github.push.tag)\"\nDeferred from v0.2.1.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "GH-Issue",
+    "Release-v0.3.0",
+    "ReleaseBlocker",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-07-01T13:53:05.483-0700",
+   "updated": "2026-07-01T13:53:58.078-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-38",
+   "summary": "[GH#2896] Reconcile .gcloudignore .git exclusion with cloudbuild.yaml submodule init",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/2896\n.gcloudignore currently excludes .git, but cloudbuild.yaml runs submodule init \u2014 which needs .git present in the build context. Reconcile the two so the Backend submodule (tasteslikegood.com) actually gets pulled during Cloud Build.\nRelease relevance: the v0.3.0 release PR (#2981) is specifically about the backend submodule pin \u2014 if the build can't init the submodule, the deployed image won't contain the pinned backend.\nDeferred from v0.2.1.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "CloudRun",
+    "GH-Issue",
+    "Release-v0.3.0",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-07-01T13:53:15.093-0700",
+   "updated": "2026-07-01T13:53:15.196-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-39",
+   "summary": "[GH#2897] Decide on .cloudbuildignore (absent \u2014 gcloud only reads .gcloudignore)",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/2897\n.cloudbuildignore is currently absent \u2014 gcloud only reads .gcloudignore. Decide whether a .cloudbuildignore is needed (e.g., for trigger-based builds that use the GitHub source directly rather than gcloud upload) or document that .gcloudignore is the single source of truth.\nDeferred from v0.2.1. Related: TO-38 (GH#2896).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "GH-Issue",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-07-01T13:53:24.421-0700",
+   "updated": "2026-07-01T13:53:24.499-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-40",
+   "summary": "[GH#2895] Fix solo-repo merge friction \u2014 ruleset requires review, auto-merge disabled",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/2895\nThe branch ruleset requires review approval but auto-merge is disabled \u2014 as a solo developer this creates merge friction and is a likely contributor to the current pile of open PRs (9 open in backend repo, ~20 in frontend incl. Dependabot).\nOptions to evaluate: enable auto-merge + allow self-bypass on the ruleset, use a merge queue, or relax the required-review rule for Dependabot/bot PRs while keeping it for feature branches.\nDeferred from v0.2.1. Related: TO-15 (PR review practices).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI-CD",
+    "GH-Issue",
+    "Process",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-07-01T13:53:34.703-0700",
+   "updated": "2026-07-01T13:53:34.782-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-41",
+   "summary": "[Backend GH#121] Fix broken Gemini workflows \u2014 triage 4 stacked draft PRs",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/121\nRepo: Backend submodule (tasteslikegood.com)\nWorkstream: TO-8 (DevOps & Cloud Infrastructure)\nThe Gemini GitHub workflows are broken. Four AI-generated draft PRs are stacked against this issue and need triage:\nPR #122 \u2014 fix: add GEMINI_CLI_TRUST_WORKSPACE to all Gemini workflow steps (Copilot, 13/46 tasks)\nPR #123 \u2014 [WIP] Fix Gemini workflows by addressing missing elements (Claude)\nPR #124 \u2014 [WIP] Fix Gemini workflows to address missing components (Codex)\nPR #136 \u2014 Fix CI signal reliability by aligning workflow scope and stabilizing lint/type checks (Copilot, 16/46 tasks)\nAction: pick one approach, close the other drafts, merge. Not a v0.3.0 blocker but contributes to red CI noise.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "CI-CD",
+    "GH-Issue",
+    "Gemini"
+   ],
+   "created": "2026-07-01T13:53:45.332-0700",
+   "updated": "2026-07-01T13:53:45.448-0700",
+   "resolution": null,
+   "parent": null
+  }
+ ]
+}

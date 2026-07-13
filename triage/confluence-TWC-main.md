@@ -1,0 +1,12 @@
+# Confluence page tree — TWC @ tasteslikegood.atlassian.net (10 pages)
+
+- Teamwork Collection Home (id 360628, status current)
+  - Architecture Decision Records — Vegangenius Chef (id 6455297, status current)
+  - Backend CI Audit Report — Vegangenius Chef (April 2026) (id 6520834, status current)
+  - Jira Issue Map — KAN Project Backlog (April 2026) (id 6488065, status current)
+  - Privacy Policy Overview for tasteslikegood.org: Data Collection, Use, and User Rights (id 5373953, status current)
+  - Product Requirements Template (id 458753, status current)
+  - Security Findings Tracker — Vegangenius Chef Code Review (April 2026) (id 6422529, status current)
+  - Systems Architecture Analysis — Vegangenius Chef (April 2026) (id 6488152, status current)
+  - Untitled live doc 2026-03-25 (id 1605797, status current)
+  - [Example] Embed docs directly for easy access (id 360642, status current)
