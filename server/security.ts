@@ -121,10 +121,19 @@ export const applySecurityMiddleware = (app: Express) => {
  */
 export function sanitizeForLog(value: string | null | undefined): string {
   if (value == null) return '';
-  // The explicit \n|\r replace is the sanitizer pattern CodeQL's js/log-injection
-  // query recognizes; the second pass sweeps the remaining control characters.
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/\n|\r/g, '_').replace(/[\x00-\x1f\x7f]/g, '_');
+  return (
+    value
+      // Replace all C0 control characters (0x00-0x1F, which includes \n, \r,
+      // and ESC/0x1B) and DEL (0x7F) with a visible placeholder.
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1f\x7f]/g, '_')
+      // Defense-in-depth newline strip -- a no-op after the pass above, but it
+      // is the exact shape CodeQL's js/log-injection query recognizes as a
+      // sanitizer: its StringReplaceSanitizer only models a replace of "\n"
+      // with the empty string, so replacing with '_' alone is not treated as
+      // a taint barrier and the alert stays open.
+      .replace(/\n/g, '')
+  );
 }
 
 /**
