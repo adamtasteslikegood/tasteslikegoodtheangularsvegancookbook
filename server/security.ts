@@ -154,11 +154,13 @@ export const createRequestLogger = () => {
  */
 export const createErrorHandler = (): ErrorRequestHandler => {
   return (err: Error & { status?: number }, req: Request, res: Response, next: NextFunction) => {
-    // Log detailed error server-side
+    // Log detailed error server-side. Object logging already escapes control
+    // characters via util.inspect, but sanitize anyway so the values stay safe
+    // if this ever changes to string interpolation.
     console.error('[ERROR]', {
       timestamp: new Date().toISOString(),
-      method: req.method,
-      path: req.path,
+      method: sanitizeForLog(req.method),
+      path: sanitizeForLog(req.path),
       statusCode: res.statusCode,
       error: err.message,
       stack: err.stack,

@@ -205,6 +205,27 @@ describe('createErrorHandler', () => {
     expect(jsonMock).toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(String) }));
   });
 
+  it('sanitizes req.method and req.path in the error log', async () => {
+    const { createErrorHandler } = await import('./security.js');
+    const handler = createErrorHandler();
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const req = { method: 'POST\ninjected', path: '/api/recipe%0AGET /admin' } as Request;
+    const res = {
+      headersSent: false,
+      statusCode: 200,
+      status: vi.fn().mockReturnValue({ json: vi.fn() }),
+    } as unknown as Response;
+
+    handler(new Error('boom'), req, res, vi.fn() as NextFunction);
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    const logged = errorSpy.mock.calls[0][1] as { method: string; path: string };
+    expect(logged.method).toBe('POSTinjected');
+    expect(logged.path).toBe('/api/recipeGET /admin');
+    errorSpy.mockRestore();
+  });
+
   it('should delegate to next() if headers are already sent', async () => {
     const { createErrorHandler } = await import('./security.js');
     const handler = createErrorHandler();
