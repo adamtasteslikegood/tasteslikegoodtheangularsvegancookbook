@@ -133,7 +133,7 @@ Live smoke checks: `driver.py list` (exit 0, 5 tools) and
   (pip install) hadn't finished. Re-run with `--timeout 600`, or pre-warm:
   `bash scripts/pm/run_pm_script.sh atlassian_pm_link.py check`. The retry is
   safe — the launchers re-run pip until an install completes once
-  (`.venv/.deps-installed` stamp).
+  (`scripts/pm/.venv/.deps-installed` stamp).
 - **`Failed to create the PM scripts virtualenv`**: missing venv module —
   install your distro's python3-venv package.
 - **`WARNING: Atlassian credentials missing from .env`** in stderr/log:
