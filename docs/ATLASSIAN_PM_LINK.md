@@ -12,8 +12,8 @@ This repo has a lightweight PM/session bridge for Jira and Confluence. It is des
 - Local JSON cache: `.agent-work/pm/atlassian-state.json`
 
 `scripts/pm/_atlassian_guard.py` enforces this: any other site (including the
-`tasteslikegood-dev.atlassian.net` service shell) or any Jira project outside
-`KAN`/`RCP` is refused with an error at config load.
+`tasteslikegood-dev.atlassian.net` service shell) is refused at config load.
+Jira writes are restricted to `KAN`/`RCP`; read-only rollups/briefings may also include `PLZG`/`TO` when explicitly configured (via `JIRA_PROJECTS`).
 
 ## Required Environment
 
