@@ -177,6 +177,7 @@ The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a v
 Requirements:
 
 - `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
+- `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` refuses any other site (including the `tasteslikegood-dev.atlassian.net` service shell, which once received misfiled work items)
 - set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP`
 - `python3 -m venv` must work
 
@@ -205,15 +206,15 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 - Confluence page info
 - Production site health check
 
-**Jira Project Keys:**
+**Jira Project Keys** (all on `tasteslikegood.atlassian.net` — the only site for work items):
 
-- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
+- **Recipe app (Vegan Genius Chef):** `KAN` (tasks/bugs), `RCP` (releases) — the ONLY projects this repo's tooling may touch
+- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`
+- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen and re-keyed `TOSVC` ("SERVICE-HOLD — do not use")
 
 - **KAN** = active execution, branch/work ownership, in-flight state
 - **RCP** = delivery planning, epics, sprint scope, acceptance criteria
-- Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup
+- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: writes are limited to `KAN,RCP`; read-only rollups/briefings may also include `PLZG,TO`. Anything else (incl. `TOSVC`) is refused with an error
 
 Install deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py` or `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`

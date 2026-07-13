@@ -1,0 +1,560 @@
+{
+ "site": "https://tasteslikegood.atlassian.net",
+ "project": "RCP",
+ "count": 37,
+ "issues": [
+  {
+   "key": "RCP-8",
+   "summary": "Publish Website on Google APi->credentials>audience [PUBLISH]",
+   "description": "",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:54:08.279-0700",
+   "updated": "2026-04-27T22:12:52.130-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-9",
+   "summary": "Polish Logo",
+   "description": "",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:54:55.175-0700",
+   "updated": "2026-04-27T22:12:51.646-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-10",
+   "summary": "Get team to come up with logo candidates ",
+   "description": "",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "google-verification",
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:56:20.851-0700",
+   "updated": "2026-04-27T22:12:51.029-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-11",
+   "summary": "Privacy Policy ",
+   "description": "Privacy Policy \u2014 Action Steps to Clear Google OAuth Verification\nThe Confluence privacy policy page has been fully drafted and is ready for review. Completing the steps below will unblock the Google OAuth verification, remove the 'unverified app' warning screen for new users, and display Vegangenius Chef branding on the Google Sign-In consent screen.\nConfluence page: Privacy Policy for tasteslikegood.org\nSteps\nStep 1 \u2014 Review the Confluence page\nOpen the Confluence page linked above\nConfirm all sections are accurate, especially Section 3.1 (OAuth scopes) and Section 5 (Google Limited Use statement)\nRemove Section 15 (internal checklist) from the publicly hosted version\nStep 2 \u2014 Host the policy publicly\nPublish the policy at: https://tasteslikegood.org/privacy-policy\nThe page must be accessible without login\nVerify it loads in an incognito window\nStep 3 \u2014 Update Google Cloud Console\nGo to Google Cloud Console \u2192 APIs & Services \u2192 OAuth consent screen\nPaste https://tasteslikegood.org/privacy-policy into the Privacy Policy URL field\nConfirm app name, logo, and support email are filled in\nSave changes\nStep 4 \u2014 Submit for Google verification\nOn the OAuth consent screen page, click Submit for verification\nJustification for generative-language.peruserquota scope: 'The app uses the user's Gemini API quota to generate vegan recipes on their behalf. No personal information is sent to the Gemini model \u2014 only the recipe prompt text entered by the user.'\nExpected review time: 3\u20137 business days\nStep 5 \u2014 Site footer and Terms of Service\nAdd Privacy Policy link to the site footer on all pages\nLink to Privacy Policy from Terms of Service page (KAN-6)\nAcceptance Criteria\nPrivacy policy hosted at public URL\nURL entered in Google Cloud Console OAuth consent screen\nVerification submitted to Google\nGoogle consent screen shows Vegangenius Chef branding (not 'unverified app' warning)\nPrivacy policy linked in site footer and Terms of Service",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "google-verification",
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:56:54.543-0700",
+   "updated": "2026-04-27T22:12:50.529-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-12",
+   "summary": "Terms Of Service",
+   "description": "",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:57:10.328-0700",
+   "updated": "2026-04-27T22:12:50.092-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-13",
+   "summary": "Configure OAuth 2.0 credentials for website",
+   "description": "Generate OAuth 2.0 credentials in the Google API Console, specifying the correct redirect URIs and authorized domains for the website.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:07.920-0700",
+   "updated": "2026-04-27T22:12:49.614-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-14",
+   "summary": "Set up Google API project and enable required APIs",
+   "description": "Create a new project in Google Cloud Console, enable the necessary APIs (such as OAuth 2.0, Google Identity, etc.) required for website publishing and authentication.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:09.068-0700",
+   "updated": "2026-04-27T22:12:49.115-0700",
+   "resolution": "Done",
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-15",
+   "summary": "Test authentication flow with Google API",
+   "description": "Verify that the website's authentication flow works correctly using the configured Google API credentials and audience settings.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:10.986-0700",
+   "updated": "2026-04-27T22:12:48.566-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-16",
+   "summary": "Document Google API integration steps",
+   "description": "Create documentation outlining the steps taken to set up and integrate Google API credentials and audience for future reference and onboarding.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:12.212-0700",
+   "updated": "2026-04-27T22:12:48.100-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-17",
+   "summary": "Integrate Google API credentials into website codebase",
+   "description": "Update the website's codebase to use the generated Google API credentials for authentication and audience verification.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:13.552-0700",
+   "updated": "2026-04-27T22:12:47.604-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-18",
+   "summary": "Set up audience parameters in Google API credentials",
+   "description": "Define and configure the audience field in the Google API credentials to match the website's client ID and ensure proper authentication flow.",
+   "type": "Sub-task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-03-24T11:58:16.011-0700",
+   "updated": "2026-04-27T22:12:47.206-0700",
+   "resolution": null,
+   "parent": "RCP-8"
+  },
+  {
+   "key": "RCP-4",
+   "summary": "\"New Login\" - \"Authenticated Home View\" not updating. Investigate cause and create PR with fix for Login bug that requires Users too \"Click the login button after successful Auth0 w/ google in order for the view too show their 'Kitchen/Cookbooks Profile\"",
+   "description": "",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-04T17:27:34.182-0700",
+   "updated": "2026-04-27T22:20:14.059-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-19",
+   "summary": "Add and enforce CI for Angular + Flask: builds, lint, and tests",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/104\nSummary\nSet up and enforce a CI pipeline that covers both the Angular frontend and Flask backend with automated builds, linting, and test runs on every PR and push to main.\nGoals\nPrevent broken builds from merging\nEnforce code quality via lint gates\nSurface test failures before review\nScope\nAngular: ng build, ng lint, ng test (headless)\nFlask: install deps, flake8/pylint, pytest\nRun on: pull_request and push to main\nBlock merges on failure (branch protection rule)\nAcceptance Criteria\nGitHub Actions workflow runs on every PR\nBuild, lint, and test steps all present for both frontend and backend\nPRs cannot merge if CI fails\nBadge added to README showing CI status",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI/CD",
+    "project:recipe"
+   ],
+   "created": "2026-04-11T16:41:45.674-0700",
+   "updated": "2026-04-27T22:12:46.664-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-2",
+   "summary": "Publish an official numbered release (v1.0.0)",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/101 and https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/103\nSummary\nCut and publish the first official versioned GitHub Release for this project, establishing the baseline for all future numbered releases.\nGoals\nPublish v1.0.0 (or appropriate version) as a GitHub Release\nTag the release commit in git\nWrite a release notes / changelog entry\nAcceptance Criteria\nGitHub Release exists and is publicly visible\nGit tag v1.0.0 (or chosen version) is pushed\nRelease notes describe what's included\nLinked to the versioning CI/CD setup (KAN issue for #102)",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-11T16:41:53.925-0700",
+   "updated": "2026-04-27T22:12:55.227-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-6",
+   "summary": "Fix path injection vulnerabilities in recipe_repository.py and image_service.py",
+   "description": "Summary\nCodeQL (CVE: py/path-injection) flagged uncontrolled data used in path expressions in two Backend files. User-supplied filenames flow into file system operations without sufficient sanitization.\nAffected locations\nrepositories/recipe_repository.py:88 \u2014 path expression using uncontrolled input\nrepositories/recipe_repository.py:157 \u2014 path expression using uncontrolled input\nservices/image_service.py:93 \u2014 path expression using uncontrolled input\nservices/image_service.py:131 \u2014 path expression using uncontrolled input\nservices/image_service.py:134 \u2014 path expression using uncontrolled input\nContext\nrecipe_repository.py has validate_recipe_filepath() using os.path.abspath comparison for directory traversal prevention, but CodeQL still flags specific call sites as not properly guarded. image_service.py may be calling file operations with user-supplied paths before validation.\nAcceptance Criteria\nAll 5 CodeQL py/path-injection alerts resolved or suppressed with justification\nFile path operations use validated, sanitized paths at every call site\nvalidate_recipe_filepath() (or equivalent) is called before any open() on user-supplied paths\nCodeQL scan passes clean on next PR",
+   "type": "Bug",
+   "status": "To Do",
+   "labels": [
+    "project:recipe",
+    "security"
+   ],
+   "created": "2026-04-12T12:33:29.356-0700",
+   "updated": "2026-04-27T22:12:53.156-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-32",
+   "summary": "[GH#162] VALKEY_HOST singleton-guard: early return leaves orphaned client running",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/162\\n\\n*Problem:*\\nIn server/valkey.ts, createValkeyClient() returns null early when VALKEY_HOST is unset, even if a client was previously created with that variable set. This leaves the existing client (and any refresh timer) running, creating a resource leak.\\n\\nThe documented behavior says an existing healthy client should be returned immediately \u2014 the implementation contradicts this.\\n\\n*Steps to reproduce:\\n1. Call createValkeyClient() with VALKEY_HOST set\\n2. Unset VALKEY_HOST\\n3. Call createValkeyClient() again \u2014 returns null but existing client still runs\\n\\n*Fix options:\\n- Clean up the existing client before the early return (call shutdownValkey() first)\\n- OR update the docs to reflect actual behavior\\n\\n*Priority:* P1 \u2014 labeled by original reviewer\\n*Affects:* Rate limiter distributed state across Express replicas",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Bug",
+    "GH-Issue",
+    "RateLimiting",
+    "Valkey",
+    "project:recipe"
+   ],
+   "created": "2026-04-13T04:24:16.380-0700",
+   "updated": "2026-04-27T22:12:39.925-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-30",
+   "summary": "[GH#163] Catch quit() failures before reinitializing Valkey client",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/163\\n\\n*Problem:*\\nIn server/valkey.ts, when the singleton guard detects an unhealthy client, it calls shutdownValkey() which attempts client.quit(). If client.quit() fails (common with broken sockets), the rejection prevents reinitialization and recovery.\\n\\nResult: transient Redis/Valkey failures escalate into hard failures instead of recovering gracefully.\\n\\n*Expected behavior:\\nIf client.quit() throws/rejects, the reinit should proceed anyway \u2014 the old broken connection should be discarded and a fresh client created.\\n\\n*Fix:\\nWrap client.quit() in try/catch (or .catch(() => {})) so that quit failures are swallowed and reinitialization continues.\\n\\n*Priority:* P1 \u2014 flagged in code review\\n*Affects:* Rate limiter resilience; impacts  in legacy tracking",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Bug",
+    "GH-Issue",
+    "RateLimiting",
+    "Valkey",
+    "project:recipe"
+   ],
+   "created": "2026-04-13T04:24:21.420-0700",
+   "updated": "2026-04-27T22:12:40.863-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-28",
+   "summary": "[GH#103] Pytest failing \u2014 Flask context error in generate_ai_image()",
+   "description": "GitHub Issue: https://github.com/adamtasteslikegood/tasteslikegood.com/issues/103\\n\\n*Repo:* Backend submodule (tasteslikegood.com)\\n\\n*Problem:\\nTests fail because generate_ai_image() attempts to access Flask request-bound objects (session, request context) without an active application context.\\n\\n*Error: RuntimeError: Working outside of request context\\n\\n*Root cause:\\nThe function accesses Flask's session or request objects directly without first checking if a request context is active.\\n\\n*Fix:\\nGuard session access with flask.has_request_context() checks, e.g.:\\n{{python\\nif flask.has_request_context():\\n    user_credentials = session.get('credentials')\\nelse:\\n    user_credentials = None\\n}}\\n\\n*Labels:* bug, python, CI/CD\\n*Affects:* CI pipeline \u2014 tests fail on PR, blocking merges",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend-Submodule",
+    "Bug",
+    "CI-CD",
+    "GH-Issue",
+    "Python",
+    "project:recipe",
+    "pytest"
+   ],
+   "created": "2026-04-13T04:24:27.038-0700",
+   "updated": "2026-04-27T22:12:41.924-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-27",
+   "summary": "Frontend \u2014 Angular 21 SPA Development",
+   "description": "Scope: All work on the Angular 21 SPA (src/ in main repo).\\n\\nIncludes:\\n- Standalone components with Signals API\\n- GeminiService, AuthService, PersistenceService\\n- UI/UX improvements\\n- Recipe generation UI\\n- Cookbook management UI\\n- Guest \u2194 OAuth data migration flows\\n\\n*Tech stack:* Angular 21, TypeScript, Signals API (no RxJS), index.tsx\\n*Dev server:* port 3000",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Angular",
+    "Frontend",
+    "project:recipe"
+   ],
+   "created": "2026-04-13T04:25:10.753-0700",
+   "updated": "2026-04-27T22:12:42.443-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-25",
+   "summary": "Backend \u2014 Flask API (Python) Development",
+   "description": "Scope: All work on the Flask backend (Backend/ submodule \u2014 tasteslikegood.com).\\n\\nIncludes:\\n- Blueprint development (auth, generation, recipes, collections)\\n- SQLAlchemy models and Alembic migrations\\n- Gemini / Imagen AI service integration\\n- JSON Schema validation\\n- pytest test suite maintenance\\n\\n*Tech stack:* Python/Flask, SQLAlchemy, Alembic, uv, pytest\\n*Ports:* :5000 (dev), gunicorn (prod)\\n*Submodule:* https://github.com/adamtasteslikegood/tasteslikegood.com",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "Backend",
+    "Flask",
+    "Python",
+    "project:recipe"
+   ],
+   "created": "2026-04-13T04:25:13.682-0700",
+   "updated": "2026-04-27T22:12:43.623-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-3",
+   "summary": "v0.2 Anti-Recipe Site Distribution Layer",
+   "description": "h1. Vision: The Anti-Recipe Site\nThe objective of v0.2 is to shift focus to distribution by building a public, SSR-rendered, zero-fluff recipe site on top of our existing authenticated app. \nh3. Key Highlights\nSpeed as a feature: <500ms full render.\nHonest URLs: /r/thai-peanut-noodles.\nVisuals: One breathtaking AI-generated photo per recipe.\nConversion: Low-friction \"Save to cookbook\" CTA routing into the SPA.\nSEO: Perfect Schema.org JSON-LD per recipe.\nh3. Design Integration\nThe implementation must adhere strictly to the Claude Design handoff:\nCSS Strategy: Combine React inline styles and colors_and_type.css into Backend/static/css/recipe-site.css.\nTemplate Architecture: Break React components down into base.html, browse.html, and recipe.html Jinja files.\nDesign Decisions: Overlay hero image style and a 3-column responsive grid for the browse page.\nVanilla JS Conversion: Replace React hooks with Vanilla JavaScript for public SSR pages.\nMobile Responsiveness: Stack two-column layouts and ensure 44px touch targets below 768px.",
+   "type": "Epic",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:13:19.112-0700",
+   "updated": "2026-04-27T22:20:13.353-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-20",
+   "summary": "v0.2 Data Model & Migrations",
+   "description": "Add is_public (Boolean, default False) and slug (String, unique, indexed) to Backend/models/recipe.py. Generate the associated Alembic migration script. Include a dedicated unit test for the upcoming backfill migration to ensure no downtime during deployment.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:10.017-0700",
+   "updated": "2026-07-07T07:21:42.913-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-23",
+   "summary": "v0.2 Vanilla JS Interactions",
+   "description": "Convert the React state hooks from the prototype into lightweight Vanilla JavaScript for the SSR templates. This includes the \"Save to Cookbook\" toast notification animation and the \"My Kitchen\" SPA redirect modal logic. This ensures a fast <500ms render without heavy client-side frameworks on the public pages.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:12.434-0700",
+   "updated": "2026-04-27T22:12:44.601-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-7",
+   "summary": "v0.2 SEO, JSON-LD & Distribution",
+   "description": "Create a dedicated RecipePresenter service to isolate SEO formatting from the route controllers. Use this to format Schema.org Recipe JSON-LD (e.g., ISO 8601 durations). Add canonical URLs, OG image tags (using AI image), Twitter Cards, and meta descriptions to recipe.html. Include a Pinterest share button and an auto-generated /sitemap.xml.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:12.629-0700",
+   "updated": "2026-04-27T22:20:13.936-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-22",
+   "summary": "v0.2 SSR Routes & Express Proxy Config",
+   "description": "Implement Flask SSR routes: /r/<slug> for viewing a single public recipe and /browse for a paginated list of public recipes. Enforce eager loading (joinedload) on the /browse route to prevent N+1 queries. Modify image endpoints to allow public access for is_public=True. Update server/proxy.ts to correctly route /r/*, /browse, and /sitemap.xml to Flask before the Angular catch-all.",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:13.082-0700",
+   "updated": "2026-04-28T23:31:57.556-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-21",
+   "summary": "v0.2 Data Backfill & Integrity Retry Loop",
+   "description": "Write a script to backfill the slug field for the 85 existing legacy recipes based on their titles. Must implement a robust database retry loop that catches IntegrityError to safely append collision suffixes (-2, -3) and prevent concurrent race conditions on publish.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:13.545-0700",
+   "updated": "2026-04-27T22:12:45.660-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-5",
+   "summary": "v0.2 Angular Editor Publish UI",
+   "description": "Update the recipe view/edit surface in the Angular SPA. Add a \"Publish\" toggle and a customizable \"Slug\" text input field, allowing owners to manage the public visibility of their recipes. Ensure loading, success, and error states are represented in the UI (e.g., spinner swap on publish, red border on failed slug).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:14.059-0700",
+   "updated": "2026-04-27T22:12:53.607-0700",
+   "resolution": null,
+   "parent": "RCP-3"
+  },
+  {
+   "key": "RCP-1",
+   "summary": "v0.2 Jinja Templates & Design System",
+   "description": "Create Backend/static/css/recipe-site.css by combining the Claude Design prototype's colors_and_type.css with its inline styles. Rewrite recipe.html, browse.html, and base.html in Jinja, consuming SQLAlchemy models. \nImplement the \"Anti-AI Slop\" design tokens (Playfair Display, true black/white, sharp borders) and mobile responsiveness (collapse grids <768px, 44px minimum touch targets).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-18T21:15:14.091-0700",
+   "updated": "2026-04-27T22:20:13.809-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-24",
+   "summary": "Bug: UI shows logged out state (Login button) while still displaying authenticated recipes",
+   "description": "When opening the website in a browser that was previously logged in, all recipes are shown as if the user is authenticated, but the login button still appears as if the user is logged out. This suggests a mismatch between the session state (or token presence) and the UI state of the authentication button.\nSteps to reproduce:\nLog into the application.\nClose the browser/tab.\nRe-open the application.\nObserve that private/authenticated recipes are visible.\nObserve that the UI still shows the 'Login' button instead of the authenticated state.",
+   "type": "Bug",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-20T05:30:46.920-0700",
+   "updated": "2026-04-27T22:12:44.077-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "RCP-26",
+   "summary": "[KAN-60] Bug: UI shows logged out state while displaying authenticated recipes",
+   "description": "When opening the website in a browser that was previously logged in, all recipes are shown as if the user is authenticated, but the login button still appears as if the user is logged out. This suggests a mismatch between the session state (or token presence) and the UI state of the authentication button.\nSteps to reproduce:\nLog into the application.\nClose the browser/tab.\nRe-open the application.\nObserve that private/authenticated recipes are visible.\nObserve that the UI still shows the 'Login' button instead of the authenticated state.\nRelated Jira Issue:",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-20T05:32:00.724-0700",
+   "updated": "2026-04-27T22:12:43.101-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-29",
+   "summary": "qodana ES lint 27 issues",
+   "description": "qodana keeps showing ESLint 27 issues like foreverr now",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-20T08:37:53.419-0700",
+   "updated": "2026-04-27T22:12:41.346-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-31",
+   "summary": "** Avoid clearing cached session on transient auth-check failures**",
+   "description": "Avoid clearing cached session on transient auth-check failures\ncheckAuthStatus() treats any non-OK response or fetch error as false, so this new call now runs not only for truly unauthenticated users but also during temporary /api/auth/check failures (e.g., backend restart, 500, network blip). In those cases clearStaleAuthenticatedSession() deletes vegan_genius_session, which can discard local state; that is especially risky because PersistenceService.saveRecipe() writes to local storage before a best-effort API sync, so unsynced edits can be lost. Please only clear cached authenticated state when the backend explicitly confirms authenticated: false, and preserve local state on transport/server errors.\nUseful? React with \ud83d\udc4d\u00a0/ \ud83d\udc4e.\n_Originally posted by @chatgpt-codex-connector[bot] in https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/2860#discussion_r3111731885_",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "project:recipe"
+   ],
+   "created": "2026-04-20T08:40:58.379-0700",
+   "updated": "2026-04-27T22:12:40.390-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-35",
+   "summary": "A new PostgreSQL Credentials vulnerability has been found",
+   "description": "A secret of type PostgreSQL Credentials has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/ecebd5552a37ea992bdae507654081b5326e04a5#diff-68554a83416cb0dc26af312268fd38ba6024f0f1b222d37b984fd2d2032a26d5R28test/config.test.ts28Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538963",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "32538963",
+    "PostgreSQL_Credentials",
+    "test/config.test.ts"
+   ],
+   "created": "2026-05-06T14:20:00.760-0700",
+   "updated": "2026-05-06T14:20:01.120-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-34",
+   "summary": "A new Bearer Token vulnerability has been found",
+   "description": "A secret of type Bearer Token has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/736e8de1ecd8aeeee6ce11fd6788c39d818f0ae4#diff-ec44f9a4ab69538c7358b7fdf4554b45e610bdfe421aa838942d022716061502R81test/eval-capture-scrub.test.ts81Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538962",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "32538962",
+    "Bearer_Token",
+    "test/eval-capture-scrub.test.ts"
+   ],
+   "created": "2026-05-06T14:20:00.760-0700",
+   "updated": "2026-05-06T14:20:01.120-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-33",
+   "summary": "A new Generic Password vulnerability has been found",
+   "description": "A secret of type Generic Password has been detected in your GitHub Repository \"adamtasteslikegood/gbrain\".\nLink to the secret: https://github.com/adamtasteslikegood/gbrain/commit/90e22c22e20ee46954b3b7c02be77491669573ca#diff-4263ae6644efd367a217278b135c32e6a383b1a442fd3406e0dce51c38a73ddaR76docker-compose.ci.yml76Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/32538961",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "32538961",
+    "Generic_Password",
+    "docker-compose.ci.yml"
+   ],
+   "created": "2026-05-06T14:20:00.763-0700",
+   "updated": "2026-05-06T14:20:01.120-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-36",
+   "summary": "Officialize Atlassian source-of-truth workflow for SSR release coordination",
+   "description": "Delivery-side source of truth\nThis work makes the Atlassian operating model official for the SSR recipes workstream.\nRCP tracks the delivery plan for the official Atlassian workflow rollout used by the SSR recipes workstream.\nAcceptance means the repo docs, PM scripts, and PM daemon all reinforce the same KAN/RCP/Confluence contract.\nThis is the delivery-space counterpart to KAN-66 so the project plan reflects the work, not just the execution board.\nCurrent implementation refs\nCookbook PR: https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/2955\nBackend PR: https://github.com/adamtasteslikegood/tasteslikegood.com/pull/134",
+   "type": "Task",
+   "status": "In Progress",
+   "labels": [
+    "pm-workflow",
+    "source-of-truth",
+    "ssr-recipes"
+   ],
+   "created": "2026-05-19T09:37:29.188-0700",
+   "updated": "2026-05-19T09:37:30.727-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "RCP-37",
+   "summary": "A new Generic Password vulnerability has been found",
+   "description": "A secret of type Generic Password has been detected in your GitHub Repository \"adamtasteslikegood/alirez-claude-skills\".\nLink to the secret: https://github.com/adamtasteslikegood/alirez-claude-skills/commit/8fd073c49d251b087835fc53b64030eb64f0e395#diff-e81127f579d411c29ecdc3966e5dbd28833236c7b83815badcf33f38f553f157R49business-operations/skills/procurement-optimizer/scripts/spend_categorizer.py49Visit the incident in your GitGuardian dashboard: https://dashboard.gitguardian.com/workspace/847072/incidents/33617475",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "33617475",
+    "Generic_Password",
+    "business-operations/skills/procurement-optimizer/scripts/spend_categorizer.py"
+   ],
+   "created": "2026-06-03T15:02:46.201-0700",
+   "updated": "2026-06-03T15:02:46.832-0700",
+   "resolution": null,
+   "parent": null
+  }
+ ]
+}
