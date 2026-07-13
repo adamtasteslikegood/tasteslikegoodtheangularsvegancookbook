@@ -14,16 +14,9 @@
 import http from 'node:http';
 import https from 'node:https';
 import type { Request, Response } from 'express';
+import { sanitizeForLog } from './security.js';
 
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
-
-/** Replaces newlines, carriage returns, and other control characters with `_` to prevent log injection. */
-function sanitizeForLog(value: string): string {
-  // The explicit \n|\r replace is the sanitizer pattern CodeQL's js/log-injection
-  // query recognizes; the second pass sweeps the remaining control characters.
-  // eslint-disable-next-line no-control-regex
-  return value.replace(/\n|\r/g, '_').replace(/[\x00-\x1f\x7f\u001b]/g, '_');
-}
 
 /**
  * Returns Express middleware that proxies every matched request to the

@@ -116,6 +116,18 @@ export const applySecurityMiddleware = (app: Express) => {
 };
 
 /**
+ * Replaces newlines, carriage returns, and other control characters with `_`
+ * so user-controlled values can't forge extra log lines (CodeQL js/log-injection).
+ */
+export function sanitizeForLog(value: string | null | undefined): string {
+  if (value == null) return '';
+  // The explicit \n|\r replace is the sanitizer pattern CodeQL's js/log-injection
+  // query recognizes; the second pass sweeps the remaining control characters.
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/\n|\r/g, '_').replace(/[\x00-\x1f\x7f]/g, '_');
+}
+
+/**
  * Logger middleware for API requests
  */
 export const createRequestLogger = () => {
@@ -124,7 +136,7 @@ export const createRequestLogger = () => {
     res.on('finish', () => {
       const duration = Date.now() - start;
       console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
+        `[${new Date().toISOString()}] ${sanitizeForLog(req.method)} ${sanitizeForLog(req.path)} - ${res.statusCode} (${duration}ms)`
       );
     });
     next();
@@ -139,8 +151,8 @@ export const createErrorHandler = (): ErrorRequestHandler => {
     // Log detailed error server-side
     console.error('[ERROR]', {
       timestamp: new Date().toISOString(),
-      method: req.method,
-      path: req.path,
+      method: sanitizeForLog(req.method),
+      path: sanitizeForLog(req.path),
       statusCode: res.statusCode,
       error: err.message,
       stack: err.stack,
