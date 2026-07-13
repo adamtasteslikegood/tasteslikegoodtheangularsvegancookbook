@@ -445,6 +445,42 @@ describe('applySecurityMiddleware', () => {
     expect(useMock).toHaveBeenCalled();
   });
 
+  it('sets a scoped Content-Security-Policy header (incl. Google Fonts origins)', async () => {
+    const { applySecurityMiddleware } = await import('./security.js');
+    const useMock = vi.fn();
+    applySecurityMiddleware({ use: useMock } as unknown as Express);
+
+    const helmetMiddleware = useMock.mock.calls[0]?.[0] as (
+      req: Request,
+      res: Response,
+      next: NextFunction
+    ) => void;
+
+    const headers: Record<string, string> = {};
+    const res = {
+      setHeader: (name: string, value: string) => {
+        headers[name.toLowerCase()] = String(value);
+      },
+      removeHeader: vi.fn(),
+      getHeader: (name: string) => headers[name.toLowerCase()],
+    } as unknown as Response;
+    const next = vi.fn();
+
+    helmetMiddleware({ headers: {} } as unknown as Request, res, next);
+
+    expect(next).toHaveBeenCalled();
+    const csp = headers['content-security-policy'];
+    expect(csp).toBeDefined();
+    expect(csp).toContain("default-src 'self'");
+    expect(csp).toContain("script-src 'self'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
+    expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
+    expect(csp).toContain("img-src 'self' data: blob: https:");
+    expect(csp).toContain("connect-src 'self'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("frame-ancestors 'none'");
+  });
+
   it('registers X-Robots-Tag middleware in production (two app.use calls)', async () => {
     process.env.NODE_ENV = 'production';
     const { applySecurityMiddleware } = await import('./security.js');

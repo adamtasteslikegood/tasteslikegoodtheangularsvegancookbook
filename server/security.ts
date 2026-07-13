@@ -92,8 +92,12 @@ export const createExpensiveOperationLimiter = (
  */
 export const applySecurityMiddleware = (app: Express) => {
   // Security headers — CSP is enabled with a scoped policy.
-  // Angular's production build outputs bundled JS/CSS files; no external CDN scripts are loaded.
+  // Angular's production build outputs bundled JS/CSS files; no external CDN scripts are loaded
+  // (the stale esm.sh importmap was removed from index.html — the esbuild application builder
+  // bundles all bare-specifier deps from node_modules at build time).
   // Inline styles are allowed because Angular applies component styles at runtime.
+  // Google Fonts is the only external origin: the stylesheet loads from fonts.googleapis.com
+  // and the font files it references load from fonts.gstatic.com.
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
@@ -102,10 +106,10 @@ export const applySecurityMiddleware = (app: Express) => {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
           connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
           objectSrc: ["'none'"],
           frameAncestors: ["'none'"],
           baseUri: ["'self'"],
