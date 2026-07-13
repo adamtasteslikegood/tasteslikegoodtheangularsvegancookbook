@@ -122,8 +122,16 @@ def main():
                     help="seconds to wait per response (default 120)")
     opts = ap.parse_args()
 
-    if opts.command == "call" and not opts.tool:
-        ap.error("'call' needs a tool name")
+    call_args = {}
+    if opts.command == "call":
+        if not opts.tool:
+            ap.error("'call' needs a tool name")
+        try:
+            call_args = json.loads(opts.args)
+        except json.JSONDecodeError as e:
+            ap.error(f"--args is not valid JSON: {e}")
+        if not isinstance(call_args, dict):
+            ap.error("--args must be a JSON object, e.g. '{\"publish\": true}'")
 
     repo_root = find_repo_root()
     os.chdir(repo_root)
@@ -143,9 +151,8 @@ def main():
             print(text_of(d.request("tools/call",
                                     {"name": "get_project_status", "arguments": {}})))
         else:
-            args = json.loads(opts.args)
             print(text_of(d.request("tools/call",
-                                    {"name": opts.tool, "arguments": args})))
+                                    {"name": opts.tool, "arguments": call_args})))
     finally:
         d.close()
 
