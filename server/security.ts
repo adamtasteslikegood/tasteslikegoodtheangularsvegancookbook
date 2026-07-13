@@ -96,8 +96,21 @@ export const applySecurityMiddleware = (app: Express) => {
   // (the stale esm.sh importmap was removed from index.html — the esbuild application builder
   // bundles all bare-specifier deps from node_modules at build time).
   // Inline styles are allowed because Angular applies component styles at runtime.
-  // Google Fonts is the only external origin: the stylesheet loads from fonts.googleapis.com
-  // and the font files it references load from fonts.gstatic.com.
+  // Scripts/styles/fonts are locked to known origins: Google Fonts CSS loads from
+  // fonts.googleapis.com and its font files from fonts.gstatic.com.
+  // img-src deliberately allows any https: origin (plus data:/blob:): recipe image URLs are
+  // per-recipe data — stock photos come from images.unsplash.com today, AI images are served
+  // same-origin via the Flask proxy, but stored/legacy recipes may reference other HTTPS hosts.
+  // Images cannot execute script, so the exposure is limited; scripts stay 'self'-only.
+  // script-src-attr: Angular's critical-CSS optimization (inlineCritical) emits the stylesheet
+  // link as <link ... media="print" onload="this.media='all'"> in the built index.html. Helmet's
+  // default script-src-attr 'none' would block that inline handler and the main stylesheet would
+  // stay media="print" (never applied on screen). 'unsafe-hashes' plus the SHA-256 hash of the
+  // exact handler string ("this.media='all'") allows only that one handler — no other inline
+  // event handlers can run. If Angular ever changes the emitted handler, regenerate the hash:
+  //   printf %s "NEW_HANDLER" | openssl dgst -sha256 -binary | openssl base64
+  // (Alternatives rejected: disabling inlineCritical in angular.json costs first-paint
+  // performance; script-src-attr 'unsafe-inline' would allow ALL inline handlers.)
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
@@ -106,6 +119,11 @@ export const applySecurityMiddleware = (app: Express) => {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'"],
+          // Hash of Angular's critical-CSS onload handler: this.media='all'
+          scriptSrcAttr: [
+            "'unsafe-hashes'",
+            "'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='",
+          ],
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
           connectSrc: ["'self'"],
