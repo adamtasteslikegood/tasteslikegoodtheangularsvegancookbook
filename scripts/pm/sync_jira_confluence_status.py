@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 
 # Make sibling modules importable when run as a script from any cwd.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import validate_atlassian_site  # noqa: E402
 from _jira_projects import resolve_jira_projects  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -28,10 +29,11 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Load env
 load_dotenv(REPO_ROOT / ".env")
 
-# Normalize ATLASSIAN_URL: strip any scheme so callers can set it as either
-# "tasteslikegood.atlassian.net" or "https://tasteslikegood.atlassian.net".
+# Normalize ATLASSIAN_URL (validate_atlassian_site strips any scheme/port/path)
+# and refuse — loudly, via AtlassianGuardError — any site other than the repo's
+# allowlisted tasteslikegood.atlassian.net (e.g. the -dev service site).
 _raw_url = os.environ.get("ATLASSIAN_URL", "tasteslikegood.atlassian.net")
-URL_BASE = _raw_url.strip().removeprefix("https://").removeprefix("http://").rstrip("/")
+URL_BASE = validate_atlassian_site(_raw_url)
 
 # REQUEST_TIMEOUT: 30s for normal API calls, 60s for search which can be slower.
 REQUEST_TIMEOUT = 30
