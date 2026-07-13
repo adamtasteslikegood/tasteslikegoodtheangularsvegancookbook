@@ -1,9 +1,17 @@
 import os
+import sys
 import json
 import urllib.request
 import base64
+from pathlib import Path
 
-url_base = os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net')
+# Make sibling modules importable when run as a script from any cwd.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import validate_atlassian_site  # noqa: E402
+
+# Raises AtlassianGuardError if pointed at any site other than the repo's
+# allowlisted tasteslikegood.atlassian.net (e.g. the -dev service site).
+url_base = validate_atlassian_site(os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net'))
 email = os.environ.get('ATLASSIAN_EMAIL')
 token = os.environ.get('ATLASSIAN_API_TOKEN')
 
