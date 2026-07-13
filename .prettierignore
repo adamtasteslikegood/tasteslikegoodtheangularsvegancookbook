@@ -3,3 +3,8 @@ node_modules
 server/dist
 Backend
 package-lock.json
+
+# Generated operator artifacts (kept outside git)
+_capability_check_*.md
+copilot-session-*.md
+confluence_page_*.html

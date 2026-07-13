@@ -4,6 +4,22 @@ This directory contains automation scripts for managing git workflows across the
 
 ## Scripts
 
+### `pm/atlassian_pm_link.py`
+
+Dependency-free Jira + Confluence PM/session bridge. It reads Atlassian credentials from `.env`, fetches Jira project state plus Confluence planning/session pages, and writes a handoff briefing for future agent sessions.
+
+**Usage:**
+
+```bash
+npm run pm:check  # Verify Jira and Confluence connectivity
+npm run pm:brief  # Write .agent-work/pm/PROJECT_PM_BRIEFING.md
+npm run pm:sync   # Publish/update the live briefing in Confluence
+```
+
+`scripts/pm/run_pm_daemon.sh` is the MCP launcher used by `auto_pm_mcp.json`; it creates the PM daemon virtualenv on first run and starts the Jira/Confluence PM daemon.
+
+See [`docs/ATLASSIAN_PM_LINK.md`](../docs/ATLASSIAN_PM_LINK.md) for setup and workflow details.
+
 ### `git-workflow.sh`
 
 A comprehensive git workflow automation script for managing commits and pushes across **all submodules** and the main repository. Works with any git repo — auto-detects submodules at runtime.

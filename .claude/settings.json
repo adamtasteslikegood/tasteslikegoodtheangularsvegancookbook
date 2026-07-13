@@ -1,4 +1,21 @@
 {
+  "enabledMcpjsonServers": [
+    "pm-daemon",
+    "gcp-monitor"
+  ],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-gstack.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "engineering-skills@claude-code-skills": true,
     "engineering-advanced-skills@claude-code-skills": true,
@@ -12,18 +29,5 @@
     "code-review@claude-plugins-official": true,
     "github@claude-plugins-official": true,
     "superpowers@claude-plugins-official": true
-  },
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": ".claude/hooks/check-gstack.sh"
-          }
-        ]
-      }
-    ]
   }
 }
