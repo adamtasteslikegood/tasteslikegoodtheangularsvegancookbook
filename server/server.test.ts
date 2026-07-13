@@ -614,3 +614,215 @@ describe('createFlaskProxy Host header', () => {
     else delete process.env.FLASK_BACKEND_URL;
   });
 });
+
+// ── createFlaskProxy — log injection prevention ────────────────────────────
+// Regression: user-controlled req.method and req.originalUrl must be
+// sanitized before being written to the error log to prevent log injection.
+// err.message is sanitized too — the error text can echo attacker-influenced
+// request data (CodeQL treats the client-request error callback as a source).
+
+describe('createFlaskProxy log injection prevention', () => {
+  it('sanitizes newlines in req.method, req.originalUrl, and err.message before logging', async () => {
+    vi.resetModules();
+
+    let errorCallback: ((err: Error) => void) | undefined;
+    vi.doMock('node:http', () => ({
+      default: {
+        request: (_opts: unknown, _cb: unknown) => ({
+          on: vi.fn((_event: string, cb: (err: Error) => void) => {
+            errorCallback = cb;
+          }),
+          end: vi.fn(),
+          write: vi.fn(),
+          pipe: vi.fn(),
+        }),
+      },
+    }));
+
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'example.com' },
+      hostname: 'example.com',
+      originalUrl: '/api/recipes\nGET /admin HTTP/1.1',
+      method: 'GET\ninjected',
+      protocol: 'http',
+      pipe: vi.fn(),
+    } as unknown as Request;
+
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    handler(req, res);
+
+    // Trigger the error event with a newline smuggled into the message
+    errorCallback?.(new Error('connection\nrefused: forged entry'));
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    const logged: string = errorSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain('\n');
+    expect(logged).not.toContain('\r');
+    expect(logged).toContain('GET_injected');
+    expect(logged).toContain('/api/recipes_GET /admin HTTP/1.1');
+    expect(logged).toContain('connection_refused: forged entry');
+
+    errorSpy.mockRestore();
+    vi.doUnmock('node:http');
+    vi.resetModules();
+  });
+
+  it.each([
+    ['\\r (CR)', '\r'],
+    ['\\r\\n (CRLF)', '\r\n'],
+    ['\\n (LF)', '\n'],
+  ])('replaces %s in logged values', async (_desc, sep) => {
+    vi.resetModules();
+
+    let errorCallback: ((err: Error) => void) | undefined;
+    vi.doMock('node:http', () => ({
+      default: {
+        request: (_opts: unknown, _cb: unknown) => ({
+          on: vi.fn((_event: string, cb: (err: Error) => void) => {
+            errorCallback = cb;
+          }),
+          end: vi.fn(),
+          write: vi.fn(),
+          pipe: vi.fn(),
+        }),
+      },
+    }));
+
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'example.com' },
+      hostname: 'example.com',
+      originalUrl: `/api/test${sep}injected`,
+      method: 'GET',
+      protocol: 'http',
+      pipe: vi.fn(),
+    } as unknown as Request;
+
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    handler(req, res);
+    errorCallback?.(new Error('connection refused'));
+
+    const logged: string = errorSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain('\n');
+    expect(logged).not.toContain('\r');
+
+    errorSpy.mockRestore();
+    vi.doUnmock('node:http');
+    vi.resetModules();
+  });
+});
+
+// The shared sanitizeForLog helper (server/security.ts) backs the request
+// logger, the error handler, and the proxy error log. Direct unit tests cover
+// edge cases the behavioral suites above don't reach.
+describe('sanitizeForLog', () => {
+  it('returns an empty string for null and undefined', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog(null)).toBe('');
+    expect(sanitizeForLog(undefined)).toBe('');
+  });
+
+  it('replaces CR, LF, and other control characters with underscores', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('GET\ninjected')).toBe('GET_injected');
+    expect(sanitizeForLog('/api\r\n/forged')).toBe('/api__/forged');
+    expect(sanitizeForLog('/api/\x1b[31mred')).toBe('/api/_[31mred');
+    expect(sanitizeForLog('/api/\x00null')).toBe('/api/_null');
+  });
+
+  it('passes safe values through unchanged', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/api/recipes/123?q=vegan')).toBe('/api/recipes/123?q=vegan');
+  });
+
+  it('leaves percent-encoded sequences as literal text without decoding', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    // %0A stays literal text — an encoded newline can't break a log line, and
+    // not decoding means malformed sequences like a lone % can never throw.
+    expect(sanitizeForLog('/api/%0Ainjected')).toBe('/api/%0Ainjected');
+    expect(sanitizeForLog('/api/%')).toBe('/api/%');
+    expect(sanitizeForLog('/api/%E0%A4%A')).toBe('/api/%E0%A4%A');
+  });
+});
+
+describe('createRequestLogger log injection prevention', () => {
+  it('sanitizes req.method and req.path before logging', async () => {
+    const { createRequestLogger } = await import('./security.js');
+    const logger = createRequestLogger();
+
+    const listeners: Record<string, () => void> = {};
+    const req = { method: 'GET\ninjected', path: '/api/health\r\n[FAKE] forged' } as Request;
+    const res = {
+      on: (event: string, cb: () => void) => {
+        listeners[event] = cb;
+      },
+      statusCode: 200,
+    } as unknown as Response;
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    logger(req, res, vi.fn() as NextFunction);
+    listeners['finish']?.();
+
+    expect(logSpy).toHaveBeenCalledOnce();
+    const logged: string = logSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain('\n');
+    expect(logged).not.toContain('\r');
+    expect(logged).toContain('GET_injected');
+    expect(logged).toContain('/api/health__[FAKE] forged');
+    logSpy.mockRestore();
+  });
+
+  it('sanitizes req.method and req.path in the error handler log', async () => {
+    const { createErrorHandler } = await import('./security.js');
+    const handler = createErrorHandler();
+
+    const req = { method: 'POST\nforged', path: '/api/recipe\r\nfake' } as Request;
+    const res = {
+      headersSent: false,
+      statusCode: 200,
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as unknown as Response;
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    handler(new Error('boom'), req, res, vi.fn() as NextFunction);
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    const details = errorSpy.mock.calls[0][1] as { method: string; path: string };
+    expect(details.method).toBe('POST_forged');
+    expect(details.path).toBe('/api/recipe__fake');
+    errorSpy.mockRestore();
+  });
+});
+
+describe('sanitizeForLog unicode line separators', () => {
+  it('replaces raw U+2028/U+2029 (rendered as line breaks by many log sinks)', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/api/\u2028forged')).toBe('/api/_forged');
+    expect(sanitizeForLog('/api/\u2029forged')).toBe('/api/_forged');
+    // Percent-encoded forms stay literal text — the sanitizer never decodes,
+    // so %E2%80%A8 can't become a real line separator in the first place.
+    expect(sanitizeForLog('/api/%E2%80%A8forged')).toBe('/api/%E2%80%A8forged');
+  });
+});
