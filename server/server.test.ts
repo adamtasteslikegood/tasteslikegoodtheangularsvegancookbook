@@ -618,9 +618,11 @@ describe('createFlaskProxy Host header', () => {
 // ── createFlaskProxy — log injection prevention ────────────────────────────
 // Regression: user-controlled req.method and req.originalUrl must be
 // sanitized before being written to the error log to prevent log injection.
+// err.message is sanitized too — the error text can echo attacker-influenced
+// request data (CodeQL treats the client-request error callback as a source).
 
 describe('createFlaskProxy log injection prevention', () => {
-  it('sanitizes newlines in req.method and req.originalUrl before logging', async () => {
+  it('sanitizes newlines in req.method, req.originalUrl, and err.message before logging', async () => {
     vi.resetModules();
 
     let errorCallback: ((err: Error) => void) | undefined;
@@ -660,8 +662,8 @@ describe('createFlaskProxy log injection prevention', () => {
 
     handler(req, res);
 
-    // Trigger the error event
-    errorCallback?.(new Error('connection refused'));
+    // Trigger the error event with a newline smuggled into the message
+    errorCallback?.(new Error('connection\nrefused: forged entry'));
 
     expect(errorSpy).toHaveBeenCalledOnce();
     const logged: string = errorSpy.mock.calls[0][0] as string;
@@ -669,6 +671,7 @@ describe('createFlaskProxy log injection prevention', () => {
     expect(logged).not.toContain('\r');
     expect(logged).toContain('GET_injected');
     expect(logged).toContain('/api/recipes_GET /admin HTTP/1.1');
+    expect(logged).toContain('connection_refused: forged entry');
 
     errorSpy.mockRestore();
     vi.doUnmock('node:http');
@@ -816,8 +819,8 @@ describe('createRequestLogger log injection prevention', () => {
 describe('sanitizeForLog unicode line separators', () => {
   it('replaces raw U+2028/U+2029 (rendered as line breaks by many log sinks)', async () => {
     const { sanitizeForLog } = await import('./security.js');
-    expect(sanitizeForLog('/api/ forged')).toBe('/api/_forged');
-    expect(sanitizeForLog('/api/ forged')).toBe('/api/_forged');
+    expect(sanitizeForLog('/api/\u2028forged')).toBe('/api/_forged');
+    expect(sanitizeForLog('/api/\u2029forged')).toBe('/api/_forged');
     // Percent-encoded forms stay literal text — the sanitizer never decodes,
     // so %E2%80%A8 can't become a real line separator in the first place.
     expect(sanitizeForLog('/api/%E2%80%A8forged')).toBe('/api/%E2%80%A8forged');
