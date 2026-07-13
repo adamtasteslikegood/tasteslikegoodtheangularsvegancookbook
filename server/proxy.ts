@@ -17,6 +17,12 @@ import type { Request, Response } from 'express';
 
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
+/** Strips newlines, carriage returns, and other control characters to prevent log injection. */
+function sanitizeForLog(value: string): string {
+  // eslint-disable-next-line no-control-regex
+  return value.replace(/[\x00-\x1f\x7f\u001b]/g, '_');
+}
+
 /**
  * Returns Express middleware that proxies every matched request to the
  * Flask backend, preserving the original Host header so Flask's
@@ -56,7 +62,7 @@ export function createFlaskProxy(label = 'Flask') {
 
     proxyReq.on('error', (err) => {
       console.error(
-        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed: ${err.message}`
+        `[${label} Proxy] ${sanitizeForLog(req.method)} ${sanitizeForLog(req.originalUrl)} → ${FLASK_BACKEND_URL} failed: ${err.message}`
       );
       if (!res.headersSent) {
         res.status(502).json({

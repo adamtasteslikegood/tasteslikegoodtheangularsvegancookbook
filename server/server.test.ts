@@ -614,3 +614,118 @@ describe('createFlaskProxy Host header', () => {
     else delete process.env.FLASK_BACKEND_URL;
   });
 });
+
+// ── createFlaskProxy — log injection prevention ────────────────────────────
+// Regression: user-controlled req.method and req.originalUrl must be
+// sanitized before being written to the error log to prevent log injection.
+
+describe('createFlaskProxy log injection prevention', () => {
+  it('sanitizes newlines in req.method and req.originalUrl before logging', async () => {
+    vi.resetModules();
+
+    let errorCallback: ((err: Error) => void) | undefined;
+    vi.doMock('node:http', () => ({
+      default: {
+        request: (_opts: unknown, _cb: unknown) => ({
+          on: vi.fn((_event: string, cb: (err: Error) => void) => {
+            errorCallback = cb;
+          }),
+          end: vi.fn(),
+          write: vi.fn(),
+          pipe: vi.fn(),
+        }),
+      },
+    }));
+
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'example.com' },
+      hostname: 'example.com',
+      originalUrl: '/api/recipes\nGET /admin HTTP/1.1',
+      method: 'GET\ninjected',
+      protocol: 'http',
+      pipe: vi.fn(),
+    } as unknown as Request;
+
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    handler(req, res);
+
+    // Trigger the error event
+    errorCallback?.(new Error('connection refused'));
+
+    expect(errorSpy).toHaveBeenCalledOnce();
+    const logged: string = errorSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain('\n');
+    expect(logged).not.toContain('\r');
+    expect(logged).toContain('GET_injected');
+    expect(logged).toContain('/api/recipes_GET /admin HTTP/1.1');
+
+    errorSpy.mockRestore();
+    vi.doUnmock('node:http');
+    vi.resetModules();
+  });
+
+  it.each([
+    ['\\r (CR)', '\r'],
+    ['\\r\\n (CRLF)', '\r\n'],
+    ['\\n (LF)', '\n'],
+  ])('strips %s from logged values', async (_desc, sep) => {
+    vi.resetModules();
+
+    let errorCallback: ((err: Error) => void) | undefined;
+    vi.doMock('node:http', () => ({
+      default: {
+        request: (_opts: unknown, _cb: unknown) => ({
+          on: vi.fn((_event: string, cb: (err: Error) => void) => {
+            errorCallback = cb;
+          }),
+          end: vi.fn(),
+          write: vi.fn(),
+          pipe: vi.fn(),
+        }),
+      },
+    }));
+
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'example.com' },
+      hostname: 'example.com',
+      originalUrl: `/api/test${sep}injected`,
+      method: 'GET',
+      protocol: 'http',
+      pipe: vi.fn(),
+    } as unknown as Request;
+
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    handler(req, res);
+    errorCallback?.(new Error('connection refused'));
+
+    const logged: string = errorSpy.mock.calls[0][0] as string;
+    expect(logged).not.toContain('\n');
+    expect(logged).not.toContain('\r');
+
+    errorSpy.mockRestore();
+    vi.doUnmock('node:http');
+    vi.resetModules();
+  });
+});
