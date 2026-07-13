@@ -1,0 +1,3 @@
+project_id      = "comdottasteslikegood"
+datadog_api_key = "<your-datadog-api-key>"
+datadog_app_key = "<your-datadog-app-key>"
