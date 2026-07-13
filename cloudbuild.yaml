@@ -184,7 +184,8 @@ steps:
       # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
       # fails closed with 503.
       - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
-      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,DD_API_KEY=DD_API_KEY:latest
+      - --labels=service=flask-backend,dd_sls_mcp_tool=true
       - --no-allow-unauthenticated
       - --quiet
       - --network=default
@@ -206,7 +207,8 @@ steps:
       # VALKEY_CA_CERT: Memorystore's Google-managed CA cert, created by
       # scripts/gcloud/setup_valkey_ca.sh. Without it TLS verification of the
       # Valkey endpoint fails and rate limiting falls back to in-memory (#163).
-      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
+      - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest,DD_API_KEY=DD_API_KEY:latest
+      - --labels=service=express-frontend,dd_sls_mcp_tool=true
       - --allow-unauthenticated
       - --quiet
 
