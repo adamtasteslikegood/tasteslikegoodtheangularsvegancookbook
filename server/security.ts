@@ -91,14 +91,27 @@ export const createExpensiveOperationLimiter = (
  * Apply security middleware to an Express app
  */
 export const applySecurityMiddleware = (app: Express) => {
-  // Security headers — CSP is disabled here because Angular's build output relies on
-  // inline styles, inline event handlers (onload), and dynamic script loading from esm.sh.
-  // In production, configure CSP at the reverse proxy or CDN level (e.g., nginx, Cloudflare).
+  // Security headers — CSP is enabled with a scoped policy.
+  // Angular's production build outputs bundled JS/CSS files; no external CDN scripts are loaded.
+  // Inline styles are allowed because Angular applies component styles at runtime.
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+        },
+      },
     })
   );
 
