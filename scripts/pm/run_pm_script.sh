@@ -19,6 +19,8 @@ if [[ ! -f "$script_path" ]]; then
   exit 1
 fi
 
+deps_stamp="$venv_dir/.deps-installed"
+
 if [[ ! -x "$venv_python" ]]; then
   echo "PM scripts venv not found. Creating $venv_dir" >&2
   if ! python3 -m venv "$venv_dir"; then
@@ -28,9 +30,17 @@ Debian/Ubuntu example: sudo apt install python3.12-venv
 EOF
     exit 1
   fi
+fi
+
+# The stamp is written only after a complete install, so a bootstrap killed
+# mid-install retries here instead of leaving a venv with missing packages.
+# A requirements.txt newer than the stamp also re-installs, so dependency
+# updates aren't skipped.
+if [[ ! -f "$deps_stamp" || "$requirements" -nt "$deps_stamp" ]]; then
   # stderr so stdout stays clean for callers that parse script output
   "$venv_python" -m pip install --upgrade pip >&2
   "$venv_python" -m pip install -r "$requirements" >&2
+  touch "$deps_stamp"
 fi
 
 shift
