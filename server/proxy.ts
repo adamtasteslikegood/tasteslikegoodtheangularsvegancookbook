@@ -15,6 +15,7 @@ import http from 'node:http';
 import https from 'node:https';
 import type { Request, Response } from 'express';
 import type { RawBodyRequest } from './validation.js';
+import { sanitizeForLog } from './security.js';
 
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
@@ -70,8 +71,11 @@ export function createFlaskProxy(label = 'Flask') {
     });
 
     proxyReq.on('error', (err) => {
+      // err.message is also sanitized: CodeQL models the client-request error
+      // callback parameter as a remote flow source (the error text can echo
+      // attacker-influenced request data), so it must not reach the log raw.
       console.error(
-        `[${label} Proxy] ${req.method} ${req.originalUrl} → ${FLASK_BACKEND_URL} failed: ${err.message}`
+        `[${label} Proxy] ${sanitizeForLog(req.method)} ${sanitizeForLog(req.originalUrl)} → ${FLASK_BACKEND_URL} failed: ${sanitizeForLog(err.message)}`
       );
       if (!res.headersSent) {
         res.status(502).json({
