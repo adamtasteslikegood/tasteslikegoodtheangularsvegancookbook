@@ -54,8 +54,13 @@ class Daemon:
         self._id = 0
 
     def _send(self, msg: dict):
-        self.proc.stdin.write(json.dumps(msg) + "\n")
-        self.proc.stdin.flush()
+        try:
+            self.proc.stdin.write(json.dumps(msg) + "\n")
+            self.proc.stdin.flush()
+        except (BrokenPipeError, OSError):
+            code = self.proc.poll()
+            sys.exit(f"error: daemon exited (code {code}) before accepting "
+                     "input -- see its stderr output above")
 
     def request(self, method: str, params: dict | None = None) -> dict:
         self._id += 1

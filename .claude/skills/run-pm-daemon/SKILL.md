@@ -7,13 +7,18 @@ The PM daemon (`scripts/pm/pm_daemon.py`) is a **stdio MCP server** (FastMCP)
 plus a watchdog file-watcher that pushes seven `specs/*.md` planning docs to
 Confluence on save. There is no GUI. Drive it programmatically via
 `.claude/skills/run-pm-daemon/driver.py` — a stdlib-only MCP client that
-spawns the daemon, handshakes, and calls tools. All paths below are relative
-to the repo root; **everything must run from the repo root** (the daemon
-resolves `.env`, `specs/`, and `.agent-work/` from cwd).
+spawns the daemon, handshakes, and calls tools. All paths below are written
+relative to the repo root, but every entry point (`driver.py`, the
+`run_*.sh` launchers, `daemon_control.sh`) locates the repo root itself and
+cds there before running, so they can be invoked from anywhere — `.env`
+resolution and output files always land at the repo root.
 
 ## Prerequisites
 
-- `python3` with venv support (Debian/Ubuntu package `python3.12-venv`).
+- `python3` **3.10+** with venv support (Debian/Ubuntu package
+  `python3.12-venv`). The daemon's venv is created with the system `python3`,
+  and `pm_daemon.py` uses PEP 604 unions evaluated at import time — an older
+  system Python fails at daemon startup, not at install time.
 - Repo-root `.env` with `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`,
   `ATLASSIAN_URL` (see CLAUDE.md). Without them the daemon still starts and
   `list`/`status` work; anything touching Atlassian returns a credentials error.
@@ -99,9 +104,11 @@ Live smoke checks: `driver.py list` (exit 0, 5 tools) and
 - **stdout is the MCP wire.** Any print to stdout inside the daemon corrupts
   the protocol — that's why `run_pm_daemon.sh` routes pip output to stderr.
   Debug via stderr or `.agent-work/pm/pm-daemon.log`, never stdout.
-- **cwd is load-bearing.** `.env` discovery walks up from cwd; `specs/` and
-  `.agent-work/` are cwd-relative. Run from the repo root. (A git worktree
-  under `.claude/worktrees/` also works — the walk-up finds the main
+- **cwd is normalized, not free.** The daemon resolves `.env`, `specs/`, and
+  `.agent-work/` from cwd — the launchers make that safe by cd'ing to the
+  repo root first, but if you exec `pm_daemon.py` by hand, do it from the
+  repo root. (In a git worktree under `.claude/worktrees/`, the worktree root
+  is "the repo root"; pm_daemon.py's `.env` walk-up still finds the main
   checkout's `.env`.)
 - **`.env` loading varies by script.** `pm_daemon.py`,
   `sync_jira_confluence_status.py`, `atlassian_pm_link.py`, and
