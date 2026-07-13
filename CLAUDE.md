@@ -78,7 +78,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 - `server/proxy.ts` — `createFlaskProxy()`, raw streaming to Flask
 - `server/security.ts` — Helmet, rate limiting (300 req/15 min general, 20 req/hr AI), request logger
 - `server/valkey.ts` — Valkey (Redis alternative) client for distributed rate limiting; falls back to in-memory
-- `server/validation.ts` — express-validator rules for AI endpoints
+- `server/validation.ts` — express-validator rules for the AI endpoints (`POST /api/generate`, `POST /api/generate_image`): buffers the JSON body (10kb cap), validates it, and stashes the raw bytes on `req.rawBody` for the proxy to replay to Flask verbatim; all other `/api/*` routes keep raw streaming
 - No AI logic lives here; it's purely proxy + static hosting
 
 ### Layer 3 — Flask API (`Backend/`)
