@@ -679,7 +679,7 @@ describe('createFlaskProxy log injection prevention', () => {
     ['\\r (CR)', '\r'],
     ['\\r\\n (CRLF)', '\r\n'],
     ['\\n (LF)', '\n'],
-  ])('strips %s from logged values', async (_desc, sep) => {
+  ])('replaces %s in logged values', async (_desc, sep) => {
     vi.resetModules();
 
     let errorCallback: ((err: Error) => void) | undefined;
