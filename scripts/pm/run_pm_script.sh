@@ -34,7 +34,9 @@ fi
 
 # The stamp is written only after a complete install, so a bootstrap killed
 # mid-install retries here instead of leaving a venv with missing packages.
-if [[ ! -f "$deps_stamp" ]]; then
+# A requirements.txt newer than the stamp also re-installs, so dependency
+# updates aren't skipped.
+if [[ ! -f "$deps_stamp" || "$requirements" -nt "$deps_stamp" ]]; then
   # stderr so stdout stays clean for callers that parse script output
   "$venv_python" -m pip install --upgrade pip >&2
   "$venv_python" -m pip install -r "$requirements" >&2

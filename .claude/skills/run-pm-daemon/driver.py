@@ -18,6 +18,8 @@ create_epic_from_roadmap and log_agent_session write to Confluence/Jira.
 rewrites the local briefing file but reads live Jira/Confluence.
 """
 
+from __future__ import annotations  # PEP 604 unions on Python < 3.10
+
 import argparse
 import json
 import os
