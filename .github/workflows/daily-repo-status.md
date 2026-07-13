@@ -29,6 +29,7 @@ safe-outputs:
   create-issue:
     title-prefix: '[repo-status] '
     labels: [report, daily-status]
+    expires: 2d
 source: githubnext/agentics/workflows/daily-repo-status.md@442992eda2ccb11ee75a39c019ec6d38ae5a84a2
 engine: copilot
 ---
