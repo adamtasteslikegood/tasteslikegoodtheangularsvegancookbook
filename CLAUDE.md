@@ -231,7 +231,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 ## Non-obvious patterns
 
-- **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
+- **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17. The Flask backend shares the same Valkey instance for response caching (`Backend/extensions.py` `init_cache()`, Backend issue #143); both services consume the `VALKEY_CA_CERT` secret for TLS verification
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
 - **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
   - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
