@@ -8,16 +8,206 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.3] - 2026-07-11
+
+Stability and automation release. Fixes cookbook editing regressions, makes authenticated publishing explicit, hardens the hosted GCP monitoring connector, repairs the repository's agentic workflows, and adds active-work reflection for Jira/KAN.
+
 ### Fixed
 
+- **Recipe editing no longer loses ingredient data** ([#3057](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3057)): the wizard preserves ingredient groups while editing, cookbook creation rejects blank names, and modal controls now have accessible labels.
+- **Abandoned manual-entry rows no longer leak into later recipes** ([#3098](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3098)): closing or reopening manual recipe entry clears pending ingredient and instruction drafts before the next save.
+- **Publishing is limited to signed-in users** ([#3066](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3066), Backend [#142](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/142)): guests see a clear "Sign in to publish" action instead of a control that cannot complete, while the backend rejects guest publishing and migrates previously guest-published rows safely.
+- **Hosted gcp-monitor connector reliability** ([#3058](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3058), [#3060](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3060), [#3078](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3078)): secret-path routing now works with connector registration, reverse-proxy host validation no longer rejects Cloud Run traffic, and `metric_pb2` is imported consistently.
+- **PM session-log configuration matches the documented environment variables** ([#3065](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3065), [#3079](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3079)): session logs target the Agent Session Logs index and receive the expected label.
+- **Agentic workflows compile and run again** ([#3077](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3077), [#3091](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3091), [#3093](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3093)): Daily Repo Status uses the current gh-aw runtime, and Issue Arborist now uses the built-in GitHub token with a regenerated lock file whose frontmatter hash matches its source.
+- **Backend operational endpoints are safer and accurate** (Backend [#147](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/147)): `/api/migrate` requires an admin token and `/api/status` performs a working database health probe.
+
+### Added
+
+- **Issue Arborist automation** ([#3089](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3089), [#3093](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3093)): periodically groups strongly related GitHub issues into parent/sub-issue relationships, with compiler-generated maintenance for expiring safe outputs.
+- **Jira/KAN work reflection** ([#3080](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3080)): `npm run pm:reflect` compares the active branch, changed files, recent commits, and referenced issues with KAN/RCP, then writes board-alignment recommendations under `.agent-work/pm/`.
+- **Reverse-engineered product reference** ([#3082](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3082)): documents current pages, API inventory, data model, enums, and platform behavior under `prd/`.
+
+### Changed
+
+- Angular 22.0.5 -> 22.0.6, `@google/genai` 2.10 -> 2.11, Vite 8.0.16 -> 8.1.4, Node types 25 -> 26, plus testing and linting patch updates ([#3000](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3000), [#3071](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3071), [#3073](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3073), [#3074](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3074), [#3075](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3075), [#3076](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3076)).
+- Backend submodule `ef594bf` -> `3883f00`, adding authenticated publishing enforcement and the operational endpoint fixes above. Alembic remains on one head (`e91b47a2c5d3`).
+- Repository and agent-tooling pointers were refreshed, runtime artifacts were explicitly parked/ignored, and session-start synchronization guidance was tightened ([#3068](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3068), [#3085](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3085)).
+
+## [0.3.2] - 2026-07-05
+
+Regression-fix release for v0.3.1: restores styling on the server-rendered public pages, makes async recipe generation retry transient model failures, and un-shadows the dynamic sitemap. Also brings the GCP monitoring MCP server to Cloud Run as an authenticated Claude connector and gates PRs targeting `dev` with the full CI suite.
+
+### Fixed
+
+- **Public SSR pages render styled again** ([#3047](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3047), [#3048](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3048)): Express proxied `/r/*`, `/browse`, and `/sitemap.xml` to Flask but not `/static/*`, so the SSR templates' stylesheet requests fell through to the SPA catch-all and came back as `index.html` (`text/html`) — Helmet's `X-Content-Type-Options: nosniff` then made browsers refuse to apply them, leaving every public page unstyled. `GET /static/*` is now proxied to Flask (mounted after `express.static`, so Angular build assets still win on collision). `server/index.ts` exports `app` and a `ready` promise with the listener skipped under `VITEST`/`NODE_ENV=test`, backed by new route-mounting integration tests (`server/routes.test.ts`).
+- **Async recipe generation survives flaky model responses** (Backend [#141](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/141) via [#3049](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3049)): `gemini-3.1-pro-preview` intermittently returns truncated JSON, and the Pub/Sub worker was single-shot with only "Unknown error" logging — users saw "generation failed during async processing". The worker now retries transient generation failures up to `GENERATION_MAX_ATTEMPTS` (default 3) and failure records carry the real error message (validation failures wrapped as `ValidationError`). Backend submodule `b359743` → `ef594bf`.
+- **Dynamic sitemap unshadowed** ([#3041](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3041)): a stale static `public/sitemap.xml` was served by `express.static` ahead of the Flask proxy route, hiding the dynamic sitemap of public recipes shipped in v0.3.1. Deleted.
+
+### Added
+
+- **GCP monitoring served over HTTP for Claude connectors** ([#3051](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3051), [#3052](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3052)): the gcp-monitor MCP server can now run as an authenticated Streamable-HTTP service on Cloud Run — keyless (runs as a `roles/monitoring.viewer` service account via ADC), bearer-token auth from Secret Manager, token also accepted via `?key=` query param for connector UIs without header support — with a Dockerfile and `deploy_mcp_cloud_run.sh`. Cloud routines get the monitoring tools first-class instead of shelling out to scripts.
+- **gcp-monitor cloud-session resilience** ([#3043](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3043), [#3044](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3044), [#3046](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3046)): prebuilt-venv fast path so the stdio server survives cloud-routine cold starts, retries around transient PyPI timeouts in the setup script, and project MCP servers pre-approved in `.claude/settings.json` for cloud sessions.
+
+### Changed
+
+- **CI: pull requests targeting `dev` now run the lint/test/build gate** ([#3050](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3050)) — previously the gate only ran on pushes, so a broken PR could merge green.
+- Docs: GBrain config + search guidance in `CLAUDE.md` refreshed ([#3042](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3042), [#3045](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3045)); `docs/MCP_GCP_MONITORING.md` expanded with the Cloud Run connector setup (§ 4.5).
+
+## [0.3.1] - 2026-07-04
+
+Deploy hotfix. The v0.3.0 tag was cut but its Cloud Build died in the `flask-backend-migrate` job (`ModuleNotFoundError: flask_cors`) before either service deployed — production kept serving v0.2.5 throughout. v0.3.1 is v0.3.0 plus the dependency fix; it is the release that actually ships the v0.3.0 feature set.
+
+### Fixed
+
+- **Backend image lost 14 runtime dependencies** (Backend [#140](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/140)): a Dependabot uv-group bump (Backend #133) regenerated `requirements.txt` — which the Dockerfile installs from — dropping flask-cors, flask-migrate, flask-sqlalchemy, alembic, psycopg2-binary, google-cloud-storage, google-cloud-pubsub, redis and more. `google-cloud-storage`/`google-cloud-pubsub`/`redis` are now declared in `pyproject.toml` (they were imported by services but never listed there), `requirements.txt` is regenerated from `uv.lock`, and a new Backend CI step fails on any future drift between the two. Backend submodule pin: `2baccf2` → `b359743`.
+
+## [0.3.0] - 2026-07-04
+
+Feature release: server-rendered public recipe/browse pages with a styled shell and Save-to-Cookbook flow, the Angular 22 + TypeScript 6 upgrade, GCP monitoring tooling, a production Valkey TLS fix, Atlassian/PM tooling, a repository cleanup, and a batch of dependency updates.
+
+### Added
+
+- **SSR recipe & browse pages with a "Save to Cookbook" CTA.** Public recipes render server-side. The CTA is a server-rendered link to `/?save=<slug>#kitchen`; `AppComponent.handleSaveFromSSR()` fetches the recipe from the new `GET /api/recipes/public/<slug>` JSON endpoint (Backend [#139](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/139)) and saves it to the guest/user cookbook through the session-aware flow (fresh id, image fields preserved), then cleans the URL. A `#kitchen` hash deep-links straight into the cookbook view (`syncViewFromLocation`).
+- **Styled public shell + SEO** (Backend [#132](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/132)): `base_public.html` layout with design tokens (`tokens.css`, `recipe-site.css`), canonical/Open Graph/JSON-LD metadata, Pinterest share, and a dynamic `/sitemap.xml` of public routes.
+- **Public recipe save flow** wired into the kitchen.
+- **GCP monitoring MCP server + "Run System Health Check" routine** (#3008, #3020): read-only Cloud Monitoring tools covering Cloud Run, Cloud SQL, Valkey, and Pub/Sub, with an SRE health-report skill.
+- **Atlassian / PM tooling.** `.pi/` Atlassian AOTA extension, session-log skill + schemas, background pm-daemon controls, and session-log publishing scripts. New `docs/PM_TOOLING.md` and `.github/CODEOWNERS`.
+
+### Fixed
+
+- **Production Valkey TLS trust** (#3027): Memorystore server certs chain to a Google-managed private CA, so every Express instance failed TLS verification and silently fell back to in-memory rate limiting. The new `VALKEY_CA_CERT` secret (full CA bundle, created by `scripts/gcloud/setup_valkey_ca.sh`) is passed as `tls.ca`, keeping verification enabled. Closes #163.
+- **SSR save flow hardened** (#3031, Backend #139): saves from public pages no longer race the startup auth check (a stale cached authenticated session could swallow the save), keep their `ai_image_url`/`stock_image_url`, and always get a fresh id so they sync server-side. The old inline localStorage CTA (which bypassed all of this) is replaced by the server-backed flow above.
+
+### Changed
+
+- **Angular 21 → 22 and TypeScript → 6.0.3** (#3009), with `@angular-eslint/*` 22.x moved in lockstep.
+- **Repository cleanup.** Reorganized docs, moved scripts under `scripts/git` and `scripts/pm`, removed clutter (a stray email file, Confluence JSON dumps, a GitHub-skyline STL, `scripts/output.md`, etc.), and rewrote the README.
+- `.gitignore` now ignores Python virtualenvs (`scripts/pm/.venv`).
+- **Backend submodule** bumped to `2baccf2`, the Backend `dev` integration tip. It carries the public recipe SSR routes + data model (`ade81bc`), the `is_public`/`slug` column sync (`3987d9a`), the Alembic status+slug head merge (`534898c`, single migration head `c60f6530f4ff`), the styled public shell + SEO (#132), the public recipe JSON endpoint + SPA-routed Save CTA (#139), removal of the failing Gemini Dispatch CI pipeline (#138), and the latest dependency bumps. Verified resolvable against `origin/dev`.
+
+### Dependencies
+
+- helmet 8.1→8.2, ioredis 5.10→5.11.1, google-auth-library 10.6→10.9, @google-cloud/secret-manager 6.1.1→6.2.0, globals 17.5→17.7, @types/node 25.6.0→25.6.2, vite 8.0.10→8.0.16, hono override →4.12.26 (clears two high-severity advisories), eslint 10.6, prettier 3.9.4, @typescript-eslint/eslint-plugin 8.62.
+- **Major bumps:** `@google/genai` 1.50→2.x (not imported in TypeScript — version-only), `rate-limit-redis` 4.3→5.0 (API-compatible with the existing `RedisStore` usage in `server/security.ts`), `express-rate-limit` →8.5.2.
+- Docker base image `node:25-alpine` → `node:26-alpine`, with CI `node-version` pinned to 26 to match; GitHub Actions group bumps.
+
+## [0.2.5] - 2026-05-06
+
+Hotfix on top of v0.2.4 — Google OAuth login was returning HTTP 500 for some returning users.
+
+### Fixed
+
+- **OAuth callback tolerates Google's scope bundling for returning users.** Backend [#128](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/128). Users who had previously consented to `cloud-platform` (from an earlier deploy that requested it before commit `d85e3dd` removed the scope) were getting `{"error":"Authentication failed"}` on every login attempt — Google was bundling the previously-granted scope back into the token response, and `oauthlib`'s strict `validate_token_parameters` was raising on the scope-set mismatch (`Scope has changed from "openid userinfo.email userinfo.profile" to "openid userinfo.profile cloud-platform userinfo.email"`). Two-part fix: (1) drop `include_granted_scopes="true"` from the `/api/auth/login` authorization URL since the cookbook already requests its full scope set up front, and (2) set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` at module import as defense-in-depth for accounts still carrying stale grants. Backend submodule bumped to `397ba90`.
+
+## [0.2.4] - 2026-05-04
+
+Bug-fix release on top of v0.2.3, plus PM tooling and docs reorganization. Corrects two UX regressions (browser back button, AI image persistence), ships the new Jira/Confluence/PR sync script that PR #2903 introduced, moves planning docs into `specs/`, and bumps the Backend submodule onto the green `dev` tip after the test-fixture fix lands.
+
+### Fixed
+
+- **Browser back button now restores the correct view.** `src/app.component.ts`'s `popstate` handler had its mappings inverted: returning to a `{view: 'kitchen'}` history entry switched the user to the generator (and vice versa). Pressing back from a recipe detail dropped users on the generator instead of the kitchen, and pressing back from the kitchen was effectively a no-op. The handler now mirrors the `pushState` calls in `switchView`/`viewRecipe` so back navigation matches user intent.
+- **AI-generated recipe images survive a refresh.** `src/services/auth.service.ts`'s `hydrate()` now merges `ai_image_url` from localStorage into API recipe data when the backend hasn't persisted the image URL yet (Pub/Sub write hasn't landed). The merge uses a `Map` keyed by recipe id so the cost is O(n+m) instead of O(n·m).
+- **Public recipes show up at `/browse`.** Backend `create_recipe()` now syncs the `is_public` and `slug` columns from the recipe payload on create, update, and migration paths, so saving a recipe as public actually flips the DB column the listing query filters on.
+- **Backend test fixtures reliably bind to `:memory:`** — Backend issue [#118](https://github.com/adamtasteslikegood/tasteslikegood.com/issues/118). `tests/test_migration_backfill_slug.py` had been failing on every CI run since the SSR/data-model PR landed (`table recipe has no column named status`) because the fixture updated `SQLALCHEMY_DATABASE_URI` _after_ `create_app()` had already let Flask-SQLAlchemy latch onto the file-based dev DB. `create_app()` now accepts config kwargs that are applied before `db.init_app()`, and both the `test_migration_backfill_slug.py` and `test_public_ssr.py` fixtures use the new signature. Backend pytest is fully green again on the PR-gate workflow.
+- **PM sync scripts follow the docs into `specs/`.** `sync_docs_to_confluence.py` and `scripts/pm/atlassian_pm_link.py` had their planning-doc paths still pointing at repo root; both now read from `specs/` so the Confluence sync and PM briefing pick up the canonical locations again.
+
+### Added
+
+- **`scripts/pm/sync_jira_confluence_status.py`** — one-shot sync that prints production-site health, open GitHub PR check status, open + recently-updated Jira issues for the `KAN` project, and Confluence pages mentioning the current release. The release version is read from `package.json` (override with `RELEASE_VERSION`); `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID` and `ATLASSIAN_CONFLUENCE_KEY_PAGES` env vars let callers retarget the workspace without editing the script.
+- `scripts/pm/requirements.txt` declares the runtime deps (`requests`, `python-dotenv`).
+
+### Changed
+
+- **Planning docs moved from repo root to `specs/`.** `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`. `CLAUDE.md`'s pm-daemon paths reference the new locations; the watcher in `alirez-claude-skills/pm-daemon/pm_daemon.py` matches by basename so it picked up the move automatically.
+- **`AGENTS.md` rewritten for OpenCode.** Removed the gstack-specific routing block, added a `Backend submodule` "CRITICAL" section, and added pointers to the PM tooling.
+- **`.gitignore`** now ignores `.claude/scheduled_tasks.lock` and `.omg/state/` (agent runtime state, not version-controlled).
+- Backend submodule pointer bumped to the post-#127 `dev` tip so the cookbook ships with the test-fixture fix in place. No runtime behavior changes.
+
+## [0.2.3] - 2026-04-30
+
+Hotfix on top of v0.2.2 — the migrate Job couldn't reach Cloud SQL.
+
+### Fixed
+
+- `cloudbuild.yaml`: add `--set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db` to the `flask-backend-migrate` Cloud Run Job. The `DATABASE_URL` secret is configured for a Cloud SQL Unix-socket connection (`postgresql://...?host=/cloudsql/<instance>`) — without this flag the socket path doesn't exist in the Job container and SQLAlchemy falls back to localhost, failing with `OperationalError: Is the server running locally and accepting connections on that socket?`. The v0.2.2 build aborted at "Execute Migrate Job" because of this; the new Flask revision was correctly _not_ deployed (the gate worked), but no migration ran. v0.2.3 rebuilds with the corrected Job spec.
+
+## [0.2.2] - 2026-04-30
+
+Production hotfix: restore recipe generation and auth on tasteslikegood.org.
+
+### Fixed
+
+- **Database migrations now run automatically before each Flask deploy.** A new Cloud Run **Job** (`flask-backend-migrate`) wired into `cloudbuild.yaml` runs `flask db upgrade` against Cloud SQL before the Flask service is redeployed. A failing migration aborts the build so the old Flask revision keeps serving traffic. This closes the gap that caused the v0.2.0/v0.2.1 production outage: schema-changing migrations (`recipe.status`, `recipe.slug`, `recipe.is_public`) shipped without ever being applied to prod.
+- **Backend submodule pointer bumped to `dev` tip (`15ba254`)**, which now contains an Alembic merge migration unifying the previously branched heads (`03da1e46c9a5` for `recipe.status` and `fc014cd27ab4` for `recipe.slug`/`recipe.is_public`). Without this merge, `flask db upgrade` would have refused to run on prod regardless of when it was called.
+- `.gitmodules`: Backend submodule branch tracker fixed from `dev/backend_sub222` (deleted upstream) → `dev`. `git submodule update --remote Backend` now resolves correctly again.
+
+### Changed
+
+- `CLAUDE.md` and `AGENTS.md`: explicit **Branching strategy (FINAL)** section codifies `main` = release, `dev` = integration, feature branches off `dev`. New **Database migrations** section documents the Cloud Run Job and the multi-PR head-conflict policy (`flask db merge`). Release flow updated to include the migrate step. Backend submodule non-obvious pattern rewritten with the current `dev` branch and `flask db heads` check.
+
+## [0.2.1] - 2026-04-29
+
+Post-v0.2.0 polish: repo hygiene, Cloud Run image trimming, agent-tooling wiring. No user-facing app changes.
+
+### Added
+
+- `.mcp.json` registers the `pm-daemon` MCP server (from `alirez-claude-skills/pm-daemon` via `scripts/pm/run_pm_daemon.sh`) so Claude Code, Codex, and other agents auto-spawn the daemon on session start. The daemon watches plan files (`plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`) and syncs them to Confluence in the background. Deletes orphaned `auto_pm_mcp.json` (wrong filename — Claude Code reads `.mcp.json`).
+- PM daemon (`alirez-claude-skills/pm-daemon`) gains recursive plan-file matching (uses `rglob`) and a `--watch-only` mode for running the watcher without MCP transport
+- "Always check the `Backend/` submodule repo for PRs and changes" guidance in CLAUDE.md and AGENTS.md, with `gh pr list -R adamtasteslikegood/tasteslikegood.com` and `git -C Backend log` commands. Backend/ is roughly half the project; missed PRs there have caused integration drift on past releases.
+- Cloud Build trigger regex documentation in CLAUDE.md — production deploys fire only on tags matching `^v[0-9]+\.[0-9]+\.[0-9]+$`, so pre-release tags like `v0.2.1-rc.1` or build-metadata tags like `v0.2.1+sha.abc` cannot accidentally trigger a production push.
+
+### Changed
+
+- Expand `.dockerignore` and `.gcloudignore` to keep planning, PM, AI/agent tooling (`.codex/`, `.gemini/`, `.junie/`, `.clawhub/`, `claude-code-tresor/`, `skills/`), Python venvs, and non-runtime submodules (`alirez-claude-skills/`, `gemstack/`) out of the Cloud Run build context. Smaller image, faster build, less surface area.
+- Clean up `.gitignore`: resolve unresolved `<<<<<<<` / `>>>>>>>` merge conflict markers that had silently been there (likely a missed conflict during a previous merge from `origin/main`), dedupe entries, add Python bytecode patterns, and stop ignoring `AGENTS.md` so the agent-facing guidance is actually tracked in git.
+
+### Fixed
+
+- Bump `alirez-claude-skills` submodule pointer to pick up recursive plan-file watching and `--watch-only` mode in `pm_daemon.py` (was silently uncommitted in the parent for ~3 days)
+
+## [0.2.0] - 2026-04-29
+
+The "Anti-Recipe Site" release. Public recipes can now be shared via clean URLs that crawlers and JS-flaky in-app browsers (Facebook, Instagram) render correctly. Recipe and image generation moved off the request thread onto Pub/Sub workers, so the UI returns instantly instead of holding the connection open for 30+ seconds.
+
+### Added
+
+- Public recipes: toggle "Make Public" on a saved recipe and share `/r/<slug>` — server-rendered HTML with photo, ingredients, instructions, and a working CTA. Indexed by Googlebot. ([TAS-2718](https://linear.app/tasteslikegood/issue/TAS-2718))
+- `/browse` index page lists every public recipe with author byline and pagination
+- `slug` and `is_public` columns on recipes plus a backfill script for existing entries
+- Async AI generation via Pub/Sub: `POST /api/generate` and `POST /api/generate_image` now return 202 instantly; recipes complete in the background and the UI polls for status
+- `/api/worker/recipe` and `/api/worker/image` HTTP push endpoints with OIDC verification — Pub/Sub signs each push with a JWT that the endpoints validate against `PUBSUB_INVOKER_SA` before processing
+- `scripts/gcloud/setup_pubsub.sh` and `scripts/gcloud/update_push_endpoints.sh` for one-time GCP infrastructure setup (topics, subscriptions, IAM, dead-letter queue)
+- Branching guidance in CLAUDE.md, COPILOT.md, and GEMINI.md: always branch off `dev`, never commit directly to `dev` or `main`
+
+### Changed
+
+- SSR proxy routes (`/r`, `/browse`, `/sitemap.xml`) moved from `app.use()` to `app.get()` with rate limiting via `staticPageLimiter` — non-GET methods 404 cleanly, no bot POST spam reaches Flask
+- "Make Public" toggle replaced with proper `<button role="switch">` + `aria-labelledby` for screen reader support and to satisfy `@angular-eslint/template/label-has-associated-control`
+- `Recipe` model gains a `status` column (`pending`, `ready`, `error`) so the frontend can poll while async generation completes
+
+### Fixed
+
+- OAuth scope reduction: removed broad `cloud-platform` scope from user auth so the consent screen no longer triggers a Google security warning that was scaring away recipe-share recipients
+- `Backend/blueprints/worker_api_bp.py` import was missing from `app.py` — the container would have crashed on startup with `NameError`
 - Catch `shutdownValkey()` failures inside `createValkeyClient()` so a broken `quit()` cannot prevent reinitialization or fallback to in-memory rate limiting ([TAS-48](https://linear.app/tasteslikegood/issue/TAS-48/catch-quit-failures-before-reinitializing-valkey-client))
 - On startup, clear the cached authenticated user when the Flask session is gone instead of downgrading it to guest — prevents the header showing "Sign In" while Kitchen still lists the previously authenticated user's recipes ([TAS-2725](https://linear.app/tasteslikegood/issue/TAS-2725/bug-ui-shows-logged-out-state-login-button-while-still-displaying))
+- `.gitmodules` now points `gemstack` at the correct upstream (`adamtasteslikegood/gemstack`) so CI can fetch the recorded SHA
 
 ### Removed
 
-- Delete broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json`, so no submission action is needed ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- 38MB of stray ImageMagick PostScript dumps committed to repo root with cryptic names (`base64`, `json`, `logging`, `markdown`, `os`, `requests`, `sys`)
+- Broken `dependency-submission.yml` workflow — GitHub natively detects npm dependencies from `package-lock.json` ([TAS-2713](https://linear.app/tasteslikegood/issue/TAS-2713/snapshot-github-action-failing-still))
+- Standalone pull-based Pub/Sub worker scripts (`Backend/workers/recipe_worker.py`, `image_worker.py`, `run_workers.py`) — replaced by HTTP push endpoints
+- Duplicate `gemstack` entry in `.gitmodules`
 
-### Changed
+### Infrastructure
+
+- Cloud Run flask-backend env vars now include `GCP_PROJECT_ID` and `PUBSUB_INVOKER_SA` so the worker endpoints know which OIDC issuer to trust
+- New GCP service account `pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com` with `roles/run.invoker` on flask-backend; flask service account gains `roles/pubsub.publisher`
+- Push subscriptions configured with 600s ack-deadline (Imagen takes 30-90s), exponential retry backoff, and dead-letter routing to `generation-dlq` after 5 failed deliveries
+
+### Internal
 
 - Mark all `inject()` service references as `readonly` across Angular components and services ([TAS-2707](https://linear.app/tasteslikegood/issue/TAS-2707/find-a-small-improvement-copy))
 - Use `Number.parseInt()` instead of global `parseInt()` in `server/valkey.ts` for consistency with the rest of the codebase

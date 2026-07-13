@@ -8,7 +8,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'github-actions'
@@ -28,7 +28,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'javascript'
@@ -39,6 +39,8 @@ updates:
       angular:
         patterns:
           - '@angular/*'
+          - '@angular-eslint/*'
+          - '@angular-devkit/*'
       # Testing tools (vitest, coverage)
       testing:
         patterns:
@@ -50,7 +52,6 @@ updates:
           - 'eslint'
           - 'eslint-*'
           - '@typescript-eslint/*'
-          - '@angular-eslint/*'
           - 'prettier'
       # TypeScript and type definitions
       types:
@@ -66,6 +67,18 @@ updates:
           - 'postcss'
     # Ignore known breaking major updates that require manual migration
     ignore:
+      # Angular majors require TypeScript majors (e.g. Angular 22 needs TS >=6.0,
+      # which the root typescript pin deliberately blocks). Angular major upgrades
+      # are manual migrations coordinated with @angular-eslint and the TS pin —
+      # see PR #2996 which broke npm ci on dev.
+      - dependency-name: '@angular/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@angular-eslint/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@angular-devkit/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: 'typescript'
+        update-types: ['version-update:semver-major']
       # Tailwind v4 requires @tailwindcss/postcss plugin and full config migration.
       # Review periodically — remove this ignore when ready to migrate (see postcss.config.js).
       - dependency-name: 'tailwindcss'
@@ -79,7 +92,7 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-    target-branch: 'main'
+    target-branch: 'dev'
     labels:
       - 'dependencies'
       - 'docker'

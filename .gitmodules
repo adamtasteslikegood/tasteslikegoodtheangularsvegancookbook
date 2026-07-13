@@ -1,11 +1,7 @@
 [submodule "Backend"]
 	path = Backend
 	url = https://github.com/adamtasteslikegood/tasteslikegood.com.git
-	branch = dev/backend_sub222
-
-[submodule "gemstack"]
-	path = gemstack
-	url = https://github.com/ekrishgupta/gemstack.git
+	branch = dev
 
 [submodule "alirez-claude-skills"]
 	path = alirez-claude-skills
@@ -13,5 +9,5 @@
 
 [submodule "gemstack"]
 	path = gemstack
-	url = https://github.com/garrytan/gstack.git
+	url = https://github.com/adamtasteslikegood/gemstack.git
 

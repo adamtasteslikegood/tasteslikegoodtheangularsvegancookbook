@@ -360,22 +360,46 @@
 
                 <!-- v0.2 Anti-Recipe Distribution Controls -->
                 <div class="flex items-center gap-2 ml-2 pl-4 border-l border-stone-200">
-                  <div class="flex items-center gap-2">
-                    <label class="text-[10px] font-bold uppercase text-stone-400">Public</label>
-                    <button
-                      (click)="togglePublic(r)"
-                      class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
-                      [class.bg-green-600]="r.is_public"
-                      [class.bg-stone-300]="!r.is_public"
-                    >
+                  @if (canPublish()) {
+                    <div class="flex items-center gap-2">
                       <span
-                        class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
-                        [class.translate-x-5]="r.is_public"
-                        [class.translate-x-1]="!r.is_public"
-                      ></span>
+                        id="public-toggle-label"
+                        class="text-[10px] font-bold uppercase text-stone-400"
+                        >Public</span
+                      >
+                      <button
+                        type="button"
+                        role="switch"
+                        [attr.aria-checked]="r.is_public"
+                        aria-labelledby="public-toggle-label"
+                        (click)="togglePublic(r)"
+                        class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
+                        [class.bg-green-600]="r.is_public"
+                        [class.bg-stone-300]="!r.is_public"
+                      >
+                        <span
+                          class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
+                          [class.translate-x-5]="r.is_public"
+                          [class.translate-x-1]="!r.is_public"
+                        ></span>
+                      </button>
+                    </div>
+                  } @else if (isSaved()) {
+                    <!-- Guests can't publish: no accountable identity behind
+                         public pages. The server enforces this too. Gated on
+                         isSaved() so the CTA never sends a guest into the
+                         OAuth redirect with an unsaved, unrecoverable recipe
+                         still only in memory. -->
+                    <button
+                      type="button"
+                      (click)="openAuthModal()"
+                      class="text-[10px] font-bold uppercase text-stone-400 hover:text-green-600 underline underline-offset-2 transition-colors"
+                      aria-label="Sign in to publish this recipe"
+                    >
+                      Sign in to publish
                     </button>
-                  </div>
-                  @if (r.is_public) {
+                  }
+                  @if (canPublish() && r.is_public) {
                     <div class="flex items-center gap-2 ml-1 animate-[fadeIn_0.2s]">
                       <input
                         type="text"
@@ -650,11 +674,9 @@
                       {{ $index + 1 }}
                     </div>
                     <div class="flex-1 pt-1">
-                      @if (isString(inst)) {
-                        <p class="text-stone-700 leading-relaxed text-lg">{{ inst }}</p>
-                      } @else {
-                        <p class="text-stone-700 leading-relaxed text-lg">{{ inst.description }}</p>
-                      }
+                      <p class="text-stone-700 leading-relaxed text-lg">
+                        {{ instructionText(inst) }}
+                      </p>
                     </div>
                   </div>
                 }
@@ -1209,6 +1231,7 @@
       >
         <button
           (click)="closeAuthModal()"
+          aria-label="Close sign-in dialog"
           class="absolute top-4 right-4 text-stone-400 hover:text-stone-600"
         >
           <svg
@@ -1364,7 +1387,8 @@
           </button>
           <button
             (click)="createCookbook()"
-            class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20"
+            [disabled]="!newCookbookName().trim()"
+            class="flex-1 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Create
           </button>
@@ -1388,7 +1412,11 @@
       >
         <div class="flex justify-between items-center mb-6">
           <h3 class="text-2xl font-bold text-stone-800 serif">Write Recipe</h3>
-          <button (click)="closeManualEntryModal()" class="text-stone-400 hover:text-stone-600">
+          <button
+            (click)="closeManualEntryModal()"
+            aria-label="Close write recipe dialog"
+            class="text-stone-400 hover:text-stone-600"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               class="h-6 w-6"
@@ -1537,6 +1565,7 @@
                 </div>
                 <button
                   (click)="addManualIngredient()"
+                  aria-label="Add ingredient"
                   class="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
                   <svg
@@ -1570,6 +1599,7 @@
                     </div>
                     <button
                       (click)="removeManualIngredient($index)"
+                      aria-label="Remove ingredient"
                       class="text-red-400 hover:text-red-600"
                     >
                       <svg
@@ -1619,6 +1649,7 @@
                     <p class="flex-1 text-sm text-stone-700">{{ inst }}</p>
                     <button
                       (click)="removeManualInstruction($index)"
+                      aria-label="Remove step"
                       class="opacity-0 group-hover:opacity-100 text-stone-400 hover:text-red-500"
                     >
                       <svg

@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
-import { Ingredient, IngredientGroup, Recipe } from './recipe.types';
+import { buildSavedRecipeFromPublic } from './services/public-recipe.mapper';
+import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 
 @Component({
   selector: 'app-root',
@@ -22,12 +23,106 @@ export class AppComponent {
   activeView = signal<'generator' | 'kitchen'>('generator');
 
   constructor() {
-    // Browser back button: return to generator (home) view
-    window.addEventListener('popstate', () => {
-      if (this.activeView() === 'kitchen') {
+    this.syncViewFromLocation();
+
+    // Browser back button: restore previous view based on history state.
+    // event.state is the entry we're navigating *to*, so the mapping mirrors
+    // the pushState calls in switchView/viewRecipe: a 'kitchen' entry on the
+    // stack means we're returning to the cookbook list; the initial null
+    // entry means we're returning to the generator. We also honor #kitchen so
+    // SSR pages can deep-link directly into the cookbook SPA.
+    window.addEventListener('popstate', (event) => {
+      const state = event.state as { view?: string } | null;
+      // Prefer the explicit history-state view set by in-app pushState
+      // navigation. Fall back to the #kitchen hash only for the initial
+      // SSR entry (no view in its state), so a lingering hash can't
+      // override back/forward to a generator entry.
+      const view = state?.view ?? (window.location.hash === '#kitchen' ? 'kitchen' : 'generator');
+      if (view === 'kitchen') {
+        this.authService.ensureGuestSession();
+        this.activeView.set('kitchen');
+      } else {
         this.activeView.set('generator');
       }
     });
+
+    window.addEventListener('hashchange', () => {
+      // Only react to the #kitchen deep-link. Don't force the generator view
+      // on unrelated hash changes — that would override in-app navigation
+      // (e.g. the user is already in the kitchen and an anchor link fires a
+      // hashchange). Leaving the kitchen is driven by switchView/popstate.
+      if (window.location.hash === '#kitchen') {
+        this.authService.ensureGuestSession();
+        this.activeView.set('kitchen');
+      }
+    });
+
+    // Handle ?save=<slug> from SSR "Save to Cookbook" CTA.
+    // Fetches the public recipe by slug and saves it to the guest/user cookbook.
+    const params = new URLSearchParams(window.location.search);
+    const saveSlug = params.get('save');
+    if (saveSlug) {
+      // Remove only the 'save' param to avoid re-triggering on refresh,
+      // preserving any other query params and the hash.
+      const url = new URL(window.location.href);
+      url.searchParams.delete('save');
+      window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+      this.handleSaveFromSSR(saveSlug);
+    }
+  }
+
+  private syncViewFromLocation() {
+    if (window.location.hash === '#kitchen') {
+      this.authService.ensureGuestSession();
+      this.activeView.set('kitchen');
+      return;
+    }
+    this.activeView.set('generator');
+  }
+
+  /**
+   * Fetches a public recipe by slug from the API and saves it to the
+   * current user/guest cookbook. Triggered by the ?save=<slug> query param
+   * from the SSR "Save to Cookbook" CTA.
+   */
+  private async handleSaveFromSSR(slug: string) {
+    // Slugs are stored lowercase server-side, so normalize (trim + lowercase)
+    // before validating — otherwise a mixed-case ?save= value would pass the
+    // allow-list and then 404.
+    const normalizedSlug = slug.trim().toLowerCase();
+    // Validate against a strict allow-list before using it in the request URL.
+    // The value comes from the `?save=<slug>` query param, so interpolating it
+    // raw would allow client-side request forgery (path traversal / host
+    // manipulation).
+    if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
+      console.warn(`Ignoring save request for invalid recipe slug: "${slug}"`);
+      return;
+    }
+    // Wait for the startup auth check so the save lands in the reconciled
+    // session — writing into a cached-but-stale authenticated session gets
+    // wiped by clearStaleAuthenticatedSession() right after.
+    await this.authService.ready;
+    // Ensure a session exists so the save persists — a no-op for signed-in
+    // users; creates a guest for first-time visitors arriving from an SSR page.
+    this.authService.ensureGuestSession();
+    try {
+      const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);
+      if (!response.ok) {
+        console.warn(`Could not fetch recipe for slug "${normalizedSlug}": ${response.status}`);
+        return;
+      }
+      const recipeData = await response.json();
+      const recipe: Recipe = buildSavedRecipeFromPublic(recipeData);
+      // persistenceService.saveRecipe writes localStorage first (via
+      // auth.saveRecipe) and then syncs to the API, so a separate
+      // authService.saveRecipe call here would be a redundant double-write.
+      await this.persistenceService.saveRecipe(recipe);
+      // Use switchView so the kitchen history entry is pushed and the browser
+      // Back button behaves consistently with the rest of the app.
+      this.switchView('kitchen');
+    } catch (err) {
+      console.error('Failed to save recipe from SSR CTA:', err);
+    }
   }
 
   // Kitchen State
@@ -178,6 +273,14 @@ export class AppComponent {
       this.authService.ensureGuestSession();
       // Push history state so browser back returns to generator
       window.history.pushState({ view: 'kitchen' }, '', window.location.href);
+    } else if (window.location.hash === '#kitchen') {
+      // Clear the lingering #kitchen hash (left by an SSR deep-link) when
+      // returning to the generator, and record an explicit generator state on
+      // this entry. Otherwise the hash persists for the whole session and
+      // popstate's hash fallback would wrongly resolve a generator history
+      // entry back to kitchen.
+      const url = new URL(window.location.href);
+      window.history.replaceState({ view: 'generator' }, '', url.pathname + url.search);
     }
   }
 
@@ -239,6 +342,11 @@ export class AppComponent {
   }
 
   // Manual Entry Methods
+  private resetManualEntryDrafts() {
+    this.newIngredient.set({ name: '', amount: 1, units: '', type: 'dry' });
+    this.newInstruction.set('');
+  }
+
   openManualEntryModal() {
     this.manualStep.set(1);
     this.manualRecipe.set({
@@ -252,14 +360,21 @@ export class AppComponent {
     });
     this.manualIngredients.set([]);
     this.manualInstructions.set([]);
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(true);
   }
 
   closeManualEntryModal() {
+    this.resetManualEntryDrafts();
     this.showManualEntryModal.set(false);
   }
 
   nextManualStep() {
+    // Commit a typed-but-unadded ingredient row so leaving the step doesn't
+    // silently discard it (addManualIngredient no-ops on an empty name).
+    if (this.manualStep() === 2) {
+      this.addManualIngredient();
+    }
     this.manualStep.update((s) => s + 1);
   }
 
@@ -292,6 +407,11 @@ export class AppComponent {
   }
 
   async saveManualRecipe() {
+    // Commit any typed-but-unadded ingredient/instruction rows so saving
+    // doesn't silently discard them (both add methods no-op on empty input).
+    this.addManualIngredient();
+    this.addManualInstruction();
+
     const info = this.manualRecipe();
 
     // Group Ingredients
@@ -698,6 +818,8 @@ export class AppComponent {
     this.isSaved.set(true);
     this.activeView.set('generator');
     this.isEditingNotes.set(false);
+    // Push history so browser back returns to the kitchen view
+    window.history.pushState({ view: 'recipe-detail' }, '', window.location.href);
   }
 
   // ─── Delete / Recycle Bin ────────────────────────────────────
@@ -767,7 +889,19 @@ export class AppComponent {
 
   // ─── v0.2 Distribution Methods ────────────────────────────
 
+  /** Publishing is OAuth-gated: guests have no accountable identity, so the
+   *  server forces is_public=false for them — the UI must not pretend
+   *  otherwise. */
+  canPublish = computed(() => {
+    const user = this.authService.currentUser();
+    return !!user && user.isGuest === false;
+  });
+
   async togglePublic(recipe: Recipe) {
+    if (!this.canPublish()) {
+      this.openAuthModal();
+      return;
+    }
     const nextState = !recipe.is_public;
     recipe.is_public = nextState;
 
@@ -823,5 +957,9 @@ export class AppComponent {
 
   isString(val: unknown): boolean {
     return typeof val === 'string';
+  }
+
+  instructionText(step: string | InstructionStep): string {
+    return typeof step === 'string' ? step : step.description;
   }
 }
