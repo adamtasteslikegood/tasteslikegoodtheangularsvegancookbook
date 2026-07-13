@@ -100,11 +100,12 @@ No test suite exists for `scripts/pm/`. The smoke checks are:
   `.agent-work/` are cwd-relative. Run from the repo root. (A git worktree
   under `.claude/worktrees/` also works — the walk-up finds the main
   checkout's `.env`.)
-- **Only `pm_daemon.py` and `sync_jira_confluence_status.py` self-load `.env`.**
-  The other CLI scripts (`fetch_atlassian.py`, `update_jira.py`,
-  `atlassian_pm_link.py`) read `os.environ` directly — if your shell doesn't
-  already export the `ATLASSIAN_*` vars (this machine's profile does), export
-  the repo-root `.env` into your shell first.
+- **`.env` loading varies by script.** `pm_daemon.py`,
+  `sync_jira_confluence_status.py`, and `atlassian_pm_link.py` load the
+  repo-root `.env` themselves. `update_jira.py` parses `./.env` from the
+  current directory (crashes if it's absent — another reason to run from the
+  repo root). `fetch_atlassian.py` reads only `os.environ` — export the
+  `ATLASSIAN_*` vars first if your shell doesn't already have them.
 - **`fetch_atlassian.py` litters cwd** with `jira_data.json` and
   `confluence_spaces.json` (both untracked). Delete after use.
 - **Starting the daemon starts the watcher instantly** — don't edit watched
@@ -117,11 +118,14 @@ No test suite exists for `scripts/pm/`. The smoke checks are:
 
 - **`error: no response to id=1 within 120s` on first run**: venv bootstrap
   (pip install) hadn't finished. Re-run with `--timeout 600`, or pre-warm:
-  `bash scripts/pm/run_pm_script.sh atlassian_pm_link.py check`.
+  `bash scripts/pm/run_pm_script.sh atlassian_pm_link.py check`. The retry is
+  safe — the launchers re-run pip until an install completes once
+  (`.venv/.deps-installed` stamp).
 - **`Failed to create the PM scripts virtualenv`**: missing venv module —
   install your distro's python3-venv package.
 - **`WARNING: Atlassian credentials missing from .env`** in stderr/log:
   daemon found no usable `.env` above cwd. `list`/`status` still work;
   Atlassian tools return errors until `.env` is fixed.
-- **`Jira fetch failed: HTTP Error 401`** from CLI scripts: `ATLASSIAN_*`
-  not exported in your shell (see Gotchas) — export `.env` first.
+- **`Jira fetch failed: HTTP Error 401`** from `fetch_atlassian.py`:
+  `ATLASSIAN_*` not exported in your shell (see Gotchas) — export `.env`
+  first.
