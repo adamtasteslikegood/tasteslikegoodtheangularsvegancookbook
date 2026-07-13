@@ -1,0 +1,127 @@
+---
+name: run-pm-daemon
+description: Run and drive the PM daemon (scripts/pm) — the FastMCP stdio server that syncs specs/ planning docs to Confluence and exposes PM tools. Use when asked to run, start, test, or drive the pm-daemon, call its MCP tools (get_project_status, sync_pm_documents, refresh_project_briefing), run a PM script (fetch_atlassian, atlassian_pm_link, update_jira), or check Atlassian connectivity.
+---
+
+The PM daemon (`scripts/pm/pm_daemon.py`) is a **stdio MCP server** (FastMCP)
+plus a watchdog file-watcher that pushes seven `specs/*.md` planning docs to
+Confluence on save. There is no GUI. Drive it programmatically via
+`.claude/skills/run-pm-daemon/driver.py` — a stdlib-only MCP client that
+spawns the daemon, handshakes, and calls tools. All paths below are relative
+to the repo root; **everything must run from the repo root** (the daemon
+resolves `.env`, `specs/`, and `.agent-work/` from cwd).
+
+## Prerequisites
+
+- `python3` with venv support (Debian/Ubuntu package `python3.12-venv`).
+- Repo-root `.env` with `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`,
+  `ATLASSIAN_URL` (see CLAUDE.md). Without them the daemon still starts and
+  `list`/`status` work; anything touching Atlassian returns a credentials error.
+
+## Setup / Build
+
+None. First launch auto-creates `scripts/pm/.venv` and pip-installs
+`scripts/pm/requirements.txt` (about a minute; output goes to stderr because
+stdout is the MCP channel). Nothing else to build.
+
+## Run (agent path) — the driver
+
+```bash
+python3 .claude/skills/run-pm-daemon/driver.py list      # handshake + list the 5 MCP tools
+python3 .claude/skills/run-pm-daemon/driver.py status    # get_project_status (read-only)
+python3 .claude/skills/run-pm-daemon/driver.py call refresh_project_briefing --args '{}'
+```
+
+| command | what it does |
+|---|---|
+| `list` | initialize + tools/list; prints the 5 tool names/descriptions |
+| `status` | calls `get_project_status`; prints the PM briefing (falls back to `specs/*.md` heads when `.agent-work/pm/PROJECT_PM_BRIEFING.md` is absent) |
+| `call <tool> --args '{json}'` | calls any tool; `--timeout N` for slow ones |
+
+The 5 tools: `get_project_status` (read-only), `sync_pm_documents`
+(**writes Confluence**), `refresh_project_briefing` (reads live Jira/Confluence,
+writes local briefing; `{"publish": true}` **writes Confluence**),
+`create_epic_from_roadmap` (**writes Jira**), `log_agent_session`
+(**writes Confluence**). Don't call the writers casually.
+
+First run: use `--timeout 600` so the venv bootstrap doesn't trip the
+response timeout.
+
+## Run: background watcher (--watch-only)
+
+File-watcher only, no MCP transport. State lands in `.agent-work/pm/`
+(gitignored): `pm-daemon.pid`, `pm-daemon.log`.
+
+```bash
+bash scripts/pm/daemon_control.sh start    # nohup'd watch-only daemon
+bash scripts/pm/daemon_control.sh status
+tail -3 .agent-work/pm/pm-daemon.log       # "Running in --watch-only mode..."
+bash scripts/pm/daemon_control.sh stop
+```
+
+While ANY daemon instance runs (watch-only or MCP), saving one of the seven
+watched files (`specs/plan.md`, `roadmap.md`, `planning_notes.md`,
+`design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`,
+`ATLASSIAN_PM_LINK.md`) pushes it to Confluence immediately — real writes.
+
+## Run: CLI scripts
+
+`run_pm_script.sh` runs any `scripts/pm/*.py` inside the shared venv:
+
+```bash
+bash scripts/pm/run_pm_script.sh atlassian_pm_link.py check   # read-only connectivity smoke
+# → "Connection check passed", exit 0
+bash scripts/pm/run_pm_script.sh fetch_atlassian.py           # dumps jira_data.json + confluence_spaces.json into cwd
+```
+
+`atlassian_pm_link.py` modes: `check` (read-only), `brief` (writes local
+briefing), `reflect` (local git-to-Jira reflection), `sync` (**writes
+Confluence**).
+
+## Run (human path)
+
+`bash scripts/pm/run_pm_daemon.sh` from the repo root starts the MCP server
+on stdin/stdout — useless interactively (it waits for JSON-RPC). In practice
+humans never run it directly: `.mcp.json` auto-spawns it for agent sessions.
+Ctrl+C stops it.
+
+## Test
+
+No test suite exists for `scripts/pm/`. The smoke checks are:
+`driver.py list` (exit 0, 5 tools) and
+`run_pm_script.sh atlassian_pm_link.py check` (exit 0, "Connection check passed").
+
+## Gotchas
+
+- **stdout is the MCP wire.** Any print to stdout inside the daemon corrupts
+  the protocol — that's why `run_pm_daemon.sh` routes pip output to stderr.
+  Debug via stderr or `.agent-work/pm/pm-daemon.log`, never stdout.
+- **cwd is load-bearing.** `.env` discovery walks up from cwd; `specs/` and
+  `.agent-work/` are cwd-relative. Run from the repo root. (A git worktree
+  under `.claude/worktrees/` also works — the walk-up finds the main
+  checkout's `.env`.)
+- **Only `pm_daemon.py` and `sync_jira_confluence_status.py` self-load `.env`.**
+  The other CLI scripts (`fetch_atlassian.py`, `update_jira.py`,
+  `atlassian_pm_link.py`) read `os.environ` directly — if your shell doesn't
+  already export the `ATLASSIAN_*` vars (this machine's profile does), export
+  the repo-root `.env` into your shell first.
+- **`fetch_atlassian.py` litters cwd** with `jira_data.json` and
+  `confluence_spaces.json` (both untracked). Delete after use.
+- **Starting the daemon starts the watcher instantly** — don't edit watched
+  specs files while experimenting unless you mean to publish them.
+- **A pm-daemon may already be running.** `.mcp.json` auto-spawns one per
+  agent session. A second instance is harmless for `list`/`status`, but two
+  watchers = duplicate Confluence syncs on save.
+
+## Troubleshooting
+
+- **`error: no response to id=1 within 120s` on first run**: venv bootstrap
+  (pip install) hadn't finished. Re-run with `--timeout 600`, or pre-warm:
+  `bash scripts/pm/run_pm_script.sh atlassian_pm_link.py check`.
+- **`Failed to create the PM scripts virtualenv`**: missing venv module —
+  install your distro's python3-venv package.
+- **`WARNING: Atlassian credentials missing from .env`** in stderr/log:
+  daemon found no usable `.env` above cwd. `list`/`status` still work;
+  Atlassian tools return errors until `.env` is fixed.
+- **`Jira fetch failed: HTTP Error 401`** from CLI scripts: `ATLASSIAN_*`
+  not exported in your shell (see Gotchas) — export `.env` first.
