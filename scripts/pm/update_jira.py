@@ -9,9 +9,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import validate_atlassian_site  # noqa: E402
 
-# Simple .env parser
+# Simple .env parser — anchored to the repo root so the script reads THIS
+# repo's .env regardless of cwd (never a foreign .env from the caller's dir).
+REPO_ROOT = Path(__file__).resolve().parents[2]
 env_vars = {}
-with open('.env', 'r') as f:
+with open(REPO_ROOT / '.env', 'r') as f:
     for line in f:
         line = line.strip()
         if line and not line.startswith('#'):
