@@ -14,6 +14,7 @@
 import http from 'node:http';
 import https from 'node:https';
 import type { Request, Response } from 'express';
+import type { RawBodyRequest } from './validation.js';
 
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
@@ -30,20 +31,29 @@ export function createFlaskProxy(label = 'Flask') {
 
   return (req: Request, res: Response) => {
     const originalHost = req.headers.host || req.hostname;
+    // Validation middleware (server/validation.ts) buffers the body of AI
+    // endpoint requests before this proxy runs; when present, replay those
+    // bytes instead of piping the (already consumed) request stream.
+    const rawBody = (req as RawBodyRequest).rawBody;
+    const headers: http.OutgoingHttpHeaders = {
+      ...req.headers,
+      // Host must match the target so Cloud Run's frontend load balancer
+      // routes the request to the Flask service. Flask sees the browser's
+      // original host via X-Forwarded-Host (honored by ProxyFix, x_host=1).
+      host: target.host,
+      'x-forwarded-host': originalHost,
+      'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || req.protocol,
+    };
+    if (rawBody !== undefined) {
+      headers['content-length'] = String(rawBody.length);
+      delete headers['transfer-encoding'];
+    }
     const options: http.RequestOptions = {
       hostname: target.hostname,
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: req.originalUrl, // includes query string
       method: req.method,
-      headers: {
-        ...req.headers,
-        // Host must match the target so Cloud Run's frontend load balancer
-        // routes the request to the Flask service. Flask sees the browser's
-        // original host via X-Forwarded-Host (honored by ProxyFix, x_host=1).
-        host: target.host,
-        'x-forwarded-host': originalHost,
-        'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || req.protocol,
-      },
+      headers,
       // Use the target's hostname for TLS SNI verification without
       // changing the HTTP Host header seen by Flask.
       ...(target.protocol === 'https:' ? { servername: target.hostname } : {}),
@@ -68,10 +78,16 @@ export function createFlaskProxy(label = 'Flask') {
       }
     });
 
-    // Stream the raw request body through to Flask.
-    // This middleware is mounted BEFORE express.json() so the body
-    // stream has not been consumed.
-    req.pipe(proxyReq, { end: true });
+    if (rawBody !== undefined) {
+      // AI endpoints: the validation layer consumed the stream; send the
+      // buffered bytes it captured (identical to what the client sent).
+      proxyReq.end(rawBody);
+    } else {
+      // Stream the raw request body through to Flask.
+      // This middleware is mounted BEFORE express.json() so the body
+      // stream has not been consumed.
+      req.pipe(proxyReq, { end: true });
+    }
   };
 }
 
