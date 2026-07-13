@@ -12,6 +12,10 @@ from watchdog.events import FileSystemEventHandler
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
+# Make sibling modules importable whether this file is run as a script or imported.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -32,7 +36,10 @@ if dotenv_path:
 else:
     logger.warning("Could not find .env file")
 
-URL_BASE = os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net').strip().removeprefix("https://").removeprefix("http://").rstrip("/")
+# validate_atlassian_site strips any scheme/port/path and raises loudly
+# (AtlassianGuardError) if .env points at any site other than the repo's
+# allowlisted tasteslikegood.atlassian.net — e.g. the -dev service site.
+URL_BASE = validate_atlassian_site(os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net'))
 EMAIL = os.environ.get('ATLASSIAN_EMAIL')
 TOKEN = os.environ.get('ATLASSIAN_API_TOKEN')
 
@@ -285,13 +292,20 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
         return "Error: Atlassian credentials missing."
 
     # Default epics into the delivery project (RCP), not the execution board (KAN).
-    target_project = (
-        project_key
-        or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
-        or os.environ.get('JIRA_PROJECT_KEY')
-        or 'RCP'
-    )
-        
+    # validate_jira_project_key raises AtlassianGuardError for anything outside
+    # the repo write allowlist (KAN, RCP) — e.g. the plaza-game projects PLZG/TO.
+    # Surface that as a normal tool error string so MCP callers get a clean
+    # failure response instead of a tool-level exception.
+    try:
+        target_project = validate_jira_project_key(
+            project_key
+            or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
+            or os.environ.get('JIRA_PROJECT_KEY')
+            or 'RCP'
+        )
+    except AtlassianGuardError as exc:
+        return f"Error: {exc}"
+
     url = f"https://{URL_BASE}/rest/api/3/issue"
     payload = {
         "fields": {
