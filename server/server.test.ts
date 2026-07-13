@@ -135,6 +135,14 @@ describe('sanitizeForLog', () => {
     expect(sanitizeForLog(undefined)).toBe('');
   });
 
+  it('falls back to the raw value when percent-decoding fails, still stripping CR/LF', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    // decodeURIComponent throws URIError on malformed percent-encoding; the
+    // helper must not throw and must still strip control characters.
+    expect(sanitizeForLog('/bad%')).toBe('/bad%');
+    expect(sanitizeForLog('/bad%ZZ\ninjected')).toBe('/bad%ZZinjected');
+  });
+
   it('leaves safe strings unchanged', async () => {
     const { sanitizeForLog } = await import('./security.js');
     expect(sanitizeForLog('/api/recipes/abc-123')).toBe('/api/recipes/abc-123');
