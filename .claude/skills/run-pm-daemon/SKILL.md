@@ -87,8 +87,11 @@ Ctrl+C stops it.
 
 ## Test
 
-No test suite exists for `scripts/pm/`. The smoke checks are:
-`driver.py list` (exit 0, 5 tools) and
+```bash
+python3 scripts/pm/test_atlassian_guard.py   # stdlib unittest, no venv needed
+```
+
+Live smoke checks: `driver.py list` (exit 0, 5 tools) and
 `run_pm_script.sh atlassian_pm_link.py check` (exit 0, "Connection check passed").
 
 ## Gotchas
@@ -101,11 +104,14 @@ No test suite exists for `scripts/pm/`. The smoke checks are:
   under `.claude/worktrees/` also works — the walk-up finds the main
   checkout's `.env`.)
 - **`.env` loading varies by script.** `pm_daemon.py`,
-  `sync_jira_confluence_status.py`, and `atlassian_pm_link.py` load the
-  repo-root `.env` themselves. `update_jira.py` parses `./.env` from the
-  current directory (crashes if it's absent — another reason to run from the
-  repo root). `fetch_atlassian.py` reads only `os.environ` — export the
-  `ATLASSIAN_*` vars first if your shell doesn't already have them.
+  `sync_jira_confluence_status.py`, `atlassian_pm_link.py`, and
+  `update_jira.py` load the repo-root `.env` themselves.
+  `fetch_atlassian.py` reads only `os.environ` — export the `ATLASSIAN_*`
+  vars first if your shell doesn't already have them.
+- **Atlassian targets are allowlisted** (`_atlassian_guard.py`): only the
+  `tasteslikegood.atlassian.net` site, with writes restricted to Jira
+  projects KAN/RCP. Pointing `.env` at another site or project raises
+  `AtlassianGuardError` by design — fix the config, don't bypass the guard.
 - **`fetch_atlassian.py` litters cwd** with `jira_data.json` and
   `confluence_spaces.json` (both untracked). Delete after use.
 - **Starting the daemon starts the watcher instantly** — don't edit watched
