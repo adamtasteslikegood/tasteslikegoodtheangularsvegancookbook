@@ -116,6 +116,22 @@ export const applySecurityMiddleware = (app: Express) => {
 };
 
 /**
+ * Sanitize a string for safe inclusion in log output.
+ * Decodes URL-encoded sequences first (to catch e.g. %0A), then strips
+ * carriage returns and newlines to prevent log injection attacks.
+ */
+export function sanitizeForLog(value: string | null | undefined): string {
+  if (value == null) return '';
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    decoded = value;
+  }
+  return decoded.replace(/[\r\n]/g, '');
+}
+
+/**
  * Logger middleware for API requests
  */
 export const createRequestLogger = () => {
@@ -123,8 +139,10 @@ export const createRequestLogger = () => {
     const start = Date.now();
     res.on('finish', () => {
       const duration = Date.now() - start;
+      const method = sanitizeForLog(req.method);
+      const path = sanitizeForLog(req.path);
       console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
+        `[${new Date().toISOString()}] ${method} ${path} - ${res.statusCode} (${duration}ms)`
       );
     });
     next();

@@ -112,6 +112,35 @@ describe('createExpensiveOperationLimiter', () => {
   });
 });
 
+describe('sanitizeForLog', () => {
+  it('strips newline characters to prevent log injection', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/api/health\nGET /admin - 200')).toBe('/api/healthGET /admin - 200');
+  });
+
+  it('strips carriage return characters', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/path\r\ninjected')).toBe('/pathinjected');
+  });
+
+  it('decodes URL-encoded newlines (%0A / %0D) before stripping', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/path%0Ainjected')).toBe('/pathinjected');
+    expect(sanitizeForLog('/path%0D%0Ainjected')).toBe('/pathinjected');
+  });
+
+  it('returns empty string for null or undefined', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog(null)).toBe('');
+    expect(sanitizeForLog(undefined)).toBe('');
+  });
+
+  it('leaves safe strings unchanged', async () => {
+    const { sanitizeForLog } = await import('./security.js');
+    expect(sanitizeForLog('/api/recipes/abc-123')).toBe('/api/recipes/abc-123');
+  });
+});
+
 describe('createRequestLogger', () => {
   it('should return a middleware function', async () => {
     const { createRequestLogger } = await import('./security.js');
