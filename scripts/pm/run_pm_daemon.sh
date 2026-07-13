@@ -22,8 +22,9 @@ fi
 
 # The stamp is written only after a complete install, so a bootstrap killed
 # mid-install (e.g. an MCP client timing out on first run) retries here
-# instead of leaving a venv with missing packages.
-if [[ ! -f "$deps_stamp" ]]; then
+# instead of leaving a venv with missing packages. A requirements.txt newer
+# than the stamp also re-installs, so dependency updates aren't skipped.
+if [[ ! -f "$deps_stamp" || "$requirements" -nt "$deps_stamp" ]]; then
   # stdout is the MCP JSON-RPC channel — pip output must go to stderr or it
   # corrupts the protocol stream on first run
   "$venv_python" -m pip install --upgrade pip >&2
