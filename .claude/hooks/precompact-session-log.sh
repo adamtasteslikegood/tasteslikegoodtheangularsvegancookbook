@@ -76,9 +76,25 @@ if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
   exit 0
 fi
 
-# No credentials => nothing to publish to. Don't spend a model call finding out.
-if ! grep -qs '^ATLASSIAN_API_TOKEN=.' "$MAIN_REPO/.env"; then
-  echo "  skip: ATLASSIAN_API_TOKEN not set in $MAIN_REPO/.env" >>"$LOG"
+# No credentials => nothing to publish to. Bail BEFORE spending a Haiku call.
+#
+# Mirror atlassian_pm_link.load_config() exactly: it does `{**env_file, **os.environ}`
+# (so a real env var WINS over .env) and requires all THREE of URL/EMAIL/TOKEN. An
+# earlier version of this check grepped only ATLASSIAN_API_TOKEN in .env, which both
+# false-skipped when credentials came from the environment and burned a model call
+# when only the email was missing.
+_has_cred() {
+  # env var first (it wins downstream), then a non-empty assignment in .env
+  [ -n "$(printenv "$1" 2>/dev/null)" ] && return 0
+  grep -qs "^[[:space:]]*$1=[^[:space:]]" "$MAIN_REPO/.env"
+}
+
+MISSING=""
+for key in ATLASSIAN_URL ATLASSIAN_EMAIL ATLASSIAN_API_TOKEN; do
+  _has_cred "$key" || MISSING="$MISSING $key"
+done
+if [ -n "$MISSING" ]; then
+  echo "  skip: missing Atlassian credentials (env or $MAIN_REPO/.env):$MISSING" >>"$LOG"
   exit 0
 fi
 
@@ -144,7 +160,20 @@ invent anything not present in the transcript. Output ONLY the markdown.
 --- TRANSCRIPT DIGEST ---
 $(cat "$DIGEST")"
 
-  if ! timeout 240 claude -p "$PROMPT" \
+  # `timeout` is GNU coreutils and is NOT present by default on macOS. Without a
+  # fallback the summarizer would fail on every macOS run and silently skip the
+  # log. Running unbounded is acceptable here because the whole worker is already
+  # detached — it can't stall compaction either way.
+  if command -v timeout >/dev/null 2>&1; then
+    RUNNER=(timeout 240)
+  elif command -v gtimeout >/dev/null 2>&1; then
+    RUNNER=(gtimeout 240)  # coreutils via Homebrew
+  else
+    RUNNER=()
+    echo "  note: no timeout(1) available; running summarizer unbounded (detached)" >>"$LOG"
+  fi
+
+  if ! "${RUNNER[@]}" claude -p "$PROMPT" \
         --model claude-haiku-4-5-20251001 \
         --allowedTools '' >"$SUMMARY" 2>>"$LOG"; then
     echo "  FAIL: claude -p summarizer (timeout or error)" >>"$LOG"

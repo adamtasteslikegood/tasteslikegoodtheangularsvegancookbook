@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -33,6 +34,70 @@ from typing import Any
 _FILE_TOOLS = {"Edit": "file_path", "Write": "file_path", "NotebookEdit": "notebook_path"}
 _TRUNCATE_ASSISTANT = 1500  # chars of assistant prose kept per turn
 _TRUNCATE_USER = 4000  # chars of a user turn kept (asks are worth more)
+
+# The transcript records a LOT of things as role="user" that the human never said.
+# Left in, they masquerade as the ask: an injected SKILL.md body (thousands of
+# chars) or a <bash-stdout> dump reads to the summarizer as "what Adam wanted".
+# Observed in the wild — a digest whose HUMAN turns were mostly a skill file.
+
+# Wrappers whose CONTENT is pure noise: drop the whole turn.
+_NOISE_TAGS = (
+    "system-reminder",
+    "local-command-caveat",
+    "local-command-stdout",
+    "local-command-stderr",
+    "bash-stdout",
+    "bash-stderr",
+)
+_NOISE_BLOCK_RE = re.compile(
+    r"<(" + "|".join(_NOISE_TAGS) + r")>.*?</\1>", re.DOTALL | re.IGNORECASE
+)
+# An unterminated wrapper (truncated transcript line) still shouldn't leak.
+_NOISE_OPEN_RE = re.compile(r"<(" + "|".join(_NOISE_TAGS) + r")>.*", re.DOTALL | re.IGNORECASE)
+
+# A skill body injected into the conversation. Not the human talking.
+_SKILL_INJECTION_RE = re.compile(r"^\s*Base directory for this skill:", re.IGNORECASE)
+
+# These ARE real user actions, worth one compact line each.
+_SLASH_CMD_RE = re.compile(r"<command-name>\s*/?([^<\s]+)\s*</command-name>", re.IGNORECASE)
+_SLASH_ARGS_RE = re.compile(r"<command-args>(.*?)</command-args>", re.DOTALL | re.IGNORECASE)
+_BASH_INPUT_RE = re.compile(r"<bash-input>(.*?)</bash-input>", re.DOTALL | re.IGNORECASE)
+# Anything else in angle-tag form we didn't name explicitly.
+_ANY_TAG_RE = re.compile(r"</?[a-z][a-z0-9-]*>", re.IGNORECASE)
+
+
+def clean_user_text(text: str) -> str:
+    """Reduce a role=user turn to what the HUMAN actually contributed.
+
+    Returns "" when the turn was entirely harness-injected, so the caller can
+    drop it rather than count it as an ask.
+    """
+    if not text or _SKILL_INJECTION_RE.match(text):
+        return ""
+
+    # Real user actions first — these survive as one line each.
+    actions: list[str] = []
+    cmd = _SLASH_CMD_RE.search(text)
+    if cmd:
+        args = _SLASH_ARGS_RE.search(text)
+        arg_text = (args.group(1).strip() if args else "")
+        actions.append(f"/{cmd.group(1)}{' ' + arg_text if arg_text else ''}")
+    for match in _BASH_INPUT_RE.finditer(text):
+        line = match.group(1).strip()
+        if line:
+            actions.append(f"$ {line}")
+
+    # Then strip every noise wrapper and see if any prose is left.
+    stripped = _NOISE_BLOCK_RE.sub("", text)
+    stripped = _NOISE_OPEN_RE.sub("", stripped)
+    stripped = _SLASH_CMD_RE.sub("", stripped)
+    stripped = _SLASH_ARGS_RE.sub("", stripped)
+    stripped = _BASH_INPUT_RE.sub("", stripped)
+    stripped = re.sub(r"<command-message>.*?</command-message>", "", stripped, flags=re.DOTALL | re.I)
+    stripped = _ANY_TAG_RE.sub("", stripped).strip()
+
+    parts = actions + ([stripped] if stripped else [])
+    return "\n".join(parts).strip()
 
 
 def _text_from_content(content: Any) -> str:
@@ -91,9 +156,10 @@ def digest(transcript_path: Path, max_chars: int) -> dict:
                 # Skip tool-result echoes; keep only genuine human turns.
                 if _is_tool_result_turn(content):
                     continue
-                text = _text_from_content(content).strip()
-                # Harness-injected reminders are not the human talking.
-                if not text or text.startswith("<system-reminder>"):
+                # Strip harness-injected content (skill bodies, command output,
+                # reminders). What's left, if anything, is the human.
+                text = clean_user_text(_text_from_content(content).strip())
+                if not text:
                     continue
                 text = text[:_TRUNCATE_USER]
                 user_asks.append(text)

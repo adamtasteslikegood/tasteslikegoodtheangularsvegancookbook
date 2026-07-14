@@ -51,11 +51,17 @@ The watcher is now elected by an exclusive `flock` (`scripts/pm/_watcher_lock.py
 Set `PM_DAEMON_DISABLE_WATCHER=1` to force a daemon to skip the watcher entirely
 and serve MCP tools only.
 
-If saves aren't syncing to Confluence, check who holds the lock:
+If saves aren't syncing to Confluence, check who holds the lock. The lock lives in
+the **main checkout**, so a relative path won't find it from inside a worktree —
+resolve the main checkout first:
 
 ```bash
-cat .claude/pm-daemon-watcher.lock   # the watching daemon's pid
+# works from the main checkout OR any linked worktree
+cat "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.claude/pm-daemon-watcher.lock"
 ```
+
+That prints the pid of the daemon currently doing the watching. If the file is
+missing or empty, no daemon holds the lock and nothing is being watched.
 
 #### MCP Tools
 
