@@ -126,3 +126,6 @@ scripts/pm/.venv/
 
 # PreCompact session-log hook runtime log
 .claude/session-log-hook.log
+
+# PM daemon single-watcher election lock (runtime)
+.claude/pm-daemon-watcher.lock

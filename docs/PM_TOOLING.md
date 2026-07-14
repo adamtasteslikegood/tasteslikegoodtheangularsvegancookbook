@@ -19,6 +19,44 @@ An MCP server + file watcher that runs during agent sessions.
 scripts/pm/run_pm_daemon.sh
 ```
 
+#### The watcher is a singleton (one per machine, not one per session)
+
+Every agent session — each Claude Code window, each Copilot CLI, each background
+job, each git worktree — spawns its **own** `pm_daemon.py` as an MCP stdio child.
+That is correct for the MCP *tools*: each session needs its own server on its own
+pipes. Expect to see several `pm_daemon.py` processes and don't be alarmed.
+
+It was very wrong for the *watcher*. Each daemon also started a `watchdog`
+Observer, so N sessions meant N observers all watching the same `specs/*.md` and
+all racing to PUT the same Confluence pages on every save. **13 concurrent
+daemons were observed in the wild**, i.e. 13 writers fighting over one page.
+
+The watcher is now elected by an exclusive `flock` (`scripts/pm/_watcher_lock.py`):
+
+- The first daemon to grab `.claude/pm-daemon-watcher.lock` runs the Observer.
+- Every other daemon logs `File watcher already owned by another pm_daemon (pid N);
+  serving MCP tools only` and comes up **fully functional minus the watcher**. MCP
+  tools are never degraded by losing the election.
+- The lock lives in the **main checkout**, resolved via `git rev-parse
+  --git-common-dir`. Worktrees share one Confluence space, so they must share one
+  lock — a per-worktree lock would elect one watcher per worktree and reintroduce
+  the exact race.
+- **No stale-lock recovery path exists, by design.** The kernel releases an `flock`
+  when the holder dies, however it dies (SIGKILL, crash, power loss). A PID file
+  would have needed liveness checks and would have deadlocked the watcher on a
+  dead session's leftover file.
+- `--watch-only` **exits 1** if it cannot take the lock, rather than idling and
+  looking healthy while watching nothing.
+
+Set `PM_DAEMON_DISABLE_WATCHER=1` to force a daemon to skip the watcher entirely
+and serve MCP tools only.
+
+If saves aren't syncing to Confluence, check who holds the lock:
+
+```bash
+cat .claude/pm-daemon-watcher.lock   # the watching daemon's pid
+```
+
 #### MCP Tools
 
 | Tool | Description |

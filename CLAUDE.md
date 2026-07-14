@@ -229,6 +229,8 @@ Requirements for `pm-daemon` to actually sync:
 
 To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
 
+**Expect MANY `pm_daemon.py` processes — one per session, and that's correct.** Every agent session (each Claude Code window, each Copilot CLI, each background job, each worktree) spawns its own daemon as an MCP stdio child; they each need their own server on their own pipes. Only the **file watcher** is a singleton: the first daemon to take `.claude/pm-daemon-watcher.lock` (an exclusive `flock` in the main checkout) runs the `watchdog` Observer, and every other daemon logs `File watcher already owned by another pm_daemon (pid N); serving MCP tools only` and comes up fully functional minus the watcher. Before this lock existed, N sessions meant N observers all racing to PUT the same Confluence pages on every save (13 were seen at once). Do not "fix" the extra daemons by killing them — killing a live session's daemon breaks that session's MCP tools. See `docs/PM_TOOLING.md` § *The watcher is a singleton*.
+
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
