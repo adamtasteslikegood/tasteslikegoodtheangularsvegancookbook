@@ -3,6 +3,13 @@
 Generated: 2026-04-27
 Scrum Master lens: initialize agile operating system from current Jira + Confluence PM briefing.
 
+> **Historical note (2026-07-12 Atlassian triage):** the `TO` project described
+> below is the plaza-game business/creative project, which now lives on the main
+> site `tasteslikegood.atlassian.net` (plaza software work is `PLZG`). The
+> `tasteslikegood-dev.atlassian.net` service site's former `TO` project is frozen
+> and re-keyed `TOSVC` ("SERVICE-HOLD — do not use"). This repo's tooling writes
+> work items only to `RCP` and `KAN` (enforced by `scripts/pm/_atlassian_guard.py`).
+
 ## What S.C.R.U.M. Really Stands For Here
 
 Scrum is not historically an acronym; it comes from rugby. For this project, use `S.C.R.U.M.` as the operating mnemonic:

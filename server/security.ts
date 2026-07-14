@@ -91,14 +91,49 @@ export const createExpensiveOperationLimiter = (
  * Apply security middleware to an Express app
  */
 export const applySecurityMiddleware = (app: Express) => {
-  // Security headers — CSP is disabled here because Angular's build output relies on
-  // inline styles, inline event handlers (onload), and dynamic script loading from esm.sh.
-  // In production, configure CSP at the reverse proxy or CDN level (e.g., nginx, Cloudflare).
+  // Security headers — CSP is enabled with a scoped policy.
+  // Angular's production build outputs bundled JS/CSS files; no external CDN scripts are loaded
+  // (the stale esm.sh importmap was removed from index.html — the esbuild application builder
+  // bundles all bare-specifier deps from node_modules at build time).
+  // Inline styles are allowed because Angular applies component styles at runtime.
+  // Scripts/styles/fonts are locked to known origins: Google Fonts CSS loads from
+  // fonts.googleapis.com and its font files from fonts.gstatic.com.
+  // img-src deliberately allows any https: origin (plus data:/blob:): recipe image URLs are
+  // per-recipe data — stock photos come from images.unsplash.com today, AI images are served
+  // same-origin via the Flask proxy, but stored/legacy recipes may reference other HTTPS hosts.
+  // Images cannot execute script, so the exposure is limited; scripts stay 'self'-only.
+  // script-src-attr: Angular's critical-CSS optimization (inlineCritical) emits the stylesheet
+  // link as <link ... media="print" onload="this.media='all'"> in the built index.html. Helmet's
+  // default script-src-attr 'none' would block that inline handler and the main stylesheet would
+  // stay media="print" (never applied on screen). 'unsafe-hashes' plus the SHA-256 hash of the
+  // exact handler string ("this.media='all'") allows only that one handler — no other inline
+  // event handlers can run. If Angular ever changes the emitted handler, regenerate the hash:
+  //   printf %s "NEW_HANDLER" | openssl dgst -sha256 -binary | openssl base64
+  // (Alternatives rejected: disabling inlineCritical in angular.json costs first-paint
+  // performance; script-src-attr 'unsafe-inline' would allow ALL inline handlers.)
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
     helmet({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          // Hash of Angular's critical-CSS onload handler: this.media='all'
+          scriptSrcAttr: [
+            "'unsafe-hashes'",
+            "'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='",
+          ],
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+        },
+      },
     })
   );
 
@@ -116,6 +151,29 @@ export const applySecurityMiddleware = (app: Express) => {
 };
 
 /**
+ * Replaces newlines, carriage returns, and other control characters with `_`
+ * so user-controlled values can't forge extra log lines (CodeQL js/log-injection).
+ */
+export function sanitizeForLog(value: string | null | undefined): string {
+  if (value == null) return '';
+  return (
+    value
+      // Replace all C0 control characters (0x00-0x1F, which includes \n, \r,
+      // and ESC/0x1B), DEL (0x7F), and the Unicode line separators U+2028 and
+      // U+2029 (rendered as line breaks by many log sinks) with a visible
+      // placeholder.
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\x00-\x1f\x7f\u2028\u2029]/g, '_')
+      // Defense-in-depth newline strip -- a no-op after the pass above, but it
+      // is the exact shape CodeQL's js/log-injection query recognizes as a
+      // sanitizer: its StringReplaceSanitizer only models a replace of "\n"
+      // with the empty string, so replacing with '_' alone is not treated as
+      // a taint barrier and the alert stays open.
+      .replace(/\n/g, '')
+  );
+}
+
+/**
  * Logger middleware for API requests
  */
 export const createRequestLogger = () => {
@@ -124,7 +182,7 @@ export const createRequestLogger = () => {
     res.on('finish', () => {
       const duration = Date.now() - start;
       console.log(
-        `[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`
+        `[${new Date().toISOString()}] ${sanitizeForLog(req.method)} ${sanitizeForLog(req.path)} - ${res.statusCode} (${duration}ms)`
       );
     });
     next();
@@ -139,8 +197,8 @@ export const createErrorHandler = (): ErrorRequestHandler => {
     // Log detailed error server-side
     console.error('[ERROR]', {
       timestamp: new Date().toISOString(),
-      method: req.method,
-      path: req.path,
+      method: sanitizeForLog(req.method),
+      path: sanitizeForLog(req.path),
       statusCode: res.statusCode,
       error: err.message,
       stack: err.stack,

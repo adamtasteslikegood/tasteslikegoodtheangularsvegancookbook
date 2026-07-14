@@ -1,0 +1,697 @@
+{
+ "site": "https://tasteslikegood.atlassian.net",
+ "project": "TO",
+ "count": 48,
+ "issues": [
+  {
+   "key": "TO-75",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 28, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status Report\nDate: April 28, 2026 \u00b7 Active Branch: dev\n\ud83d\ude80 Today's Highlights\n\ud83d\udcdd Active PRs Awaiting Review (3 open)\nPR \nTitle \nStatus \n#2888 \ndocs: require branching off dev for all changes \n\ud83d\udfe1 Open \n#2887 \nchore: remove 38MB of stray ImageMagick PostScript dumps from repo root \n\ud83d\udfe1 Open \n#2882 \nfeat(docs): establish PR size/reviewability best practices () \n\ud83d\udfe1 Open \nPR #2887 is a big win waiting to happen \u2014 pruning 38MB of stray PostScript files will measurably shrink clone times. \ud83d\uddd1\ufe0f\n\ud83d\udce6 Dependency PRs (2 open, Dependabot)\nPR \nDependency \nNotes \n#2880 \nexpress-rate-limit 8.3.2 \u2192 8.4.1 \nMinor bump \n#2876 \nTesting group \u2014 2 packages \nMinor bump \n\u2705 Recently Merged (last 48\u201372 hrs)\nPR \nDescription \nMerged \n#2884 \n\ud83e\udd16 Junie GitHub Actions \u2014 AI ask + code review workflows \nApr 26 \n#2877 \n\u2b06\ufe0f CI: bump 7 GitHub Actions in the actions-all group \nApr 26 \n\ud83d\udcca Commit Activity (last 2 days)\nCommit \nAuthor \nSummary \n18ba5c6 \n@adamtasteslikegood \nUpdated alirez-claude-skills index \n4824b41 \n@adamtasteslikegood \nUpdated scripts/ahead-behind.sh \n89041be \ngithub-actions[bot] \nstyle: auto-format with Prettier [skip ci] \nc1cd75f \n@adamtasteslikegood \nUpdated Jira issues + created project management zero sprints \n9053873 \n@adamtasteslikegood \nAdded MCP config for linear-server \nPrettier auto-formatting is running cleanly and the CI bot is keeping code style in sync. \u2728\n\ud83d\udee0\ufe0f Project Health\nArea \nStatus \nCI / GitHub Actions \n\u2705 Healthy \u2014 7 action versions bumped this week \nJunie AI integration \n\u2705 Live \u2014 ask + code review workflows active \nLinear MCP server \n\u2705 Config added (.junie/mcp/mcp.json) \nPrettier auto-format \n\u2705 Running on each push \nDependency hygiene \n\ud83d\udfe1 2 open Dependabot PRs ready to merge \nRepo size \n\ud83d\udfe1 38MB cleanup PR (#2887) pending merge \n\ud83c\udfaf Recommended Next Steps\nMerge PR #2887 \u2014 The PostScript dump cleanup is low-risk and high-impact (38MB saved). Do it now!\nMerge #2888 & #2882 \u2014 Documentation-only PRs, fast to review and they lock in the branching discipline alread",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-04-28T06:22:14.014-0700",
+   "updated": "2026-04-28T06:22:16.832-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-76",
+   "summary": "Pre-existing pytest failure: test_backfill_slugs_retry_loop \u2014 table recipe missing status column",
+   "description": "What's failing\n{{tests/test_migration_backfill_slug.py::test_backfill_slugs_retry_loop}} fails on every CI run since SSR + data-model PR (adamtasteslikegood/tasteslikegood.com#116, commit {{ade81bc}}):\n{{}}{{sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) table recipe has no column named status[SQL: INSERT INTO recipe (id, user_id, guest_session_id, name, status, slug, is_public, data, created_at, updated_at) VALUES (...), (...), (...)]}}{{}}\nThe Recipe model (models/recipe.py) clearly declares status = db.Column(db.String(20), nullable=False, default='ready'), so db.create_all() should create the column.\nRepro\n{{}}{{bashcd Backenduv run pytest tests/test_migration_backfill_slug.py::test_backfill_slugs_retry_loop -xvs}}{{}}\nWhy it's pre-existing\nTest was added in adamtasteslikegood/tasteslikegood.com#116 alongside the status/slug/is_public columns. CI has been failing on this single test since merge. v0.2.0 shipped with this failure already in place; v0.2.1 (adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894) admin-merged through it because it's not a regression.\nHypothesis for the fix\nThe app fixture in tests/test_migration_backfill_slug.py calls create_app() first and then updates SQLALCHEMY_DATABASE_URI to sqlite:///:memory:. By the time db.create_all() runs, Flask-SQLAlchemy may already have bound an engine to whatever URI create_app() defaulted to, so the :memory: override doesn't actually take effect \u2014 meaning create_all() runs against an existing on-disk DB that was created before status was added.\n{{}}{{python\nCurrent (broken) fixture:\napp = create_app()app.config.update({\"TESTING\": True,\"SQLALCHEMY_DATABASE_URI\": \"sqlite:///:memory:\"})}}{{}}\nLikely fix \u2014 pass the URI into create_app so the engine is initialized with the right URI from the start:\n{{}}{{python@pytest.fixturedef app():app = create_app(SQLALCHEMY_DATABASE_URI=\"sqlite:///:memory:\",TESTING=True,)with app.app_context():db.create_all()yield appdb.session.remove()db.drop_all(",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-29T04:03:14.011-0700",
+   "updated": "2026-04-29T04:03:16.390-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-77",
+   "summary": "Solo-repo merge friction: ruleset requires review approval, auto-merge disabled",
+   "description": "What happens today\nRepo settings:\nBranch ruleset on {{main}} requires {{required_approving_review_count: 1}}\n{{allow_auto_merge: false}} at the repo level\nSolo development \u2014 no other reviewers exist\nResult: every PR to main needs {{gh pr merge --admin}} (admin bypass). v0.2.1 (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894) merged this way today. v0.2.0 (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2891) did the same.\nWhy this is friction\nEvery release ships with an admin override, which:\nBypasses CI gates if any are red (we did this for the pre-existing Backend pytest failure)\nBypasses the (theoretical) review gate (no reviewer exists)\nLeaves no audit trail of approval \u2014 admin override is just a permission, not a signal\nCannot use {{gh pr merge --auto --admin}} to queue a merge for \"when CI passes\" \u2014 auto-merge is disabled at repo level\nManual interactive merge step every time\nOptions\nA) Open up auto-merge.\n{{gh repo edit --enable-auto-merge}}\nFuture flow: {{gh pr merge --auto --admin --squash}} queues the merge; GitHub merges as soon as required checks clear (or immediately with admin)\nStill needs admin override for the review-required rule, but at least CI is honored\nB) Drop the review-required rule for solo workflows.\nEdit ruleset to remove {{pull_request.required_approving_review_count}}\nKeep CI required-checks rule so green CI is enforced\n{{gh pr merge --auto --squash}} works without admin\nC) Add a \"self-approve via separate identity\" pattern.\nUse a bot account / second machine identity to review and approve own PRs\nHeavyweight; not worth it for solo\nD) Leave as-is.\nAdmin override every time\nStatus quo\nRecommendation\nA or B (or both): A is no-cost and clears one papercut; B is the honest reflection of solo workflow.\nSource\nDeferred from v0.2.1 release work (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894). Surfaced when GitHub blocked auto-merge.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI/CD",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-04-29T04:14:11.104-0700",
+   "updated": "2026-04-29T04:14:13.088-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-78",
+   "summary": "Decide on .cloudbuildignore (currently absent \u2014 gcloud only reads .gcloudignore)",
+   "description": "Context\nThe original /ship request for v0.2.1 included: \"the dirs that don't belong in the build image for cloud-run should be ignored by .dockerignore and .cloudbuildignore or .gcloudignore or all three.\"\nWhat I added in v0.2.1 (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894):\n{{.dockerignore}} \u2014 read by Docker during {{docker build}} (the actual image build). \u2705\n{{.gcloudignore}} \u2014 read by {{gcloud builds submit}} to decide what to upload as the build source. \u2705\n{{.cloudbuildignore}} \u2014 does NOT exist as a documented gcloud feature. {{gcloud}} only reads {{.gcloudignore}}. Cloud Build does not have a native {{.cloudbuildignore}}.\nSo adding a {{.cloudbuildignore}} would be an orphan file that no tool reads.\nQuestion\nDo you want one anyway? Reasons to add:\nSymmetry / future-proofing if a custom builder ever reads it\nDocumentation: the file's existence + comment header tells readers what would be ignored if such a feature existed\nSome non-Google CI tools that build via Cloud Build APIs may read it\nReasons to leave absent:\nConfusing \u2014 readers may think it's load-bearing when it isn't\nDrift risk \u2014 copies of {{.gcloudignore}} patterns will diverge over time\nWhat to do\nEither:\nA) Add {{.cloudbuildignore}} as a symlink to {{.gcloudignore}} so they can never driftB) Add {{.cloudbuildignore}} as a copy with a comment explaining it's defensiveC) Leave absent (current state) \u2014 close this issue as wontfix\nSource\nDeferred from v0.2.1 release work (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894). User asked for all three; we shipped two with this note.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI/CD",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-04-29T04:14:12.162-0700",
+   "updated": "2026-04-29T04:14:14.230-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-79",
+   "summary": "Verify Cloud Build tag-push trigger regex matches ^v[0-9]+\\.[0-9]+\\.[0-9]+$",
+   "description": "Context\nDocumented in CLAUDE.md and AGENTS.md (release flow section): the Cloud Build trigger that deploys to Cloud Run on tag push MUST use the regex {{^v[0-9].[0-9].[0-9]+$}} so pre-release tags ({{v0.3.0-rc.1}}, {{v0.3.0-beta}}) and metadata tags ({{v0.3.0+build.123}}) cannot accidentally trigger a production deploy.\nWhat's unknown\n{{v0.2.0}} and {{v0.2.1}} tag pushes both fired the trigger green (verified in GCP Console), so a trigger DOES exist and IS firing. But:\n{{}}{{bashgcloud builds triggers list --project=comdottasteslikegood\nreturns: Listed 0 items.\ngcloud beta builds triggers list --project=comdottasteslikegood\nreturns: Listed 0 items.\n}}{{}}\nThe CLI can't see it. Possibilities:\nIt's a 2nd-gen trigger in a non-default region\nIt's configured at the org level (not project)\nIt's owned by a different gcloud config / service account\nIt's the new GitHub-connected source trigger that uses a different list endpoint\nRisk if loose\nIf the actual Console regex is loose (e.g., {{v.}}, ^v\\\\d+, {{v[0-9].}}), a future tag like {{v0.3.0-rc.1}} or {{v0.2.1-fix}} would trigger a production Cloud Run deploy of unstable code.\nWhat to do\nOpen GCP Console \u2192 Cloud Build \u2192 Triggers\nFind the tag-push trigger for this repo\nConfirm the tag pattern is exactly {{^v[0-9].[0-9].[0-9]+$}}\nIf looser, tighten it\nBonus: figure out why the trigger isn't visible to {{gcloud builds triggers list}} and document the right query in CLAUDE.md\nAcceptance\nConsole regex matches CLAUDE.md docs\nA test push of {{v0.0.0-test}} does NOT trigger a build\nA test push of {{v0.0.0}} DOES trigger a build (then delete)\nSource\nDeferred from v0.2.1 release work (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894). Original session discussion noted CLI/Console mismatch.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI/CD",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-04-29T04:14:12.419-0700",
+   "updated": "2026-04-29T04:14:16.050-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-80",
+   "summary": "Reconcile .gcloudignore .git exclusion with cloudbuild.yaml submodule init",
+   "description": "The conflict\n{{cloudbuild.yaml}} runs {{git submodule update --init --recursive}} to pull {{Backend/}}, {{alirez-claude-skills/}}, and {{gemstack/}}. That command needs {{.git}} and {{.gitmodules}} to be present in the build's source tree.\n{{.gcloudignore}} (line 1) excludes {{.git}}. So if anyone runs {{gcloud builds submit --config=cloudbuild.yaml}} from a local dir, the source archive uploaded to Cloud Build would not contain {{.git}}, and the submodule-init step would fail with {{fatal: not a git repository}}.\nWhy this presumably works today\nThe Cloud Build trigger that fires on tag push (the one we use for production deploys) is GitHub-connected \u2014 Cloud Build clones the repo directly from GitHub, including {{.git}}. {{.gcloudignore}} is irrelevant for trigger-based builds; it only matters for {{gcloud builds submit}} from a local dir.\nBut:\nThis is fragile. Anyone who reads CLAUDE.md and runs the documented {{gcloud builds submit --config=cloudbuild.yaml}} will hit a confusing failure.\nWe have no automated verification that the trigger uses GitHub source vs. gcloud-uploaded source.\nWhat to do\nEither:\nA) Update CLAUDE.md to remove the {{gcloud builds submit}} instructions, since they don't actually work, and replace with the trigger-based deploy path (push tag \u2192 trigger fires).\nB) Make {{gcloud builds submit}} actually work by adjusting {{.gcloudignore}} (remove {{.git}}) so a local source upload includes the git history. Verify the submodule init step works.\nC) Keep both options but add a clear note in CLAUDE.md: \"If you're running {{gcloud builds submit}} locally, comment out {{.git}} in {{.gcloudignore}} first.\"\nSource\nDeferred from v0.2.1 release work (PR adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2894). Spotted while expanding {{.gcloudignore}} for build-image trimming.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "CI/CD",
+    "deferred-from-v0.2.1"
+   ],
+   "created": "2026-04-29T04:14:14.348-0700",
+   "updated": "2026-04-29T04:14:16.207-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-81",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 29, 2026",
+   "description": "\ud83c\udf31 Daily Repo Status \u2014 April 29, 2026\nWhat a day! Two production releases shipped and a wave of CI/CD housekeeping tracked \u2014 the repo is in great shape heading into Wednesday.\n\ud83d\ude80 Releases Shipped Today\nv0.2.0 \u2014 \"Anti-Recipe Site\" \ud83c\udf89\nThe headline feature release! Public URLs, async AI, and Pub/Sub workers:\nPublic recipe sharing \u2014 /r/<slug> pages are server-rendered, SEO-indexable, and work in JS-flaky in-app browsers (Facebook, Instagram)\n/browse index \u2014 paginated gallery of every public recipe\nAsync AI generation \u2014 POST /api/generate + POST /api/generate_image now return 202 instantly; Pub/Sub workers complete generation in the background while the UI polls\nOIDC-verified push endpoints \u2014 /api/worker/recipe and /api/worker/image validate Pub/Sub JWTs\nOAuth scope reduction \u2014 removed broad cloud-platform scope that was triggering Google security warnings for recipe-share recipients\nSession bug fixed \u2014 startup no longer downgrades authenticated user to guest when Flask session is absent\nRemoved 38 MB of stray ImageMagick PostScript dumps from repo root \ud83e\uddf9\nv0.2.1 \u2014 Post-release polish \u2728\n.mcp.json wires pm-daemon so Claude Code, Codex, and other agents auto-spawn the Confluence-syncing PM daemon on session start\nExpanded .dockerignore / .gcloudignore to keep AI tooling, venvs, and planning files out of Cloud Run build contexts (smaller images, faster builds)\nDocumented Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$) in CLAUDE.md and AGENTS.md \u2014 pre-release tags can't accidentally trigger production\n.gitignore merge-conflict markers cleaned up; AGENTS.md un-ignored\n\ud83d\udccb Open Pull Requests (6)\n# \nTitle \nStatus \n#2899 \nchore: track deferred CI/CD items from v0.2.1 in TODOS.md \n\ud83d\udfe2 Open \n#2880 \nbuild(deps): bump express-rate-limit 8.3.2 \u2192 8.4.1 \n\ud83d\udfe2 Open \n#2876 \nbuild(deps): bump testing group (2 updates) \n\ud83d\udfe2 Open \n#2882 \nfeat(docs): PR size/reviewability best practices () \n\ud83d\udcdd Draft \n#2856 \nUse npm-installed Copilot CLI in daily status workflow \n\ud83d\udfe2 Open \n#2843 \nfix(TAS-8): d",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-04-29T06:18:18.373-0700",
+   "updated": "2026-04-29T06:18:21.198-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-82",
+   "summary": "Gemini workflows needs fixing",
+   "description": "the gemini workflows need to be fixed either reinstall them or just fix whats missing",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-04-30T02:32:54.388-0700",
+   "updated": "2026-04-30T02:32:56.862-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-83",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 April 30, 2026",
+   "description": "\ud83c\udf31 Daily Repo Status \u2014 April 30, 2026\nYesterday was a massive shipping day \u2014 two production releases landed, the SSR distribution layer went live, and the codebase got a solid cleanup. Heading into Thursday in excellent shape! \ud83c\udf89\n\ud83d\ude80 Releases Shipped (Yesterday)\nv0.2.1 \u2014 Post-launch Polish\nPR #2894 merged dev \u2192 main with agent tooling improvements, submodule fixes, and dev-workflow refinements.\nv0.2.0 \u2014 \"Anti-Recipe Site\" \ud83c\udf89\nThe flagship release! Merged via PR #2891:\nPublic recipe SSR pages \u2014 /r/*, /browse, /sitemap.xml routed to Flask (PR #2871, #2893)\nPhase 4 Pub/Sub async AI \u2014 push endpoints, OIDC auth, full gcloud wiring (PR #2892)\nAccessibility fix \u2014 bare <label> replaced with aria-labelledby switch button (PR #2890)\n38 MB cleanup \u2014 stray ImageMagick PostScript dumps purged from repo root (PR #2887)\nBranching docs enforced \u2014 explicit rule: all changes branch off dev (PR #2888)\n\ud83d\udd00 Open Pull Requests (7)\nPR \nTitle \nStatus \n#2901 \nfix(deploy): Add Cloud Run migrate Job + final release flow docs \n\u2705 Ready \n#2899 \nchore: Track deferred CI/CD items in TODOS.md \n\u2705 Ready \n#2880 \nbuild(deps): Bump express-rate-limit 8.3.2 \u2192 8.4.1 \n\u2705 Ready \n#2876 \nbuild(deps): Bump testing group (2 packages) \n\u2705 Ready \n#2856 \nUse npm-installed Copilot CLI + restore validation in daily status \n\u2705 Ready \n#2843 \nfix(TAS-8): Decouple image_service from Flask request context \n\u2705 Ready \n#2882 \nfeat(docs): PR size / reviewability best practices () \n\ud83d\udcdd Draft \nPR #2901 is the highest priority \u2014 it wires the DB migration Cloud Run Job into cloudbuild.yaml, closing a production deploy gap.\n\ud83d\udc1b Tracked Open Issues\n# \nIssue \n#2898 \nVerify Cloud Build tag-push trigger regex ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \n#2897 \nDecide on .cloudbuildignore (gcloud only reads .gcloudignore today) \n#2896 \nReconcile .gcloudignore .git exclusion with submodule init in cloudbuild.yaml \n#2895 \nSolo-repo merge friction: ruleset requires review approval, auto-merge disabled \n#100 \nEstablish PR size / reviewability best practices \nIssues #2896}",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-04-30T06:16:46.361-0700",
+   "updated": "2026-04-30T06:16:49.056-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-84",
+   "summary": "[repo-status] Vegangenius Chef \u2014 Daily Status \u00b7 May 1, 2026",
+   "description": "\ud83c\udf31 Daily Repo Status \u2014 May 1, 2026\nHappy Friday! \ud83c\udf89 The project is riding a wave of productive momentum after a historic week: four releases shipped in two days, production is live, and the dependency bot is already keeping things fresh. Here's the full picture heading into the weekend.\n\ud83d\ude80 Recent Releases\nTag \nDate \nHighlight \nv0.2.3 \nApr 30 \n\ud83d\udd27 Hotfix: Cloud SQL socket path missing from migrate Job \u2014 v0.2.2 build-gate worked perfectly (aborted before bad deploy), v0.2.3 corrects the --set-cloudsql-instances flag \nv0.2.2 \nApr 30 \n\ud83e\ude79 Production hotfix: wired flask-backend-migrate Cloud Run Job into cloudbuild.yaml, unified branched Alembic heads, fixed .gitmodules Backend branch tracker \nv0.2.1 \nApr 29 \n\ud83e\uddf9 Repo hygiene, Docker image trimming, PM daemon wiring, .mcp.json registered \nv0.2.0 \nApr 29 \n\ud83c\udf1f \"Anti-Recipe Site\" \u2014 public recipe SSR at /r/<slug>, async Pub/Sub generation (202 instant), OAuth scope fix, Valkey distributed rate limiting \nThe build-gate behaviour in v0.2.2/v0.2.3 is worth highlighting: the migration job failing prevented a bad deploy. The safety net works! \u2705\n\ud83d\udcec Open Pull Requests (9)\n\ud83e\udd16 Dependabot \u2014 ready to review/merge\n#2909 \u2014 CI: bump actions/checkout, gh-aw-actions, JetBrains/junie-github-action, JetBrains/q (actions-all group)\n#2908 \u2014 @google/genai 1.50.1 \u2192 1.51.0 \u2b50 (AI SDK update)\n#2907 \u2014 Linting group (2 updates)\n#2906 \u2014 Angular group (8 updates) \ud83c\udd70\ufe0f\n#2880 \u2014 express-rate-limit 8.3.2 \u2192 8.4.1\n#2876 \u2014 Testing group (2 updates)\n\ud83d\udc64 Human PRs \u2014 need attention\n#2903 feat(pm) \u2014 Add Jira/Confluence sync script + submodule update (by @adamtasteslikegood)\n#2899 chore \u2014 Track deferred CI/CD items from v0.2.1 in TODOS.md\n#2882 feat(docs) \u2014 Establish PR size/reviewability best practices ()\n\ud83d\udc1b Open Action Items\n# \nIssue \nPriority \n#2898 \nVerify Cloud Build tag-push trigger regex ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \n\u26a0\ufe0f High \n#2896 \nReconcile .gcloudignore .git exclusion with cloudbuild.yaml submodule init \nMedium \n#2897 \nDecide on .cloudbuildignore (currently absent) \nLow \n#289",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-01T06:13:59.775-0700",
+   "updated": "2026-05-01T06:14:02.362-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-85",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 2, 2026",
+   "description": "\ud83c\udf31 Daily Repo Status \u2014 May 2, 2026\nHappy Saturday! \ud83c\udf89 The dust has settled after last week's sprint of four releases in two days. Production is live and stable at [tasteslikegood.org|(www.tasteslikegood.org/redacted)] \u2014 here's your weekend snapshot.\n\ud83d\ude80 Recent Releases (Last 7 Days)\nTag \nPublished \nSummary \nv0.2.3 \nApr 30 \n\ud83d\udd27 Hotfix: Cloud SQL socket path added to migrate Job (v0.2.2 gate-abort fix) \nv0.2.2 \nApr 30 \n\ud83e\ude79 Hotfix: DB migration Job wired into deploy pipeline; Alembic merge migration unifying branched heads \nv0.2.1 \nApr 29 \n\ud83d\udee0\ufe0f Repo hygiene, Cloud Run image trimming, .mcp.json PM daemon, agent tooling improvements \nv0.2.0 \nApr 29 \n\u2728 \"Anti-Recipe Site\" \u2014 public recipe sharing (/r/<slug>), async AI via Pub/Sub, OAuth scope fix \nThe release cadence this week was aggressive and productive. The deploy pipeline is now hardened with an auto-migration gate that blocks bad deploys before the Flask service ever rolls over. \ud83d\udcaa\n\ud83d\udccb Open Pull Requests (10 open)\n\ud83e\udd16 Dependabot Queue \u2014 6 PRs Ready to Review\nPR \nPackage \n#2909 \nCI: bump actions/checkout, gh-aw-actions, JetBrains/junie-github-action, JetBrains/qodana-action \n#2908 \n@google/genai 1.50.1 \u2192 1.51.0 \n#2907 \nLinting group (2 packages) \n#2906 \nAngular group (8 packages) \n#2880 \nexpress-rate-limit 8.3.2 \u2192 8.4.1 \n#2876 \nTesting group (2 packages, 1 dir) \n\ud83d\udee0\ufe0f Feature / Maintenance PRs\nPR \nDescription \n#2903 \nfeat(pm): Jira/Confluence sync script + submodule update (by @adamtasteslikegood) \n#2899 \nchore: Track deferred CI/CD items from v0.2.1 in TODOS.md (by @adamtasteslikegood) \n#2882 \nfeat(docs): PR size/reviewability best practices \u2014  (Draft, by Copilot) \n#2856 \nFix npm-installed Copilot CLI + restore validation in Daily Repo Status workflow (by Copilot) \n\ud83d\udcca Project Health\nMetric \nStatus \n\ud83d\udfe2 Production \nLive \u2014 tasteslikegood.org \n\ud83d\udfe2 Deploy pipeline \nHardened with DB migration gate \n\ud83d\udfe1 Open PRs \n10 (6 from dependabot \u2014 ready to batch-merge) \n\ud83d\udfe1 CI/CD deferred items \nTracked in PR #2899 \n\u26aa Backend submodule \nPinned to dev tip post-v",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-02T06:12:42.297-0700",
+   "updated": "2026-05-02T06:12:44.877-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-86",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 3, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status \u00b7 Sunday, May 3, 2026\nProduction is live and cooking at [tasteslikegood.org|(www.tasteslikegood.org/redacted)] \ud83c\udf43 Here's the Sunday snapshot after a busy Saturday of bug-fixing!\n\ud83d\ude80 Latest Release\nTag \nPublished \nSummary \nv0.2.3 \nApr 30 \n\ud83d\udd27 Cloud SQL socket path fix for flask-backend-migrate Job \nv0.2.2 \nApr 30 \n\u2705 Automated DB migrations via Cloud Run Job before each deploy \nv0.2.0 \nApr 29 \n\ud83c\udf89 Public recipe sharing, async AI generation via Pub/Sub \nNext up: PR #2912 \u2014 Release v0.2.4 is open and ready for review \ud83c\udfaf\n\ud83d\udd28 Yesterday's Activity (May 2)\nA productive Saturday focused on polish and correctness:\n\ud83d\udc1b Back button navigation fixed \u2014 viewRecipe() now pushes history.pushState so the browser back button correctly returns to the kitchen view\n\ud83d\uddbc\ufe0f Image persistence fixed \u2014 auth.service.ts hydrate() now merges ai_image_url from localStorage into API recipes, so images survive page reloads even before Pub/Sub saves them to DB\n\ud83d\udce2 Recipe publishing fixed \u2014 is_public and slug now properly sync from request data to DB columns on create/update, so public recipe share links work correctly\n\u26a1 Performance \u2014 O(n2) find-in-map replaced with Map lookup in hydrate(), popstate guard symmetry fixed\n\ud83d\udd27 PM tooling \u2014 PM sync script timeout reduced from 5 min \u2192 30s (60s for search), preventing long CI hangs\n\ud83d\udcdd Docs \u2014 AGENTS.md strengthened with clearer Backend submodule guidance\n\ud83e\uddf9 Gitignore \u2014 Runtime state files (.claude/scheduled_tasks.lock, .omg/state/) now properly ignored\n\ud83d\udcec Open Pull Requests (10)\nPR \nTitle \nStatus \n#2912 \n\ud83d\ude80 Release v0.2.4 \u2014 bug fixes, PM tooling, gitignore cleanup \n\u2705 Ready \n#2909 \n\u2b06\ufe0f CI actions group bump (4 updates) \n\ud83e\udd16 Dependabot \n#2908 \n\u2b06\ufe0f @google/genai 1.50.1 \u2192 1.51.0 \n\ud83e\udd16 Dependabot \n#2907 \n\u2b06\ufe0f Linting group update (2 packages) \n\ud83e\udd16 Dependabot \n#2906 \n\u2b06\ufe0f Angular group update (8 packages) \n\ud83e\udd16 Dependabot \n#2899 \n\ud83d\udccb Track deferred CI/CD items in TODOS.md \nNeeds review \n#2882 \n\ud83d\udccf PR size/reviewability best practices () \n\ud83d\udea7 Draft \n#2880 \n\u2b06\ufe0f express-rate-lim",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-03T06:12:55.469-0700",
+   "updated": "2026-05-03T06:12:58.039-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-87",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 4, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 4, 2026 \u00b7 Branch: dev\n\ud83d\ude80 Recent Commits (last 48h)\nCommit \nSummary \n3309920 \nchore: bump Backend submodule \u2014 reverted broken test fixes, kept is_public/slug fix \n45a31fb \nfix: restore skill routing, popstate guard, and O merge optimization \nd72ed4b \nfix: back button navigation, image persistence, and recipe publishing \n45c9c60 \nfix: reduce PM sync script timeout (5min \u2192 30s) \n3e24fd5 \nchore: gitignore runtime state files (.claude/, .omg/) \n12f3524 \ndocs: strengthen Backend submodule guidance in AGENTS.md \nThe big push was a productive burst of bug fixes on May 2: back-button history navigation, AI image persistence across page reloads, and is_public/slug sync to the database for recipe publishing. \ud83c\udf89\n\ud83d\udd00 Open Pull Requests (10)\n# \nTitle \nType \n#2915 \nReconcile v0.2.4 work & recover infrastructure state \n\ud83d\udee0\ufe0f chore \n#2914 \nv0.2.5-beta: reconciled clean release from PR #2912 \n\ud83d\udce6 release \n#2912 \nRelease v0.2.4: bug fixes, PM tooling, gitignore cleanup \n\ud83d\udce6 release \n#2909 \nci: bump actions-all group (4 updates) \n\ud83e\udd16 deps \n#2908 \nbuild(deps): bump @google/genai 1.50.1 \u2192 1.51.0 \n\ud83e\udd16 deps \n#2907 \nbuild(deps): bump linting group (2 updates) \n\ud83e\udd16 deps \n#2906 \nbuild(deps): bump Angular group (8 updates) \n\ud83e\udd16 deps \n#2899 \nchore: track deferred CI/CD items in TODOS.md \n\ud83d\udcdd docs \n#2882 \nfeat(docs): PR size/reviewability best practices () \n\ud83d\udcdd docs \n#2880 \nbuild(deps): bump express-rate-limit \n\ud83e\udd16 deps \n\ud83d\udca1 3 release-related PRs are pending \u2014 the v0.2.4/v0.2.5 release story needs a decision on which PR is the canonical one to merge.\n\ud83d\udc1b Open Actionable Issues\n# \nIssue \n#2898 \nVerify Cloud Build tag-push trigger regex is ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \n#2897 \nDecide on .cloudbuildignore (gcloud only reads .gcloudignore) \n#2896 \nReconcile .gcloudignore .git exclusion with cloudbuild.yaml submodule init \n#2895 \nSolo-repo merge friction: ruleset requires review approval, auto-merge disabled \n#100 \nEstablish PR size/reviewability best practices \n\ud83c\udff7\ufe0f Latest Releases\nVer",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-04T06:17:54.860-0700",
+   "updated": "2026-05-04T06:17:58.072-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-88",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 5, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 5, 2026 \u00b7 Current version: v0.2.3 \u2192 v0.2.4 queued\n\ud83d\ude80 Recent Commits (last 48h)\nSHA \nSummary \n7a49a15 \nfix: correct popstate view mapping, bump to v0.2.4 \u2014 merged PR #2917 \u2705 \nae66401 \nchore: bump Backend submodule \u2192 aeeb3a0 (issue #118 test fixture fix) \n45afbe8 \nfix: popstate handler mappings were inverted \u2014 back from recipe \u2192 kitchen, back from kitchen \u2192 generator \n3309920 \nchore: Backend submodule tidy \u2014 reverted broken test fixes, kept is_public/slug fix \n45a31fb \nfix: restore skill routing, remove asymmetric popstate guard, O hydrate merge \n45c9c60 \nfix: reduce PM sync script timeout (5 min \u2192 30s) \n\ud83d\udd00 Open Pull Requests (10)\n\ud83d\udfe2 Ready to Ship\nPR \nTitle \nTarget \n#2912 \n\ud83c\udff7\ufe0f Release v0.2.4 \u2014 bug fixes, PM tooling, gitignore cleanup \ndev \u2192 main \n\ud83d\udce6 Dependabot Updates (waiting to merge after #2912 ships)\nPR \nUpdate \n#2906 \nAngular group \u2014 8 packages \n#2876 \nTesting group \u2014 2 packages \n#2909 \nGitHub Actions group \u2014 4 updates \n#2908 \n@google/genai 1.50.1 \u2192 1.51.0 \n#2907 \nLinting group \u2014 2 updates \n#2880 \nexpress-rate-limit 8.3.2 \u2192 8.4.1 \n\ud83d\udee0\ufe0f Feature / Chore PRs\nPR \nTitle \n#2899 \nchore: track deferred CI/CD items in TODOS.md \n#2882 \nfeat(docs): PR size/reviewability best practices () \n#2856 \nci: fix Daily Repo Status workflow (Copilot CLI + validation) \n\ud83d\udc1b Open Issues (20 total)\n# \nTitle \nNotes \n#2898 \nVerify Cloud Build tag-push trigger regex \n\u26a0\ufe0f Pre-ship check \n#2895 \nSolo-repo merge friction \u2014 ruleset requires review approval \n\ud83d\udd27 Process friction \n#2897 \nDecide on .cloudbuildignore (absent \u2014 only .gcloudignore exists) \n\ud83d\udccb Housekeeping \n#2896 \nReconcile .gcloudignore .git exclusion with cloudbuild submodule init \n\ud83d\udccb Housekeeping \n#100 \nEstablish PR size/reviewability best practices \nTracked by PR #2882 \n\ud83c\udff7\ufe0f Recent Releases\nTag \nDate \nNotes \nv0.2.3 \nApr 30 \nHotfix: Cloud SQL socket path missing from migrate Job \nv0.2.2 \nApr 30 \nAutomated DB migrations via Cloud Run Job before each deploy \nv0.2.1 \nApr 29 \nPM daemon, agent tooling, im",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-05T06:17:22.208-0700",
+   "updated": "2026-05-05T06:17:25.001-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-89",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 6, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 6, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf89\n\ud83d\ude80 Shipped Today\nTwo releases landed in quick succession \u2014 a solid day of fixes!\nTag \nSummary \nv0.2.5 \u2705 \nOAuth hotfix \u2014 returning users hitting HTTP 500 on login are fixed. Google was bundling previously-granted cloud-platform scope back into tokens; Backend PR #128 drops include_granted_scopes from the auth URL and sets OAUTHLIB_RELAX_TOKEN_SCOPE=1 as defense-in-depth. \nv0.2.4 \u2705 \nBrowser back button restored, AI images now survive refresh, public recipes appear at /browse, Backend test suite fully green again, PM tooling + planning docs moved to specs/. \nBig kudos \ud83c\udf89 \u2014 two production releases and a Backend submodule bump all landed today.\n\ud83d\udccb Open Pull Requests (10)\nFeature / Fix PRs waiting for review:\nPR \nTitle \nAge \n#2843 \nfix(TAS-8): decouple image_service from Flask request context \n~16 days \n#2856 \nUse npm-installed Copilot CLI + restore validation in Daily Repo Status \n~16 days \n#2882 \nfeat(docs): establish PR size/reviewability best practices (KAN-21) \n~11 days \n#2899 \nchore: track deferred CI/CD items from v0.2.1 in TODOS.md \n~7 days \nDependabot PRs ready to merge (6): Angular group (\u00d78 packages), @google/genai 1.51.0, linting group, express-rate-limit 8.4.1, testing group, GitHub Actions group (\u00d74).\n\ud83d\udca1 The 4 feature PRs are aging \u2014 worth a quick review pass now that the hotfix dust has settled.\n\ud83d\udc1b Open Issues (5 work items)\n# \nIssue \nStatus \n#2895 \nSolo-repo merge friction: ruleset requires review approval \n\ud83d\udd34 Blocking solo dev workflow \n#2898 \nVerify Cloud Build tag-push trigger regex \n\ud83d\udfe1 Should verify before next release \n#2896 \nReconcile .gcloudignore .git exclusion with submodule init \n\ud83d\udfe1 CI hygiene \n#2897 \nDecide on .cloudbuildignore \n\ud83d\udfe1 CI hygiene \n#100 \nEstablish PR size/reviewability best practices () \n\ud83d\udfe2 PR #2882 in progress \n\ud83d\udd2d Backend Submodule Health\nThe Backend (adamtasteslikegood/tasteslikegood.com) was bumped twice today:\n\u2192 397ba90 (PR #128 OAuth scope fix \u2014 now in v0.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-06T06:23:22.644-0700",
+   "updated": "2026-05-06T06:23:25.471-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-90",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 7, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 7, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf89\n\ud83d\ude80 Latest Release\nv0.2.5 shipped yesterday (May 6) as a targeted hotfix \u2014 Google OAuth login was returning HTTP 500 for some returning users whose tokens included a stale cloud-platform scope bundled in by Google. The fix dropped include_granted_scopes from the auth URL and added OAUTHLIB_RELAX_TOKEN_SCOPE=1 as defense-in-depth. Clean, surgical, and fast. \u2705\n\ud83d\udd28 Today's Activity (May 7)\nCommit \nSummary \n8a06383 \nAll submodule pointers updated to dev tip \n5afee73 \nAdded jira-ticket-updater check (via Continue Hub) \na67b900 \nAI-generated commit message tweak \nThe submodule pointer sweep ensures Backend/, alirez-claude-skills/, and gemstack/ are all aligned \u2014 good housekeeping before the next feature push. \ud83e\uddf9\n\ud83d\udcec Open Pull Requests (9 open)\n\ud83e\udd16 Dependabot (ready to merge)\nPR \nUpdate \n#2906 \nAngular group \u2014 8 packages \n#2907 \nLinting group \u2014 2 packages \n#2908 \n@google/genai 1.50.1 \u2192 1.51.0 \n#2909 \nGitHub Actions group \u2014 4 updates \n#2880 \nexpress-rate-limit 8.3.2 \u2192 8.4.1 \n\ud83d\udca1 Five Dependabot PRs are ready \u2014 batching a dependency sweep would be a quick win.\n\ud83d\udee0 Feature / Chore PRs\nPR \nDescription \n#2925 \nAdd agentsmd-updater check \n#2899 \nTrack deferred CI/CD items in TODOS.md \n#2882 \nDocs: PR size / reviewability best practices () \n#2856 \nFix npm-installed Copilot CLI & restore Daily Status validation \n\ud83d\udc1b Open Infrastructure Issues\nIssue \nSummary \n#2898 \nVerify Cloud Build tag-push trigger regex is correctly anchored \n#2897 \nDecide on .cloudbuildignore (currently absent) \n#2896 \nReconcile .gcloudignore .git exclusion with submodule init in Cloud Build \n#2895 \nSolo-repo merge friction: ruleset requires reviewer approval, auto-merge disabled \n\ud83d\udcca Health Snapshot\nMetric \nStatus \nProduction version \nv0.2.5 \u2705 \nAuth (OAuth) \nFixed in v0.2.5 \u2705 \nDependabot PRs open \n5 \nFeature PRs open \n4 \nInfra issues open \n4 \nDB migration heads \nShould be 1 (verify with cd Backend && uv run flask db heads) \n\u2705 Recommended Next",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-07T06:23:20.088-0700",
+   "updated": "2026-05-07T06:23:22.962-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-91",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 8, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 8, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf89\n\ud83d\ude80 Current Release\nv0.2.5 is live on production (shipped May 6). This targeted hotfix resolved a Google OAuth 500 error for returning users whose tokens carried a stale cloud-platform scope bundled in by Google. Clean, surgical, fast \u2014 the deploy gate (migrate Job \u2192 Flask \u2192 Express) worked exactly as designed. \u2705\n\ud83d\udee0\ufe0f Yesterday's Activity (May 7)\nCommit \nAuthor \nfeat: Update PM scripts and documentation \n@adamtasteslikegood \ndocs(claude): add GBrain configuration block after v0.18\u2192v0.28.6 upgrade \n@adamtasteslikegood \nfixed git-workflow.sh escape char literal in help message \n@adamtasteslikegood \nchore: Update Backend subproject commit hash \n@adamtasteslikegood \nall submodules pointers index updated to dev \n@adamtasteslikegood \nAdd \"jira-ticket-updater\" check (#2924) \ncontinue[bot] \nA productive housekeeping day \u2014 GBrain upgraded from v0.18 \u2192 v0.28.6, submodule pointers synced, and PM tooling polished. The dev branch is healthy and up-to-date. \ud83d\udcaa\n\ud83d\udccb Open Pull Requests (10)\nMost are Dependabot updates awaiting review. Two stand out:\n# \nPR \nPriority \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 (major version bump!) \n\u26a0\ufe0f Review carefully \n#2928 \nDocker node:25-alpine \u2192 26-alpine (Node major bump) \n\u26a0\ufe0f Test before merge \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \n\u2705 Safe patch \n#2930 \nVite 8.0.10 \u2192 8.0.11 \n\u2705 Safe patch \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \n\u2705 Safe patch \n#2931 \nLinting group (3 updates) \n\u2705 Safe \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \n\u2705 Safe patch \n#2927 \nnpm_and_yarn group (2 updates) \n\u2705 Safe \n#2909 \nGitHub Actions group (4 updates) \n\u2705 Safe \n#2925 \nAdd \"agentsmd-updater\" CI check \n\ud83e\udd16 Bot \n\ud83d\udca1 @google/genai 2.0.0 is worth a dedicated review pass \u2014 model name formats and API surface may have changed. Check src/services/gemini.service.ts and Backend/services/ against the 2.0 changelog before merging.\n\ud83d\udd13 Open Issues (Actionable)\n# \nIssue \n#2898 \nVerify Cloud Build tag-push trigger regex matches",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-08T06:15:31.501-0700",
+   "updated": "2026-05-08T06:15:34.213-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-92",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 9, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 9, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf89\n\ud83d\ude80 Current Release\nv0.2.5 is live on production (shipped May 6). It resolved the Google OAuth 500 error for returning users whose tokens carried a stale cloud-platform scope \u2014 clean, surgical, and fast. The three-stage deploy gate (migrate Job \u2192 Flask \u2192 Express) worked exactly as designed. \u2705\n\ud83d\udee0\ufe0f Yesterday's Activity (May 7\u20138)\nCommits on dev:\nArea \nChange \n\ud83e\udd16 PM Tooling \nConsolidated pm_daemon.py into scripts/pm/, added multi-project Jira tracking (KAN, RCP, PLZA, TO) in AGENTS.md and GEMINI.md \n\ud83d\udcda Docs \nAdded GBrain configuration block to CLAUDE.md documenting the v0.18\u2192v0.28.6 upgrade (local-stdio mode, Postgres engine, search guidance) \n\ud83d\udd27 Scripts \nFixed git-workflow.sh escape char in help text; fixed .claude/settings.json / check-gstack.sh pre-tool-use hook that was generating error messages on every tool invocation \n\ud83d\udce6 Backend \nBumped Backend submodule pointer to 5ee1cb6 (latest dev tip) \nPRs closed:\n#2907 \u2014 linting group bump \u2705\n\ud83d\udcec Open Pull Requests (9)\nAll are Dependabot updates \u2014 no human-authored PRs awaiting review:\nPR \nUpdate \nNote \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 \n\u26a0\ufe0f Major version bump \u2014 review API changes before merging \n#2906 \nAngular group (8 packages) \nLarge update batch \u2014 worth reviewing together \n#2928 \nNode 25-alpine \u2192 26-alpine (Docker) \nNode major version bump \n#2931 \nLinting group (3 pkgs) \nLow risk \n#2929 \n@types/node patch \nLow risk \n#2930 \nvite patch \nLow risk \n#2932 \nglobals patch \nLow risk \n#2934 \n@google-cloud/secret-manager patch \nLow risk \n#2876 \nTesting group (2 pkgs) \nLow risk \n\ud83d\udd34 Action needed: PR #2933 (@google/genai v2.0.0) is a major bump \u2014 the Gemini SDK breaking changes may affect GeminiService and image generation. Review the v2 changelog before merging.\n\ud83d\udc1b Open Issues (1)\n# \nTitle \nPriority \n#2898 \nVerify Cloud Build tag-push trigger regex ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \nMedium \u2014 CI/CD safety net \nIssue #2898 tracks verifying the Cloud Build trigger rege",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-09T06:13:20.038-0700",
+   "updated": "2026-05-09T06:13:22.462-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-93",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 10, 2026",
+   "description": "\ud83c\udf31 Vegangenius Chef \u2014 Daily Status\nGenerated: May 10, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf89\n\ud83d\ude80 Current Release\nv0.2.5 is live on production (shipped May 6). The OAuth scope-bundling hotfix has been running cleanly \u2014 users who previously hit the Authentication failed 500 error on login are back in action. The three-stage deploy gate (migrate Job \u2192 Flask \u2192 Express) worked exactly as designed. \u2705\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201310)\nCommits on dev:\n\ud83d\udcd6 docs(claude): Added GBrain configuration block after v0.18\u2192v0.28.6 upgrade \u2014 agent memory is now dramatically better with the new schema\n\ud83d\udc1b fix: Corrected git-workflow.sh escape char literal printing in help message\n\ud83d\udd27 All submodule pointers updated to dev tip\n\ud83e\udd16 AI-generated commits (continue[bot] merged the jira-ticket-updater check \u2014 #2924)\nReleases:\nNo new release since v0.2.5 (May 6) \u2014 production is stable \ud83d\udfe2\n\ud83d\udcec Open PRs (10 open)\nAll open PRs are Dependabot automated updates:\n# \nUpdate \nPriority \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 \ud83d\udea8 MAJOR \n\u26a0\ufe0f High \u2014 breaking changes possible \n#2928 \nDocker base: node:25-alpine \u2192 node:26-alpine \n\ud83d\udd36 Medium \u2014 test before merge \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \n\u2705 Low-risk patch \n#2930 \nvite 8.0.10 \u2192 8.0.11 (build-tools group) \n\u2705 Patch \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \n\u2705 Minor \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \n\u2705 Patch \n#2931 \nLinting group (3 packages) \n\u2705 Minor \n#2927 \nnpm_and_yarn group (2 packages) \n\u2705 Minor \n#2925 \nCI: Add agentsmd-updater check \n\ud83d\udd36 Review needed \n#2909 \nActions-all group (4 CI actions) \n\u2705 Routine \n\u26a0\ufe0f @google/genai 2.0.0 is a major bump \u2014 the Gemini and Imagen integration in src/services/gemini.service.ts should be tested after merge, particularly API method signatures for generateContent and image generation.\n\ud83d\udc1b Open Issues\n#2898 \u2014 Verify Cloud Build tag-push trigger regex matches ^v[0-9]+\\.[0-9]+\\.[0-9]+$ (still open \u2014 worth a quick gcloud builds triggers list to close the loop)\n\u2728 Highlights\n\ud83e\udde0 GBrain upgraded to v0.28.6 \u2014 major jump from v0.18.x brings schema v38, much",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-10T06:13:18.409-0700",
+   "updated": "2026-05-10T06:13:20.856-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-94",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 11, 2026",
+   "description": "Generated: May 11, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and healthy! The OAuth scope-bundling hotfix shipped May 6 has been running cleanly for 5 days now \u2014 users who hit Authentication failed 500 errors on login are back in action. \u2705\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201311)\nCommits since last release:\n\ud83e\udd16 docs(claude) \u2014 GBrain config block updated after v0.18\u2192v0.28.6 upgrade\n\ud83d\udd27 Fixed git-workflow.sh escape char printing in help message\n\ud83d\udce6 All submodule pointers advanced to dev tip\n\u2705 continue[bot] added jira-ticket-updater check (#2924)\n\u2705 continue[bot] added agentsmd-updater check (PR #2925)\n\ud83d\udcec Open Pull Requests (10)\nAll current PRs are automated \u2014 no human-authored work blocked in review.\n# \nDescription \nAuthor \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 \u26a0\ufe0f major bump \ndependabot \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \ndependabot \n#2928 \nDocker node:25-alpine \u2192 26-alpine \u26a0\ufe0f major \ndependabot \n#2931 \nLinting group (3 packages) \ndependabot \n#2930 \nvite 8.0.10 \u2192 8.0.11 \ndependabot \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \ndependabot \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \ndependabot \n#2927 \nnpm_and_yarn group (2 packages) \ndependabot \n#2909 \nCI actions-all group (4 actions) \ndependabot \n#2925 \nAdd agentsmd-updater check \ncontinue[bot] \n\u26a0\ufe0f Attention: PR #2933 bumps @google/genai to v2.0.0 (major). Review breaking changes before merging \u2014 this powers Gemini recipe generation and Imagen photo creation.\n\u26a0\ufe0f Attention: PR #2928 bumps the Docker base image from node:25-alpine to node:26-alpine (major). Worth a build smoke-test.\n\ud83d\udccb Open Issues (4 real)\nAll four open non-bot issues are deferred CI/CD improvements from v0.2.1:\n# \nTitle \nLabel \n#2898 \nVerify Cloud Build tag-push trigger regex ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \nCI/CD \n#2897 \nDecide on .cloudbuildignore (currently absent) \nCI/CD \n#2896 \nReconcile .gcloudignore .git exclusion with submodule checkout in Cloud Build \nCI/CD \n#2895 \nSolo-repo merge friction: ruleset requires review approval, auto-merge \nCI/CD \nThese ar",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-11T06:45:18.403-0700",
+   "updated": "2026-05-11T06:45:21.386-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-95",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 12, 2026",
+   "description": "Generated: May 12, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is stable and running! The OAuth scope-bundling hotfix has now been live for 6 days with no reported regressions. \u2705 All is quiet on the production front \u2014 a great sign.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201312)\nNo new commits have landed since May 7. The last burst of activity consolidated PM scripts (pm_daemon.py moved to scripts/pm/), added multi-project Jira tracking, upgraded GBrain (v0.18 \u2192 v0.28.6), and advanced all submodule pointers to dev tip.\nThe repo is in a healthy, stable holding pattern \u2014 perfect timing to clear the PR backlog. \ud83e\uddf9\n\ud83d\udcec Open Pull Requests (10)\nAll open PRs are automated \u2014 no human-authored work blocked in review.\n# \nDescription \nAuthor \nNote \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 \ndependabot \n\u26a0\ufe0f Major bump \n#2928 \nDocker node:25-alpine \u2192 node:26-alpine \ndependabot \n\u26a0\ufe0f Major bump \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \ndependabot \n\u2705 Patch \n#2931 \nLinting group (3 packages) \ndependabot \n\u2705 Minor \n#2930 \nvite 8.0.10 \u2192 8.0.11 \ndependabot \n\u2705 Patch \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \ndependabot \n\u2705 Minor \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \ndependabot \n\u2705 Patch \n#2927 \nnpm_and_yarn group (2 packages) \ndependabot \n\u2705 Minor \n#2909 \nCI actions-all group (4 actions) \ndependabot \n\u2705 Minor \n#2925 \nAdd agentsmd-updater check \ncontinue[bot] \n\ud83e\udd16 Tooling \n\u26a0\ufe0f PR #2933 \u2014 @google/genai v2.0.0: This is the AI backbone for Gemini recipe generation and Imagen photo creation. It's been pending for 4 days. Check the v2.0.0 changelog for breaking changes before merging (particularly GenerativeModel, generateContent, and image generation API surface).\n\u26a0\ufe0f PR #2928 \u2014 Node 26 Docker image: Node 26 went stable May 2026. Worth a quick docker build + npm run build smoke test to confirm no Alpine-level surprises.\n\ud83d\udca1 The 7 safe patch/minor PRs (#2934, #2931, #2930, #2932, #2929, #2927, #2909) can likely be merged in bulk with no risk.\n\ud83d\udccb Open Issues (4 real)\nAll four deferred CI/CD housekeeping items from v0.",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-12T06:26:16.266-0700",
+   "updated": "2026-05-12T06:26:19.770-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-96",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 13, 2026",
+   "description": "Generated: May 13, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and holding strong \u2014 7 days since the OAuth scope-bundling hotfix and no regressions reported. \u2705 The app is healthy: recipe generation, Imagen photos, Google OAuth, and guest mode all working.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201313)\nNo new feature commits since May 7 \u2014 the repo is in a calm stabilization period after the busy v0.2.4/v0.2.5 sprint. The last wave of changes:\n\ud83d\udd27 GBrain upgraded to v0.28.6 and CLAUDE.md updated with the new config block\n\ud83d\udc1b git-workflow.sh escape-character rendering bug fixed\n\ud83d\udccc All submodule pointers aligned to dev tip\n\u2705 jira-ticket-updater CI check added (PR #2924)\n\ud83d\udcec Open Pull Requests (10 open)\nAll open PRs are automated dependency updates \u2014 no unreviewed human feature work is pending.\n# \nDescription \nPriority \n#2933 \n@google/genai 1.50.1 \u2192 2.0.0 (major bump! \ud83d\udea8) \nReview carefully \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \nSafe to merge \n#2928 \nDocker node:25-alpine \u2192 node:26-alpine \nReview + test \n#2931 \nLinting group (3 packages) \nSafe to merge \n#2930 \nvite build-tools group \nSafe to merge \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \nSafe to merge \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \nSafe to merge \n#2927 \nCI npm_and_yarn group (2 packages) \nSafe to merge \n#2925 \nAdd agentsmd-updater CI check \nReview \n#2909 \nGitHub Actions group (4 updates) \nSafe to merge \n\u26a0\ufe0f @google/genai 2.0.0 is a major version \u2014 worth checking the changelog for breaking changes before merging, given Gemini recipe generation is core functionality.\n\ud83c\udfab Open Action Items\nIssue \nDescription \nLabel \n#2898 \nVerify Cloud Build tag-push trigger regex (^v[0-9]+...) \nCI/CD \n#2897 \nDecide on .cloudbuildignore (currently absent) \nCI/CD \n#2896 \nReconcile .gcloudignore .git exclusion with submodule init \nCI/CD \n#2895 \nSolo-repo merge friction: ruleset requires review approval \nCI/CD \nAll four are deferred CI/CD housekeeping items from the v0.2.1 release. None are blocking production.\n\ud83c\udff7\ufe0f Release History\nTag \nDa",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-13T06:35:10.168-0700",
+   "updated": "2026-05-13T06:35:12.928-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-97",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 14, 2026",
+   "description": "Generated: May 14, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 now 8 days since the OAuth scope-bundling hotfix with zero regressions. \u2705 Recipe generation, Imagen food photos, Google OAuth, and guest mode are all operating normally.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201314)\nThe repo has been in a quiet stabilization period \u2014 no feature commits since May 7. The last notable work was:\ndocs(claude): GBrain configuration block added after v0.18\u2192v0.28.6 upgrade\nfix: git-workflow.sh escape character literal corrected in help message\nSubmodule pointers updated to the latest dev tip\nJira ticket updater CI check added (#2924)\n\ud83d\udd04 Open Pull Requests (10)\nAll open PRs are automated \u2014 no human feature work is queued. One deserves immediate attention:\n# \nPR \nPriority \n#2933 \n\ud83d\udd34 @google/genai 1.50.1 \u2192 2.0.0 (major!) \nHigh \u2014 review breaking changes \n#2928 \n\ud83d\udfe1 Docker: node 25-alpine \u2192 26-alpine \nMedium \u2014 test before merging \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \nLow \u2014 patch bump \n#2931 \nLinting group: 3 updates \nLow \u2014 routine \n#2930 \nvite 8.0.10 \u2192 8.0.11 \nLow \u2014 patch bump \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \nLow \u2014 patch bump \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \nLow \u2014 patch bump \n#2927 \nnpm/yarn group: 2 updates \nLow \u2014 routine \n#2909 \nCI actions group: 4 updates \nLow \u2014 routine \n#2925 \nAdd agentsmd-updater check \nLow \u2014 automation \n\u26a0\ufe0f @google/genai 2.0.0 is the biggest item here. This is a major version bump of the Gemini SDK \u2014 review the release notes before merging, as it may affect GeminiService and image generation calls.\n\ud83d\udccc Tracked Issues to Watch\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$) \u00b7 still open\n\ud83c\udfaf Recommended Next Steps\nReview @google/genai 2.0.0 breaking changes (PR #2933) before the next feature sprint \u2014 this SDK powers all AI generation in the app.\nBatch-merge the low-risk Dependabot PRs (patches/linting) to keep the dependency tree healthy.\nEvaluate Node 26 Docker upgrade (PR #2928) \u2014 run the build locally",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-14T06:22:22.622-0700",
+   "updated": "2026-05-14T06:22:25.408-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-98",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 15, 2026",
+   "description": "Generated: May 15, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 9 days since the OAuth scope-bundling hotfix with zero regressions. \u2705 Recipe generation, Imagen food photos, Google OAuth, and guest mode are all operating normally.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201315)\nThe codebase has been in a quiet stabilization period since May 7. The last batch of meaningful commits:\nDate \nChange \nMay 7 \ndocs(claude): GBrain configuration block added (v0.18 \u2192 v0.28.6 upgrade) \nMay 7 \nfix: git-workflow.sh escape char literal no longer prints in help output \nMay 7 \nchore: all submodule pointers updated to dev tips \nMay 7 \nci: jira-ticket-updater check added (#2924) \nMay 6 \n\ud83c\udff7\ufe0f v0.2.5 released \u2014 OAuth scope-bundling hotfix \nNo feature code has shipped since May 7. The app is stable and ready for the next development push.\n\ud83d\udcec Open PRs \u2014 Dependabot Surge Today! \ud83e\udd16\nA wave of 4 new Dependabot PRs opened this morning (May 15). Combined with last week's batch, there are now 10 open dependency PRs awaiting review:\n\ud83c\udd95 New Today (May 15)\nPR \nUpdate \nNotes \n#2945 \nCI: actions-all group \u00d7 5 (incl. actions/checkout v4 \u2192 v6) \nLow risk \n#2944 \nLinting group \u00d7 8 \nLow risk \n#2943 \n@google/genai 1.50.1 \u2192 2.3.0 \ud83d\udea8 \nMajor bump \u2014 review API changes \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \u26a0\ufe0f \nMajor bump \u2014 check for breaking changes \n\ud83d\udcc5 From Last Week (May 7\u20138)\nPR \nUpdate \n#2934 \n@google-cloud/secret-manager patch bump \n#2932 \nglobals minor bump \n#2930 \nvite patch (build-tools group) \n#2929 \n@types/node patch (types group) \n#2928 \nDocker: node 25-alpine \u2192 26-alpine \ud83d\udc33 \n#2927 \nCI: npm_and_yarn group \u00d7 2 \n\ud83d\udca1 Recommendation: The @google/genai 1\u21922 major bump (#2943) is the most impactful \u2014 Gemini recipe generation and Imagen food photo routes both rely on this library. Review the genai SDK v2 changelog before merging. The rate-limit-redis v5 bump (#2942) warrants checking against the Valkey adapter in server/valkey.ts (GH issues #163, #162 are already tracking edge cases there).\n\ud83d\udcca Project",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-15T06:22:26.053-0700",
+   "updated": "2026-05-15T06:22:28.350-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-99",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 16, 2026",
+   "description": "Generated: May 16, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 10 days since the OAuth scope-bundling hotfix with zero regressions. \u2705 Recipe generation, Imagen food photos, Google OAuth, and guest mode are all operating normally.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201316)\nThe codebase has been in a quiet stabilization period since the v0.2.5 release. The last batch of commits on May 7:\nDate \nChange \nMay 7 \ndocs(claude): Add GBrain v0.28.6 configuration block after upgrade \nMay 7 \nfix: Correct escape char literal in git-workflow.sh help message \nMay 7 \nchore: Sync all submodule pointers to dev tip \nNo new feature branches or PRs have been opened since the v0.2.5 hotfix landed \u2014 a clean, steady-state week. \ud83e\uddd8\n\ud83d\udce6 Dependabot Queue (7 open PRs)\nSeveral dependency updates are queued and ready for review:\nPR \nUpdate \nType \n#2945 \nactions/checkout + 4 more CI actions bumps \npatch/minor \n#2944 \nLinting group (8 packages) \nminor \n#2906 \nAngular group (8 packages) \nminor \n#2943 \n@google/genai 1.50.1 \u2192 2.3.0 \u26a0\ufe0f \nMAJOR \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \u26a0\ufe0f \nMAJOR \n#2930 \nvite patch bump \npatch \n#2929 \n@types/node patch bump \npatch \n\ud83d\udd34 Heads-up: @google/genai 1.x \u2192 2.x is a major API change affecting the Gemini recipe generation and Imagen image generation flows. Merge only after manual testing of /api/generate and /api/generate_image. Similarly, rate-limit-redis 5.0.0 may have breaking changes affecting the Valkey distributed rate-limiter in server/valkey.ts.\n\ud83d\udc1b Deferred Open Issues\nThree CI/CD housekeeping issues remain open from prior sprints:\nIssue \nTopic \n#2898 \nVerify Cloud Build tag-push trigger regex ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \n#2897 \nDecide on .cloudbuildignore (currently absent) \n#2896 \nReconcile .gcloudignore .git exclusion with cloudbuild.yaml submodule init \nThese are low-risk but worth clearing before the next feature push.\n\ud83c\udfaf Recommended Next Steps\nReview @google/genai 2.x migration \u2014 check the SDK changelog for breaking changes; update Gemini",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-16T06:13:57.738-0700",
+   "updated": "2026-05-16T06:14:00.302-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-100",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 17, 2026",
+   "description": "Generated: May 17, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 11 days since the OAuth scope-bundling hotfix with zero new incidents. \u2705 Recipe generation, Imagen food photos, Google OAuth, and guest mode are all operating normally.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201317)\nThe codebase has been in a quiet stabilization period since the last batch of commits on May 7:\nDate \nChange \nMay 7 \n\ud83d\udcdd CLAUDE.md \u2014 GBrain configuration block added after v0.18 \u2192 v0.28.6 upgrade \nMay 7 \n\ud83d\udd27 scripts/git-workflow.sh \u2014 escape char literal printing bug fixed \nMay 7 \n\ud83d\udce6 All submodule pointers updated to dev tip \nMay 7 \n\ud83e\udd16 CI: jira-ticket-updater check added (#2924) \nNo application code changes since the v0.2.5 release \u2014 a healthy sign after a busy hotfix sprint. \ud83c\udf89\n\ud83d\udcec Open Pull Requests (10)\nAll currently open PRs are from Dependabot \u2014 a nice dependency refresh queue waiting for review:\n# \nUpdate \nType \n#2945 \nCI actions group \u2014 5 updates (actions/checkout v4\u2192v6, etc.) \nCI \n#2944 \nLinting group \u2014 8 updates \nDevDeps \n#2943 \n@google/genai 1.50.1 \u2192 2.3.0 \u26a0\ufe0f major bump \nRuntime \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \u26a0\ufe0f major bump \nRuntime \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \nRuntime \n#2932 \nglobals 17.5.0 \u2192 17.6.0 \nDevDeps \n#2930 \nvite 8.0.10 \u2192 8.0.11 \nBuild \n#2929 \n@types/node 25.6.0 \u2192 25.6.2 \nDevDeps \n#2928 \nDocker: node 25-alpine \u2192 26-alpine \nInfrastructure \n#2927 \nnpm_and_yarn group \u2014 2 updates \nDevDeps \n\ud83d\udd34 Two major-version bumps need attention before merging: @google/genai v2 and rate-limit-redis v5 may have breaking API changes \u2014 review changelogs before merging.\n\ud83d\udc1b Open Actionable Issues\n# \nTitle \nLabels \n#2898 \nVerify Cloud Build tag-push trigger regex matches ^v[0-9]+\\.[0-9]+\\.[0-9]+$ \nCI/CD deferred-from-v0.2.1 \n#2897 \nDecide on .cloudbuildignore (currently absent \u2014 gcloud only reads .gcloudignore) \nCI/CD deferred-from-v0.2.1 \nBoth are low-risk CI/CD hygiene items deferred from v0.2.1. Good candidates to knock out before the next feature sprint.\n\ud83c\udfaf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-17T06:14:06.792-0700",
+   "updated": "2026-05-17T06:14:09.017-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-101",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 18, 2026",
+   "description": "Generated: May 18, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 remains live and stable \u2014 12 days since the OAuth scope-bundling hotfix with zero incidents. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running normally.\n\ud83d\udee0\ufe0f Recent Activity (May 7\u201318)\nThe codebase has been in a healthy stabilization period since the last commit batch on May 7. Here's what landed:\nDate \nChange \nMay 7 \nfeat: Consolidated pm_daemon.py \u2192 scripts/pm/; added multi-project Jira tracking (KAN, RCP, PLZA, TO) \nMay 7 \ndocs: GBrain v0.28.6 upgrade config added to CLAUDE.md (postgres engine, artifacts repo wired) \nMay 7 \nfix: git-workflow.sh escape-char literal in help message; fixed Claude pre-tool-use hook noise \nMay 7 \nchore: Backend submodule + all submodule pointers aligned to dev \nMay 7 \nfeat: Continue Hub added jira-ticket-updater check (.continue/checks/) \nNo code changes to the app itself this week \u2014 a good sign that v0.2.5 is holding steady in production. \ud83c\udf89\n\ud83d\udcec Open PRs (10) \u2014 Dependabot Queue Building Up!\nAll open PRs are from Dependabot. Several are major version bumps that warrant a closer look before merging:\nPR \nPackage \nChange \nNotes \n#2945 \nGitHub Actions (5 pkgs) \nVarious bumps \n\u2705 Routine CI maintenance \n#2944 \nLinting group (8 pkgs) \nVarious \n\u2705 Safe to review \n#2943 \n@google/genai \n1.50.1 \u2192 2.3.0 \n\u26a0\ufe0f Major bump \u2014 review API changes \n#2942 \nrate-limit-redis \n4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major bump \u2014 Valkey compat check needed \n#2930 \nvite \n8.0.10 \u2192 8.0.11 \n\u2705 Patch \u2014 safe \n#2929 \n@types/node \n25.6.0 \u2192 25.6.2 \n\u2705 Patch \u2014 safe \n#2928 \nDocker node \n25-alpine \u2192 26-alpine \n\u26a0\ufe0f Major bump \u2014 Node 26 LTS, test build \n#2934 \n@google-cloud/secret-manager \n6.1.1 \u2192 6.1.2 \n\u2705 Patch \u2014 safe \n#2932 \nglobals \n17.5.0 \u2192 17.6.0 \n\u2705 Minor \u2014 safe \n#2927 \nnpm/yarn group (2 pkgs) \nVarious \n\u2705 Routine \n\ud83d\udccc Open Issues (Non-Status)\n# \nTitle \nNotes \n#2898 \nVerify Cloud Build tag-push trigger regex \n\ud83d\udfe1 Verification task \u2014 confirm ^v[0-9]+\\.[0-9]+\\.[0-9]+$ is set \n\u2705 A",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-18T07:07:48.734-0700",
+   "updated": "2026-05-18T07:07:51.884-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-102",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 19, 2026",
+   "description": "Generated: May 19, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 13 days since the OAuth scope-bundling hotfix with zero incidents. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running normally.\n\ud83d\udd25 Today's Highlights\nBig day for forward progress! Three new pull requests opened today, signalling active movement on multiple fronts:\nPR \nBranch \nSummary \n#2953 \nfeat/ssr-recipes-rc \u2192 dev \n\ud83c\udd95 SSR recipes release-candidate integration branch \n#2952 \nqodana-automation \u2192 dev \n\ud83c\udd95 Add Qodana CI code quality checks \n#2951 (draft) \nclaude/fix-ci-workflow \u2192 dev \n\ud83d\udd27 Fix failing format check + align workflows \n#2950 (draft) \nclaude/compare-branch \u2192 dev \n\ud83d\udd27 PM cleanup: remove cross-project Jira keys, gitignore venvs \nSpotlight: SSR Recipes RC (PR #2953) \u2014 This is the major milestone of the day. The feat/ssr-recipes-rc branch establishes a shared integration point for the SSR recipes workstream, carrying the public SEO + anti-recipe SSR shell and the SPA bridge ({{save-to-cookbook \u2192 }}#kitchen{{}}). Feature branches for the design/frontend team should now target this RC branch. Once the workstream is ready it merges back to dev. \ud83c\udf89\n\ud83d\udcca Open PRs at a Glance\n# \nTitle \nStatus \n#2953 \nfeat: SSR recipes release-candidate branch \n\ud83d\udfe1 Open (CI unstable) \n#2952 \nAdd Qodana CI checks \n\ud83d\udfe1 Open \n#2951 \nci: fix failing format check \n\u270f\ufe0f Draft \n#2950 \nfix(pm): PM tooling cleanup \n\u270f\ufe0f Draft \n\ud83d\uddc2\ufe0f Open Action Items\nIssue #2898 \u2014 Verify Cloud Build tag-push trigger regex matches ^v[0-9]+\\.[0-9]+\\.[0-9]+$ (deferred from v0.2.1, still open)\n\ud83d\udce6 Dependency Radar\nSeveral Dependabot PRs targeting main are sitting closed without merge \u2014 worth a look when bandwidth allows:\n@google/genai bump from 1.50.1 \u2192 2.0.0 (PR #2933) \u2014 major version bump, review breaking changes before merging\nLinting group bumps (PR #2931, #2907)\nGitHub Actions group bump (PR #2909)\n\u2705 Actionable Next Steps\nReview PR #2953 \u2014 SSR recipes RC is open; unblock CI and merge t",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-19T06:52:17.845-0700",
+   "updated": "2026-05-19T06:52:20.548-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-103",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 20, 2026",
+   "description": "Generated: May 20, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 14 days since the OAuth scope-bundling hotfix with zero incidents. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running normally.\n\ud83d\udd25 What's In Flight\nThe big story right now is SSR Recipes, with a cluster of PRs forming a clear delivery pipeline:\nPR \nTitle \nStatus \n#2953 \nfeat: SSR recipes release-candidate branch \u2192 dev \n\ud83d\udfe1 Open \n#2955 \nfeat(pm): make Atlassian workflow official for SSR workstream \u2192 feat/ssr-recipes-rc \n\ud83d\udfe1 Open \n#2951 \nci: fix failing format check and align workflows \u2192 dev \n\ud83d\udfe1 Open \n#2952 \nAdd qodana CI checks \u2192 dev \n\ud83d\udfe1 Open \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \u2192 dev \n\ud83d\udfe1 Open \nThe SSR feature branch (#2953) is waiting for its sub-PR (#2955) to land first \u2014 PM/Atlassian workflow is being formally locked in before the RC merges. Smart sequencing! \ud83c\udfaf\n\ud83e\udd16 Dependabot Queue\n5 dependency PRs are ready for review \u2014 keeping the project secure and up-to-date:\nPR \nUpdate \n#2945 \nCI actions group (5 updates) \n#2944 \nLinting group (8 packages) \n#2943 \n@google/genai 1.50.1 \u2192 2.3.0 (major!) \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 (major!) \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \n\u26a0\ufe0f Heads up: @google/genai 2.x and rate-limit-redis 5.x are major version bumps \u2014 review breaking changes before merging.\n\ud83d\udd0d Open Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$) \u2014 still open, low urgency but worth confirming before the next release.\n\ud83d\udccb Recommended Next Steps\nLand #2955 (PM/Atlassian workflow) \u2192 unblocks #2953 (SSR RC merge to dev)\nReview #2951 (CI format fix) \u2014 unblocks clean CI for all future PRs\nReview #2952 (Qodana CI) \u2014 improves code quality gates\nTriage Dependabot PRs \u2014 prioritize the @google/genai 2.x upgrade (breaking changes may affect Gemini recipe generation)\nClose #2898 once the Cloud Build trigger regex is confirmed \u2714\n\ud83d\udca1 Notes\nLast commit to dev w",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-20T06:43:19.365-0700",
+   "updated": "2026-05-20T06:43:24.512-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-104",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 21, 2026",
+   "description": "Generated: May 21, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 15 days since the OAuth scope-bundling hotfix with zero incidents. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running normally. Nothing to worry about here!\n\ud83d\udd25 SSR Recipes \u2014 Ready to Land\nThe SSR Recipes delivery pipeline is fully assembled and waiting. All five PRs have been open since May 19 \u2014 day 3 of the queue. Time to start moving them! \ud83c\udfaf\nPR \nTitle \nStatus \n#2955 \nfeat(pm): make Atlassian workflow official for SSR workstream \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check and align workflows \n\ud83d\udfe1 Draft \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \n\ud83d\udfe1 Draft \n#2952 \nAdd qodana CI checks \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \u2192 dev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 (PM/Atlassian workflow \u2014 unblocks #2953)\n#2951 + #2950 (CI/PM cleanup drafts \u2014 ready to promote)\n#2952 (Qodana CI gates)\n#2953 (SSR RC \u2192 dev)\n\ud83e\udd16 Dependabot Queue (5 PRs)\nNo changes from yesterday \u2014 these are ready and waiting for a review pass:\nPR \nUpdate \nPriority \n#2943 \n@google/genai 1.50.1 \u2192 2.3.0 \n\u26a0\ufe0f Major \u2014 review breaking changes \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 check Valkey compat \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2934 \n@google-cloud/secret-manager 6.1.1 \u2192 6.1.2 \n\u2705 Patch \n\ud83d\udca1 The @google/genai 2.x upgrade may affect GeminiService and recipe/image generation \u2014 worth testing locally before merging.\n\ud83d\udd0d Lingering Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$) \u2014 still open, no activity. Quick to close once confirmed via gcloud builds triggers list.\n\ud83d\udccb Recommended Next Steps\nPromote drafts #2951 + #2950 and begin reviewing the SSR PR stack\nMerge #2955 \u2192 feat/ssr-recipes-rc to unblock the RC\nReview @google/genai 2.x breaking changes and plan the upgrade\nRun gcloud builds",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-21T06:53:00.203-0700",
+   "updated": "2026-05-21T06:53:03.367-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-105",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 22, 2026",
+   "description": "Generated: May 22, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and stable \u2014 16 days since the OAuth scope-bundling hotfix with zero incidents. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running normally.\n\ud83d\udd25 SSR Recipes \u2014 Day 4 in the Queue\nThe SSR PR stack is fully assembled and waiting. These five PRs have been open since May 19 \u2014 let's start moving them this weekend! \ud83c\udfaf\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Draft \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \ndev \n\ud83d\udfe1 Draft \n#2952 \nAdd qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2014 unblocks the RC branch\n#2951 + #2950 \u2014 promote drafts and merge CI/PM cleanup\n#2952 \u2014 Qodana CI gates\n#2953 \u2014 SSR RC \u2192 dev \ud83c\udf89\n\ud83e\udd16 Dependabot Queue \u2014 6 PRs (2 new today!)\nTwo new Dependabot PRs landed today:\nPR \nUpdate \nPriority \n#2959 \ud83c\udd95 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge \n#2958 \ud83c\udd95 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 jumped from 2.3.0 to 2.6.0! \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 check Valkey compat \n\ud83d\udca1 @google/genai has jumped to 2.6.0 (was 2.3.0 in yesterday's report). This is the SDK that powers all recipe and image generation \u2014 review the 2.x changelog before merging, especially GeminiService compatibility.\n\ud83d\udd0d Lingering Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$). Still unactioned. Easy win \u2014 one gcloud builds triggers list command closes it. \u2714\n\ud83d\udccb Recommended Next Steps\nPromote drafts #2951 + #2950 and begin the SSR merge sequence today\nMerge #2955 \u2192 feat/ssr-recipes-rc to unblock the RC\nMerge safe Dependabot PRs (#2959 helmet patch, #2945 CI",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-22T06:39:57.335-0700",
+   "updated": "2026-05-22T06:40:00.403-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-106",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 23, 2026",
+   "description": "Generated: May 23, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 17 days incident-free since the OAuth scope-bundling hotfix. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all operating normally.\n\ud83d\udd25 SSR Recipes \u2014 Day 5 in the Queue\nThe SSR PR stack has now been waiting five days. All pieces are assembled \u2014 it's time to start merging! The weekend window is here. \ud83c\udfaf\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Draft \u2014 needs promotion \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \ndev \n\ud83d\udfe1 Draft \u2014 needs promotion \n#2952 \nAdd qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2192 unblocks the RC branch\n#2951 + #2950 \u2192 promote drafts, merge CI/PM cleanup\n#2952 \u2192 Qodana CI gates\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce SSR lands on dev, the path to v0.3.0 is clear!\n\ud83e\udd16 Dependabot Queue \u2014 6 PRs\nNo new Dependabot PRs since yesterday. The queue is stable and waiting:\nPR \nUpdate \nPriority \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review before merging \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 check Valkey compat \n\ud83d\udca1 Note: PR #2943 (@google/genai \u2192 2.3.0) was closed yesterday, superseded by #2958 (2.6.0). Good housekeeping!\nThe three low-risk Dependabot PRs (#2959, #2945, #2944) can be merged any time \u2014 zero-risk quick wins while SSR review is underway.\n\ud83d\udd0d Lingering Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$). Still open. One gcloud builds triggers list command closes it \u2014 easy win! \u2714\n\ud83d\udccb Recommended Next Steps\n\ud83c\udfaf Start the SSR merge sequence \u2014 promote drafts #2951 + #2950, t",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-23T06:14:08.562-0700",
+   "updated": "2026-05-23T06:14:11.449-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-107",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 24, 2026",
+   "description": "Generated: May 24, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 18 days incident-free since the OAuth scope-bundling hotfix. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all operating normally.\n\ud83d\udd25 SSR Recipes \u2014 Day 6 in the Queue\nThe SSR PR stack is still assembled and waiting. No new code has landed on dev since May 7 (17 days ago). This is the moment \u2014 let's get these across the finish line! \ud83c\udfaf\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Draft \u2014 promote & merge \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \ndev \n\ud83d\udfe1 Draft \u2014 promote & merge \n#2952 \nAdd qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2192 unblocks the RC branch\n#2951 + #2950 \u2192 promote drafts, merge CI/PM cleanup\n#2952 \u2192 Qodana CI gates\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce SSR lands on dev, the path to v0.3.0 is clear!\n\ud83e\udd16 Dependabot Queue \u2014 5 PRs Waiting\nQueue is stable. Three low-risk PRs are ready to merge any time:\nPR \nUpdate \nPriority \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge now \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review GeminiService compat \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 verify Valkey compatibility \n\ud83d\udca1 Quick win: #2959 (helmet patch), #2945 (CI actions), and #2944 (linting) are zero-risk and can be batch-merged in minutes.\n\ud83d\udd0d Lingering Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$). Still open after 17+ days. One gcloud builds triggers list command closes it! \u2714\n\ud83d\udccb Recommended Next Steps\n\ud83c\udfaf Kick off the SSR merge sequence \u2014 promote drafts #2951 + #2950, then merge in order\n\u26a1 Batch-merge low-risk Dependabot PRs",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-24T06:15:03.873-0700",
+   "updated": "2026-05-24T06:15:06.833-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-108",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 25, 2026",
+   "description": "Generated: May 25, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 19 days incident-free since the OAuth scope-bundling hotfix. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all operating normally.\n\ud83d\udd25 SSR Recipes \u2014 Day 7 in the Queue\nThe SSR PR stack is fully assembled and has been waiting patiently. dev has been quiet for 18 days (last commit: May 7). Every PR is ready \u2014 let's make today the day! \ud83c\udfaf\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Draft \u2014 promote & merge \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \ndev \n\ud83d\udfe1 Draft \u2014 promote & merge \n#2952 \nAdd qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2192 unblocks the RC branch\n#2951 + #2950 \u2192 promote drafts, merge CI/PM cleanup\n#2952 \u2192 Qodana CI gates land\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce SSR is on dev, the path to v0.3.0 opens up!\n\ud83e\udd16 Dependabot Queue \u2014 5 PRs Waiting\nQueue unchanged since last week. Three low-risk PRs are ready to merge right now:\nPR \nUpdate \nRisk \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge now \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review GeminiService compat first \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 verify Valkey compatibility \n\ud83d\udca1 Quick win: #2959 (helmet patch), #2945 (CI actions), and #2944 (linting) can be batch-merged in under 5 minutes.\n\ud83d\udd0d Lingering Tracking Issue\n#2898 \u2014 Verify Cloud Build tag-push trigger regex (^v[0-9]+\\.[0-9]+\\.[0-9]+$). Still open after 18+ days. One gcloud builds triggers list command closes it! \u2714\n\ud83d\udccb Recommended Next Steps\n\ud83c\udfaf Launch the SSR merge sequence \u2014 promote drafts #2951 + #2950, then merge in order\n\u26a1 Batch-merge low-risk Depend",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-25T06:51:38.744-0700",
+   "updated": "2026-05-25T06:51:43.089-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-109",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 26, 2026",
+   "description": "Generated: May 26, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 20 days incident-free since the OAuth scope-bundling hotfix. \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running smoothly.\n\ud83d\udd25 SSR Recipes \u2014 Day 19 of the Dev Freeze\ndev has had no new commits since May 7. The SSR PR stack is fully assembled and ready \u2014 the finish line is just a few merges away! \ud83c\udfc1\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Needs promotion from draft \n#2952 \nAdd Qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2192 unblocks RC branch\n#2951 \u2192 promote draft + merge CI cleanup\n#2952 \u2192 Qodana CI gates land\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce SSR is on dev, the path to v0.3.0 is open! \ud83d\ude80\n\ud83e\udd16 Dependabot Queue \u2014 8 PRs Waiting\nA couple of new additions appeared this week. Three low-risk PRs are quick wins right now:\nPR \nUpdate \nRisk \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2930 \nvite patch \n\u2705 Low risk \n#2929 \n@types/node update \n\u2705 Low risk \n#2876 \nTesting group (2 updates) \n\u2705 Low risk \n#2906 \nAngular group (8 updates) \n\u26a0\ufe0f Review compat \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review GeminiService compat first \n\ud83d\udca1 Quick win: #2959, #2945, #2944, #2930, and #2929 can be batch-merged in minutes with minimal risk.\n\ud83d\udd0d Open Tracking Issues\n# \nTitle \nAction \n#2898 \nVerify Cloud Build tag-push trigger regex \nOne gcloud builds triggers list command closes this! \u2714 \n#2895 \nSolo-repo merge friction (ruleset) \nDeferred \u2014 revisit before next release \n#2897 \nDecide on .cloudbuildignore \nDeferred \n#2896 \nReconcile .gcloudignore + submodule init \nDeferred \n\ud83d\udccb Recommended Next Steps\n\ud83c\udfaf Kick off the SSR merge",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-26T06:50:09.810-0700",
+   "updated": "2026-05-26T06:50:12.901-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-110",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 27, 2026",
+   "description": "Generated: May 27, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 21 days incident-free since the OAuth scope-bundling hotfix! \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running smoothly on tasteslikegood.org.\n\ud83d\udd25 SSR Recipes \u2014 Day 20 of the Dev Freeze\ndev has had no new commits since May 7. The SSR PR stack is fully assembled and ready to ship \u2014 the finish line is right there! \ud83c\udfc1\nPR \nTitle \nBase \nStatus \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Promote from draft + merge \n#2952 \nAdd Qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\ud83d\udfe1 Open \u2014 final merge \nSuggested merge order:\n#2955 \u2192 unblocks RC branch\n#2951 \u2192 promote draft, land CI cleanup\n#2952 \u2192 Qodana CI gates\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce #2953 merges, the path to v0.3.0 is wide open! \ud83d\ude80\n\ud83e\udd16 Dependabot Queue \u2014 10 PRs Waiting\nSeveral quick wins available right now:\nPR \nUpdate \nRisk \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 check Valkey compat \n#2930 \nvite patch \n\u2705 Low risk \n#2929 \n@types/node update \n\u2705 Low risk \n#2876 \nTesting group (2 updates) \n\u2705 Low risk \n#2906 \nAngular group (8 updates) \n\u26a0\ufe0f Review compat \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review GeminiService compat first \n\ud83d\udca1 Quick wins: #2959, #2945, #2944, #2930, #2929, #2876 can be batch-merged in minutes with minimal risk.\n\ud83d\udd0d Open Tracking Issues\n# \nTitle \nAction \n#2898 \nVerify Cloud Build tag-push trigger regex \nOne gcloud builds triggers list command closes this! \u2705 \n#2895 \nSolo-repo merge friction (ruleset) \nRevisit before next release \n#2897 \nDecide on .cloudbuildignore \nDeferred \n#2896 \nReconcile .gcloudignore + submodule init \nDeferred \n\ud83d\udccb Recommended Next",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-27T07:00:22.899-0700",
+   "updated": "2026-05-27T07:00:27.817-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-111",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 28, 2026",
+   "description": "Generated: May 28, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 22 days incident-free since the OAuth scope-bundling hotfix! \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running smoothly on tasteslikegood.org.\n\ud83d\udd25 SSR Recipes \u2014 Day 21 of the Dev Freeze\ndev has had no new commits since May 7. The SSR PR stack remains fully assembled \u2014 everything is staged and waiting for the green light! \ud83c\udfc1\nPR \nTitle \nBase \nStatus \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \ndev \n\ud83d\udfe1 Open \u2014 cleanup/prep \n#2951 \nci: fix failing format check + align workflows \ndev \n\ud83d\udfe1 Open \u2014 promote from draft \n#2952 \nAdd Qodana CI checks \ndev \n\ud83d\udfe1 Open \n#2955 \nfeat(pm): Atlassian workflow for SSR workstream \nfeat/ssr-recipes-rc \n\ud83d\udfe1 Open \u2014 merge first \n#2953 \nfeat: SSR recipes release-candidate branch \ndev \n\u26a0\ufe0f Open \u2014 mergeable_state: unstable \n\u26a0\ufe0f Note: PR #2953 shows unstable mergeable state \u2014 likely a CI check issue. Worth a quick look before merging.\nSuggested merge order:\n#2950 \u2192 PM cleanup lands cleanly\n#2955 \u2192 unblocks RC branch\n#2951 \u2192 promote draft, land CI cleanup\n#2952 \u2192 Qodana gates in place\n#2953 \u2192 SSR RC lands on dev \ud83c\udf89\nOnce #2953 merges, the path to v0.3.0 is wide open! \ud83d\ude80\n\ud83e\udd16 Dependabot Queue \u2014 5 PRs Waiting\nPR \nUpdate \nRisk \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \n\u2705 Patch \u2014 safe to merge \n#2945 \nCI actions group (5 updates) \n\u2705 Low risk \n#2944 \nLinting group (8 packages) \n\u2705 Low risk \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \n\u26a0\ufe0f Major \u2014 check Valkey compat \n#2958 \n@google/genai 1.50.1 \u2192 2.6.0 \n\u26a0\ufe0f Major \u2014 review GeminiService compat first \n\ud83d\udca1 Quick wins: #2959, #2945, #2944 can be batch-merged in minutes.\n\ud83d\udd0d Open Tracking Issues\n# \nTitle \nAction \n#2898 \nVerify Cloud Build tag-push trigger regex \nOne gcloud builds triggers list command closes this! \u2705 \n#2895 \nSolo-repo merge friction (ruleset) \nRevisit before next release \n#2897 \nDecide on .cloudbuildignore \nDeferred \n#2896 \nReconcile .gcloudignore + submodule init \nDeferred \n\ud83d\udccb",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-28T07:09:54.853-0700",
+   "updated": "2026-05-28T07:09:57.749-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-112",
+   "summary": "[repo-status] Daily Repo Status \u2014 May 29, 2026",
+   "description": "Generated: May 29, 2026 \u00b7 Current version: v0.2.5 \ud83c\udf31\n\ud83d\ude80 Production Status\nv0.2.5 is live and 23 days incident-free since the OAuth scope-bundling hotfix! \u2705 Recipe generation (Gemini), AI food photos (Imagen), Google OAuth, and guest mode are all running smoothly on tasteslikegood.org.\n\ud83d\udd25 SSR Recipes \u2014 Day 22 of the Dev Freeze\ndev has had no new commits since May 7. The SSR PR stack remains fully assembled and ready:\nPR \nTitle \nStatus \n#2953 \nSSR recipes release-candidate branch \nOpen \u2192 dev \n#2955 \nAtlassian PM workflow official for SSR workstream \nOpen \u2192 feat/ssr-recipes-rc \n#2951 \nci: fix failing format check & align workflows \nOpen \u2192 dev \n#2950 \nfix(pm): remove cross-project Jira keys; gitignore venvs \nOpen \u2192 feat/ssr-recipes-rc \nThe path to unblocking the freeze is clear: merge #2953 into dev, then land the rest of the SSR stack. Everything is staged and waiting! \ud83c\udf89\n\ud83d\udce6 Dependabot Queue \u2014 21 Open PRs\nA healthy batch of dependency updates are queued. A few standouts worth prioritizing:\nPR \nUpdate \nNotes \n#2967 \n@google/genai 1.50.1 \u2192 2.7.0 \u26a0\ufe0f \nMajor version bump \u2014 review API changes before merging \n#2942 \nrate-limit-redis 4.3.1 \u2192 5.0.0 \u26a0\ufe0f \nMajor bump \u2014 check Valkey compatibility \n#2928 \nDocker base: node 25-alpine \u2192 26-alpine \nNode.js 26 LTS \u2014 low risk, good to land \n#2968 \nioredis 5.10.1 \u2192 5.11.0 \nPatch, safe to merge \n#2959 \nhelmet 8.1.0 \u2192 8.2.0 \nMinor, safe to merge \n#2969 \nLinting group 9 updates \nESLint + Angular ESLint \n\ud83c\udff7\ufe0f Recent Releases\nTag \nDate \nHighlights \nv0.2.5 \nMay 6 \nOAuth scope-bundling hotfix for returning users \nv0.2.4 \nMay 6 \nBack button fix, AI image persistence, public recipe /browse, Backend test fixture fix \nv0.2.3 \nApr 30 \nCloud SQL socket path fix in migrate Job \n\ud83c\udfaf Actionable Next Steps\n\ud83d\udd13 Break the dev freeze \u2014 Review and merge #2953 (SSR RC branch) into dev to unblock the workstream\n\u26a0\ufe0f Evaluate major bumps \u2014 Assess @google/genai 1.x \u2192 2.x (#2967) and rate-limit-redis 4.x \u2192 5.x (#2942) for breaking changes before merging\n\ud83d\udc33 Bump Node.js base imag",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "daily-status",
+    "report"
+   ],
+   "created": "2026-05-29T06:52:05.922-0700",
+   "updated": "2026-05-29T06:52:09.013-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-113",
+   "summary": "Fix github agentic workflow for daily repo status",
+   "description": "",
+   "type": "Task",
+   "status": "Done",
+   "labels": [
+    "agentic-workflows",
+    "daily-status",
+    "github-actions"
+   ],
+   "created": "2026-06-13T06:26:37.261-0700",
+   "updated": "2026-06-13T06:54:55.104-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-114",
+   "summary": "##### \ud83d\udd0e Code Design - Error Management",
+   "description": "\ud83d\udd0e Code Design - Error Management\nThe sync_to_confluence method falls through to the API call even when the page-existence check raises an exception (the except block only logs and continues), meaning it may attempt to create a duplicate page if the search failed.\n+++ Details\n\ud83d\udcd6 Explanation: If the search request throws (e.g., network timeout), page_id remains None and the code proceeds to create a new page, potentially creating duplicates. Returning False early on a search exception would be safer.\n+++\nUses AI. Verify results. Give Feedback\n_Originally posted by @atlassian[bot] in https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/2993#discussion_r3509953556_",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-01T18:48:21.611-0700",
+   "updated": "2026-07-01T18:48:21.791-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-115",
+   "summary": "Bump protobufjs to >=7.6.3 \u2014 high-severity advisories blocked by Dependency Review license allow-list",
+   "description": "Problem\nprotobufjs@7.5.5 (transitive, via @google-cloud/secret-manager \u2192 google-gax \u2192 @grpc/proto-loader) carries two high-severity advisories:\nCode injection through bytes field defaults in generated toObject code\nDenial of service from crafted field names in generated code\nBoth are fixed in protobufjs@7.6.3+.\nWhy it isn't just a bump\nVersions \u22657.6.3 publish the license as BSD-3-Clause AND LicenseRef-scancode-protobuf. The Dependency Review workflow's allow-licenses list (MIT, Apache-2.0, BSD-2/3-Clause, ISC, \u2026) rejects the compound expression, so any PR bumping the package fails the Dependency Review check on licensing \u2014 this was hit directly during adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2997 (a full lockfile regen pulled in 7.6.4 and the check failed with \"incompatible licenses\").\nThe LicenseRef-scancode-protobuf component is Google's protobuf license (BSD-style with a sublicensing clause) \u2014 the actual license didn't change; upstream just made the SPDX metadata more precise.\nOptions\nAllow-list exception (recommended): add allow-dependencies-licenses for pkg:npm/protobufjs in the dependency-review workflow config, then bump the package (a targeted npm update protobufjs \u2014 see adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2997's surgical-lockfile approach to avoid churning unrelated transitives).\nAdd LicenseRef-scancode-protobuf handling if the action supports raw license-ref allowance.\nWait for upstream deps (@grpc/proto-loader etc.) to require \u22657.6.3, which forces the same license decision anyway.\nAcceptance\n[ ] npm audit --audit-level=high reports 0 high findings for protobufjs\n[ ] Dependency Review passes on the bump PR\n[ ] No unrelated lockfile churn\nContext: found during the Angular 22 upgrade line of work (adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2996 \u2192 adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#2997 \u2192 #2999 \u2192 adamtasteslikegood/tasteslikegoodtheangularsvegancookbook#3009).",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [
+    "dependencies"
+   ],
+   "created": "2026-07-02T21:40:24.061-0700",
+   "updated": "2026-07-02T21:40:24.230-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-116",
+   "summary": "gcp monitoring mcp script \u2014 ##### \u26a0\ufe0f Maintainability",
+   "description": "\u26a0\ufe0f Maintainability\nThe from google.api import metric_pb2 import is placed inside the function body rather than at the module top-level, which re-executes the import on every call to list_available_metrics.\n+++ Details\n\ud83d\udcd6 Explanation: Moving the import to the top of the file follows Python conventions and avoids the (minor) overhead of repeated import lookups on each invocation of the function.\n+++\nUses AI. Verify results. Give Feedback\n_Originally posted by @atlassian[bot] in https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3020#discussion_r3518652887_",
+   "type": "Task",
+   "status": "Done",
+   "labels": [],
+   "created": "2026-07-03T01:52:23.350-0700",
+   "updated": "2026-07-07T07:24:51.731-0700",
+   "resolution": "Done",
+   "parent": null
+  },
+  {
+   "key": "TO-117",
+   "summary": "Express layer has no input validation \u2014 CLAUDE.md documents a server/validation.ts that doesn't exist; express-validator installed but never imported",
+   "description": "Problem\nSurfaced while reverse-engineering the stack for the PRD (PR #3082, prd/README.md \u00a7 Known gaps).\nCLAUDE.md's Layer 2 description lists:\nserver/validation.ts \u2014 express-validator rules for AI endpoints\nThat file does not exist \u2014 server/ contains only index.ts, proxy.ts, security.ts, valkey.ts, types.ts and tests. express-validator@^7.3.2 is declared in package.json (line 46) but is imported nowhere in the codebase, so it ships as dead weight.\nImpact\nThere is zero Express-layer input validation. All /api/* traffic is streamed raw to Flask, and Flask's 10\u2013500-character prompt check is the only gate on the AI endpoints. Rate limiting (server/security.ts) is the sole Express-side defense.\nOptions\nImplement it \u2014 add the documented server/validation.ts with express-validator rules for the AI endpoints (/api/generate, /api/generate_image) and mount before the proxy. Note the proxy is intentionally mounted before express.json(), so validation middleware must not consume the body stream Flask expects \u2014 either validate query/headers only, or buffer-and-replay.\nDescope it \u2014 remove express-validator from package.json, correct CLAUDE.md to say validation lives in Flask, and rely on Flask-side validation (Backend/validators/).\nEither way, CLAUDE.md must stop describing a file that doesn't exist.\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-10T18:52:22.764-0700",
+   "updated": "2026-07-10T18:52:23.001-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-118",
+   "summary": "extensions.cache is a no-op stub \u2014 no response caching actually happens",
+   "description": "Problem\nSurfaced while reverse-engineering the stack for the cookbook PRD (cookbook PR #3082, prd/README.md \u00a7 Known gaps).\nextensions.py defines the shared cache as a _NullCache:\nclass _NullCache:\n    \"\"\"No-op cache used until a real cache backend (Valkey/Redis) is wired up.\"\"\"\n...\ncache = _NullCache()  # extensions.py:20Every cache.get() / cache.set() call in the codebase silently does nothing. Docstrings around model-list fetching (e.g. services/model_service.py:125, blueprints/api_bp.py:57 \u2014 \"Fetches fresh models from Gemini API and updates the cache\") read as if caching is live, but nothing is ever cached. Valkey exists in the deployment, but only the Express layer uses it (rate limiting).\nImpact\nModel-list (and any other \"cached\") lookups hit the Gemini API on every request \u2014 extra latency and quota burn.\nDocstrings and code structure imply behavior that doesn't exist, which misleads readers (it misled the PRD pass until the stub was found).\nOptions\nWire the cache to the existing Valkey instance (it's already provisioned for Express rate limiting).\nOr keep the stub but make the intent explicit at call sites, and strip docstring claims of caching until it's real.\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-10T18:52:44.979-0700",
+   "updated": "2026-07-10T18:52:45.054-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-119",
+   "summary": "PUT /api/recipes/<id> cannot publish/unpublish \u2014 slug/is_public columns only written via POST upsert",
+   "description": "Problem\nSurfaced while reverse-engineering the stack for the cookbook PRD (cookbook PR #3082, prd/README.md \u00a7 Known gaps).\nThe publish columns are written only on the POST/upsert path (repositories/db_recipe_repository.py:133-134 and :145-146). The PUT path deliberately skips the is_public column \u2014 the comment at db_recipe_repository.py:187-188 explains it guards against a guest smuggling is_public: true in the blob:\n# PUT does not write the is_public column, but the blob must not\n# carry a guest-smuggled is_public=true either.The guest-gating itself is correct (and _gate_is_public at line 30 handles it). But the asymmetry means an authenticated API client using PUT /api/recipes/<id> can never publish or unpublish a recipe, and cannot update its slug. Publishing works in production only because the SPA saves via the POST upsert.\nImpact\nThe REST surface is inconsistent: PUT accepts a full recipe body, silently drops slug/is_public column changes, and returns 200.\nAny future client (mobile app, script, MCP tool) that reasonably uses PUT for updates will \"unpublish nothing and publish nothing\" with no error.\nOptions\nMake PUT write slug/is_public for authenticated owners (still routed through _gate_is_public).\nOr declare PUT publish-neutral by design: strip slug/is_public from the accepted PUT body schema, document it in API.md, and point clients at a dedicated publish endpoint or the upsert.\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-10T18:52:46.465-0700",
+   "updated": "2026-07-10T18:52:46.562-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-120",
+   "summary": "Legacy POST /api/migrate is unauthenticated and reachable through the public proxy",
+   "description": "Problem\nSurfaced while reverse-engineering the stack for the cookbook PRD (cookbook PR #3082, prd/README.md \u00a7 Known gaps).\nblueprints/api_bp.py:189:\n@api_bp.route(\"/migrate\", methods=[\"POST\"])\ndef run_migration():\n    \"\"\"Migrate all recipes in the recipes directory to the latest schema.\"\"\"\n    results = MigrationService.migrate_all_recipes()The route has no auth decorator \u2014 unlike the token-gated /api/admin/_ routes \u2014 and because Express proxies all of /api/_ verbatim, anyone on the internet can POST /api/migrate on production and trigger a schema migration pass over all stored recipes.\nImpact\nUnauthenticated write-path endpoint: a stranger can invoke bulk mutation of recipe data at will.\nEven if migrate_all_recipes() is idempotent today, it's a free denial-of-service lever (bulk I/O over the whole recipe store per request) and a footgun if the migration logic ever becomes non-idempotent.\nOptions\nGate it with the same admin-token check as /api/admin/* (probably just move it under that blueprint).\nOr delete the route entirely \u2014 schema migration is handled by Alembic/flask db upgrade via the flask-backend-migrate Cloud Run Job now, so a legacy HTTP trigger may have no remaining purpose.\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-10T18:53:06.551-0700",
+   "updated": "2026-07-10T18:53:06.644-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-121",
+   "summary": "/api/status DB probe uses raw-string SELECT 1 \u2014 raises under SQLAlchemy 2.x, so it always reports database: error",
+   "description": "Problem\nSurfaced while reverse-engineering the stack for the cookbook PRD (cookbook PR #3082, prd/README.md \u00a7 Known gaps).\nblueprints/api_bp.py:173 (inside api_status()):\ndb.session.execute(\"SELECT 1\")SQLAlchemy 2.x removed implicit string-to-SQL coercion \u2014 Session.execute() with a plain string raises ArgumentError: Textual SQL expression 'SELECT 1' should be explicitly declared as text('SELECT 1'). The surrounding except Exception swallows it, so the probe reports database: {\"status\": \"error\"} even when the database is perfectly healthy.\nImpact\nThe health endpoint lies: database is (almost certainly) always error in production, making it useless for monitoring and masking real outages behind a permanently-red signal.\nFix\nfrom sqlalchemy import text\ndb.session.execute(text(\"SELECT 1\"))One-line change plus a test asserting database.status == \"connected\" against the test DB \u2014 that test would have caught this.\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-10T18:53:07.434-0700",
+   "updated": "2026-07-10T18:53:07.518-0700",
+   "resolution": null,
+   "parent": null
+  },
+  {
+   "key": "TO-122",
+   "summary": "chore: prune stale .claude/worktrees (~1.6 GB, 9 worktrees) \u2014 audit done, cleanup deferred",
+   "description": "TODO\nPrune the stale git worktrees under .claude/worktrees/ and decide whether the directory should be gitignored going forward. Deferred to a dedicated session (part of the upcoming repo-wide cleanup/docs planning). Do not delete anything before re-verifying the audit below.\nStatus (audited 2026-07-11)\nNine registered worktrees, ~1.6 GB on disk, all with clean working trees:\nWorktree \nBranch \nAhead of dev \nRemote state \nAssessment \npm-jira-kan-sync \nworktree/pm-jira-kan-sync \n1 \npushed \nKEEP \u2014 backs open PR #3080 \ndocs+pr-monitoring-instructions \nchore/claude-pr-lifecycle-instructions \n2 \npushed \nremovable \nfix-session-log-env-var-docs \nchore/claude-md-session-sync \n6 \npushed \nremovable \nfix-ssr-static-proxy \nchore/bump-backend-async-retry \n1 \npushed \nremovable \ngcp-monitor-cloud-creds \nfix/gcp-monitor-setup-retries \n2 \npushed \nremovable \nqa-fixes-2026-07-04 \nfix/qa-wizard-dataloss-a11y \n3 \npushed \nremovable \nt1-publish-oauth-gate \nfeat/publish-oauth-gate-ui \n4 \npushed \nremovable \nstatus-check-2026-06-04 \nworktree-status-check-2026-06-04 \n0 \nno remote \nremovable (empty) \nchore+gbrain-railway-claude-md \nworktree-chore+gbrain-railway-claude-md \n2 \nno remote \nremovable \u2014 2 local-only CLAUDE.md commits verified fully superseded by newer GBrain-config wording on dev \nNotes:\nAll \"pushed\" branches survive worktree removal \u2014 their commits live on origin regardless.\nWorktree dirs cannot be committed for preservation: each contains a .git pointer file, so git add records broken submodule-style gitlinks, not contents.\nCleanup command per worktree: git worktree remove <path> (add --force only if it complains; none were dirty at audit time). Follow with git worktree prune.\nDecide whether to also delete the now-orphaned local branches and whether .claude/worktrees/ should be gitignored (it is session runtime state; currently shows as untracked noise).\nFiled by Claude on Adam's behalf",
+   "type": "Task",
+   "status": "To Do",
+   "labels": [],
+   "created": "2026-07-11T02:51:50.061-0700",
+   "updated": "2026-07-11T02:51:50.307-0700",
+   "resolution": null,
+   "parent": null
+  }
+ ]
+}

@@ -94,6 +94,9 @@ skills
 !.claude/skills/
 
 # Generated / local artifacts
+/_capability_check_*.md
+/confluence_page_*.html
+/copilot-session-*.md
 /export
 /fastagent.jsonl
 /uv.lock
@@ -120,3 +123,10 @@ __pycache__/
 .omg/state/
 scripts/pm/.venv/
 .gbrain-source
+.claude/worktrees
+
+# PreCompact session-log hook runtime log
+.claude/session-log-hook.log
+
+# PM daemon single-watcher election lock (runtime)
+.claude/pm-daemon-watcher.lock

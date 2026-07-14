@@ -12,6 +12,17 @@ from watchdog.events import FileSystemEventHandler
 from mcp.server.fastmcp import FastMCP
 from dotenv import load_dotenv
 
+# Make sibling modules importable whether this file is run as a script or imported.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
+from _watcher_lock import (
+    DISABLE_ENV,
+    acquire_watcher_lock,
+    read_lock_holder,
+    release_watcher_lock,
+    watcher_disabled,
+)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -32,7 +43,10 @@ if dotenv_path:
 else:
     logger.warning("Could not find .env file")
 
-URL_BASE = os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net').strip().removeprefix("https://").removeprefix("http://").rstrip("/")
+# validate_atlassian_site strips any scheme/port/path and raises loudly
+# (AtlassianGuardError) if .env points at any site other than the repo's
+# allowlisted tasteslikegood.atlassian.net — e.g. the -dev service site.
+URL_BASE = validate_atlassian_site(os.environ.get('ATLASSIAN_URL', 'tasteslikegood.atlassian.net'))
 EMAIL = os.environ.get('ATLASSIAN_EMAIL')
 TOKEN = os.environ.get('ATLASSIAN_API_TOKEN')
 
@@ -285,13 +299,20 @@ def create_epic_from_roadmap(epic_name: str, description: str, project_key: str 
         return "Error: Atlassian credentials missing."
 
     # Default epics into the delivery project (RCP), not the execution board (KAN).
-    target_project = (
-        project_key
-        or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
-        or os.environ.get('JIRA_PROJECT_KEY')
-        or 'RCP'
-    )
-        
+    # validate_jira_project_key raises AtlassianGuardError for anything outside
+    # the repo write allowlist (KAN, RCP) — e.g. the plaza-game projects PLZG/TO.
+    # Surface that as a normal tool error string so MCP callers get a clean
+    # failure response instead of a tool-level exception.
+    try:
+        target_project = validate_jira_project_key(
+            project_key
+            or os.environ.get('ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY')
+            or os.environ.get('JIRA_PROJECT_KEY')
+            or 'RCP'
+        )
+    except AtlassianGuardError as exc:
+        return f"Error: {exc}"
+
     url = f"https://{URL_BASE}/rest/api/3/issue"
     payload = {
         "fields": {
@@ -335,6 +356,12 @@ def _render_session_log_html(
     follow_up_items: list[str],
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Render an agent session log as Confluence storage-format HTML."""
     from datetime import datetime, timezone
@@ -352,6 +379,12 @@ def _render_session_log_html(
     files_html = "".join(f"<li><code>{html.escape(f)}</code></li>" for f in files_changed) if files_changed else "<li>None</li>"
     followups_html = "".join(f"<li>{html.escape(item)}</li>" for item in follow_up_items) if follow_up_items else "<li>None</li>"
     links_html = "".join(f"<li><a href=\"{html.escape(link, quote=True)}\">{html.escape(link)}</a></li>" for link in (pr_links or []))
+    jira_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (jira_updates or [])) or "<li>No Jira/RCP delivery updates recorded.</li>"
+    kan_updates_html = "".join(f"<li>{html.escape(item)}</li>" for item in (kan_updates or [])) or "<li>No KAN execution updates recorded.</li>"
+    branch = html.escape(branch or "—")
+    kan_issue = html.escape(kan_issue or "—")
+    rcp_issue = html.escape(rcp_issue or "—")
+    alignment = html.escape(atlassian_alignment or "Not assessed")
 
     return f"""
 <ac:structured-macro ac:name="info"><ac:rich-text-body>
@@ -363,7 +396,13 @@ def _render_session_log_html(
 <tr><th>Agent</th><td>{agent_name}</td></tr>
 <tr><th>Timestamp</th><td>{timestamp}</td></tr>
 <tr><th>Duration</th><td>{duration_str}</td></tr>
+<tr><th>Branch</th><td>{branch}</td></tr>
+<tr><th>KAN issue</th><td>{kan_issue}</td></tr>
+<tr><th>RCP issue</th><td>{rcp_issue}</td></tr>
 </table>
+
+<h2>Atlassian Alignment</h2>
+<p>{alignment}</p>
 
 <h2>Summary</h2>
 <p>{summary}</p>
@@ -373,6 +412,12 @@ def _render_session_log_html(
 
 <h2>Files Changed</h2>
 <ul>{files_html}</ul>
+
+<h2>KAN Execution Updates</h2>
+<ul>{kan_updates_html}</ul>
+
+<h2>RCP / Delivery Updates</h2>
+<ul>{jira_updates_html}</ul>
 
 <h2>Follow-up TODOs</h2>
 <ul>{followups_html}</ul>
@@ -391,6 +436,12 @@ def log_agent_session(
     follow_up_items: list[str] | None = None,
     pr_links: list[str] | None = None,
     duration_minutes: int | None = None,
+    branch: str = "",
+    kan_issue: str = "",
+    rcp_issue: str = "",
+    atlassian_alignment: str = "",
+    jira_updates: list[str] | None = None,
+    kan_updates: list[str] | None = None,
 ) -> str:
     """Log an agent session to Confluence as a structured page.
 
@@ -417,6 +468,12 @@ def log_agent_session(
         follow_up_items=follow_up_items or [],
         pr_links=pr_links,
         duration_minutes=duration_minutes,
+        branch=branch,
+        kan_issue=kan_issue,
+        rcp_issue=rcp_issue,
+        atlassian_alignment=atlassian_alignment,
+        jira_updates=jira_updates,
+        kan_updates=kan_updates,
     )
 
     payload = {
@@ -464,20 +521,54 @@ def log_agent_session(
 
 
 def start_watcher(workspace_dir: str):
-    logger.info(f"Starting file watcher on workspace: {workspace_dir}")
+    """Start the Confluence file watcher, but ONLY if this process wins the lock.
+
+    Every agent session spawns its own pm_daemon as an MCP stdio child. Each one
+    used to start its own Observer, so N sessions meant N watchers racing to PUT
+    the same Confluence pages on every save (13 were seen concurrently). The
+    watcher is now a singleton elected by an exclusive flock; losers still serve
+    their MCP tools, they just don't watch.
+
+    Returns (observer, lock_handle). Either may be None. The lock handle must be
+    kept referenced for as long as the watcher runs — closing it frees the lock.
+    """
+    if watcher_disabled():
+        logger.info(f"File watcher disabled via {DISABLE_ENV}; serving MCP tools only.")
+        return None, None
+
+    lock = acquire_watcher_lock(workspace_dir)
+    if lock is None:
+        holder = read_lock_holder(workspace_dir)
+        logger.info(
+            "File watcher already owned by another pm_daemon"
+            + (f" (pid {holder})" if holder else "")
+            + "; serving MCP tools only. This is expected with concurrent sessions."
+        )
+        return None, None
+
+    logger.info(f"Acquired watcher lock. Starting file watcher on workspace: {workspace_dir}")
     event_handler = PMFileEventHandler(workspace_dir)
     observer = Observer()
     observer.schedule(event_handler, workspace_dir, recursive=True)
     observer.start()
-    return observer
+    return observer, lock
+
 
 if __name__ == "__main__":
     import time
     workspace_dir = os.getcwd()
-    observer = start_watcher(workspace_dir)
+    observer, watcher_lock = start_watcher(workspace_dir)
     watch_only = "--watch-only" in sys.argv
     try:
         if watch_only:
+            if observer is None:
+                # --watch-only with no watcher would be a process that does nothing
+                # at all. Fail loudly rather than idle and look healthy.
+                logger.error(
+                    "Cannot run --watch-only: another pm_daemon owns the watcher lock "
+                    f"(or {DISABLE_ENV} is set). Stop the other daemon, or drop --watch-only."
+                )
+                raise SystemExit(1)
             logger.info("Running in --watch-only mode (no MCP transport). Press Ctrl+C to stop.")
             while True:
                 time.sleep(60)
@@ -486,5 +577,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
     finally:
-        observer.stop()
-        observer.join()
+        if observer is not None:
+            observer.stop()
+            observer.join()
+        # Release explicitly so the next daemon can take over immediately rather
+        # than waiting on interpreter teardown to close the fd.
+        release_watcher_lock(watcher_lock)

@@ -1,5 +1,8 @@
 {
-  "enabledMcpjsonServers": ["pm-daemon", "gcp-monitor"],
+  "enabledMcpjsonServers": [
+    "pm-daemon",
+    "gcp-monitor"
+  ],
   "hooks": {
     "PreToolUse": [
       {
@@ -8,6 +11,17 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-gstack.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/precompact-session-log.sh"
           }
         ]
       }

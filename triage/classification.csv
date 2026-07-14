@@ -1,0 +1,236 @@
+issueKey,currentProject,classification,targetProject,evidence
+RCP-8,RCP,recipe,RCP,summary only: 'Publish Website on Google APi->credentials>audience'; label project:recipe
+RCP-9,RCP,recipe,RCP,summary only: 'Polish Logo' — sub-task of RCP-8 Google publish epic; label project:recipe
+RCP-10,RCP,recipe,RCP,summary only: 'logo candidates'; labels google-verification + project:recipe
+RCP-11,RCP,recipe,RCP,'unblock the Google OAuth verification ... Vegangenius Chef branding'
+RCP-12,RCP,recipe,RCP,summary only: 'Terms Of Service' — sub-task of RCP-8 site-publish epic; label project:recipe
+RCP-13,RCP,recipe,RCP,'OAuth 2.0 credentials in the Google API Console ... for the website'
+RCP-14,RCP,recipe,RCP,'enable the necessary APIs ... required for website publishing and authentication'
+RCP-15,RCP,recipe,RCP,'website's authentication flow works correctly using the configured Google API credentials'
+RCP-16,RCP,recipe,RCP,'documentation outlining the steps ... Google API credentials and audience'
+RCP-17,RCP,recipe,RCP,'Update the website's codebase to use the generated Google API credentials'
+RCP-18,RCP,recipe,RCP,'audience field in the Google API credentials to match the website's client ID'
+RCP-4,RCP,recipe,RCP,'Login bug ... in order for the view too show their Kitchen/Cookbooks Profile'
+RCP-19,RCP,recipe,RCP,'CI pipeline that covers both the Angular frontend and Flask backend'
+RCP-2,RCP,recipe,RCP,'first official versioned GitHub Release' for tasteslikegoodtheangularsvegancookbook
+RCP-6,RCP,recipe,RCP,'py/path-injection ... recipe_repository.py ... image_service.py'
+RCP-32,RCP,recipe,RCP,'server/valkey.ts ... rate limiter distributed state across Express replicas' (GH#162)
+RCP-30,RCP,recipe,RCP,'server/valkey.ts ... shutdownValkey() ... rate limiter resilience' (GH#163)
+RCP-28,RCP,recipe,RCP,'generate_ai_image() ... Flask request context' in Backend submodule (GH#103)
+RCP-27,RCP,recipe,RCP,"'Angular 21 SPA ... GeminiService, AuthService, PersistenceService'"
+RCP-25,RCP,recipe,RCP,'Flask backend (Backend/ submodule — tasteslikegood.com)'
+RCP-3,RCP,recipe,RCP,"'public, SSR-rendered, zero-fluff recipe site' (v0.2 epic)"
+RCP-20,RCP,recipe,RCP,'Add is_public ... and slug ... to Backend/models/recipe.py'
+RCP-23,RCP,recipe,RCP,'Save to Cookbook toast notification ... for the SSR templates'
+RCP-7,RCP,recipe,RCP,'Schema.org Recipe JSON-LD ... auto-generated /sitemap.xml'
+RCP-22,RCP,recipe,RCP,'/r/<slug> for viewing a single public recipe ... update server/proxy.ts'
+RCP-21,RCP,recipe,RCP,'backfill the slug field for the 85 existing legacy recipes'
+RCP-5,RCP,recipe,RCP,'Publish toggle ... public visibility of their recipes' in the Angular SPA
+RCP-1,RCP,recipe,RCP,"'recipe-site.css ... rewrite recipe.html, browse.html, and base.html in Jinja'"
+RCP-24,RCP,recipe,RCP,"'recipes are shown as if the user is authenticated, but the login button still appears'"
+RCP-26,RCP,recipe,RCP,'[KAN-60] ... authenticated recipes' — task copy of bug RCP-24
+RCP-29,RCP,recipe,RCP,'qodana keeps showing ESLint 27 issues' — cookbook repo lint tooling
+RCP-31,RCP,recipe,RCP,'PersistenceService.saveRecipe() ... deletes vegan_genius_session'
+RCP-35,RCP,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+RCP-34,RCP,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+RCP-33,RCP,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+RCP-36,RCP,recipe,RCP,'RCP tracks the delivery plan ... used by the SSR recipes workstream'
+RCP-37,RCP,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/alirez-claude-skills — neither recipe app nor plaza
+KAN-1,KAN,recipe,KAN,summary only: 'Sync Github Repositories with Jira' — workspace ops on the recipe task board; label project:ops
+KAN-77,KAN,recipe,KAN,'Cloud Run:Service:Revision that is currently serving traffic' — cookbook repo/prod release config
+KAN-71,KAN,recipe,KAN,'CLONE - Repository Setup and Configuration' — same Cloud Run/SemVer config text as KAN-77
+KAN-14,KAN,unknown,?,AI-generated meta/filler task ('elaborate and refine the Jira issue description') with no product content
+KAN-15,KAN,recipe,KAN,'reference GitHub items ... using Jira work item numbers' — workspace ops on the recipe task board; label project:ops
+KAN-16,KAN,recipe,KAN,'createValkeyClient() ... reinitializes after a transient connection failure' (cookbook GH#163)
+KAN-17,KAN,recipe,KAN,'VALKEY_HOST unset ... stale client handle leak in createValkeyClient()' (cookbook GH#162)
+KAN-19,KAN,recipe,KAN,'semantic versioning into the CI/CD pipeline' (cookbook GH#102)
+KAN-21,KAN,recipe,KAN,'PULL_REQUEST_TEMPLATE.md exists in repo' (cookbook GH#100)
+KAN-22,KAN,recipe,KAN,'Copilot suggestions align with Angular + Flask architecture'
+KAN-24,KAN,recipe,KAN,'blueprints/api_bp.py ... auth_api_bp.py ... generation_bp.py' Flask stack-trace exposure
+KAN-76,KAN,recipe,KAN,"'Cloud Run service configuration (express-frontend, flask-backend)'"
+KAN-72,KAN,recipe,KAN,"'Key files: server/security.ts, server/valkey.ts, server/validation.ts'"
+KAN-66,KAN,recipe,KAN,"'KAN as execution truth, RCP as delivery truth' — SSR recipes workstream"
+KAN-73,KAN,recipe,KAN,'CI checks ... Angular ... Flask/Backend: pytest' (cookbook GH#104)
+KAN-79,KAN,recipe,KAN,'Align Cloud Run revision tags with git SemVer tags' (cookbook GH#103)
+KAN-78,KAN,recipe,KAN,'Surface version in /api/health endpoint response' (cookbook GH#102)
+KAN-63,KAN,recipe,KAN,'first official GitHub Release ... Verify Cloud Run production revision matches' (cookbook GH#101)
+KAN-68,KAN,recipe,KAN,'.github/pull_request_template.md ... CONTRIBUTING.md' (cookbook GH#100)
+KAN-70,KAN,recipe,KAN,'Repo: Backend submodule (tasteslikegood.com)' — CI checks investigation (GH#73)
+KAN-64,KAN,recipe,KAN,'Backend/.agent/skills/ directory' documentation (tasteslikegood.com GH#72)
+KAN-62,KAN,recipe,KAN,'robust CI for the Flask backend' (tasteslikegood.com GH#71)
+KAN-25,KAN,recipe,KAN,'server/validation.ts ... createFlaskProxy ... POST /api/generate'
+KAN-26,KAN,recipe,KAN,'pr-gate.yml ... Backend: pytest via submodule ... deploy to Cloud Run'
+KAN-27,KAN,recipe,KAN,'Run pytest against the Backend submodule as a required gate'
+KAN-28,KAN,recipe,KAN,'SemVer git tag ... what version is running in Cloud Run'
+KAN-29,KAN,recipe,KAN,'FLASK_ENV=production ... Flask Cloud Run deploy step'
+KAN-30,KAN,recipe,KAN,'Flask backend must fully deploy before Express frontend'
+KAN-31,KAN,recipe,KAN,'Fix ci.yml branch targets ... Vitest coverage threshold'
+KAN-32,KAN,recipe,KAN,'flask-backend:v1.0.0 ... exist in Artifact Registry'
+KAN-33,KAN,recipe,KAN,'Block merges to main if CHANGELOG.md has not been updated'
+KAN-67,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-74,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-81,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-69,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-75,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-80,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-65,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-61,KAN,recipe,KAN,'Vegangenius Chef — Daily Status' auto-generated repo report
+KAN-82,KAN,recipe,KAN,'prune the stale git worktrees under .claude/worktrees/' — cookbook repo chore (GH#3086)
+PLZG-37,PLZG,plaza,PLZG,'before writing a single line of Godot code' — labeled duplicate (cleanup-2026-04-28)
+PLZG-23,PLZG,plaza,PLZG,"'3D office world with first-person navigation, NPC proximity-dialogue'"
+PLZG-29,PLZG,plaza,PLZG,'Connect the Godot game world to real agent CLI processes ... WebSocket bridge'
+PLZG-32,PLZG,plaza,PLZG,"'all 9 department floors, full NPC set ... tutorial arc'"
+PLZG-66,PLZG,plaza,PLZG,'the player's guide to the office world itself' — in-world assistant design
+PLZG-64,PLZG,plaza,PLZG,'fictional startup the player has been building ... tutorial arc'
+PLZG-75,PLZG,plaza,PLZG,'agents.json ... matches the planned AgentRegistry.gd loader'
+PLZG-76,PLZG,plaza,PLZG,'interior style ... 9 department color codes' — game art direction
+PLZG-77,PLZG,plaza,PLZG,'Download Godot 4 ... FPS demo ... CharacterBody3D controller'
+PLZG-78,PLZG,plaza,PLZG,'Build the entire office space with plain CSGBox3D geometry'
+PLZG-79,PLZG,plaza,PLZG,'Create autoload/AgentRegistry.gd ... GameEvents.gd ... GameState.gd'
+PLZG-80,PLZG,plaza,PLZG,'NPC scene: CharacterBody3D + Area3D proximity trigger + Label3D name tag'
+PLZG-81,PLZG,plaza,PLZG,'Always-on CanvasLayer chat panel ... player's always-on companion'
+PLZG-82,PLZG,plaza,PLZG,'GameState.complete_task() checks unlock gate rules and calls unlock_floor()'
+PLZG-84,PLZG,plaza,PLZG,'Godot sends task requests over local WebSocket (ws://localhost:8765)'
+PLZG-85,PLZG,plaza,PLZG,'walk up to Systems Architect NPC ... the game becomes the tool'
+PLZG-83,PLZG,plaza,PLZG,'all 9 department floors fully blocked out and textured ... after M8'
+PLZG-4,PLZG,plaza,PLZG,'first-person 3D office game built in Godot 4 ... Migrated from TO-19–TO-35'
+PLZG-86,PLZG,plaza,PLZG,'before writing a single line of Godot code ... Migrated from TO-19'
+PLZG-3,PLZG,plaza,PLZG,'3D office world ... NPC proximity-dialogue ... Migrated from TO-20'
+PLZG-87,PLZG,plaza,PLZG,'Godot game world to real agent CLI processes ... Migrated from TO-21'
+PLZG-2,PLZG,plaza,PLZG,"'all 9 department floors, full NPC set ... Migrated from TO-22'"
+PLZG-88,PLZG,plaza,PLZG,'player's guide to the office world ... Migrated from TO-23'
+PLZG-89,PLZG,plaza,PLZG,'fictional startup ... tutorial arc ... Migrated from TO-24'
+PLZG-90,PLZG,plaza,PLZG,'agents.json ... AgentRegistry.gd loader ... Migrated from TO-25'
+PLZG-91,PLZG,plaza,PLZG,'grey-boxing ... 9 department color codes ... Migrated from TO-26'
+PLZG-8,PLZG,plaza,PLZG,'Download Godot 4 ... FPS demo ... Migrated from TO-27'
+PLZG-13,PLZG,plaza,PLZG,'plain CSGBox3D geometry ... Migrated from TO-28'
+PLZG-19,PLZG,plaza,PLZG,'autoload/AgentRegistry.gd ... GameEvents.gd ... Migrated from TO-29'
+PLZG-24,PLZG,plaza,PLZG,'NPC scene: CharacterBody3D + Area3D proximity trigger ... Migrated from TO-30'
+PLZG-30,PLZG,plaza,PLZG,'Always-on CanvasLayer chat panel ... Migrated from TO-31'
+PLZG-35,PLZG,plaza,PLZG,'unlock gate rules ... 2D building map widget ... Migrated from TO-32'
+PLZG-92,PLZG,plaza,PLZG,'local WebSocket ... bridge spawns agent CLI subprocess ... Migrated from TO-33'
+PLZG-93,PLZG,plaza,PLZG,'first live agent output in-world ... Migrated from TO-34'
+PLZG-5,PLZG,plaza,PLZG,'9 department floors fully blocked out ... Migrated from TO-35'
+PLZG-6,PLZG,plaza,PLZG,'Godot 4 installed ... player character moves with collision' — milestone duplicate
+PLZG-7,PLZG,plaza,PLZG,'walk through lobby → player office → server room → engineering floor' grey-box
+PLZG-9,PLZG,plaza,PLZG,'Agent fleet loaded from JSON ... foundation for NPC wiring and unlock logic'
+PLZG-11,PLZG,plaza,PLZG,'Walk up to Systems Architect NPC → dialogue panel shows with agent info'
+PLZG-14,PLZG,plaza,PLZG,'Tab or ~ opens chat overlay ... in-world assistant'
+PLZG-15,PLZG,plaza,PLZG,'Completing a task unlocks a door ... 2D building map widget updates'
+PLZG-17,PLZG,plaza,PLZG,'WebSocket bridge between Godot and real agent CLI processes'
+PLZG-20,PLZG,plaza,PLZG,'walk up to NPC → type a real question → real agent response appears in-world'
+PLZG-22,PLZG,plaza,PLZG,'All 9 department floors ... Full Day 0 cutscene (Founder call)'
+PLZG-62,PLZG,plaza,PLZG,'in-world assistant is the player's primary ambient voice' — blocks M5 chat UI
+PLZG-54,PLZG,plaza,PLZG,'fictional company the player is joining ... Founder name (Day 0 video call)' — blocks M4
+PLZG-56,PLZG,plaza,PLZG,'How the player is identified in-world ... dialogue variable injection' — blocks M4
+PLZG-58,PLZG,plaza,PLZG,'Day 0 onboarding cutscene ... Founder calls via video' — blocks M4
+PLZG-60,PLZG,plaza,PLZG,'Systems Architect (server room NPC — placed in M4)' dialogue scripts — blocks M4/M5
+PLZG-63,PLZG,plaza,PLZG,'moodboard ... blocks Phase 3 texturing and UI polish' — game art direction
+PLZG-65,PLZG,plaza,PLZG,'Ambient office sound layers ... NPC voice handling' — informs Phase 3
+PLZG-67,PLZG,plaza,PLZG,'data/agents.json with 137 entries' — pre-work for M3 game data layer
+PLZG-71,PLZG,plaza,PLZG,'JSON schema matches what AgentRegistry.gd will expect' — pre-work for M3
+PLZG-72,PLZG,plaza,PLZG,'how dialogue scripts are authored and loaded' — blocks M4 dialogue scripting
+PLZG-73,PLZG,plaza,PLZG,"'How GameState persists across sessions' — save format, blocks M3"
+PLZG-74,PLZG,plaza,PLZG,"'no subprocess (kills the live agent bridge)' — Godot web-vs-desktop decision, blocks M1"
+PLZG-68,PLZG,plaza,PLZG,'save game format ... blocks M3 (full GameState.gd)'
+PLZG-69,PLZG,plaza,PLZG,'How should the game surface that? NPC says I'm unavailable right now' — blocks M8
+PLZG-70,PLZG,plaza,PLZG,'Pick primary for first playtest cohort' — game platform target decision
+PLZG-25,PLZG,plaza,PLZG,"'multiplayer ... shared office, async chat, persistent world state'"
+PLZG-26,PLZG,plaza,PLZG,'Real agent CLI calls take 5–90+ seconds ... Thinking animation on the NPC' — blocks M7
+PLZG-28,PLZG,plaza,PLZG,"'Are NPC conversations multi-turn, open-input ... classic RPG model' — blocks M4"
+PLZG-31,PLZG,plaza,PLZG,'Does one day in-game = one play session?' — in-game time model
+PLZG-95,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+PLZG-94,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+PLZG-96,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gbrain — neither recipe app nor plaza
+PLZG-97,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/alirez-claude-skills — neither recipe app nor plaza
+PLZG-98,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gstack — neither recipe app nor plaza
+PLZG-99,PLZG,unknown,?,GitGuardian secret alert for repo adamtasteslikegood/gstack — neither recipe app nor plaza
+TO-75,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-76,TO-main,recipe,KAN,'tests/test_migration_backfill_slug.py ... table recipe missing status column' (Backend pytest)
+TO-77,TO-main,recipe,KAN,'Branch ruleset on main requires required_approving_review_count: 1' — cookbook repo merge friction
+TO-78,TO-main,recipe,KAN,'/ship request for v0.2.1 ... .dockerignore and .cloudbuildignore or .gcloudignore' — cookbook Cloud Run build
+TO-79,TO-main,recipe,KAN,'Cloud Build trigger that deploys to Cloud Run on tag push MUST use the regex ^v[0-9]...' (CLAUDE.md release flow)
+TO-80,TO-main,recipe,KAN,'cloudbuild.yaml runs git submodule update --init ... to pull Backend/'
+TO-81,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-82,TO-main,recipe,KAN,'the gemini workflows need to be fixed' — cookbook/Backend GitHub workflows
+TO-83,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-84,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-85,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-86,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-87,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-88,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-89,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-90,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-91,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-92,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-93,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-94,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-95,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-96,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-97,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-98,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-99,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-100,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-101,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-102,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-103,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-104,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-105,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-106,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-107,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-108,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-109,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-110,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-111,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-112,TO-main,recipe,KAN,"'[repo-status]' daily report on Vegangenius Chef / tasteslikegood.org (recipe generation, OAuth, releases)"
+TO-113,TO-main,recipe,KAN,'Fix github agentic workflow for daily repo status' — cookbook repo automation
+TO-114,TO-main,recipe,KAN,'sync_to_confluence method ... may attempt to create a duplicate page' — pm-daemon script in cookbook repo
+TO-115,TO-main,recipe,KAN,'protobufjs ... via @google-cloud/secret-manager' — cookbook dependency advisory
+TO-116,TO-main,recipe,KAN,'gcp monitoring mcp script ... list_available_metrics' — cookbook scripts/monitoring
+TO-117,TO-main,recipe,KAN,'CLAUDE.md documents a server/validation.ts that doesn't exist; express-validator installed but never imported'
+TO-118,TO-main,recipe,KAN,'extensions.py defines the shared cache as a _NullCache' — Flask backend caching gap
+TO-119,TO-main,recipe,KAN,'PUT /api/recipes/<id> cannot publish/unpublish — slug/is_public columns'
+TO-120,TO-main,recipe,KAN,'POST /api/migrate is unauthenticated ... Migrate all recipes in the recipes dire[ctory]'
+TO-121,TO-main,recipe,KAN,'/api/status DB probe uses raw-string SELECT 1 — raises under SQLAlchemy 2.x'
+TO-122,TO-main,recipe,KAN,'prune the stale git worktrees under .claude/worktrees/' — same chore as KAN-82
+TO-1,TO-dev,recipe,KAN,'Cloud Run:Service:Revision that is currently serving traffic' — same repo-config text as KAN-77
+TO-2,TO-dev,recipe,KAN,'CLONE - Repository Setup and Configuration' — same text as KAN-71
+TO-3,TO-dev,recipe,KAN,'server/valkey.ts ... createValkeyClient()' GH#162 — duplicate of KAN-17/RCP-32
+TO-4,TO-dev,recipe,KAN,'server/valkey.ts ... client.quit()' GH#163 — duplicate of KAN-16/RCP-30
+TO-5,TO-dev,recipe,KAN,'generate_ai_image() ... Flask request context' GH#103 — duplicate of RCP-28
+TO-6,TO-dev,recipe,RCP,"'Angular 21 SPA ... GeminiService, AuthService, PersistenceService' — duplicate of RCP-27"
+TO-7,TO-dev,recipe,RCP,'Flask backend (Backend/ submodule — tasteslikegood.com)' — duplicate of RCP-25
+TO-8,TO-dev,recipe,KAN,"'Cloud Run service configuration (express-frontend, flask-backend)' — duplicate of KAN-76"
+TO-9,TO-dev,recipe,KAN,"'Key files: server/security.ts, server/valkey.ts, server/validation.ts' — duplicate of KAN-72"
+TO-10,TO-dev,recipe,KAN,'Jira project configuration ... Confluence knowledge base' for the recipe workspace — duplicate of KAN-66
+TO-11,TO-dev,recipe,KAN,'CI checks ... Angular ... Flask/Backend: pytest' GH#104 — duplicate of KAN-73
+TO-12,TO-dev,recipe,KAN,'Align Cloud Run revision tags with git SemVer tags' GH#103 — duplicate of KAN-79
+TO-13,TO-dev,recipe,KAN,'versioning into the CI/CD pipeline' GH#102 — duplicate of KAN-78
+TO-14,TO-dev,recipe,KAN,'first published GitHub Release' GH#101 (has 2026-07-01 v0.1.0 correction note) — duplicate of KAN-63
+TO-15,TO-dev,recipe,KAN,'PR description template (.github/pull_request_template.md)' GH#100 — duplicate of KAN-68
+TO-16,TO-dev,recipe,KAN,'Repo: Backend submodule (tasteslikegood.com)' CI investigation GH#73 — duplicate of KAN-70
+TO-17,TO-dev,recipe,KAN,'Backend/.agent/skills/ directory' docs GH#72 — duplicate of KAN-64
+TO-18,TO-dev,recipe,KAN,'robust CI for the Flask backend' GH#71 — duplicate of KAN-62
+TO-19,TO-dev,plaza,PLZG,'before writing a single line of Godot code' — migrated to PLZG as PLZG-86 (and dup PLZG-37)
+TO-20,TO-dev,plaza,PLZG,'3D office world ... NPC proximity-dialogue' — migrated as PLZG-3 (and dup PLZG-23)
+TO-21,TO-dev,plaza,PLZG,'Godot game world to real agent CLI processes' — migrated as PLZG-87 (and dup PLZG-29)
+TO-22,TO-dev,plaza,PLZG,"'all 9 department floors, full NPC set' — migrated as PLZG-2 (and dup PLZG-32)"
+TO-23,TO-dev,plaza,PLZG,'player's guide to the office world' — migrated as PLZG-88 (and dup PLZG-66)
+TO-24,TO-dev,plaza,PLZG,'fictional startup ... tutorial arc' — migrated as PLZG-89 (and dup PLZG-64)
+TO-25,TO-dev,plaza,PLZG,'agents.json ... AgentRegistry.gd loader' — migrated as PLZG-90 (and dup PLZG-75)
+TO-26,TO-dev,plaza,PLZG,'grey-boxing ... 9 department color codes' — migrated as PLZG-91 (and dup PLZG-76)
+TO-27,TO-dev,plaza,PLZG,'Download Godot 4 ... FPS demo' — migrated as PLZG-8 (and dup PLZG-77)
+TO-28,TO-dev,plaza,PLZG,'plain CSGBox3D geometry' — migrated as PLZG-13 (and dup PLZG-78)
+TO-29,TO-dev,plaza,PLZG,'autoload/AgentRegistry.gd ... GameEvents.gd' — migrated as PLZG-19 (and dup PLZG-79)
+TO-30,TO-dev,plaza,PLZG,'NPC scene: CharacterBody3D + Area3D proximity trigger' — migrated as PLZG-24 (and dup PLZG-80)
+TO-31,TO-dev,plaza,PLZG,'Always-on CanvasLayer chat panel' — migrated as PLZG-30 (and dup PLZG-81)
+TO-32,TO-dev,plaza,PLZG,'unlock gate rules ... 2D building map widget' — migrated as PLZG-35 (and dup PLZG-82)
+TO-33,TO-dev,plaza,PLZG,'local WebSocket ... bridge spawns agent CLI subprocess' — migrated as PLZG-92 (and dup PLZG-84)
+TO-34,TO-dev,plaza,PLZG,'first live agent output in-world' — migrated as PLZG-93 (and dup PLZG-85)
+TO-35,TO-dev,plaza,PLZG,'all 9 department floors fully blocked out ... after M8' — migrated as PLZG-5 (and dup PLZG-83)
+TO-36,TO-dev,recipe,RCP,'Umbrella ticket for shipping v0.3.0 of tasteslikegood.org ... Deploy flask-backend then express-frontend' — no main-site counterpart
+TO-37,TO-dev,recipe,KAN,'Verify the Cloud Build tag-push trigger regex' GH#2898 — equivalent of TO-79 on main site
+TO-38,TO-dev,recipe,KAN,"'.gcloudignore currently excludes .git, but cloudbuild.yaml runs submodule init' GH#2896 — equivalent of TO-80 on main site"
+TO-39,TO-dev,recipe,KAN,'.cloudbuildignore is currently absent — gcloud only reads .gcloudignore' GH#2897 — equivalent of TO-78 on main site
+TO-40,TO-dev,recipe,KAN,'ruleset requires review approval but auto-merge is disabled' GH#2895 — equivalent of TO-77 on main site
+TO-41,TO-dev,recipe,KAN,'Fix broken Gemini workflows — triage 4 stacked draft PRs' Backend GH#121 — equivalent of TO-82 on main site

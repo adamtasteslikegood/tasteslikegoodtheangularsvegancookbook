@@ -1,7 +1,7 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.3.2",
+  "version": "0.3.3",
   "type": "module",
   "scripts": {
     "dev": "ng serve",
@@ -14,6 +14,7 @@
     "pm:start": "npm run pm:check && npm run pm:brief",
     "pm:check": "python3 scripts/pm/atlassian_pm_link.py check",
     "pm:brief": "python3 scripts/pm/atlassian_pm_link.py brief",
+    "pm:reflect": "python3 scripts/pm/atlassian_pm_link.py reflect",
     "pm:sync": "python3 scripts/pm/atlassian_pm_link.py sync",
     "pm:publish": "npm run pm:sync",
     "pm:status": "bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py",
@@ -41,6 +42,7 @@
     "@google-cloud/secret-manager": "^6.2.0",
     "@google/genai": "^2.11.0",
     "autoprefixer": "^10.5.2",
+    "dd-trace": "^6.0.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
     "express-validator": "^7.3.2",
