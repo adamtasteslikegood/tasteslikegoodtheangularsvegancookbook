@@ -123,3 +123,6 @@ __pycache__/
 scripts/pm/.venv/
 .gbrain-source
 .claude/worktrees
+
+# PreCompact session-log hook runtime log
+.claude/session-log-hook.log

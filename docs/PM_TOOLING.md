@@ -106,17 +106,54 @@ items):
 | `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
 | `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (read-only: `KAN,RCP,PLZG,TO` allowed; anything else refused by the allowlist) |
 
-## Skills
+## Session logging
 
-### `/sync-and-clear`
+There are two paths, and they cover different things. Use both.
 
-An agent skill (`.claude/skills/sync-and-clear.md`) that:
-1. Summarizes the current session
+### `/sync-and-clear` (alias: `/wrap`) — the deliberate path
+
+An agent skill (`.claude/skills/sync-and-clear/SKILL.md`; `/wrap` is a thin alias) that:
+
+1. Summarizes the current session **from context** (not from a script — the agent already has the session in front of it)
 2. Logs it to Confluence via `log_agent_session`
 3. Syncs any modified planning docs
-4. Confirms the log was created with a URL
+4. Verifies the page was created and reports the URL
 
-Use at the end of long sessions to persist context before clearing.
+Run this at the end of a session **instead of typing `/clear`**, then clear.
+
+**Why it must be user-invoked:** `/clear` gives the model no turn. Context is dropped
+instantly — no hook fires, no instruction can run. There is no way to make a summary
+write itself "just before `/clear`". The only reliable capture is a step you invoke
+first. That's this skill.
+
+### `PreCompact` hook — the safety net
+
+`.claude/hooks/precompact-session-log.sh`, registered on the `PreCompact` event in
+`.claude/settings.json`. Fires before `/compact` **and before auto-compact** — i.e. the
+other way context gets destroyed, which usually happens mid-task with no warning.
+
+It:
+
+1. Condenses the session transcript with `scripts/pm/transcript_digest.py` (drops tool
+   results, keeps human asks + assistant prose + files touched + commands run — roughly
+   a 30x reduction; a 292 KB transcript becomes a 9 KB digest)
+2. Hands the digest to a **Haiku** subagent (`claude -p`) to write the summary — this is
+   compression, not reasoning, so the cheap model is the right one
+3. Publishes it via `scripts/pm/run_pm_script.sh publish_session_log.py`
+
+Properties worth knowing:
+
+- **It never blocks compaction.** Every failure path exits 0, and the slow work is
+  detached to the background. A broken session log must not wedge a session.
+- **It is best-effort, not a guarantee.** Failures land in `.claude/session-log-hook.log`,
+  not in your face. If you need a log you can rely on, run `/wrap`.
+- **It does not fire on `/clear`.** Nothing can. See above.
+- **Worktree-aware.** This repo runs most sessions in `.claude/worktrees/*`, where
+  `CLAUDE_PROJECT_DIR` is the worktree — which has no `.env` and no `scripts/pm/.venv`.
+  The hook resolves the main checkout via `git rev-parse --git-common-dir` and reads
+  credentials and the venv from there, while still recording the worktree's actual branch.
+- **Recursion-guarded.** The summarizer subagent inherits this repo's hooks; the
+  `CLAUDE_PM_SESSION_LOG_ACTIVE` env var stops it re-triggering itself.
 
 ## Dependencies
 
