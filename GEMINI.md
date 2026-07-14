@@ -13,7 +13,7 @@ This project is a full-stack application featuring an Angular/React frontend and
 **PM Automation:**
 
 - Scripts for syncing Jira and Confluence are located in `scripts/pm/`.
-- `scripts/pm/pm_daemon.py` - Background sync of planning docs (MCP server).
+- `scripts/pm/pm_daemon.py` - Background sync of planning docs (MCP server). One daemon spawns per agent session (that's correct — each needs its own MCP stdio pipes), but the file watcher is a singleton elected by an exclusive `flock` on `.claude/pm-daemon-watcher.lock`; non-holders serve MCP tools only. Don't kill extra daemons — it breaks those sessions' tools. See `docs/PM_TOOLING.md`.
 - `scripts/pm/sync_jira_confluence_status.py` - Fetches live project status.
 
 **Key Technologies:**
