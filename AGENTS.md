@@ -197,6 +197,8 @@ npm run pm:daemon:foreground # foreground mode for debugging
 
 Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
+**Expect MANY `pm_daemon.py` processes — one per session, and that's correct.** Each agent session (Claude Code window, Copilot CLI, background job, worktree) spawns its own daemon as an MCP stdio child. Only the **file watcher** is a singleton, elected by an exclusive `flock` on `.claude/pm-daemon-watcher.lock` in the main checkout; other daemons log `serving MCP tools only` and are fully functional minus the watcher. Without it, N sessions meant N observers racing to PUT the same Confluence pages (13 seen at once). Don't kill the extra daemons — that breaks those sessions' MCP tools. Set `PM_DAEMON_DISABLE_WATCHER=1` to opt a daemon out of watching. See `docs/PM_TOOLING.md`.
+
 ## PM status script
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
