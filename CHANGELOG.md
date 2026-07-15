@@ -8,6 +8,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.5] - 2026-07-15
+
+Deploy repair release. Identical in content to v0.3.4, which never reached
+production: its tag-triggered Cloud Build failed while parsing the Express
+Dockerfile, before any image was pushed or deployed.
+
+### Fixed
+
+- **Express Dockerfile parses again**: the unquoted space in
+  `ENV NODE_OPTIONS=--require dd-trace/init` made Docker's parser reject the
+  Dockerfile (`can't find = in "dd-trace/init"`), aborting the v0.3.4 deploy at
+  the image-build step. The value is now quoted. The v0.3.4 tag is superseded
+  by this release.
+
 ## [0.3.4] - 2026-07-15
 
 Security, observability, and operations release. Adds Express-layer request
