@@ -130,3 +130,6 @@ scripts/pm/.venv/
 
 # PM daemon single-watcher election lock (runtime)
 .claude/pm-daemon-watcher.lock
+
+# Runtime session-log dedup markers (SessionEnd hook)
+.claude/session-logs/

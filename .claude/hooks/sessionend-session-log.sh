@@ -85,6 +85,29 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 0
 fi
 
+# --- cross-process dedup (two windows / resume racing the same session) -----
+# CLAUDE_PM_SESSION_LOG_ACTIVE only guards recursion *within* this process tree
+# (it's an exported env var the `claude -p` summarizer inherits) — it does NOT
+# coordinate across separate shells. If the same session_id ends in two
+# processes at once, both would otherwise publish a near-identical page.
+# Arbitrate with an ATOMIC mkdir claim keyed by session_id: exactly one process
+# wins the mkdir; the loser skips. A 10-minute stale window lets a much-later
+# resume of the same id log again (concurrent ends are always <10min apart, so
+# the prune never fires for them — mkdir stays the sole arbiter of the race).
+if [ -n "$SESSION_ID" ]; then
+  SAFE_ID=$(printf '%s' "$SESSION_ID" | tr -c 'A-Za-z0-9._-' '_')
+  CLAIM_ROOT="$MAIN_REPO/.claude/session-logs"
+  CLAIM="$CLAIM_ROOT/$SAFE_ID"
+  mkdir -p "$CLAIM_ROOT" 2>/dev/null || true
+  if [ -d "$CLAIM" ] && [ -n "$(find "$CLAIM" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
+    rm -rf "$CLAIM" 2>/dev/null || true
+  fi
+  if ! mkdir "$CLAIM" 2>/dev/null; then
+    echo "  skip: session ${SESSION_ID} already logged within 10 min (another window/process)" >>"$LOG"
+    exit 0
+  fi
+fi
+
 # --- detach: do the slow work without stalling teardown ---------------------
 (
   export CLAUDE_PM_SESSION_LOG_ACTIVE=1
