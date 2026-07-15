@@ -120,6 +120,8 @@ steps:
       - flask-backend-migrate
       - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
       - --region=$_REGION
+      # Overrides the image's Datadog ENTRYPOINT, so this one-shot migration
+      # does not need DD_API_KEY; the deployed Flask service receives it below.
       - --command=flask
       - --args=db,upgrade
       - --max-retries=1
