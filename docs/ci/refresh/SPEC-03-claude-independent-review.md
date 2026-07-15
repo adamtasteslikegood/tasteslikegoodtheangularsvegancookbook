@@ -1,7 +1,7 @@
 # SPEC-03 — Independent Claude Review (advisory, cheaper model)
 
 **Repository:** `adamtasteslikegoodtheangularsvegancookbook` (cookbook)
-**Status:** Proposal → workflow authored (`.github/workflows/claude-review.yml`)
+**Status:** Proposal → workflow authored, split into **PR #3128** (this docs PR is docs-only)
 **Date:** 2026-07-15
 **Companion:** [SPEC-02](SPEC-02-ai-and-deploy-workflows.md) · [diagram](diagram-claude-review.md) · [PLAN](PLAN.md)
 
@@ -27,8 +27,9 @@ below 4.8. The selection is deterministic (§4.1), not model-guesswork.
 
 ## 3. Design
 
-`.github/workflows/claude-review.yml` (authored). Mechanics confirmed against the
-current `anthropics/claude-code-action@v1`:
+`.github/workflows/claude-review.yml` — authored and shipped in **PR #3128**
+(kept out of the docs-only plan PR). Mechanics confirmed against the current
+`anthropics/claude-code-action@v1`:
 
 ### 3.1 Deterministic model pick (the "programmatic" part)
 
