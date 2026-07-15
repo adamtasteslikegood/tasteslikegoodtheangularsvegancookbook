@@ -110,10 +110,10 @@ Then remove the duplication:
   pr-gate's frontend jobs.
 - **`ci.yml` → trim or delete.** Its PR-time `build`/`lint`/`test`/`type-check`
   duplicate pr-gate. Its only non-duplicate value is the **push-time** Prettier
-  auto-commit `format` job (`if: github.event_name == 'push'`). Options
-  (see §7 Open decisions): keep a slimmed `ci.yml` with just that push-only
-  format job, or drop it in favor of the existing `run-prettier-...-reviewdog.yml`
-  advisory review and let `format:check` in the gate enforce formatting.
+  auto-commit `format` job (`if: github.event_name == 'push'`). **Decided (D1):**
+  trim `ci.yml` to that slimmed push-only format job and delete its duplicated
+  `build`/`lint`/`test`/`type-check` (formatting stays enforced on PRs by the
+  gate's `format:check` + the advisory `run-prettier-...-reviewdog.yml`).
 
 ### 4.2 Add a Docker-build gate (the one genuinely new check)
 
@@ -137,8 +137,8 @@ checks — exact context names as emitted:
 - `Analyze (javascript-typescript)` (from `codeql-analysis.yml` — this is the
   **per-language matrix job name**, *not* the workflow name `CodeQL`; requiring
   `CodeQL` would block every PR forever on a context that never reports)
-- `Dependency Review` (from `dependency-review.yml`) — optional; include if we
-  want license/vuln review to be blocking
+- `Dependency Review` (from `dependency-review.yml`) — **required** (decided
+  2026-07-15, DECISIONS.md D3): license + high/critical-vuln gate
 
 Do **not** add to required checks: `junie-review` (Code Review),
 `run-prettier-...-reviewdog`, `gc-build-deploy` (Google Cloud Build Gate), or any
@@ -162,12 +162,14 @@ the safety `dependabot-automerge.yml` currently only pretends to have.
   `package.json` has no `engines` field. Add `"engines": { "node": ">=26" }` and
   consider a repo-level `.nvmrc` / a reusable workflow so the version lives in one
   place. Drift risk only, not a live break.
-- **Scope `gc-build-deploy.yml`.** It triggers on push to `**` *and* all PRs with
-  `id-token: write` + `contents: write` + `issues: write`, then gates internally
-  via a `detect-trigger` job. Verify it is not silently double-deploying alongside
-  the Cloud Build tag trigger, and narrow its triggers if it is only meant to fire
-  on specific tags/branches. Treat any change to its deploy behavior as an
-  escalation (SPEC-02 §3).
+- **`gc-build-deploy.yml` — verified inert (decided 2026-07-15, DECISIONS.md D4).**
+  Its `detect-trigger` job acts only when target branch == default (`main`) AND
+  the actor is in `AUTHORIZED_DEPLOYERS`/owner AND a magic token
+  (`gcbuild`/`gcdeploy`/`gcbuildanddeploy`) appears in the commit/PR. It is **not**
+  double-deploying against the Cloud Build tag trigger or `release.yml`; the broad
+  `push: ['**']` trigger only spins a no-op `detect-trigger` job. **No change.**
+  Optional cosmetic narrowing (drop the no-op job) is low-priority and still
+  touches a deploy workflow, so defer.
 
 ## 5. Acceptance criteria
 
@@ -191,23 +193,21 @@ the safety `dependabot-automerge.yml` currently only pretends to have.
 | Deleting `ci.yml`/`ci-cd.yml` drops a check something references by name | Grep for referenced check names in branch rules/README before deleting; the gate context name is stable |
 | Docker-build job adds runner time on every PR | Express-only to start; use build cache / `docker/build-push-action` with `load: false`; skip on docs-only via in-job path filter |
 | Requiring `strict` (up-to-date) stalls Dependabot | Keep `strict: off` initially |
-| `gc-build-deploy.yml` is load-bearing and scoping it breaks deploys | Do not change its deploy behavior without escalation; §4.4 is verify-first |
+| `gc-build-deploy.yml` is load-bearing | Verified inert (D4) — no change planned; any future deploy-behavior edit is escalate-first |
 | Required checks block an urgent hotfix | Admin break-glass (`enforce_admins: off`), audited |
 
-## 7. Open decisions (Q/A — resolve before Phase 1)
+## 7. Resolved decisions (2026-07-15)
 
-These are the choices a human (or the grill step of the devex skill) should lock
-before the harness runs. Recommended answer in **bold**.
+All four load-bearing decisions are locked. Full rationale, completeness scores,
+and the `gc-build-deploy.yml` code-review correction are in
+[DECISIONS.md](DECISIONS.md).
 
-1. **`ci.yml` fate:** (a) **trim to the push-only Prettier auto-commit job**,
-   (b) delete entirely and rely on `format:check` in the gate +
-   `run-prettier-...-reviewdog.yml`. → Recommend **(a)** to preserve the
-   auto-format-on-push convenience; revisit if it races the reviewdog job.
-2. **Docker gate scope:** **Express image only** to start, or Express + Flask
-   parity. → Recommend **Express-only** (that is where v0.3.4 broke); add Flask
-   if runner time allows.
-3. **Is `Dependency Review` a required check** or advisory? → Recommend
-   **required** (license + high-severity vuln gate is cheap and high-value).
-4. **`gc-build-deploy.yml`:** keep as-is (advisory, self-gated) or narrow its
-   `push: ['**']` trigger? → Recommend **verify first, then narrow** only if it
-   is double-deploying; escalate any deploy-behavior change.
+1. **`ci.yml`:** trim to the push-only Prettier auto-commit job; delete the
+   duplicated build/lint/test/type-check (D1).
+2. **Docker gate:** Express image only — the file that burned v0.3.4; Flask is
+   owned by the Backend's own CI (D2).
+3. **`Dependency Review`:** **required** on `dev` + `main` (D3).
+4. **`gc-build-deploy.yml`:** leave as-is — verified inert, reclassified from
+   escalate-first to no-change (D4).
+
+The only remaining escalate-first item is branch protection itself (Phase 3).

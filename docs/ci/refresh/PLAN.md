@@ -28,7 +28,7 @@ redundant workflows retired; AI/agentic/deploy workflows kept advisory.
 
 | Phase | What | Gate change? |
 |---|---|---|
-| 0 | Resolve open decisions (SPEC-01 §7) | none |
+| 0 | ✅ Decisions resolved 2026-07-15 → [DECISIONS.md](DECISIONS.md) | none |
 | 1 | Consolidate → `pr-gate.yml` is the one blocking gate; delete `ci-cd.yml`, `ci-cd-backend.yml`; trim `ci.yml` | informational |
 | 2 | Add `docker-build` job (Express image) to the gate | new advisory job |
 | 3 | **Branch protection** on `dev`+`main` requiring the gate (+ CodeQL, +opt Dependency Review) — **escalate first** | gates become enforced |
@@ -47,6 +47,7 @@ required, so protection is turned on against a green, non-redundant tree.
 | [SPEC-02-ai-and-deploy-workflows.md](SPEC-02-ai-and-deploy-workflows.md) | The advisory/agentic/deploy fleet and the rule that keeps them out of required checks |
 | [TODO.md](TODO.md) | Phase-by-phase checklist; every item carries its verify command |
 | [PROMPT.md](PROMPT.md) | Agent-harness goal: task table with verifies, retry caps, escalation, close condition |
+| [DECISIONS.md](DECISIONS.md) | ADR: the four resolved decisions (D1–D4) + the gc-build-deploy code-review correction |
 | [diagram-current-state.md](diagram-current-state.md) | Mermaid — today's ungated, redundant state |
 | [diagram-target-pipeline.md](diagram-target-pipeline.md) | Mermaid — one gate + Docker job + protection |
 | [diagram-workflow-map.md](diagram-workflow-map.md) | Mermaid + table — every workflow classified blocking/advisory/event |
@@ -58,8 +59,9 @@ required, so protection is turned on against a green, non-redundant tree.
 This doc set is the **plan**, produced up to the stop-gate. Execution (the
 workflow edits + branch protection in Phases 1–3) is a **separate, approved**
 step — run PROMPT.md through `agent-harness:cs-harness` (domain `engineering`)
-only after a human signs off on the open decisions in SPEC-01 §7 and the
-escalation points (branch protection, `gc-build-deploy.yml`).
+only after a human signs off on the remaining escalation point — **branch
+protection** (Phase 3). The four design decisions are already resolved
+([DECISIONS.md](DECISIONS.md)); `gc-build-deploy.yml` is verified inert (D4).
 
 ## Relationship to the Backend refresh
 

@@ -67,18 +67,18 @@ verify → merge (or escalate). `verify:` lines are machine-checkable.
 
 | # | Task | Verify (exit 0 / condition) | Retries |
 |---|---|---|---|
-| T0 | Record answers to SPEC-01 §7 open decisions (ADR/PR body) | 4 decisions have written answers | 1 |
+| T0 | ✅ Decisions recorded in [DECISIONS.md](DECISIONS.md) (D1–D4) | DECISIONS.md present with all 4 | — |
 | T1 | Delete `ci-cd-backend.yml` (redundant, dev-blind) | `git grep -n ci-cd-backend` no live refs; scratch PR into `dev` still runs backend pytest via pr-gate | 2 |
 | T2 | Delete `ci-cd.yml` (redundant lint+vitest) | `actionlint` clean; scratch PR shows pr-gate frontend jobs only | 2 |
 | T3 | `ci.yml`: trim to push-only Prettier `format` job (or delete per T0) | `actionlint` clean; a PR runs lint/test exactly once | 2 |
 | T4 | Add `docker-build` job (Express image) to `pr-gate.yml`, wire into `gate` `needs:` | job green on PR; red on scratch broken-Dockerfile branch, then reverted | 3 |
-| T5 | (Optional per T0) add Flask image build | job green; clean skip if submodule missing | 2 |
-| T6 | Branch protection on `dev` (**escalate first**) | `gh api .../branches/dev/protection --jq '.required_status_checks.contexts'` == `[Gate — all checks passed, Analyze (javascript-typescript){, Dependency Review}]` | 1 |
+| T5 | ~~Flask image build~~ — DEFERRED (D2: Express-only; Flask owned by Backend CI) | n/a | — |
+| T6 | Branch protection on `dev` (**escalate first**) | `gh api .../branches/dev/protection --jq '.required_status_checks.contexts'` == `[Gate — all checks passed, Analyze (javascript-typescript), Dependency Review]` | 1 |
 | T7 | Branch protection on `main` (**escalate first**) | same `gh api` on `main` | 1 |
 | T8 | Negative test: deliberately failing test PR cannot merge | merge blocked by gate; revert | 1 |
 | T9 | Confirm Dependabot auto-merge waits on the gate | next Dependabot PR merges only after `gate` green | 2 |
 | T10 | Housekeeping: `engines.node` + single-source Node version | `npm ci` ok; `actionlint` clean | 1 |
-| T11 | Verify `gc-build-deploy.yml` not double-deploying; narrow only if needed (**escalate any deploy change**) | documented finding; behavior unchanged or human-approved | 1 |
+| T11 | `gc-build-deploy.yml`: verified inert (D4) — no change; optional cosmetic narrowing deferred | DECISIONS.md D4 recorded; behavior unchanged | 1 |
 | T12 | SPEC-02 safety confirm: no AI/agentic/deploy check is required; advisory jobs fail open | protection contexts contain none of SPEC-02 names; PR with failing Junie still mergeable | 1 |
 | T13 | Docs close-out: update `CLAUDE.md` required-checks note | file updated | 1 |
 
