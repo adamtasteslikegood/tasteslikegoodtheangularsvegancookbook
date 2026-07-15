@@ -86,6 +86,7 @@ fi
 _has_cred() {
   # env var first (it wins downstream), then a non-empty assignment in .env
   [ -n "$(printenv "$1" 2>/dev/null)" ] && return 0
+  [[ -f "$MAIN_REPO/.env" ]] || return 1
   grep -qs "^[[:space:]]*$1=[^[:space:]]" "$MAIN_REPO/.env"
 }
 
