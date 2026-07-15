@@ -177,6 +177,7 @@ The `pm-daemon` MCP server runs `scripts/pm/run_pm_daemon.sh`, which sets up a v
 Requirements:
 
 - `.env` must contain `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, and `ATLASSIAN_URL`
+- `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` refuses any other site (including the `tasteslikegood-dev.atlassian.net` service shell, which once received misfiled work items)
 - set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP`
 - `python3 -m venv` must work
 
@@ -196,6 +197,8 @@ npm run pm:daemon:foreground # foreground mode for debugging
 
 Verify: `ps -ef | grep pm_daemon | grep -v grep`
 
+**Expect MANY `pm_daemon.py` processes — one per session, and that's correct.** Each agent session (Claude Code window, Copilot CLI, background job, worktree) spawns its own daemon as an MCP stdio child. Only the **file watcher** is a singleton, elected by an exclusive `flock` on `.claude/pm-daemon-watcher.lock` in the main checkout; other daemons log `serving MCP tools only` and are fully functional minus the watcher. Without it, N sessions meant N observers racing to PUT the same Confluence pages (13 seen at once). Don't kill the extra daemons — that breaks those sessions' MCP tools. Set `PM_DAEMON_DISABLE_WATCHER=1` to opt a daemon out of watching. See `docs/PM_TOOLING.md`.
+
 ## PM status script
 
 `scripts/pm/sync_jira_confluence_status.py` — fetches live project status:
@@ -205,15 +208,15 @@ Verify: `ps -ef | grep pm_daemon | grep -v grep`
 - Confluence page info
 - Production site health check
 
-**Jira Project Keys:**
+**Jira Project Keys** (all on `tasteslikegood.atlassian.net` — the only site for work items):
 
-- **Recipe Site (Vegan Genius Chef):** `KAN`, `RCP`
-- **Office Game:** `PLZA`, `TO`
-- **Agent Skill/UI:** `plz` (video game UI, potentially for the office game or standalone)
+- **Recipe app (Vegan Genius Chef):** `KAN` (tasks/bugs), `RCP` (releases) — the ONLY projects this repo's tooling may touch
+- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`
+- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen and re-keyed `TOSVC` ("SERVICE-HOLD — do not use")
 
 - **KAN** = active execution, branch/work ownership, in-flight state
 - **RCP** = delivery planning, epics, sprint scope, acceptance criteria
-- Override with `JIRA_PROJECTS=...` only when you intentionally want a broader multi-project rollup
+- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: writes are limited to `KAN,RCP`; read-only rollups/briefings may also include `PLZG,TO`. Anything else (incl. `TOSVC`) is refused with an error
 
 Install deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py` or `pip install -r scripts/pm/requirements.txt`
 Env vars needed: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`

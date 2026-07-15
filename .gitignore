@@ -119,7 +119,14 @@ __pycache__/
 
 # Agent runtime state
 .claude/scheduled_tasks.lock
+.claude/worktrees/
 .omg/state/
 scripts/pm/.venv/
 .gbrain-source
 .claude/worktrees
+
+# PreCompact session-log hook runtime log
+.claude/session-log-hook.log
+
+# PM daemon single-watcher election lock (runtime)
+.claude/pm-daemon-watcher.lock

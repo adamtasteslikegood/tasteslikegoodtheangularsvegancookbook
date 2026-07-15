@@ -14,13 +14,15 @@ jobs:
       pull-requests: write
       issues: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 1
 
-      - uses: JetBrains/junie-github-action@v1
+      - name: Run advisory Junie review
+        continue-on-error: true
+        uses: JetBrains/junie-github-action@b15c4a3c3f0f0c1bcf4f2ddf16af18648cd8f054 # v1
         with:
           junie_api_key: ${{ secrets.JUNIE_API_KEY }}
-          use_single_comment: "true"
-          prompt: "code-review"
+          use_single_comment: 'true'
+          prompt: 'code-review'
           # model: "claude-opus-4-5-20251101"  # Optional: specify which model to use

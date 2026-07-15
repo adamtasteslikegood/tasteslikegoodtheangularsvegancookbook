@@ -78,7 +78,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 - `server/proxy.ts` — `createFlaskProxy()`, raw streaming to Flask
 - `server/security.ts` — Helmet, rate limiting (300 req/15 min general, 20 req/hr AI), request logger
 - `server/valkey.ts` — Valkey (Redis alternative) client for distributed rate limiting; falls back to in-memory
-- `server/validation.ts` — express-validator rules for AI endpoints
+- `server/validation.ts` — express-validator rules for the AI endpoints (`POST /api/generate`, `POST /api/generate_image`): buffers the JSON body (10kb cap), validates it, and stashes the raw bytes on `req.rawBody` for the proxy to replay to Flask verbatim; all other `/api/*` routes keep raw streaming
 - No AI logic lives here; it's purely proxy + static hosting
 
 ### Layer 3 — Flask API (`Backend/`)
@@ -224,9 +224,12 @@ Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Co
 Requirements for `pm-daemon` to actually sync:
 
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
+- `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` enforces this allowlist across all `scripts/pm/` tooling and restricts Jira writes to the `KAN` and `RCP` projects (read-only rollups/briefings may also include `PLZG`/`TO`); any other site (including the `tasteslikegood-dev.atlassian.net` service shell) or project key raises a loud error instead of proceeding.
 - `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
 
 To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
+
+**Expect MANY `pm_daemon.py` processes — one per session, and that's correct.** Every agent session (each Claude Code window, each Copilot CLI, each background job, each worktree) spawns its own daemon as an MCP stdio child; they each need their own server on their own pipes. Only the **file watcher** is a singleton: the first daemon to take `.claude/pm-daemon-watcher.lock` (an exclusive `flock` in the main checkout) runs the `watchdog` Observer, and every other daemon logs `File watcher already owned by another pm_daemon (pid N); serving MCP tools only` and comes up fully functional minus the watcher. Before this lock existed, N sessions meant N observers all racing to PUT the same Confluence pages on every save (13 were seen at once). Do not "fix" the extra daemons by killing them — killing a live session's daemon breaks that session's MCP tools. See `docs/PM_TOOLING.md` § _The watcher is a singleton_.
 
 ## Non-obvious patterns
 

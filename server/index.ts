@@ -10,6 +10,7 @@ import {
   createRequestLogger,
 } from './security.js';
 import { createFlaskProxy } from './proxy.js';
+import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
@@ -55,9 +56,18 @@ export const ready = (async () => {
   applySecurityMiddleware(app);
   app.use(createRequestLogger());
 
+  // ── Input validation for AI endpoints ───────────────────────────
+  // Buffers + validates JSON bodies for POST /api/generate and
+  // POST /api/generate_image, rejecting malformed/oversized payloads before
+  // they reach Flask. Valid requests carry req.rawBody, which the proxy
+  // replays to Flask verbatim. All other /api/* routes pass through
+  // untouched and keep raw streaming (see server/validation.ts).
+  app.use('/api', createAiValidation());
+
   // ── Flask proxy routes ──────────────────────────────────────────
   // Must be mounted BEFORE express.json() so raw request bodies stream
-  // through to Flask without being consumed by the JSON parser.
+  // through to Flask without being consumed by the JSON parser (the AI
+  // endpoints above are the deliberate buffer-and-replay exception).
   app.use('/api', createFlaskProxy('API'));
 
   // Reduce default JSON payload limit to 50KB for security

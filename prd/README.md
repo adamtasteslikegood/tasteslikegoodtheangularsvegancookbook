@@ -62,7 +62,7 @@ There are exactly three actor levels — there is no role system:
 
 ### Known gaps & stale-doc corrections (found during analysis)
 
-- `server/validation.ts` **does not exist**; `express-validator` is an unused dependency. Project docs claiming Express-layer validation are stale. All validation is Flask-side (and recipe blobs from clients are stored unvalidated).
+- ~~`server/validation.ts` **does not exist**; `express-validator` is an unused dependency.~~ Resolved by GH #3083: `server/validation.ts` now validates the AI endpoints (`/api/generate`, `/api/generate_image`) with express-validator via buffer-and-replay before the proxy. Non-AI `/api/*` validation remains Flask-side (and recipe blobs from clients are still stored unvalidated).
 - Flask's "Valkey cache" (`extensions.cache`) is a **no-op stub** — docstrings claim 24 h caching that doesn't happen. Only Express uses Valkey (rate limiting).
 - `PUT /api/recipes/<id>` never updates the `slug`/`is_public`/`status` columns; publishing works only because the SPA saves via POST-upsert.
 - `POST /api/migrate` (legacy file migration) is unauthenticated and reachable through the proxy — hardening gap.

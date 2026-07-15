@@ -19,6 +19,50 @@ An MCP server + file watcher that runs during agent sessions.
 scripts/pm/run_pm_daemon.sh
 ```
 
+#### The watcher is a singleton (one per machine, not one per session)
+
+Every agent session — each Claude Code window, each Copilot CLI, each background
+job, each git worktree — spawns its **own** `pm_daemon.py` as an MCP stdio child.
+That is correct for the MCP *tools*: each session needs its own server on its own
+pipes. Expect to see several `pm_daemon.py` processes and don't be alarmed.
+
+It was very wrong for the *watcher*. Each daemon also started a `watchdog`
+Observer, so N sessions meant N observers all watching the same `specs/*.md` and
+all racing to PUT the same Confluence pages on every save. **13 concurrent
+daemons were observed in the wild**, i.e. 13 writers fighting over one page.
+
+The watcher is now elected by an exclusive `flock` (`scripts/pm/_watcher_lock.py`):
+
+- The first daemon to grab `.claude/pm-daemon-watcher.lock` runs the Observer.
+- Every other daemon logs `File watcher already owned by another pm_daemon (pid N);
+  serving MCP tools only` and comes up **fully functional minus the watcher**. MCP
+  tools are never degraded by losing the election.
+- The lock lives in the **main checkout**, resolved via `git rev-parse
+  --git-common-dir`. Worktrees share one Confluence space, so they must share one
+  lock — a per-worktree lock would elect one watcher per worktree and reintroduce
+  the exact race.
+- **No stale-lock recovery path exists, by design.** The kernel releases an `flock`
+  when the holder dies, however it dies (SIGKILL, crash, power loss). A PID file
+  would have needed liveness checks and would have deadlocked the watcher on a
+  dead session's leftover file.
+- `--watch-only` **exits 1** if it cannot take the lock, rather than idling and
+  looking healthy while watching nothing.
+
+Set `PM_DAEMON_DISABLE_WATCHER=1` to force a daemon to skip the watcher entirely
+and serve MCP tools only.
+
+If saves aren't syncing to Confluence, check who holds the lock. The lock lives in
+the **main checkout**, so a relative path won't find it from inside a worktree —
+resolve the main checkout first:
+
+```bash
+# works from the main checkout OR any linked worktree
+cat "$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.claude/pm-daemon-watcher.lock"
+```
+
+That prints the pid of the daemon currently doing the watching. If the file is
+missing or empty, no daemon holds the lock and nothing is being watched.
+
 #### MCP Tools
 
 | Tool | Description |
@@ -77,7 +121,23 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 |----------|-------------|
 | `ATLASSIAN_EMAIL` | Atlassian account email |
 | `ATLASSIAN_API_TOKEN` | Atlassian API token |
-| `ATLASSIAN_URL` | Atlassian instance (default: `tasteslikegood.atlassian.net`) |
+| `ATLASSIAN_URL` | Atlassian instance (default: `tasteslikegood.atlassian.net` — the only allowed value, see allowlist below) |
+
+### Site and project allowlist
+
+`scripts/pm/_atlassian_guard.py` enforces a defense-in-depth allowlist across all
+PM scripts (added after tooling once pointed at the wrong site and misfiled work
+items):
+
+- **Site:** `tasteslikegood.atlassian.net` is the ONLY Atlassian site for work
+  items. Any other host — including the `tasteslikegood-dev.atlassian.net`
+  service-site shell, whose former `TO` project is frozen as `TOSVC`
+  ("SERVICE-HOLD — do not use") — raises `AtlassianGuardError` at config load.
+- **Jira projects:** writes are limited to `KAN` and `RCP`. Read-only
+  rollups/briefings (the `resolve_jira_projects()` consumers) may also include
+  the plaza-game `PLZG`/`TO`. Any other key — including the frozen `TOSVC` —
+  is refused with an error naming the allowlist.
+  Tests: `python3 -m unittest discover -s scripts/pm -p 'test_*.py'`.
 
 ### Optional Environment Variables
 
@@ -88,19 +148,56 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 | `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
 | `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Execution Jira project for active work |
 | `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
-| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings |
+| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (read-only: `KAN,RCP,PLZG,TO` allowed; anything else refused by the allowlist) |
 
-## Skills
+## Session logging
 
-### `/sync-and-clear`
+There are two paths, and they cover different things. Use both.
 
-An agent skill (`.claude/skills/sync-and-clear.md`) that:
-1. Summarizes the current session
+### `/sync-and-clear` (alias: `/wrap`) — the deliberate path
+
+An agent skill (`.claude/skills/sync-and-clear/SKILL.md`; `/wrap` is a thin alias) that:
+
+1. Summarizes the current session **from context** (not from a script — the agent already has the session in front of it)
 2. Logs it to Confluence via `log_agent_session`
 3. Syncs any modified planning docs
-4. Confirms the log was created with a URL
+4. Verifies the page was created and reports the URL
 
-Use at the end of long sessions to persist context before clearing.
+Run this at the end of a session **instead of typing `/clear`**, then clear.
+
+**Why it must be user-invoked:** `/clear` gives the model no turn. Context is dropped
+instantly — no hook fires, no instruction can run. There is no way to make a summary
+write itself "just before `/clear`". The only reliable capture is a step you invoke
+first. That's this skill.
+
+### `PreCompact` hook — the safety net
+
+`.claude/hooks/precompact-session-log.sh`, registered on the `PreCompact` event in
+`.claude/settings.json`. Fires before `/compact` **and before auto-compact** — i.e. the
+other way context gets destroyed, which usually happens mid-task with no warning.
+
+It:
+
+1. Condenses the session transcript with `scripts/pm/transcript_digest.py` (drops tool
+   results, keeps human asks + assistant prose + files touched + commands run — roughly
+   a 30x reduction; a 292 KB transcript becomes a 9 KB digest)
+2. Hands the digest to a **Haiku** subagent (`claude -p`) to write the summary — this is
+   compression, not reasoning, so the cheap model is the right one
+3. Publishes it via `scripts/pm/run_pm_script.sh publish_session_log.py`
+
+Properties worth knowing:
+
+- **It never blocks compaction.** Every failure path exits 0, and the slow work is
+  detached to the background. A broken session log must not wedge a session.
+- **It is best-effort, not a guarantee.** Failures land in `.claude/session-log-hook.log`,
+  not in your face. If you need a log you can rely on, run `/wrap`.
+- **It does not fire on `/clear`.** Nothing can. See above.
+- **Worktree-aware.** This repo runs most sessions in `.claude/worktrees/*`, where
+  `CLAUDE_PROJECT_DIR` is the worktree — which has no `.env` and no `scripts/pm/.venv`.
+  The hook resolves the main checkout via `git rev-parse --git-common-dir` and reads
+  credentials and the venv from there, while still recording the worktree's actual branch.
+- **Recursion-guarded.** The summarizer subagent inherits this repo's hooks; the
+  `CLAUDE_PM_SESSION_LOG_ACTIVE` env var stops it re-triggering itself.
 
 ## Dependencies
 

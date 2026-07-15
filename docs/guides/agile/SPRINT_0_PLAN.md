@@ -3,6 +3,12 @@
 Generated: 2026-04-27
 Duration: 1 week recommended
 
+> **Historical note (2026-07-12 Atlassian triage):** `TO` references below mean
+> the plaza-game business/creative project, which now lives on the main site
+> `tasteslikegood.atlassian.net` (plaza software work is `PLZG`); the
+> `tasteslikegood-dev.atlassian.net` service site's former `TO` project is frozen
+> as `TOSVC`. This repo's tooling writes work items only to `RCP` and `KAN`.
+
 ## Sprint Goal
 
 Create the minimum agile operating system needed to run predictable work across Tasteslikegood.org and 10110 Tasteslikegood Plaza.
