@@ -165,6 +165,25 @@ describe('POST /api/generate validation', () => {
     expect(flaskRequests).toHaveLength(0);
   });
 
+  it('rejects a path-like model name with 400', async () => {
+    const res = await postJson(
+      '/api/generate',
+      JSON.stringify({ prompt: 'A hearty winter stew', model: 'models/../v1beta' })
+    );
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('Model name contains invalid characters.');
+    expect(flaskRequests).toHaveLength(0);
+  });
+
+  it('length-checks the prompt untrimmed, exactly as Flask does', async () => {
+    // Flask's validate_generation_input checks len() on the raw string, and
+    // the proxy replays the raw bytes — so a whitespace-padded short prompt
+    // must be forwarded (Flask accepts it), not rejected on a trimmed value.
+    const res = await postJson('/api/generate', JSON.stringify({ prompt: '   stew   ' }));
+    expect(res.status).toBe(202);
+    expect(flaskRequests).toHaveLength(1);
+  });
+
   it('rejects malformed JSON with 400', async () => {
     const res = await postJson('/api/generate', '{"prompt": "A hearty winter stew"');
     expect(res.status).toBe(400);
