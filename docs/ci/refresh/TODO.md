@@ -14,10 +14,9 @@ consolidation + a Docker gate, not fixing rot.**
 
 ## Phase 0 — Resolve open decisions (no code)
 
-- [ ] Answer SPEC-01 §7 Open decisions (ci.yml fate, Docker scope, Dependency
-      Review required?, gc-build-deploy scoping). Record answers in the PR
-      description / a short ADR.
-      — verify: each of the 4 decisions has a recorded answer
+- [x] Decisions locked 2026-07-15 → [DECISIONS.md](DECISIONS.md): D1 trim ci.yml,
+      D2 Express-only, D3 require Dependency Review, D4 gc-build-deploy inert.
+      — verify: DECISIONS.md records all 4 with rationale
 
 ## Phase 1 — Consolidate to one blocking gate (one PR)
 
@@ -42,8 +41,8 @@ consolidation + a Docker gate, not fixing rot.**
       `needs:`
       — verify: job green on a normal PR; then red on a scratch branch with a
       deliberately broken `Dockerfile` (test once, revert)
-- [ ] (Optional, per decision) add Flask image build (`Backend/Dockerfile`)
-      — verify: job green; skips cleanly if submodule checkout unavailable
+- [ ] ~~Flask image build~~ — DEFERRED per D2 (Express-only). The Flask image is
+      owned by the Backend submodule's own CI; out of scope for the cookbook gate.
 
 ## Phase 3 — Branch protection (**escalate before applying**)
 
@@ -51,7 +50,7 @@ consolidation + a Docker gate, not fixing rot.**
       (SPEC-01 §4.3)
 - [ ] Configure required status checks on `dev` (exact context names):
       `Gate — all checks passed`, `Analyze (javascript-typescript)`,
-      and (if decided) `Dependency Review`. `strict: off`,
+      `Dependency Review` (required per D3). `strict: off`,
       `enforce_admins: off`, require-PR: on
       — verify: `gh api repos/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/branches/dev/protection --jq '.required_status_checks.contexts'`
       returns exactly that list
@@ -66,9 +65,9 @@ consolidation + a Docker gate, not fixing rot.**
 - [ ] Add `"engines": { "node": ">=26" }` to `package.json`; optionally `.nvmrc`
       or a reusable setup workflow so the Node version lives in one place
       — verify: `npm ci` still succeeds; `actionlint` clean
-- [ ] Verify `gc-build-deploy.yml` is not double-deploying (read `detect-trigger`
-      logic); narrow `push: ['**']` only if it is, and only with escalation
-      — verify: documented finding; deploy behavior unchanged or human-approved
+- [ ] `gc-build-deploy.yml`: verified inert (D4) — NO change. (Optional cosmetic:
+      drop the per-push no-op `detect-trigger` job; low priority, defer)
+      — verify: DECISIONS.md D4 recorded; deploy behavior unchanged
 
 ## Phase 5 — SPEC-02 safety confirmation (no code unless a leak found)
 

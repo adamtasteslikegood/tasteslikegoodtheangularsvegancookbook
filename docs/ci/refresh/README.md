@@ -16,6 +16,7 @@ Start with [PLAN.md](PLAN.md).
 | [SPEC-02-ai-and-deploy-workflows.md](SPEC-02-ai-and-deploy-workflows.md) | Advisory/agentic/deploy fleet; the rule keeping them out of required checks |
 | [TODO.md](TODO.md) | Phase-by-phase execution checklist with verify commands |
 | [PROMPT.md](PROMPT.md) | Agent-harness goal: task table, verifies, retry caps, escalation, close condition |
+| [DECISIONS.md](DECISIONS.md) | ADR: the four resolved decisions (D1–D4) + gc-build-deploy correction |
 | [diagram-current-state.md](diagram-current-state.md) | Mermaid — ungated, redundant today |
 | [diagram-target-pipeline.md](diagram-target-pipeline.md) | Mermaid — one gate + Docker + protection |
 | [diagram-workflow-map.md](diagram-workflow-map.md) | Mermaid + table — every workflow classified |

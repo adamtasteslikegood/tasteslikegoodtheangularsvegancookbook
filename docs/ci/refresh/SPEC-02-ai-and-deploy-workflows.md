@@ -52,18 +52,14 @@ comment, they never block.**
    `run-prettier-...-reviewdog.yml` and `gc-build-deploy.yml` already do) and skip
    cleanly rather than fail when secrets are absent.
 
-4. **Deploy behavior is escalation-only.** `gc-build-deploy.yml` submits
-   `gcloud builds submit` and creates backup releases. Its trigger is
-   `push: ['**']` + all PRs, gated internally by a `detect-trigger` job. Before
-   changing anything here:
-   - Confirm whether it actually deploys on PRs/branches or only self-selects
-     specific tags (read `detect-trigger`'s `should_run`/`deployment_enabled`
-     logic).
-   - Verify it is not double-deploying alongside the Cloud Build **tag-push
-     trigger** (`^v[0-9]+\.[0-9]+\.[0-9]+$`, configured GCP-side) and
-     `release.yml`.
-   - Any change to its deploy behavior → **escalate to a human** (it can touch
-     production).
+4. **`gc-build-deploy.yml` — verified inert (2026-07-15, DECISIONS.md D4).** Code
+   review of its `detect-trigger` job confirms it acts only when target branch ==
+   default (`main`) AND the actor is in `AUTHORIZED_DEPLOYERS`/owner AND a magic
+   token (`gcbuild`/`gcdeploy`/`gcbuildanddeploy`) appears in the commit/PR. It is
+   **not** double-deploying against the Cloud Build tag-push trigger
+   (`^v[0-9]+\.[0-9]+\.[0-9]+$`) or `release.yml`; the broad `push: ['**']`
+   trigger only spins a no-op detector. **No change.** Any *future* edit to its
+   deploy behavior still → escalate (it can touch production).
 
 5. **gh-aw workflows are generated — don't hand-edit the `.lock.yml`.**
    `agentics-maintenance.yml`, `daily-repo-status.lock.yml`, and
