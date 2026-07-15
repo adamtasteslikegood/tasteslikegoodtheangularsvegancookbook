@@ -25,7 +25,7 @@ the Backend async-generation release line with additional release safeguards.
 
 - **Helmet now enforces a scoped Content Security Policy** ([#3109](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3109)): scripts, styles, fonts, images, connections, frames, and objects are restricted to the origins the application uses. Public SSR interactions now load from a same-origin static script so the policy does not disable modal and save controls.
 - **Logs cannot be split or forged with control characters** ([#3108](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3108)): request, proxy, and error logging share one sanitizer for untrusted path and message values.
-- **Backend release blockers are removed** (Backend [#193](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/193)): stops tracking a local SQLite database, repairs the slug migration downgrade, verifies Pub/Sub OIDC audiences against the exact worker URL, preserves intentional HTTP errors, prevents cached private images from bypassing ownership checks, and removes a generated patch artifact.
+- **Backend release blockers are removed** (Backend [#193](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/193)): stops tracking a local SQLite database, preserves server-side sessions during migration, verifies Pub/Sub OIDC audiences against the exact worker URL, makes worker delivery idempotent across retries and guest-to-user ownership changes, prevents cached private images from bypassing ownership checks, binds Gemini execution to an immutable trusted plan, pins CI actions, sanitizes untrusted log values, and hardens partial SSR rendering and keyboard interaction.
 
 ### Changed
 
