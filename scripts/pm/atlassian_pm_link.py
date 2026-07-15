@@ -30,6 +30,7 @@ from typing import Any
 # Make sibling modules importable whether this file is run as a script or
 # imported (e.g. by publish_session_log.py).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _atlassian_guard import validate_atlassian_site  # noqa: E402
 from _jira_projects import resolve_jira_projects  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -252,8 +253,15 @@ def load_config() -> Config:
         joined = ", ".join(missing)
         raise SystemExit(f"Missing required .env variables: {joined}")
 
+    # Defense-in-depth: refuse any site other than the repo's allowlisted
+    # Atlassian site (raises AtlassianGuardError on violation — the -dev
+    # service site once received misfiled work items). Use the normalized
+    # hostname it returns so a pasted URL with a path (e.g. .../wiki) can't
+    # leak into base_url and corrupt every request URL.
+    atlassian_host = validate_atlassian_site(merged["ATLASSIAN_URL"])
+
     return Config(
-        atlassian_url=merged["ATLASSIAN_URL"],
+        atlassian_url=atlassian_host,
         email=merged["ATLASSIAN_EMAIL"],
         api_token=merged["ATLASSIAN_API_TOKEN"],
         jira_project_key=_jira_project_keys(merged),

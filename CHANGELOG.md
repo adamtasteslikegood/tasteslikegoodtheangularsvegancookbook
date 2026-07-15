@@ -8,6 +8,31 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.4] - 2026-07-15
+
+Security, observability, and operations release. Adds Express-layer request
+validation, enables a scoped Content Security Policy, ships Datadog telemetry
+across both services, hardens the Atlassian/Confluence automation, and promotes
+the Backend async-generation release line with additional release safeguards.
+
+### Added
+
+- **Express validates AI requests before proxying them to Flask** ([#3110](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3110)): generation and image payloads are size-limited and validated while preserving the raw request bytes for the streaming proxy, with dedicated route and validation coverage.
+- **Datadog observability for the production stack** ([#3112](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3112)): the Express and Flask services run through Datadog serverless-init, emit release metadata, and receive the Datadog API key from Secret Manager. The one-shot migration job overrides that entrypoint and remains uninstrumented with no unnecessary access to the telemetry secret.
+- **Reliable session logging and PM-daemon controls** ([#3105](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3105), [#3113](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3113)): adds `/wrap`, automatic pre-compaction transcript digests, a direct MCP driver, and a singleton watcher lock so concurrent agent sessions do not race to update Confluence.
+
+### Fixed
+
+- **Helmet now enforces a scoped Content Security Policy** ([#3109](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3109)): scripts, styles, fonts, images, connections, frames, and objects are restricted to the origins the application uses. Public SSR interactions now load from a same-origin static script so the policy does not disable modal and save controls.
+- **Logs cannot be split or forged with control characters** ([#3108](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3108)): request, proxy, and error logging share one sanitizer for untrusted path and message values.
+- **Backend release blockers are removed** (Backend [#193](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/193)): stops tracking a local SQLite database, preserves server-side sessions during migration, verifies Pub/Sub OIDC audiences against the exact worker URL, makes worker delivery idempotent across retries and guest-to-user ownership changes, prevents cached private images from bypassing ownership checks, binds Gemini execution to an immutable trusted plan, pins CI actions, sanitizes untrusted log values, and hardens partial SSR rendering and keyboard interaction.
+
+### Changed
+
+- **Atlassian automation is constrained to the canonical workspace** ([#3102](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3102)): PM scripts reject the retired service site and restrict recipe-app writes to Jira KAN/RCP, with synchronized routing documentation and an audit trail.
+- **Backend submodule promoted to the v0.3.4 release candidate** (Backend [#193](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/193)): includes public SSR and image delivery, Pub/Sub recipe/image workers with retries and status polling, authenticated publishing, route-safe slugs, Datadog/Gunicorn production startup, refreshed CI, and expanded worker/API regression coverage.
+- Angular 22.0.6 and related Angular tooling, Helmet 8.3.0, ESLint/TypeScript lint tooling, and GitHub Actions received their scheduled updates ([#3115](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3115), [#3116](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3116), [#3117](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3117), [#3118](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3118)).
+
 ## [0.3.3] - 2026-07-11
 
 Stability and automation release. Fixes cookbook editing regressions, makes authenticated publishing explicit, hardens the hosted GCP monitoring connector, repairs the repository's agentic workflows, and adds active-work reflection for Jira/KAN.

@@ -17,6 +17,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 const STUB_CSS = ':root { --tokens: loaded; }';
+const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
 
 let flaskStub: http.Server;
@@ -33,6 +34,9 @@ beforeAll(async () => {
     if (req.url === '/static/css/tokens.css') {
       res.writeHead(200, { 'content-type': 'text/css; charset=utf-8' });
       res.end(STUB_CSS);
+    } else if (req.url === '/static/js/public.js') {
+      res.writeHead(200, { 'content-type': 'application/javascript; charset=utf-8' });
+      res.end(STUB_JS);
     } else if (req.url === '/browse') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_HTML);
@@ -86,6 +90,13 @@ describe('SSR static asset proxying', () => {
     const body = await res.text();
     expect(res.headers.get('content-type')).not.toContain('text/html');
     expect(body).not.toContain('<!doctype html>');
+  });
+
+  it('proxies the public SSR script as same-origin JavaScript', async () => {
+    const res = await fetch(`${baseUrl}/static/js/public.js`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('application/javascript');
+    expect(await res.text()).toBe(STUB_JS);
   });
 
   it('proxies unknown /static/* paths to Flask (404 from Flask, not SPA 200)', async () => {
