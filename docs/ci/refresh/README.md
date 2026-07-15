@@ -20,7 +20,9 @@ Start with [PLAN.md](PLAN.md).
 | [diagram-current-state.md](diagram-current-state.md) | Mermaid — ungated, redundant today |
 | [diagram-target-pipeline.md](diagram-target-pipeline.md) | Mermaid — one gate + Docker + protection |
 | [diagram-workflow-map.md](diagram-workflow-map.md) | Mermaid + table — every workflow classified |
+| [SPEC-03-claude-independent-review.md](SPEC-03-claude-independent-review.md) | Independent Claude PR reviewer on a cheaper model (advisory) |
 | [diagram-harness-loop.md](diagram-harness-loop.md) | Mermaid — bounded execution loop |
+| [diagram-claude-review.md](diagram-claude-review.md) | Mermaid — the independent-review decision flow |
 | `skill/` | (bonus) reusable devex skill that regenerates this doc set for any repo |
 
 All diagrams are GitHub-renderable Mermaid in Markdown code blocks — no SVG

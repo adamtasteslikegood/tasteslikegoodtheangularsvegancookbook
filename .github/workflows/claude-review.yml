@@ -1,0 +1,127 @@
+# Independent Claude review — advisory, cost-optimized, fail-open.
+#
+# Runs a SECOND, INDEPENDENT review of a PR in its own CI session, on a DIFFERENT
+# and CHEAPER model than the authoring session (author works in Opus 4.8 / Fable 5;
+# this reviewer uses an Opus 4.x < 4.8). It reasons about scope, picks the review
+# skill + reasoning effort, applies fixes, and leaves a comment per fix.
+#
+# ADVISORY ONLY — never a required status check (see docs/ci/refresh/SPEC-02 §3 and
+# SPEC-03). `continue-on-error: true` so a flaky/absent key never blocks a merge.
+#
+# PREREQUISITES (one-time, by a maintainer):
+#   1. Add repo secret  ANTHROPIC_API_KEY   (Settings → Secrets → Actions).
+#   2. (recommended) Add repo variable  CLAUDE_REVIEW_MODEL  = the exact Opus 4.x<8
+#      model id you want (verify at console.anthropic.com). Default below is a
+#      placeholder — CONFIRM the id before relying on it.
+#   3. Create the `claude-review` label (used to request/re-request a review).
+#
+# Design: docs/ci/refresh/SPEC-03-claude-independent-review.md
+#         docs/ci/refresh/diagram-claude-review.md
+
+name: Claude Review (independent model)
+
+on:
+  pull_request:
+    # Auto once per PR (opened / un-drafted) + on-demand via the `claude-review`
+    # label. Deliberately NOT `synchronize` — one review per PR keeps cost bounded;
+    # re-request by re-applying the label. To review every push, add `synchronize`.
+    types: [opened, ready_for_review, labeled]
+    branches: [main, dev, 'dev/**']
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: 'PR number to review'
+        required: true
+
+permissions:
+  contents: write # apply + push fixes to the PR branch
+  pull-requests: write # post review comments
+  issues: write # fallback / summary comment
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number || github.event.inputs.pr }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Independent Claude review
+    # Same-repo only (forks/Dependabot have no secrets → skip cleanly), non-bot,
+    # non-draft; on `labeled` events only fire for the `claude-review` label.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.draft == false &&
+        github.event.pull_request.user.login != 'dependabot[bot]' &&
+        github.event.sender.type != 'Bot' &&
+        (github.event.action != 'labeled' || github.event.label.name == 'claude-review')
+      )
+    runs-on: ubuntu-latest
+    continue-on-error: true # advisory — never blocks the merge
+
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v7
+        with:
+          # For pull_request events this is the PR branch, so --fix can push back.
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0 # full history — /code-review --comment needs PR context
+          submodules: recursive
+
+      - name: Checkout dispatched PR
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr checkout "${{ github.event.inputs.pr }}"
+
+      - name: Pick a cost-optimized, independent review model
+        id: pick
+        run: |
+          # Deterministic, always-cheaper-than-author selection:
+          #   default = highest Opus 4.x below 4.8 (cheaper than Opus 4.8 / Fable 5
+          #   AND a different model, for genuinely independent perspective).
+          MODEL="${{ vars.CLAUDE_REVIEW_MODEL }}"
+          [ -z "$MODEL" ] && MODEL="claude-opus-4-7"
+          case "$MODEL" in
+            claude-opus-4-8*|claude-fable-5*)
+              echo "::warning::CLAUDE_REVIEW_MODEL=$MODEL is the authoring tier; using claude-opus-4-7 for a cheaper, independent review."
+              MODEL="claude-opus-4-7" ;;
+          esac
+          echo "model=$MODEL" >> "$GITHUB_OUTPUT"
+          echo "::notice::Independent review model: $MODEL"
+
+      - name: Review + fix + comment
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are an INDEPENDENT code reviewer running in CI, on a different and
+            cheaper model than the author's session. Review THIS pull request's diff
+            against its base branch. Be rigorous but do not fabricate issues.
+
+            1. Inspect the changed files (diff vs the base branch).
+            2. REASON about scope and risk, then CHOOSE:
+               - a reasoning effort level for the review — `low` or `medium` for
+                 small / low-risk diffs; `high` or `max` for large diffs or changes
+                 to core logic, the Express security/proxy/validation layers
+                 (server/security.ts, server/proxy.ts, server/validation.ts), auth,
+                 Dockerfiles, CI workflows, or dependency manifests.
+               - the review skill(s): always run the built-in `/code-review`;
+                 ADDITIONALLY run `/security-review` when the diff touches auth,
+                 secrets, the security/proxy/validation layers, Dockerfiles, or
+                 dependency manifests.
+            3. Run the review so it BOTH applies fixes and posts comments, e.g.
+               `/code-review <effort> --comment --fix` (substitute the effort you
+               chose). `--fix` edits the working tree (this action commits & pushes
+               to the PR branch); `--comment` posts each finding as an inline PR
+               comment.
+            4. Ensure EVERY fix you apply has a corresponding PR comment saying what
+               changed and why (inline on the changed line where possible). Finish
+               with ONE summary comment listing each fix as a bullet and noting the
+               model + effort you used, signed:
+               `— Independent Claude review (<model>, effort <level>)`.
+            5. If nothing is worth fixing, post a single short "no changes needed"
+               comment. This review is ADVISORY — never block the merge.
+          claude_args: |
+            --model ${{ steps.pick.outputs.model }}
+            --max-turns 15

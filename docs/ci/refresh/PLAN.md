@@ -52,6 +52,8 @@ required, so protection is turned on against a green, non-redundant tree.
 | [diagram-target-pipeline.md](diagram-target-pipeline.md) | Mermaid — one gate + Docker job + protection |
 | [diagram-workflow-map.md](diagram-workflow-map.md) | Mermaid + table — every workflow classified blocking/advisory/event |
 | [diagram-harness-loop.md](diagram-harness-loop.md) | Mermaid — the bounded execution loop |
+| [SPEC-03-claude-independent-review.md](SPEC-03-claude-independent-review.md) | Independent Claude PR reviewer on a cheaper model (advisory, authored) |
+| [diagram-claude-review.md](diagram-claude-review.md) | Mermaid — the independent-review decision flow |
 | `skill/` | (bonus) reusable "CI refresh devex" skill that generates this doc set for any repo |
 
 ## Stop-gate

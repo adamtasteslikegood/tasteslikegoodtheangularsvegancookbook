@@ -23,6 +23,7 @@ comment, they never block.**
 | Workflow | Trigger | Kind | Required? |
 |---|---|---|---|
 | `junie-review.yml` (Code Review) | PR `[main]`, `continue-on-error` | AI review | **Never** |
+| `claude-review.yml` (Claude Review, independent model) | PR `opened`/`ready`/label + dispatch, `continue-on-error` | AI review + auto-fix | **Never** ([SPEC-03](SPEC-03-claude-independent-review.md)) |
 | `junie-tag.yml` (Junie) | `@junie-agent` comments/issues | AI agent | **Never** |
 | `run-prettier-formatting-with-reviewdog.yml` | PR `[main,dev]`, same-repo only | Advisory format | **Never** (gate's `format:check` is the real enforcement) |
 | `gc-build-deploy.yml` (Google Cloud Build Gate) | push `**` + PR all, self-gated by `detect-trigger` | Deploy path | **Never** |
