@@ -89,13 +89,13 @@ export class GeminiService {
               reject(new Error('Failed to get recipe status'));
               return;
             }
-            const { recipe } = await res.json();
-            if (recipe.ai_image_url) {
-              clearInterval(poll);
-              resolve(recipe.ai_image_url);
-            } else if (recipe.ai_metadata?.image_generation?.success === false) {
+            const { status, recipe } = await res.json();
+            if (status === 'ready' && recipe.ai_metadata?.image_generation?.success === false) {
               clearInterval(poll);
               reject(new Error('Image generation failed during async processing'));
+            } else if (status === 'ready' && recipe.ai_image_url) {
+              clearInterval(poll);
+              resolve(recipe.ai_image_url);
             }
           } catch (e) {
             clearInterval(poll);
