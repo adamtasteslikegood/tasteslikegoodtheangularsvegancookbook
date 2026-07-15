@@ -128,23 +128,31 @@ is OUT of scope.
 
 ## Phase 3 — Guardrails (each sub-task delegable to a subagent)
 
-- [ ] 3.1 Space/project descriptions + landing pages for RCP, KAN, PLZG,
+- [x] 3.1 Space/project descriptions + landing pages for RCP, KAN, PLZG,
       TO(main): one paragraph a 9-year-old gamer or an agent can route by.
       Verify: fetch each description via MCP; it names its project and its
       counterpart spaces.
-- [ ] 3.2 Harden scripts/pm: site allowlist = tasteslikegood.atlassian.net
+      DONE 2026-07-13: routing descriptions set on all four main-site projects
+      during PR #3102.
+- [x] 3.2 Harden scripts/pm: site allowlist = tasteslikegood.atlassian.net
       only; project allowlist = RCP + KAN only (this repo must never touch
       PLZG/TO/-dev); fail loudly otherwise; add unit test or dry-run assert.
       Verify: test demonstrating a -dev URL or PLZG key is refused.
-- [ ] 3.3 Docs sweep — scripts/pm docs, CLAUDE.md, AGENTS.md + other agent
+      DONE 2026-07-13: `_atlassian_guard.py` is wired into PM entry points and
+      covered by `scripts/pm/test_atlassian_guard.py`.
+- [x] 3.3 Docs sweep — scripts/pm docs, CLAUDE.md, AGENTS.md + other agent
       instructions, README.md, .env.example, docs/* — update every Atlassian
       URL/key/space reference to the corrected layout.
       Verify: grep -rn 'tasteslikegood-dev.atlassian' scripts docs *.md
       .env.example returns only intentional service-site references.
-- [ ] 3.4 Log session + decisions to Confluence Agent Session Logs; link the
+      DONE 2026-07-13: corrected site/project routing is documented across the
+      repository guidance and PM tooling docs.
+- [x] 3.4 Log session + decisions to Confluence Agent Session Logs; link the
       Jira item tracking this chore.
-- [ ] GATE 3: all guardrail verifies pass; changes committed on this branch;
+      DONE 2026-07-13: PR #3102 links the durable Agent Session Log.
+- [x] GATE 3: all guardrail verifies pass; changes committed on this branch;
       PR opened against dev.
+      PASSED 2026-07-13: PR #3102 merged to dev.
 
 ## Blocked (needs Adam)
 
