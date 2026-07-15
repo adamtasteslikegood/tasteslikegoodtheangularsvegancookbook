@@ -15,6 +15,7 @@ flowchart TB
     end
     subgraph ADV["ADVISORY — run + comment, never required"]
         JR["junie-review.yml (Code Review, continue-on-error)"]
+        CLR["claude-review.yml (Claude Review — independent cheaper model)"]
         PRD["run-prettier-formatting-with-reviewdog.yml"]
         GC["gc-build-deploy.yml (Google Cloud Build Gate)"]
     end
@@ -48,6 +49,7 @@ flowchart TB
 | `release.yml` | push `main` | Deploy | Keep unchanged |
 | `gc-build-deploy.yml` | push `**` + PR all | Advisory/deploy | Scope triggers; keep out of required |
 | `junie-review.yml` | PR `[main]` | Advisory | Keep out of required |
+| `claude-review.yml` | PR opened/label + dispatch | Advisory | Keep out of required (SPEC-03) |
 | `run-prettier-...-reviewdog.yml` | PR `[main,dev]` | Advisory | Keep out of required |
 | `junie-tag.yml` | `@junie-agent` events | Event | Unchanged |
 | `security-alert-issues.yml` | schedule + dispatch | Event | Unchanged |
