@@ -30,9 +30,11 @@ export interface RawBodyRequest extends Request {
 // body well below the app-wide 50kb express.json limit.
 export const AI_REQUEST_BODY_LIMIT = '10kb';
 
-// Gemini model identifiers: optional "models/" prefix, then letters, digits,
-// dots and dashes (e.g. "models/gemini-3.1-pro-preview", "gemini-2.5-flash").
-const MODEL_NAME_RE = /^[A-Za-z0-9._/-]{1,128}$/;
+// Gemini model identifiers: optional "models/" prefix, then one segment of
+// letters, digits, dots, dashes, and underscores (e.g.
+// "models/gemini-3.1-pro-preview", "gemini-2.5-flash"). No other slashes, so
+// path-like values ("models/../v1", "a/b/c") are rejected at the boundary.
+const MODEL_NAME_RE = /^(?:models\/)?[A-Za-z0-9._-]{1,120}$/;
 
 /**
  * JSON body parser scoped to the AI endpoints. The verify hook captures the
@@ -60,7 +62,9 @@ const generateRules = [
     .isString()
     .withMessage('Prompt must be a string.')
     .bail()
-    .trim()
+    // No .trim(): Flask's validate_generation_input length-checks the raw
+    // string and the proxy replays req.rawBody verbatim, so the value
+    // validated here must be byte-identical to what Flask validates.
     .isLength({ min: 10 })
     .withMessage('Prompt must be at least 10 characters.')
     .isLength({ max: 500 })

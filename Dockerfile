@@ -10,7 +10,10 @@ RUN npm prune --omit=dev
 # Runtime stage
 FROM node:26-alpine
 WORKDIR /app
-COPY --from=datadog/serverless-init:1 /datadog-init /app/datadog-init
+# The :1 tag ships a glibc-dynamic binary whose /lib64 interpreter does not
+# exist on this musl (alpine) base — the ENTRYPOINT would fail to exec and the
+# container would never start. The -alpine tag ships a static binary.
+COPY --from=datadog/serverless-init:1-alpine /datadog-init /app/datadog-init
 ENV NODE_ENV=production
 ENV DD_SERVICE=express-frontend
 ENV DD_SITE=us5.datadoghq.com

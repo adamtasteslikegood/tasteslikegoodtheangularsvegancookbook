@@ -200,8 +200,8 @@ export const createErrorHandler = (): ErrorRequestHandler => {
       method: sanitizeForLog(req.method),
       path: sanitizeForLog(req.path),
       statusCode: res.statusCode,
-      error: err.message,
-      stack: err.stack,
+      error: sanitizeForLog(err.message),
+      stack: sanitizeForLog(err.stack),
     });
 
     // Send generic error message to client
