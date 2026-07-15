@@ -6,10 +6,22 @@
 # skill + reasoning effort, applies fixes, and leaves a comment per fix.
 #
 # ADVISORY ONLY — never a required status check (see docs/ci/refresh/SPEC-02 §3 and
-# SPEC-03). `continue-on-error: true` so a flaky/absent key never blocks a merge.
+# SPEC-03). `continue-on-error: true` so a flaky/absent key never blocks a merge,
+# and the review step is SKIPPED entirely when no Claude credential is configured.
+#
+# AUTH: prefers a Claude Pro/Max subscription OAuth token, falls back to an API key.
+#   * CLAUDE_CODE_OAUTH_TOKEN (primary) — long-lived token from `claude setup-token`;
+#     draws on your subscription's usage/rate limits.
+#   * ANTHROPIC_API_KEY (fallback) — metered API billing; used when the OAuth secret
+#     is absent. If BOTH are set, the action prefers the OAuth token.
+# `id-token: write` (below) is required so the action can mint the official Claude
+# GitHub App token via OIDC to post comments / push fixes — it is GitHub-side auth,
+# independent of which Claude credential you use.
 #
 # PREREQUISITES (one-time, by a maintainer):
-#   1. Add repo secret  ANTHROPIC_API_KEY   (Settings → Secrets → Actions).
+#   1. Add at least one Claude credential secret (Settings → Secrets → Actions):
+#      CLAUDE_CODE_OAUTH_TOKEN (preferred) and/or ANTHROPIC_API_KEY. With neither,
+#      the review step skips cleanly (advisory, no failure).
 #   2. (recommended) Add repo variable  CLAUDE_REVIEW_MODEL  = the exact Opus 4.x<8
 #      model id you want (verify at console.anthropic.com). Default below is a
 #      placeholder — CONFIRM the id before relying on it.
@@ -37,6 +49,7 @@ permissions:
   contents: write # apply + push fixes to the PR branch
   pull-requests: write # post review comments
   issues: write # fallback / summary comment
+  id-token: write # OIDC → official Claude GitHub App token (post comments / push fixes)
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number || github.event.inputs.pr }}
@@ -90,9 +103,32 @@ jobs:
           echo "model=$MODEL" >> "$GITHUB_OUTPUT"
           echo "::notice::Independent review model: $MODEL"
 
+      - name: Check for a Claude credential
+        id: auth
+        env:
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Advisory workflow: if no credential is configured, skip cleanly instead
+          # of failing (forks/Dependabot also land here — they have no secrets).
+          if [ -n "$OAUTH_TOKEN" ]; then
+            echo "::notice::Authenticating with CLAUDE_CODE_OAUTH_TOKEN (subscription)."
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$API_KEY" ]; then
+            echo "::notice::Authenticating with ANTHROPIC_API_KEY (API billing)."
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No CLAUDE_CODE_OAUTH_TOKEN or ANTHROPIC_API_KEY secret — skipping independent Claude review (advisory)."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Review + fix + comment
+        if: steps.auth.outputs.present == 'true'
         uses: anthropics/claude-code-action@v1
         with:
+          # OAuth token (subscription) is primary; the action prefers it when set and
+          # falls back to the API key when the OAuth secret is empty/unset.
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             You are an INDEPENDENT code reviewer running in CI, on a different and
