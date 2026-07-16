@@ -224,6 +224,21 @@ export class PersistenceService {
       // 201 = created, 409 = already exists (idempotent), both are fine
       if (!res.ok && res.status !== 409) {
         console.warn(`[PersistenceService] saveRecipe ${res.status}`);
+        return;
+      }
+      // Publish flow: the server may assign a different slug than the client
+      // (uniqueness suffix, empty-input fallback), so mirror its authoritative
+      // value back into local state — otherwise the /r/<slug> link in the UI
+      // silently points at another recipe or 404s until the next reload.
+      try {
+        const body = await res.json();
+        const serverSlug = body?.slug;
+        if (typeof serverSlug === 'string' && serverSlug && serverSlug !== recipe.slug) {
+          recipe.slug = serverSlug;
+          this.auth.saveRecipe(recipe);
+        }
+      } catch {
+        // Non-JSON body (e.g. 409) — keep the optimistic local value.
       }
     } catch (err) {
       console.warn('[PersistenceService] apiSaveRecipe failed:', err);
