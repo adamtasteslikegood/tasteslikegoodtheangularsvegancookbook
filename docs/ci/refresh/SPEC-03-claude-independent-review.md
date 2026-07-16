@@ -66,14 +66,25 @@ with the model + effort used.
 - **Cost bounded:** triggers on `opened` / `ready_for_review` (once per PR) + the
   `claude-review` label (on-demand re-review) + `workflow_dispatch` —
   **not** on every `synchronize` push. `concurrency` cancels superseded runs.
-  Model is always the cheaper Opus 4.x tier. `--max-turns 15` caps the agent loop.
+  Model is always the cheaper Opus 4.x tier. `--max-turns 60` caps the agent loop
+  (raised from 15 in cookbook #3129 after real reviews hit the ceiling mid-diff).
 - **Pushes to the PR branch:** `--fix` commits fixes back. Because it only runs on
-  same-repo PRs, it has write access; on forks it's skipped.
+  same-repo PRs, it has write access; on forks it's skipped. The shipped workflow
+  passes `--dangerously-skip-permissions` so the review can call the tools it
+  needs (Read/Edit/Bash for git, gh) unattended; the same-repo `if:` guard is what
+  keeps that safe — forks and Dependabot never reach this step.
+- **Trigger scope:** the `pull_request` block is limited to `branches: [main, dev,
+  'dev/**']`. PRs targeting other bases (integration branches outside `dev/**`)
+  are skipped; widen the allowlist if you add long-lived integration branches.
 
 ## 4. Prerequisites (one-time, maintainer)
 
-1. **Secret** `ANTHROPIC_API_KEY` (Settings → Secrets → Actions). None exists today
-   — the repo currently uses Junie/Gemini/Copilot for AI.
+1. **Claude credential secret(s)** — at least one of (Settings → Secrets → Actions):
+   - `CLAUDE_CODE_OAUTH_TOKEN` (preferred) — long-lived token from `claude setup-token`,
+     draws on your subscription's usage/rate limits. Cheapest for regular reviews.
+   - `ANTHROPIC_API_KEY` (fallback) — metered API billing.
+     If both are set, the action prefers the OAuth token. With neither, the review
+     step logs a `::warning::` and skips cleanly (advisory, no failure).
 2. **Variable** `CLAUDE_REVIEW_MODEL` = the confirmed Opus 4.x<8 id (recommended;
    default placeholder otherwise).
 3. **Label** `claude-review` (for on-demand review).
