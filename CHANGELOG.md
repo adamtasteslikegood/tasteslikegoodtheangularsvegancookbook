@@ -8,6 +8,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.6] - 2026-07-15
+
+Login fix release. Restores Google OAuth sign-in, which regressed under the
+Content Security Policy shipped in v0.3.4.
+
+### Fixed
+
+- **Google OAuth login no longer blanks on the callback**: the OAuth callback
+  returned an inline-script HTML page to perform its post-login redirect, which
+  Helmet's `script-src 'self'` CSP (added in v0.3.4) blocked — leaving users on
+  a blank callback page instead of signed in. The callback now issues a
+  server-side 302 redirect instead of relying on client-side script. Ships via
+  the Backend submodule pointer bump to `1077e42` (Backend #195, cookbook #3130).
+
+### Changed
+
+- **CI (internal, no runtime impact)**: added an advisory, cost-optimized
+  independent Claude review workflow that reviews each PR on a cheaper, different
+  model than the authoring session (#3128, #3129), plus a CI/CD refresh plan and
+  specs (#3125).
+- **Tooling (internal)**: automated session-start/end PM rituals via hooks
+  (#3126).
+
 ## [0.3.5] - 2026-07-15
 
 Deploy repair release. Identical in content to v0.3.4, which never reached
