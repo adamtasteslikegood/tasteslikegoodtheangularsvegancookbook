@@ -25,6 +25,38 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sessionstart-git-sync.sh",
+            "timeout": 45,
+            "statusMessage": "Syncing git + checking divergence"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sessionstart-pm-briefing.sh",
+            "timeout": 15,
+            "statusMessage": "Loading PM briefing"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sessionend-session-log.sh",
+            "timeout": 15,
+            "statusMessage": "Capturing session log"
+          }
+        ]
+      }
     ]
   },
   "enabledPlugins": {
