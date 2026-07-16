@@ -924,13 +924,15 @@ export class AppComponent {
 
   /**
    * Normalize a recipe title into a route-safe slug, matching the server's
-   * `normalize_slug` (NFKD → strip diacritics → lowercase → collapse any run
+   * `normalize_slug` (NFKD → drop every non-ASCII code unit — mirrors Python's
+   * `.encode("ascii", "ignore")`, which strips both combining marks AND
+   * non-decomposable characters like ø/æ/ł/ß — → lowercase → collapse any run
    * of non-alphanumerics to a single hyphen → trim hyphens).
    */
   private slugFromTitle(title: string): string {
     return title
       .normalize('NFKD')
-      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\u0080-\uFFFF]/g, '')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '');
