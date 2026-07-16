@@ -70,8 +70,11 @@ _repo_divergence() {
   git -C "$dir" rev-parse --git-dir >/dev/null 2>&1 || return 0
 
   # Fetch is best-effort; a network hiccup must not block the session. The
-  # hook-level timeout in settings.json bounds the total.
-  git -C "$dir" fetch origin --prune --quiet 2>/dev/null || true
+  # hook-level timeout in settings.json bounds the total. GIT_TERMINAL_PROMPT=0
+  # + GIT_ASKPASS=/bin/true make a missing/expired credential fail fast instead
+  # of blocking on a prompt that SessionStart has no stdin to answer.
+  GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true \
+    git -C "$dir" fetch origin --prune --quiet 2>/dev/null || true
 
   # Need both local base and origin/base to compare.
   git -C "$dir" rev-parse --verify --quiet "refs/heads/$base" >/dev/null 2>&1 || {
@@ -91,7 +94,8 @@ _repo_divergence() {
   fi
 }
 
-CUR_BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null || echo "?")
+CUR_BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null)
+[ -n "$CUR_BRANCH" ] || CUR_BRANCH="(detached at $(git -C "$CWD" rev-parse --short HEAD 2>/dev/null || echo "?"))"
 
 SUMMARY=$(
   echo "Automated git sync (read-only fetch) at session start:"
