@@ -85,34 +85,37 @@ if ! command -v claude >/dev/null 2>&1; then
   exit 0
 fi
 
-# --- cross-process dedup (two windows / resume racing the same session) -----
-# CLAUDE_PM_SESSION_LOG_ACTIVE only guards recursion *within* this process tree
-# (it's an exported env var the `claude -p` summarizer inherits) — it does NOT
-# coordinate across separate shells. If the same session_id ends in two
-# processes at once, both would otherwise publish a near-identical page.
-# Arbitrate with an ATOMIC mkdir claim keyed by session_id: exactly one process
-# wins the mkdir; the loser skips. A 10-minute stale window lets a much-later
-# resume of the same id log again (concurrent ends are always <10min apart, so
-# the prune never fires for them — mkdir stays the sole arbiter of the race).
-if [ -n "$SESSION_ID" ]; then
-  SAFE_ID=$(printf '%s' "$SESSION_ID" | tr -c 'A-Za-z0-9._-' '_')
-  CLAIM_ROOT="$MAIN_REPO/.claude/session-logs"
-  CLAIM="$CLAIM_ROOT/$SAFE_ID"
-  mkdir -p "$CLAIM_ROOT" 2>/dev/null || true
-  if [ -d "$CLAIM" ] && [ -n "$(find "$CLAIM" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
-    rm -rf "$CLAIM" 2>/dev/null || true
-  fi
-  if ! mkdir "$CLAIM" 2>/dev/null; then
-    echo "  skip: session ${SESSION_ID} already logged within 10 min (another window/process)" >>"$LOG"
-    exit 0
-  fi
-fi
-
 # --- detach: do the slow work without stalling teardown ---------------------
+# The mkdir claim below is taken INSIDE the subshell, not before it: it only
+# needs to hold for the duration of the actual work, and it is always removed
+# on exit (success or failure) so a transient failure never leaves a stale
+# claim blocking a legitimate later SessionEnd for the same session_id.
 (
   export CLAUDE_PM_SESSION_LOG_ACTIVE=1
+
+  # --- cross-process dedup (two windows / resume racing the same session) ---
+  # CLAUDE_PM_SESSION_LOG_ACTIVE only guards recursion *within* this process
+  # tree — it does NOT coordinate across separate shells. If the same
+  # session_id ends in two processes at once, both would otherwise publish a
+  # near-identical page. Arbitrate with an ATOMIC mkdir claim keyed by
+  # session_id: exactly one process wins the mkdir; the loser skips. A
+  # 10-minute stale window lets a much-later resume of the same id log again.
+  if [ -n "$SESSION_ID" ]; then
+    SAFE_ID=$(printf '%s' "$SESSION_ID" | tr -c 'A-Za-z0-9._-' '_')
+    CLAIM_ROOT="$MAIN_REPO/.claude/session-logs"
+    CLAIM="$CLAIM_ROOT/$SAFE_ID"
+    mkdir -p "$CLAIM_ROOT" 2>/dev/null || true
+    if [ -d "$CLAIM" ] && [ -n "$(find "$CLAIM" -maxdepth 0 -mmin +10 2>/dev/null)" ]; then
+      rm -rf "$CLAIM" 2>/dev/null || true
+    fi
+    if ! mkdir "$CLAIM" 2>/dev/null; then
+      echo "  skip: session ${SESSION_ID} already logged within 10 min (another window/process)" >>"$LOG"
+      exit 0
+    fi
+  fi
+
   WORK=$(mktemp -d -t session-log-end-XXXXXX)
-  trap 'rm -rf "$WORK"' EXIT
+  trap 'rm -rf "$WORK" "${CLAIM:-}"' EXIT
 
   DIGEST="$WORK/digest.txt"
   SUMMARY="$WORK/summary.md"
@@ -130,7 +133,7 @@ fi
   # aborted sessions. If the condensed digest is tiny, there is nothing worth a
   # Confluence page — skip before spending a model call. PreCompact has no such
   # gate because a session that filled its context is substantive by definition.
-  DIGEST_CHARS=$(wc -m <"$DIGEST" 2>/dev/null | tr -d ' ')
+  DIGEST_CHARS=$(LC_ALL=C.UTF-8 wc -m <"$DIGEST" 2>/dev/null | tr -d ' ')
   DIGEST_CHARS=${DIGEST_CHARS:-0}
   if [ "$DIGEST_CHARS" -lt 800 ]; then
     echo "  skip: digest too small ($DIGEST_CHARS chars < 800) — trivial session" >>"$LOG"

@@ -91,7 +91,8 @@ _repo_divergence() {
   fi
 }
 
-CUR_BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null || echo "?")
+CUR_BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null)
+[ -n "$CUR_BRANCH" ] || CUR_BRANCH="(detached at $(git -C "$CWD" rev-parse --short HEAD 2>/dev/null || echo "?"))"
 
 SUMMARY=$(
   echo "Automated git sync (read-only fetch) at session start:"
