@@ -401,13 +401,15 @@
                   }
                   @if (canPublish() && r.is_public) {
                     <div class="flex items-center gap-2 ml-1 animate-[fadeIn_0.2s]">
-                      <input
-                        type="text"
-                        [(ngModel)]="r.slug"
-                        (blur)="updateSlug(r)"
-                        class="px-2 py-1 text-xs border border-stone-200 rounded focus:ring-1 focus:ring-green-500 outline-none w-28 bg-stone-50"
-                        placeholder="recipe-slug"
-                      />
+                      <!-- The public URL is derived from the recipe title on the
+                           server and shown read-only. A /r/<slug> address is a
+                           stable, shareable, indexed link, so it must not be
+                           freely retyped (rename the recipe to change it). -->
+                      <span
+                        class="px-2 py-1 text-xs font-mono text-stone-500 truncate max-w-[11rem]"
+                        [title]="'/r/' + r.slug"
+                        >/r/{{ r.slug }}</span
+                      >
                       <a
                         [href]="'/r/' + r.slug"
                         target="_blank"
