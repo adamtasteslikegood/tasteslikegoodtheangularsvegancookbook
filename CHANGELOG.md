@@ -8,6 +8,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **Pinterest "Save to Pinterest" button no longer creates broken pins**: the
+  button on a public recipe page now renders only when the recipe has a
+  genuinely fetchable image, so a recipe whose image is missing (a row with an
+  `ai_image_url` but no stored bytes) no longer offers a pin whose media 404s.
+  A run of broken pins to a fresh domain is exactly what trips Pinterest's
+  new-account spam heuristics. Also adds an inert `p:domain_verify` placeholder
+  in the public `<head>` for domain claiming (unlocks Rich Pins). Ships via the
+  Backend submodule pointer bump to `1baa118` (Backend #200).
+
 ## [0.3.6] - 2026-07-15
 
 Login fix release. Restores Google OAuth sign-in, which regressed under the
