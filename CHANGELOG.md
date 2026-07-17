@@ -6,10 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.3.7] - 2026-07-17
+
+Public-URL hardening release. The recipe publish flow no longer accepts a
+user-typed `/r/<slug>` address.
 
 ### Fixed
 
+- **Removed the free-form public-slug input in My Kitchen**: the publish row
+  let any text be saved verbatim as the recipe's public `/r/<slug>` address —
+  an abuse vector for a stable, indexed, shareable URL (junk URLs, collisions,
+  client/server slug drift). The slug is now always derived from the recipe
+  title (client mirror of the server's `normalize_slug`, byte-identical and
+  pinned by a 15-case parity test) and shown read-only; the server remains
+  authoritative and its collision-resolved slug is reconciled back into local
+  state from the save response ([#3138](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3138)).
+  Follow-ups tracked in [#3146](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3146)
+  and [#3147](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3147).
 - **Pinterest "Save to Pinterest" button no longer creates broken pins**: the
   button on a public recipe page now renders only when the recipe has a
   genuinely fetchable image, so a recipe whose image is missing (a row with an
