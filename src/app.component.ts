@@ -914,11 +914,19 @@ export class AppComponent {
     }
 
     try {
-      await this.persistenceService.saveRecipe(recipe);
+      const synced = await this.persistenceService.saveRecipe(recipe);
+      if (!synced) {
+        throw new Error('Publish state failed to sync to the server');
+      }
       this.authService.saveRecipe(recipe); // Update local state
     } catch (err) {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState; // Revert on failure
+      // saveRecipe() above already wrote the optimistic value to localStorage
+      // (via PersistenceService's local-first write) before the API call
+      // failed — persist the reverted value too, or it reappears as
+      // published/unpublished on refresh until the next API hydrate.
+      this.authService.saveRecipe(recipe);
     }
   }
 
