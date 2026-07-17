@@ -48,14 +48,16 @@ export class PersistenceService {
 
   // ─── Public API (components call these instead of AuthService directly) ──
 
-  async saveRecipe(recipe: Recipe): Promise<void> {
+  /** Resolves `false` when the API sync failed so callers with optimistic UI
+   *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`. */
+  async saveRecipe(recipe: Recipe): Promise<boolean> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return true;
 
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
 
-    await this._apiSaveRecipe(recipe);
+    return await this._apiSaveRecipe(recipe);
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {
@@ -215,8 +217,12 @@ export class PersistenceService {
   }
 
   /** POST a recipe to Flask; the endpoint upserts same-owner recipes, so
-   *  re-saves are idempotent (201 both on create and on update). */
-  private async _apiSaveRecipe(recipe: Recipe): Promise<void> {
+   *  re-saves are idempotent (201 both on create and on update).
+   *  Never rejects — background-sync callers (restoreRecipe,
+   *  addRecipeToCookbook, ...) rely on that. Returns `false` on failure
+   *  instead so callers that need to react to a failed sync (e.g. revert
+   *  optimistic UI state) can check the resolved value. */
+  private async _apiSaveRecipe(recipe: Recipe): Promise<boolean> {
     try {
       const res = await this._fetch('/api/recipes', {
         method: 'POST',
@@ -227,7 +233,7 @@ export class PersistenceService {
       // conflicts doesn't spam warnings for an already-persisted recipe.
       if (!res.ok && res.status !== 409) {
         console.warn(`[PersistenceService] saveRecipe ${res.status}`);
-        return;
+        return false;
       }
       // Publish flow: the server may assign a different slug than the client
       // (uniqueness suffix, empty-input fallback), so mirror its authoritative
@@ -243,8 +249,10 @@ export class PersistenceService {
       } catch {
         // Body missing or not JSON — keep the optimistic local value.
       }
+      return true;
     } catch (err) {
       console.warn('[PersistenceService] apiSaveRecipe failed:', err);
+      return false;
     }
   }
 

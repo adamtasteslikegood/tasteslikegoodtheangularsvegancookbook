@@ -914,7 +914,10 @@ export class AppComponent {
     }
 
     try {
-      await this.persistenceService.saveRecipe(recipe);
+      const synced = await this.persistenceService.saveRecipe(recipe);
+      if (!synced) {
+        throw new Error('Publish state failed to sync to the server');
+      }
       this.authService.saveRecipe(recipe); // Update local state
     } catch (err) {
       console.error('Failed to toggle public state:', err);
