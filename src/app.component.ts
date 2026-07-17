@@ -905,41 +905,45 @@ export class AppComponent {
     const nextState = !recipe.is_public;
     recipe.is_public = nextState;
 
-    // If making public and slug is missing, generate one
+    // Derive the public slug from the recipe title when publishing without one.
+    // The server (Backend utils/slug_utils.normalize_slug) re-derives and
+    // enforces uniqueness on publish, so the slug is not user-editable; this
+    // mirror keeps the same normalization for an immediately-correct link.
     if (nextState && !recipe.slug) {
-      recipe.slug = recipe.name
-        .toLowerCase()
-        .trim()
-        .replace(/[^\w\s-]/g, '')
-        .replace(/[\s_-]+/g, '-')
-        .replace(/^-+|-+$/g, '');
+      recipe.slug = this.slugFromTitle(recipe.name);
     }
 
     try {
-      await this.persistenceService.saveRecipe(recipe);
+      const synced = await this.persistenceService.saveRecipe(recipe);
+      if (!synced) {
+        throw new Error('Publish state failed to sync to the server');
+      }
       this.authService.saveRecipe(recipe); // Update local state
     } catch (err) {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState; // Revert on failure
+      // saveRecipe() above already wrote the optimistic value to localStorage
+      // (via PersistenceService's local-first write) before the API call
+      // failed — persist the reverted value too, or it reappears as
+      // published/unpublished on refresh until the next API hydrate.
+      this.authService.saveRecipe(recipe);
     }
   }
 
-  async updateSlug(recipe: Recipe) {
-    if (!recipe.slug?.trim()) return;
-
-    // Clean the slug
-    recipe.slug = recipe.slug
+  /**
+   * Normalize a recipe title into a route-safe slug, matching the server's
+   * `normalize_slug` (NFKD → drop every non-ASCII code unit — mirrors Python's
+   * `.encode("ascii", "ignore")`, which strips both combining marks AND
+   * non-decomposable characters like ø/æ/ł/ß — → lowercase → collapse any run
+   * of non-alphanumerics to a single hyphen → trim hyphens).
+   */
+  private slugFromTitle(title: string): string {
+    return title
+      .normalize('NFKD')
+      .replace(/[\u0080-\uFFFF]/g, '')
       .toLowerCase()
-      .trim()
-      .replace(/[\s_-]+/g, '-')
-      .replace(/[^\w-]/g, '');
-
-    try {
-      await this.persistenceService.saveRecipe(recipe);
-      this.authService.saveRecipe(recipe); // Update local state
-    } catch (err) {
-      console.error('Failed to update slug:', err);
-    }
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
   }
 
   formatAmount(amount: number | number[]): string {
