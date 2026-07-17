@@ -236,7 +236,7 @@ export class PersistenceService {
         return false;
       }
       // Publish flow: the server may assign a different slug than the client
-      // (uniqueness suffix, empty-input fallback), so mirror its authoritative
+      // sent (uniqueness collision suffix), so mirror its authoritative
       // value back into local state — otherwise the /r/<slug> link in the UI
       // silently points at another recipe or 404s until the next reload.
       try {
