@@ -83,10 +83,10 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 ### Layer 3 — Flask API (`Backend/`)
 
-Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — ignore its monolithic description):
+Modular blueprint architecture — `Backend/CLAUDE.md` is the authoritative reference for Backend details:
 
 - `auth.py` + `blueprints/auth_api_bp.py` — Google OAuth 2.0 flow, sessions
-- `blueprints/generation_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen)
+- `blueprints/generation_api_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen); `generation_bp.py` is legacy HTML-form helpers
 - `blueprints/recipes_api_bp.py` — CRUD for recipes
 - `blueprints/collections_api_bp.py` — CRUD for cookbooks
 - `services/` — business logic (Gemini, Imagen, stock images)
