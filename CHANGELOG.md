@@ -30,7 +30,22 @@ user-typed `/r/<slug>` address.
   A run of broken pins to a fresh domain can trigger Pinterest's new-account spam
   heuristics. Also adds an inert `p:domain_verify` placeholder in the public
   `<head>` for domain claiming (unlocks Rich Pins). Ships via the Backend
-  submodule pointer bump to `1baa118` (Backend [#200](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/200)).
+  submodule pointer bump to `daa4da7` (Backend [#200](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/200)).
+- **Pinterest pin media now matches the gated image source**: with a stale
+  `ai_image_url` (bytes never stored) next to a valid stock image, the
+  Pinterest button passed its render gate via the stock image but still
+  shipped the dead AI URL as the pin's `media`. The share URL is now built
+  from the same signal that passes the gate — the canonical image endpoint
+  when stored bytes exist, else the stock image URL (Backend
+  [#203](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/203),
+  flagged by Copilot review on the Backend promotion PR
+  [#202](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/202)).
+- **Publish/unpublish now reverts cleanly when the server sync fails**: a
+  failed publish toggle kept the optimistic `is_public` state in the UI and
+  in localStorage even though the server never saved it. Sync failures now
+  surface to `togglePublic()`, which reverts the toggle and re-persists the
+  reverted state (on [#3150](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3150),
+  flagged by Copilot review).
 
 ## [0.3.6] - 2026-07-15
 
