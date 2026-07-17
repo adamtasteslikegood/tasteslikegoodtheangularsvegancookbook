@@ -404,7 +404,9 @@
                       <!-- The public URL is derived from the recipe title on the
                            server and shown read-only. A /r/<slug> address is a
                            stable, shareable, indexed link, so it must not be
-                           freely retyped (rename the recipe to change it). -->
+                           freely retyped. Once assigned it stays with the recipe:
+                           the server keeps the existing slug on later saves, so
+                           renaming the recipe does NOT change the URL. -->
                       <span
                         class="px-2 py-1 text-xs font-mono text-stone-500 truncate max-w-[11rem]"
                         [title]="'/r/' + r.slug"

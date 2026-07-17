@@ -214,14 +214,17 @@ export class PersistenceService {
     this._apiSynced = false;
   }
 
-  /** POST a recipe to Flask; idempotent — ignores 409 conflicts. */
+  /** POST a recipe to Flask; the endpoint upserts same-owner recipes, so
+   *  re-saves are idempotent (201 both on create and on update). */
   private async _apiSaveRecipe(recipe: Recipe): Promise<void> {
     try {
       const res = await this._fetch('/api/recipes', {
         method: 'POST',
         body: JSON.stringify({ ...recipe, id: recipe.id }),
       });
-      // 201 = created, 409 = already exists (idempotent), both are fine
+      // The current API never returns 409 (it upserts instead of conflicting);
+      // tolerated defensively so a backend that reintroduces duplicate
+      // conflicts doesn't spam warnings for an already-persisted recipe.
       if (!res.ok && res.status !== 409) {
         console.warn(`[PersistenceService] saveRecipe ${res.status}`);
         return;
@@ -238,7 +241,7 @@ export class PersistenceService {
           this.auth.saveRecipe(recipe);
         }
       } catch {
-        // Non-JSON body (e.g. 409) — keep the optimistic local value.
+        // Body missing or not JSON — keep the optimistic local value.
       }
     } catch (err) {
       console.warn('[PersistenceService] apiSaveRecipe failed:', err);
