@@ -48,14 +48,16 @@ export class PersistenceService {
 
   // ─── Public API (components call these instead of AuthService directly) ──
 
-  async saveRecipe(recipe: Recipe): Promise<void> {
+  /** Resolves `false` when the API sync failed so callers with optimistic UI
+   *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`. */
+  async saveRecipe(recipe: Recipe): Promise<boolean> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return true;
 
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
 
-    await this._apiSaveRecipe(recipe);
+    return await this._apiSaveRecipe(recipe);
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {
@@ -214,19 +216,43 @@ export class PersistenceService {
     this._apiSynced = false;
   }
 
-  /** POST a recipe to Flask; idempotent — ignores 409 conflicts. */
-  private async _apiSaveRecipe(recipe: Recipe): Promise<void> {
+  /** POST a recipe to Flask; the endpoint upserts same-owner recipes, so
+   *  re-saves are idempotent (201 both on create and on update).
+   *  Never rejects — background-sync callers (restoreRecipe,
+   *  addRecipeToCookbook, ...) rely on that. Returns `false` on failure
+   *  instead so callers that need to react to a failed sync (e.g. revert
+   *  optimistic UI state) can check the resolved value. */
+  private async _apiSaveRecipe(recipe: Recipe): Promise<boolean> {
     try {
       const res = await this._fetch('/api/recipes', {
         method: 'POST',
         body: JSON.stringify({ ...recipe, id: recipe.id }),
       });
-      // 201 = created, 409 = already exists (idempotent), both are fine
+      // The current API never returns 409 (it upserts instead of conflicting);
+      // tolerated defensively so a backend that reintroduces duplicate
+      // conflicts doesn't spam warnings for an already-persisted recipe.
       if (!res.ok && res.status !== 409) {
         console.warn(`[PersistenceService] saveRecipe ${res.status}`);
+        return false;
       }
+      // Publish flow: the server may assign a different slug than the client
+      // sent (uniqueness collision suffix), so mirror its authoritative
+      // value back into local state — otherwise the /r/<slug> link in the UI
+      // silently points at another recipe or 404s until the next reload.
+      try {
+        const body = await res.json();
+        const serverSlug = body?.slug;
+        if (typeof serverSlug === 'string' && serverSlug && serverSlug !== recipe.slug) {
+          recipe.slug = serverSlug;
+          this.auth.saveRecipe(recipe);
+        }
+      } catch {
+        // Body missing or not JSON — keep the optimistic local value.
+      }
+      return true;
     } catch (err) {
       console.warn('[PersistenceService] apiSaveRecipe failed:', err);
+      return false;
     }
   }
 
