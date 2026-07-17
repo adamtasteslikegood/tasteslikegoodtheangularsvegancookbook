@@ -265,7 +265,7 @@ npm start
   - Static serving of the Angular `dist/` output + `GET /privacy-policy`
   - `GET /r/*`, `/browse`, `/sitemap.xml`, `/static/*` — proxied to Flask SSR, mounted BEFORE the SPA catch-all (see "Public Recipe Site" below)
   - Catch-all `GET *` → `dist/index.html` (SPA routing)
-- `server/security.ts` — Helmet with **CSP enabled** (see below); rate limiting `300 req/15 min` general (`/api/health` and public image serving exempt) and `20 req/hr` for the two AI endpoints; request logging; error handler.
+- `server/security.ts` — Helmet with **CSP enabled** (see below); rate limiting `300 req/15 min` general (`/api/health` and recipe-image serving — `/api/recipes/<id>/image`, public or private — are exempt) and `20 req/hr` for the two AI endpoints; request logging; error handler.
 - `server/valkey.ts` — Valkey (Redis-compatible) client backing the rate limiters, so limits are shared across Cloud Run instances; falls back to per-instance in-memory stores when Valkey is unavailable.
 - `server/validation.ts` — `express-validator` on POST `/api/generate` and `/api/generate_image` ONLY. Buffers the JSON body (10 kb cap), validates it (`prompt` 10–500 chars, optional `model` name, `recipe_id` UUID, `force_regenerate` boolean), then stashes the exact validated bytes on `req.rawBody` for the proxy to replay to Flask verbatim. Every other `/api/*` route keeps raw streaming — do not add body parsers ahead of the proxy.
 - **No AI logic** — Express is a pure reverse proxy + static host.
@@ -286,7 +286,7 @@ Since v0.2, recipes can be published to a public server-rendered site (SEO-focus
 - `Recipe` rows carry `is_public` (bool) and `slug` (unique, indexed). Slugs are **derived from the recipe title server-side** — the user-editable slug field was removed in v0.3.7 for URL hardening; do not reintroduce client-supplied slugs.
 - Flask renders the pages with Jinja (`Backend/templates/`, styles in `Backend/static/css/`): `/r/<slug>` (single recipe), `/browse` (paginated listing), `/sitemap.xml`, plus JSON at `/api/recipes/public/<slug>` used by the save-to-cookbook flow (`src/services/public-recipe.mapper.ts`).
 - Express proxies `GET /r/*`, `/browse`, `/sitemap.xml`, and `/static/*` (Flask template CSS) to Flask **BEFORE the Angular catch-all** in `server/index.ts` — a public route added after the catch-all is dead code.
-- Images of public recipes are served unauthenticated via `/api/recipes/<id>/image` (exempt from the general rate limit).
+- Images of public recipes load without authentication via `/api/recipes/<id>/image`. Access control lives in Flask (`serve_recipe_image` in `Backend/blueprints/generation_api_bp.py`): `is_public` recipes bypass ownership scoping so anonymous SSR pages and crawlers can load them; private recipes still require the owning user/guest session. On the Express side this path is exempt from the general rate limit (all recipe images, public or private).
 
 ### Flask Backend (API + AI + Auth + DB)
 
