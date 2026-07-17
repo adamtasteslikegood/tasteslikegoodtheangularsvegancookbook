@@ -56,14 +56,15 @@ Examples: `[quick-reply: Yes | No]`  `[quick-reply: Keep | Delete all:danger]`
 ## Project Overview
 
 **Vegangenius Chef** is a vegan recipe generator and personal cookbook app.
-Three-tier architecture: **Angular 21 SPA → Express reverse-proxy → Flask API → Cloud SQL (PostgreSQL)**.
+Three-tier architecture: **Angular 22 SPA → Express reverse-proxy → Flask API → Cloud SQL (PostgreSQL)**.
 
 Users can:
 
-- Generate vegan recipes from a natural-language prompt (Gemini `gemini-3.1-pro-preview`)
+- Generate vegan recipes from a natural-language prompt (Gemini — default model `gemini-3.1-pro-preview`, chosen server-side in Flask)
 - Have AI-generated food photos created for each recipe (Imagen `imagen-4.0-generate-001`)
 - Save recipes, organize them into named cookbooks, and scale ingredient portions
 - Enter recipes manually and import/export recipes as JSON
+- Publish recipes to the public SSR site (`is_public` + title-derived `slug`, served at `/r/<slug>` — see "Public Recipe Site" below)
 - Sign in via Google OAuth (or use the app as a guest, with data stored in `localStorage`)
 
 ---
@@ -72,15 +73,16 @@ Users can:
 
 ```
 index.tsx                    # Angular bootstrap (.tsx per tsconfig jsx:react-jsx)
+index.html                   # SPA HTML shell used by the Angular build
 angular.json                 # Angular CLI build config (builder: @angular/build:application)
 tsconfig.json                # Frontend TS config (target ES2022, jsx react-jsx)
 tailwind.config.js           # Tailwind CSS v3
 postcss.config.js            # PostCSS (Tailwind + autoprefixer)
 eslint.config.js             # Flat ESLint config (TS + Angular + Prettier)
-vitest.config.ts             # Vitest config (server tests only)
+vitest.config.ts             # Vitest config (server + src unit tests; coverage on server/)
 proxy.conf.json              # Dev proxy: /api → localhost:5000 (Flask)
 Dockerfile                   # Multi-stage build (node:26-alpine)
-cloudbuild.yaml              # GCB pipeline: build + push + deploy both services
+cloudbuild.yaml              # GCB pipeline: build images, run DB-migrate job, deploy services
 package.json                 # npm scripts, dependencies
 .env.example                 # Environment variable template
 
@@ -97,28 +99,36 @@ src/
     gemini.service.ts        # Calls /api/generate, /api/generate_image (fetch)
     auth.service.ts          # Google OAuth + guest localStorage sessions
     persistence.service.ts   # Hybrid persistence: Flask API + localStorage cache
+    public-recipe.mapper.ts  # Save-to-cookbook mapping for public-site payloads
+  (unit tests live alongside sources: *.test.ts / *.spec.ts)
 
 server/
-  index.ts                   # Express entry: health, proxy, static, SPA catch-all
+  index.ts                   # Express entry: health, limiters, validation, proxy,
+                             # SSR routes, SPA catch-all (mounting order matters)
   proxy.ts                   # createFlaskProxy() — streams to FLASK_BACKEND_URL
-  security.ts                # Helmet, rate limiters, request logger, error handler
-  validation.ts              # express-validator rules (prompt, image fields)
+  security.ts                # Helmet incl. CSP (ENABLED — high-risk, see below), rate limiters
+  validation.ts              # express-validator for the two AI POST endpoints (see below)
+  valkey.ts                  # Valkey client — distributed rate-limit store (in-memory fallback)
   types.ts                   # Server-side TypeScript interfaces
-  server.test.ts             # Vitest tests
+  public/                    # Static pages served by Express (privacy-policy.html)
+  *.test.ts                  # Vitest tests (server, routes, validation)
   tsconfig.server.json       # Separate TS config (target ES2022, outDir dist/)
 
-Backend/                     # Flask backend (Python)
+Backend/                     # Flask backend (Python) — GIT SUBMODULE, pinned by SHA;
+                             # Backend/CLAUDE.md is the authoritative Backend reference
   app.py                     # Flask factory (create_app), CORS, session middleware
   auth.py                    # Google OAuth blueprint
-  config.py                  # DB URI, environment loading
+  config.py                  # DB URI, DEFAULT_MODEL, environment loading
   extensions.py              # SQLAlchemy db, Flask-Migrate
-  blueprints/                # Route handlers (recipes, generation, collections, auth)
-  models/                    # SQLAlchemy models
+  blueprints/                # *_api_bp.py JSON APIs (recipes, generation, collections,
+                             # auth) + public_bp.py SSR pages (/r/<slug>, /browse, sitemap)
+  models/                    # SQLAlchemy models (Recipe carries is_public + slug)
   repositories/              # Data access layer
-  services/                  # Business logic (Gemini, images, stock images)
+  services/                  # Business logic (Gemini, Imagen, stock images)
+  templates/, static/        # Jinja templates + CSS for the public SSR pages
   migrations/                # Alembic/Flask-Migrate schema migrations
   Dockerfile                 # Flask production container
-  requirements.txt           # Python dependencies
+  pyproject.toml, uv.lock    # Python dependencies — install with `uv sync`
 
 docs/                        # Architecture decisions, guides, phase docs
 scripts/                     # Utility scripts (list_revisions.sh, etc.)
@@ -128,20 +138,23 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 
 ## Tech Stack
 
-| Layer              | Technology                                                  | Version  |
-| ------------------ | ----------------------------------------------------------- | -------- |
-| Frontend framework | Angular (standalone components, signals API)                | 21       |
-| Styling            | Tailwind CSS                                                | 3        |
-| Frontend build     | Angular CLI (`@angular/build`) backed by Vite               | 21       |
-| Reverse proxy      | Node.js + Express                                           | 20 / 4.x |
-| Backend API        | Python + Flask                                              | 3.x      |
-| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate       | —        |
-| AI — text          | Google Gemini `gemini-2.5-flash` via `@google/genai`        | —        |
-| AI — images        | Google Imagen `imagen-4.0-generate-001` via `@google/genai` | —        |
-| Auth               | Google OAuth (Flask sessions) + localStorage guests         | —        |
-| Deployment         | Google Cloud Run (2 services) + Cloud Build                 | —        |
-| Linting            | ESLint (flat config) + Prettier                             | 9 / 3    |
-| Testing            | Vitest (server tests)                                       | 4        |
+| Layer              | Technology                                                                     | Version  |
+| ------------------ | ------------------------------------------------------------------------------ | -------- |
+| Frontend framework | Angular (standalone components, signals API)                                   | 22       |
+| Language           | TypeScript — pinned EXACTLY (no `^`); moves in lockstep with Angular majors    | 6.0.3    |
+| Styling            | Tailwind CSS                                                                   | 3        |
+| Frontend build     | Angular CLI (`@angular/build` application builder, esbuild/Vite-based)         | 22       |
+| Reverse proxy      | Node.js + Express                                                              | 26 / 5.x |
+| Backend API        | Python + Flask                                                                 | 3.x      |
+| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate                          | —        |
+| AI — text          | Google Gemini in Flask (`google-genai` SDK) — default `gemini-3.1-pro-preview` | —        |
+| AI — images        | Google Imagen in Flask — `imagen-4.0-generate-001`                             | —        |
+| Auth               | Google OAuth (Flask sessions) + localStorage guests                            | —        |
+| Deployment         | Google Cloud Run (2 services + 1 migrate Job) + Cloud Build                    | —        |
+| Linting            | ESLint (flat config) + Prettier                                                | 10 / 3   |
+| Testing            | Vitest (server + src unit tests)                                               | 4        |
+
+All AI calls happen in Flask via the `google-genai` **Python** SDK — the `@google/genai` npm package is not imported anywhere in `src/` or `server/`. Model choice is server-side (`DEFAULT_MODEL` in `Backend/config.py`); model IDs listed by `GET /api/models` carry the `models/` prefix (e.g. `models/gemini-3.1-pro-preview`).
 
 ---
 
@@ -185,7 +198,7 @@ npm run format:check   # Prettier check
 npm run type-check
 
 # Tests
-npm test               # Vitest (server tests)
+npm test               # Vitest (server + src unit tests)
 npm run test:ci        # With coverage
 ```
 
@@ -210,15 +223,15 @@ export $(grep -v '^#' .env.local | xargs)
 npm start
 ```
 
-| Variable                  | Required  | Used by                          | Description                                 |
-| ------------------------- | --------- | -------------------------------- | ------------------------------------------- |
-| `GEMINI_API_KEY`          | ✅        | Express (Secret Manager in prod) | Gemini API key                              |
-| `FLASK_BACKEND_URL`       | No        | Express                          | Flask URL (default `http://localhost:5000`) |
-| `PORT`                    | No        | Express                          | Server port (default `8080`)                |
-| `NODE_ENV`                | No        | Express                          | `development` or `production`               |
-| `GOOGLE_API_KEY`          | ✅        | Flask (Secret Manager in prod)   | Gemini key for Flask                        |
-| `FLASK_SECRET_KEY`        | ✅ (prod) | Flask                            | Session signing key                         |
-| `SQLALCHEMY_DATABASE_URI` | ✅ (prod) | Flask                            | PostgreSQL connection string                |
+| Variable            | Required  | Used by                          | Description                                            |
+| ------------------- | --------- | -------------------------------- | ------------------------------------------------------ |
+| `GEMINI_API_KEY`    | ✅        | Express (Secret Manager in prod) | Gemini API key                                         |
+| `FLASK_BACKEND_URL` | No        | Express                          | Flask URL (default `http://localhost:5000`)            |
+| `PORT`              | No        | Express                          | Server port (default `8080`)                           |
+| `NODE_ENV`          | No        | Express                          | `development` or `production`                          |
+| `GOOGLE_API_KEY`    | ✅        | Flask (Secret Manager in prod)   | Gemini key for Flask                                   |
+| `FLASK_SECRET_KEY`  | ✅ (prod) | Flask                            | Session signing key                                    |
+| `DATABASE_URL`      | ✅ (prod) | Flask                            | PostgreSQL connection string (SQLite fallback locally) |
 
 **Rules:**
 
@@ -231,7 +244,7 @@ npm start
 
 ## Architecture Notes
 
-### Frontend (Angular 21)
+### Frontend (Angular 22)
 
 - **Single standalone component** (`app.component.ts`) — all UI state + logic.
 - **Signals API** (`signal()`, `computed()`) for all reactive state — no RxJS observables.
@@ -240,24 +253,48 @@ npm start
   - `AuthService` — Google OAuth (redirects to `/api/auth/login`), guest `localStorage` sessions. On startup calls `/api/auth/check` to restore an existing Flask session.
   - `PersistenceService` — hybrid persistence: writes to `localStorage` first (instant UI), then syncs to Flask API (`/api/recipes/*`, `/api/collections/*`). Uses `effect()` to auto-load from API when a user session is confirmed.
 - The dev server runs on **port 3000** and proxies `/api` to Flask on `:5000` via `proxy.conf.json`.
+- **TypeScript is pinned exactly** (`"typescript": "6.0.3"`, no `^`) — each Angular major peer-requires a specific TS range (Angular 22 needs TS >=6.0 <6.1). Never bump `typescript`, `@angular/*`, or `@angular-eslint/*` independently; they move together in one PR.
 
 ### Express Server (Reverse Proxy)
 
-- `server/index.ts` is the single entry point. It handles:
-  - `GET /api/health` — local health check
-  - `ALL /api/*` — proxied to Flask via `server/proxy.ts` (raw HTTP stream, mounted BEFORE `express.json()`)
-  - Static file serving of the Angular `dist/` output
+- `server/index.ts` is the single entry point. **Mounting order is load-bearing** — it registers, in order:
+  - `GET /api/health` — answered locally by Express (never proxied)
+  - Rate limiters (see below), Helmet security headers, request logging
+  - `POST /api/generate` / `POST /api/generate_image` — body validation via `server/validation.ts`
+  - `ALL /api/*` — proxied to Flask via `server/proxy.ts` (raw HTTP stream, mounted BEFORE `express.json()` so Flask parses bodies itself)
+  - Static serving of the Angular `dist/` output + `GET /privacy-policy`
+  - `GET /r/*`, `/browse`, `/sitemap.xml`, `/static/*` — proxied to Flask SSR, mounted BEFORE the SPA catch-all (see "Public Recipe Site" below)
   - Catch-all `GET *` → `dist/index.html` (SPA routing)
-- `server/security.ts` — Helmet headers (CSP disabled — Angular uses inline styles), rate limiting (`100 req/15 min` general, `20 req/hr` for AI endpoints), request logging, error handler.
-- `server/validation.ts` — `express-validator` rules for `prompt` (1–500 chars) and image request fields.
+- `server/security.ts` — Helmet with **CSP enabled** (see below); rate limiting `300 req/15 min` general (`/api/health` and public image serving exempt) and `20 req/hr` for the two AI endpoints; request logging; error handler.
+- `server/valkey.ts` — Valkey (Redis-compatible) client backing the rate limiters, so limits are shared across Cloud Run instances; falls back to per-instance in-memory stores when Valkey is unavailable.
+- `server/validation.ts` — `express-validator` on POST `/api/generate` and `/api/generate_image` ONLY. Buffers the JSON body (10 kb cap), validates it (`prompt` 10–500 chars, optional `model` name, `recipe_id` UUID, `force_regenerate` boolean), then stashes the exact validated bytes on `req.rawBody` for the proxy to replay to Flask verbatim. Every other `/api/*` route keeps raw streaming — do not add body parsers ahead of the proxy.
 - **No AI logic** — Express is a pure reverse proxy + static host.
+
+#### Content-Security-Policy — HIGH-RISK, do not loosen or disable
+
+Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` (no inline scripts), `script-src-attr` allowing exactly one hashed inline handler emitted by Angular's critical-CSS optimization, Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
+
+Treat ANY change to CSP directives, inline scripts/handlers, or the OAuth callback flow as high-risk:
+
+- **History:** enabling `script-src 'self'` (PR #3109) silently broke Google OAuth login in v0.3.4/v0.3.5 — the OAuth callback page relied on an inline-`<script>` redirect that CSP blocked, stranding users on a blank page. Fixed in v0.3.6 by switching the Flask callback to a plain HTTP 302 redirect (Backend PR #195).
+- **Lesson:** CSP breakage is invisible to unit tests and type-check; it only surfaces in a real browser. Any PR touching CSP must include a manual browser check of the full Google-login flow.
+
+### Public Recipe Site (SSR)
+
+Since v0.2, recipes can be published to a public server-rendered site (SEO-focused, JS-free pages):
+
+- `Recipe` rows carry `is_public` (bool) and `slug` (unique, indexed). Slugs are **derived from the recipe title server-side** — the user-editable slug field was removed in v0.3.7 for URL hardening; do not reintroduce client-supplied slugs.
+- Flask renders the pages with Jinja (`Backend/templates/`, styles in `Backend/static/css/`): `/r/<slug>` (single recipe), `/browse` (paginated listing), `/sitemap.xml`, plus JSON at `/api/recipes/public/<slug>` used by the save-to-cookbook flow (`src/services/public-recipe.mapper.ts`).
+- Express proxies `GET /r/*`, `/browse`, `/sitemap.xml`, and `/static/*` (Flask template CSS) to Flask **BEFORE the Angular catch-all** in `server/index.ts` — a public route added after the catch-all is dead code.
+- Images of public recipes are served unauthenticated via `/api/recipes/<id>/image` (exempt from the general rate limit).
 
 ### Flask Backend (API + AI + Auth + DB)
 
 - Google OAuth via Flask sessions (server-side, not JWT).
-- Gemini recipe generation and Imagen image generation.
+- Gemini recipe generation and Imagen image generation via the `google-genai` Python SDK. Default text model: `DEFAULT_MODEL = "gemini-3.1-pro-preview"` in `Backend/config.py`; images use `imagen-4.0-generate-001` (`Backend/services/image_service.py`).
+- `/api/generate` and `/api/generate_image` live in `blueprints/generation_api_bp.py` (`generation_bp.py` is legacy HTML-form helpers, not the JSON API).
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
-- Modular architecture: blueprints, repositories, services, models.
+- Modular architecture: blueprints, repositories, services, models. `Backend/CLAUDE.md` is the authoritative Backend reference.
 - `ProxyFix` middleware trusts `X-Forwarded-*` headers from Express.
 
 ### Data Persistence
@@ -269,10 +306,11 @@ npm start
 
 ### Deployment (Cloud Run)
 
-- **Two Cloud Run services** in `us-central1`, project `comdottasteslikegood`:
+- **Two Cloud Run services + one Job** in `us-central1`, project `comdottasteslikegood`:
   - `express-frontend` — serves SPA + proxies to Flask
   - `flask-backend` — API, AI, auth, database
-- **Cloud Build** (`cloudbuild.yaml`) builds + pushes Docker images, deploys both services.
+  - `flask-backend-migrate` — Cloud Run **Job** that runs `flask db upgrade` before each Flask deploy
+- **Cloud Build** (`cloudbuild.yaml`) builds + pushes Docker images, runs the migrate Job, then deploys both services.
 - Images stored in Artifact Registry: `us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius/`
 - Secrets injected via Secret Manager (`GEMINI_API_KEY`, `GOOGLE_API_KEY`, `FLASK_SECRET_KEY`).
 - `flask-backend` has `roles/cloudsql.client` IAM for database access.
