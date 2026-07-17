@@ -30,7 +30,7 @@ user-typed `/r/<slug>` address.
   A run of broken pins to a fresh domain can trigger Pinterest's new-account spam
   heuristics. Also adds an inert `p:domain_verify` placeholder in the public
   `<head>` for domain claiming (unlocks Rich Pins). Ships via the Backend
-  submodule pointer bump to `daa4da7` (Backend [#200](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/200)).
+  submodule pointer bump to `c3e4687` (Backend [#200](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/200)).
 - **Pinterest pin media now matches the gated image source**: with a stale
   `ai_image_url` (bytes never stored) next to a valid stock image, the
   Pinterest button passed its render gate via the stock image but still
