@@ -272,7 +272,7 @@ npm start
 
 #### Content-Security-Policy — HIGH-RISK, do not loosen or disable
 
-Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` (no inline scripts), `script-src-attr` allowing exactly one hashed inline handler emitted by Angular's critical-CSS optimization, Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
+Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` (no inline scripts), `script-src-attr` allowing exactly one hashed inline handler emitted by Angular's critical-CSS optimization, `style-src` allowing `'unsafe-inline'` (Angular runtime styles) + Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
 
 Treat ANY change to CSP directives, inline scripts/handlers, or the OAuth callback flow as high-risk:
 
