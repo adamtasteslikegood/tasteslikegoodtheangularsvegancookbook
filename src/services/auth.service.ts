@@ -421,12 +421,12 @@ export class AuthService {
 
   // ─── Cookbook Management (localStorage) ────────────────────────
 
-  createCookbook(name: string, description: string = '') {
+  createCookbook(name: string, description: string = '', id?: string): Cookbook | undefined {
     const user = this.currentUser();
-    if (!user) return;
+    if (!user) return undefined;
 
     const newCookbook: Cookbook = {
-      id: crypto.randomUUID(),
+      id: id ?? crypto.randomUUID(),
       name,
       description,
       recipeIds: [],
@@ -436,6 +436,8 @@ export class AuthService {
       ...user,
       cookbooks: [...user.cookbooks, newCookbook],
     });
+
+    return newCookbook;
   }
 
   deleteCookbook(cookbookId: string) {

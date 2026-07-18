@@ -99,45 +99,72 @@ export class PersistenceService {
     this.auth.emptyRecycleBin();
   }
 
-  async createCookbook(name: string, description = ''): Promise<void> {
+  /**
+   * Creates a cookbook and returns its resolved id, or null if creation
+   * failed outright (caller should not treat the operation as complete).
+   */
+  async createCookbook(name: string, description = ''): Promise<string | null> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return null;
 
+    // Pre-generated so the same id is reused by every path below (server
+    // create, 409 reconcile, or local fallback) — a fallback that minted
+    // its own id would leave the server and local caches holding two
+    // different cookbooks with the same name.
     const id = crypto.randomUUID();
+    let res: Response;
     try {
-      const res = await this._fetch('/api/collections', {
+      res = await this._fetch('/api/collections', {
         method: 'POST',
-        // The id doubles as an idempotency key so a retried request replays
-        // instead of creating a duplicate cookbook.
+        // Sent for forward-compatibility; the backend does not honor this
+        // header yet (tracked in adamtasteslikegood/tasteslikegood.com#216),
+        // so a same-id retry today still reaches the server as a fresh insert.
         headers: { 'Idempotency-Key': id },
         body: JSON.stringify({ id, name, description }),
       });
-      // 409 = a cookbook with this name already exists for this owner. The
-      // server is authoritative, so do NOT fall back to a local duplicate;
-      // reconcile the existing cookbook into local state if it isn't there yet.
-      if (res.status === 409) {
-        const body = await res.json().catch(() => null);
-        const existing = body?.collection;
-        const current = this.auth.currentUser();
-        if (existing && current && !current.cookbooks.some((c) => c.id === existing.id)) {
-          this.auth.hydrate(current.savedRecipes, [
-            ...current.cookbooks,
-            this._toCookbook(existing),
-          ]);
-        }
-        return;
-      }
-      if (!res.ok) throw new Error(`${res.status}`);
-      const data = await res.json();
-      // Sync the server-assigned cookbook into local state
-      const current = this.auth.currentUser();
-      if (current) {
-        this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
-      }
     } catch {
-      // Network/5xx failure — fall back to localStorage so the UI still works
-      this.auth.createCookbook(name, description);
+      // Network failure — fall back to localStorage so the UI still works.
+      return this.auth.createCookbook(name, description, id)?.id ?? null;
     }
+
+    // 409 = a cookbook with this name already exists for this owner. The
+    // server is authoritative, so do NOT fall back to a local duplicate;
+    // reconcile the existing cookbook into local state if it isn't there yet.
+    // (Dead today — the backend has no 409 path until #216 lands — kept so
+    // the client is ready once it does.)
+    if (res.status === 409) {
+      const body = await res.json().catch(() => null);
+      // Accept either a `{collection: {...}}` envelope or a raw cookbook
+      // dict (matching the 201 shape) — the eventual 409 contract isn't
+      // settled yet, so guard on `id` rather than assuming one shape.
+      const existing = body?.collection ?? (body && typeof body.id === 'string' ? body : null);
+      if (!existing) return null;
+      const current = this.auth.currentUser();
+      if (current && !current.cookbooks.some((c) => c.id === existing.id)) {
+        this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(existing)]);
+      }
+      return existing.id;
+    }
+
+    if (res.status >= 500) {
+      // Server error — fall back to localStorage so the UI still works.
+      return this.auth.createCookbook(name, description, id)?.id ?? null;
+    }
+
+    if (!res.ok) {
+      // Genuine client-side rejection (400/401/403/...) — do not fall back
+      // to a local duplicate the server never agreed to.
+      console.warn(`[PersistenceService] createCookbook ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json();
+    // Sync the server-assigned cookbook into local state
+    const current = this.auth.currentUser();
+    if (current) {
+      this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
+    }
+    return data?.id ?? null;
   }
 
   async deleteCookbook(cookbookId: string): Promise<void> {
