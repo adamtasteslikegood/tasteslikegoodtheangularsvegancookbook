@@ -8,5 +8,10 @@ Allow: /
 Disallow: /api/
 Disallow: /assets/
 
+# Every public recipe's hero/og:image is served from /api/recipes/<id>/image;
+# without this Allow (longest-match wins over Disallow: /api/) image crawlers
+# could never fetch recipe images (issue #3164).
+Allow: /api/recipes/*/image
+
 # Sitemap location
 Sitemap: https://www.tasteslikegood.org/sitemap.xml
