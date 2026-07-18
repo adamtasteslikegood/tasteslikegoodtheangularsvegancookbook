@@ -2,10 +2,14 @@
 # crawl-links.sh — public-site link & image crawl gate (issue #3164, AC 1).
 #
 # Contract (Acceptance Criterion 1):
-#   - bash + curl for all HTTP work, no auth. Also requires these standard
-#     tools: file (image byte-sniffing), grep, sed, sort, head, wc, mktemp.
-#     All are present on stock Linux/macOS; minimal containers may need
-#     `file` installed (e.g. apt-get install file / apk add file).
+#   - bash 4+ (uses `declare -A` and `mapfile`) + curl for all HTTP work, no
+#     auth. Also requires these standard tools: file (image byte-sniffing),
+#     grep, sed, sort, head, wc, mktemp. All are present on stock Linux;
+#     stock macOS ships Bash 3.2, so macOS users need a newer bash first
+#     (e.g. `brew install bash` and invoke via that binary's path) — the
+#     version guard below fails fast with that instruction rather than
+#     breaking on `declare -A`/`mapfile`. Minimal containers may need `file`
+#     installed (e.g. apt-get install file / apk add file).
 #   - BASE_URL env (default https://www.tasteslikegood.org)
 #   - fetch /sitemap.xml, /, every /browse page (follow rel=next), and every
 #     /r/<slug> from the sitemap
@@ -21,6 +25,12 @@
 #   BASE_URL=http://localhost:8080 scripts/audit/crawl-links.sh
 
 set -u
+
+if ((BASH_VERSINFO[0] < 4)); then
+  echo "FAIL: this script requires bash 4+ (declare -A, mapfile); found ${BASH_VERSION}." >&2
+  echo "On macOS, install a newer bash (e.g. brew install bash) and invoke that binary directly." >&2
+  exit 1
+fi
 
 BASE_URL="${BASE_URL:-https://www.tasteslikegood.org}"
 BASE_URL="${BASE_URL%/}"

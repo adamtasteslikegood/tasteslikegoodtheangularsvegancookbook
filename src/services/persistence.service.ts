@@ -116,9 +116,9 @@ export class PersistenceService {
     try {
       res = await this._fetch('/api/collections', {
         method: 'POST',
-        // Sent for forward-compatibility; the backend does not honor this
-        // header yet (tracked in adamtasteslikegood/tasteslikegood.com#216),
-        // so a same-id retry today still reaches the server as a fresh insert.
+        // The backend honors either this header or the body `id` for
+        // idempotent replay, returning the existing cookbook instead of a
+        // fresh insert (adamtasteslikegood/tasteslikegood.com#216).
         headers: { 'Idempotency-Key': id },
         body: JSON.stringify({ id, name, description }),
       });
@@ -129,9 +129,8 @@ export class PersistenceService {
 
     // 409 = a cookbook with this name already exists for this owner. The
     // server is authoritative, so do NOT fall back to a local duplicate;
-    // reconcile the existing cookbook into local state if it isn't there yet.
-    // (Dead today — the backend has no 409 path until #216 lands — kept so
-    // the client is ready once it does.)
+    // reconcile the existing cookbook into local state if it isn't there yet
+    // (server-side enforcement + idempotent replay shipped in #216).
     if (res.status === 409) {
       const body = await res.json().catch(() => null);
       // Accept either a `{collection: {...}}` envelope or a raw cookbook
