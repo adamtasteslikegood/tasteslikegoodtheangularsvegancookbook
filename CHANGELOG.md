@@ -6,6 +6,100 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.3.8] - 2026-07-18
+
+Public-site audit release. Fixes the navigation, dead-link, and SEO defects
+from the tiered UX audit ([#3164](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3164)),
+closes the duplicate-cookbook double-click race, and ships the consolidated
+CI gate plus Backend dependency refreshes.
+
+### Fixed
+
+- **Apex domain now redirects to the canonical www host**: `tasteslikegood.org`
+  served identical 200s to `www.tasteslikegood.org`, splitting indexing signals
+  across two hosts even though every canonical URL, sitemap entry, and
+  robots.txt line declares www. Express now 301s all apex paths to www (308 for
+  non-GET/HEAD so method and body survive), with the redirect target re-parsed
+  against the fixed canonical origin so a crafted path can never turn it into
+  an open redirect ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **Recipe images are no longer blocked from image crawlers**: `robots.txt`'s
+  `Disallow: /api/` also swallowed every recipe hero/og:image URL; a
+  longest-match `Allow: /api/recipes/*/image` line restores crawler access
+  ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **`/favicon.ico` serves a real image**: the path fell through to the SPA
+  catch-all and returned `index.html` as `text/html`. It now serves the SVG
+  favicon bytes with an `image/*` content-type and a one-day cache so repeat
+  fetches stop burning the shared per-IP rate-limit budget
+  ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **`/browse/` (trailing slash) 301s to `/browse`** instead of falling through
+  to the empty SPA shell, preserving any query string
+  ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **Public recipe image responses declare the content-type of their actual
+  bytes** (sniffed from magic bytes instead of trusting a stored label — the
+  live crawl found 8 URLs declaring `image/png` over JPEG bytes), stop
+  emitting cookies/CORS headers, and carry `Cache-Control: public,
+max-age=86400`. Recipe pages whose image rows have no stored bytes no longer
+  render a hero/og:image that 404s (Backend
+  [#217](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/217)).
+- **Double-clicking "Create" no longer produces duplicate cookbooks**: the
+  create button now guards against in-flight requests and sends an
+  `Idempotency-Key` ([#3163](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3163));
+  the server enforces a per-owner unique cookbook name with partial unique
+  indexes, deduplicates existing rows by rename in migration `b7e2a9c4d1f8`,
+  answers replays idempotently, and retries the guest→user login merge on
+  `IntegrityError` (Backend [#216](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/216)).
+- **CodeQL error-severity backlog drained**: 90 of 142 open Backend alerts
+  fixed (Backend [#213](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/213)).
+
+### Added
+
+- **SPA → public-site navigation**: the app footer now links to
+  "Browse Public Recipes" — the compiled bundle previously contained zero
+  references to `/browse`
+  ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **`scripts/audit/crawl-links.sh`**: read-only public-site link & image crawl
+  gate (sitemap + `/` + `/browse` pagination + every `/r/<slug>`; fails on any
+  final status ≥ 400 or an image content-type that doesn't match the
+  downloaded bytes) ([#3165](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3165)).
+- **`Backend/scripts/unpublish_slugs.py`**: idempotent operator script to
+  unpublish junk public slugs, syncing both the `is_public` column and the
+  recipe data blob (Backend [#217](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/217)).
+
+### Changed
+
+- **CI consolidated to a single blocking gate** (`pr-gate`), now including an
+  Express Docker image build — root-Dockerfile syntax errors surface on the PR
+  instead of at release time, closing the gap that burned the v0.3.4 tag
+  ([#3157](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3157),
+  [#3158](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3158)).
+  `dev` and `main` carry required status checks enforced by branch protection
+  ([#3162](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3162)).
+- **Backend image modernized**: base bumped to `python:3.13-slim` (Backend
+  [#206](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/206));
+  dependencies now export from `uv.lock` at build time and the tracked
+  `requirements.txt` is gone (Backend
+  [#215](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/215),
+  [#214](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/214));
+  `websockets` 16.1.1 (Backend [#209](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/209)),
+  `ddtrace` 4.11.1 (Backend [#208](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/208)).
+- **Docs**: Copilot instructions rewritten for the current app in both repos,
+  Gemini credential-flow corrections, model-ID notes; unused `@google/genai`
+  dependency removed
+  ([#3154](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3154),
+  [#3155](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3155),
+  [#3156](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3156),
+  Backend [#210](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/210),
+  [#212](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/212)).
+
+### Deploy notes
+
+- `flask-backend-migrate` applies **`b7e2a9c4d1f8`** (per-owner unique
+  cookbook-name indexes + dedup-by-rename of existing duplicate rows). Single
+  Alembic head verified at the pinned Backend SHA `4857369`.
+- Post-deploy operator steps (issue [#3164](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3164)):
+  run `Backend/scripts/unpublish_slugs.py` in prod against the item-8 junk-slug
+  list, then re-run `scripts/audit/crawl-links.sh` — expected exit 0.
+
 ## [0.3.7] - 2026-07-17
 
 Public-URL hardening release. The recipe publish flow no longer accepts a
