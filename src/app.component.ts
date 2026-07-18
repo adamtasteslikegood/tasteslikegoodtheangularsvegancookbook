@@ -130,6 +130,7 @@ export class AppComponent {
   showCreateCookbookModal = signal<boolean>(false);
   newCookbookName = signal('');
   newCookbookDesc = signal('');
+  isCreatingCookbook = signal<boolean>(false); // in-flight guard: prevents duplicate cookbooks from rapid double-clicks
 
   // Manual Recipe Entry State
   showManualEntryModal = signal<boolean>(false);
@@ -308,25 +309,33 @@ export class AppComponent {
 
   async createCookbook() {
     if (!this.newCookbookName().trim()) return;
-    await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
+    // Guard against a second submit while the first request is in flight —
+    // without it, rapid clicks each fire a POST and create duplicate cookbooks.
+    if (this.isCreatingCookbook()) return;
+    this.isCreatingCookbook.set(true);
+    try {
+      await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
 
-    // Auto-select the new cookbook if creating from the "Add to Cookbook" flow
-    if (this._creatingFromAddFlow) {
-      const user = this.authService.currentUser();
-      if (user) {
-        const newest = user.cookbooks[user.cookbooks.length - 1];
-        if (newest) {
-          this.pendingCookbookIds.update((ids) => {
-            const next = new Set(ids);
-            next.add(newest.id);
-            return next;
-          });
+      // Auto-select the new cookbook if creating from the "Add to Cookbook" flow
+      if (this._creatingFromAddFlow) {
+        const user = this.authService.currentUser();
+        if (user) {
+          const newest = user.cookbooks[user.cookbooks.length - 1];
+          if (newest) {
+            this.pendingCookbookIds.update((ids) => {
+              const next = new Set(ids);
+              next.add(newest.id);
+              return next;
+            });
+          }
         }
+        this._creatingFromAddFlow = false;
       }
-      this._creatingFromAddFlow = false;
-    }
 
-    this.showCreateCookbookModal.set(false);
+      this.showCreateCookbookModal.set(false);
+    } finally {
+      this.isCreatingCookbook.set(false);
+    }
   }
 
   async deleteCookbook(id: string, event: Event) {

@@ -103,12 +103,30 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return;
 
+    const id = crypto.randomUUID();
     try {
-      const id = crypto.randomUUID();
       const res = await this._fetch('/api/collections', {
         method: 'POST',
+        // The id doubles as an idempotency key so a retried request replays
+        // instead of creating a duplicate cookbook.
+        headers: { 'Idempotency-Key': id },
         body: JSON.stringify({ id, name, description }),
       });
+      // 409 = a cookbook with this name already exists for this owner. The
+      // server is authoritative, so do NOT fall back to a local duplicate;
+      // reconcile the existing cookbook into local state if it isn't there yet.
+      if (res.status === 409) {
+        const body = await res.json().catch(() => null);
+        const existing = body?.collection;
+        const current = this.auth.currentUser();
+        if (existing && current && !current.cookbooks.some((c) => c.id === existing.id)) {
+          this.auth.hydrate(current.savedRecipes, [
+            ...current.cookbooks,
+            this._toCookbook(existing),
+          ]);
+        }
+        return;
+      }
       if (!res.ok) throw new Error(`${res.status}`);
       const data = await res.json();
       // Sync the server-assigned cookbook into local state
@@ -117,7 +135,7 @@ export class PersistenceService {
         this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
       }
     } catch {
-      // Fall back to localStorage so the UI still works
+      // Network/5xx failure — fall back to localStorage so the UI still works
       this.auth.createCookbook(name, description);
     }
   }
