@@ -154,7 +154,7 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 | Linting            | ESLint (flat config) + Prettier                                                | 10 / 3   |
 | Testing            | Vitest (server + src unit tests)                                               | 4        |
 
-All AI calls happen in Flask via the `google-genai` **Python** SDK — the `@google/genai` npm package is not imported anywhere in `src/` or `server/`. Model choice is server-side (`DEFAULT_MODEL` in `Backend/config.py`); model IDs listed by `GET /api/models` carry the `models/` prefix (e.g. `models/gemini-3.1-pro-preview`).
+All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side: `DEFAULT_MODEL` in `Backend/config.py` and the generation paths use bare IDs (`gemini-3.1-pro-preview`), while entries from `GET /api/models` carry the `models/` prefix (e.g. `models/gemini-3.1-pro-preview`) — both forms are in active use.
 
 ---
 
