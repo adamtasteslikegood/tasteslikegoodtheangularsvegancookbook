@@ -103,7 +103,7 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 
 ### Authentication
 
-- Dual-auth: Flask tries user OAuth credentials first, falls back to server `GOOGLE_API_KEY`
+- Gemini credentials: Flask's `get_genai_client(session_credentials)` prefers caller-supplied user OAuth credentials and falls back to the server `GOOGLE_API_KEY` — but both live generation call sites pass `None`, so generation runs on the server key; only the model-list refresh (`POST /api/models/refresh`) forwards session OAuth credentials
 - `ProxyFix` middleware in Flask trusts `X-Forwarded-*` from Express for external URL generation
 
 ## Key environment variables
@@ -234,7 +234,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
-- **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
+- **AI model names** — entries from the model-list API carry the `models/` prefix (e.g., `models/gemini-3.1-pro-preview`; filter by `generateContent` in `supported_generation_methods`), while `Backend/config.py` `DEFAULT_MODEL` and the generation paths use bare IDs (`gemini-3.1-pro-preview`); both forms are in active use
 - **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
   - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
   - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev` — commits on `dev` the pointer hasn't picked up yet
