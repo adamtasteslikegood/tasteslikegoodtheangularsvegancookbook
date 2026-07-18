@@ -1,5 +1,5 @@
 # Build stage
-FROM node:26-alpine AS build
+FROM node:26-alpine-does-not-exist AS build
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
