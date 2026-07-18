@@ -107,6 +107,18 @@ jobs:
           PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
+  # ── Docker ────────────────────────────────────────────────────────────────
+  # Builds the production Express image (no push, no credentials). Catches
+  # Dockerfile/lockfile breakage before a release tag hands it to Cloud Build
+  # (the v0.3.4 failure mode). Flask image is owned by Backend CI (D2).
+
+  docker-build:
+    name: Docker — Express image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: docker build -f Dockerfile .
+
   # ── Changelog ─────────────────────────────────────────────────────────────
 
   changelog-check:
@@ -139,6 +151,7 @@ jobs:
       - frontend-build
       - frontend-test
       - backend-test
+      - docker-build
       - changelog-check
     if: always()
     runs-on: ubuntu-latest
