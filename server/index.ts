@@ -111,7 +111,10 @@ export const ready = (async () => {
   // an Angular build.
   app.get('/favicon.ico', staticPageLimiter, (_req, res) => {
     res.type('image/svg+xml');
-    res.sendFile(path.join(publicPath, 'favicon.svg'));
+    // Express's `send` defaults to Cache-Control: public, max-age=0, so every
+    // page navigation re-fetches the favicon and counts toward
+    // staticPageLimiter's 300 req / 15 min per-IP budget. Cache it for a day.
+    res.sendFile(path.join(publicPath, 'favicon.svg'), { maxAge: '1d' });
   });
 
   // Flask SSR routes — individual public recipes, the browse index, and the
