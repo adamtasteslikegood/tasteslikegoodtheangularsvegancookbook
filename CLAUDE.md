@@ -83,10 +83,10 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 ### Layer 3 — Flask API (`Backend/`)
 
-Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — ignore its monolithic description):
+Modular blueprint architecture — `Backend/CLAUDE.md` is the authoritative reference for Backend details:
 
 - `auth.py` + `blueprints/auth_api_bp.py` — Google OAuth 2.0 flow, sessions
-- `blueprints/generation_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen)
+- `blueprints/generation_api_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen); `generation_bp.py` is legacy HTML-form helpers
 - `blueprints/recipes_api_bp.py` — CRUD for recipes
 - `blueprints/collections_api_bp.py` — CRUD for cookbooks
 - `services/` — business logic (Gemini, Imagen, stock images)
@@ -103,7 +103,7 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 
 ### Authentication
 
-- Dual-auth: Flask tries user OAuth credentials first, falls back to server `GOOGLE_API_KEY`
+- Gemini credentials: Flask's `get_genai_client(session_credentials)` prefers caller-supplied user OAuth credentials and falls back to the server `GOOGLE_API_KEY` — but both live generation call sites pass `None`, so generation runs on the server key; only the model-list refresh (`POST /api/models/refresh`) forwards session OAuth credentials
 - `ProxyFix` middleware in Flask trusts `X-Forwarded-*` from Express for external URL generation
 
 ## Key environment variables
@@ -131,6 +131,8 @@ Both this repo and the `Backend/` submodule follow the same model:
 - **`feat/*`, `fix/*`, `chore/*`** — short-lived branches off `dev`. PR back into `dev`.
 
 Never commit directly to `main` or `dev`. Always branch off `dev`.
+
+Since 2026-07-18 this is enforced by branch protection: `dev` and `main` both carry required status checks `Gate — all checks passed` (the pr-gate aggregate, which includes the Express Docker image build), `Analyze (javascript-typescript)`, and `Dependency Review` (strict off, 0 approvals, admin break-glass audited; SPEC-01 §4.3, `docs/ci/refresh/`).
 
 The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remote Backend` fast-forwards to the Backend integration tip. To ship a Backend change:
 
@@ -234,14 +236,14 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
-- **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
+- **AI model names** — entries from the model-list API carry the `models/` prefix (e.g., `models/gemini-3.1-pro-preview`; filter by `generateContent` in `supported_generation_methods`), while `Backend/config.py` `DEFAULT_MODEL` and the generation paths use bare IDs (`gemini-3.1-pro-preview`); both forms are in active use
 - **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
   - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
   - `git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev` — commits on `dev` the pointer hasn't picked up yet
   - `git -C Backend log --oneline origin/main..origin/dev` — commits on `dev` not yet promoted to Backend `main`
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
-- **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
+- **CI auto-formats** — `ci.yml` is now just a push-only Prettier auto-commit safety net: PRs are already gated by `format:check` in pr-gate and direct pushes to `dev`/`main` are blocked by branch protection, so it's a near-no-op and bot format commits are rare rather than routine
 - **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular must move together, manually. Dependabot ignores `@angular/*` semver-major updates; when upgrading Angular, bump `typescript`, all `@angular/*`, and `@angular-eslint/*` in the same PR
 
 ## Further reading
