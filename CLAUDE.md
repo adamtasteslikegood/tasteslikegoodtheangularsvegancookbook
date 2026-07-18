@@ -132,6 +132,8 @@ Both this repo and the `Backend/` submodule follow the same model:
 
 Never commit directly to `main` or `dev`. Always branch off `dev`.
 
+Since 2026-07-18 this is enforced by branch protection: `dev` and `main` both carry required status checks `Gate — all checks passed` (the pr-gate aggregate, which includes the Express Docker image build), `Analyze (javascript-typescript)`, and `Dependency Review` (strict off, 0 approvals, admin break-glass audited; SPEC-01 §4.3, `docs/ci/refresh/`).
+
 The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remote Backend` fast-forwards to the Backend integration tip. To ship a Backend change:
 
 1. PR into Backend `dev` (in `Backend/` submodule).
@@ -241,7 +243,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `git -C Backend log --oneline origin/main..origin/dev` — commits on `dev` not yet promoted to Backend `main`
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
-- **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
+- **CI auto-formats** — `ci.yml` is now just a push-only Prettier auto-commit safety net: PRs are already gated by `format:check` in pr-gate and direct pushes to `dev`/`main` are blocked by branch protection, so it's a near-no-op and bot format commits are rare rather than routine
 - **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular must move together, manually. Dependabot ignores `@angular/*` semver-major updates; when upgrading Angular, bump `typescript`, all `@angular/*`, and `@angular-eslint/*` in the same PR
 
 ## Further reading
