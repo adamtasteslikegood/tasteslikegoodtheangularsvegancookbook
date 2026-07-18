@@ -32,6 +32,21 @@ export const ready = (async () => {
   // Connect to Valkey for shared rate limiting (falls back to in-memory)
   const valkeyClient = await createValkeyClient();
 
+  // ── Canonical-host redirect (issue #3164) ───────────────────────
+  // www.tasteslikegood.org is the canonical host: every canonical URL,
+  // sitemap entry, and robots.txt line declares www, but the apex served
+  // identical 200s, splitting indexing signals across two hosts. 301 the
+  // apex to www for ALL paths, before any other route. req.hostname honors
+  // X-Forwarded-Host ('trust proxy' is set above), which is how Cloud Run
+  // traffic arrives. Non-production hosts (localhost, *.run.app) pass through.
+  app.use((req, res, next) => {
+    if (req.hostname === 'tasteslikegood.org') {
+      res.redirect(301, `https://www.tasteslikegood.org${req.originalUrl}`);
+      return;
+    }
+    next();
+  });
+
   // Health check (local to Express — handled before the proxy)
   app.get('/api/health', (_req, res) => {
     res.status(200).json({
@@ -87,6 +102,18 @@ export const ready = (async () => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
 
+  // /favicon.ico — browsers and crawlers request this path unconditionally,
+  // but the SPA only ships favicon.svg, so the request fell through to the
+  // catch-all and came back as index.html (text/html) — an HTML "icon"
+  // (issue #3164). Serve the SVG bytes explicitly; sendFile's .svg lookup
+  // yields an image/* content-type. Served from server/public (checked in,
+  // present in the Docker image) rather than dist so it works even before
+  // an Angular build.
+  app.get('/favicon.ico', staticPageLimiter, (_req, res) => {
+    res.type('image/svg+xml');
+    res.sendFile(path.join(publicPath, 'favicon.svg'));
+  });
+
   // Flask SSR routes — individual public recipes, the browse index, and the
   // sitemap must be proxied to Flask BEFORE the Angular catch-all so the HTML
   // the crawler receives is server-rendered (not the empty SPA shell). Using
@@ -94,6 +121,19 @@ export const ready = (async () => {
   // applies the same rate limit as the privacy policy and SPA shell.
   const ssrProxy = createFlaskProxy('SSR');
   app.get('/r/*splat', staticPageLimiter, ssrProxy);
+  // /browse/ (trailing slash) previously missed the /browse route and fell
+  // through to the SPA shell (issue #3164). 301 to the canonical /browse,
+  // preserving any query string. Exact-path middleware (not a route pattern)
+  // so non-strict pattern matching can never turn this into a redirect loop.
+  app.use((req, res, next) => {
+    if (req.path === '/browse/') {
+      const queryIndex = req.originalUrl.indexOf('?');
+      const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
+      res.redirect(301, `/browse${query}`);
+      return;
+    }
+    next();
+  });
   app.get('/browse', staticPageLimiter, ssrProxy);
   app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
   // The SSR templates link their stylesheets via Flask's /static/ (e.g.
