@@ -82,7 +82,7 @@ eslint.config.js             # Flat ESLint config (TS + Angular + Prettier)
 vitest.config.ts             # Vitest config (server + src unit tests; coverage on server/)
 proxy.conf.json              # Dev proxy: /api → localhost:5000 (Flask)
 Dockerfile                   # Multi-stage build (node:26-alpine)
-cloudbuild.yaml              # GCB pipeline: build images, run DB-migrate job, deploy services
+cloudbuild.yaml              # GCB pipeline: build images, run flask-backend-migrate Job, deploy services
 package.json                 # npm scripts, dependencies
 .env.example                 # Environment variable template
 
