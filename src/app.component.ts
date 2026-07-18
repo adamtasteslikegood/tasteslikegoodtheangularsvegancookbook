@@ -314,21 +314,22 @@ export class AppComponent {
     if (this.isCreatingCookbook()) return;
     this.isCreatingCookbook.set(true);
     try {
-      await this.persistenceService.createCookbook(this.newCookbookName(), this.newCookbookDesc());
+      const cookbookId = await this.persistenceService.createCookbook(
+        this.newCookbookName(),
+        this.newCookbookDesc()
+      );
+      // Creation was rejected outright (not a 409/network/5xx path, all of
+      // which resolve to an id) — keep the modal open so the user can see
+      // the failed state and retry instead of silently losing their input.
+      if (!cookbookId) return;
 
       // Auto-select the new cookbook if creating from the "Add to Cookbook" flow
       if (this._creatingFromAddFlow) {
-        const user = this.authService.currentUser();
-        if (user) {
-          const newest = user.cookbooks[user.cookbooks.length - 1];
-          if (newest) {
-            this.pendingCookbookIds.update((ids) => {
-              const next = new Set(ids);
-              next.add(newest.id);
-              return next;
-            });
-          }
-        }
+        this.pendingCookbookIds.update((ids) => {
+          const next = new Set(ids);
+          next.add(cookbookId);
+          return next;
+        });
         this._creatingFromAddFlow = false;
       }
 
