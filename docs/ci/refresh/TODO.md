@@ -20,44 +20,48 @@ consolidation + a Docker gate, not fixing rot.**
 
 ## Phase 1 — Consolidate to one blocking gate (one PR)
 
-- [ ] Delete `ci-cd-backend.yml` (redundant with pr-gate `backend-test`; never
-      runs on `dev`)
+- [x] Delete `ci-cd-backend.yml` (redundant with pr-gate `backend-test`; never
+      runs on `dev`) — done in #3157
       — verify: `git grep -n ci-cd-backend` returns no live references; pr-gate
       still runs backend pytest on a scratch PR into `dev`
-- [ ] Delete `ci-cd.yml` (redundant lint + vitest)
+- [x] Delete `ci-cd.yml` (redundant lint + vitest) — done in #3157
       — verify: scratch PR into `dev` shows pr-gate frontend jobs still running
-- [ ] `ci.yml`: per decision, either trim to the push-only Prettier auto-commit
+- [x] `ci.yml`: per decision, either trim to the push-only Prettier auto-commit
       `format` job (drop `build`/`lint`/`test`/`type-check`) or delete
+      — done in #3157 (trimmed per D1)
       — verify: `actionlint .github/workflows/*.yml` clean; a PR runs lint/test
       exactly once (only pr-gate)
-- [ ] Confirm `pr-gate.yml` remains the authoritative gate (aggregate `gate` job
-      unchanged)
+- [x] Confirm `pr-gate.yml` remains the authoritative gate (aggregate `gate` job
+      unchanged) — confirmed on #3158 and #3160
       — verify: scratch PR shows `Gate — all checks passed`
 
 ## Phase 2 — Add the Docker-build gate (one PR)
 
-- [ ] Add a `docker-build` job to `pr-gate.yml`: `docker build -f Dockerfile .`
+- [x] Add a `docker-build` job to `pr-gate.yml`: `docker build -f Dockerfile .`
       (Express image, no push, no creds); wire it into the `gate` aggregate's
-      `needs:`
+      `needs:` — done in #3158; red test #3159
       — verify: job green on a normal PR; then red on a scratch branch with a
       deliberately broken `Dockerfile` (test once, revert)
-- [ ] ~~Flask image build~~ — DEFERRED per D2 (Express-only). The Flask image is
+- [x] ~~Flask image build~~ — DEFERRED per D2 (Express-only). The Flask image is
       owned by the Backend submodule's own CI; out of scope for the cookbook gate.
 
 ## Phase 3 — Branch protection (**escalate before applying**)
 
-- [ ] ESCALATE: get human approval for the required-check list and settings
-      (SPEC-01 §4.3)
-- [ ] Configure required status checks on `dev` (exact context names):
+- [x] ESCALATE: get human approval for the required-check list and settings
+      (SPEC-01 §4.3) (approved by Adam 2026-07-17)
+- [x] Configure required status checks on `dev` (exact context names):
       `Gate — all checks passed`, `Analyze (javascript-typescript)`,
       `Dependency Review` (required per D3). `strict: off`,
-      `enforce_admins: off`, require-PR: on
+      `enforce_admins: off`, require-PR: on — applied 2026-07-18
       — verify: `gh api repos/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/branches/dev/protection --jq '.required_status_checks.contexts'`
       returns exactly that list
-- [ ] Same for `main`
+- [x] Same for `main` — applied 2026-07-18
       — verify: same `gh api` on `main`
-- [ ] Negative test: PR with a deliberately failing test cannot merge; revert
-- [ ] Confirm `dependabot-automerge.yml` now waits on the gate
+- [x] Negative test: PR with a deliberately failing test cannot merge; revert
+      — done in #3160 (gate red → merge refused, closed unmerged)
+- [x] Confirm `dependabot-automerge.yml` now waits on the gate
+      (mechanism verified: native auto-merge + required checks + negative test
+      #3160; empirical confirm on next Dependabot PR)
       — verify: next Dependabot PR only auto-merges after `gate` passes
 
 ## Phase 4 — Housekeeping (one PR, low priority)
