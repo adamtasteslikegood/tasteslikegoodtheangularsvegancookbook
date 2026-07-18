@@ -70,6 +70,26 @@ describe('apex → www canonical-host redirect', () => {
     expect(res.headers.get('location')).toBe('https://www.tasteslikegood.org/api/health');
   });
 
+  it('uses 308 for non-GET methods so the method/body survive the redirect', async () => {
+    const res = await fetch(`${baseUrl}/api/generate`, {
+      method: 'POST',
+      redirect: 'manual',
+      headers: { 'X-Forwarded-Host': 'tasteslikegood.org' },
+    });
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe('https://www.tasteslikegood.org/api/generate');
+  });
+
+  it('never redirects off the canonical origin (protocol-relative smuggling)', async () => {
+    const res = await fetch(`${baseUrl}//evil.example`, {
+      redirect: 'manual',
+      headers: { 'X-Forwarded-Host': 'tasteslikegood.org' },
+    });
+    expect(res.status).toBe(301);
+    const location = res.headers.get('location') ?? '';
+    expect(new URL(location).origin).toBe('https://www.tasteslikegood.org');
+  });
+
   it('does not redirect the www host', async () => {
     const res = await fetch(`${baseUrl}/api/health`, {
       redirect: 'manual',

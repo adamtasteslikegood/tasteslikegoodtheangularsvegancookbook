@@ -35,13 +35,29 @@ export const ready = (async () => {
   // ── Canonical-host redirect (issue #3164) ───────────────────────
   // www.tasteslikegood.org is the canonical host: every canonical URL,
   // sitemap entry, and robots.txt line declares www, but the apex served
-  // identical 200s, splitting indexing signals across two hosts. 301 the
-  // apex to www for ALL paths, before any other route. req.hostname honors
-  // X-Forwarded-Host ('trust proxy' is set above), which is how Cloud Run
-  // traffic arrives. Non-production hosts (localhost, *.run.app) pass through.
+  // identical 200s, splitting indexing signals across two hosts. Redirect
+  // the apex to www for ALL paths, before any other route. req.hostname
+  // honors X-Forwarded-Host ('trust proxy' is set above), which is how
+  // Cloud Run traffic arrives. Non-production hosts (localhost, *.run.app)
+  // pass through. 301 for GET/HEAD (SEO-canonical), 308 otherwise so
+  // clients preserve the method and body instead of downgrading to GET.
+  const CANONICAL_ORIGIN = 'https://www.tasteslikegood.org';
   app.use((req, res, next) => {
     if (req.hostname === 'tasteslikegood.org') {
-      res.redirect(301, `https://www.tasteslikegood.org${req.originalUrl}`);
+      // Re-parse the request path against the fixed canonical origin and
+      // refuse to leave it: a crafted path like //evil.com would otherwise
+      // resolve protocol-relative and turn this into an open redirect.
+      let target: URL;
+      try {
+        target = new URL(req.originalUrl, CANONICAL_ORIGIN);
+      } catch {
+        target = new URL(CANONICAL_ORIGIN + '/');
+      }
+      if (target.origin !== CANONICAL_ORIGIN) {
+        target = new URL(CANONICAL_ORIGIN + '/');
+      }
+      const status = req.method === 'GET' || req.method === 'HEAD' ? 301 : 308;
+      res.redirect(status, target.href);
       return;
     }
     next();

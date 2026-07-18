@@ -2,7 +2,10 @@
 # crawl-links.sh — public-site link & image crawl gate (issue #3164, AC 1).
 #
 # Contract (Acceptance Criterion 1):
-#   - bash + curl only, no auth
+#   - bash + curl for all HTTP work, no auth. Also requires these standard
+#     tools: file (image byte-sniffing), grep, sed, sort, head, wc, mktemp.
+#     All are present on stock Linux/macOS; minimal containers may need
+#     `file` installed (e.g. apt-get install file / apk add file).
 #   - BASE_URL env (default https://www.tasteslikegood.org)
 #   - fetch /sitemap.xml, /, every /browse page (follow rel=next), and every
 #     /r/<slug> from the sitemap
@@ -113,9 +116,11 @@ while [ "$i" -lt "${#pages[@]}" ]; do
   visit "$page"
   body_file="${body_of[$page]}"
   page_files+=("$body_file")
-  # Follow /browse pagination via rel=next.
-  next="$(grep -oE 'href="[^"]*"[^>]*rel="next"' "$body_file" 2>/dev/null |
-    head -1 | sed -E 's/^href="([^"]*)".*/\1/')"
+  # Follow /browse pagination via rel=next. Attribute order isn't
+  # guaranteed, so find the single-line <a>/<link> tag carrying rel="next"
+  # and pull its href from anywhere within the tag.
+  next="$(grep -oE '<(a|link)[^>]*rel="next"[^>]*>' "$body_file" 2>/dev/null |
+    head -1 | grep -oE 'href="[^"]*"' | head -1 | sed -E 's/^href="([^"]*)"$/\1/')"
   if [ -n "$next" ]; then
     next="$(normalize "$next")"
     if [ -n "$next" ] && [ -z "${checked[$next]:-}" ]; then
