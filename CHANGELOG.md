@@ -6,6 +6,65 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.3.9] - 2026-07-19
+
+Stability and infrastructure release. Restores the Flask backend's shared
+Valkey response cache (it had silently fallen back to a per-worker in-memory
+cache), gives the backend OOM headroom, dedups the "Save to cookbook" action,
+and unclips the public recipe hero on mobile. No schema migration.
+
+### Fixed
+
+- **Flask backend uses the shared Valkey response cache again**: the IAM Valkey
+  client never trusted the Memorystore CA, so every TLS handshake failed with
+  `CERTIFICATE_VERIFY_FAILED` and the backend silently fell back to a per-worker
+  in-memory `SimpleCache` — no cache sharing across workers or replicas, and
+  extra heap per worker. The IAM client now trusts the Memorystore CA cert and
+  the Cloud Run deploy mounts the `VALKEY_CA_CERT` secret
+  ([#3176](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3176),
+  Backend [#222](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/222)).
+- **"Save to cookbook" no longer double-fires**: a fast double-click could send
+  two save requests; the action now guards against in-flight requests and the
+  success toast reports what actually happened. The public-page "View" link is
+  decluttered and carries `rel="noreferrer"`
+  ([#3169](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3169)).
+- **Public recipe hero no longer clips on mobile**: the eyebrow/title of the
+  `/r/<slug>` hero was cut off on narrow viewports (Backend
+  [#221](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/221),
+  RCP-45).
+
+### Changed
+
+- **flask-backend memory headroom**: Cloud Run memory raised to **1Gi**
+  ([#3173](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3173)),
+  the Datadog continuous profiler disabled, and gunicorn workers now recycle on
+  a max-request cap (Backend
+  [#220](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/220)) —
+  headroom over the flat ~84% memory baseline that risked an OOM at the 99% edge.
+- **Agent / PM tooling**: new `harness-qa-loop` QA-gated harness skill plus an
+  `.env.example` credentials callout
+  ([#3177](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3177));
+  Confluence sync hardened — md2cf storage format, 409 retry, stable page titles
+  ([#3175](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3175));
+  the `receiving-code-review` skill is now enforced on PR feedback
+  ([#3170](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3170)).
+- **Cleanup**: the dead `.continue/` config was removed after Continue was
+  decommissioned
+  ([#3172](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3172));
+  the residual Continue Atlassian connectivity check now targets the
+  streamable-HTTP MCP endpoint
+  ([#3171](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3171)).
+
+### Deploy notes
+
+- Backend submodule pointer **`4857369` → `9c830b0`**. **No new Alembic
+  migration** — single head unchanged, so `flask-backend-migrate` is a no-op
+  this release.
+- The flask-backend Cloud Run deploy now mounts the **`VALKEY_CA_CERT`** secret
+  and sets **`--memory=1Gi`**. After deploy, verify in Datadog: Valkey
+  connection healthy (no `CERTIFICATE_VERIFY_FAILED`) and a per-worker heap drop
+  as the response cache moves off `SimpleCache`.
+
 ## [0.3.8] - 2026-07-18
 
 Public-site audit release. Fixes the navigation, dead-link, and SEO defects

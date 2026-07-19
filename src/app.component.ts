@@ -328,6 +328,10 @@ export class AppComponent {
       this.saveToast.set(null);
       this.saveToastTimer = null;
     }, 6000);
+    // In Node (Vitest) the pending 6s timer keeps the event loop alive and can
+    // delay/hang teardown; unref() so it never blocks process exit. No-op in
+    // the browser, where the timer id is a plain number with no unref().
+    (this.saveToastTimer as unknown as { unref?: () => void }).unref?.();
   }
 
   /** Open the recipe referenced by the current toast, then dismiss it. */
