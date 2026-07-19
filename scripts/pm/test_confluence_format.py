@@ -9,7 +9,6 @@ Unlike the other scripts/pm tests, the module under test needs a dependency
 (md2cf), so run this with the pm venv from the repo root:
 
     scripts/pm/.venv/bin/python -m unittest discover -s scripts/pm -p 'test_*.py' -v
-    scripts/pm/.venv/bin/python -m pytest scripts/pm
 
 The whole case self-skips when md2cf isn't importable, so a bare
 `python3 -m unittest discover -s scripts/pm` (system python, no venv) still
