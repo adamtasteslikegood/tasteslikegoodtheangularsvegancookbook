@@ -39,10 +39,7 @@ and unclips the public recipe hero on mobile. No schema migration.
   ([#3173](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3173)),
   the Datadog continuous profiler disabled, and gunicorn workers now recycle on
   a max-request cap (Backend
-  [#220](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/220));
-  gunicorn's graceful-timeout is raised to **540s** so those worker recycles
-  don't kill in-flight recipe generations (Backend
-  [#224](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/224)) —
+  [#220](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/220)) —
   headroom over the flat ~84% memory baseline that risked an OOM at the 99% edge.
   Gunicorn's `--graceful-timeout` is raised to **540s** to match
   `GENAI_HTTP_TIMEOUT_MS` so a worker restart lets an in-flight Gemini/Imagen
