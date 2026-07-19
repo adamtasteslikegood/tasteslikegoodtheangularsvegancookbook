@@ -32,6 +32,7 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import validate_atlassian_site  # noqa: E402
 from _jira_projects import resolve_jira_projects  # noqa: E402
+from _confluence_format import markdown_to_storage  # noqa: E402
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
@@ -722,83 +723,14 @@ def build_markdown(config: Config, issues: list[dict[str, Any]], pages: list[dic
 
 
 def markdown_to_storage_html(markdown_text: str) -> str:
-    html_lines: list[str] = []
-    in_ul = False
-    in_ol = False
-    in_code = False
-    code_buffer: list[str] = []
+    """Convert Markdown to Confluence storage format.
 
-    def close_lists() -> None:
-        nonlocal in_ul, in_ol
-        if in_ul:
-            html_lines.append("</ul>")
-            in_ul = False
-        if in_ol:
-            html_lines.append("</ol>")
-            in_ol = False
-
-    for raw_line in markdown_text.splitlines():
-        line = raw_line.rstrip()
-        if line.startswith("```"):
-            if in_code:
-                html_lines.append(f"<pre><code>{html.escape('\n'.join(code_buffer))}</code></pre>")
-                code_buffer = []
-                in_code = False
-            else:
-                close_lists()
-                in_code = True
-            continue
-        if in_code:
-            code_buffer.append(line)
-            continue
-        if not line.strip():
-            close_lists()
-            continue
-
-        heading = re.match(r"^(#{1,6})\s+(.*)$", line)
-        if heading:
-            close_lists()
-            level = len(heading.group(1))
-            html_lines.append(f"<h{level}>{html.escape(heading.group(2))}</h{level}>")
-            continue
-
-        bullet = re.match(r"^-\s+(.*)$", line)
-        if bullet:
-            if in_ol:
-                html_lines.append("</ol>")
-                in_ol = False
-            if not in_ul:
-                html_lines.append("<ul>")
-                in_ul = True
-            html_lines.append(f"<li>{inline_markdown_to_html(bullet.group(1))}</li>")
-            continue
-
-        numbered = re.match(r"^\d+\.\s+(.*)$", line)
-        if numbered:
-            if in_ul:
-                html_lines.append("</ul>")
-                in_ul = False
-            if not in_ol:
-                html_lines.append("<ol>")
-                in_ol = True
-            html_lines.append(f"<li>{inline_markdown_to_html(numbered.group(1))}</li>")
-            continue
-
-        close_lists()
-        html_lines.append(f"<p>{inline_markdown_to_html(line)}</p>")
-
-    close_lists()
-    if in_code:
-        html_lines.append(f"<pre><code>{html.escape('\n'.join(code_buffer))}</code></pre>")
-    return "\n".join(html_lines)
-
-
-def inline_markdown_to_html(value: str) -> str:
-    escaped = html.escape(value)
-    escaped = re.sub(r"`([^`]+)`", r"<code>\1</code>", escaped)
-    escaped = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r'<a href="\2">\1</a>', escaped)
-    escaped = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", escaped)
-    return escaped
+    Thin wrapper kept for import stability (publish_session_log imports this
+    name). Delegates to the shared md2cf-based converter; the previous
+    hand-rolled line parser only understood bullets/code/paragraphs and
+    emitted non-storage HTML for anything else.
+    """
+    return markdown_to_storage(markdown_text)
 
 
 def write_outputs(markdown_body: str, state: dict[str, Any], output: Path, cache: Path) -> None:
