@@ -400,40 +400,33 @@
                     </button>
                   }
                   @if (canPublish() && r.is_public) {
-                    <div class="flex items-center gap-2 ml-1 animate-[fadeIn_0.2s]">
-                      <!-- The public URL is derived from the recipe title on the
-                           server and shown read-only. A /r/<slug> address is a
-                           stable, shareable, indexed link, so it must not be
-                           freely retyped. Once assigned it stays with the recipe:
-                           the server keeps the existing slug on later saves, so
-                           renaming the recipe does NOT change the URL. -->
-                      <span
-                        class="px-2 py-1 text-xs font-mono text-stone-500 truncate max-w-[11rem]"
-                        [title]="'/r/' + r.slug"
-                        >/r/{{ r.slug }}</span
+                    <!-- Link to the published page. The slug is derived and
+                         enforced server-side (not user-editable), so we show a
+                         plain "View" affordance instead of the raw /r/<slug>,
+                         which read as clutter next to the toggle. -->
+                    <a
+                      [href]="'/r/' + r.slug"
+                      target="_blank"
+                      rel="noopener"
+                      class="inline-flex items-center gap-1 ml-1 text-xs font-semibold text-stone-500 hover:text-green-600 transition-colors animate-[fadeIn_0.2s]"
+                      [title]="'View public page: /r/' + r.slug"
+                    >
+                      View
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-3.5 w-3.5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
                       >
-                      <a
-                        [href]="'/r/' + r.slug"
-                        target="_blank"
-                        class="text-stone-400 hover:text-green-600 transition-colors"
-                        title="View Public Page"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          class="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                          />
-                        </svg>
-                      </a>
-                    </div>
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                        />
+                      </svg>
+                    </a>
                   }
                 </div>
               </div>
@@ -1954,4 +1947,51 @@
       </nav>
     </div>
   </footer>
+
+  <!-- Transient save/dedup confirmation toast (bottom center on mobile,
+       bottom-right on desktop). Offers a "View" action when it references an
+       existing recipe (e.g. "you already have this"). -->
+  @if (saveToast(); as toast) {
+    <div
+      role="status"
+      aria-live="polite"
+      class="fixed bottom-4 inset-x-4 z-[60] flex justify-center md:inset-x-auto md:right-6 md:left-auto md:justify-end animate-[fadeIn_0.2s_ease-out]"
+    >
+      <div
+        class="flex items-center gap-3 rounded-2xl bg-stone-900 text-white shadow-2xl px-4 py-3 w-full max-w-sm"
+      >
+        <span class="flex-1 text-sm">{{ toast.message }}</span>
+        @if (toast.recipe) {
+          <button
+            type="button"
+            (click)="openSaveToastRecipe()"
+            class="text-sm font-semibold text-green-300 hover:text-green-200 underline underline-offset-2 whitespace-nowrap"
+          >
+            View
+          </button>
+        }
+        <button
+          type="button"
+          (click)="dismissSaveToast()"
+          aria-label="Dismiss notification"
+          class="text-stone-400 hover:text-white transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            class="h-4 w-4"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  }
 </div>
