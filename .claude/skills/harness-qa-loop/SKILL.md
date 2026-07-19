@@ -48,11 +48,13 @@ The harness scripts ship in the `engineering/agent-harness` plugin, not this
 repo. Resolve them once, and keep run state in `.agent-harness/` at repo root:
 
 ```bash
+# Anchor at the repo root so .agent-harness/ scratch and every relative plan/state
+# path below resolve the same way no matter which cwd you start in.
+cd "$(git rev-parse --show-toplevel)" || { echo "not inside a git repo"; exit 1; }
 AH_SCRIPT="$(find ~/.claude/plugins -path '*/agent-harness/scripts/goal_compiler.py' 2>/dev/null | head -1)"
 [ -n "$AH_SCRIPT" ] || { echo "agent-harness plugin not found under ~/.claude/plugins — install engineering/agent-harness first"; exit 1; }
 AH="$(dirname "$AH_SCRIPT")"
-# plan_qa.py ships in this skill; resolve from the repo root so it works from any cwd
-SKILL_DIR="$(git rev-parse --show-toplevel)/.claude/skills/harness-qa-loop"
+SKILL_DIR=".claude/skills/harness-qa-loop"   # plan_qa.py ships here (repo-relative after the cd above)
 mkdir -p .agent-harness
 ```
 
@@ -129,8 +131,10 @@ python3 "$AH/loop_controller.py" close --state .agent-harness/state.json   # ref
 
 - **Approving a REVIEW/BLOCK plan anyway.** A smoke-only check is not proof. Add
   an outcome check tied to `done_when`, or accept it out loud as a known gap.
-- **Editing a check to pass QA.** Same reward-hacking failure the harness forbids
-  in the loop — it applies to the plan too. Recompile instead.
+- **Weakening a check, or editing any check after init, to make a task pass.**
+  That is the reward-hacking the harness forbids. Strengthening a check *before*
+  init (Phase 2) is the opposite — allowed and expected; recompile or hand-author
+  *truer* checks, never weaker ones.
 - **Turning a secrets/human step into a fake check.** If a step needs a
   credential you can't create, it is a waiver with a reason, not a green check.
 - **Skipping QA "because the goal is small."** The linter is one command; a bad
