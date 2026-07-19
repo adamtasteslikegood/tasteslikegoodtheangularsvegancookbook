@@ -38,7 +38,7 @@ case "$tool_name" in
     if printf '%s' "$cmd" | grep -Eq 'gh[[:space:]]+pr[[:space:]]+(comment|review)([[:space:]]|$)'; then
       is_pr_reply=1
     elif printf '%s' "$cmd" | grep -Eq 'gh[[:space:]]+api[[:space:]]' \
-      && printf '%s' "$cmd" | grep -Eq 'pulls/([0-9]+/comments|comments/[0-9]+/replies)' \
+      && printf '%s' "$cmd" | grep -Eq 'pulls/[0-9]+/comments' \
       && printf '%s' "$cmd" | grep -Eq '(-X[[:space:]]*POST|--method[[:space:]]*POST|-f[[:space:]]|-F[[:space:]]|--field[[:space:]]|--input[[:space:]])'; then
       is_pr_reply=1
     fi
