@@ -257,9 +257,7 @@ describe('AppComponent save-from-SSR dedup', () => {
   it('does not add a duplicate when a copy from the same slug is already saved', async () => {
     const { component, saveRecipe } = createComponent({
       search: '?save=thai-peanut-noodles',
-      savedRecipes: [
-        { id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' },
-      ],
+      savedRecipes: [{ id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' }],
     });
 
     await vi.waitFor(() => expect(component.saveToast()).not.toBeNull());
