@@ -139,8 +139,16 @@ export class AppComponent {
       // persistenceService.saveRecipe writes localStorage first (via
       // auth.saveRecipe) and then syncs to the API, so a separate
       // authService.saveRecipe call here would be a redundant double-write.
-      await this.persistenceService.saveRecipe(recipe);
-      this.showSaveToast('Saved to your cookbook.', recipe);
+      const synced = await this.persistenceService.saveRecipe(recipe);
+      // saveRecipe always writes localStorage first, so the recipe is in the
+      // cookbook either way; `synced` reports whether the API write landed.
+      // Don't claim a server save that didn't happen.
+      this.showSaveToast(
+        synced
+          ? 'Saved to your cookbook.'
+          : "Saved on this device — we'll sync it when you're back online.",
+        recipe
+      );
       // Use switchView so the kitchen history entry is pushed and the browser
       // Back button behaves consistently with the rest of the app.
       this.switchView('kitchen');
@@ -316,7 +324,10 @@ export class AppComponent {
   private showSaveToast(message: string, recipe: Recipe | null = null) {
     if (this.saveToastTimer) clearTimeout(this.saveToastTimer);
     this.saveToast.set({ message, recipe });
-    this.saveToastTimer = setTimeout(() => this.saveToast.set(null), 6000);
+    this.saveToastTimer = setTimeout(() => {
+      this.saveToast.set(null);
+      this.saveToastTimer = null;
+    }, 6000);
   }
 
   /** Open the recipe referenced by the current toast, then dismiss it. */

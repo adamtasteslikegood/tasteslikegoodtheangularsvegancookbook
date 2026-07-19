@@ -223,7 +223,7 @@ describe('AppComponent save-from-SSR dedup', () => {
     vi.unstubAllGlobals();
   });
 
-  const createComponent = (opts: { search: string; savedRecipes: unknown[] }) => {
+  const createComponent = (opts: { search: string; savedRecipes: unknown[]; synced?: boolean }) => {
     vi.stubGlobal('window', {
       addEventListener: vi.fn(),
       location: {
@@ -234,7 +234,7 @@ describe('AppComponent save-from-SSR dedup', () => {
       },
       history: { replaceState: vi.fn(), pushState: vi.fn() },
     });
-    const saveRecipe = vi.fn().mockResolvedValue(true);
+    const saveRecipe = vi.fn().mockResolvedValue(opts.synced ?? true);
     const injector = Injector.create({
       providers: [
         { provide: GeminiService, useValue: {} },
@@ -317,5 +317,29 @@ describe('AppComponent save-from-SSR dedup', () => {
 
     expect(saveRecipe.mock.calls[0][0].sourceSlug).toBe('thai-peanut-noodles');
     expect(component.saveToast()?.message).toMatch(/saved to your cookbook/i);
+  });
+
+  it('tells the user when a fresh save only reached this device (API sync failed)', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      })
+    );
+    const { component, saveRecipe } = createComponent({
+      search: '?save=thai-peanut-noodles',
+      savedRecipes: [],
+      synced: false,
+    });
+
+    await vi.waitFor(() => expect(saveRecipe).toHaveBeenCalledTimes(1));
+
+    // Still saved locally (recipe present for the View action), but the toast
+    // must not claim a completed server save.
+    expect(component.saveToast()?.recipe).not.toBeNull();
+    expect(component.saveToast()?.message).toMatch(/on this device/i);
+    expect(component.saveToast()?.message).not.toMatch(/saved to your cookbook/i);
   });
 });
