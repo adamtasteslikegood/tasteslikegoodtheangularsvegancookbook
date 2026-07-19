@@ -35,4 +35,10 @@ export interface Recipe {
   image?: string;
   is_public?: boolean;
   slug?: string;
+  /**
+   * The public `/r/<slug>` this recipe was saved from, if it originated from
+   * the public site's "Save to cookbook" CTA. Used to dedup repeat saves so
+   * tapping Save again surfaces the existing copy instead of adding another.
+   */
+  sourceSlug?: string;
 }

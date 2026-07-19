@@ -25,5 +25,9 @@ export function buildSavedRecipeFromPublic(recipeData: Partial<Recipe>): Recipe 
     // falls back to a placeholder even though the source recipe had an image.
     ai_image_url: recipeData.ai_image_url,
     stock_image_url: recipeData.stock_image_url,
+    // Remember which public recipe this copy came from so a repeat "Save to
+    // cookbook" can detect the duplicate and point the user at the copy they
+    // already have instead of silently adding another.
+    sourceSlug: recipeData.slug,
   };
 }

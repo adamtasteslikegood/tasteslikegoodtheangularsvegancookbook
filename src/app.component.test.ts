@@ -217,3 +217,129 @@ describe('AppComponent.createCookbook in-flight guard', () => {
     expect(component.showCreateCookbookModal()).toBe(false);
   });
 });
+
+describe('AppComponent save-from-SSR dedup', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const createComponent = (opts: { search: string; savedRecipes: unknown[]; synced?: boolean }) => {
+    vi.stubGlobal('window', {
+      addEventListener: vi.fn(),
+      location: {
+        hash: '',
+        href: `http://localhost/${opts.search}`,
+        pathname: '/',
+        search: opts.search,
+      },
+      history: { replaceState: vi.fn(), pushState: vi.fn() },
+    });
+    const saveRecipe = vi.fn().mockResolvedValue(opts.synced ?? true);
+    const injector = Injector.create({
+      providers: [
+        { provide: GeminiService, useValue: {} },
+        { provide: PersistenceService, useValue: { saveRecipe } },
+        {
+          provide: AuthService,
+          useValue: {
+            ready: Promise.resolve(),
+            ensureGuestSession: vi.fn(),
+            saveRecipe: vi.fn(),
+            currentUser: () => ({ isGuest: false, savedRecipes: opts.savedRecipes }),
+          },
+        },
+      ],
+    });
+    const component = runInInjectionContext(injector, () => new AppComponent());
+    return { component, saveRecipe };
+  };
+
+  it('does not add a duplicate when a copy from the same slug is already saved', async () => {
+    const { component, saveRecipe } = createComponent({
+      search: '?save=thai-peanut-noodles',
+      savedRecipes: [{ id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' }],
+    });
+
+    await vi.waitFor(() => expect(component.saveToast()).not.toBeNull());
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(component.saveToast()?.message).toMatch(/already have this recipe/i);
+    expect(component.saveToast()?.recipe?.id).toBe('r1');
+  });
+
+  it("de-dupes against the user's own published recipe (matches its slug)", async () => {
+    const { component, saveRecipe } = createComponent({
+      search: '?save=my-own-chili',
+      savedRecipes: [{ id: 'mine', name: 'My Chili', slug: 'my-own-chili', is_public: true }],
+    });
+
+    await vi.waitFor(() => expect(component.saveToast()).not.toBeNull());
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(component.saveToast()?.recipe?.id).toBe('mine');
+  });
+
+  it('does not collapse two different recipes that share a title (keys on slug, not name)', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'copy-b' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ name: 'French Fries', slug: 'french-fries-2' }),
+      })
+    );
+    const { saveRecipe } = createComponent({
+      // A different French Fries recipe (its own slug) is already saved…
+      search: '?save=french-fries-2',
+      savedRecipes: [{ id: 'ff-1', name: 'French Fries', sourceSlug: 'french-fries' }],
+    });
+
+    // …so saving the second one still creates a copy rather than being blocked.
+    await vi.waitFor(() => expect(saveRecipe).toHaveBeenCalledTimes(1));
+    expect(saveRecipe.mock.calls[0][0].sourceSlug).toBe('french-fries-2');
+  });
+
+  it('saves a new copy tagged with sourceSlug when nothing matches', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      })
+    );
+    const { component, saveRecipe } = createComponent({
+      search: '?save=thai-peanut-noodles',
+      savedRecipes: [],
+    });
+
+    await vi.waitFor(() => expect(saveRecipe).toHaveBeenCalledTimes(1));
+
+    expect(saveRecipe.mock.calls[0][0].sourceSlug).toBe('thai-peanut-noodles');
+    expect(component.saveToast()?.message).toMatch(/saved to your cookbook/i);
+  });
+
+  it('tells the user when a fresh save only reached this device (API sync failed)', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      })
+    );
+    const { component, saveRecipe } = createComponent({
+      search: '?save=thai-peanut-noodles',
+      savedRecipes: [],
+      synced: false,
+    });
+
+    await vi.waitFor(() => expect(saveRecipe).toHaveBeenCalledTimes(1));
+
+    // Still saved locally (recipe present for the View action), but the toast
+    // must not claim a completed server save.
+    expect(component.saveToast()?.recipe).not.toBeNull();
+    expect(component.saveToast()?.message).toMatch(/on this device/i);
+    expect(component.saveToast()?.message).not.toMatch(/saved to your cookbook/i);
+  });
+});

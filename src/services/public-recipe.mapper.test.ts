@@ -43,4 +43,13 @@ describe('buildSavedRecipeFromPublic', () => {
     expect(recipe.description).toBe('');
     expect(recipe.notes).toBe('');
   });
+
+  it('records the source slug so repeat saves can be de-duplicated', () => {
+    const recipe = buildSavedRecipeFromPublic({
+      name: 'Thai Peanut Noodles',
+      slug: 'thai-peanut-noodles',
+    });
+
+    expect(recipe.sourceSlug).toBe('thai-peanut-noodles');
+  });
 });
