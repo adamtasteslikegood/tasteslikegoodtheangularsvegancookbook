@@ -22,6 +22,14 @@ export class AppComponent {
   // Navigation
   activeView = signal<'generator' | 'kitchen'>('generator');
 
+  /**
+   * Transient confirmation toast (bottom of screen). Holds an optional recipe
+   * so the toast can offer a "View" action (e.g. "you already have this →").
+   * null = hidden.
+   */
+  saveToast = signal<{ message: string; recipe: Recipe | null } | null>(null);
+  private saveToastTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
     this.syncViewFromLocation();
 
@@ -105,6 +113,21 @@ export class AppComponent {
     // Ensure a session exists so the save persists — a no-op for signed-in
     // users; creates a guest for first-time visitors arriving from an SSR page.
     this.authService.ensureGuestSession();
+
+    // Dedup: if this recipe is already in the cookbook — saved from the same
+    // public slug before, OR it's the user's own recipe with that slug — don't
+    // add another copy. Point them at the one they have. Keyed on slug
+    // identity, NOT title, so two genuinely different recipes that share a name
+    // still each save.
+    const alreadySaved = this.authService
+      .currentUser()
+      ?.savedRecipes.find((r) => r.sourceSlug === normalizedSlug || r.slug === normalizedSlug);
+    if (alreadySaved) {
+      this.showSaveToast('Good news — you already have this recipe.', alreadySaved);
+      this.switchView('kitchen');
+      return;
+    }
+
     try {
       const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);
       if (!response.ok) {
@@ -116,7 +139,16 @@ export class AppComponent {
       // persistenceService.saveRecipe writes localStorage first (via
       // auth.saveRecipe) and then syncs to the API, so a separate
       // authService.saveRecipe call here would be a redundant double-write.
-      await this.persistenceService.saveRecipe(recipe);
+      const synced = await this.persistenceService.saveRecipe(recipe);
+      // saveRecipe always writes localStorage first, so the recipe is in the
+      // cookbook either way; `synced` reports whether the API write landed.
+      // Don't claim a server save that didn't happen.
+      this.showSaveToast(
+        synced
+          ? 'Saved to your cookbook.'
+          : "Saved on this device — we'll sync it when you're back online.",
+        recipe
+      );
       // Use switchView so the kitchen history entry is pushed and the browser
       // Back button behaves consistently with the rest of the app.
       this.switchView('kitchen');
@@ -283,6 +315,37 @@ export class AppComponent {
       const url = new URL(window.location.href);
       window.history.replaceState({ view: 'generator' }, '', url.pathname + url.search);
     }
+  }
+
+  /**
+   * Show a transient bottom-of-screen toast. Pass a recipe to add a "View"
+   * action (e.g. surfacing the copy the user already has). Auto-dismisses.
+   */
+  private showSaveToast(message: string, recipe: Recipe | null = null) {
+    if (this.saveToastTimer) clearTimeout(this.saveToastTimer);
+    this.saveToast.set({ message, recipe });
+    this.saveToastTimer = setTimeout(() => {
+      this.saveToast.set(null);
+      this.saveToastTimer = null;
+    }, 6000);
+    // In Node (Vitest) the pending 6s timer keeps the event loop alive and can
+    // delay/hang teardown; unref() so it never blocks process exit. No-op in
+    // the browser, where the timer id is a plain number with no unref().
+    (this.saveToastTimer as unknown as { unref?: () => void }).unref?.();
+  }
+
+  /** Open the recipe referenced by the current toast, then dismiss it. */
+  openSaveToastRecipe() {
+    const toast = this.saveToast();
+    if (toast?.recipe) this.viewRecipe(toast.recipe);
+    this.dismissSaveToast();
+  }
+
+  /** Manually dismiss the toast (its X button). */
+  dismissSaveToast() {
+    if (this.saveToastTimer) clearTimeout(this.saveToastTimer);
+    this.saveToastTimer = null;
+    this.saveToast.set(null);
   }
 
   selectCookbook(id: string | null) {

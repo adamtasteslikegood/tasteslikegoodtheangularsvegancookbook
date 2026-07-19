@@ -177,6 +177,9 @@ steps:
       - --region=$_REGION
       - --port=8080
       - --min-instances=1
+      # Memory: 512Mi (Cloud Run default) left idle RSS — gunicorn + ddtrace +
+      # google SDKs — at ~84% p95 / 99.2% max (OOM edge). 1Gi drops it to ~42%.
+      - --memory=1Gi
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
@@ -186,7 +189,12 @@ steps:
       # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
       # fails closed with 503.
       - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
-      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,DD_API_KEY=DD_API_KEY:latest
+      # VALKEY_CA_CERT: Memorystore's Google-managed CA, trusted by the Flask
+      # IAM Valkey client (Backend/utils/valkey_auth.py) so the response cache
+      # (Flask-Caching) uses shared Valkey instead of silently degrading to a
+      # per-worker in-process SimpleCache. Same secret express-frontend mounts
+      # below; created by scripts/gcloud/setup_valkey_ca.sh.
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest,DD_API_KEY=DD_API_KEY:latest
       - --labels=service=flask-backend,dd_sls_mcp_tool=true
       - --no-allow-unauthenticated
       - --quiet

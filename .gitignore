@@ -133,3 +133,6 @@ scripts/pm/.venv/
 
 # Runtime session-log dedup markers (SessionEnd hook)
 .claude/session-logs/
+
+# agent-harness per-run working state (plan/state/evidence scratch)
+.agent-harness/

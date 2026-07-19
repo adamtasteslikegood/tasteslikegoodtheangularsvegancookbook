@@ -1,7 +1,10 @@
-fastmcp
 # Install with: pip install -r scripts/pm/requirements.txt
-markdown
+#
+# pm_daemon uses mcp.server.fastmcp from the `mcp` package below — NOT the
+# standalone `fastmcp` distribution, which was unused here and whose deps
+# (fastmcp-slim/cyclopts) pin `rich` too high to resolve against md2cf. (KAN-107)
 mcp
+md2cf>=2.3.0,<3
 python-dotenv>=1.0.0
 requests>=2.31.0
 # Runtime dependencies for scripts/pm/sync_jira_confluence_status.py

@@ -13,6 +13,27 @@
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/check-gstack.sh"
           }
         ]
+      },
+      {
+        "matcher": "mcp__plugin_github_github__(add_reply_to_pull_request_comment|add_comment_to_pending_review|add_issue_comment|pull_request_review_write)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pretooluse-pr-review-nudge.sh",
+            "statusMessage": "Checking PR-review skill"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/pretooluse-pr-review-nudge.sh",
+            "if": "Bash(gh *)",
+            "statusMessage": "Checking PR-review skill"
+          }
+        ]
       }
     ],
     "PreCompact": [
