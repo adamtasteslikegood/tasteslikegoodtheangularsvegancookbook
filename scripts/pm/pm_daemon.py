@@ -5,7 +5,6 @@ import logging
 import base64
 import subprocess
 import requests
-import markdown
 from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -15,6 +14,7 @@ from dotenv import load_dotenv
 # Make sibling modules importable whether this file is run as a script or imported.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
+from _confluence_format import markdown_to_storage
 from _watcher_lock import (
     DISABLE_ENV,
     acquire_watcher_lock,
@@ -83,6 +83,45 @@ CANONICAL_PM_FILES = [
 ]
 WATCHED_FILES = [path.name for path in CANONICAL_PM_FILES]
 
+# Stable, version-free Confluence page titles per canonical PM file. Titles must
+# NOT carry a release version: the daemon looks pages up by title, so a moving
+# prefix (the old hardcoded "v0.2 ...") would strand each page under its old name
+# and spawn a duplicate on the next bump. See KAN-109.
+CANONICAL_PAGE_TITLES = {
+    "roadmap.md": "Project Roadmap",
+    "plan.md": "Execution Plan",
+    "planning_notes.md": "Planning Session Review & Notes",
+    "design-plan.md": "Design Implementation Plan",
+    "SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md": "Scrum Bootstrap & Board Plan",
+    "SPRINT_0_PLAN.md": "Sprint 0 Plan",
+    "ATLASSIAN_PM_LINK.md": "Atlassian PM Link",
+}
+
+
+def _page_title_for(filepath: Path) -> str:
+    """Stable Confluence page title for a canonical PM file (no version prefix)."""
+    return CANONICAL_PAGE_TITLES.get(
+        filepath.name,
+        filepath.name.replace(".md", "").replace("_", " ").title(),
+    )
+
+
+def _find_confluence_page_id(title: str) -> str | None:
+    """Return the id of the current page with this exact title in SPACE_ID, or None.
+
+    Raises on HTTP/transport error so callers abort instead of creating a
+    duplicate when the lookup itself failed.
+    """
+    search_url = (
+        f"https://{URL_BASE}/wiki/api/v2/spaces/{SPACE_ID}/pages"
+        f"?title={requests.utils.quote(title)}&limit=1"
+    )
+    resp = requests.get(search_url, headers=HEADERS, timeout=TIMEOUT)
+    resp.raise_for_status()
+    results = resp.json().get("results", [])
+    return results[0]["id"] if results else None
+
+
 class PMFileEventHandler(FileSystemEventHandler):
     def __init__(self, workspace_dir):
         self.workspace_dir = Path(workspace_dir)
@@ -111,21 +150,11 @@ class PMFileEventHandler(FileSystemEventHandler):
             logger.error("Cannot sync to confluence: No auth headers.")
             return False
         
-        title = f"v0.2 {filepath.name.replace('.md', '').replace('_', ' ').title()}"
-        if filepath.name == "roadmap.md":
-            title = "v0.2 Project Roadmap"
-        elif filepath.name == "plan.md":
-            title = "v0.2 Execution Plan"
-        elif filepath.name == "planning_notes.md":
-            title = "v0.2 Planning Session Review & Notes"
-        elif filepath.name == "design-plan.md":
-            title = "v0.2 Design Implementation Plan"
-        elif filepath.name == "SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md":
-            title = "v0.2 Scrum Bootstrap & Board Plan"
-        elif filepath.name == "SPRINT_0_PLAN.md":
-            title = "v0.2 Sprint 0 Plan"
-        elif filepath.name == "ATLASSIAN_PM_LINK.md":
-            title = "v0.2 Atlassian PM Link"
+        title = _page_title_for(filepath)
+        # One-time migration off the old hardcoded "v0.2 ..." titles: if a page
+        # still lives under the legacy name, update THAT page in place so
+        # Confluence renames it, rather than creating a duplicate. (KAN-109)
+        legacy_title = f"v0.2 {title}"
 
         try:
             content = filepath.read_text(encoding="utf-8", errors="replace")
@@ -135,36 +164,36 @@ class PMFileEventHandler(FileSystemEventHandler):
 
         logger.info(f"Syncing content of {filepath.name} to Confluence: {title}")
         
-        html_content = markdown.markdown(content, extensions=['fenced_code', 'tables'])
+        storage_body = markdown_to_storage(content)
         
-        # 1. Search for existing page
-        search_url = f"https://{URL_BASE}/wiki/api/v2/spaces/{SPACE_ID}/pages?title={requests.utils.quote(title)}"
+        # Look up the page by its stable title, then (one-time migration) by the
+        # legacy "v0.2 ..." title, so an existing page is updated in place
+        # instead of duplicated. A lookup error aborts rather than risk a dupe.
         page_id = None
         version = 1
-        
         try:
-            resp = requests.get(search_url, headers=HEADERS, timeout=TIMEOUT)
-            if resp.status_code == 200:
-                results = resp.json().get('results', [])
-                if results:
-                    page_id = results[0]['id']
-                    # Get current version. If we can't read it, abort instead of
-                    # POSTing with a stale version=1 — an update against an
-                    # existing page would be rejected by Confluence (or risk
-                    # clobbering it).
-                    page_resp = requests.get(f"https://{URL_BASE}/wiki/api/v2/pages/{page_id}", headers=HEADERS, timeout=TIMEOUT)
-                    if page_resp.status_code == 200:
-                        version = page_resp.json().get('version', {}).get('number', 0) + 1
-                    else:
-                        logger.error(
-                            f"Could not read current version of existing page {page_id} "
-                            f"(HTTP {page_resp.status_code}); aborting sync of '{title}'"
-                        )
-                        return False
+            page_id = _find_confluence_page_id(title) or _find_confluence_page_id(legacy_title)
         except Exception as e:
-            # Don't swallow and continue with version=1; abort this file's sync.
             logger.error(f"Error checking page existence for '{title}': {e}")
             return False
+
+        if page_id:
+            # Read the live version; abort if unreadable rather than POST a stale
+            # version=1 that Confluence would reject (or that could clobber).
+            try:
+                page_resp = requests.get(
+                    f"https://{URL_BASE}/wiki/api/v2/pages/{page_id}",
+                    headers=HEADERS,
+                    timeout=TIMEOUT,
+                )
+                page_resp.raise_for_status()
+                version = page_resp.json().get("version", {}).get("number", 0) + 1
+            except Exception as e:
+                logger.error(
+                    f"Could not read current version of existing page {page_id} "
+                    f"for '{title}': {e}; aborting sync"
+                )
+                return False
 
         payload = {
             "spaceId": SPACE_ID,
@@ -173,7 +202,7 @@ class PMFileEventHandler(FileSystemEventHandler):
             "parentId": PARENT_PAGE_ID,
             "body": {
                 "representation": "storage",
-                "value": html_content
+                "value": storage_body
             }
         }
         
@@ -191,13 +220,33 @@ class PMFileEventHandler(FileSystemEventHandler):
             logger.info(f"Creating new Confluence page: {title}")
 
         try:
-            response = req_func(url, headers=HEADERS, json=payload, timeout=TIMEOUT)
-            if response.status_code in [200, 201]:
-                logger.info(f"Successfully synced: {title}")
-                return True
-            else:
+            for attempt in range(2):
+                response = req_func(url, headers=HEADERS, json=payload, timeout=TIMEOUT)
+                if response.status_code in (200, 201):
+                    logger.info(f"Successfully synced: {title}")
+                    return True
+                # A concurrent writer (another session's watcher, or a manual
+                # sync_pm_documents call that does not hold the watcher lock) can
+                # bump the version between our read and this PUT, yielding 409.
+                # Re-read the live version once and retry. (KAN-108)
+                if page_id and response.status_code == 409 and attempt == 0:
+                    logger.warning(
+                        f"Version conflict on '{title}' (409); re-reading version and retrying once"
+                    )
+                    reread = requests.get(
+                        f"https://{URL_BASE}/wiki/api/v2/pages/{page_id}",
+                        headers=HEADERS,
+                        timeout=TIMEOUT,
+                    )
+                    reread.raise_for_status()
+                    payload["version"] = {
+                        "number": reread.json().get("version", {}).get("number", 0) + 1,
+                        "message": "Updated by PM Daemon (retry after 409)",
+                    }
+                    continue
                 logger.error(f"Failed to sync {title}: {response.status_code} {response.text}")
                 return False
+            return False
         except Exception as e:
             logger.error(f"Error syncing page {title}: {e}")
             return False

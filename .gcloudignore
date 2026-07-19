@@ -74,7 +74,6 @@ jira_data.json
 jira_issues.txt
 fetch_atlassian.py
 update_jira.py
-sync_docs_to_confluence.py
 
 # Misc artifacts
 adamtasteslikegood-2026-github-skyline.stl
