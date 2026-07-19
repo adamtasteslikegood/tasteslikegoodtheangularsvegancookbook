@@ -121,9 +121,7 @@ export class AppComponent {
     // still each save.
     const alreadySaved = this.authService
       .currentUser()
-      ?.savedRecipes.find(
-        (r) => r.sourceSlug === normalizedSlug || r.slug === normalizedSlug
-      );
+      ?.savedRecipes.find((r) => r.sourceSlug === normalizedSlug || r.slug === normalizedSlug);
     if (alreadySaved) {
       this.showSaveToast('Good news — you already have this recipe.', alreadySaved);
       this.switchView('kitchen');
