@@ -164,7 +164,15 @@ class PMFileEventHandler(FileSystemEventHandler):
 
         logger.info(f"Syncing content of {filepath.name} to Confluence: {title}")
         
-        storage_body = markdown_to_storage(content)
+        try:
+            storage_body = markdown_to_storage(content)
+        except Exception as e:
+            # A converter failure must not escape sync_to_confluence: it runs
+            # inside the watchdog on_modified handler, and an unhandled exception
+            # there can take down the observer thread and silently stop all
+            # future syncs. Abort this file's sync like every other error path.
+            logger.error(f"Failed to render {filepath.name} to Confluence storage: {e}")
+            return False
         
         # Look up the page by its stable title, then (one-time migration) by the
         # legacy "v0.2 ..." title, so an existing page is updated in place
