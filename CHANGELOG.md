@@ -39,7 +39,10 @@ and unclips the public recipe hero on mobile. No schema migration.
   ([#3173](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3173)),
   the Datadog continuous profiler disabled, and gunicorn workers now recycle on
   a max-request cap (Backend
-  [#220](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/220)) —
+  [#220](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/220));
+  gunicorn's graceful-timeout is raised to **540s** so those worker recycles
+  don't kill in-flight recipe generations (Backend
+  [#224](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/224)) —
   headroom over the flat ~84% memory baseline that risked an OOM at the 99% edge.
 - **Agent / PM tooling**: new `harness-qa-loop` QA-gated harness skill plus an
   `.env.example` credentials callout
@@ -57,7 +60,7 @@ and unclips the public recipe hero on mobile. No schema migration.
 
 ### Deploy notes
 
-- Backend submodule pointer **`4857369` → `9c830b0`**. **No new Alembic
+- Backend submodule pointer **`4857369` → `18a303a`**. **No new Alembic
   migration** — single head unchanged, so `flask-backend-migrate` is a no-op
   this release.
 - The flask-backend Cloud Run deploy now mounts the **`VALKEY_CA_CERT`** secret
