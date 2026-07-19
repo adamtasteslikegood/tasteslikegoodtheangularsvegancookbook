@@ -45,7 +45,7 @@ def _is_tautology(cmd: str) -> bool:
 
 def _load_plan(path: Path):
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
         print(f"plan_qa: no plan at {path} — compile a goal first "
               f"(goal_compiler.py ... --out {path})", file=sys.stderr)
@@ -67,7 +67,7 @@ def _load_plan(path: Path):
 
 
 def qa(plan: dict) -> dict:
-    """Return {tasks:[...], blockers:[...], warnings:[...]}."""
+    """Return {rows:[...], blockers:[...], warnings:[...], goal, domain, task_count, max_iters}."""
     tasks = plan.get("tasks", [])
     loop = plan.get("loop", {})
     order = loop.get("order", "sequential")
