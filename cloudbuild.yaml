@@ -177,6 +177,9 @@ steps:
       - --region=$_REGION
       - --port=8080
       - --min-instances=1
+      # Memory: 512Mi (Cloud Run default) left idle RSS — gunicorn + ddtrace +
+      # google SDKs — at ~84% p95 / 99.2% max (OOM edge). 1Gi drops it to ~42%.
+      - --memory=1Gi
       # KAN-29: FLASK_ENV=production activates production-only guards:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
