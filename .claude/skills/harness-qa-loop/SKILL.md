@@ -48,8 +48,11 @@ The harness scripts ship in the `engineering/agent-harness` plugin, not this
 repo. Resolve them once, and keep run state in `.agent-harness/` at repo root:
 
 ```bash
-AH="$(dirname "$(find ~/.claude/plugins -path '*/agent-harness/scripts/goal_compiler.py' 2>/dev/null | head -1)")"
-SKILL_DIR="$(dirname "$0")"   # this skill's dir; holds plan_qa.py
+AH_SCRIPT="$(find ~/.claude/plugins -path '*/agent-harness/scripts/goal_compiler.py' 2>/dev/null | head -1)"
+[ -n "$AH_SCRIPT" ] || { echo "agent-harness plugin not found under ~/.claude/plugins — install engineering/agent-harness first"; exit 1; }
+AH="$(dirname "$AH_SCRIPT")"
+# plan_qa.py ships in this skill; resolve from the repo root so it works from any cwd
+SKILL_DIR="$(git rev-parse --show-toplevel)/.claude/skills/harness-qa-loop"
 mkdir -p .agent-harness
 ```
 
