@@ -14,7 +14,12 @@
 # Registered on two PreToolUse matchers in .claude/settings.json:
 #   - the GitHub MCP reply tools (tool-name match)
 #   - Bash, guarded by `if: "Bash(gh *)"` so it only runs for gh commands
-set -euo pipefail
+#
+# Fail-open, matching the repo's other hooks: any unexpected error exits 0 so a
+# transient failure (malformed stdin, missing jq, etc.) can never interfere with
+# the tool call it's attached to.
+set -uo pipefail
+trap 'exit 0' ERR
 
 payload="$(cat)"
 tool_name="$(printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true)"
