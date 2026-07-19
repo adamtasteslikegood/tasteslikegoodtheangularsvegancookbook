@@ -40,7 +40,7 @@ def _is_tautology(cmd: str) -> bool:
     c = (cmd or "").strip()
     if c in _ALWAYS_ZERO:
         return True
-    return c.startswith("echo ") or c.startswith("printf ") or c == "true"
+    return c.startswith("echo ") or c.startswith("printf ")
 
 
 def _load_plan(path: Path):
@@ -52,6 +52,11 @@ def _load_plan(path: Path):
         raise SystemExit(2)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"plan_qa: cannot read {path}: {exc}", file=sys.stderr)
+        raise SystemExit(2)
+    if not isinstance(data, dict):
+        print(f"plan_qa: {path} is not an agent-harness plan "
+              f"(top-level JSON is {type(data).__name__}, expected object)",
+              file=sys.stderr)
         raise SystemExit(2)
     schema = str(data.get("schema", ""))
     if not schema.startswith("agent-harness/plan"):
