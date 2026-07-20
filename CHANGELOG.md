@@ -8,6 +8,25 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+---
+
+## [0.4.0] - 2026-07-20
+
+Discoverability and conversion release closing out Sprint 1 (KAN-110). Ends the
+home-page crawl dead-end with server-rendered anchors and unblocks Google
+sign-in for visitors arriving inside in-app browsers. No schema migration.
+
+### Added
+
+- **Server-rendered crawlable links on the home shell**: the Angular home shell
+  previously served only `<app-root>` — a crawler or no-JS client hitting `/`
+  found zero anchors, making the public SSR pages (`/browse`, `/r/<slug>`) a
+  crawl dead-end. A `<noscript>` nav now ships in the server HTML with
+  `<a href="/browse">` plus two published recipe links, without changing the
+  JS-rendered UI
+  ([#3185](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3185),
+  TAS-2896, KAN-114).
+
 ### Fixed
 
 - **Google sign-in no longer dead-ends inside in-app browsers**: visitors who
@@ -17,7 +36,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   browser and, instead of firing a doomed consent redirect, shows an "open this
   page in Safari/Chrome to sign in" fallback with a copy-link button. Guest
   saving already works in-webview, so first-time saves are no longer blocked at
-  the conversion moment (TAS-2899).
+  the conversion moment
+  ([#3186](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3186),
+  TAS-2899, KAN-113).
 
 ---
 
