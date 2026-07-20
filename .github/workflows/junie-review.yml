@@ -24,12 +24,12 @@ jobs:
         continue-on-error: true
         uses: JetBrains/junie-github-action@9605a68b1038edb2e33071ca799681ab24ff75ba # v1.5.10
         with:
-          # The JUNIE_API_KEY path failed on every run ("Failed to build
-          # 'issue.md.junie_standalone'") across CLI 2285.4 and 2285.5 — the
-          # JetBrains-hosted key has no usable inference. Switch to BYOK with the
-          # Gemini key we already have (matches the Backend/agentic Gemini move).
-          # README: provide EITHER junie_api_key OR one BYOK key — not both.
-          google_api_key: ${{ secrets.GEMINI_API_KEY }}
-          model: 'gemini-pro'
+          # KNOWN-BROKEN UPSTREAM (2026-07-20): the built-in `code-review` prompt
+          # dies at "Failed to build 'issue.md.junie_standalone'" on every run.
+          # Verified independent of Junie CLI version (2285.4/2285.5), auth method
+          # (junie_api_key vs BYOK google_api_key), and model — so it is a
+          # JetBrains Junie CLI bug in Review mode, not a config problem here.
+          # Left advisory (continue-on-error) until JetBrains ships a fix.
+          junie_api_key: ${{ secrets.JUNIE_API_KEY }}
           use_single_comment: 'true'
           prompt: 'code-review'
