@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **Google sign-in no longer dead-ends inside in-app browsers**: visitors who
+  arrive from Pinterest (and Instagram/Facebook/etc.) view the site inside that
+  app's embedded webview, where Google blocks OAuth with
+  `Error 403: disallowed_useragent`. The sign-in dialog now detects the in-app
+  browser and, instead of firing a doomed consent redirect, shows an "open this
+  page in Safari/Chrome to sign in" fallback with a copy-link button. Guest
+  saving already works in-webview, so first-time saves are no longer blocked at
+  the conversion moment (TAS-2899).
+
+---
+
 ## [0.3.9] - 2026-07-19
 
 Stability and infrastructure release. Restores the Flask backend's shared
