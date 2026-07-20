@@ -6,6 +6,7 @@ import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
 import { buildSavedRecipeFromPublic } from './services/public-recipe.mapper';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
+import { isInAppBrowserEnvironment } from './utils/in-app-browser';
 
 @Component({
   selector: 'app-root',
@@ -226,6 +227,18 @@ export class AppComponent {
   authError = signal<string | null>(null);
   authLoginLoading = signal<boolean>(false);
   showUserProfileCard = signal<boolean>(false);
+
+  /**
+   * True when we're running inside a third-party in-app browser (Pinterest,
+   * Instagram, Facebook, …) where Google OAuth returns
+   * `Error 403: disallowed_useragent`. When true the auth modal swaps the
+   * doomed "Sign in with Google" button for an "Open in your browser" fallback.
+   * Computed once from the User-Agent — it can't change without a reload.
+   */
+  readonly isInAppBrowser = signal<boolean>(isInAppBrowserEnvironment());
+
+  /** Transient confirmation after the user copies the page link in the fallback. */
+  copiedShareLink = signal<boolean>(false);
 
   // Recipe Gen State
   prompt = signal<string>('');
@@ -627,6 +640,15 @@ export class AppComponent {
   }
 
   async onGoogleLogin() {
+    // Google refuses OAuth inside embedded webviews (Error 403:
+    // disallowed_useragent). Firing login() here would bounce the user to a
+    // dead-end consent screen, so short-circuit to the "open in your browser"
+    // fallback instead.
+    if (this.isInAppBrowser()) {
+      this.authError.set(null);
+      return;
+    }
+
     this.authError.set(null);
     this.authLoginLoading.set(true);
 
@@ -637,6 +659,24 @@ export class AppComponent {
       const message = err instanceof Error ? err.message : 'Failed to start Google login';
       this.authError.set(message);
       this.authLoginLoading.set(false);
+    }
+  }
+
+  /**
+   * Copy the current page URL so the user can paste it into a real browser
+   * (Safari/Chrome) where Google sign-in works. Fallback path for in-app
+   * browsers — see {@link isInAppBrowser}. Best-effort: on clipboard failure
+   * the user has to copy from the address bar or the share menu (per the
+   * tip shown next to the button).
+   */
+  async copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      this.copiedShareLink.set(true);
+      setTimeout(() => this.copiedShareLink.set(false), 2500);
+    } catch {
+      // Clipboard API unavailable/blocked in some webviews — no-op; the
+      // adjacent "share menu" tip is the manual fallback.
     }
   }
 
