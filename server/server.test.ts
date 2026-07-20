@@ -473,6 +473,8 @@ describe('applySecurityMiddleware', () => {
     expect(csp).toBeDefined();
     expect(csp).toContain("default-src 'self'");
     expect(csp).toContain("script-src 'self'");
+    // Pinterest Save-button widget (pinit.js) is allowed from its CDN origin.
+    expect(csp).toContain("script-src 'self' https://assets.pinterest.com");
     expect(csp).toContain("style-src 'self' 'unsafe-inline' https://fonts.googleapis.com");
     expect(csp).toContain("font-src 'self' https://fonts.gstatic.com");
     expect(csp).toContain("img-src 'self' data: blob: https:");
