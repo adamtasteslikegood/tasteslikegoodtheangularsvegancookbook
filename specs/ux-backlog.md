@@ -37,16 +37,17 @@ Ranked by (severity at the conversion moment × reach). Status reflects 2026-07-
 - **Effort:** S (shipped — PR #3185, v0.4.0). **Sprint-2 residual:** post-deploy `curl` gate + GSC
   recrawl checkpoint.
 
-## 3. Test-data cookbooks visible in production (content hygiene)
+## 3. Duplicate cookbook rows from the race bug (content hygiene — Adam's personal cookbooks, NOT test data)
 
-- **Element:** Public/browse content surface — prod rows `zzz-racetest-*` and duplicate `Dooypkiitts`
-  cookbooks
+- **Element:** Cookbook rows on Adam's personal account — `Dooypkiitts` and `zzz-racetest-*` are HIS
+  real cookbook names; the defect is only the _duplicate rows_ the KAN-106 race bug created under them
 - **Current score:** 6/10 _est._ (reads as an unfinished site to a new visitor)
 - **Target score:** 9/10 (only curated content public)
 - **Repro:** list prod collections (`GET /api/collections` as the affected account / admin view) —
   duplicate-named rows with distinct `id`/`created_at` from the KAN-106 race investigation remain
   (`findings.md`).
-- **Fix hypothesis:** one-off prod cleanup (delete test rows) — **Adam's call**, listed as a
+- **Fix hypothesis:** dedupe only — Adam hand-picks which duplicate rows go; the cookbooks themselves
+  stay. **Every deletion is his explicit pick**, listed as a
   Sprint-2 candidate in `SPRINT_1_PLAN.md`; server-side `(user_id, name)` uniqueness already tracked.
 - **Effort:** S (manual deletion + confirmation), M if scripted with a dry-run.
 
@@ -73,6 +74,20 @@ Ranked by (severity at the conversion moment × reach). Status reflects 2026-07-
 - **Fix hypothesis:** resolve via the KAN-116 canonical-promotion rubric (SI-4) — the "cornbread
   decision" already parked in the Sprint-2 candidate list.
 - **Effort:** S once the rubric exists (KAN-116 Phase 0/1).
+
+## 6. iOS: link to a recipe's public page hidden unless signed in (non-guest)
+
+- **Element:** My Kitchen recipe card — the "View" affordance for `/r/<slug>`
+- **Current score:** 4/10 _est._ (a published recipe offers no visible path to its own public page)
+- **Target score:** 8/10
+- **Repro:** Adam, live on iOS (2026-07-20, post-v0.4.0): browser still hides the link to the public
+  recipe. Code-confirmed root cause: the View link renders only under
+  `@if (canPublish() && r.is_public)` (`app.component.html:402`) and `canPublish()` requires a
+  signed-in non-guest (`app.component.ts:968`) — so guests, and iOS webview visitors who _cannot_
+  sign in (Google policy, see entry 1), never see the link even for already-public recipes.
+- **Fix hypothesis:** split view-gating from publish-gating — render View whenever `r.is_public`
+  (viewing needs no publish rights); keep the toggle behind `canPublish()`.
+- **Effort:** S (condition change + test). Sprint-2 candidate under KAN-118.
 
 ---
 
