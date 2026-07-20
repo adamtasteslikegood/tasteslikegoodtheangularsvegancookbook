@@ -7,7 +7,7 @@ import { PersistenceService } from './services/persistence.service';
 import { buildSavedRecipeFromPublic } from './services/public-recipe.mapper';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 import { isInAppBrowserEnvironment } from './utils/in-app-browser';
-import { isPublicViewable } from './utils/public-link';
+import { isPublicViewable, publicSlugOf } from './utils/public-link';
 
 @Component({
   selector: 'app-root',
@@ -1015,6 +1015,12 @@ export class AppComponent {
    *  page needs no publish rights, unlike the toggle above. */
   isPublicViewable(recipe: Recipe): boolean {
     return isPublicViewable(recipe);
+  }
+
+  /** Slug of the public page this recipe links to (own published slug, else
+   *  the sourceSlug it was saved from). Null when there is none. */
+  publicSlugOf(recipe: Recipe): string | null {
+    return publicSlugOf(recipe);
   }
 
   async togglePublic(recipe: Recipe) {

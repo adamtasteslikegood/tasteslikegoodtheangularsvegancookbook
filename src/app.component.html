@@ -405,11 +405,11 @@
                          plain "View" affordance instead of the raw /r/<slug>,
                          which read as clutter next to the toggle. -->
                     <a
-                      [href]="'/r/' + r.slug"
+                      [href]="'/r/' + publicSlugOf(r)"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="inline-flex items-center gap-1 ml-1 text-xs font-semibold text-stone-500 hover:text-green-600 transition-colors animate-[fadeIn_0.2s]"
-                      [title]="'View public page: /r/' + r.slug"
+                      [title]="'View public page: /r/' + publicSlugOf(r)"
                     >
                       View
                       <svg
