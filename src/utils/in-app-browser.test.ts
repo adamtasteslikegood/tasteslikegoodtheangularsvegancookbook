@@ -8,7 +8,7 @@ describe('isInAppBrowser', () => {
     expect(isInAppBrowser(undefined)).toBe(false);
   });
 
-  it('detects the Pinterest in-app browser (the TAS-2899 trigger)', () => {
+  it('detects the Pinterest in-app browser', () => {
     const ua =
       'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 ' +
       '(KHTML, like Gecko) Mobile/15E148 [Pinterest/iOS]';

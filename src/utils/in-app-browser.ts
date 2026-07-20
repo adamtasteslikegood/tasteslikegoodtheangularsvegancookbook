@@ -6,7 +6,7 @@
  * 2021-09-30). Visitors who arrive from a third-party app's in-app browser —
  * most notably Pinterest, one of the largest referral sources for recipe
  * sites — are trapped: tapping "Sign in with Google" fires a request Google
- * refuses to render. See TAS-2899.
+ * refuses to render.
  *
  * These helpers detect that situation from the User-Agent string so the UI can
  * offer an "Open in your browser to sign in" fallback instead of a doomed
@@ -20,7 +20,7 @@
  * for a recipe site (Pinterest first).
  */
 const IN_APP_BROWSER_MARKERS: readonly string[] = [
-  'Pinterest', // Pinterest in-app browser — the primary TAS-2899 trigger
+  'Pinterest', // Pinterest in-app browser — the primary recipe-referral trigger
   'FBAN', // Facebook app (iOS)
   'FBAV', // Facebook app (version token, iOS/Android)
   'FB_IAB', // Facebook in-app browser (Android)

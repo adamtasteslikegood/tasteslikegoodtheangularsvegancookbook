@@ -234,7 +234,6 @@ export class AppComponent {
    * `Error 403: disallowed_useragent`. When true the auth modal swaps the
    * doomed "Sign in with Google" button for an "Open in your browser" fallback.
    * Computed once from the User-Agent — it can't change without a reload.
-   * See TAS-2899.
    */
   readonly isInAppBrowser = signal<boolean>(isInAppBrowserEnvironment());
 
@@ -644,7 +643,7 @@ export class AppComponent {
     // Google refuses OAuth inside embedded webviews (Error 403:
     // disallowed_useragent). Firing login() here would bounce the user to a
     // dead-end consent screen, so short-circuit to the "open in your browser"
-    // fallback instead. See TAS-2899.
+    // fallback instead.
     if (this.isInAppBrowser()) {
       this.authError.set(null);
       return;
@@ -667,7 +666,8 @@ export class AppComponent {
    * Copy the current page URL so the user can paste it into a real browser
    * (Safari/Chrome) where Google sign-in works. Fallback path for in-app
    * browsers — see {@link isInAppBrowser}. Best-effort: on clipboard failure
-   * the user can still copy from the address bar manually.
+   * the user has to copy from the address bar or the share menu (per the
+   * tip shown next to the button).
    */
   async copyShareLink() {
     try {
@@ -675,8 +675,8 @@ export class AppComponent {
       this.copiedShareLink.set(true);
       setTimeout(() => this.copiedShareLink.set(false), 2500);
     } catch {
-      // Clipboard API unavailable/blocked in some webviews — no-op; the URL is
-      // still shown in the modal for manual copy.
+      // Clipboard API unavailable/blocked in some webviews — no-op; the
+      // adjacent "share menu" tip is the manual fallback.
     }
   }
 
