@@ -24,12 +24,24 @@ jobs:
         continue-on-error: true
         uses: JetBrains/junie-github-action@9605a68b1038edb2e33071ca799681ab24ff75ba # v1.5.10
         with:
-          # KNOWN-BROKEN UPSTREAM (2026-07-20): the built-in `code-review` prompt
-          # dies at "Failed to build 'issue.md.junie_standalone'" on every run.
-          # Verified independent of Junie CLI version (2285.4/2285.5), auth method
-          # (junie_api_key vs BYOK google_api_key), and model — so it is a
-          # JetBrains Junie CLI bug in Review mode, not a config problem here.
-          # Left advisory (continue-on-error) until JetBrains ships a fix.
+          # The built-in `prompt: code-review` dies upstream at "Failed to build
+          # 'issue.md.junie_standalone'" (a JetBrains Review-mode bug, reproduced
+          # across CLI 2285.4/2285.5, junie_api_key vs BYOK, and every model).
+          # Use a custom prompt (cookbook "Option B") — a different code path that
+          # skips the broken built-in template.
           junie_api_key: ${{ secrets.JUNIE_API_KEY }}
           use_single_comment: 'true'
-          prompt: 'code-review'
+          prompt: |
+            Your task is to:
+            1. Get the Pull Request diff with `git diff origin/${{ github.event.pull_request.base.ref }}...`
+            2. Review the diff against the criteria below.
+            3. Post a concise summary using the `submit` action.
+
+            ## Review Criteria
+            - **Correctness & bugs:** logic errors, edge cases, error handling.
+            - **Security:** injection, XSS, exposed secrets, auth/authorization, input validation.
+            - **Performance:** N+1 queries, inefficient algorithms, memory leaks.
+            - **Maintainability:** clarity, naming, duplication, and consistency with the
+              surrounding code and this repo's CLAUDE.md conventions.
+
+            Be specific and reference file:line. If the diff looks good, say so briefly.
