@@ -3,7 +3,9 @@ name: Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    branches: [main]
+    # Feature work is PR'd into dev first (see CLAUDE.md branching strategy), so
+    # reviewing only main-targeted PRs meant Junie never saw day-to-day PRs.
+    branches: [main, dev]
 
 jobs:
   review:
