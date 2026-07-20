@@ -1011,17 +1011,12 @@ export class AppComponent {
     return !!user && user.isGuest === false;
   });
 
-  /** KAN-119: the View link renders from recipe data alone — viewing a public
-   *  page needs no publish rights, unlike the toggle above. */
-  isPublicViewable(recipe: Recipe): boolean {
-    return isPublicViewable(recipe);
-  }
-
-  /** Slug of the public page this recipe links to (own published slug, else
-   *  the sourceSlug it was saved from). Null when there is none. */
-  publicSlugOf(recipe: Recipe): string | null {
-    return publicSlugOf(recipe);
-  }
+  /** The View link renders from recipe data alone — viewing a public
+   *  page needs no publish rights, unlike the toggle above. Exposed as
+   *  fields so a same-named class method can't accidentally recurse into
+   *  itself via a stray `this.` in a future refactor. */
+  readonly isPublicViewable = isPublicViewable;
+  readonly publicSlugOf = publicSlugOf;
 
   async togglePublic(recipe: Recipe) {
     if (!this.canPublish()) {

@@ -1,10 +1,10 @@
 /**
- * KAN-119 — visibility rule for the "View" link to a recipe's public page.
+ * Visibility rule for the "View" link to a recipe's public page.
  *
  * Deliberately a pure function of recipe data with no auth input: viewing a
  * public /r/<slug> page requires no publish rights, so the link must render
  * for guests and in-app-webview visitors (who may be unable to sign in at
- * all — see in-app-browser.ts). Publishing stays gated by canPublish().
+ * all — see in-app-browser.ts). Publishing stays gated separately.
  *
  * Two ways a recipe has a public page:
  *  - it is itself published (`is_public` + server-derived `slug`), or
