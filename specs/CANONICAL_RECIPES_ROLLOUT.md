@@ -9,15 +9,15 @@ Promote a set of canonical `r/<recipe>` pages that are **hand-picked AND graded 
 
 ## Why (one paragraph)
 
-The home shell's server HTML was a crawl dead-end; #3185 fixes that with `<noscript>` anchors. But hardcoded slugs are a silent-404 fragility (flagged in the #3185 review) and an editorial statement: whatever we hardcode on `/` is what we're telling Google — and every non-JS unfurler — the site *is*. That selection should be governed, not vibes: documented criteria → rubric → CI gate, so an unpublish/rename breaks a check instead of silently 404ing, and so agents have hard rules instead of taste.
+The home shell's server HTML was a crawl dead-end; #3185 fixes that with `<noscript>` anchors. But hardcoded slugs are a silent-404 fragility (flagged in the #3185 review) and an editorial statement: whatever we hardcode on `/` is what we're telling Google — and every non-JS unfurler — the site _is_. That selection should be governed, not vibes: documented criteria → rubric → CI gate, so an unpublish/rename breaks a check instead of silently 404ing, and so agents have hard rules instead of taste.
 
 ## Phased rollout (implementation scales with the project)
 
-| Phase | Ships | Mechanism |
-|---|---|---|
-| **0 — v0.4.0 (now)** | 3–5 hand-picked hardcoded anchors (plus the 2 in #3185), Adam-approved | Amend #3185 or follow-up PR off `dev`. Selection justified against the draft rubric below (manual pass). |
-| **1 — post-v0.4.0** | Canonical list moves to a tracked data file (e.g. `specs/canonical-recipes.json`: slug, score, rationale, date) — docs drive code | Build script renders anchors from the file; CI gate validates every listed slug (checks below). Rubric scoring still manual, but recorded. |
-| **2 — later** | Rubric scoring automated (grade all published recipes, propose promotions/demotions as PRs) | Scheduled job + agent instructions; Adam stays the approval gate on promotion PRs. |
+| Phase                | Ships                                                                                                                             | Mechanism                                                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **0 — v0.4.0 (now)** | 3–5 hand-picked hardcoded anchors (plus the 2 in #3185), Adam-approved                                                            | Amend #3185 or follow-up PR off `dev`. Selection justified against the draft rubric below (manual pass).                                   |
+| **1 — post-v0.4.0**  | Canonical list moves to a tracked data file (e.g. `specs/canonical-recipes.json`: slug, score, rationale, date) — docs drive code | Build script renders anchors from the file; CI gate validates every listed slug (checks below). Rubric scoring still manual, but recorded. |
+| **2 — later**        | Rubric scoring automated (grade all published recipes, propose promotions/demotions as PRs)                                       | Scheduled job + agent instructions; Adam stays the approval gate on promotion PRs.                                                         |
 
 ## Selection criteria → rubric (DRAFT v0 — gate on Adam's edit/approval)
 

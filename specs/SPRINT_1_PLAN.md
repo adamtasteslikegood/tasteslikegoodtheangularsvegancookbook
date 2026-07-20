@@ -8,25 +8,28 @@ _Locked via `/cs:grill-pm` (6/6 branches) — decisions below are the sprint cha
 
 ## Charter (locked decisions)
 
-| # | Branch | Decision |
-|---|--------|----------|
-| 1 | **Outcome / DONE** | DONE = a compiled `.agent-harness/plan.json` for this sprint passes `plan_qa.py` (exit 0), and every committed item reaches a terminal state. This `.md` is the human charter; the `plan.json` is the machine-gated artifact. |
-| 2 | **Measurement** | No forecasting. Zero tracked flow history exists, so Sprint 1 **generates** the first throughput/cycle-time data. Sized by **WIP limit (≤3 in flight)**, not story points or velocity. |
-| 3 | **Ownership** | Two-lane: **human owner = Adam** (accountable, scope calls). **Reviewer = machine gate + adversarial-agent pass**, never Adam rubber-stamping his own output (code → PR gate/CodeQL/Copilot; specs → `plan_qa.py` + adversarial review). Linear agents model. |
-| 4 | **Risk (pre-mortem)** | 4 owned risks + guards: (a) verification never terminates → each item ships its proving command *before* work; (b) backlog creep → WIP=3 hard stop, everything else is a Sprint-2 candidate; (c) plausible-but-wrong agent output → mandatory adversarial gate; (d) plan rot → this file is source-of-truth, closing an item means editing it. |
-| 5 | **Budgets** | **3 attempts/task, 12 iterations/sprint-goal.** Escalation reviewer = Adam, reason written to this file. Verification items: if the proving command can't exit 0 within the cap, the *finding* (incl. "inconclusive — manual look needed") is the deliverable and the item escalates. |
+| #   | Branch                | Decision                                                                                                                                                                                                                                                                                                                                       |
+| --- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Outcome / DONE**    | DONE = a compiled `.agent-harness/plan.json` for this sprint passes `plan_qa.py` (exit 0), and every committed item reaches a terminal state. This `.md` is the human charter; the `plan.json` is the machine-gated artifact.                                                                                                                  |
+| 2   | **Measurement**       | No forecasting. Zero tracked flow history exists, so Sprint 1 **generates** the first throughput/cycle-time data. Sized by **WIP limit (≤3 in flight)**, not story points or velocity.                                                                                                                                                         |
+| 3   | **Ownership**         | Two-lane: **human owner = Adam** (accountable, scope calls). **Reviewer = machine gate + adversarial-agent pass**, never Adam rubber-stamping his own output (code → PR gate/CodeQL/Copilot; specs → `plan_qa.py` + adversarial review). Linear agents model.                                                                                  |
+| 4   | **Risk (pre-mortem)** | 4 owned risks + guards: (a) verification never terminates → each item ships its proving command _before_ work; (b) backlog creep → WIP=3 hard stop, everything else is a Sprint-2 candidate; (c) plausible-but-wrong agent output → mandatory adversarial gate; (d) plan rot → this file is source-of-truth, closing an item means editing it. |
+| 5   | **Budgets**           | **3 attempts/task, 12 iterations/sprint-goal.** Escalation reviewer = Adam, reason written to this file. Verification items: if the proving command can't exit 0 within the cap, the _finding_ (incl. "inconclusive — manual look needed") is the deliverable and the item escalates.                                                          |
 
 ---
 
 ## Committed items (WIP ≤ 3 in flight; SI-0 already terminal)
 
 ### SI-0 — Programmatically confirm what v0.3.9 shipped & deployed → **DONE (90–100%)**
+
 Field recon + memory/logs + this session's git checks confirm it. Closed by evidence already in hand:
+
 - `git tag v0.3.9` present, HEAD `f91b816`, both repos clean/0 open PRs.
 - Backend submodule pinned at `18a303a` per the release commits (`048e028`, `87ed2da`).
 - **Residual question rolled into SI-1:** what exactly the "Datadog deploy marker" is / whether one fired for the v0.3.9 window. Answering that is the only open thread, and it lives with the Datadog work in SI-1.
 
 ### SI-1 — Verify Valkey + flask-backend memory after `--memory=1Gi` **+ confirm the v0.3.9 Datadog deploy marker**
+
 The reason the bump shipped (#3173 / Backend #220): confirm the OOM-edge risk is retired. While in Datadog, resolve SI-0's residual marker question in the same pass.
 
 - **Owner:** Adam · **Reviewer:** machine gate (commands below). Easy win — take the momentum into SI-2.
@@ -40,6 +43,7 @@ The reason the bump shipped (#3173 / Backend #220): confirm the OOM-edge risk is
   - **DD toggle location (so it's not re-hunted):** the memory scale-down = `ENV DD_PROFILING_ENABLED=false` at **`Backend/Dockerfile:26`** (baked into the image, NOT a `DD_*` in cookbook `cloudbuild.yaml` — that only mounts the `DD_API_KEY` secret at line 197). Post-v0.3.9 DD state = **profiler OFF (#220), everything else ON**: APM traces (`ddtrace-run`), logs+injection (Dockerfile 20–21), AppSec (Dockerfile 27, `DD_APPSEC_ENABLED=true`). So DD is deployed+working AND scaled back — both true, by design. To re-enable heap flame-graphs for debugging: flip `DD_PROFILING_ENABLED=true` in the Dockerfile + redeploy (DD trial ends ~2026-07-28).
 
 ### SI-2 — Convert the 6.5/10 field-test into a ranked UX/UI defect backlog
+
 Live-site score 6.5/10 overall, 7–8/10 on specific elements. **Discovery, not build** — turns the fuzzy score into structured Sprint-2 candidates. Staying inside this fence (list, don't fix) IS the scope-discipline exercise.
 
 - **Owner:** Adam · **Reviewer:** adversarial-agent pass on the list
@@ -48,9 +52,11 @@ Live-site score 6.5/10 overall, 7–8/10 on specific elements. **Discovery, not 
 - **🟡 ARTIFACT SHIPPED, ACCEPTANCE PENDING (2026-07-20):** `specs/ux-backlog.md` compiled by the close-out loop from the real field-test sources (TAS-2899, TAS-2896, `findings.md`, 2026-07-17 live-site review) — 5 ranked entries, all 6 fields each, per-element scores honestly marked _est._ where the field test only recorded the overall 6.5. Self-adversarial pass documented in-file. **Awaiting Adam's acceptance** (KAN-113 stays In Review until he accepts/amends — the only human review left on the board).
 
 ### SI-3 — Make the site discoverable: home SSR crawlable links **+** GSC sitemap submission
-Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *and* tell Google to crawl (3b). Both advance the v0.2 SEO/distribution goal.
+
+Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) _and_ tell Google to crawl (3b). Both advance the v0.2 SEO/distribution goal.
 
 **SI-3a — Home-page SSR crawlable links** (build — harness-executable)
+
 - **Owner:** Adam · **Reviewer:** PR gate (Gate/Analyze/DepReview) + adversarial pass
 - **Do:** add server-rendered `<a href="/browse">` plus ≥1 `<a href="/r/<slug>">` recipe link, and a real `<lastmod>`/date, to the home page — so a crawler hitting `/` finds anchors in the **server HTML**, not just the Angular JS shell.
 - **Proving command (all must hold against server HTML, not rendered JS):**
@@ -66,6 +72,7 @@ Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *a
   - Reaches merged+live when both PRs land on `dev` and v0.4.0 ships (see DONE-gate amendment below).
 
 **SI-3b — Submit sitemap + Request Indexing in GSC** (Adam doing now)
+
 - **Owner:** Adam (GSC actions) · **Reviewer:** machine gate (GSC status + captured baseline)
 - **The one correct URL to submit:** `https://www.tasteslikegood.org/sitemap.xml`
   - `www` is canonical; apex `tasteslikegood.org` (and its sitemap) **301-redirects to www** — do NOT submit the apex version, GSC errors on a redirecting sitemap.
@@ -109,7 +116,7 @@ Charter branch 1 amended by the owner (Adam): board state alone no longer closes
   2. **v0.4.0 released**: bump PR #3191 → dev, release PR #3192 dev → main (merge commit), `release.yml` SUCCESS, GitHub Release `v0.4.0` published 2026-07-20T13:48:54Z.
   3. **Deploy verified live ~7 min after tag**: home serves the new Express build — bundle `main-RAJ3Z62E.js` → `main-LVFATUC7.js`, `<noscript>` anchors (`/browse`, `/r/classic-vegan-margherita-pizza`, `/r/vegan-cornbread`) now in the server HTML; new bundle contains the webview-detector (#3186) strings.
   4. **Both services serving, live site 200, no downgrade**: `/` `/browse` `/r/<slug>` `/sitemap.xml` all 200 (Express→Flask path); Cloud Monitoring post-deploy: 0 4xx/5xx, backend memory ~10% on 1Gi, Valkey connected.
-  - *Evidence substitution note:* local `gcloud` needed an interactive re-login mid-run, so "Cloud Build STATUS=SUCCESS" + the revision check were proven indirectly — a new Express image carrying the tag's content can only be serving if the tag-triggered `cloudbuild.yaml` completed every job (Flask deploys *before* Express in that pipeline). Adam: optionally re-run the literal proving commands below after `gcloud auth login`.
+  - _Evidence substitution note:_ local `gcloud` needed an interactive re-login mid-run, so "Cloud Build STATUS=SUCCESS" + the revision check were proven indirectly — a new Express image carrying the tag's content can only be serving if the tag-triggered `cloudbuild.yaml` completed every job (Flask deploys _before_ Express in that pipeline). Adam: optionally re-run the literal proving commands below after `gcloud auth login`.
 - **Proving commands:** `gh release list` shows `v0.4.0` · `gcloud builds list --region=us-central1` latest tag-build SUCCESS · `gcloud run services describe {express-frontend,flask-backend} --region=us-central1` revisions carry the v0.4.0 image · `curl -s -o /dev/null -w '%{http_code}' https://www.tasteslikegood.org/` == 200.
 - **Leftover-ASKs write-up** (Adam): deferred to sprint review, post-gate — expected to change once v0.4.0 is live.
 
