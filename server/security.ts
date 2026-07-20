@@ -118,7 +118,13 @@ export const applySecurityMiddleware = (app: Express) => {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
+          // Pinterest Save-button widget: pinit.js is served from
+          // assets.pinterest.com and loaded by templates/public/base_public.html
+          // on public recipe (/r/<slug>) pages. Without this origin, Helmet's
+          // script-src 'self' blocks it — same failure class as the v0.3.4/5
+          // OAuth-CSP regression. The widget's own image assets are covered by
+          // img-src 'https:' below; the plain share-link CONTROL needs no CSP.
+          scriptSrc: ["'self'", 'https://assets.pinterest.com'],
           // Hash of Angular's critical-CSS onload handler: this.media='all'
           scriptSrcAttr: [
             "'unsafe-hashes'",
