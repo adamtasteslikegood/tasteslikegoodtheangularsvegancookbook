@@ -88,6 +88,8 @@ Ranked by (severity at the conversion moment × reach). Status reflects 2026-07-
 - **Fix hypothesis:** split view-gating from publish-gating — render View whenever `r.is_public`
   (viewing needs no publish rights); keep the toggle behind `canPublish()`.
 - **Effort:** S (condition change + test). Sprint-2 candidate under KAN-118.
+- **✅ FIX MERGED TO DEV (2026-07-20, PR #3195, KAN-119 Done):** `isPublicViewable()` pure util +
+  TDD spec; ships at the next release — live iOS re-check is the remaining proving gate.
 
 ---
 
