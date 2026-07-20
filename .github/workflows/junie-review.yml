@@ -22,11 +22,14 @@ jobs:
 
       - name: Run advisory Junie review
         continue-on-error: true
-        # Pinned SHA was stale and bundled Junie CLI 2285.4, which fails with
-        # "Failed to build 'issue.md.junie_standalone'". v1.5.10 ships CLI 2285.5.
         uses: JetBrains/junie-github-action@9605a68b1038edb2e33071ca799681ab24ff75ba # v1.5.10
         with:
-          junie_api_key: ${{ secrets.JUNIE_API_KEY }}
+          # The JUNIE_API_KEY path failed on every run ("Failed to build
+          # 'issue.md.junie_standalone'") across CLI 2285.4 and 2285.5 — the
+          # JetBrains-hosted key has no usable inference. Switch to BYOK with the
+          # Gemini key we already have (matches the Backend/agentic Gemini move).
+          # README: provide EITHER junie_api_key OR one BYOK key — not both.
+          google_api_key: ${{ secrets.GEMINI_API_KEY }}
+          model: 'gemini-pro'
           use_single_comment: 'true'
           prompt: 'code-review'
-          # model: "claude-opus-4-5-20251101"  # Optional: specify which model to use
