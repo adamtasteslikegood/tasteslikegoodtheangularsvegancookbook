@@ -10,6 +10,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.1] - 2026-07-20
+
+Follow-up fix release: makes a published recipe's public page reachable from
+My Kitchen for everyone, not just its publisher. No schema migration.
+
+### Fixed
+
+- **Public-recipe "View" link no longer requires publish rights**: the My
+  Kitchen link to `/r/<slug>` was gated on being a signed-in non-guest, hiding
+  it from guests and in-app-webview visitors (who cannot sign in at all).
+  Visibility is now a pure function of recipe data; the publish toggle stays
+  auth-gated
+  ([#3195](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3195),
+  KAN-119).
+- **View link also resolves for copies saved from a public page**: guest-saved
+  copies carry only `sourceSlug`, so the link now falls back to it (own
+  published slug wins when both exist) — without this the fix above never
+  fired for the guest case it targeted
+  ([#3197](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3197),
+  KAN-119).
+
+---
+
 ## [0.4.0] - 2026-07-20
 
 Discoverability and conversion release closing out Sprint 1 (KAN-110). Ends the
