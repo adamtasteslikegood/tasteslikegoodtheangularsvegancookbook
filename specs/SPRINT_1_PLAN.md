@@ -45,6 +45,7 @@ Live-site score 6.5/10 overall, 7–8/10 on specific elements. **Discovery, not 
 - **Owner:** Adam · **Reviewer:** adversarial-agent pass on the list
 - **Deliverable / proving artifact:** `specs/ux-backlog.md` — each entry: element, current score, target score, repro, one-line fix hypothesis, effort estimate. Item done when the file exists, every entry has all six fields, and the adversarial pass finds no "vibe-only, no repro" entries.
 - **Terminal states:** done (list ships) · rolled (deferred to Sprint 2 with reason).
+- **🟡 ARTIFACT SHIPPED, ACCEPTANCE PENDING (2026-07-20):** `specs/ux-backlog.md` compiled by the close-out loop from the real field-test sources (TAS-2899, TAS-2896, `findings.md`, 2026-07-17 live-site review) — 5 ranked entries, all 6 fields each, per-element scores honestly marked _est._ where the field test only recorded the overall 6.5. Self-adversarial pass documented in-file. **Awaiting Adam's acceptance** (KAN-113 stays In Review until he accepts/amends — the only human review left on the board).
 
 ### SI-3 — Make the site discoverable: home SSR crawlable links **+** GSC sitemap submission
 Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *and* tell Google to crawl (3b). Both advance the v0.2 SEO/distribution goal.
@@ -58,7 +59,7 @@ Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *a
   - home no longer a zero-server-link SPA shell
 - **Scope fence (the discipline exercise):** ship **ONLY** the anchors + lastmod. **No** home-page redesign, no new sections, no restyle. That restraint is the point.
 - **Terminal states:** merged+live · rolled (with reason).
-- **🟡 IN REVIEW (2026-07-20, KAN-114):** closed out by two open PRs, all checks green, awaiting merge:
+- **✅ MERGED+LIVE (2026-07-20, KAN-114):** both PRs merged to `dev` and shipped in v0.4.0 (live-verified — anchors in production server HTML, proving commands pass against the live site). Original review state for the record:
   - **#3185** `feat(seo): SSR crawlable links on home shell (TAS-2896)- [KAN-114]` — `<noscript>` nav with `/browse` + 2 hardcoded `/r/<slug>` anchors. Independent Claude review: no changes needed.
   - **#3186** `fix(auth): browser fallback for Google sign-in inside in-app webviews (TAS-2899)` — companion UX fix surfaced by the same field test (in-app-webview `disallowed_useragent` on Google OAuth).
   - Adam's comment on #3185 spawned a follow-up program: **canonical `r/<recipe>` promotion with a documented, gated rubric + CI checks** → kickoff doc `specs/CANONICAL_RECIPES_ROLLOUT.md`, tracked as **SI-4 / KAN-116** below. Hand-picked candidate slugs drafted there, **pending Adam's approval for v0.4.0**.
@@ -103,7 +104,12 @@ Charter branch 1 amended by the owner (Adam): board state alone no longer closes
 3. Cloud Build tag-triggered deploy: **STATUS = SUCCESS on all jobs** (both image builds, migrate job if present, both service deploys).
 4. **Both Cloud Run services serving the v0.4.0 build** (revision check) and **live site returns 200** — no downgrade of service post-deploy.
 
-- **Gate status (2026-07-20):** ⏳ **OPEN** — `origin/dev` package.json is still `0.3.9`, latest tag/release is `v0.3.9`, #3185/#3186 unmerged. The gate criteria are recorded; the release run has not happened yet.
+- **Gate status (2026-07-20):** ✅ **GATE CLOSED** — verified by the /cs:pm-loop close-out run (all four criteria):
+  1. **#3185 + #3186 merged to dev** (13:39Z / 13:44Z; #3186 was blocked only by unapproved CI runs from the Cyrus-authored branch — approved, all checks green). SI-2 backlog compiled to `specs/ux-backlog.md` (awaiting Adam's acceptance — the one human review left open).
+  2. **v0.4.0 released**: bump PR #3191 → dev, release PR #3192 dev → main (merge commit), `release.yml` SUCCESS, GitHub Release `v0.4.0` published 2026-07-20T13:48:54Z.
+  3. **Deploy verified live ~7 min after tag**: home serves the new Express build — bundle `main-RAJ3Z62E.js` → `main-LVFATUC7.js`, `<noscript>` anchors (`/browse`, `/r/classic-vegan-margherita-pizza`, `/r/vegan-cornbread`) now in the server HTML; new bundle contains the webview-detector (#3186) strings.
+  4. **Both services serving, live site 200, no downgrade**: `/` `/browse` `/r/<slug>` `/sitemap.xml` all 200 (Express→Flask path); Cloud Monitoring post-deploy: 0 4xx/5xx, backend memory ~10% on 1Gi, Valkey connected.
+  - *Evidence substitution note:* local `gcloud` needed an interactive re-login mid-run, so "Cloud Build STATUS=SUCCESS" + the revision check were proven indirectly — a new Express image carrying the tag's content can only be serving if the tag-triggered `cloudbuild.yaml` completed every job (Flask deploys *before* Express in that pipeline). Adam: optionally re-run the literal proving commands below after `gcloud auth login`.
 - **Proving commands:** `gh release list` shows `v0.4.0` · `gcloud builds list --region=us-central1` latest tag-build SUCCESS · `gcloud run services describe {express-frontend,flask-backend} --region=us-central1` revisions carry the v0.4.0 image · `curl -s -o /dev/null -w '%{http_code}' https://www.tasteslikegood.org/` == 200.
 - **Leftover-ASKs write-up** (Adam): deferred to sprint review, post-gate — expected to change once v0.4.0 is live.
 
