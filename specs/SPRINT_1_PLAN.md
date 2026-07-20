@@ -36,6 +36,8 @@ The reason the bump shipped (#3173 / Backend #220): confirm the OOM-edge risk is
   - Valkey: connection healthy (`connected` in Flask logs / Datadog), no `CERTIFICATE_VERIFY_FAILED` post-TLS-CA-fix.
   - **Datadog deploy marker:** confirm whether a v0.3.9 deploy event/version marker exists; if not, note it (informational — does not block SI-1).
 - **Terminal states:** verified-done · inconclusive+escalate (cap: 3 attempts, hard token/wall-clock cap on Datadog query loops).
+- **✅ VERIFIED-DONE (2026-07-19, KAN-112):** memory limit `1Gi` live (rev -00074-r94); memory util p95 27%/34%/**53% max** ≪ 85%, flat (OOM risk retired); Valkey **connection OK** + `Response cache: Valkey/Redis backend` (off SimpleCache — CA fix works), 0 `CERTIFICATE_VERIFY_FAILED` in 8h; Datadog deploy marker **absent** (no DORA events — non-blocking; optional future: wire DORA deploy tracking).
+  - **DD toggle location (so it's not re-hunted):** the memory scale-down = `ENV DD_PROFILING_ENABLED=false` at **`Backend/Dockerfile:26`** (baked into the image, NOT a `DD_*` in cookbook `cloudbuild.yaml` — that only mounts the `DD_API_KEY` secret at line 197). Post-v0.3.9 DD state = **profiler OFF (#220), everything else ON**: APM traces (`ddtrace-run`), logs+injection (Dockerfile 20–21), AppSec (Dockerfile 27, `DD_APPSEC_ENABLED=true`). So DD is deployed+working AND scaled back — both true, by design. To re-enable heap flame-graphs for debugging: flip `DD_PROFILING_ENABLED=true` in the Dockerfile + redeploy (DD trial ends ~2026-07-28).
 
 ### SI-2 — Convert the 6.5/10 field-test into a ranked UX/UI defect backlog
 Live-site score 6.5/10 overall, 7–8/10 on specific elements. **Discovery, not build** — turns the fuzzy score into structured Sprint-2 candidates. Staying inside this fence (list, don't fix) IS the scope-discipline exercise.
@@ -56,6 +58,11 @@ Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *a
   - home no longer a zero-server-link SPA shell
 - **Scope fence (the discipline exercise):** ship **ONLY** the anchors + lastmod. **No** home-page redesign, no new sections, no restyle. That restraint is the point.
 - **Terminal states:** merged+live · rolled (with reason).
+- **🟡 IN REVIEW (2026-07-20, KAN-114):** closed out by two open PRs, all checks green, awaiting merge:
+  - **#3185** `feat(seo): SSR crawlable links on home shell (TAS-2896)- [KAN-114]` — `<noscript>` nav with `/browse` + 2 hardcoded `/r/<slug>` anchors. Independent Claude review: no changes needed.
+  - **#3186** `fix(auth): browser fallback for Google sign-in inside in-app webviews (TAS-2899)` — companion UX fix surfaced by the same field test (in-app-webview `disallowed_useragent` on Google OAuth).
+  - Adam's comment on #3185 spawned a follow-up program: **canonical `r/<recipe>` promotion with a documented, gated rubric + CI checks** → kickoff doc `specs/CANONICAL_RECIPES_ROLLOUT.md`, tracked as **SI-4 / KAN-116** below. Hand-picked candidate slugs drafted there, **pending Adam's approval for v0.4.0**.
+  - Reaches merged+live when both PRs land on `dev` and v0.4.0 ships (see DONE-gate amendment below).
 
 **SI-3b — Submit sitemap + Request Indexing in GSC** (Adam doing now)
 - **Owner:** Adam (GSC actions) · **Reviewer:** machine gate (GSC status + captured baseline)
@@ -74,6 +81,31 @@ Two coupled sub-gates toward one outcome — fix the home crawl dead-end (3a) *a
 - **Out of scope (sprint boundary):** actual indexing is a **timed recrawl that lands after sprint close** — that's a Sprint-2 GSC checkpoint, NOT a Sprint-1 gate. Gate = "submitted cleanly + baseline recorded," per the pre-mortem termination rule.
 - **Sequencing note:** ship 3a before/with 3b so that when Google crawls the sitemap'd home URL, it finds the new anchors (deeper discovery). Order-independent enough that neither blocks the other.
 - **Terminal states:** done (submitted + baseline recorded) · inconclusive+escalate.
+
+---
+
+### SI-4 — Canonical `r/<recipe>` promotion: rubric + CI gates + v0.4.0 hand-picked candidates (late add, owner-directed)
+
+Spawned by Adam's 2026-07-20 comment on PR #3185. Kickoff documentation: **`specs/CANONICAL_RECIPES_ROLLOUT.md`** (selection rubric draft, phased rollout, CI gate design, drafted candidates). Jira: **KAN-116** (child of KAN-110).
+
+- **Owner:** Adam (approves the candidate list — hard human gate) · **Reviewer:** PR gate + rubric checks per the rollout doc
+- **Sprint-1 slice (only this much is in-sprint):** kickoff doc exists + 3–5 hand-picked candidate slugs drafted **pending Adam's approval** for inclusion in the v0.4.0 home-shell anchors. The full rubric/CI automation is Phase 1+ = Sprint-2 backlog.
+- **Terminal states:** approved+amended into #3185 (or follow-up PR) · deferred by Adam to post-v0.4.0 (doc still ships).
+
+---
+
+## Owner amendment (2026-07-20) — Sprint 1 DONE gate
+
+Charter branch 1 amended by the owner (Adam): board state alone no longer closes the sprint. **Sprint 1 == DONE is gated by the v0.4.0 release shipping and verifying clean:**
+
+1. PRs #3185 + #3186 merged to `dev` (closes SI-3a), SI-2 backlog accepted out of review.
+2. `dev` → `main` release PR, tag `v0.4.0` (bump from 0.3.9).
+3. Cloud Build tag-triggered deploy: **STATUS = SUCCESS on all jobs** (both image builds, migrate job if present, both service deploys).
+4. **Both Cloud Run services serving the v0.4.0 build** (revision check) and **live site returns 200** — no downgrade of service post-deploy.
+
+- **Gate status (2026-07-20):** ⏳ **OPEN** — `origin/dev` package.json is still `0.3.9`, latest tag/release is `v0.3.9`, #3185/#3186 unmerged. The gate criteria are recorded; the release run has not happened yet.
+- **Proving commands:** `gh release list` shows `v0.4.0` · `gcloud builds list --region=us-central1` latest tag-build SUCCESS · `gcloud run services describe {express-frontend,flask-backend} --region=us-central1` revisions carry the v0.4.0 image · `curl -s -o /dev/null -w '%{http_code}' https://www.tasteslikegood.org/` == 200.
+- **Leftover-ASKs write-up** (Adam): deferred to sprint review, post-gate — expected to change once v0.4.0 is live.
 
 ---
 
