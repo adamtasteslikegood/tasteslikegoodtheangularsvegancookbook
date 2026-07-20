@@ -399,7 +399,7 @@
                       Sign in to publish
                     </button>
                   }
-                  @if (canPublish() && r.is_public) {
+                  @if (isPublicViewable(r)) {
                     <!-- Link to the published page. The slug is derived and
                          enforced server-side (not user-editable), so we show a
                          plain "View" affordance instead of the raw /r/<slug>,

@@ -7,6 +7,7 @@ import { PersistenceService } from './services/persistence.service';
 import { buildSavedRecipeFromPublic } from './services/public-recipe.mapper';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 import { isInAppBrowserEnvironment } from './utils/in-app-browser';
+import { isPublicViewable } from './utils/public-link';
 
 @Component({
   selector: 'app-root',
@@ -1009,6 +1010,12 @@ export class AppComponent {
     const user = this.authService.currentUser();
     return !!user && user.isGuest === false;
   });
+
+  /** KAN-119: the View link renders from recipe data alone — viewing a public
+   *  page needs no publish rights, unlike the toggle above. */
+  isPublicViewable(recipe: Recipe): boolean {
+    return isPublicViewable(recipe);
+  }
 
   async togglePublic(recipe: Recipe) {
     if (!this.canPublish()) {
