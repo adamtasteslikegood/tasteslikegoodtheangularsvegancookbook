@@ -122,5 +122,19 @@
   </head>
   <body class="bg-stone-50 text-stone-800 antialiased min-h-screen">
     <app-root></app-root>
+    <!--
+      SSR crawlable links. The Angular shell is otherwise a JS-only app-root,
+      so a crawler (or any no-JS client) hitting "/" finds no anchors and the
+      site's public SSR pages (/browse, /r/<slug>) become a crawl dead-end.
+      These live inside <noscript> so they add real, followable links to the
+      server HTML without changing the JS app's rendered UI.
+    -->
+    <noscript>
+      <nav aria-label="Recipe navigation">
+        <a href="/browse">Browse all vegan recipes</a>
+        <a href="/r/classic-vegan-margherita-pizza">Classic Vegan Margherita Pizza</a>
+        <a href="/r/vegan-cornbread">Vegan Cornbread</a>
+      </nav>
+    </noscript>
   </body>
 </html>
