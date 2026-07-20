@@ -1,12 +1,10 @@
 > **Based on my research across Pinterest's official developer**
 > **documentation, help center, and business resources, here's**
 > **a comprehensive briefing on Pinterest SEO and links guidelines for developers:**
-    
-    
-    
-# Pinterest SEO & Links Guidelines for Developers
-## Generated: 2026-07-18 | Routed: fallback (general research)
 
+# Pinterest SEO & Links Guidelines for Developers
+
+## Generated: 2026-07-18 | Routed: fallback (general research)
 
 TL;DR
 Pinterest's developer ecosystem centers on Rich Pins
@@ -22,7 +20,7 @@ discovery, engagement, and Rich Pin metadata surfacing in Pinterest search.
 [Button INfo](https://developers.pinterest.com/docs/web-features/buttons/#buttons)
 
 1. What Are Pinterest SEO & Link Guidelines for
-Developers?
+   Developers?
 
 Core Concept
 Pinterest is a visual discovery engine, not a
@@ -44,47 +42,50 @@ boards, ads, catalogs, analytics
 Primary Audience: App developers, marketing platforms,
 agencies
 
-
-
 2. Rich Pins — The Primary SEO Lever for Developers
 
 Three Types (Priority Order)
+
 1. Product Rich Pins — Price, availability, product
-title, description (highest priority)
+   title, description (highest priority)
 2. Article Rich Pins — Headline, description, author,
-publish date
+   publish date
 3. Recipe Rich Pins — Title, servings, cook time,
-ratings, ingredients, diet labels
+   ratings, ingredients, diet labels
 
 Required Metadata Formats
 Pinterest reads both Open Graph and Schema.org; if both
 present, priority is:
+
 1. Schema.org (most specific)
 2. Open Graph
 3. h-recipe / h-product microformats (legacy)
 
 Article Rich Pin Example (Open Graph)
+
 ```html
-<meta property="og:title" content="Title of your Article"/>
-<meta property="og:description" content="Description of
-your article" />
+<meta property="og:title" content="Title of your Article" />
+<meta
+  property="og:description"
+  content="Description of
+your article"
+/>
 <meta property="og:type" content="article" />
 ```
 
 Article Rich Pin Example (Schema.org)
+
 ```html
 <meta property="og:site_name" content="Example Site" />
 <div itemscope itemtype="https://schema.org/Article">
-<meta itemprop="url"
-content="https://www.example.com/2013/10/article.html" />
-<span itemprop="name" content="Article Title" /> by <span
-itemprop="author" content="John Doe" />
-<span itemprop="description">A description or summary of
-the article.</span>
+  <meta itemprop="url" content="https://www.example.com/2013/10/article.html" />
+  <span itemprop="name" content="Article Title" /> by <span itemprop="author" content="John Doe" />
+  <span itemprop="description">A description or summary of the article.</span>
 </div>
 ```
 
 Product Rich Pin (Open Graph)
+
 ```html
 <meta property="og:title" content="De Young Copper Bookmark" />
 <meta property="og:type" content="product" />
@@ -93,53 +94,56 @@ Product Rich Pin (Open Graph)
 ```
 
 Setup Flow
+
 1. Add metadata tags to <head> of each page
 2. Apply for Rich Pins via [Pinterest Developer
-Portal](https://developers.pinterest.com/docs/rich-pins/overview/)
- (one-time domain verification)
+   Portal](https://developers.pinterest.com/docs/rich-pins/overview/)
+   (one-time domain verification)
 3. Validate with [Rich Pin
-Validator](https://developers.pinterest.com/tools/url-debugger/)
+   Validator](https://developers.pinterest.com/tools/url-debugger/)
 4. Wait up to 24 hrs for sync; existing Pins from your
-domain auto-upgrade
+   domain auto-upgrade
 
 Opt-Out (Per Page)
+
 ```html
 <meta name="pinterest-rich-pin" content="false" />
 ```
 
-
-
 3. Links Policy & Attribution Requirements
 
 From Developer Guidelines (policy.pinterest.com/developers)
+
 > If your app publishes content from Pinterest, you must:
+>
 > - Link Pins back to their source on Pinterest (e.g.
-https://www.pinterest.com/pin/424605071126047814/)
+>   https://www.pinterest.com/pin/424605071126047814/)
 > - Make it clear the content comes from Pinterest
 > - Not cover or obscure content from Pinterest (no filters
-on Pins)
+>   on Pins)
 > - Not create new content from Pins for distribution on
-your app/service
+>   your app/service
 
 Pin Link Structure
+
 - Pin URL: https://www.pinterest.com/pin/<PIN_ID>/
 - Board URL:
-https://www.pinterest.com/<username>/<board-slug>/
+  https://www.pinterest.com/<username>/<board-slug>/
 - User Profile: https://www.pinterest.com/<username>/
 
 Link Attributes
+
 - All outbound links from Pinterest (Pin clicks, website
-visits) carry rel="nofollow noreferrer"
+  visits) carry rel="nofollow noreferrer"
 - No direct PageRank flow — SEO value is indirect:
-discovery → saves → clicks → site traffic → signals to Google
+  discovery → saves → clicks → site traffic → signals to Google
 
 Save Button / Widget (Add-ons)
+
 - Use official JS: `<script async defer
 src="https://assets.pinterest.com/js/pinit.js"></script>`
 - Place near </body>; async load recommended
 - Generates nofollow links to Pinterest
-
-
 
 4. Pinterest API v5 — Developer Access & Limits
 
@@ -180,58 +184,60 @@ Scope: boards:create
 Purpose: Create board
 
 Authentication
+
 - OAuth 2.0 (Authorization Code flow with PKCE)
 - Access tokens: 1 hour (refresh tokens available)
 - App review required for Standard access (video demo of OAuth flow mandatory)
 
 Rate Limits
+
 - Trial: Daily caps by endpoint category
 - Standard: Granular per-minute / per-user / per-app limits
 - Check X-RateLimit-* headers; implement exponential
-backoff
+  backoff
 
 Prohibited API Uses (per Developer Guidelines)
+
 - ❌ Scraping or automated data extraction
 - ❌ Automating user actions (saves, follows, comments)
-without explicit per-action user consent
+  without explicit per-action user consent
 - ❌ Storing API data (except campaign analytics for your
-own account) — call API each time
+  own account) — call API each time
 - ❌ Competitive benchmarking / platform insights without
-written authorization
+  written authorization
 - ❌ Circumventing geo-restrictions or rate limits
 - ❌ Apps for children <13
-
-
 
 5. Content Management Best Practices (SEO-Adjacent)
 
 Pin Creation Guidelines
+
 - Image aspect ratio: 2:3 (1000×1500px recommended);
-max 1:2.1, min 1:1
+  max 1:2.1, min 1:1
 - File types: JPEG, PNG, WebP; max 20MB
 - Title: ≤100 chars (truncated in feed)
 - Description: ≤500 chars; include keywords naturally;
-first 50-60 chars show in feed
+  first 50-60 chars show in feed
 - Link: Must point to a **publicly accessible,
-mobile-friendly landing page** (no interstitial, no login wall)
+  mobile-friendly landing page** (no interstitial, no login wall)
 - Board selection: Relevant board improves distribution
 
 Keyword / Discovery Optimization
+
 - Pinterest search indexes: Pin title, description, board
-name, board description, linked page title/meta
+  name, board description, linked page title/meta
 - Use Pinterest Trends (trends.pinterest.com) for
-seasonal / rising queries
+  seasonal / rising queries
 - Hashtags: 3-5 relevant tags in description (less critical
-than keywords in text)
+  than keywords in text)
 
 Catalogs / Shopping (Product Pins at Scale)
+
 - Upload product feed via Catalogs API or Merchant Center
 - Required fields: id, title, description, link,
-image_link, price, availability, brand, google_product_category
+  image_link, price, availability, brand, google_product_category
 - Enables Shopping Ads, Product Rich Pins,
-dynamic retargeting
-
-
+  dynamic retargeting
 
 6. Key Actors & Ecosystem
 
@@ -252,8 +258,6 @@ Role: Implement Rich Pins, Catalogs, Save buttons
 Actor: Creators / Influencers
 Role: Organic content; affiliate links via
 pinterest.com/pin/ redirect tracking
-
-
 
 7. What's Next / Watchpoints (2024-2025+)
 
@@ -287,8 +291,6 @@ Trend: Measurement / Attribution
 Signal: Conversions API (CAPI), enhanced match
 Dev Implication: Implement server-side event tracking for
 accurate ROAS
-
-
 
 8. Quick-Start Checklist for Developers
 
@@ -333,8 +335,6 @@ Reference: Changelog
 ✅: 10
 Task: Read & comply with Developer Guidelines
 Reference: Mandatory for app approval
-
-
 
 9. Sources (Primary / Authoritative)
 
@@ -389,20 +389,17 @@ Source: Pinterest Business Blog — Best Practices
 Tier: Secondary
 Notes: Algorithm updates, seasonal trends, case studies
 
-
-
 Audit Summary
+
 - Queries sent: ~18 | Sources received: 10
-primary/secondary | Sources cited: 10
+  primary/secondary | Sources cited: 10
 - Routing: Fallback (no specialist signals matched
-"pinterest seo")
+  "pinterest seo")
 - Sub-questions addressed: What (Rich Pins, API), Why
-(discovery engine), How (metadata, OAuth, catalogs), Who
-(partners, merchants, Pinterest eng), What's next (AI
-search, shopping, video)
+  (discovery engine), How (metadata, OAuth, catalogs), Who
+  (partners, merchants, Pinterest eng), What's next (AI
+  search, shopping, video)
 
-
-
-*Want a deeper dive on any section — e.g., Catalogs API
+_Want a deeper dive on any section — e.g., Catalogs API
 feed schema, OAuth implementation patterns, or Pinterest
-Trends API access?*
+Trends API access?_
