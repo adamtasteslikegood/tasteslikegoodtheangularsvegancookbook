@@ -21,6 +21,9 @@
     />
   }
 
+  <!-- Recipe Detail — rendered by router-outlet for /recipe/:id -->
+  <router-outlet />
+
   <!-- Auth Modal -->
   @if (showAuthModal()) {
     <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -709,5 +712,4 @@
       </div>
     </div>
   }
-  <router-outlet />
 </div>

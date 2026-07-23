@@ -27,8 +27,7 @@ export class AppComponent {
   private readonly toastService = inject(ToastService);
   readonly recipeState = inject(RecipeStateService);
 
-  // Navigation — derived from Router events
-  activeView = signal<'generator' | 'kitchen'>('generator');
+  activeView = signal<'generator' | 'kitchen' | 'recipe'>('generator');
 
   saveToast = computed(() => {
     const toasts = this.toastService.toasts();
@@ -38,9 +37,12 @@ export class AppComponent {
   constructor() {
     this.router.events.subscribe((e) => {
       if (e instanceof NavigationEnd) {
-        if (e.urlAfterRedirects.startsWith('/kitchen')) {
+        const url = e.urlAfterRedirects;
+        if (url.startsWith('/kitchen')) {
           this.authService.ensureGuestSession();
           this.activeView.set('kitchen');
+        } else if (url.startsWith('/recipe/')) {
+          this.activeView.set('recipe');
         } else {
           this.activeView.set('generator');
         }
