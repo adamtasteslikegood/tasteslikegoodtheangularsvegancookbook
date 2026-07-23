@@ -1,0 +1,552 @@
+<!-- Input Section -->
+<section class="mb-12 bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
+  <div class="flex flex-col md:flex-row gap-4">
+    <input
+      type="text"
+      [(ngModel)]="prompt"
+      (keyup.enter)="onGenerate()"
+      placeholder="What are you craving? (e.g., 'spicy lentil tacos' or 'avocado chocolate mousse')"
+      class="flex-1 px-5 py-4 rounded-xl border border-stone-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent text-lg placeholder-stone-400"
+    />
+    <button
+      (click)="onGenerate()"
+      [disabled]="isRecipeLoading() || !prompt().trim()"
+      class="px-8 py-4 bg-green-700 hover:bg-green-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center gap-2 min-w-[160px]"
+    >
+      @if (isRecipeLoading()) {
+        <svg
+          class="animate-spin h-5 w-5 text-white"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <circle
+            class="opacity-25"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            stroke-width="4"
+          ></circle>
+          <path
+            class="opacity-75"
+            fill="currentColor"
+            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+          ></path>
+        </svg>
+        <span>Cooking...</span>
+      } @else {
+        <span>Generate</span>
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="h-5 w-5"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fill-rule="evenodd"
+            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z"
+            clip-rule="evenodd"
+          />
+        </svg>
+      }
+    </button>
+  </div>
+  @if (error()) {
+    <div class="mt-4 p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
+      {{ error() }}
+    </div>
+  }
+</section>
+
+<!-- Recipe Display Section -->
+@if (recipe(); as r) {
+  <article
+    class="animate-[fadeIn_0.5s_ease-out]"
+    itemscope
+    itemtype="https://schema.org/Recipe"
+  >
+    <!-- Recipe Header -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
+      <div class="space-y-6">
+        <div class="flex flex-wrap items-center gap-3">
+          <div
+            class="inline-block px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-semibold tracking-wide uppercase"
+          >
+            Vegan Recipe
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex items-center gap-2">
+            <button
+              (click)="onSaveRecipe()"
+              [disabled]="isSaved()"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 text-sm"
+              [class.bg-stone-100]="!isSaved()"
+              [class.text-stone-600]="!isSaved()"
+              [class.hover:bg-stone-200]="!isSaved()"
+              [class.bg-green-100]="isSaved()"
+              [class.text-green-700]="isSaved()"
+            >
+              @if (isSaved()) {
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fill-rule="evenodd"
+                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                    clip-rule="evenodd"
+                  />
+                </svg>
+                <span>Saved</span>
+              } @else {
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
+                <span>Save</span>
+              }
+            </button>
+
+            <button
+              (click)="openAddToCookbookModal()"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              <span>Add to Cookbook</span>
+            </button>
+
+            <button
+              (click)="exportRecipe(r)"
+              class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+              title="Download JSON"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+            </button>
+
+            <!-- v0.2 Anti-Recipe Distribution Controls -->
+            <div class="flex items-center gap-2 ml-2 pl-4 border-l border-stone-200">
+              @if (canPublish()) {
+                <div class="flex items-center gap-2">
+                  <span
+                    id="public-toggle-label"
+                    class="text-[10px] font-bold uppercase text-stone-400"
+                    >Public</span
+                  >
+                  <button
+                    type="button"
+                    role="switch"
+                    [attr.aria-checked]="r.is_public"
+                    aria-labelledby="public-toggle-label"
+                    (click)="togglePublic(r)"
+                    class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
+                    [class.bg-green-600]="r.is_public"
+                    [class.bg-stone-300]="!r.is_public"
+                  >
+                    <span
+                      class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
+                      [class.translate-x-5]="r.is_public"
+                      [class.translate-x-1]="!r.is_public"
+                    ></span>
+                  </button>
+                </div>
+              } @else if (isSaved()) {
+                <button
+                  type="button"
+                  (click)="openAuthModal()"
+                  class="text-[10px] font-bold uppercase text-stone-400 hover:text-green-600 underline underline-offset-2 transition-colors"
+                  aria-label="Sign in to publish this recipe"
+                >
+                  Sign in to publish
+                </button>
+              }
+              @if (isPublicViewable(r)) {
+                <a
+                  [href]="'/r/' + publicSlugOf(r)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-flex items-center gap-1 ml-1 text-xs font-semibold text-stone-500 hover:text-green-600 transition-colors animate-[fadeIn_0.2s]"
+                  [title]="'View public page: /r/' + publicSlugOf(r)"
+                >
+                  View
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                    />
+                  </svg>
+                </a>
+              }
+            </div>
+          </div>
+        </div>
+
+        <h2 class="text-4xl font-bold text-stone-900 leading-tight">{{ r.name }}</h2>
+        <p class="text-lg text-stone-600 italic">{{ r.description }}</p>
+
+        <div class="flex flex-wrap gap-2">
+          @for (tag of r.tags; track tag) {
+            <span class="px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-xs font-medium"
+              >#{{ tag }}</span
+            >
+          }
+        </div>
+
+        <!-- Metadata Grid -->
+        <div class="grid grid-cols-3 gap-4 py-6 border-y border-stone-200">
+          <div class="text-center">
+            <span class="block text-stone-400 text-xs uppercase tracking-wider mb-1"
+              >Prep Time</span
+            >
+            <span class="text-xl font-bold text-stone-800">{{ r.prepTime }} min</span>
+          </div>
+          <div class="text-center border-l border-stone-200">
+            <span class="block text-stone-400 text-xs uppercase tracking-wider mb-1"
+              >Cook Time</span
+            >
+            <span class="text-xl font-bold text-stone-800">{{ r.cookTime }} min</span>
+          </div>
+          <div class="text-center border-l border-stone-200">
+            <span class="block text-stone-400 text-xs uppercase tracking-wider mb-1"
+              >Servings</span
+            >
+            <span class="text-xl font-bold text-stone-800">{{ scaledServings() }}</span>
+          </div>
+        </div>
+
+        <!-- Portion Controls -->
+        <div class="flex items-center gap-3 bg-stone-50 p-3 rounded-lg w-fit">
+          <span class="text-sm font-medium text-stone-600">Scale:</span>
+          <div class="flex gap-1">
+            <button
+              (click)="updatePortions(0.5)"
+              [class.bg-green-600]="servingsMultiplier() === 0.5"
+              [class.text-white]="servingsMultiplier() === 0.5"
+              class="px-3 py-1 rounded-md text-sm font-medium text-stone-600 hover:bg-green-100 transition-colors"
+            >
+              0.5x
+            </button>
+            <button
+              (click)="updatePortions(1)"
+              [class.bg-green-600]="servingsMultiplier() === 1"
+              [class.text-white]="servingsMultiplier() === 1"
+              class="px-3 py-1 rounded-md text-sm font-medium text-stone-600 hover:bg-green-100 transition-colors"
+            >
+              1x
+            </button>
+            <button
+              (click)="updatePortions(2)"
+              [class.bg-green-600]="servingsMultiplier() === 2"
+              [class.text-white]="servingsMultiplier() === 2"
+              class="px-3 py-1 rounded-md text-sm font-medium text-stone-600 hover:bg-green-100 transition-colors"
+            >
+              2x
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image Area -->
+      <div
+        class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-stone-200 shadow-xl group"
+      >
+        @if (generatedImageUrl()) {
+          <img
+            [src]="generatedImageUrl()"
+            [alt]="r.name"
+            loading="lazy"
+            class="w-full h-full object-cover animate-[fadeIn_1s_ease-out]"
+          />
+          <div
+            class="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2 py-1 rounded backdrop-blur-sm"
+          >
+            AI Generated
+          </div>
+        } @else if (isImageLoading()) {
+          <div
+            class="absolute inset-0 flex flex-col items-center justify-center text-stone-400 bg-stone-100"
+          >
+            <div
+              class="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-4"
+            ></div>
+            <p class="text-sm font-medium animate-pulse">Styling your dish...</p>
+          </div>
+        } @else {
+          <div
+            class="absolute inset-0 flex items-center justify-center text-stone-400 bg-stone-100"
+          >
+            <span class="text-sm">Image not available</span>
+          </div>
+        }
+
+        <!-- Regenerate Button Overlay -->
+        @if (!isImageLoading()) {
+          <button
+            (click)="regenerateImage()"
+            class="absolute top-3 right-3 p-2 bg-white/90 hover:bg-white text-stone-700 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-all transform hover:scale-105"
+            title="Regenerate Image"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              class="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <!-- Ingredients Column -->
+      <div class="lg:col-span-5 space-y-8">
+        @if (scaledIngredients(); as ingredients) {
+          <div class="bg-white p-6 rounded-2xl shadow-sm border border-stone-200 sticky top-4">
+            <h3 class="text-2xl font-bold text-stone-800 mb-6 flex items-center gap-2 serif">
+              Ingredients
+            </h3>
+
+            <div class="space-y-6">
+              @if (ingredients.wet && ingredients.wet.length) {
+                <div>
+                  <h4 class="text-sm font-bold text-stone-400 uppercase tracking-wider mb-3">
+                    Wet
+                  </h4>
+                  <ul class="space-y-3">
+                    @for (ing of ingredients.wet; track ing.name) {
+                      <li
+                        class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
+                      >
+                        <span
+                          class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                        >
+                          {{ formatAmount(ing.amount) }} {{ ing.units }}
+                        </span>
+                        <div class="flex-1">
+                          <span class="text-stone-800">{{ ing.name }}</span>
+                          @if (ing.notes) {
+                            <span class="text-stone-400 text-sm italic">
+                              ({{ ing.notes }})</span
+                            >
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @if (ingredients.dry && ingredients.dry.length) {
+                <div>
+                  <h4 class="text-sm font-bold text-stone-400 uppercase tracking-wider mb-3">
+                    Dry
+                  </h4>
+                  <ul class="space-y-3">
+                    @for (ing of ingredients.dry; track ing.name) {
+                      <li
+                        class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
+                      >
+                        <span
+                          class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                        >
+                          {{ formatAmount(ing.amount) }} {{ ing.units }}
+                        </span>
+                        <div class="flex-1">
+                          <span class="text-stone-800">{{ ing.name }}</span>
+                          @if (ing.notes) {
+                            <span class="text-stone-400 text-sm italic">
+                              ({{ ing.notes }})</span
+                            >
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+
+              @if (ingredients.other && ingredients.other.length) {
+                <div>
+                  <h4 class="text-sm font-bold text-stone-400 uppercase tracking-wider mb-3">
+                    Other
+                  </h4>
+                  <ul class="space-y-3">
+                    @for (ing of ingredients.other; track ing.name) {
+                      <li
+                        class="flex items-start gap-3 pb-3 border-b border-stone-100 last:border-0"
+                      >
+                        <span
+                          class="font-bold text-green-700 min-w-[4.5rem] text-right whitespace-nowrap shrink-0"
+                        >
+                          {{ formatAmount(ing.amount) }} {{ ing.units }}
+                        </span>
+                        <div class="flex-1">
+                          <span class="text-stone-800">{{ ing.name }}</span>
+                          @if (ing.notes) {
+                            <span class="text-stone-400 text-sm italic">
+                              ({{ ing.notes }})</span
+                            >
+                          }
+                        </div>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Instructions Column -->
+      <div class="lg:col-span-7 space-y-8">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-stone-200">
+          <h3 class="text-2xl font-bold text-stone-800 mb-6 serif">Method</h3>
+          <div class="space-y-8">
+            @for (inst of r.instructions; track $index) {
+              <div class="flex gap-4 group">
+                <div
+                  class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold flex items-center justify-center text-sm group-hover:bg-green-600 group-hover:text-white transition-colors"
+                >
+                  {{ $index + 1 }}
+                </div>
+                <div class="flex-1 pt-1">
+                  <p class="text-stone-700 leading-relaxed text-lg">
+                    {{ instructionText(inst) }}
+                  </p>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Chef's Notes Section -->
+        <div class="bg-yellow-50 p-6 rounded-xl border border-yellow-100 relative group">
+          <div class="flex justify-between items-start mb-2">
+            <h4 class="text-yellow-800 font-bold flex items-center gap-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              Chef's Notes
+            </h4>
+            @if (!isEditingNotes()) {
+              <button
+                (click)="startEditNotes()"
+                class="text-yellow-700 hover:text-yellow-900 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="Edit Notes"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  class="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                  />
+                </svg>
+              </button>
+            }
+          </div>
+
+          @if (isEditingNotes()) {
+            <div class="mt-3">
+              <textarea
+                [(ngModel)]="editedNotes"
+                rows="4"
+                class="w-full p-3 rounded-lg border border-yellow-200 bg-white text-stone-800 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 mb-3"
+              ></textarea>
+              <div class="flex justify-end gap-2">
+                <button
+                  (click)="cancelEditNotes()"
+                  class="px-3 py-1.5 bg-white text-stone-500 text-xs font-bold rounded-lg hover:bg-stone-50 border border-stone-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  (click)="saveNotes()"
+                  class="px-3 py-1.5 bg-yellow-600 text-white text-xs font-bold rounded-lg hover:bg-yellow-700"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          } @else {
+            <p class="text-yellow-900 italic whitespace-pre-wrap">
+              {{ r.notes || 'No notes added yet.' }}
+            </p>
+          }
+        </div>
+      </div>
+    </div>
+  </article>
+}

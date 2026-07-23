@@ -3,6 +3,7 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppComponent } from './app.component';
+import { GeneratorComponent } from './components/generator/generator.component';
 import { AuthService } from './services/auth.service';
 import { GeminiService } from './services/gemini.service';
 import { PersistenceService } from './services/persistence.service';
@@ -80,31 +81,11 @@ describe('AppComponent manual recipe entry', () => {
   });
 });
 
-describe('AppComponent slugFromTitle parity with Backend normalize_slug', () => {
-  beforeEach(() => {
-    vi.stubGlobal('window', {
-      addEventListener: vi.fn(),
-      location: {
-        hash: '',
-        href: 'http://localhost/',
-        pathname: '/',
-        search: '',
-      },
-      history: {
-        replaceState: vi.fn(),
-      },
-    });
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  const createComponent = () => {
+describe('GeneratorComponent slugFromTitle parity with Backend normalize_slug', () => {
+  const createGenerator = () => {
     const injector = Injector.create({
       providers: [
         { provide: Router, useValue: mockRouter },
-        { provide: ToastService, useValue: mockToastService },
         { provide: RecipeStateService, useValue: mockRecipeStateService },
         { provide: GeminiService, useValue: {} },
         { provide: PersistenceService, useValue: {} },
@@ -112,12 +93,13 @@ describe('AppComponent slugFromTitle parity with Backend normalize_slug', () => 
           provide: AuthService,
           useValue: {
             ensureGuestSession: vi.fn(),
+            currentUser: signal(null),
             ready: Promise.resolve(),
           },
         },
       ],
     });
-    return runInInjectionContext(injector, () => new AppComponent());
+    return runInInjectionContext(injector, () => new GeneratorComponent());
   };
 
   // Expected values are the literal output of the server implementation
@@ -150,7 +132,7 @@ describe('AppComponent slugFromTitle parity with Backend normalize_slug', () => 
   ];
 
   it.each(parityCases)('derives %j → %j exactly as the server would', (title, expected) => {
-    const component = createComponent();
+    const component = createGenerator();
     expect(component['slugFromTitle'](title)).toBe(expected);
   });
 });
