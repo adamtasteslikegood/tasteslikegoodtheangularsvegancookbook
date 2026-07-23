@@ -34,10 +34,9 @@ export class SsrEntryService {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10_000);
-      const response = await fetch(
-        `/api/recipes/public/${encodeURIComponent(normalizedSlug)}`,
-        { signal: controller.signal }
-      );
+      const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`, {
+        signal: controller.signal,
+      });
       clearTimeout(timeout);
       if (!response.ok) {
         console.warn(`Could not fetch recipe for slug "${normalizedSlug}": ${response.status}`);
