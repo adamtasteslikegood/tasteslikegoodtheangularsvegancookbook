@@ -1,7 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { GeminiService } from '../../services/gemini.service';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
@@ -18,7 +17,6 @@ import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../..
   templateUrl: './generator.component.html',
 })
 export class GeneratorComponent {
-  private readonly router = inject(Router);
   private readonly geminiService = inject(GeminiService);
   private readonly persistenceService = inject(PersistenceService);
   readonly authService = inject(AuthService);
@@ -74,7 +72,6 @@ export class GeneratorComponent {
     if (!this.prompt().trim()) return;
 
     this.authService.ensureGuestSession();
-    this.router.navigate(['/']);
 
     this.isRecipeLoading.set(true);
     this.isImageLoading.set(false);
@@ -204,7 +201,6 @@ export class GeneratorComponent {
       if (!synced) {
         throw new Error('Publish state failed to sync to the server');
       }
-      this.authService.saveRecipe(recipe);
     } catch (err) {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState;
