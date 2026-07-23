@@ -20,15 +20,15 @@ export class SaveToastComponent {
   });
 
   onView() {
-    const toasts = this.toastService.toasts();
-    if (toasts.length > 0 && toasts[0].recipe) {
-      this.viewRecipeRequested.emit(toasts[0].recipe);
+    const t = this.toastService.toasts()[0];
+    if (t?.recipe) {
+      this.viewRecipeRequested.emit(t.recipe);
     }
-    this.dismiss();
+    if (t) this.toastService.dismiss(t.id);
   }
 
   dismiss() {
-    const toasts = this.toastService.toasts();
-    if (toasts.length > 0) this.toastService.dismiss(toasts[0].id);
+    const t = this.toastService.toasts()[0];
+    if (t) this.toastService.dismiss(t.id);
   }
 }

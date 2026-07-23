@@ -168,7 +168,6 @@ export class RecipeDetailComponent {
       if (!synced) {
         throw new Error('Publish state failed to sync to the server');
       }
-      this.authService.saveRecipe(recipe);
     } catch (err) {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState;

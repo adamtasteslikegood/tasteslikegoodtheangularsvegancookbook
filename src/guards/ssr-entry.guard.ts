@@ -9,8 +9,12 @@ export const ssrEntryGuard: CanActivateFn = async (route) => {
   const queryParams = route.queryParams;
   const fragment = route.fragment;
 
-  if (queryParams['save']) {
-    await ssrEntry.handleSave(queryParams['save']);
+  const saveParam = queryParams['save'];
+  if (saveParam) {
+    const slug = Array.isArray(saveParam) ? saveParam[0] : saveParam;
+    if (typeof slug === 'string') {
+      await ssrEntry.handleSave(slug);
+    }
     return router.createUrlTree(['/kitchen']);
   }
 

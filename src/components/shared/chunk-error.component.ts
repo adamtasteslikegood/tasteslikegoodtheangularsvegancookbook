@@ -18,6 +18,6 @@ import { Component } from '@angular/core';
 })
 export class ChunkErrorComponent {
   retry() {
-    window.location.reload();
+    window.location.assign('/');
   }
 }
