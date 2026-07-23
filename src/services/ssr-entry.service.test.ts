@@ -50,9 +50,7 @@ describe('SsrEntryService', () => {
 
   it('does not add a duplicate when a copy from the same slug is already saved', async () => {
     const { service, saveRecipe } = createService({
-      savedRecipes: [
-        { id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' },
-      ],
+      savedRecipes: [{ id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' }],
     });
 
     await service.handleSave('thai-peanut-noodles');
@@ -60,15 +58,13 @@ describe('SsrEntryService', () => {
     expect(saveRecipe).not.toHaveBeenCalled();
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/already have this recipe/i),
-      expect.objectContaining({ id: 'r1' }),
+      expect.objectContaining({ id: 'r1' })
     );
   });
 
   it("de-dupes against the user's own published recipe (matches its slug)", async () => {
     const { service, saveRecipe } = createService({
-      savedRecipes: [
-        { id: 'mine', name: 'My Chili', slug: 'my-own-chili', is_public: true },
-      ],
+      savedRecipes: [{ id: 'mine', name: 'My Chili', slug: 'my-own-chili', is_public: true }],
     });
 
     await service.handleSave('my-own-chili');
@@ -76,7 +72,7 @@ describe('SsrEntryService', () => {
     expect(saveRecipe).not.toHaveBeenCalled();
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/already have this recipe/i),
-      expect.objectContaining({ id: 'mine' }),
+      expect.objectContaining({ id: 'mine' })
     );
   });
 
@@ -114,7 +110,7 @@ describe('SsrEntryService', () => {
     expect(saveRecipe.mock.calls[0][0].sourceSlug).toBe('thai-peanut-noodles');
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/saved to your cookbook/i),
-      expect.objectContaining({ sourceSlug: 'thai-peanut-noodles' }),
+      expect.objectContaining({ sourceSlug: 'thai-peanut-noodles' })
     );
   });
 
@@ -135,7 +131,7 @@ describe('SsrEntryService', () => {
     expect(saveRecipe).toHaveBeenCalledTimes(1);
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/on this device/i),
-      expect.any(Object),
+      expect.any(Object)
     );
     expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
   });
@@ -158,14 +154,14 @@ describe('SsrEntryService', () => {
     await service.handleSave('missing-recipe');
 
     expect(saveRecipe).not.toHaveBeenCalled();
-    expect(toastShow).toHaveBeenCalledWith(
-      expect.stringMatching(/could not save/i),
-    );
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/could not save/i));
   });
 
   it('handleAuth waits for auth ready', async () => {
     let resolveReady!: () => void;
-    const readyPromise = new Promise<void>((r) => { resolveReady = r; });
+    const readyPromise = new Promise<void>((r) => {
+      resolveReady = r;
+    });
     const injector = Injector.create({
       providers: [
         { provide: AuthService, useValue: { ready: readyPromise } },
@@ -176,7 +172,9 @@ describe('SsrEntryService', () => {
     const service = runInInjectionContext(injector, () => new SsrEntryService());
 
     let resolved = false;
-    const p = service.handleAuth().then(() => { resolved = true; });
+    const p = service.handleAuth().then(() => {
+      resolved = true;
+    });
     expect(resolved).toBe(false);
 
     resolveReady();
