@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { isPublicViewable, publicSlugOf } from '../../utils/public-link';
+import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
 @Component({
@@ -220,14 +221,7 @@ export class GeneratorComponent {
     return publicSlugOf(recipe);
   }
 
-  private slugFromTitle(title: string): string {
-    return title
-      .normalize('NFKD')
-      .replace(/[-￿]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
+  private slugFromTitle = slugFromTitle;
 
   formatAmount(amount: number | number[]): string {
     if (Array.isArray(amount)) {
