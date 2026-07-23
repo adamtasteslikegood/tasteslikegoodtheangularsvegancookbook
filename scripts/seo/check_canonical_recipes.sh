@@ -2,7 +2,7 @@
 # CI gate: validate canonical recipe list against index.html anchors.
 # Reads specs/canonical-recipes.json and checks:
 #   1. JSON is valid
-#   2. 3–5 recipes listed (Phase 0/1 bound)
+#   2. 3–7 recipes listed (Phase 0/1 bound)
 #   3. Every slug has a matching <a href="/r/{slug}"> in index.html <noscript>
 #   4. No anchors in index.html that aren't in the canonical list
 #
@@ -16,7 +16,11 @@ CANONICAL_FILE="$REPO_ROOT/specs/canonical-recipes.json"
 INDEX_FILE="$REPO_ROOT/index.html"
 
 LIVE_BASE=""
-if [[ "${1:-}" == "--live" ]] && [[ -n "${2:-}" ]]; then
+if [[ "${1:-}" == "--live" ]]; then
+  if [[ -z "${2:-}" ]]; then
+    echo "FAIL: --live requires a base URL, e.g. --live https://www.tasteslikegood.org"
+    exit 1
+  fi
   LIVE_BASE="${2%/}"
 fi
 
@@ -79,7 +83,7 @@ done
 # 5. Optional live check
 if [[ -n "$LIVE_BASE" ]]; then
   for slug in "${json_slugs[@]}"; do
-    status=$(curl -s -o /dev/null -w '%{http_code}' "$LIVE_BASE/r/$slug" 2>/dev/null || echo "000")
+    status=$(curl -s -o /dev/null -w '%{http_code}' "$LIVE_BASE/r/$slug" 2>/dev/null || true)
     if [[ "$status" != "200" ]]; then
       echo "FAIL: $LIVE_BASE/r/$slug returned HTTP $status (expected 200)"
       errors=$((errors + 1))
