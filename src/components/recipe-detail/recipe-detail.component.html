@@ -5,11 +5,7 @@
     ></div>
   </div>
 } @else if (recipe(); as r) {
-  <article
-    class="animate-[fadeIn_0.5s_ease-out]"
-    itemscope
-    itemtype="https://schema.org/Recipe"
-  >
+  <article class="animate-[fadeIn_0.5s_ease-out]" itemscope itemtype="https://schema.org/Recipe">
     <!-- Back Navigation -->
     <button
       (click)="goBack()"
@@ -147,9 +143,7 @@
             <span class="text-xl font-bold text-stone-800">{{ r.cookTime }} min</span>
           </div>
           <div class="text-center border-l border-stone-200">
-            <span class="block text-stone-400 text-xs uppercase tracking-wider mb-1"
-              >Servings</span
-            >
+            <span class="block text-stone-400 text-xs uppercase tracking-wider mb-1">Servings</span>
             <span class="text-xl font-bold text-stone-800">{{ scaledServings() }}</span>
           </div>
         </div>
@@ -187,9 +181,7 @@
       </div>
 
       <!-- Image Area -->
-      <div
-        class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-stone-200 shadow-xl group"
-      >
+      <div class="relative rounded-2xl overflow-hidden aspect-[4/3] bg-stone-200 shadow-xl group">
         @if (generatedImageUrl()) {
           <img
             [src]="generatedImageUrl()"
@@ -273,9 +265,7 @@
                         <div class="flex-1">
                           <span class="text-stone-800">{{ ing.name }}</span>
                           @if (ing.notes) {
-                            <span class="text-stone-400 text-sm italic">
-                              ({{ ing.notes }})</span
-                            >
+                            <span class="text-stone-400 text-sm italic"> ({{ ing.notes }})</span>
                           }
                         </div>
                       </li>
@@ -302,9 +292,7 @@
                         <div class="flex-1">
                           <span class="text-stone-800">{{ ing.name }}</span>
                           @if (ing.notes) {
-                            <span class="text-stone-400 text-sm italic">
-                              ({{ ing.notes }})</span
-                            >
+                            <span class="text-stone-400 text-sm italic"> ({{ ing.notes }})</span>
                           }
                         </div>
                       </li>
@@ -331,9 +319,7 @@
                         <div class="flex-1">
                           <span class="text-stone-800">{{ ing.name }}</span>
                           @if (ing.notes) {
-                            <span class="text-stone-400 text-sm italic">
-                              ({{ ing.notes }})</span
-                            >
+                            <span class="text-stone-400 text-sm italic"> ({{ ing.notes }})</span>
                           }
                         </div>
                       </li>
