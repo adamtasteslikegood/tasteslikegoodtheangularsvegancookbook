@@ -2,8 +2,8 @@
 
 _Kickoff:_ 2026-07-20 · _Owner:_ Adam Schoen · _Jira epic:_ **KAN-118**
 _Status:_ ✅ **LOCKED via `/cs:grill-pm` (6/6 branches, 2026-07-20).** Decisions below are the
-sprint charter — do not re-litigate mid-sprint. Committed: **C1 + C2 + C3** (WIP ≤ 3; C8 shipped
-pre-lock in v0.4.1). Everything else stays parked.
+sprint charter — do not re-litigate mid-sprint. Committed: **C1 + C2 + C3 + C9** (WIP ≤ 3; C8 shipped
+pre-lock in v0.4.1; C9 added 2026-07-23 post-SPA merge, piggybacks C1). Everything else stays parked.
 
 ## Charter (locked decisions)
 
@@ -46,10 +46,16 @@ pre-lock in v0.4.1). Everything else stays parked.
 | C6  | **Valkey broken-connection edge cases** — KAN-16/KAN-17 (GH #162/#163)                                                                                                                                                                                                                     | long-standing                                | repro tests green under fault injection                                                                             |
 | C8  | **iOS: public-recipe View link hidden for guests/webview** — split view-gating from publish-gating (`canPublish()` gates the link at `app.component.html:402`; viewing a public page needs no auth)                                                                                        | Adam field report 2026-07-20 + ux-backlog #6 | signed-out iOS visit shows the View link on a published recipe                                                      |
 | C7  | **Leftover-ASKs write-up**                                                                                                                                                                                                                                                                 | Adam, deferred post-gate                     | doc exists + reviewed                                                                                               |
+| C9  | **Guard timeout + blank-page UX on SSR save entry** — `Promise.race` timeout in ssrEntryGuard, fire handleSave in background so `/kitchen` paints instantly; differentiate 404 vs network error in deep-link fetch (#3208)                                                                 | SPA arch review deferred (PR #3207, 07-23)   | `/?save=<slug>` renders `/kitchen` within 100ms (no blank page); network failure shows retriable error, not "not found" |
 
 **Recommended commit (pending grill):** C1 + C2 + C3 (C8 is small enough to ride with C3's pass) — C1 is owner-directed and time-sensitive
 (hardcoded anchors already live), C2 is a timed checkpoint that matures mid-sprint on its own, and
 C3 clears everything a new visitor can see. C4 folds into C1's live-verification pass cheaply.
+
+**Mid-sprint addition (2026-07-23):** C9 added post-PR #3207 merge (SPA architecture upgrade).
+The SSR save guard blocks the initial navigation with async I/O, leaving the user on a blank page
+for 0.5–2s — directly undercuts C1's canonical-slug promotion where the SSR CTA is the entry path.
+C9 piggybacks on C1's branch/verification; WIP stays ≤ 3 since C8 already shipped.
 
 ## Human decisions to front-load (the Sprint-1 lesson)
 
@@ -62,3 +68,10 @@ C3 clears everything a new visitor can see. C4 folds into C1's live-verification
 Anything not committed above stays parked (C5–C7 unless swapped in at lock time), plus: full Phase-2
 automated rubric scoring (KAN-116), home-page redesign, DORA deploy markers (optional, noted in
 SI-1), Datadog profiler re-enable (trial ends ~2026-07-28 — decide before then or it decides itself).
+
+### SPA review deferrals (parked, Sprint 3 candidates)
+
+From PR #3207 code review — tracked as GitHub issues under KAN-118:
+- **#3210** — `viewRecipe` sets `isSaved=true` for non-owned deep-link recipes (UX lie, no data loss)
+- **#3211** — missing "Sign in to publish" button in recipe-detail for guests (UX parity with generator)
+- **#3209** — extract shared recipe methods to utility/mixin (pure refactor, backlog)
