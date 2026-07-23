@@ -356,6 +356,19 @@ Two indexed corpora available via the `gbrain` CLI:
 - `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
   the existing federation pipeline).
 
+**`Backend/` is a separate gbrain source, not part of the pinned corpus above.**
+`Backend/` is a git submodule (a gitlink, not a plain directory), and gbrain's
+code-index sync refuses to register a source whose path is nested inside an
+already-registered source's path — so it can't just be folded into this
+worktree's pin. It's registered instead as `gstack-code-backend`, cloned via
+`--url` from `adamtasteslikegood/tasteslikegood.com` into gbrain's own managed
+clone directory (sidesteps the path-overlap check entirely). It is **not
+federated** — every `code-def`/`code-refs`/`code-callers`/`code-callees`/
+`search`/`query` call against Backend Python needs an explicit
+`--source gstack-code-backend` flag, or it silently misses. Re-sync it with
+`gbrain sync --source gstack-code-backend --strategy code`, not `/sync-gbrain`
+(which only touches this worktree's pinned source).
+
 Prefer gbrain when:
 
 - "Where is X handled?" / semantic intent, no exact string yet:
