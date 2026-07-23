@@ -1,13 +1,13 @@
-import { Component, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, inject, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, RouterOutlet } from '@angular/router';
 import { AuthService } from './services/auth.service';
-import { ToastService } from './services/toast.service';
 import { RecipeStateService } from './services/recipe-state.service';
 import { HeaderComponent } from './components/header/header.component';
 import { FooterComponent } from './components/footer/footer.component';
 import { GeneratorComponent } from './components/generator/generator.component';
 import { KitchenComponent } from './components/kitchen/kitchen.component';
+import { SaveToastComponent } from './components/shared/save-toast.component';
 import { AuthModalComponent } from './modals/auth/auth-modal.component';
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
@@ -24,6 +24,7 @@ import type { Recipe } from './recipe.types';
     FooterComponent,
     GeneratorComponent,
     KitchenComponent,
+    SaveToastComponent,
     AuthModalComponent,
     CreateCookbookModalComponent,
     ManualEntryModalComponent,
@@ -35,7 +36,6 @@ import type { Recipe } from './recipe.types';
 export class AppComponent {
   private readonly router = inject(Router);
   readonly authService = inject(AuthService);
-  private readonly toastService = inject(ToastService);
   readonly recipeState = inject(RecipeStateService);
 
   private readonly addToCookbookModal = viewChild(AddToCookbookModalComponent);
@@ -48,11 +48,6 @@ export class AppComponent {
   showAddToCookbookModal = signal<boolean>(false);
 
   private _creatingFromAddFlow = false;
-
-  saveToast = computed(() => {
-    const toasts = this.toastService.toasts();
-    return toasts.length > 0 ? { message: toasts[0].message, recipe: toasts[0].recipe } : null;
-  });
 
   constructor() {
     this.router.events.subscribe((e) => {
@@ -99,19 +94,6 @@ export class AppComponent {
     const r = recipe || this.recipeState.currentRecipe();
     if (!r) return;
     this.addToCookbookModal()?.open(r);
-  }
-
-  openSaveToastRecipe() {
-    const toasts = this.toastService.toasts();
-    if (toasts.length > 0 && toasts[0].recipe) {
-      this.viewRecipe(toasts[0].recipe);
-    }
-    this.dismissSaveToast();
-  }
-
-  dismissSaveToast() {
-    const toasts = this.toastService.toasts();
-    if (toasts.length > 0) this.toastService.dismiss(toasts[0].id);
   }
 
   async onLogout() {
