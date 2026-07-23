@@ -6,6 +6,8 @@ import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
 import { ToastService } from './services/toast.service';
+import { HeaderComponent } from './components/header/header.component';
+import { FooterComponent } from './components/footer/footer.component';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
 import { isInAppBrowserEnvironment } from './utils/in-app-browser';
 import { isPublicViewable, publicSlugOf } from './utils/public-link';
@@ -13,7 +15,7 @@ import { isPublicViewable, publicSlugOf } from './utils/public-link';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet],
+  imports: [CommonModule, FormsModule, RouterOutlet, HeaderComponent, FooterComponent],
   templateUrl: './app.component.html',
   styleUrls: [],
 })
@@ -113,7 +115,6 @@ export class AppComponent {
   showAuthModal = signal<boolean>(false);
   authError = signal<string | null>(null);
   authLoginLoading = signal<boolean>(false);
-  showUserProfileCard = signal<boolean>(false);
 
   /**
    * True when we're running inside a third-party in-app browser (Pinterest,
@@ -536,25 +537,7 @@ export class AppComponent {
     }
   }
 
-  toggleUserProfileCard() {
-    this.showUserProfileCard.update((v) => !v);
-  }
-
-  closeUserProfileCard() {
-    this.showUserProfileCard.set(false);
-  }
-
-  /** Mask email for display: "adam@gmail.com" → "ad***@gmail.com" */
-  maskedEmail(): string {
-    const email = this.authService.currentUser()?.email;
-    if (!email) return '';
-    const [local, domain] = email.split('@');
-    if (!domain || local.length <= 2) return email;
-    return local.slice(0, 2) + '***@' + domain;
-  }
-
   async onLogout() {
-    this.showUserProfileCard.set(false);
     await this.authService.logout();
     this.recipe.set(null);
     this.generatedImageUrl.set(null);
