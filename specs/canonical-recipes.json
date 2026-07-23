@@ -1,0 +1,91 @@
+{
+  "$schema": "./canonical-recipes.schema.json",
+  "version": 1,
+  "updated": "2026-07-23",
+  "recipes": [
+    {
+      "slug": "classic-vegan-margherita-pizza",
+      "title": "Classic Vegan Margherita Pizza",
+      "rationale": "Signature showcase dish, high-recognition query, strong representativeness",
+      "added": "2026-07-20",
+      "score": {
+        "representativeness": 5,
+        "breadth": 4,
+        "search_intent": 5,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "vegan-cornbread",
+      "title": "Vegan Cornbread",
+      "rationale": "Baking breadth, settles cornbread-variants question (canonical pick)",
+      "added": "2026-07-20",
+      "score": {
+        "representativeness": 3,
+        "breadth": 4,
+        "search_intent": 4,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "vegan-seitan-fried-chicken-and-waffles",
+      "title": "Vegan Seitan Fried Chicken and Waffles",
+      "rationale": "Signature showcase dish, strong representativeness, distinctive",
+      "added": "2026-07-23",
+      "score": {
+        "representativeness": 5,
+        "breadth": 5,
+        "search_intent": 4,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "vegan-spaghetti-and-meatballs",
+      "title": "Vegan Spaghetti and Meatballs",
+      "rationale": "High-recognition mains query, evergreen search demand",
+      "added": "2026-07-23",
+      "score": {
+        "representativeness": 4,
+        "breadth": 4,
+        "search_intent": 5,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "classic-vegan-chocolate-chip-cookies",
+      "title": "Classic Vegan Chocolate Chip Cookies",
+      "rationale": "Baking breadth, evergreen search demand",
+      "added": "2026-07-23",
+      "score": {
+        "representativeness": 4,
+        "breadth": 4,
+        "search_intent": 5,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "maple-smoked-tempeh-blt",
+      "title": "Maple Smoked Tempeh BLT",
+      "rationale": "Sandwiches/lunch breadth, distinctive recipe",
+      "added": "2026-07-23",
+      "score": {
+        "representativeness": 4,
+        "breadth": 5,
+        "search_intent": 3,
+        "content_quality": 4
+      }
+    },
+    {
+      "slug": "vegan-street-style-tofu-tacos",
+      "title": "Vegan Street Style Tofu Tacos",
+      "rationale": "Mexican/street-food breadth, strong search intent",
+      "added": "2026-07-23",
+      "score": {
+        "representativeness": 4,
+        "breadth": 5,
+        "search_intent": 4,
+        "content_quality": 4
+      }
+    }
+  ]
+}
