@@ -2,8 +2,14 @@
 description: Daily workflow that analyzes open issues and links related issues as sub-issues to improve issue organization
 name: Issue Arborist
 on:
-  schedule: every 3h
+  # Twice a day is plenty for issue gardening; every 3h burned engine budget.
+  schedule: every 12h
   workflow_dispatch:
+
+# Copilot budget is exhausted and gh-aw ignores CLAUDE_CODE_OAUTH_TOKEN, so run on
+# Gemini (GEMINI_API_KEY is present and matches the Backend gemini-triage setup).
+engine:
+  id: gemini
 
 permissions:
   contents: read
