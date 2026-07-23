@@ -7,9 +7,17 @@ import { AuthService } from './services/auth.service';
 import { GeminiService } from './services/gemini.service';
 import { PersistenceService } from './services/persistence.service';
 import { ToastService } from './services/toast.service';
+import { RecipeStateService } from './services/recipe-state.service';
 
 const mockRouter = { events: { subscribe: vi.fn() }, navigate: vi.fn() };
 const mockToastService = { toasts: signal([]), show: vi.fn(), dismiss: vi.fn() };
+const mockRecipeStateService = {
+  currentRecipe: signal(null),
+  generatedImageUrl: signal(null),
+  isSaved: signal(false),
+  viewRecipe: vi.fn(),
+  clearRecipe: vi.fn(),
+};
 
 describe('AppComponent manual recipe entry', () => {
   beforeEach(() => {
@@ -36,6 +44,7 @@ describe('AppComponent manual recipe entry', () => {
       providers: [
         { provide: Router, useValue: mockRouter },
         { provide: ToastService, useValue: mockToastService },
+        { provide: RecipeStateService, useValue: mockRecipeStateService },
         { provide: GeminiService, useValue: {} },
         { provide: PersistenceService, useValue: {} },
         {
@@ -96,6 +105,7 @@ describe('AppComponent slugFromTitle parity with Backend normalize_slug', () => 
       providers: [
         { provide: Router, useValue: mockRouter },
         { provide: ToastService, useValue: mockToastService },
+        { provide: RecipeStateService, useValue: mockRecipeStateService },
         { provide: GeminiService, useValue: {} },
         { provide: PersistenceService, useValue: {} },
         {
@@ -170,6 +180,7 @@ describe('AppComponent.createCookbook in-flight guard', () => {
       providers: [
         { provide: Router, useValue: mockRouter },
         { provide: ToastService, useValue: mockToastService },
+        { provide: RecipeStateService, useValue: mockRecipeStateService },
         { provide: GeminiService, useValue: {} },
         { provide: PersistenceService, useValue: { createCookbook: vi.fn(createCookbookImpl) } },
         {

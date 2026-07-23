@@ -6,6 +6,7 @@ import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
 import { ToastService } from './services/toast.service';
+import { RecipeStateService } from './services/recipe-state.service';
 import { HeaderComponent } from './components/header/header.component';
 import { FooterComponent } from './components/footer/footer.component';
 import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
@@ -25,6 +26,7 @@ export class AppComponent {
   private readonly persistenceService = inject(PersistenceService);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
+  readonly recipeState = inject(RecipeStateService);
 
   // Navigation — derived from Router events
   activeView = signal<'generator' | 'kitchen'>('generator');
@@ -130,7 +132,7 @@ export class AppComponent {
 
   // Recipe Gen State
   prompt = signal<string>('');
-  recipe = signal<Recipe | null>(null);
+  readonly recipe = this.recipeState.currentRecipe;
 
   // Edit Notes State
   isEditingNotes = signal<boolean>(false);
@@ -140,10 +142,10 @@ export class AppComponent {
   isRecipeLoading = signal<boolean>(false);
   isImageLoading = signal<boolean>(false);
   error = signal<string | null>(null);
-  isSaved = signal<boolean>(false);
+  readonly isSaved = this.recipeState.isSaved;
 
   // Image Data
-  generatedImageUrl = signal<string | null>(null);
+  readonly generatedImageUrl = this.recipeState.generatedImageUrl;
 
   // Portion Control
   servingsMultiplier = signal<number>(1);
@@ -539,8 +541,7 @@ export class AppComponent {
 
   async onLogout() {
     await this.authService.logout();
-    this.recipe.set(null);
-    this.generatedImageUrl.set(null);
+    this.recipeState.clearRecipe();
     this.prompt.set('');
     this.router.navigate(['/']);
   }
@@ -765,9 +766,7 @@ export class AppComponent {
 
   // Kitchen actions
   viewRecipe(r: Recipe) {
-    this.recipe.set(r);
-    this.generatedImageUrl.set(r.ai_image_url || null);
-    this.isSaved.set(true);
+    this.recipeState.viewRecipe(r);
     this.isEditingNotes.set(false);
     this.router.navigate(['/recipe', r.id]);
   }
