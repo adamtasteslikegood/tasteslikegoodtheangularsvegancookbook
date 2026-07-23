@@ -6,6 +6,65 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+---
+
+## [0.4.1] - 2026-07-20
+
+Follow-up fix release: makes a published recipe's public page reachable from
+My Kitchen for everyone, not just its publisher. No schema migration.
+
+### Fixed
+
+- **Public-recipe "View" link no longer requires publish rights**: the My
+  Kitchen link to `/r/<slug>` was gated on being a signed-in non-guest, hiding
+  it from guests and in-app-webview visitors (who cannot sign in at all).
+  Visibility is now a pure function of recipe data; the publish toggle stays
+  auth-gated
+  ([#3195](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3195),
+  KAN-119).
+- **View link also resolves for copies saved from a public page**: guest-saved
+  copies carry only `sourceSlug`, so the link now falls back to it (own
+  published slug wins when both exist) — without this the fix above never
+  fired for the guest case it targeted
+  ([#3197](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3197),
+  KAN-119).
+
+---
+
+## [0.4.0] - 2026-07-20
+
+Discoverability and conversion release closing out Sprint 1 (KAN-110). Ends the
+home-page crawl dead-end with server-rendered anchors and unblocks Google
+sign-in for visitors arriving inside in-app browsers. No schema migration.
+
+### Added
+
+- **Server-rendered crawlable links on the home shell**: the Angular home shell
+  previously served only `<app-root>` — a crawler or no-JS client hitting `/`
+  found zero anchors, making the public SSR pages (`/browse`, `/r/<slug>`) a
+  crawl dead-end. A `<noscript>` nav now ships in the server HTML with
+  `<a href="/browse">` plus two published recipe links, without changing the
+  JS-rendered UI
+  ([#3185](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3185),
+  TAS-2896, KAN-114).
+
+### Fixed
+
+- **Google sign-in no longer dead-ends inside in-app browsers**: visitors who
+  arrive from Pinterest (and Instagram/Facebook/etc.) view the site inside that
+  app's embedded webview, where Google blocks OAuth with
+  `Error 403: disallowed_useragent`. The sign-in dialog now detects the in-app
+  browser and, instead of firing a doomed consent redirect, shows an "open this
+  page in Safari/Chrome to sign in" fallback with a copy-link button. Guest
+  saving already works in-webview, so first-time saves are no longer blocked at
+  the conversion moment
+  ([#3186](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3186),
+  TAS-2899, KAN-113).
+
+---
+
 ## [0.3.9] - 2026-07-19
 
 Stability and infrastructure release. Restores the Flask backend's shared
