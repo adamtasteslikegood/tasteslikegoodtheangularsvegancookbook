@@ -13,13 +13,13 @@ export const ssrEntryGuard: CanActivateFn = (route) => {
   if (saveParam) {
     const slug = Array.isArray(saveParam) ? saveParam[0] : saveParam;
     if (typeof slug === 'string') {
-      ssrEntry.handleSave(slug);
+      ssrEntry.handleSave(slug).catch((err) => console.error('SSR save failed:', err));
     }
     return router.createUrlTree(['/kitchen']);
   }
 
   if (queryParams['auth'] === 'success') {
-    ssrEntry.handleAuth();
+    ssrEntry.handleAuth().catch((err) => console.error('SSR auth handoff failed:', err));
     return router.createUrlTree(['/']);
   }
 
