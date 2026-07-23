@@ -9,14 +9,14 @@ import { ToastService } from './services/toast.service';
 import { RecipeStateService } from './services/recipe-state.service';
 import { HeaderComponent } from './components/header/header.component';
 import { FooterComponent } from './components/footer/footer.component';
-import { Ingredient, IngredientGroup, InstructionStep, Recipe } from './recipe.types';
+import { GeneratorComponent } from './components/generator/generator.component';
+import { Ingredient, IngredientGroup, Recipe } from './recipe.types';
 import { isInAppBrowserEnvironment } from './utils/in-app-browser';
-import { isPublicViewable, publicSlugOf } from './utils/public-link';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, HeaderComponent, FooterComponent],
+  imports: [CommonModule, FormsModule, RouterOutlet, HeaderComponent, FooterComponent, GeneratorComponent],
   templateUrl: './app.component.html',
   styleUrls: [],
 })
@@ -130,26 +130,12 @@ export class AppComponent {
   /** Transient confirmation after the user copies the page link in the fallback. */
   copiedShareLink = signal<boolean>(false);
 
-  // Recipe Gen State
-  prompt = signal<string>('');
+  // Shared recipe state (used by kitchen view + modals)
   readonly recipe = this.recipeState.currentRecipe;
-
-  // Edit Notes State
-  isEditingNotes = signal<boolean>(false);
-  editedNotes = signal<string>('');
-
-  // Status Signals
-  isRecipeLoading = signal<boolean>(false);
-  isImageLoading = signal<boolean>(false);
-  error = signal<string | null>(null);
   readonly isSaved = this.recipeState.isSaved;
-
-  // Image Data
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
 
   // Portion Control
-  servingsMultiplier = signal<number>(1);
-
   // Computed Properties for Kitchen
   activeCookbook = computed(() => {
     const id = this.activeCookbookId();
@@ -168,38 +154,6 @@ export class AppComponent {
     }
     // Default to all saved recipes
     return user.savedRecipes;
-  });
-
-  // Computed Recipe Data with Scaling
-  scaledIngredients = computed(() => {
-    const r = this.recipe();
-    const mult = this.servingsMultiplier();
-    if (!r) return null;
-
-    const scaleIngredient = (ing: Ingredient): Ingredient => {
-      let newAmount: number | number[];
-
-      if (Array.isArray(ing.amount)) {
-        newAmount = ing.amount.map((val) => Number((val * mult).toFixed(2)));
-      } else {
-        newAmount = Number((ing.amount * mult).toFixed(2));
-      }
-
-      return { ...ing, amount: newAmount };
-    };
-
-    const scaledGroup: IngredientGroup = {};
-    if (r.ingredients.wet) scaledGroup.wet = r.ingredients.wet.map(scaleIngredient);
-    if (r.ingredients.dry) scaledGroup.dry = r.ingredients.dry.map(scaleIngredient);
-    if (r.ingredients.other) scaledGroup.other = r.ingredients.other.map(scaleIngredient);
-
-    return scaledGroup;
-  });
-
-  scaledServings = computed(() => {
-    const r = this.recipe();
-    if (!r) return 0;
-    return Math.round(r.servings * this.servingsMultiplier());
   });
 
   // Navigation Methods
@@ -542,122 +496,7 @@ export class AppComponent {
   async onLogout() {
     await this.authService.logout();
     this.recipeState.clearRecipe();
-    this.prompt.set('');
     this.router.navigate(['/']);
-  }
-
-  // Recipe Generator Methods
-  async onGenerate() {
-    if (!this.prompt().trim()) return;
-
-    this.authService.ensureGuestSession();
-    this.router.navigate(['/']);
-
-    this.isRecipeLoading.set(true);
-    this.isImageLoading.set(false);
-    this.error.set(null);
-    this.recipe.set(null);
-    this.generatedImageUrl.set(null);
-    this.servingsMultiplier.set(1);
-    this.isSaved.set(false);
-
-    try {
-      const generatedRecipe = await this.geminiService.generateRecipe(this.prompt());
-      this.recipe.set(generatedRecipe);
-      this.isSaved.set(true); // Flask saves to DB during generation
-
-      // Update local signal so My Kitchen shows the recipe immediately
-      // (API save is idempotent — 409 conflict is ignored)
-      await this.persistenceService.saveRecipe(generatedRecipe);
-
-      this.triggerImageGeneration(generatedRecipe);
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
-      this.error.set(message);
-    } finally {
-      this.isRecipeLoading.set(false);
-    }
-  }
-
-  async triggerImageGeneration(recipe: Recipe) {
-    const targetId = recipe.id; // Capture ID to guard against race conditions
-    this.isImageLoading.set(true);
-    try {
-      const imageUrl = await this.geminiService.generateImage(targetId);
-
-      // Only update UI if this recipe is still the active one
-      if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
-      }
-
-      // Update localStorage only — backend already saved the image data.
-      // Calling persistenceService.saveRecipe() would overwrite the DB
-      // recipe with a version missing ai_image_data (stripped from API responses).
-      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
-    } catch (err) {
-      console.error('Image generation failed', err);
-    } finally {
-      if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
-      }
-    }
-  }
-
-  async regenerateImage() {
-    const currentRecipe = this.recipe();
-    if (!currentRecipe) return;
-    const targetId = currentRecipe.id;
-    this.isImageLoading.set(true);
-    try {
-      const imageUrl = await this.geminiService.generateImage(targetId, true);
-      if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
-      }
-
-      // localStorage only — backend already saved the image data
-      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
-    } catch (err) {
-      console.error('Image regeneration failed', err);
-    } finally {
-      if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
-      }
-    }
-  }
-
-  async onSaveRecipe() {
-    const currentRecipe = this.recipe();
-    if (!currentRecipe) return;
-
-    await this.persistenceService.saveRecipe(currentRecipe);
-    this.isSaved.set(true);
-  }
-
-  // Notes Editing
-  startEditNotes() {
-    const r = this.recipe();
-    if (r) {
-      this.editedNotes.set(r.notes || '');
-      this.isEditingNotes.set(true);
-    }
-  }
-
-  cancelEditNotes() {
-    this.isEditingNotes.set(false);
-    this.editedNotes.set('');
-  }
-
-  async saveNotes() {
-    const r = this.recipe();
-    if (r) {
-      const updatedRecipe = { ...r, notes: this.editedNotes() };
-      this.recipe.set(updatedRecipe);
-      await this.persistenceService.saveRecipe(updatedRecipe);
-      this.isEditingNotes.set(false);
-    }
   }
 
   openAddToCookbookModal(recipe: Recipe | null = null) {
@@ -767,7 +606,6 @@ export class AppComponent {
   // Kitchen actions
   viewRecipe(r: Recipe) {
     this.recipeState.viewRecipe(r);
-    this.isEditingNotes.set(false);
     this.router.navigate(['/recipe', r.id]);
   }
 
@@ -832,99 +670,4 @@ export class AppComponent {
     this.activeCookbookId.set(null);
   }
 
-  updatePortions(multiplier: number) {
-    this.servingsMultiplier.set(multiplier);
-  }
-
-  // ─── v0.2 Distribution Methods ────────────────────────────
-
-  /** Publishing is OAuth-gated: guests have no accountable identity, so the
-   *  server forces is_public=false for them — the UI must not pretend
-   *  otherwise. */
-  canPublish = computed(() => {
-    const user = this.authService.currentUser();
-    return !!user && user.isGuest === false;
-  });
-
-  /** KAN-119: the View link renders from recipe data alone — viewing a public
-   *  page needs no publish rights, unlike the toggle above. */
-  isPublicViewable(recipe: Recipe): boolean {
-    return isPublicViewable(recipe);
-  }
-
-  /** Slug of the public page this recipe links to (own published slug, else
-   *  the sourceSlug it was saved from). Null when there is none. */
-  publicSlugOf(recipe: Recipe): string | null {
-    return publicSlugOf(recipe);
-  }
-
-  async togglePublic(recipe: Recipe) {
-    if (!this.canPublish()) {
-      this.openAuthModal();
-      return;
-    }
-    const nextState = !recipe.is_public;
-    recipe.is_public = nextState;
-
-    // Derive the public slug from the recipe title when publishing without one.
-    // The server (Backend utils/slug_utils.normalize_slug) re-derives and
-    // enforces uniqueness on publish, so the slug is not user-editable; this
-    // mirror keeps the same normalization for an immediately-correct link.
-    if (nextState && !recipe.slug) {
-      recipe.slug = this.slugFromTitle(recipe.name);
-    }
-
-    try {
-      const synced = await this.persistenceService.saveRecipe(recipe);
-      if (!synced) {
-        throw new Error('Publish state failed to sync to the server');
-      }
-      this.authService.saveRecipe(recipe); // Update local state
-    } catch (err) {
-      console.error('Failed to toggle public state:', err);
-      recipe.is_public = !nextState; // Revert on failure
-      // saveRecipe() above already wrote the optimistic value to localStorage
-      // (via PersistenceService's local-first write) before the API call
-      // failed — persist the reverted value too, or it reappears as
-      // published/unpublished on refresh until the next API hydrate.
-      this.authService.saveRecipe(recipe);
-    }
-  }
-
-  /**
-   * Normalize a recipe title into a route-safe slug, matching the server's
-   * `normalize_slug` (NFKD → drop every non-ASCII code unit — mirrors Python's
-   * `.encode("ascii", "ignore")`, which strips both combining marks AND
-   * non-decomposable characters like ø/æ/ł/ß — → lowercase → collapse any run
-   * of non-alphanumerics to a single hyphen → trim hyphens).
-   */
-  private slugFromTitle(title: string): string {
-    return title
-      .normalize('NFKD')
-      .replace(/[\u0080-\uFFFF]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
-
-  formatAmount(amount: number | number[]): string {
-    if (Array.isArray(amount)) {
-      return amount.join(' - ');
-    }
-    const decimal = amount;
-    if (Math.abs(decimal - 0.25) < 0.01) return '1/4';
-    if (Math.abs(decimal - 0.5) < 0.01) return '1/2';
-    if (Math.abs(decimal - 0.75) < 0.01) return '3/4';
-    if (Math.abs(decimal - 0.33) < 0.01) return '1/3';
-    if (Math.abs(decimal - 0.66) < 0.01) return '2/3';
-    return decimal.toString();
-  }
-
-  isString(val: unknown): boolean {
-    return typeof val === 'string';
-  }
-
-  instructionText(step: string | InstructionStep): string {
-    return typeof step === 'string' ? step : step.description;
-  }
 }
