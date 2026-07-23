@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, NavigationEnd, RouterOutlet } from '@angular/router';
-import { GeminiService } from './services/gemini.service';
 import { AuthService } from './services/auth.service';
 import { PersistenceService } from './services/persistence.service';
 import { ToastService } from './services/toast.service';
@@ -10,19 +9,19 @@ import { RecipeStateService } from './services/recipe-state.service';
 import { HeaderComponent } from './components/header/header.component';
 import { FooterComponent } from './components/footer/footer.component';
 import { GeneratorComponent } from './components/generator/generator.component';
+import { KitchenComponent } from './components/kitchen/kitchen.component';
 import { Ingredient, IngredientGroup, Recipe } from './recipe.types';
 import { isInAppBrowserEnvironment } from './utils/in-app-browser';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterOutlet, HeaderComponent, FooterComponent, GeneratorComponent],
+  imports: [CommonModule, FormsModule, RouterOutlet, HeaderComponent, FooterComponent, GeneratorComponent, KitchenComponent],
   templateUrl: './app.component.html',
   styleUrls: [],
 })
 export class AppComponent {
   private readonly router = inject(Router);
-  private readonly geminiService = inject(GeminiService);
   private readonly persistenceService = inject(PersistenceService);
   readonly authService = inject(AuthService);
   private readonly toastService = inject(ToastService);
@@ -49,8 +48,7 @@ export class AppComponent {
     });
   }
 
-  // Kitchen State
-  activeCookbookId = signal<string | null>(null); // null means "All Recipes"
+  // Kitchen / Modal State
   showCreateCookbookModal = signal<boolean>(false);
   newCookbookName = signal('');
   newCookbookDesc = signal('');
@@ -104,15 +102,6 @@ export class AppComponent {
   showRemoveConfirmation = signal<boolean>(false);
   cookbooksBeingRemoved = signal<string[]>([]);
 
-  // Delete / Recycle Bin State
-  showDeleteConfirmation = signal<boolean>(false);
-  recipeToDelete = signal<Recipe | null>(null);
-  showRecycleBin = signal<boolean>(false);
-  showEmptyBinConfirmation = signal<boolean>(false);
-
-  recycleBinRecipes = computed(() => this.authService.currentUser()?.deletedRecipes || []);
-  recycleBinCount = computed(() => this.recycleBinRecipes().length);
-
   // Auth UI State
   showAuthModal = signal<boolean>(false);
   authError = signal<string | null>(null);
@@ -135,32 +124,6 @@ export class AppComponent {
   readonly isSaved = this.recipeState.isSaved;
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
 
-  // Portion Control
-  // Computed Properties for Kitchen
-  activeCookbook = computed(() => {
-    const id = this.activeCookbookId();
-    if (!id) return null;
-    return this.authService.currentUser()?.cookbooks.find((cb) => cb.id === id) || null;
-  });
-
-  displayedKitchenRecipes = computed(() => {
-    const user = this.authService.currentUser();
-    if (!user) return [];
-
-    const cookbook = this.activeCookbook();
-    if (cookbook) {
-      // Filter user.savedRecipes by IDs in cookbook
-      return user.savedRecipes.filter((r) => cookbook.recipeIds.includes(r.id));
-    }
-    // Default to all saved recipes
-    return user.savedRecipes;
-  });
-
-  // Navigation Methods
-  switchView(view: 'generator' | 'kitchen') {
-    this.router.navigate([view === 'kitchen' ? '/kitchen' : '/']);
-  }
-
   openSaveToastRecipe() {
     const toasts = this.toastService.toasts();
     if (toasts.length > 0 && toasts[0].recipe) {
@@ -172,11 +135,6 @@ export class AppComponent {
   dismissSaveToast() {
     const toasts = this.toastService.toasts();
     if (toasts.length > 0) this.toastService.dismiss(toasts[0].id);
-  }
-
-  selectCookbook(id: string | null) {
-    this.activeCookbookId.set(id);
-    this.showRecycleBin.set(false);
   }
 
   // Kitchen Methods
@@ -225,18 +183,6 @@ export class AppComponent {
       this.showCreateCookbookModal.set(false);
     } finally {
       this.isCreatingCookbook.set(false);
-    }
-  }
-
-  async deleteCookbook(id: string, event: Event) {
-    event.stopPropagation();
-    if (
-      confirm('Are you sure you want to delete this cookbook? Recipes will remain in "All Saved".')
-    ) {
-      await this.persistenceService.deleteCookbook(id);
-      if (this.activeCookbookId() === id) {
-        this.activeCookbookId.set(null);
-      }
     }
   }
 
@@ -350,96 +296,6 @@ export class AppComponent {
 
     await this.persistenceService.saveRecipe(newRecipe);
     this.closeManualEntryModal();
-  }
-
-  // Import / Export
-  exportRecipe(recipe?: Recipe) {
-    const dataToExport = recipe ? recipe : this.authService.currentUser()?.savedRecipes || [];
-    const fileName = recipe ? `${recipe.name.replace(/\s+/g, '_')}.json` : 'my_vegan_cookbook.json';
-
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], {
-      type: 'application/json',
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  onImportFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement;
-    const file = input.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (e: ProgressEvent<FileReader>) => {
-      try {
-        const result = e.target?.result;
-        if (typeof result !== 'string') return;
-        const json = JSON.parse(result);
-        const recipes = Array.isArray(json) ? json : [json];
-
-        // Strip any inline base64 image data before importing
-        // (images are served via /api/recipes/<id>/image, not inline)
-        const cleanedRecipes: Recipe[] = recipes.map((r: Record<string, unknown>) => {
-          const cleaned = { ...r };
-          delete cleaned['ai_image_data'];
-          return cleaned as unknown as Recipe;
-        });
-
-        const count = this.authService.importRecipes(cleanedRecipes, this.activeCookbookId());
-        // Sync imported recipes to Flask backend
-        const recipesNeedingImages: Recipe[] = [];
-        for (const r of cleanedRecipes) {
-          if (r.name && r.ingredients && r.instructions) {
-            await this.persistenceService.saveRecipe(r);
-            if (!r.ai_image_url || r.ai_image_url.startsWith('data:')) {
-              recipesNeedingImages.push(r);
-            }
-          }
-        }
-
-        if (recipesNeedingImages.length > 0) {
-          alert(
-            `Imported ${count} recipes! Generating images for ${recipesNeedingImages.length} recipe(s)...`
-          );
-          // Generate images in the background (non-blocking)
-          this.generateMissingImages(recipesNeedingImages);
-        } else {
-          alert(`Successfully imported ${count} recipes!`);
-        }
-      } catch (err) {
-        console.error('Failed to parse recipe import file:', err);
-        alert('Failed to parse recipe file. Please ensure it is valid JSON.');
-      }
-    };
-    reader.readAsText(file);
-    input.value = '';
-  }
-
-  /**
-   * Generate AI images for recipes that are missing them.
-   * Runs in the background — does not block the UI.
-   */
-  private async generateMissingImages(recipes: Recipe[]) {
-    let generated = 0;
-    for (const recipe of recipes) {
-      try {
-        const imageUrl = await this.geminiService.generateImage(recipe.id);
-        if (imageUrl) {
-          recipe.ai_image_url = imageUrl;
-          this.authService.saveRecipe(recipe);
-          generated++;
-        }
-      } catch (err) {
-        console.warn(`[Import] Failed to generate image for "${recipe.name}":`, err);
-      }
-    }
-    if (generated > 0) {
-      console.log(`[Import] Generated ${generated}/${recipes.length} images`);
-    }
   }
 
   // Auth Methods
@@ -603,71 +459,9 @@ export class AppComponent {
     this.cookbooksBeingRemoved.set([]);
   }
 
-  // Kitchen actions
   viewRecipe(r: Recipe) {
     this.recipeState.viewRecipe(r);
     this.router.navigate(['/recipe', r.id]);
-  }
-
-  // ─── Delete / Recycle Bin ────────────────────────────────────
-
-  /** Open delete confirmation for a recipe from the kitchen card. */
-  promptDeleteRecipe(recipe: Recipe, event: Event) {
-    event.stopPropagation();
-    this.recipeToDelete.set(recipe);
-    this.showDeleteConfirmation.set(true);
-  }
-
-  /** Confirm soft-delete: move recipe to Recycle Bin. */
-  async confirmDeleteRecipe() {
-    const r = this.recipeToDelete();
-    if (!r) return;
-    await this.persistenceService.deleteRecipe(r.id);
-
-    // If this recipe was being viewed, clear it
-    if (this.recipe()?.id === r.id) {
-      this.recipe.set(null);
-      this.generatedImageUrl.set(null);
-    }
-
-    this.showDeleteConfirmation.set(false);
-    this.recipeToDelete.set(null);
-  }
-
-  cancelDeleteRecipe() {
-    this.showDeleteConfirmation.set(false);
-    this.recipeToDelete.set(null);
-  }
-
-  /** Restore a recipe from the Recycle Bin. */
-  async restoreRecipe(recipeId: string) {
-    await this.persistenceService.restoreRecipe(recipeId);
-  }
-
-  /** Permanently delete a single recipe from the Recycle Bin. */
-  async permanentlyDeleteRecipe(recipeId: string) {
-    await this.persistenceService.permanentlyDeleteRecipe(recipeId);
-  }
-
-  /** Show empty-bin confirmation. */
-  promptEmptyRecycleBin() {
-    this.showEmptyBinConfirmation.set(true);
-  }
-
-  /** Confirm: permanently delete all recipes in the bin. */
-  async confirmEmptyRecycleBin() {
-    await this.persistenceService.emptyRecycleBin();
-    this.showEmptyBinConfirmation.set(false);
-  }
-
-  cancelEmptyRecycleBin() {
-    this.showEmptyBinConfirmation.set(false);
-  }
-
-  /** Toggle Recycle Bin view in the kitchen sidebar. */
-  toggleRecycleBin() {
-    this.showRecycleBin.update((v) => !v);
-    this.activeCookbookId.set(null);
   }
 
 }
