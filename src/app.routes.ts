@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { ssrEntryGuard } from './guards/ssr-entry.guard';
 import { GeneratorComponent } from './components/generator/generator.component';
+import { ChunkErrorComponent } from './components/shared/chunk-error.component';
 
 export const routes: Routes = [
   {
@@ -20,5 +21,6 @@ export const routes: Routes = [
         (m) => m.RecipeDetailComponent
       ),
   },
+  { path: 'chunk-error', component: ChunkErrorComponent },
   { path: '**', redirectTo: '' },
 ];
