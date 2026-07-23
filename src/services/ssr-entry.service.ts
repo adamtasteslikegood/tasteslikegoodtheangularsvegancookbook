@@ -32,7 +32,13 @@ export class SsrEntryService {
     }
 
     try {
-      const response = await fetch(`/api/recipes/public/${encodeURIComponent(normalizedSlug)}`);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10_000);
+      const response = await fetch(
+        `/api/recipes/public/${encodeURIComponent(normalizedSlug)}`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeout);
       if (!response.ok) {
         console.warn(`Could not fetch recipe for slug "${normalizedSlug}": ${response.status}`);
         this.toast.show('Could not save this recipe. Please try again.');
@@ -49,7 +55,11 @@ export class SsrEntryService {
       );
     } catch (err) {
       console.error('Failed to save recipe from SSR CTA:', err);
-      this.toast.show('Something went wrong saving this recipe.');
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        this.toast.show('Save timed out. Check your connection and try again.');
+      } else {
+        this.toast.show('Something went wrong saving this recipe.');
+      }
     }
   }
 
