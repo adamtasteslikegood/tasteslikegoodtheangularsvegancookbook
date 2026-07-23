@@ -1,23 +1,9 @@
 import '@angular/compiler';
-import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { Router } from '@angular/router';
+import { Injector, runInInjectionContext } from '@angular/core';
 import { describe, expect, it, vi } from 'vitest';
-import { GeneratorComponent } from './components/generator/generator.component';
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
-import { AuthService } from './services/auth.service';
-import { GeminiService } from './services/gemini.service';
 import { PersistenceService } from './services/persistence.service';
-import { RecipeStateService } from './services/recipe-state.service';
-
-const mockRouter = { events: { subscribe: vi.fn() }, navigate: vi.fn() };
-const mockRecipeStateService = {
-  currentRecipe: signal(null),
-  generatedImageUrl: signal(null),
-  isSaved: signal(false),
-  viewRecipe: vi.fn(),
-  clearRecipe: vi.fn(),
-};
 
 describe('ManualEntryModalComponent reopened session resets drafts', () => {
   it('starts a reopened manual-entry session with empty ingredient and instruction drafts', () => {
@@ -48,50 +34,7 @@ describe('ManualEntryModalComponent reopened session resets drafts', () => {
   });
 });
 
-describe('GeneratorComponent slugFromTitle parity with Backend normalize_slug', () => {
-  const createGenerator = () => {
-    const injector = Injector.create({
-      providers: [
-        { provide: Router, useValue: mockRouter },
-        { provide: RecipeStateService, useValue: mockRecipeStateService },
-        { provide: GeminiService, useValue: {} },
-        { provide: PersistenceService, useValue: {} },
-        {
-          provide: AuthService,
-          useValue: {
-            ensureGuestSession: vi.fn(),
-            currentUser: signal(null),
-            ready: Promise.resolve(),
-          },
-        },
-      ],
-    });
-    return runInInjectionContext(injector, () => new GeneratorComponent());
-  };
-
-  const parityCases: Array<[title: string, expected: string]> = [
-    ["Adam's Amazing Pasta", 'adam-s-amazing-pasta'],
-    ['Café Crème Brûlée', 'cafe-creme-brulee'],
-    ['Ünïcödé Fëast', 'unicode-feast'],
-    ['Rødgrød med Fløde', 'rdgrd-med-flde'],
-    ["Bjørn's Cookies", 'bjrn-s-cookies'],
-    ['Łódź Bagels & ß-Pretzels', 'odz-bagels-pretzels'],
-    ['  Leading and trailing  ', 'leading-and-trailing'],
-    ['Spicy!!! Tofu??? (v2)', 'spicy-tofu-v2'],
-    ['MiXeD CaSe TITLE', 'mixed-case-title'],
-    ['a—b–c', 'abc'],
-    ['naïve façade', 'naive-facade'],
-    ['100% Vegan Chili #2', '100-vegan-chili-2'],
-    ['þorramatur ðelight', 'orramatur-elight'],
-    ['豆腐カレー', ''],
-    ['🌮🌮🌮', ''],
-  ];
-
-  it.each(parityCases)('derives %j → %j exactly as the server would', (title, expected) => {
-    const component = createGenerator();
-    expect(component['slugFromTitle'](title)).toBe(expected);
-  });
-});
+// slugFromTitle parity tests moved to src/utils/slug.test.ts (T6)
 
 describe('CreateCookbookModalComponent in-flight guard', () => {
   const createComponent = (createCookbookImpl: (...args: unknown[]) => Promise<string | null>) => {

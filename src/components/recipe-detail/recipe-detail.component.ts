@@ -8,6 +8,7 @@ import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
 import { isPublicViewable, publicSlugOf } from '../../utils/public-link';
+import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
 @Component({
@@ -183,14 +184,7 @@ export class RecipeDetailComponent {
     return publicSlugOf(recipe);
   }
 
-  private slugFromTitle(title: string): string {
-    return title
-      .normalize('NFKD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '');
-  }
+  private slugFromTitle = slugFromTitle;
 
   exportRecipe(recipe: Recipe) {
     const fileName = `${recipe.name.replace(/\s+/g, '_')}.json`;
