@@ -2,6 +2,7 @@ import { Component } from '@angular/core';
 
 @Component({
   selector: 'app-chunk-error',
+  standalone: true,
   template: `
     <div class="flex flex-col items-center justify-center py-20 text-center">
       <p class="text-lg text-gray-600 dark:text-gray-400 mb-4">
