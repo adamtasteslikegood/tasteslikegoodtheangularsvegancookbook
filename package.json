@@ -1,7 +1,7 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.3.9",
+  "version": "0.4.1",
   "type": "module",
   "scripts": {
     "dev": "ng serve",
@@ -39,6 +39,7 @@
     "@angular/core": "22.0.7",
     "@angular/forms": "22.0.7",
     "@angular/platform-browser": "22.0.7",
+    "@angular/router": "22.0.7",
     "@google-cloud/secret-manager": "^6.2.0",
     "autoprefixer": "^10.5.4",
     "dd-trace": "^6.4.0",

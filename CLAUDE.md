@@ -67,7 +67,21 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 ### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
-- Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
+- **Angular Router** with flat route config (`src/app.routes.ts`): `/` (Generator, eager), `/kitchen` (lazy), `/recipe/:id` (lazy)
+- `PreloadAllModules` for background chunk fetching; build produces 3+ chunks
+- `ssrEntryGuard` on root route handles `?save=<slug>`, `?auth=success`, `#kitchen` redirects
+- Services: `GeminiService` (recipe + image), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first), `RecipeStateService` (shared recipe state facade), `ToastService` (signal-based toast queue), `ModalService` (cross-component modal coordination), `SsrEntryService` (SSR entry side effects)
+- Component tree:
+  - `AppComponent` (75 lines — composition root: router-outlet + header + footer + modals + toast)
+  - `components/header/` — nav links derived from `Router.url`, auth status
+  - `components/footer/` — static footer
+  - `components/generator/` — recipe generation (default route, eager)
+  - `components/kitchen/` — cookbook management (lazy loaded)
+  - `components/recipe-detail/` — recipe detail with cold deep link fetch fallback (lazy loaded)
+  - `components/shared/save-toast` — subscribes to ToastService
+  - `modals/{auth,create-cookbook,manual-entry,add-to-cookbook}/` — self-contained modal components
+- Guards: `guards/ssr-entry.guard.ts` — functional `CanActivateFn` for SSR CTA save/auth/hash redirects
+- Utils: `utils/slug.ts` (slug generation), `utils/public-link.ts` (public recipe URL), `utils/in-app-browser.ts` (webview detection)
 - Type definitions: `recipe.types.ts`, `auth.types.ts`
 - Dev server port 3000; `proxy.conf.json` maps `/api` → Flask :5000
 - Entry: `index.tsx` (tsconfig uses `jsx: react-jsx`, hence `.tsx`)
@@ -145,6 +159,7 @@ There is no path that ships Backend code without a corresponding cookbook PR —
 
 Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
 
+- **Jira key in the title (REQUIRED).** Every PR title — in this repo AND in `Backend/` — must contain the Jira issue key (`KAN-###` or `RCP-###`), e.g. `feat(seo): SSR crawlable links on home shell (TAS-2896) [KAN-114]`. Jira's GitHub integration links PRs/branches/commits to an issue by scanning for the key in the PR title; a Linear `TAS-####` key alone does NOT create the Jira link (Linear↔Jira sync maps issues to issues, not GitHub attachments — Jira depends on this key-in-title convention). Put the key in the branch name and commit messages too where practical, same scanner. Forgot it? Edit the PR title after the fact — Jira picks it up within ~2 minutes (verified on #3185, 2026-07-20). If no Jira issue exists for the work, that's the smell: file one first.
 - **Monitor it.** While the PR is open, check for new review comments, inline comments, and failing checks (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`, `gh pr checks <n>`). Re-check whenever you return to the PR and before declaring any related work done — a PR with unaddressed feedback is not finished.
 - **Answer every comment.** For each piece of reviewer feedback, do one of two things: push a fix commit and reply confirming what changed, or reply with a concrete technical rebuttal explaining why no change is needed. Never leave feedback unanswered or silently ignored. When you receive review feedback on a PR you own, you MUST invoke the `superpowers:receiving-code-review` skill BEFORE responding — verify each claim against the code first, so replies are grounded in the code rather than performative agreement (the superpowers plugin is enabled in `.claude/settings.json`). A non-blocking PreToolUse hook (`.claude/hooks/pretooluse-pr-review-nudge.sh`) reinforces this by reminding you right before you post a PR reply, but the skill invocation is on you — the hook is a backstop, not the gate.
 - **Sign replies posted on Adam's behalf.** Replies go out under Adam's GitHub account, so make authorship explicit by ending each one with a plain attribution line (`Co-authored-by:` trailers belong in commit messages, not comments):
