@@ -1,11 +1,27 @@
-# Sprint 2 Plan — Canonical Curation, GSC Checkpoint & UX-Backlog Burn-down — **DRAFT, NOT LOCKED**
+# Sprint 2 Plan — Canonical Curation, GSC Checkpoint & UX-Backlog Burn-down
 
-_Kickoff:_ 2026-07-20 (directed by Adam at Sprint-1 close) · _Owner:_ Adam Schoen · _Jira epic:_ **KAN-118**
-_Status:_ 🟡 **DRAFT — charter not locked.** Run `/cs:grill-pm` on this file to lock the sprint
-branches (outcome/DONE, measurement, ownership, risk, budgets) before driving any item.
-Sprint-1 discipline carries forward as the default: **WIP ≤ 3 in flight**, proving command written
-_before_ work, 3 attempts/task, 12 iterations/goal, adversarial gate on agent output, this file is
-source-of-truth (closing an item means editing it).
+_Kickoff:_ 2026-07-20 · _Owner:_ Adam Schoen · _Jira epic:_ **KAN-118**
+_Status:_ ✅ **LOCKED via `/cs:grill-pm` (6/6 branches, 2026-07-20).** Decisions below are the
+sprint charter — do not re-litigate mid-sprint. Committed: **C1 + C2 + C3** (WIP ≤ 3; C8 shipped
+pre-lock in v0.4.1). Everything else stays parked.
+
+## Charter (locked decisions)
+
+| #   | Branch                | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Outcome / DONE**    | All three committed items hit their proving gate, verified in this file: **C1** candidate file + CI validator green + approved slugs serving live (`curl` home shell lists exactly the approved set) · **C2** GSC "Last update" crosses 2026-07-20 + indexed-page delta recorded here (the finding is the deliverable, either direction) · **C3** zero duplicate rows from Adam's pick-list AND zero imageless published heroes. No release-gating amendment unless Adam adds one; C1's live-serving criterion forces ≥1 ship. |
+| 2   | **Measurement**       | WIP ≤ 3, no story points. Track WIP/throughput/cycle-time/age cumulatively across Sprints 1+2 (7 items done so far). **No date forecasting** until ~10 completed items — crossed mid-sprint, at which point a p50/p85 range becomes legitimate input for Sprint 3, not before.                                                                                                                                                                                                                                                 |
+| 3   | **Forecast honesty**  | Zero committed dates. Two external clocks, labeled decision points not deadlines: GSC recrawl matures on Google's schedule; **Datadog profiler decision before trial end ~2026-07-28** (default = stays off).                                                                                                                                                                                                                                                                                                                  |
+| 4   | **Ownership**         | Owner = Adam on all. Reviewers: C1 = PR gate + rubric checks + **Adam's slug approval (hard human gate before serving)** · C2 = machine gate (recorded delta + adversarial pass on any indexing claim) · C3 = **Adam's per-row pick list (destructive, human-gated)** + machine-verified end state. Agent executes; reviewer is never the author.                                                                                                                                                                              |
+| 5   | **Risk (pre-mortem)** | (a) human-gate stall (Sprint 1's constraint) → both pick-decisions front-loaded as the sprint's first actions; (b) premature "indexing broken" call → finding-is-the-deliverable termination rule; (c) wrong-row deletion → dry-run listing + nothing beyond the pick list; (d) plan rot → this file is source-of-truth, closing an item = editing it.                                                                                                                                                                         |
+| 6   | **Budgets**           | 3 attempts/task, 12 iterations/sprint-goal. Escalation reviewer = Adam, reason written to this file. Capped-out verification → the finding (incl. "inconclusive") is the deliverable.                                                                                                                                                                                                                                                                                                                                          |
+
+## Front-loaded human decisions (the sprint's first two actions — nothing else blocks on them)
+
+1. **C1 / KAN-116:** Adam picks 3–5 canonical slugs in `specs/CANONICAL_RECIPES_ROLLOUT.md`
+   (drafted candidates there; picking `vegan-cornbread` settles the cornbread question with it).
+2. **C3:** Adam's per-row dedupe pick list (his personal cookbooks — dry-run listing first,
+   deletions limited to exactly the picked rows).
 
 ---
 
