@@ -56,7 +56,10 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 ### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
-- Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
+- **Angular Router** with lazy loading: `/` (Generator, eager), `/kitchen` (lazy), `/recipe/:id` (lazy)
+- Services: `GeminiService`, `AuthService`, `PersistenceService`, `RecipeStateService`, `ToastService`, `ModalService`, `SsrEntryService`
+- Components: `header/`, `footer/`, `generator/`, `kitchen/`, `recipe-detail/`, `shared/save-toast`; modals: `auth`, `create-cookbook`, `manual-entry`, `add-to-cookbook`
+- Guards: `ssr-entry.guard.ts` (SSR CTA save/auth redirects)
 - Type definitions: `recipe.types.ts`, `auth.types.ts`
 - Dev server port 3000; `proxy.conf.json` maps `/api` → Flask :5000
 - Entry: `index.tsx` (tsconfig uses `jsx: react-jsx`, hence `.tsx`)
