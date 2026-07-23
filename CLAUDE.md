@@ -67,7 +67,21 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 ### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
-- Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
+- **Angular Router** with flat route config (`src/app.routes.ts`): `/` (Generator, eager), `/kitchen` (lazy), `/recipe/:id` (lazy)
+- `PreloadAllModules` for background chunk fetching; build produces 3+ chunks
+- `ssrEntryGuard` on root route handles `?save=<slug>`, `?auth=success`, `#kitchen` redirects
+- Services: `GeminiService` (recipe + image), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first), `RecipeStateService` (shared recipe state facade), `ToastService` (signal-based toast queue), `ModalService` (cross-component modal coordination), `SsrEntryService` (SSR entry side effects)
+- Component tree:
+  - `AppComponent` (75 lines — composition root: router-outlet + header + footer + modals + toast)
+  - `components/header/` — nav links derived from `Router.url`, auth status
+  - `components/footer/` — static footer
+  - `components/generator/` — recipe generation (default route, eager)
+  - `components/kitchen/` — cookbook management (lazy loaded)
+  - `components/recipe-detail/` — recipe detail with cold deep link fetch fallback (lazy loaded)
+  - `components/shared/save-toast` — subscribes to ToastService
+  - `modals/{auth,create-cookbook,manual-entry,add-to-cookbook}/` — self-contained modal components
+- Guards: `guards/ssr-entry.guard.ts` — functional `CanActivateFn` for SSR CTA save/auth/hash redirects
+- Utils: `utils/slug.ts` (slug generation), `utils/public-link.ts` (public recipe URL), `utils/in-app-browser.ts` (webview detection)
 - Type definitions: `recipe.types.ts`, `auth.types.ts`
 - Dev server port 3000; `proxy.conf.json` maps `/api` → Flask :5000
 - Entry: `index.tsx` (tsconfig uses `jsx: react-jsx`, hence `.tsx`)
