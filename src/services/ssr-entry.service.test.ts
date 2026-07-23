@@ -157,6 +157,29 @@ describe('SsrEntryService', () => {
     expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/could not save/i));
   });
 
+  it('shows timeout toast when fetch exceeds 10s', async () => {
+    const abortError = new DOMException('The operation was aborted.', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abortError));
+
+    const { service, saveRecipe } = createService({ savedRecipes: [] });
+
+    await service.handleSave('slow-recipe');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/timed out/i));
+  });
+
+  it('shows generic error toast on network failure (non-abort)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
+
+    const { service, saveRecipe } = createService({ savedRecipes: [] });
+
+    await service.handleSave('unreachable-recipe');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/something went wrong/i));
+  });
+
   it('handleAuth waits for auth ready', async () => {
     let resolveReady!: () => void;
     const readyPromise = new Promise<void>((r) => {

@@ -91,11 +91,19 @@ export class RecipeDetailComponent {
     this.isLoading.set(true);
     try {
       const resp = await fetch(`/api/recipes/${encodeURIComponent(id)}`);
-      if (!resp.ok) throw new Error(`Recipe not found (${resp.status})`);
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          this.toastService.show('Recipe not found');
+        } else {
+          this.toastService.show('Failed to load recipe. Please try again.');
+        }
+        this.router.navigate(['/kitchen'], { replaceUrl: true });
+        return;
+      }
       const recipe: Recipe = await resp.json();
       this.recipeState.viewRecipe(recipe);
     } catch {
-      this.toastService.show('Recipe not found');
+      this.toastService.show('Connection error. Check your network and try again.');
       this.router.navigate(['/kitchen'], { replaceUrl: true });
     } finally {
       this.isLoading.set(false);
