@@ -377,8 +377,6 @@ Prefer gbrain when:
   `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
 - "What calls Y?" / "What does Y depend on?":
   `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
-- Same two, but for Backend Python — add `--source gstack-code-backend`:
-  `gbrain code-def <symbol> --source gstack-code-backend`
 - "What did we decide last time?" / past plans, retros, learnings:
   `gbrain search "<terms>" --source gstack-brain-<user>`
 
