@@ -15,7 +15,7 @@ export class HeaderComponent {
   readonly authService = inject(AuthService);
   readonly modalService = inject(ModalService);
 
-  readonly activeView = signal<'generator' | 'kitchen'>('generator');
+  readonly activeView = signal<'generator' | 'kitchen' | 'recipe'>('generator');
   readonly showUserProfileCard = signal(false);
 
   readonly logoutRequested = output<void>();
@@ -23,7 +23,10 @@ export class HeaderComponent {
   constructor() {
     this.router.events.subscribe((e) => {
       if (e instanceof NavigationEnd) {
-        this.activeView.set(e.urlAfterRedirects.startsWith('/kitchen') ? 'kitchen' : 'generator');
+        const url = e.urlAfterRedirects;
+        if (url.startsWith('/kitchen')) this.activeView.set('kitchen');
+        else if (url.startsWith('/recipe')) this.activeView.set('recipe');
+        else this.activeView.set('generator');
       }
     });
   }
