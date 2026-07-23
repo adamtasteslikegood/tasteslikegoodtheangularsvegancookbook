@@ -2,6 +2,7 @@ import { Component, inject, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
+import { ModalService } from '../../services/modal.service';
 
 @Component({
   selector: 'app-header',
@@ -12,12 +13,12 @@ import { AuthService } from '../../services/auth.service';
 export class HeaderComponent {
   private readonly router = inject(Router);
   readonly authService = inject(AuthService);
+  readonly modalService = inject(ModalService);
 
   readonly activeView = signal<'generator' | 'kitchen'>('generator');
   readonly showUserProfileCard = signal(false);
 
   readonly logoutRequested = output<void>();
-  readonly authModalRequested = output<void>();
 
   constructor() {
     this.router.events.subscribe((e) => {

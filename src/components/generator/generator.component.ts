@@ -1,4 +1,4 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -6,6 +6,7 @@ import { GeminiService } from '../../services/gemini.service';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
+import { ModalService } from '../../services/modal.service';
 import { isPublicViewable, publicSlugOf } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
@@ -22,13 +23,11 @@ export class GeneratorComponent {
   private readonly persistenceService = inject(PersistenceService);
   readonly authService = inject(AuthService);
   private readonly recipeState = inject(RecipeStateService);
+  private readonly modalService = inject(ModalService);
 
   readonly recipe = this.recipeState.currentRecipe;
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
   readonly isSaved = this.recipeState.isSaved;
-
-  readonly addToCookbookRequested = output<Recipe>();
-  readonly authModalRequested = output<void>();
 
   prompt = signal('');
   isRecipeLoading = signal(false);
@@ -174,7 +173,7 @@ export class GeneratorComponent {
 
   openAddToCookbookModal() {
     const r = this.recipe();
-    if (r) this.addToCookbookRequested.emit(r);
+    if (r) this.modalService.openAddToCookbook(r);
   }
 
   exportRecipe(recipe: Recipe) {
@@ -190,7 +189,7 @@ export class GeneratorComponent {
 
   async togglePublic(recipe: Recipe) {
     if (!this.canPublish()) {
-      this.authModalRequested.emit();
+      this.modalService.openAuth();
       return;
     }
     const nextState = !recipe.is_public;
@@ -245,6 +244,6 @@ export class GeneratorComponent {
   }
 
   openAuthModal() {
-    this.authModalRequested.emit();
+    this.modalService.openAuth();
   }
 }

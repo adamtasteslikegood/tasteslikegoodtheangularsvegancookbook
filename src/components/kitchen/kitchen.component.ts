@@ -1,10 +1,11 @@
-import { Component, computed, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { GeminiService } from '../../services/gemini.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
+import { ModalService } from '../../services/modal.service';
 import type { Recipe } from '../../recipe.types';
 
 @Component({
@@ -19,10 +20,11 @@ export class KitchenComponent {
   private readonly geminiService = inject(GeminiService);
   private readonly persistenceService = inject(PersistenceService);
   private readonly recipeState = inject(RecipeStateService);
+  readonly modalService = inject(ModalService);
 
-  readonly createCookbookRequested = output<void>();
-  readonly manualEntryRequested = output<void>();
-  readonly addToCookbookRequested = output<Recipe>();
+  constructor() {
+    this.authService.ensureGuestSession();
+  }
 
   activeCookbookId = signal<string | null>(null);
   showRecycleBin = signal(false);
