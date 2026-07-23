@@ -39,7 +39,7 @@ pre-lock in v0.4.1; C9 added 2026-07-23 post-SPA merge, piggybacks C1). Everythi
 | #   | Candidate                                                                                                                                                                                                                                                                                  | Source                                       | Proposed proving gate (draft)                                                                                       |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | C1  | ✅ **KAN-116 — canonical `r/<recipe>` promotion, Phase 0/1**: Adam picks 3–5 slugs, tracked candidate file + CI validator per `CANONICAL_RECIPES_ROLLOUT.md`; settles the cornbread-variants question (ux-backlog #5) — **DONE** PR #3216 merged 2026-07-23; all 7 slugs approved, CI gate green, schema file added | rolled from Sprint 1                         | candidate file exists + CI check green + anchors serve the approved slugs live                                      |
-| C2  | **GSC indexing checkpoint** — 1-week recrawl verification after the 07-19 sitemap submission (59 URLs) + v0.4.0 home anchors — **FINDINGS RECORDED 2026-07-23** (see below)                                                                                                                | Sprint-1 parked list                         | GSC "Last update" > 2026-07-20 AND indexed-page delta recorded in this file (finding is the deliverable either way) |
+| C2  | ✅ **GSC indexing checkpoint** — 1-week recrawl verification after the 07-19 sitemap submission (59 URLs) + v0.4.0 home anchors — **DONE 2026-07-23**: GSC "Last read" = Jul 23 2026, 68 pages discovered, Status = Success (see findings below)                                           | Sprint-1 parked list                         | GSC "Last update" > 2026-07-20 AND indexed-page delta recorded in this file (finding is the deliverable either way) |
 | C3  | **Prod content hygiene** — dedupe the race-bug duplicate rows on Adam's personal cookbooks (`Dooypkiitts`, `zzz-racetest-*` are his real cookbook names — dedupe extras only, every deletion his explicit pick), run `unpublish_slugs.py`, fix/unpublish the 2 remaining imageless recipes | ux-backlog #3 + #4                           | no duplicate cookbook rows remain AND zero published recipes with imageless heroes                                  |
 | C4  | **Webview-fallback live verification** — real Pinterest-arrival test of the #3186 panel; optional impression analytics                                                                                                                                                                     | ux-backlog #1 residual                       | documented repro on live site showing fallback panel (screenshot/log)                                               |
 | C5  | **Pinterest Rich Pins** — Recipe Rich Pin metadata + domain verification (`pintrest-research.md`)                                                                                                                                                                                          | Sprint-1 parked list                         | Pinterest validator passes on 2+ recipe URLs                                                                        |
@@ -66,18 +66,20 @@ C9 piggybacks on C1's branch/verification; WIP stays ≤ 3 since C8 already ship
 - Home shell `<noscript>` anchors serve all 7 approved slugs (CI gate green)
 - Sitemap `lastmod` dates span 2026-05-06 through 2026-07-21
 
-**GSC "Last update" — HUMAN GATE (requires Adam's Google login):**
+**GSC data (confirmed by Adam 2026-07-23):**
 
-GSC cannot be accessed from headless (requires Google auth). Adam needs to check:
+| Field | Value |
+|-------|-------|
+| Sitemap URL | `https://www.tasteslikegood.org/sitemap.xml` |
+| Submitted | Jul 19, 2026 |
+| Last read | **Jul 23, 2026** (> 2026-07-20 threshold) |
+| Status | Success |
+| Discovered pages | **68** |
+| Discovered videos | 0 |
 
-1. Go to GSC → Sitemaps → `https://www.tasteslikegood.org/sitemap.xml`
-2. Record the "Last read" date — proving gate requires this date > 2026-07-20
-3. Go to GSC → Pages (Indexing) → record total indexed pages
-4. Compare to the 07-19 baseline (sitemap had 59 URLs; GSC snapshot was dated 07-09 per prior memory)
+**Indexed-page delta:** Sitemap grew from 59 → 68 URLs (+9 new recipes published since sprint start). GSC discovered all 68. Prior GSC snapshot was dated 07-09 — Google has now recrawled post-ship (v0.4.0 home anchors + canonical slugs).
 
-**Indexed-page delta:** Pending Adam's GSC check. Sitemap grew from 59 → 68 URLs (+9). Whether Google has indexed the new pages depends on the recrawl date.
-
-**Proving gate status:** External signals all green. GSC "Last update" check is the remaining human gate — finding (either direction) is the deliverable per the charter.
+**Proving gate: MET.** GSC "Last read" (Jul 23) > threshold (Jul 20). 68 pages discovered = 100% of submitted sitemap. Finding is positive: Google recrawled within 4 days of the v0.4.0 anchor deployment and discovered all URLs.
 
 ## Human decisions to front-load (the Sprint-1 lesson)
 
