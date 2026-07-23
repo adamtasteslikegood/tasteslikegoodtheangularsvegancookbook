@@ -1,27 +1,24 @@
-import { Component } from '@angular/core';
 import { Routes } from '@angular/router';
 import { ssrEntryGuard } from './guards/ssr-entry.guard';
-import { RecipeDetailComponent } from './components/recipe-detail/recipe-detail.component';
-
-@Component({ template: '', standalone: true })
-class GeneratorStub {}
-
-@Component({ template: '', standalone: true })
-class KitchenStub {}
+import { GeneratorComponent } from './components/generator/generator.component';
 
 export const routes: Routes = [
   {
     path: '',
-    component: GeneratorStub,
+    component: GeneratorComponent,
     canActivate: [ssrEntryGuard],
   },
   {
     path: 'kitchen',
-    component: KitchenStub,
+    loadComponent: () =>
+      import('./components/kitchen/kitchen.component').then((m) => m.KitchenComponent),
   },
   {
     path: 'recipe/:id',
-    component: RecipeDetailComponent,
+    loadComponent: () =>
+      import('./components/recipe-detail/recipe-detail.component').then(
+        (m) => m.RecipeDetailComponent
+      ),
   },
   { path: '**', redirectTo: '' },
 ];

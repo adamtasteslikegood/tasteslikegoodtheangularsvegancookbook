@@ -1,39 +1,18 @@
 <div class="max-w-6xl mx-auto p-4 md:p-8 relative min-h-screen flex flex-col">
-  <app-header (logoutRequested)="onLogout()" (authModalRequested)="openAuthModal()" />
+  <app-header (logoutRequested)="onLogout()" />
 
-  <!-- GENERATOR VIEW -->
-  @if (activeView() === 'generator') {
-    <app-generator
-      (addToCookbookRequested)="openAddToCookbookModal($event)"
-      (authModalRequested)="openAuthModal()"
-    />
-  }
-
-  <!-- MY KITCHEN VIEW -->
-  @if (activeView() === 'kitchen') {
-    <app-kitchen
-      (createCookbookRequested)="openCreateCookbookModal()"
-      (manualEntryRequested)="openManualEntryModal()"
-      (addToCookbookRequested)="openAddToCookbookModal($event)"
-    />
-  }
-
-  <!-- Recipe Detail — rendered by router-outlet for /recipe/:id -->
   <router-outlet />
 
-  <app-auth-modal [(isOpen)]="showAuthModal" />
+  <app-auth-modal [(isOpen)]="modalService.authModalOpen" />
 
   <app-create-cookbook-modal
-    [(isOpen)]="showCreateCookbookModal"
+    [(isOpen)]="modalService.createCookbookModalOpen"
     (cookbookCreated)="onCookbookCreated($event)"
   />
 
-  <app-manual-entry-modal [(isOpen)]="showManualEntryModal" />
+  <app-manual-entry-modal [(isOpen)]="modalService.manualEntryModalOpen" />
 
-  <app-add-to-cookbook-modal
-    [(isOpen)]="showAddToCookbookModal"
-    (createCookbookRequested)="openCreateCookbookFromAddFlow()"
-  />
+  <app-add-to-cookbook-modal (createCookbookRequested)="openCreateCookbookFromAddFlow()" />
 
   <app-footer />
 
