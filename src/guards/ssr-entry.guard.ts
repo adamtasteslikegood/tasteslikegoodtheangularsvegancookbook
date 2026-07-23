@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { SsrEntryService } from '../services/ssr-entry.service';
 
-export const ssrEntryGuard: CanActivateFn = async (route) => {
+export const ssrEntryGuard: CanActivateFn = (route) => {
   const router = inject(Router);
   const ssrEntry = inject(SsrEntryService);
 
@@ -13,13 +13,13 @@ export const ssrEntryGuard: CanActivateFn = async (route) => {
   if (saveParam) {
     const slug = Array.isArray(saveParam) ? saveParam[0] : saveParam;
     if (typeof slug === 'string') {
-      await ssrEntry.handleSave(slug);
+      ssrEntry.handleSave(slug);
     }
     return router.createUrlTree(['/kitchen']);
   }
 
   if (queryParams['auth'] === 'success') {
-    await ssrEntry.handleAuth();
+    ssrEntry.handleAuth();
     return router.createUrlTree(['/']);
   }
 
