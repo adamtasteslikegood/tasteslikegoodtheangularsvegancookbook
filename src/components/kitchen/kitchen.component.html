@@ -380,10 +380,16 @@
                       />
                     </svg>
                   </button>
+                  <!-- KAN-139: canonical recipes are server-locked — DELETE returns 400. -->
                   <button
                     (click)="promptDeleteRecipe(r, $event)"
-                    class="p-1.5 bg-white/90 rounded-full text-stone-600 hover:text-red-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Delete Recipe"
+                    [disabled]="r.is_canonical"
+                    class="p-1.5 bg-white/90 rounded-full text-stone-600 shadow-sm backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                    [class.hover:text-red-600]="!r.is_canonical"
+                    [class.cursor-not-allowed]="r.is_canonical"
+                    [title]="
+                      r.is_canonical ? 'Canonical recipe — cannot be deleted' : 'Delete Recipe'
+                    "
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"

@@ -6,7 +6,13 @@ import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
-import { isPublicViewable, publicLinkKind, publicSlugOf } from '../../utils/public-link';
+import { ToastService } from '../../services/toast.service';
+import {
+  isPublicViewable,
+  publicLinkKind,
+  publicSlugOf,
+  publishToggleKind,
+} from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
@@ -22,6 +28,7 @@ export class GeneratorComponent {
   readonly authService = inject(AuthService);
   private readonly recipeState = inject(RecipeStateService);
   private readonly modalService = inject(ModalService);
+  private readonly toastService = inject(ToastService);
 
   readonly recipe = this.recipeState.currentRecipe;
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
@@ -80,7 +87,12 @@ export class GeneratorComponent {
     this.servingsMultiplier.set(1);
 
     try {
-      const generatedRecipe = await this.geminiService.generateRecipe(this.prompt());
+      const generatedRecipe: Recipe = {
+        ...(await this.geminiService.generateRecipe(this.prompt())),
+        // KAN-140: provenance label; lets the server distinguish
+        // AI-mediated content from manual entry.
+        origin: 'generated',
+      };
       this.recipe.set(generatedRecipe);
       this.isSaved.set(true);
       await this.persistenceService.saveRecipe(generatedRecipe);
@@ -143,10 +155,11 @@ export class GeneratorComponent {
 
   startEditNotes() {
     const r = this.recipe();
-    if (r) {
-      this.editedNotes.set(r.notes || '');
-      this.isEditingNotes.set(true);
-    }
+    if (!r) return;
+    // KAN-140: the editor only ever touches personalNotes — the generated
+    // notes render on the public page and must not be user-writable.
+    this.editedNotes.set(r.personalNotes || '');
+    this.isEditingNotes.set(true);
   }
 
   cancelEditNotes() {
@@ -157,7 +170,7 @@ export class GeneratorComponent {
   async saveNotes() {
     const r = this.recipe();
     if (r) {
-      const updatedRecipe = { ...r, notes: this.editedNotes() };
+      const updatedRecipe = { ...r, personalNotes: this.editedNotes() };
       this.recipe.set(updatedRecipe);
       await this.persistenceService.saveRecipe(updatedRecipe);
       this.isEditingNotes.set(false);
@@ -189,7 +202,30 @@ export class GeneratorComponent {
       this.modalService.openAuth();
       return;
     }
+    // KAN-139: the server rejects publish-state changes on canonical recipes
+    // (400), and while the initial sync is pending we don't yet know the
+    // authoritative state — the template disables the toggle in both cases;
+    // this guard backstops it.
+    if (recipe.is_canonical || this.publishTogglePending()) return;
     const nextState = !recipe.is_public;
+
+    // KAN-140: manually entered recipes cannot be published — the server
+    // rejects with 400; the template disables the toggle, this backstops it.
+    if (nextState && recipe.origin === 'manual') {
+      this.toastService.show("Manually entered recipes can't be published.");
+      return;
+    }
+
+    // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
+    // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
+    // with 400. Same derivation as the server (parity is spec-pinned), so
+    // catch it before the round trip and say why instead of failing silently.
+    if (nextState && !recipe.slug && !this.slugFromTitle(recipe.name)) {
+      this.toastService.show(
+        "This recipe can't be published: its title has no letters or numbers (a-z, 0-9) to build a public link from."
+      );
+      return;
+    }
 
     // KAN-137: first publish of a copy saved from a public recipe would mint
     // a near-identical second public page (name collision → -N slug). Make
@@ -220,6 +256,13 @@ export class GeneratorComponent {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState;
       this.authService.saveRecipe(recipe);
+      // KAN-104 (#3146): the revert already worked; without a message the
+      // user just sees the switch snap back with no explanation.
+      this.toastService.show(
+        nextState
+          ? 'Publishing failed to sync to the server. Check your connection and try again.'
+          : 'Unpublishing failed to sync to the server. Check your connection and try again.'
+      );
     }
   }
 
@@ -233,6 +276,25 @@ export class GeneratorComponent {
 
   publicSlugOf(recipe: Recipe): string | null {
     return publicSlugOf(recipe);
+  }
+
+  publishToggleKind(recipe: Recipe): 'locked' | 'manual' | 'source' | 'normal' {
+    return publishToggleKind(recipe);
+  }
+
+  publishTogglePending(): boolean {
+    return this.persistenceService.publishStateSync() === 'pending';
+  }
+
+  publishToggleTitle(recipe: Recipe): string {
+    if (this.publishTogglePending()) return 'Checking publish state…';
+    const kind = publishToggleKind(recipe);
+    if (kind === 'locked') return 'Canonical recipe — publish state is locked';
+    if (kind === 'manual') return "Manually entered recipes can't be published.";
+    if (kind === 'source') {
+      return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
+    }
+    return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
   }
 
   private slugFromTitle = slugFromTitle;
