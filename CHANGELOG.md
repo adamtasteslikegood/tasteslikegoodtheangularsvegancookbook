@@ -34,6 +34,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **Scheduled image repair** (KAN-141): new deploy-only Cloud Run Job
+  `flask-backend-image-repair` — detects recipes with no image bytes
+  (canonical first, then published, then oldest; the blank-hero
+  URL-without-bytes rows count as imageless) and enqueues regeneration
+  through the existing Pub/Sub worker path, capped per run
+  (`IMAGE_REPAIR_LIMIT=10`). Runs daily via a one-time Cloud Scheduler
+  trigger created after the first deploy. Backend script:
+  [tasteslikegood.com#241](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/241).
 - **Publish state resolves to one DB row** (KAN-139,
   [#3217](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3217)):
   Backend migration adds `is_canonical` (locks the 7 curated canonical
