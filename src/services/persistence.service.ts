@@ -2,6 +2,7 @@ import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook } from '../auth.types';
+import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
  * PersistenceService — hybrid persistence layer for Phase IV.
@@ -254,32 +255,10 @@ export class PersistenceService {
         const recipesData = await recipesRes.json();
         const collectionsData = await collectionsRes.json();
 
-        // The blob (r.data) is the complete recipe, but its slug/is_public
-        // copies can lag the DB columns on rows written before the backend
-        // synced blob and column on every write — Adam's repeat-save trap
-        // miss (KAN-139) was exactly such a row. When the backend exposes
-        // the columns (is_canonical present = new contract), they win,
-        // including nulls; older backends fall back to the blob unchanged.
-        const recipes: Recipe[] = (recipesData.recipes ?? []).map(
-          (r: {
-            id: string;
-            data: Recipe;
-            slug?: string | null;
-            is_public?: boolean;
-            is_canonical?: boolean;
-            source_slug?: string | null;
-            origin?: Recipe['origin'] | null;
-          }) => {
-            if (r.is_canonical === undefined) return r.data;
-            return {
-              ...r.data,
-              slug: r.slug ?? undefined,
-              is_public: r.is_public,
-              is_canonical: r.is_canonical,
-              sourceSlug: r.data.sourceSlug ?? r.source_slug ?? undefined,
-              origin: r.origin ?? r.data.origin,
-            };
-          }
+        // Column-over-blob merge (KAN-139) — see recipeFromRow for the
+        // contract; shared with recipe-detail's cold deep-link fetch (KAN-149).
+        const recipes: Recipe[] = (recipesData.recipes ?? []).map((r: RecipeRow) =>
+          recipeFromRow(r)
         );
 
         const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(this._toCookbook);
@@ -326,12 +305,15 @@ export class PersistenceService {
       // sent (uniqueness collision suffix), so mirror its authoritative
       // value back into local state — otherwise the /r/<slug> link in the UI
       // silently points at another recipe or 404s until the next reload.
+      // Immutable on purpose (KAN-149 / #3262): zoneless change detection
+      // only re-renders on a signal change, so an in-place `recipe.slug =`
+      // write updated the store but never the screen. Callers that render
+      // this recipe must re-read it from auth state after the sync resolves.
       try {
         const body = await res.json();
         const serverSlug = body?.slug;
         if (typeof serverSlug === 'string' && serverSlug && serverSlug !== recipe.slug) {
-          recipe.slug = serverSlug;
-          this.auth.saveRecipe(recipe);
+          this.auth.saveRecipe({ ...recipe, slug: serverSlug });
         }
       } catch {
         // Body missing or not JSON — keep the optimistic local value.

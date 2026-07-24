@@ -241,21 +241,34 @@ export class GeneratorComponent {
       return;
     }
 
-    recipe.is_public = nextState;
-
-    if (nextState && !recipe.slug) {
-      recipe.slug = this.slugFromTitle(recipe.name);
+    // KAN-149 (#3262): the flip is immutable and goes through the signal —
+    // zoneless change detection never re-renders on in-place mutation, which
+    // both hid the failure-revert below and froze the View link on a
+    // client-predicted slug. The slug itself is server-minted (collision →
+    // -N suffix), so no client-side guess: the View link appears once the
+    // sync merges the server's answer back.
+    const updated: Recipe = { ...recipe, is_public: nextState };
+    if (this.recipe()?.id === recipe.id) {
+      this.recipe.set(updated);
     }
 
     try {
-      const synced = await this.persistenceService.saveRecipe(recipe);
+      const synced = await this.persistenceService.saveRecipe(updated);
       if (!synced) {
         throw new Error('Publish state failed to sync to the server');
       }
+      // Adopt the server-authoritative row (slug included) into the viewed
+      // signal — auth state was just updated by the save's mirror-back.
+      const fresh = this.authService.currentUser()?.savedRecipes.find((r) => r.id === recipe.id);
+      if (fresh && this.recipe()?.id === recipe.id) {
+        this.recipe.set(fresh);
+      }
     } catch (err) {
       console.error('Failed to toggle public state:', err);
-      recipe.is_public = !nextState;
       this.authService.saveRecipe(recipe);
+      if (this.recipe()?.id === recipe.id) {
+        this.recipe.set(recipe);
+      }
       // KAN-104 (#3146): the revert already worked; without a message the
       // user just sees the switch snap back with no explanation.
       this.toastService.show(
