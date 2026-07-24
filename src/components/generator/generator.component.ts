@@ -87,7 +87,12 @@ export class GeneratorComponent {
     this.servingsMultiplier.set(1);
 
     try {
-      const generatedRecipe = await this.geminiService.generateRecipe(this.prompt());
+      const generatedRecipe: Recipe = {
+        ...(await this.geminiService.generateRecipe(this.prompt())),
+        // KAN-140: provenance label; lets the server distinguish
+        // AI-mediated content from manual entry.
+        origin: 'generated',
+      };
       this.recipe.set(generatedRecipe);
       this.isSaved.set(true);
       await this.persistenceService.saveRecipe(generatedRecipe);
@@ -150,10 +155,11 @@ export class GeneratorComponent {
 
   startEditNotes() {
     const r = this.recipe();
-    if (r) {
-      this.editedNotes.set(r.notes || '');
-      this.isEditingNotes.set(true);
-    }
+    if (!r) return;
+    // KAN-140: the editor only ever touches personalNotes — the generated
+    // notes render on the public page and must not be user-writable.
+    this.editedNotes.set(r.personalNotes || '');
+    this.isEditingNotes.set(true);
   }
 
   cancelEditNotes() {
@@ -164,7 +170,7 @@ export class GeneratorComponent {
   async saveNotes() {
     const r = this.recipe();
     if (r) {
-      const updatedRecipe = { ...r, notes: this.editedNotes() };
+      const updatedRecipe = { ...r, personalNotes: this.editedNotes() };
       this.recipe.set(updatedRecipe);
       await this.persistenceService.saveRecipe(updatedRecipe);
       this.isEditingNotes.set(false);
@@ -202,6 +208,13 @@ export class GeneratorComponent {
     // this guard backstops it.
     if (recipe.is_canonical || this.publishTogglePending()) return;
     const nextState = !recipe.is_public;
+
+    // KAN-140: manually entered recipes cannot be published — the server
+    // rejects with 400; the template disables the toggle, this backstops it.
+    if (nextState && recipe.origin === 'manual') {
+      this.toastService.show("Manually entered recipes can't be published.");
+      return;
+    }
 
     // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
     // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
@@ -265,7 +278,7 @@ export class GeneratorComponent {
     return publicSlugOf(recipe);
   }
 
-  publishToggleKind(recipe: Recipe): 'locked' | 'source' | 'normal' {
+  publishToggleKind(recipe: Recipe): 'locked' | 'manual' | 'source' | 'normal' {
     return publishToggleKind(recipe);
   }
 
@@ -277,6 +290,7 @@ export class GeneratorComponent {
     if (this.publishTogglePending()) return 'Checking publish state…';
     const kind = publishToggleKind(recipe);
     if (kind === 'locked') return 'Canonical recipe — publish state is locked';
+    if (kind === 'manual') return "Manually entered recipes can't be published.";
     if (kind === 'source') {
       return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
     }

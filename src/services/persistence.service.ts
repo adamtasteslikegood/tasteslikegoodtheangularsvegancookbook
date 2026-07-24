@@ -268,6 +268,7 @@ export class PersistenceService {
             is_public?: boolean;
             is_canonical?: boolean;
             source_slug?: string | null;
+            origin?: Recipe['origin'] | null;
           }) => {
             if (r.is_canonical === undefined) return r.data;
             return {
@@ -276,6 +277,7 @@ export class PersistenceService {
               is_public: r.is_public,
               is_canonical: r.is_canonical,
               sourceSlug: r.data.sourceSlug ?? r.source_slug ?? undefined,
+              origin: r.origin ?? r.data.origin,
             };
           }
         );
