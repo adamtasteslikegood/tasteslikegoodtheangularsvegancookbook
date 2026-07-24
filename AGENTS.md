@@ -75,7 +75,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 ### Layer 3 — Flask API (`Backend/`)
 
-Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — ignore its monolithic description):
+Modular blueprint architecture — `Backend/CLAUDE.md` is the authoritative reference for Backend details:
 
 - `auth.py` + `blueprints/auth_api_bp.py` — Google OAuth 2.0 flow, sessions
 - `blueprints/generation_bp.py` — `/api/generate` (Gemini text), `/api/generate_image` (Imagen)
@@ -114,47 +114,27 @@ Modular blueprint architecture (the `Backend/CLAUDE.md` is **outdated** — igno
 
 In production all secrets come from Google Secret Manager, injected at Cloud Run runtime.
 
-## Three submodules — always keep in sync
+## Submodules
 
-This repo has three git submodules. On every fresh checkout or after pulling:
+`Backend/` is the only **required** submodule — it is the source for the `flask-backend` Cloud Run service. The main repo pins which SHA of `adamtasteslikegood/tasteslikegood.com` (tracked branch `dev`) gets deployed to production alongside the frontend.
 
 ```bash
-git submodule update --init --recursive  # first checkout
-git pull --recurse-submodules            # daily pull
-git submodule foreach "git switch dev && git pull"  # align all to dev tip
+git submodule update --init Backend       # first checkout (Backend only)
 ```
 
-### `Backend/` submodule — CRITICAL
+`alirez-claude-skills/` and `gemstack/` are **optional** skill collections — do not force-init them.
 
-**This is the source for the `flask-backend` Cloud Run service.** The main repo pins which SHA of `adamtasteslikegood/tasteslikegood.com` (tracked branch `dev`) gets deployed to production alongside the frontend. Any drift between the pointer and real Backend state = production risk.
-
-**On every session start or before any merge/release:**
+### Backend submodule checks (before any merge/release)
 
 ```bash
-# Open PRs in the Backend repo (any unlanded work?)
 gh pr list -R adamtasteslikegood/tasteslikegood.com --state open
-
-# Commits on Backend dev not yet reflected in our pinned pointer
 git -C Backend fetch && git -C Backend log --oneline HEAD..origin/dev
-
-# Commits on Backend dev not yet promoted to Backend main
-git -C Backend log --oneline origin/main..origin/dev
-
-# Migration heads — MUST be exactly one line with (head)
-cd Backend && uv run flask db heads
+cd Backend && uv run flask db heads       # must be exactly one line with (head)
 ```
 
 - Two migration heads = unmerged branch: use `flask db merge` to unify before deploying
 - To fast-forward the pinned pointer: `git submodule update --remote Backend`
-- Production deploys whatever SHA the submodule pins when the release tag fires — check the pointer before every release merge
-
-### `alirez-claude-skills/` submodule
-
-Houses the `pm-daemon/` MCP server. The daemon auto-syncs PM planning files to Confluence (see "PM Daemon" section below).
-
-### `gemstack/` submodule
-
-GStack browser tooling. Used by `/browse` skill in Claude Code sessions.
+- Production deploys whatever SHA the submodule pins when the release tag fires
 
 ## PM Daemon (`.mcp.json`)
 
