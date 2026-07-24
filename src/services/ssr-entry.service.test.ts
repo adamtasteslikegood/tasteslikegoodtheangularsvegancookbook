@@ -22,6 +22,7 @@ describe('SsrEntryService', () => {
     savedRecipes?: unknown[];
     synced?: boolean;
     fetchResponse?: { ok: boolean; json: () => Promise<unknown> };
+    firstSyncSettled?: Promise<void>;
   }) => {
     const saveRecipe = vi.fn().mockResolvedValue(opts.synced ?? true);
     const injector = Injector.create({
@@ -37,7 +38,10 @@ describe('SsrEntryService', () => {
             }),
           },
         },
-        { provide: PersistenceService, useValue: { saveRecipe } },
+        {
+          provide: PersistenceService,
+          useValue: { saveRecipe, firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve() },
+        },
         { provide: ToastService, useValue: { show: toastShow } },
       ],
     });
@@ -59,6 +63,32 @@ describe('SsrEntryService', () => {
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/already have this recipe/i),
       expect.objectContaining({ id: 'r1' })
+    );
+  });
+
+  it('waits for the first server sync so server-only copies are deduped (KAN-139)', async () => {
+    // savedRecipes is empty until the sync settles — the matching copy only
+    // exists server-side (another device, or a stale local blob).
+    const savedRecipes: unknown[] = [];
+    let settleSync!: () => void;
+    const firstSyncSettled = new Promise<void>((resolve) => {
+      settleSync = resolve;
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { service, saveRecipe } = createService({ savedRecipes, firstSyncSettled });
+
+    const save = service.handleSave('thai-peanut-noodles');
+    savedRecipes.push({ id: 'server-copy', sourceSlug: 'thai-peanut-noodles' });
+    settleSync();
+    await save;
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'server-copy' })
     );
   });
 

@@ -84,6 +84,9 @@ export class KitchenComponent {
 
   promptDeleteRecipe(recipe: Recipe, event: Event) {
     event.stopPropagation();
+    // KAN-139: canonical recipes are server-locked (DELETE returns 400);
+    // the template disables the button — this backstops it.
+    if (recipe.is_canonical) return;
     this.recipeToDelete.set(recipe);
     this.showDeleteConfirmation.set(true);
   }
