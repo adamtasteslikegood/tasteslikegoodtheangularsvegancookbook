@@ -30,6 +30,8 @@ tools:
   bash:
     - "cat *"
     - "jq *"
+    - "printf *"
+    - "safeoutputs *"
 
 steps:
   - name: Fetch issues data
