@@ -33,6 +33,9 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       () => new RecipeStateService()
     );
     const persistenceSaveRecipe = vi.fn().mockResolvedValue(true);
+    // Mutable so tests can emulate the persistence mirror-back writing the
+    // server-minted slug into auth state mid-save (KAN-149 / #3262).
+    const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
       providers: [
@@ -44,7 +47,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
         {
           provide: AuthService,
           useValue: {
-            currentUser: () => ({ isGuest: opts.isGuest ?? true, savedRecipes: [] }),
+            currentUser: () => authUser,
             saveRecipe: vi.fn(),
           },
         },
@@ -59,7 +62,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       ],
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
-    return { component, persistenceSaveRecipe };
+    return { component, persistenceSaveRecipe, authUser };
   };
 
   const emitId = (id: string) => {
@@ -104,6 +107,51 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
 
     expect(toastShow).toHaveBeenCalledWith('Connection error. Check your network and try again.');
     expect(routerNavigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+  });
+
+  // GH #3263 (KAN-149): GET /api/recipes/:id returns the row shape
+  // ({…columns, data: {…blob}}) — rendering it raw left ingredients and
+  // instructions undefined and blanked the page on refresh.
+  it('normalizes the API row shape before viewing (cold deep link)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'row-1',
+          name: 'Vegan Zucchini Poppers',
+          slug: 'vegan-zucchini-poppers-2',
+          is_public: true,
+          is_canonical: false,
+          origin: 'generated',
+          data: {
+            id: 'row-1',
+            name: 'Vegan Zucchini Poppers',
+            servings: 4,
+            ingredients: { wet: [], dry: [], other: [] },
+            instructions: ['fry'],
+            slug: 'stale-blob-slug',
+          },
+        }),
+      })
+    );
+
+    const { component } = createComponent();
+    emitId('row-1');
+    await vi.waitFor(() => expect(component.recipe()).not.toBeNull());
+
+    const r = component.recipe() as {
+      ingredients?: unknown;
+      instructions?: unknown;
+      slug?: string;
+    } | null;
+    expect(r?.ingredients).toEqual({ wet: [], dry: [], other: [] });
+    expect(r?.instructions).toEqual(['fry']);
+    // Column beats the lagging blob copy (KAN-139 merge).
+    expect(r?.slug).toBe('vegan-zucchini-poppers-2');
+    // Cold deep link — Save stays enabled (#3210).
+    expect(component.isSaved()).toBe(false);
   });
 
   // KAN-137 confirm-guard: first publish of a copy saved from a public recipe
@@ -183,8 +231,13 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       const recipe = savedCopy() as { is_public?: boolean };
       await component.togglePublic(recipe as never);
 
-      expect(recipe.is_public).toBe(true);
+      // KAN-149 (#3262): the flip is immutable — the passed object stays
+      // untouched; the flipped copy is what goes to the server.
+      expect(recipe.is_public).toBeFalsy();
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'copy-1', is_public: true })
+      );
     });
 
     it('does not prompt when publishing an own recipe (no sourceSlug)', async () => {
@@ -198,8 +251,37 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       await component.togglePublic(recipe as never);
 
       expect(confirmMock).not.toHaveBeenCalled();
-      expect(recipe.is_public).toBe(true);
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'copy-1', is_public: true })
+      );
+    });
+
+    // GH #3262 (KAN-149): the server owns slug minting — the client no longer
+    // predicts one, and adopts the server's answer once the sync resolves.
+    it('sends no client-derived slug and adopts the server-minted slug after sync', async () => {
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+      const { component, persistenceSaveRecipe, authUser } = createComponent({ isGuest: false });
+
+      const recipe = { ...(savedCopy() as object), sourceSlug: undefined } as unknown as {
+        id: string;
+        is_public?: boolean;
+        slug?: string;
+      };
+      component.recipe.set(recipe as never);
+      // Emulate the persistence mirror-back: the server minted a -2 slug on
+      // name collision and auth state was updated before saveRecipe resolved.
+      persistenceSaveRecipe.mockImplementation(async (saved: { slug?: string }) => {
+        expect(saved.slug).toBeUndefined();
+        authUser.savedRecipes = [{ ...recipe, is_public: true, slug: 'vegan-cornbread-2' }];
+        return true;
+      });
+
+      await component.togglePublic(recipe as never);
+
+      const viewed = component.recipe() as { is_public?: boolean; slug?: string } | null;
+      expect(viewed?.is_public).toBe(true);
+      expect(viewed?.slug).toBe('vegan-cornbread-2');
     });
 
     // KAN-104 (#3146): empty-slug titles are pre-checked client-side with an
@@ -229,9 +311,13 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const recipe = savedCopy() as { is_public?: boolean };
+      component.recipe.set(recipe as never);
       await component.togglePublic(recipe as never);
 
-      expect(recipe.is_public).toBeFalsy();
+      // The viewed signal flips optimistically, then reverts to the original
+      // object on sync failure (KAN-149: signal-driven, not in-place).
+      const viewed = component.recipe() as { is_public?: boolean } | null;
+      expect(viewed?.is_public).toBeFalsy();
       expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/publishing failed to sync/i));
       expect(consoleError).toHaveBeenCalled();
     });
@@ -287,8 +373,11 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       await component.togglePublic(recipe as never);
 
       expect(confirmMock).not.toHaveBeenCalled();
-      expect(recipe.is_public).toBe(false);
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      // Unpublish keeps the slug (KAN-139: unpublished rows retain slugs).
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ is_public: false, slug: 'vegan-cornbread-2' })
+      );
     });
   });
 });
