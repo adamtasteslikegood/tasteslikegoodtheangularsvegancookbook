@@ -180,6 +180,29 @@ describe('SsrEntryService', () => {
     expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/something went wrong/i));
   });
 
+  it('shows an error toast when auth initialization fails before the save', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const injector = Injector.create({
+      providers: [
+        {
+          provide: AuthService,
+          useValue: { ready: Promise.reject(new Error('auth init failed')) },
+        },
+        { provide: PersistenceService, useValue: { saveRecipe: vi.fn() } },
+        { provide: ToastService, useValue: { show: toastShow } },
+      ],
+    });
+    const service = runInInjectionContext(injector, () => new SsrEntryService());
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/something went wrong/i));
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalled();
+  });
+
   it('handleAuth waits for auth ready', async () => {
     let resolveReady!: () => void;
     const readyPromise = new Promise<void>((r) => {
