@@ -42,7 +42,7 @@
     "@angular/router": "22.0.7",
     "@google-cloud/secret-manager": "^6.2.0",
     "autoprefixer": "^10.5.4",
-    "dd-trace": "^6.4.0",
+    "dd-trace": "^6.6.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.6.0",
     "express-validator": "^7.3.2",
