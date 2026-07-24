@@ -168,15 +168,22 @@
                     class="text-[10px] font-bold uppercase text-stone-400"
                     >Public</span
                   >
+                  <!-- KAN-139: greyed while the initial server sync is pending
+                       and for copies saved from a public recipe; disabled
+                       outright when the recipe is canonical (server-locked). -->
                   <button
                     type="button"
                     role="switch"
                     [attr.aria-checked]="r.is_public"
                     aria-labelledby="public-toggle-label"
                     (click)="togglePublic(r)"
+                    [disabled]="publishToggleKind(r) === 'locked' || publishTogglePending()"
+                    [title]="publishToggleTitle(r)"
                     class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
                     [class.bg-green-600]="r.is_public"
                     [class.bg-stone-300]="!r.is_public"
+                    [class.opacity-40]="publishToggleKind(r) !== 'normal' || publishTogglePending()"
+                    [class.cursor-not-allowed]="publishToggleKind(r) === 'locked'"
                   >
                     <span
                       class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"

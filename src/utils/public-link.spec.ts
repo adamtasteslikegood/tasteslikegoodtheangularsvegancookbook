@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isPublicViewable, publicLinkKind, publicSlugOf } from './public-link';
+import { isPublicViewable, publicLinkKind, publicSlugOf, publishToggleKind } from './public-link';
 
 // KAN-119: the View link to /r/<slug> must not depend on auth state — a
 // published recipe's public page is viewable by anyone, so the link renders
@@ -102,5 +102,38 @@ describe('isPublicViewable', () => {
     expect(isPublicViewable({ is_public: false, slug: 'vegan-cornbread' })).toBe(false);
     expect(isPublicViewable({ is_public: true })).toBe(false);
     expect(isPublicViewable({})).toBe(false);
+  });
+});
+
+// KAN-139: canonical recipes are server-locked (unpublish/re-slug/delete →
+// 400), and copies saved from a public page render the toggle greyed so their
+// off-state never reads as "this recipe's own page is down".
+describe('publishToggleKind', () => {
+  it('is locked for canonical recipes, regardless of everything else', () => {
+    expect(publishToggleKind({ is_canonical: true, is_public: true, slug: 'a' })).toBe('locked');
+    expect(publishToggleKind({ is_canonical: true, sourceSlug: 'b' })).toBe('locked');
+    expect(publishToggleKind({ is_canonical: true })).toBe('locked');
+  });
+
+  it('is source for an unpublished copy that carries only sourceSlug', () => {
+    expect(publishToggleKind({ sourceSlug: 'vegan-cornbread' })).toBe('source');
+    expect(publishToggleKind({ is_public: false, sourceSlug: 'vegan-cornbread' })).toBe('source');
+  });
+
+  it('is normal once the copy has published its own page', () => {
+    expect(
+      publishToggleKind({
+        is_public: true,
+        slug: 'vegan-cornbread-2',
+        sourceSlug: 'vegan-cornbread',
+      })
+    ).toBe('normal');
+  });
+
+  it('is normal for ordinary own recipes, published or not', () => {
+    expect(publishToggleKind({})).toBe('normal');
+    expect(publishToggleKind({ is_public: true, slug: 'a' })).toBe('normal');
+    expect(publishToggleKind({ is_public: false, slug: 'a' })).toBe('normal');
+    expect(publishToggleKind({ is_canonical: false, is_public: true, slug: 'a' })).toBe('normal');
   });
 });

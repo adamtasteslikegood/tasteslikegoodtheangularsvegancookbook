@@ -41,4 +41,11 @@ export interface Recipe {
    * tapping Save again surfaces the existing copy instead of adding another.
    */
   sourceSlug?: string;
+  /**
+   * KAN-139 — server-owned lock for the canonical recipes curated in
+   * specs/canonical-recipes.json. Read-only in the SPA: the API strips it on
+   * create and pins it on update, and rejects unpublish/re-slug/delete of a
+   * locked recipe with 400. The UI disables those controls up front.
+   */
+  is_canonical?: boolean;
 }

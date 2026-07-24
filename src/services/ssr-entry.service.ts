@@ -27,6 +27,16 @@ export class SsrEntryService {
       return;
     }
 
+    // KAN-139: the dedup check below must see the server's rows, not just
+    // whatever localStorage happens to hold — a copy saved on another
+    // device (or one whose local blob predates the slug-column sync) is
+    // otherwise invisible and gets saved again. Bounded so a hanging API
+    // degrades to the old local-only check instead of blocking the save.
+    await Promise.race([
+      this.persistence.firstSyncSettled,
+      new Promise<void>((resolve) => setTimeout(resolve, 8_000)),
+    ]);
+
     const alreadySaved = this.auth
       .currentUser()
       ?.savedRecipes.find(

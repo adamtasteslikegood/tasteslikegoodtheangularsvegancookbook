@@ -8,6 +8,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Publish state resolves to one DB row** (KAN-139,
+  [#3217](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3217)):
+  Backend migration adds `is_canonical` (locks the 7 curated canonical
+  recipes — unpublish/re-slug/delete return 400; content edits still allowed)
+  and `source_slug` (server-side mirror of the blob's `sourceSlug`,
+  backfilled). SPA renders the publish toggle greyed while the initial server
+  sync is pending and for copies saved from a public recipe (tooltip names
+  the source page), disables it outright for canonical recipes, and disables
+  delete for canonical recipes in the Kitchen. The SSR CTA's repeat-save
+  dedup now waits for the server recipe list, so copies that exist only
+  server-side (or with stale local blobs) are caught instead of re-saved.
+  Requires the Backend pointer bump to
+  [tasteslikegood.com#239](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/239).
+
 ---
 
 ## [0.4.3] - 2026-07-24

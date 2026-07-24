@@ -48,7 +48,10 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
             saveRecipe: vi.fn(),
           },
         },
-        { provide: PersistenceService, useValue: { saveRecipe: persistenceSaveRecipe } },
+        {
+          provide: PersistenceService,
+          useValue: { saveRecipe: persistenceSaveRecipe, publishStateSync: () => 'synced' },
+        },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
@@ -153,6 +156,26 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       expect(confirmMock).not.toHaveBeenCalled();
       expect(recipe.is_public).toBe(true);
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+
+    // KAN-139: canonical recipes are server-locked — the toggle must be inert.
+    it('ignores toggle attempts on a canonical recipe', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        is_canonical: true,
+        is_public: true,
+        slug: 'vegan-cornbread',
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBe(true);
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
     });
 
     it('does not prompt on unpublish', async () => {
