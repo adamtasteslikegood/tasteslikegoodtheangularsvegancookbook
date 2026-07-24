@@ -59,6 +59,11 @@ No schema migration.
   ([#3227](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3227))
 - GitHub Actions group bumped (8 actions)
   ([#3226](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3226))
+- `body-parser` 2.2.2 → 2.3.0 (upstream CVE fix) and `brace-expansion` bumped
+  ([#3212](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3212))
+- Backend submodule pointer bumped `18a303a` → `a1891b7`, picking up Backend
+  docs + security/cleanup PRs (Backend #229, #230, #232, #233)
+  ([#3230](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3230))
 
 ---
 
