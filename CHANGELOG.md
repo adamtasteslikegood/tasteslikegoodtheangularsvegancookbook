@@ -6,6 +6,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- **SPA publish-state fix cluster** (KAN-149,
+  [#3262](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3262),
+  [#3263](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3263),
+  [#3264](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3264)),
+  from Adam's post-v0.4.4 zucchini-poppers field test:
+  - The View link no longer renders a client-predicted slug that could 404
+    or point at another recipe on a name collision — the client stops
+    deriving slugs on publish entirely and adopts the server-minted slug
+    (collision → `-N` suffix) once the sync resolves. Root cause was
+    zoneless change detection: the publish flow mutated the recipe object
+    in place, so neither the server's corrected slug nor the failure revert
+    ever re-rendered; the flip now goes through the signal immutably.
+  - Refreshing `/recipe/:id` no longer renders a blank page: the cold
+    deep-link fetch treated the `GET /api/recipes/:id` row shape
+    (`{…columns, data: {…blob}}`) as the recipe blob, leaving
+    ingredients/instructions undefined. The KAN-139 column-over-blob merge
+    is extracted into a shared `recipeFromRow` util (per #3209) used by both
+    the persistence sync and the deep-link fetch.
+  - Toggling publish ON no longer pushes the freshly-mounted View link
+    behind the recipe image: the action rows were non-wrapping flex rows
+    inside a `minmax(0, 1fr)` grid column, so the extra link overflowed
+    under the adjacent `position: relative` image block; the rows now wrap.
+
 ## [0.4.4] - 2026-07-24
 
 ### Fixed
