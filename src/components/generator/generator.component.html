@@ -532,9 +532,14 @@
           </div>
 
           @if (isEditingNotes()) {
-            <p class="text-yellow-900 italic whitespace-pre-wrap">
-              {{ r.notes || 'No notes added yet.' }}
-            </p>
+            <!-- Only real generated notes render here: the "No notes added
+                 yet." fallback above an empty personal-notes textarea reads
+                 as the textarea's own empty state (review of #3252). -->
+            @if (r.notes) {
+              <p class="text-yellow-900 italic whitespace-pre-wrap">
+                {{ r.notes }}
+              </p>
+            }
             <div class="mt-3">
               <label class="block text-xs font-bold text-yellow-800 mb-1"
                 >My notes (private — never published)</label
