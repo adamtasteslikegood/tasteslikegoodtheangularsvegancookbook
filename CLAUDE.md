@@ -265,7 +265,7 @@ Other workflows: `ci.yml` (push-only Prettier auto-commit safety net), `release.
 
 ## Testing
 
-- **Express/server + Angular units:** Vitest (`npm test`). `vitest.config.ts` includes `server/**/*.{test,spec}.ts` AND `src/**/*.{test,spec}.ts`, so any `*.spec.ts` under `src/` (currently `src/utils/public-link.spec.ts`, `src/services/gemini.service.spec.ts`) runs in the same suite. Coverage thresholds apply to `server/**/*.ts` only; `src/**` coverage is not gated.
+- **Express/server + Angular units:** Vitest (`npm test`). `vitest.config.ts` includes `server/**/*.{test,spec}.ts` AND `src/**/*.{test,spec}.ts`, so **both** `*.test.ts` and `*.spec.ts` under `src/` run in the same suite — 9 files today, and `.test.ts` is the majority spelling (only `src/utils/public-link.spec.ts` and `src/services/gemini.service.spec.ts` use `.spec.ts`). Either extension works; don't assume `.test.ts` under `src/` is excluded. Coverage thresholds apply to `server/**/*.ts` only and `src/**` coverage is not gated — and note `vitest.config.ts` further excludes `server/index.ts`, `server/proxy.ts`, and `server/types.ts` from the coverage denominator, so the 60% line/statement gate does not cover all of `server/`.
 - **Backend/Flask:** pytest (`cd Backend && uv run pytest`). Tests in `Backend/tests/`.
 - **Angular components/E2E:** No component or browser-driven test harness (Karma/Jest/Playwright) is wired up. UI changes still need to be verified by running the dev server and testing in the browser — but plain unit-level Angular logic can and should be covered via the Vitest suite above.
 
@@ -418,8 +418,24 @@ clone directory (sidesteps the path-overlap check entirely). It is **not
 federated** — every `code-def`/`code-refs`/`code-callers`/`code-callees`/
 `search`/`query` call against Backend Python needs an explicit
 `--source gstack-code-backend` flag, or it silently misses. Re-sync it with
-`gbrain sync --source gstack-code-backend --strategy code`, not `/sync-gbrain`
-(which only touches this worktree's pinned source).
+`gbrain sync --source gstack-code-backend --strategy code`, and never with a
+bare `/sync-gbrain` run from inside `Backend/`.
+
+**Why not `/sync-gbrain` from `Backend/`:** it does not no-op there. `Backend/`
+has no `.gbrain-source` pin, so the orchestrator's code stage falls back to
+registering the cwd as a *new* federated source (`gstack-code-com-<hash>`
+`--path .../Backend`), duplicating the 197 pages already indexed as
+`gstack-code-backend`. The nested-path guard does not catch this, because
+`gstack-code-backend` lives in gbrain's managed clone directory rather than at
+the `Backend/` path, so there is no path overlap to detect. Verified with
+`--dry-run` on 2026-07-24. If you want the memory + brain-sync stages while in
+`Backend/`, run `gstack-gbrain-sync.ts --no-code`. From a submodule cwd, always
+`--dry-run` first and read the `would:` line before letting the code stage run.
+
+The `/sync-gbrain` skill also rewrites the block below from a fixed template
+that asserts the worktree is pinned via `.gbrain-source`. That assertion is
+false in `Backend/`, and a verbatim rewrite there would delete this paragraph —
+so do not let the skill write its guidance block into `Backend/CLAUDE.md`.
 
 Prefer gbrain when:
 
