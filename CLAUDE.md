@@ -423,7 +423,7 @@ bare `/sync-gbrain` run from inside `Backend/`.
 
 **Why not `/sync-gbrain` from `Backend/`:** it does not no-op there. `Backend/`
 has no `.gbrain-source` pin, so the orchestrator's code stage falls back to
-registering the cwd as a *new* federated source (`gstack-code-com-<hash>`
+registering the cwd as a _new_ federated source (`gstack-code-com-<hash>`
 `--path .../Backend`), duplicating the 197 pages already indexed as
 `gstack-code-backend`. The nested-path guard does not catch this, because
 `gstack-code-backend` lives in gbrain's managed clone directory rather than at
