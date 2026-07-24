@@ -27,6 +27,13 @@ export interface Recipe {
   ingredients: IngredientGroup;
   instructions: (string | InstructionStep)[];
   notes?: string;
+  /**
+   * KAN-140 — the user's private notes. The only notes field the SPA editor
+   * writes; never rendered publicly (the Backend public payload/template
+   * allowlist exposes `notes` only). `notes` above is generated content and
+   * is read-only in the UI.
+   */
+  personalNotes?: string;
   tags?: string[];
   image_keywords?: string[];
   stock_image_url?: string;
@@ -48,4 +55,10 @@ export interface Recipe {
    * locked recipe with 400. The UI disables those controls up front.
    */
   is_canonical?: boolean;
+  /**
+   * KAN-140 — how the recipe entered the system. Manually entered recipes
+   * cannot be published (server rejects with 400; the toggle is disabled).
+   * Server-side the column is settable while NULL and immutable once set.
+   */
+  origin?: 'manual' | 'generated' | 'saved';
 }

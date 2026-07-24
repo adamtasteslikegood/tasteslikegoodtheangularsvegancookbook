@@ -130,6 +130,10 @@ export class ManualEntryModalComponent {
         .map((t) => t.trim())
         .filter((t) => t),
       image_keywords: [info.name, 'homemade'],
+      // KAN-140: manually entered recipes are not publishable — the server
+      // gates on this label (and backfills legacy rows via the
+      // image_keywords signature above).
+      origin: 'manual',
     };
 
     await this.persistenceService.saveRecipe(newRecipe);

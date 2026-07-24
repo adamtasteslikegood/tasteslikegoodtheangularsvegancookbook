@@ -130,6 +130,28 @@ describe('publishToggleKind', () => {
     ).toBe('normal');
   });
 
+  // KAN-140: manually entered recipes can't be published — toggle disabled
+  // while unpublished; legacy published manual rows stay unpublish-able.
+  it('is manual for an unpublished manually entered recipe', () => {
+    expect(publishToggleKind({ origin: 'manual' })).toBe('manual');
+    expect(publishToggleKind({ origin: 'manual', is_public: false })).toBe('manual');
+    // Manual wins over the source rendering — the gate matters more.
+    expect(publishToggleKind({ origin: 'manual', sourceSlug: 'x' })).toBe('manual');
+  });
+
+  it('is normal for a legacy published manual recipe (so it can be unpublished)', () => {
+    expect(publishToggleKind({ origin: 'manual', is_public: true, slug: 'legacy' })).toBe('normal');
+  });
+
+  it('canonical lock wins over manual origin', () => {
+    expect(publishToggleKind({ origin: 'manual', is_canonical: true })).toBe('locked');
+  });
+
+  it('is normal for generated and saved origins', () => {
+    expect(publishToggleKind({ origin: 'generated' })).toBe('normal');
+    expect(publishToggleKind({ origin: 'saved', sourceSlug: 'x' })).toBe('source');
+  });
+
   it('is normal for ordinary own recipes, published or not', () => {
     expect(publishToggleKind({})).toBe('normal');
     expect(publishToggleKind({ is_public: true, slug: 'a' })).toBe('normal');

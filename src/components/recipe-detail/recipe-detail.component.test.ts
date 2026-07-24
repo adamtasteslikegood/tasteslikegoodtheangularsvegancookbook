@@ -108,6 +108,50 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
 
   // KAN-137 confirm-guard: first publish of a copy saved from a public recipe
   // must be an informed choice — and "no" must leave the recipe untouched.
+  // KAN-140: generated notes render live on /r/<slug> unmoderated, so the
+  // editor only ever touches the private personalNotes field.
+  describe('notes editor edits personalNotes only', () => {
+    it('opens with personalNotes, not the generated notes', () => {
+      const { component } = createComponent({ isGuest: false });
+      component.recipe.set({
+        id: 'pub-1',
+        name: 'Vegan Cornbread',
+        is_public: true,
+        slug: 'vegan-cornbread',
+        notes: 'generated public notes',
+        personalNotes: 'my private tweaks',
+      } as never);
+
+      component.startEditNotes();
+
+      expect(component.isEditingNotes()).toBe(true);
+      expect(component.editedNotes()).toBe('my private tweaks');
+    });
+
+    it('saveNotes writes personalNotes and leaves the generated notes untouched', async () => {
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+      component.recipe.set({
+        id: 'pub-1',
+        name: 'Vegan Cornbread',
+        is_public: true,
+        slug: 'vegan-cornbread',
+        notes: 'generated public notes',
+      } as never);
+
+      component.startEditNotes();
+      component.editedNotes.set('do not tell the internet');
+      await component.saveNotes();
+
+      const saved = component.recipe() as {
+        notes?: string;
+        personalNotes?: string;
+      } | null;
+      expect(saved?.notes).toBe('generated public notes');
+      expect(saved?.personalNotes).toBe('do not tell the internet');
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('togglePublic confirm-guard', () => {
     const savedCopy = () =>
       ({
@@ -190,6 +234,24 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       expect(recipe.is_public).toBeFalsy();
       expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/publishing failed to sync/i));
       expect(consoleError).toHaveBeenCalled();
+    });
+
+    // KAN-140: manually entered recipes cannot be published.
+    it('blocks publishing a manually entered recipe with a toast', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        origin: 'manual',
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/manually entered/i));
+      expect(recipe.is_public).toBeFalsy();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
     });
 
     // KAN-139: canonical recipes are server-locked — the toggle must be inert.
