@@ -1,9 +1,10 @@
 # Sprint 2 Plan — Canonical Curation, GSC Checkpoint & UX-Backlog Burn-down
 
 _Kickoff:_ 2026-07-20 · _Owner:_ Adam Schoen · _Jira epic:_ **KAN-118**
-_Status:_ ✅ **LOCKED via `/cs:grill-pm` (6/6 branches, 2026-07-20).** Decisions below are the
-sprint charter — do not re-litigate mid-sprint. Committed: **C1 + C2 + C3 + C9** (WIP ≤ 3; C8 shipped
-pre-lock in v0.4.1; C9 added 2026-07-23 post-SPA merge, piggybacks C1). Everything else stays parked.
+_Status:_ ✅ **CLOSED 2026-07-24** — release gate MET (v0.4.2 live-verified, see close-out below);
+epic KAN-118 → Done. Was locked via `/cs:grill-pm` (6/6 branches, 2026-07-20). Committed: **C1 + C2 +
+C3 + C9** (WIP ≤ 3; C8 shipped pre-lock in v0.4.1; C9 added 2026-07-23 post-SPA merge, piggybacks
+C1). C3 deferred → Sprint 3 by Adam's decision 2026-07-24.
 
 ## Charter (locked decisions)
 
@@ -116,7 +117,7 @@ From PR #3207 code review — tracked as GitHub issues under KAN-118:
 
 **Jira transitions (2026-07-24):** KAN-116 To Do → Done, KAN-119 In Progress → Done.
 
-**Release gate:** C1 and C9 are on `dev` but NOT yet deployed to production. C1's proving gate ("anchors serve the approved slugs live") requires a release (v0.4.2). Sprint close contingent on that release shipping.
+**Release gate: MET** (verified 2026-07-24). v0.4.2 shipped (tag `v0.4.2`, release PR #3235 + review-feedback fix #3238). Production verification, machine-checked (`verify_live.sh` exit 0): home shell at `https://www.tasteslikegood.org/` anchors exactly the 7 approved canonical slugs (no extras), and every `/r/<slug>` returns HTTP 200. C1's live-serving criterion — the last open condition — is satisfied; sprint close is unconditional.
 
 **Flow metrics (Sprints 1+2 cumulative):**
 - Sprint 1: 7 items, 6 done + 1 rolled (KAN-116). ~2 days charter→gate.
