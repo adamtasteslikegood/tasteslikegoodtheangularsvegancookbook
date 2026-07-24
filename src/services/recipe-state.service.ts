@@ -7,10 +7,12 @@ export class RecipeStateService {
   readonly generatedImageUrl = signal<string | null>(null);
   readonly isSaved = signal(false);
 
-  viewRecipe(r: Recipe) {
+  // saved=false is the cold deep-link path (GH #3210): the recipe came from
+  // the API, not the user's cookbook, so the Save button must stay live.
+  viewRecipe(r: Recipe, saved = true) {
     this.currentRecipe.set(r);
     this.generatedImageUrl.set(r.ai_image_url || null);
-    this.isSaved.set(true);
+    this.isSaved.set(saved);
   }
 
   clearRecipe() {
