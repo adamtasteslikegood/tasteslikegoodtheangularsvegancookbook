@@ -8,7 +8,12 @@ import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ModalService } from '../../services/modal.service';
-import { isPublicViewable, publicLinkKind, publicSlugOf } from '../../utils/public-link';
+import {
+  isPublicViewable,
+  publicLinkKind,
+  publicSlugOf,
+  publishToggleKind,
+} from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
@@ -167,6 +172,11 @@ export class RecipeDetailComponent {
 
   async togglePublic(recipe: Recipe) {
     if (!this.canPublish()) return;
+    // KAN-139: the server rejects publish-state changes on canonical recipes
+    // (400), and while the initial sync is pending we don't yet know the
+    // authoritative state — the template disables the toggle in both cases;
+    // this guard backstops it.
+    if (recipe.is_canonical || this.publishTogglePending()) return;
     const nextState = !recipe.is_public;
 
     // KAN-137: first publish of a copy saved from a public recipe would mint
@@ -211,6 +221,24 @@ export class RecipeDetailComponent {
 
   publicLinkKind(recipe: Recipe): 'own' | 'source' | null {
     return publicLinkKind(recipe);
+  }
+
+  publishToggleKind(recipe: Recipe): 'locked' | 'source' | 'normal' {
+    return publishToggleKind(recipe);
+  }
+
+  publishTogglePending(): boolean {
+    return this.persistenceService.publishStateSync() === 'pending';
+  }
+
+  publishToggleTitle(recipe: Recipe): string {
+    if (this.publishTogglePending()) return 'Checking publish state…';
+    const kind = publishToggleKind(recipe);
+    if (kind === 'locked') return 'Canonical recipe — publish state is locked';
+    if (kind === 'source') {
+      return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
+    }
+    return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
   }
 
   openAuthModal() {
