@@ -7,7 +7,8 @@ import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
-import { isPublicViewable, publicSlugOf } from '../../utils/public-link';
+import { ModalService } from '../../services/modal.service';
+import { isPublicViewable, publicLinkKind, publicSlugOf } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
@@ -25,6 +26,7 @@ export class RecipeDetailComponent {
   private readonly geminiService = inject(GeminiService);
   private readonly recipeState = inject(RecipeStateService);
   private readonly toastService = inject(ToastService);
+  private readonly modalService = inject(ModalService);
 
   readonly recipe = this.recipeState.currentRecipe;
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
@@ -101,7 +103,8 @@ export class RecipeDetailComponent {
         return;
       }
       const recipe: Recipe = await resp.json();
-      this.recipeState.viewRecipe(recipe);
+      // Not in the user's cookbook (cold deep link) — keep Save enabled (#3210).
+      this.recipeState.viewRecipe(recipe, false);
     } catch {
       this.toastService.show('Connection error. Check your network and try again.');
       this.router.navigate(['/kitchen'], { replaceUrl: true });
@@ -165,6 +168,21 @@ export class RecipeDetailComponent {
   async togglePublic(recipe: Recipe) {
     if (!this.canPublish()) return;
     const nextState = !recipe.is_public;
+
+    // KAN-137: first publish of a copy saved from a public recipe would mint
+    // a near-identical second public page (name collision → -N slug). Make
+    // that an informed choice instead of a silent side effect.
+    if (
+      nextState &&
+      !recipe.slug &&
+      recipe.sourceSlug &&
+      !confirm(
+        `This recipe was saved from a public recipe that may still be live at /r/${recipe.sourceSlug}. Publish your copy as a separate public page?`
+      )
+    ) {
+      return;
+    }
+
     recipe.is_public = nextState;
 
     if (nextState && !recipe.slug) {
@@ -189,6 +207,14 @@ export class RecipeDetailComponent {
 
   publicSlugOf(recipe: Recipe): string | null {
     return publicSlugOf(recipe);
+  }
+
+  publicLinkKind(recipe: Recipe): 'own' | 'source' | null {
+    return publicLinkKind(recipe);
+  }
+
+  openAuthModal() {
+    this.modalService.openAuth();
   }
 
   private slugFromTitle = slugFromTitle;
