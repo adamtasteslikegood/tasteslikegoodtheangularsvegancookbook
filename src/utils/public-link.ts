@@ -33,3 +33,26 @@ export function isPublicViewable(recipe: {
 }): boolean {
   return publicSlugOf(recipe) !== null;
 }
+
+/**
+ * KAN-137 — which public page the View link points at.
+ *
+ * 'own'    — the recipe's own published page (is_public + slug): the publish
+ *            toggle and the link agree, render the link normally.
+ * 'source' — only the sourceSlug fallback resolves: the link opens the page
+ *            this copy was saved FROM, not a page this recipe owns. The UI
+ *            must render it visibly differently (muted + explanatory title),
+ *            otherwise a publish-capable user sees "toggle off + View
+ *            present" and reads it as an inconsistency.
+ * null     — no public page; no link.
+ */
+export function publicLinkKind(recipe: {
+  is_public?: boolean;
+  slug?: string;
+  sourceSlug?: string;
+}): 'own' | 'source' | null {
+  if (recipe.is_public === true && recipe.slug) {
+    return 'own';
+  }
+  return recipe.sourceSlug ? 'source' : null;
+}
