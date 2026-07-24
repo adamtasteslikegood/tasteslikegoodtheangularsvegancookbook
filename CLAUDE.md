@@ -247,14 +247,17 @@ The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9
 
 PR gate (`.github/workflows/pr-gate.yml`) runs on every PR to `main`, `dev`, or `dev/**`. All jobs must pass — the `gate` aggregator is the single required status check:
 
-| Job                                | What it checks                                                                      |
-| ---------------------------------- | ----------------------------------------------------------------------------------- |
-| `Frontend — lint + format`         | ESLint + Prettier (`npm run lint`, `npm run format:check`)                          |
-| `Frontend — TypeScript`            | `tsc --noEmit` on both tsconfigs                                                    |
-| `Frontend — build`                 | Full `npm run build` (Angular + server TS)                                          |
-| `Frontend — unit tests + coverage` | Vitest with coverage thresholds: lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40% |
-| `Express — Docker image`           | Builds the production Express Docker image                                          |
-| `Gate — all checks passed`         | Aggregator — this is the required status check in branch protection                 |
+| Job                                | What it checks                                                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Frontend — lint + format`         | ESLint + Prettier (`npm run lint`, `npm run format:check`)                                                                                       |
+| `Frontend — TypeScript`            | `tsc --noEmit` on both tsconfigs                                                                                                                 |
+| `Frontend — build`                 | Full `npm run build` (Angular + server TS)                                                                                                       |
+| `Frontend — unit tests + coverage` | Vitest (`npm test`) over `server/**` and `src/**`, with `server/**/*.ts` coverage thresholds: lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40% |
+| `Backend — pytest`                 | `uv run pytest` inside `Backend/`                                                                                                                |
+| `Docker — Express image build`     | Builds the production Express Docker image                                                                                                       |
+| `CHANGELOG entry for this version` | Verifies `CHANGELOG.md` has a `## [<version>]` (or `## <version>`) section matching `package.json`                                               |
+| `SEO — canonical recipes`          | Runs `scripts/seo/check_canonical_recipes.sh`                                                                                                    |
+| `Gate — all checks passed`         | Aggregator — this is the required status check in branch protection                                                                              |
 
 Additional required checks (separate workflows): `Analyze (javascript-typescript)` (CodeQL), `Dependency Review`.
 
@@ -262,9 +265,9 @@ Other workflows: `ci.yml` (push-only Prettier auto-commit safety net), `release.
 
 ## Testing
 
-- **Express/server:** Vitest (`npm test`). Tests in `server/*.test.ts`. Coverage enforced by `vitest.config.ts`.
+- **Express/server + Angular units:** Vitest (`npm test`). `vitest.config.ts` includes `server/**/*.{test,spec}.ts` AND `src/**/*.{test,spec}.ts`, so any `*.spec.ts` under `src/` (currently `src/utils/public-link.spec.ts`, `src/services/gemini.service.spec.ts`) runs in the same suite. Coverage thresholds apply to `server/**/*.ts` only; `src/**` coverage is not gated.
 - **Backend/Flask:** pytest (`cd Backend && uv run pytest`). Tests in `Backend/tests/`.
-- **Angular:** No unit test suite currently. UI changes must be verified by running the dev server and testing in the browser.
+- **Angular components/E2E:** No component or browser-driven test harness (Karma/Jest/Playwright) is wired up. UI changes still need to be verified by running the dev server and testing in the browser — but plain unit-level Angular logic can and should be covered via the Vitest suite above.
 
 ## Startup (agent sessions)
 
@@ -357,7 +360,7 @@ Follow the four Karpathy principles when writing or modifying code in this proje
 3. **Surgical Changes** — make the smallest diff that solves the problem. Don't refactor surrounding code, add unrelated improvements, or "clean up while you're there."
 4. **Goal-Driven Execution** — every action should move toward a verifiable success criterion. State what "done" looks like before starting.
 
-See the `karpathy-guidelines` skill for the full reference.
+For the full reference, see the `karpathy-check` slash command / `karpathy-coder` skill / `cs-karpathy-reviewer` agent under the **optional** `alirez-claude-skills/` submodule (not initialized by default — see the Submodules note in the "Session start" section).
 
 ## GBrain Configuration (configured by /setup-gbrain)
 
