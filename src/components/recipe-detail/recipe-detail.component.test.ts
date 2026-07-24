@@ -27,11 +27,12 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
     vi.restoreAllMocks();
   });
 
-  const createComponent = () => {
+  const createComponent = (opts: { isGuest?: boolean } = {}) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
+    const persistenceSaveRecipe = vi.fn().mockResolvedValue(true);
 
     const injector = Injector.create({
       providers: [
@@ -43,10 +44,11 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
         {
           provide: AuthService,
           useValue: {
-            currentUser: () => ({ isGuest: true, savedRecipes: [] }),
+            currentUser: () => ({ isGuest: opts.isGuest ?? true, savedRecipes: [] }),
+            saveRecipe: vi.fn(),
           },
         },
-        { provide: PersistenceService, useValue: { saveRecipe: vi.fn() } },
+        { provide: PersistenceService, useValue: { saveRecipe: persistenceSaveRecipe } },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
@@ -54,7 +56,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       ],
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
-    return component;
+    return { component, persistenceSaveRecipe };
   };
 
   const emitId = (id: string) => {
@@ -99,5 +101,75 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
 
     expect(toastShow).toHaveBeenCalledWith('Connection error. Check your network and try again.');
     expect(routerNavigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+  });
+
+  // KAN-137 confirm-guard: first publish of a copy saved from a public recipe
+  // must be an informed choice — and "no" must leave the recipe untouched.
+  describe('togglePublic confirm-guard', () => {
+    const savedCopy = () =>
+      ({
+        id: 'copy-1',
+        name: 'Vegan Cornbread',
+        ingredients: { wet: [], dry: [], other: [] },
+        instructions: [],
+        sourceSlug: 'vegan-cornbread',
+      }) as never;
+
+    it('prompts before first publish of a sourceSlug copy and aborts on "no"', async () => {
+      const confirmMock = vi.fn().mockReturnValue(false);
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = savedCopy() as { is_public?: boolean; sourceSlug: string };
+      await component.togglePublic(recipe as never);
+
+      expect(confirmMock).toHaveBeenCalledOnce();
+      expect(confirmMock.mock.calls[0][0]).toContain('/r/vegan-cornbread');
+      expect(recipe.is_public).toBeFalsy();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('publishes the copy when confirmed', async () => {
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = savedCopy() as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(recipe.is_public).toBe(true);
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+
+    it('does not prompt when publishing an own recipe (no sourceSlug)', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = { ...(savedCopy() as object), sourceSlug: undefined } as {
+        is_public?: boolean;
+      };
+      await component.togglePublic(recipe as never);
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBe(true);
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+
+    it('does not prompt on unpublish', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        is_public: true,
+        slug: 'vegan-cornbread-2',
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBe(false);
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
   });
 });
