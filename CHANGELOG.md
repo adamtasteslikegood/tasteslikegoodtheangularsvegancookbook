@@ -10,6 +10,31 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.3] - 2026-07-24
+
+Sprint 3 saved-copy state-machine fixes: the publish toggle and the View link
+can no longer disagree, and publishing a saved copy is an informed choice.
+No schema migration, no Backend changes (submodule pointer unchanged).
+
+### Fixed
+
+- **Saved-copy view/publish state cluster** (KAN-137): the View link now
+  distinguishes a recipe's own published page from the public page it was
+  saved from (`publicLinkKind` — 'source' links render muted/italic with an
+  explanatory tooltip, WCAG AA contrast); first publish of a saved copy asks
+  for confirmation before creating a separate public page; recipes fetched
+  via cold deep link no longer misreport as saved (closes
+  [#3210](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3210));
+  guests viewing a saved recipe get the generator's "Sign in to publish"
+  affordance (closes
+  [#3211](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3211))
+  ([#3244](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3244)).
+- **Issue Arborist workflow**: allow the safeoutputs CLI in the bash allowlist
+  so the agentic workflow can report results (KAN-133,
+  [#3239](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3239)).
+
+---
+
 ## [0.4.2] - 2026-07-24
 
 SPA architecture upgrade and Sprint 2 close-out: canonical recipe curation with
