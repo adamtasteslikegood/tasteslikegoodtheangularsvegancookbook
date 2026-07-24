@@ -6,7 +6,7 @@ import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
-import { isPublicViewable, publicSlugOf } from '../../utils/public-link';
+import { isPublicViewable, publicLinkKind, publicSlugOf } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
@@ -190,6 +190,21 @@ export class GeneratorComponent {
       return;
     }
     const nextState = !recipe.is_public;
+
+    // KAN-137: first publish of a copy saved from a public recipe would mint
+    // a near-identical second public page (name collision → -N slug). Make
+    // that an informed choice instead of a silent side effect.
+    if (
+      nextState &&
+      !recipe.slug &&
+      recipe.sourceSlug &&
+      !confirm(
+        `This recipe was saved from a public recipe that may still be live at /r/${recipe.sourceSlug}. Publish your copy as a separate public page?`
+      )
+    ) {
+      return;
+    }
+
     recipe.is_public = nextState;
 
     if (nextState && !recipe.slug) {
@@ -210,6 +225,10 @@ export class GeneratorComponent {
 
   isPublicViewable(recipe: Recipe): boolean {
     return isPublicViewable(recipe);
+  }
+
+  publicLinkKind(recipe: Recipe): 'own' | 'source' | null {
+    return publicLinkKind(recipe);
   }
 
   publicSlugOf(recipe: Recipe): string | null {

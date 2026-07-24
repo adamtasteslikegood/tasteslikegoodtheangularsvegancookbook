@@ -9,6 +9,7 @@ import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
+import { ModalService } from '../../services/modal.service';
 
 describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
   let toastShow: ReturnType<typeof vi.fn>;
@@ -49,6 +50,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
+        { provide: ModalService, useValue: { openAuth: vi.fn() } },
       ],
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());

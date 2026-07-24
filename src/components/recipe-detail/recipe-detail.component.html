@@ -87,14 +87,38 @@
                     ></span>
                   </button>
                 </div>
+              } @else if (isSaved()) {
+                <!-- GH #3211: guests get the same publish affordance as the
+                     generator — a sign-in prompt instead of silence. -->
+                <button
+                  type="button"
+                  (click)="openAuthModal()"
+                  class="text-[10px] font-bold uppercase text-stone-400 hover:text-green-600 underline underline-offset-2 transition-colors"
+                  aria-label="Sign in to publish this recipe"
+                >
+                  Sign in to publish
+                </button>
               }
-              @if (isPublicViewable(r)) {
+              @if (publicLinkKind(r); as linkKind) {
+                <!-- KAN-137: a 'source' link opens the page this copy was
+                     saved FROM — muted so it never reads as this recipe's own
+                     published page while the toggle is off. -->
                 <a
                   [href]="'/r/' + publicSlugOf(r)"
                   target="_blank"
                   rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1 ml-1 text-xs font-semibold text-stone-500 hover:text-green-600 transition-colors animate-[fadeIn_0.2s]"
-                  [title]="'View public page: /r/' + publicSlugOf(r)"
+                  class="inline-flex items-center gap-1 ml-1 text-xs font-semibold transition-colors animate-[fadeIn_0.2s]"
+                  [class.text-stone-500]="linkKind === 'own'"
+                  [class.hover:text-green-600]="linkKind === 'own'"
+                  [class.text-stone-300]="linkKind === 'source'"
+                  [class.hover:text-stone-400]="linkKind === 'source'"
+                  [class.italic]="linkKind === 'source'"
+                  [title]="
+                    linkKind === 'source'
+                      ? 'This recipe was saved from a public recipe — opens the original: /r/' +
+                        publicSlugOf(r)
+                      : 'View public page: /r/' + publicSlugOf(r)
+                  "
                 >
                   View
                   <svg
