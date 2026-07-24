@@ -18,8 +18,14 @@ export class SsrEntryService {
       return;
     }
 
-    await this.auth.ready;
-    this.auth.ensureGuestSession();
+    try {
+      await this.auth.ready;
+      this.auth.ensureGuestSession();
+    } catch (err) {
+      console.error('Failed to initialize session for SSR save:', err);
+      this.toast.show('Something went wrong saving this recipe.');
+      return;
+    }
 
     const alreadySaved = this.auth
       .currentUser()

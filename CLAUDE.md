@@ -19,7 +19,7 @@ Only after these checks: create the branch or worktree and start the work.
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
-- **Version:** See `package.json` `version` field (currently v0.4.1)
+- **Version:** See `package.json` `version` field (currently v0.4.2)
 - **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions (kept in sync with core sections here)
 
 ## Commands
