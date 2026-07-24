@@ -40,7 +40,7 @@
     "@angular/forms": "22.0.8",
     "@angular/platform-browser": "22.0.8",
     "@angular/router": "22.0.8",
-    "@google-cloud/secret-manager": "^6.2.0",
+    "@google-cloud/secret-manager": "^6.3.0",
     "autoprefixer": "^10.5.4",
     "dd-trace": "^6.6.0",
     "express": "^5.2.1",
