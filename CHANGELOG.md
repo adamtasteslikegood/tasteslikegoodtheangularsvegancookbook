@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **Publish failures are no longer silent** (KAN-104,
+  [#3146](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3146)):
+  titles with no ASCII letters/numbers (all-emoji, pure-CJK/Cyrillic) are
+  pre-checked client-side with an explanatory toast instead of hitting the
+  server's 400 silently, and a publish/unpublish that fails to sync now
+  reverts _and_ tells the user (previously it only reverted).
+
 ### Added
 
 - **Publish state resolves to one DB row** (KAN-139,
