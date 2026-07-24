@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '26'
           cache: npm
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '26'
           cache: npm
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '26'
           cache: npm
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v7.0.0
         with:
           node-version: '26'
           cache: npm
@@ -94,7 +94,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           submodules: recursive
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
       - uses: astral-sh/setup-uv@v7
@@ -140,6 +140,15 @@ jobs:
           fi
           echo "✅ CHANGELOG.md has an entry for v$VERSION"
 
+  # ── SEO ───────────────────────────────────────────────────────────────────
+
+  canonical-recipes:
+    name: SEO — canonical recipes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - run: bash scripts/seo/check_canonical_recipes.sh
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -153,6 +162,7 @@ jobs:
       - backend-test
       - docker-build
       - changelog-check
+      - canonical-recipes
     if: always()
     runs-on: ubuntu-latest
     steps:

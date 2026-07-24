@@ -246,12 +246,17 @@ npm start
 
 ### Frontend (Angular 22)
 
-- **Single standalone component** (`app.component.ts`) — all UI state + logic.
-- **Signals API** (`signal()`, `computed()`) for all reactive state — no RxJS observables.
-- **Three services:**
+- **Decomposed component tree** — `AppComponent` is a 75-line composition root; views (`generator/`, `kitchen/`, `recipe-detail/`) and modals (`auth`, `create-cookbook`, `manual-entry`, `add-to-cookbook`) are standalone components.
+- **Angular Router** with lazy loading — flat route config in `src/app.routes.ts`: `/` (Generator, eager), `/kitchen` (lazy chunk), `/recipe/:id` (lazy chunk). `PreloadAllModules` fetches lazy chunks in background. `ssrEntryGuard` on root route handles `?save=<slug>`, `?auth=success`, and `#kitchen` redirects.
+- **Signals API** (`signal()`, `computed()`, `effect()`) for all reactive state — no RxJS observables.
+- **Seven services:**
   - `GeminiService` — calls `/api/generate` and `/api/generate_image` via `fetch()`.
   - `AuthService` — Google OAuth (redirects to `/api/auth/login`), guest `localStorage` sessions. On startup calls `/api/auth/check` to restore an existing Flask session.
   - `PersistenceService` — hybrid persistence: writes to `localStorage` first (instant UI), then syncs to Flask API (`/api/recipes/*`, `/api/collections/*`). Uses `effect()` to auto-load from API when a user session is confirmed.
+  - `RecipeStateService` — thin shared-state facade for cross-component recipe state.
+  - `ToastService` — signal-based toast queue with auto-dismiss.
+  - `ModalService` — cross-component modal coordination (replaces output-based triggering for router-rendered components).
+  - `SsrEntryService` — SSR entry side effects (save-from-SSR dedup, auth completion).
 - The dev server runs on **port 3000** and proxies `/api` to Flask on `:5000` via `proxy.conf.json`.
 - **TypeScript is pinned exactly** (`"typescript": "6.0.3"`, no `^`) — each Angular major peer-requires a specific TS range (Angular 22 needs TS >=6.0 <6.1). Never bump `typescript`, `@angular/*`, or `@angular-eslint/*` independently; they move together in one PR.
 

@@ -1,7 +1,7 @@
 # Canonical `r/<recipe>` Promotion — Rollout Kickoff
 
 _Origin:_ Adam's 2026-07-20 comment on PR #3185 · _Jira:_ KAN-116 (child of KAN-110) · _Owner:_ Adam
-_Status:_ **KICKOFF — candidates drafted, pending Adam's approval for v0.4.0**
+_Status:_ **APPROVED — all 7 slugs confirmed by Adam 2026-07-23; CI gate + data file live in PR**
 
 ## The directive (paraphrased from PR #3185)
 

@@ -4,7 +4,7 @@ description: "Manually triggered workflow that summarizes all open issues and PR
 on:
   workflow_dispatch:
 engine:
-  id: copilot
+  id: gemini
 permissions:
   contents: read
   issues: read
