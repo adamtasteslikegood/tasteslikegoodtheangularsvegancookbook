@@ -179,6 +179,17 @@ export class RecipeDetailComponent {
     if (recipe.is_canonical || this.publishTogglePending()) return;
     const nextState = !recipe.is_public;
 
+    // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
+    // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
+    // with 400. Same derivation as the server (parity is spec-pinned), so
+    // catch it before the round trip and say why instead of failing silently.
+    if (nextState && !recipe.slug && !this.slugFromTitle(recipe.name)) {
+      this.toastService.show(
+        "This recipe can't be published: its title has no letters or numbers (a-z, 0-9) to build a public link from."
+      );
+      return;
+    }
+
     // KAN-137: first publish of a copy saved from a public recipe would mint
     // a near-identical second public page (name collision → -N slug). Make
     // that an informed choice instead of a silent side effect.
@@ -208,6 +219,13 @@ export class RecipeDetailComponent {
       console.error('Failed to toggle public state:', err);
       recipe.is_public = !nextState;
       this.authService.saveRecipe(recipe);
+      // KAN-104 (#3146): the revert already worked; without a message the
+      // user just sees the switch snap back with no explanation.
+      this.toastService.show(
+        nextState
+          ? 'Publishing failed to sync to the server. Check your connection and try again.'
+          : 'Unpublishing failed to sync to the server. Check your connection and try again.'
+      );
     }
   }
 

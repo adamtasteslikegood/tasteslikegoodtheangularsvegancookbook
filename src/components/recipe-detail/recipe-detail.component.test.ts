@@ -158,6 +158,40 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
     });
 
+    // KAN-104 (#3146): empty-slug titles are pre-checked client-side with an
+    // explanatory toast instead of a silent server 400.
+    it('blocks publishing a title that derives an empty slug and says why', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        name: '🌮🌮🌮',
+        sourceSlug: undefined,
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/can't be published/i));
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBeFalsy();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('reverts and surfaces a toast when the publish fails to sync', async () => {
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+      persistenceSaveRecipe.mockResolvedValue(false);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const recipe = savedCopy() as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(recipe.is_public).toBeFalsy();
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/publishing failed to sync/i));
+      expect(consoleError).toHaveBeenCalled();
+    });
+
     // KAN-139: canonical recipes are server-locked — the toggle must be inert.
     it('ignores toggle attempts on a canonical recipe', async () => {
       const confirmMock = vi.fn();
