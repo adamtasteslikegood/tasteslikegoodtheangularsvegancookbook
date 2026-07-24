@@ -247,14 +247,14 @@ The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9
 
 PR gate (`.github/workflows/pr-gate.yml`) runs on every PR to `main`, `dev`, or `dev/**`. All jobs must pass — the `gate` aggregator is the single required status check:
 
-| Job | What it checks |
-|---|---|
-| `Frontend — lint + format` | ESLint + Prettier (`npm run lint`, `npm run format:check`) |
-| `Frontend — TypeScript` | `tsc --noEmit` on both tsconfigs |
-| `Frontend — build` | Full `npm run build` (Angular + server TS) |
+| Job                                | What it checks                                                                      |
+| ---------------------------------- | ----------------------------------------------------------------------------------- |
+| `Frontend — lint + format`         | ESLint + Prettier (`npm run lint`, `npm run format:check`)                          |
+| `Frontend — TypeScript`            | `tsc --noEmit` on both tsconfigs                                                    |
+| `Frontend — build`                 | Full `npm run build` (Angular + server TS)                                          |
 | `Frontend — unit tests + coverage` | Vitest with coverage thresholds: lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40% |
-| `Express — Docker image` | Builds the production Express Docker image |
-| `Gate — all checks passed` | Aggregator — this is the required status check in branch protection |
+| `Express — Docker image`           | Builds the production Express Docker image                                          |
+| `Gate — all checks passed`         | Aggregator — this is the required status check in branch protection                 |
 
 Additional required checks (separate workflows): `Analyze (javascript-typescript)` (CodeQL), `Dependency Review`.
 
