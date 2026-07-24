@@ -163,6 +163,40 @@ steps:
       - --wait
       - --quiet
 
+  # KAN-141: scheduled image-repair Job. Deploy-only — builds never execute
+  # it; a Cloud Scheduler trigger (created once, out of band) runs it daily.
+  # It detects recipes with no image bytes (canonical first, then published)
+  # and enqueues regeneration through the same Pub/Sub path as the SPA's
+  # regenerate button; the flask-backend worker does the Imagen work, so the
+  # Job needs no Gemini credentials. Env/secrets mirror the migrate Job
+  # (same create_app boot) plus IMAGE_REPAIR_LIMIT.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Image Repair Job'
+    waitFor: ['Push Flask Backend Image']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - flask-backend-image-repair
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=scripts/repair_missing_images.py
+      - --max-retries=1
+      - --task-timeout=600
+      - --cpu=1
+      - --memory=1Gi
+      - --parallelism=1
+      - --tasks=1
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,IMAGE_REPAIR_LIMIT=10,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
+      - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
+      - --quiet
+
   # ── Deploy ───────────────────────────────────────────────────────────────────
   # KAN-30: Flask backend deploys first; Express frontend waits on its completion
   # so the new frontend never serves against the old API during rollout.
