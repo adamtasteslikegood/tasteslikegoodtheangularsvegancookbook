@@ -3,7 +3,9 @@ name: Code Review
 on:
   pull_request:
     types: [opened, synchronize]
-    branches: [main]
+    # Feature work is PR'd into dev first (see CLAUDE.md branching strategy), so
+    # reviewing only main-targeted PRs meant Junie never saw day-to-day PRs.
+    branches: [main, dev]
 
 jobs:
   review:
@@ -20,9 +22,16 @@ jobs:
 
       - name: Run advisory Junie review
         continue-on-error: true
-        uses: JetBrains/junie-github-action@b15c4a3c3f0f0c1bcf4f2ddf16af18648cd8f054 # v1
+        uses: JetBrains/junie-github-action@96e34acb231c133c99a007f95df31c4510b28688 # v1.6.0
         with:
+          # KNOWN-BROKEN UPSTREAM (2026-07-20, TAS-2900): every run dies at
+          # "Failed to build 'issue.md.junie_standalone'". Reproduced across Junie
+          # CLI 2285.4/2285.5, junie_api_key vs BYOK google_api_key, every model,
+          # AND both the built-in `code-review` prompt and a custom prompt — so it
+          # is a JetBrains Junie Review-mode bug, NOT a config problem here. No
+          # workflow-file change fixes it. Kept advisory (continue-on-error) so it
+          # auto-recovers once JetBrains ships a fix; the repo's "Independent
+          # Claude review" workflow covers PR review in the meantime.
           junie_api_key: ${{ secrets.JUNIE_API_KEY }}
           use_single_comment: 'true'
           prompt: 'code-review'
-          # model: "claude-opus-4-5-20251101"  # Optional: specify which model to use

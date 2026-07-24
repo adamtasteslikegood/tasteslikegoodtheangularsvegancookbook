@@ -18,6 +18,10 @@ Only after these checks: create the branch or worktree and start the work.
 
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
+- **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
+- **Version:** See `package.json` `version` field (currently v0.4.2)
+- **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions (kept in sync with core sections here)
+
 ## Commands
 
 ### Frontend + Express proxy (root)
@@ -67,10 +71,35 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 ### Layer 1 — Angular 22 SPA (`src/`)
 
 - Standalone components with **Signals API** (`signal()`, `computed()`, `effect()`) — no RxJS
-- Three services: `GeminiService` (recipe + image generation), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first, background sync to Flask)
+- **Angular Router** with flat route config (`src/app.routes.ts`): `/` (Generator, eager), `/kitchen` (lazy), `/recipe/:id` (lazy)
+- `PreloadAllModules` for background chunk fetching; build produces 3+ chunks
+- `ssrEntryGuard` on root route handles `?save=<slug>`, `?auth=success`, `#kitchen` redirects
+- Services: `GeminiService` (recipe + image), `AuthService` (OAuth + guest), `PersistenceService` (localStorage-first), `RecipeStateService` (shared recipe state facade), `ToastService` (signal-based toast queue), `ModalService` (cross-component modal coordination), `SsrEntryService` (SSR entry side effects)
+- Component tree:
+  - `AppComponent` (75 lines — composition root: router-outlet + header + footer + modals + toast)
+  - `components/header/` — nav links derived from `Router.url`, auth status
+  - `components/footer/` — static footer
+  - `components/generator/` — recipe generation (default route, eager)
+  - `components/kitchen/` — cookbook management (lazy loaded)
+  - `components/recipe-detail/` — recipe detail with cold deep link fetch fallback (lazy loaded)
+  - `components/shared/save-toast` — subscribes to ToastService
+  - `modals/{auth,create-cookbook,manual-entry,add-to-cookbook}/` — self-contained modal components
+- Guards: `guards/ssr-entry.guard.ts` — functional `CanActivateFn` for SSR CTA save/auth/hash redirects
+- Utils: `utils/slug.ts` (slug generation), `utils/public-link.ts` (public recipe URL), `utils/in-app-browser.ts` (webview detection)
 - Type definitions: `recipe.types.ts`, `auth.types.ts`
 - Dev server port 3000; `proxy.conf.json` maps `/api` → Flask :5000
 - Entry: `index.tsx` (tsconfig uses `jsx: react-jsx`, hence `.tsx`)
+
+### Public SSR surface (Flask-rendered, proxied through Express)
+
+Express proxies a set of public routes to Flask for server-side rendering **before** the Angular SPA catch-all, so crawlers receive fully rendered HTML instead of an empty shell:
+
+- `/r/<slug>` — individual public recipe page (Schema.org JSON-LD, OG tags, canonical URL)
+- `/browse` — paginated public recipe index (`/browse/` with trailing slash 301-redirects to `/browse`)
+- `/sitemap.xml` — auto-generated sitemap
+- `/static/*` — Flask static assets (CSS tokens, fonts) for SSR templates
+
+These routes are GET-only and share the same rate limiter as the SPA shell. The SSR templates live in `Backend/templates/public/` and use a separate base template (`base_public.html`) from the legacy dev-only Flask UI.
 
 ### Layer 2 — Express reverse proxy (`server/`)
 
@@ -214,6 +243,32 @@ gcloud builds triggers list --filter='name~deploy OR name~release' \
 
 The `github.push.tag` field on the matching trigger should print `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
+## CI pipeline
+
+PR gate (`.github/workflows/pr-gate.yml`) runs on every PR to `main`, `dev`, or `dev/**`. All jobs must pass — the `gate` aggregator is the single required status check:
+
+| Job                                | What it checks                                                                                                                                   |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Frontend — lint + format`         | ESLint + Prettier (`npm run lint`, `npm run format:check`)                                                                                       |
+| `Frontend — TypeScript`            | `tsc --noEmit` on both tsconfigs                                                                                                                 |
+| `Frontend — build`                 | Full `npm run build` (Angular + server TS)                                                                                                       |
+| `Frontend — unit tests + coverage` | Vitest (`npm test`) over `server/**` and `src/**`, with `server/**/*.ts` coverage thresholds: lines/stmts ≥ 60%, branches ≥ 50%, functions ≥ 40% |
+| `Backend — pytest`                 | `uv run pytest` inside `Backend/`                                                                                                                |
+| `Docker — Express image build`     | Builds the production Express Docker image                                                                                                       |
+| `CHANGELOG entry for this version` | Verifies `CHANGELOG.md` has a `## [<version>]` (or `## <version>`) section matching `package.json`                                               |
+| `SEO — canonical recipes`          | Runs `scripts/seo/check_canonical_recipes.sh`                                                                                                    |
+| `Gate — all checks passed`         | Aggregator — this is the required status check in branch protection                                                                              |
+
+Additional required checks (separate workflows): `Analyze (javascript-typescript)` (CodeQL), `Dependency Review`.
+
+Other workflows: `ci.yml` (push-only Prettier auto-commit safety net), `release.yml` (tag + GitHub Release on `main`), `claude-review.yml` / `junie-review.yml` (AI code review on PRs).
+
+## Testing
+
+- **Express/server + Angular units:** Vitest (`npm test`). `vitest.config.ts` includes `server/**/*.{test,spec}.ts` AND `src/**/*.{test,spec}.ts`, so **both** `*.test.ts` and `*.spec.ts` under `src/` run in the same suite — 9 files today, and `.test.ts` is the majority spelling (only `src/utils/public-link.spec.ts` and `src/services/gemini.service.spec.ts` use `.spec.ts`). Either extension works; don't assume `.test.ts` under `src/` is excluded. Coverage thresholds apply to `server/**/*.ts` only and `src/**` coverage is not gated — and note `vitest.config.ts` further excludes `server/index.ts`, `server/proxy.ts`, and `server/types.ts` from the coverage denominator, so the 60% line/statement gate does not cover all of `server/`.
+- **Backend/Flask:** pytest (`cd Backend && uv run pytest`). Tests in `Backend/tests/`.
+- **Angular components/E2E:** No component or browser-driven test harness (Karma/Jest/Playwright) is wired up. UI changes still need to be verified by running the dev server and testing in the browser — but plain unit-level Angular logic can and should be covered via the Vitest suite above.
+
 ## Startup (agent sessions)
 
 Project MCP servers are declared in `.mcp.json` at the repo root. When Claude Code (or any compatible agent) starts a session in this directory, it auto-spawns the servers listed there as stdio child processes. Currently registered:
@@ -296,6 +351,17 @@ Key routing rules:
 - Save progress, checkpoint, resume → invoke checkpoint
 - Code quality, health check → invoke health
 
+## Behavioral Guidelines
+
+Follow the four Karpathy principles when writing or modifying code in this project:
+
+1. **Think Before Coding** — understand the problem fully before writing. Read existing code, check for prior art, verify assumptions.
+2. **Simplicity First** — prefer the simplest solution that works. Avoid premature abstraction, speculative features, and unnecessary indirection.
+3. **Surgical Changes** — make the smallest diff that solves the problem. Don't refactor surrounding code, add unrelated improvements, or "clean up while you're there."
+4. **Goal-Driven Execution** — every action should move toward a verifiable success criterion. State what "done" looks like before starting.
+
+For the full reference, see the `karpathy-check` slash command / `karpathy-coder` skill / `cs-karpathy-reviewer` agent under the **optional** `alirez-claude-skills/` submodule (not initialized by default — see the Submodules note in the "Session start" section).
+
 ## GBrain Configuration (configured by /setup-gbrain)
 
 - Mode: local-stdio
@@ -341,6 +407,35 @@ Two indexed corpora available via the `gbrain` CLI:
 - This worktree's code (auto-pinned via `.gbrain-source`).
 - `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
   the existing federation pipeline).
+
+**`Backend/` is a separate gbrain source, not part of the pinned corpus above.**
+`Backend/` is a git submodule (a gitlink, not a plain directory), and gbrain's
+code-index sync refuses to register a source whose path is nested inside an
+already-registered source's path — so it can't just be folded into this
+worktree's pin. It's registered instead as `gstack-code-backend`, cloned via
+`--url` from `adamtasteslikegood/tasteslikegood.com` into gbrain's own managed
+clone directory (sidesteps the path-overlap check entirely). It is **not
+federated** — every `code-def`/`code-refs`/`code-callers`/`code-callees`/
+`search`/`query` call against Backend Python needs an explicit
+`--source gstack-code-backend` flag, or it silently misses. Re-sync it with
+`gbrain sync --source gstack-code-backend --strategy code`, and never with a
+bare `/sync-gbrain` run from inside `Backend/`.
+
+**Why not `/sync-gbrain` from `Backend/`:** it does not no-op there. `Backend/`
+has no `.gbrain-source` pin, so the orchestrator's code stage falls back to
+registering the cwd as a _new_ federated source (`gstack-code-com-<hash>`
+`--path .../Backend`), re-indexing the whole repo alongside the pages already
+held by `gstack-code-backend`. The nested-path guard does not catch this, because
+`gstack-code-backend` lives in gbrain's managed clone directory rather than at
+the `Backend/` path, so there is no path overlap to detect. Verified with
+`--dry-run` on 2026-07-24. If you want the memory + brain-sync stages while in
+`Backend/`, run `gstack-gbrain-sync.ts --no-code`. From a submodule cwd, always
+`--dry-run` first and read the `would:` line before letting the code stage run.
+
+The `/sync-gbrain` skill also rewrites the block below from a fixed template
+that asserts the worktree is pinned via `.gbrain-source`. That assertion is
+false in `Backend/`, and a verbatim rewrite there would delete this paragraph —
+so do not let the skill write its guidance block into `Backend/CLAUDE.md`.
 
 Prefer gbrain when:
 

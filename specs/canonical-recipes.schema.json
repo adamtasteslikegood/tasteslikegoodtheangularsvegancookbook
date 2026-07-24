@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Canonical Recipes",
+  "description": "Hand-picked canonical recipe slugs for noscript anchors on the home shell. See CANONICAL_RECIPES_ROLLOUT.md.",
+  "type": "object",
+  "required": ["version", "updated", "recipes"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "const": 1 },
+    "updated": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "description": "ISO 8601 date of last edit"
+    },
+    "recipes": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "required": ["slug", "title", "rationale", "added", "score"],
+        "additionalProperties": false,
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "description": "URL-safe slug, lowercase kebab-case, no dedup suffixes"
+          },
+          "title": { "type": "string", "minLength": 1 },
+          "rationale": { "type": "string", "minLength": 1 },
+          "added": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "score": {
+            "type": "object",
+            "required": ["representativeness", "breadth", "search_intent", "content_quality"],
+            "additionalProperties": false,
+            "properties": {
+              "representativeness": { "type": "integer", "minimum": 1, "maximum": 5 },
+              "breadth": { "type": "integer", "minimum": 1, "maximum": 5 },
+              "search_intent": { "type": "integer", "minimum": 1, "maximum": 5 },
+              "content_quality": { "type": "integer", "minimum": 1, "maximum": 5 }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -31,7 +31,10 @@ safe-outputs:
     labels: [report, daily-status]
     expires: 2d
 source: githubnext/agentics/workflows/daily-repo-status.md@442992eda2ccb11ee75a39c019ec6d38ae5a84a2
-engine: copilot
+# Copilot budget is exhausted and gh-aw ignores CLAUDE_CODE_OAUTH_TOKEN, so run on
+# Gemini (GEMINI_API_KEY is present and matches the Backend gemini-triage setup).
+engine:
+  id: gemini
 ---
 
 # Daily Repo Status

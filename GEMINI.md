@@ -18,7 +18,7 @@ This project is a full-stack application featuring an Angular/React frontend and
 
 **Key Technologies:**
 
-- **Frontend:** Angular/React (TypeScript, `angular.json`, `index.tsx`), Tailwind CSS (`tailwind.config.js`), Vitest (`vitest.config.ts`), ESLint.
+- **Frontend:** Angular 22 SPA (TypeScript, `angular.json`, `index.tsx`) with Angular Router (lazy loading), Signals API, Tailwind CSS (`tailwind.config.js`), Vitest (`vitest.config.ts`), ESLint.
 - **Backend:** Python (`Backend/app.py`), managed with `pip` and `pyproject.toml`/`requirements.txt`.
 - **Infrastructure:** Docker (`Dockerfile`, `Backend/Dockerfile`), Google Cloud Build (`cloudbuild.yaml`), GitHub Actions.
 - **Code Quality:** Qodana (`qodana.yaml`), Prettier (`.prettierrc`).
