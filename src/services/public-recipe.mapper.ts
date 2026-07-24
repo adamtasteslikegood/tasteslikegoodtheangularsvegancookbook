@@ -29,5 +29,6 @@ export function buildSavedRecipeFromPublic(recipeData: Partial<Recipe>): Recipe 
     // cookbook" can detect the duplicate and point the user at the copy they
     // already have instead of silently adding another.
     sourceSlug: recipeData.slug,
+    origin: 'saved',
   };
 }
