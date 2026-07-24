@@ -40,7 +40,7 @@ pre-lock in v0.4.1; C9 added 2026-07-23 post-SPA merge, piggybacks C1). Everythi
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | C1  | ✅ **KAN-116 — canonical `r/<recipe>` promotion, Phase 0/1**: Adam picks 3–5 slugs, tracked candidate file + CI validator per `CANONICAL_RECIPES_ROLLOUT.md`; settles the cornbread-variants question (ux-backlog #5) — **DONE** PR #3216 merged 2026-07-23; all 7 slugs approved, CI gate green, schema file added | rolled from Sprint 1                         | candidate file exists + CI check green + anchors serve the approved slugs live                                      |
 | C2  | ✅ **GSC indexing checkpoint** — 1-week recrawl verification after the 07-19 sitemap submission (59 URLs) + v0.4.0 home anchors — **DONE 2026-07-23**: GSC "Last read" = Jul 23 2026, 68 pages discovered, Status = Success (see findings below)                                           | Sprint-1 parked list                         | GSC "Last update" > 2026-07-20 AND indexed-page delta recorded in this file (finding is the deliverable either way) |
-| C3  | **Prod content hygiene** — dedupe the race-bug duplicate rows on Adam's personal cookbooks (`Dooypkiitts`, `zzz-racetest-*` are his real cookbook names — dedupe extras only, every deletion his explicit pick), run `unpublish_slugs.py`, fix/unpublish the 2 remaining imageless recipes | ux-backlog #3 + #4                           | no duplicate cookbook rows remain AND zero published recipes with imageless heroes                                  |
+| C3  | **DEFERRED → Sprint 3** — Prod content hygiene (dedupe race-bug duplicate rows on Adam's personal cookbooks, `unpublish_slugs.py`, imageless recipes). Blocked on Adam's per-row picks; deferred 2026-07-24 by Adam's decision | ux-backlog #3 + #4                           | no duplicate cookbook rows remain AND zero published recipes with imageless heroes                                  |
 | C4  | **Webview-fallback live verification** — real Pinterest-arrival test of the #3186 panel; optional impression analytics                                                                                                                                                                     | ux-backlog #1 residual                       | documented repro on live site showing fallback panel (screenshot/log)                                               |
 | C5  | **Pinterest Rich Pins** — Recipe Rich Pin metadata + domain verification (`pintrest-research.md`)                                                                                                                                                                                          | Sprint-1 parked list                         | Pinterest validator passes on 2+ recipe URLs                                                                        |
 | C6  | **Valkey broken-connection edge cases** — KAN-16/KAN-17 (GH #162/#163)                                                                                                                                                                                                                     | long-standing                                | repro tests green under fault injection                                                                             |
@@ -99,3 +99,29 @@ From PR #3207 code review — tracked as GitHub issues under KAN-118:
 - **#3210** — `viewRecipe` sets `isSaved=true` for non-owned deep-link recipes (UX lie, no data loss)
 - **#3211** — missing "Sign in to publish" button in recipe-detail for guests (UX parity with generator)
 - **#3209** — extract shared recipe methods to utility/mixin (pure refactor, backlog)
+
+---
+
+## Sprint 2 close-out (2026-07-24)
+
+**Disposition:** 4/5 committed items verified-done, 1 deferred (C3 → Sprint 3).
+
+| Item | Status | Evidence |
+|------|--------|----------|
+| C1 (KAN-116) | **Done** | PR #3216 merged 2026-07-23; 7 canonical slugs approved, `canonical_recipes.json` schema file, CI gate green (`check_canonical_recipes.sh` exit 0), `<noscript>` anchors in `index.html` |
+| C2 (GSC) | **Done** | GSC Last read Jul 23 > threshold Jul 20; 68/68 pages discovered; finding positive — recorded above |
+| C3 | **Deferred → Sprint 3** | Blocked on Adam's human decisions (per-row dedupe picks, imageless recipe disposition); deferred by Adam 2026-07-24 |
+| C8 (KAN-119) | **Done** | Shipped in v0.4.1 (2026-07-20); Jira transitioned to Done 2026-07-24 (was stale) |
+| C9 | **Done** | PR #3214 merged 2026-07-23; `/?save=<slug>` non-blocking, fetch timeout with retriable error |
+
+**Jira transitions (2026-07-24):** KAN-116 To Do → Done, KAN-119 In Progress → Done.
+
+**Release gate:** C1 and C9 are on `dev` but NOT yet deployed to production. C1's proving gate ("anchors serve the approved slugs live") requires a release (v0.4.2). Sprint close contingent on that release shipping.
+
+**Flow metrics (Sprints 1+2 cumulative):**
+- Sprint 1: 7 items, 6 done + 1 rolled (KAN-116). ~2 days charter→gate.
+- Sprint 2: 5 items, 4 done + 1 deferred (C3). ~4 days charter→close (2026-07-20 → 2026-07-24).
+- Combined: 12 items, 10 done, 1 rolled+completed in S2, 1 deferred. Constraint = human gates.
+- Throughput: ~10 items across ~5 days of active sprint work. Sprint 1 release: 7m42s.
+
+**Rolled to Sprint 3:** C3 (prod content hygiene), #3210, #3211, #3209.
