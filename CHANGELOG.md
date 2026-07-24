@@ -10,6 +10,58 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.2] - 2026-07-24
+
+SPA architecture upgrade and Sprint 2 close-out: canonical recipe curation with
+CI-gated schema, non-blocking SSR save flow, and Angular Router decomposition.
+No schema migration.
+
+### Added
+
+- **Canonical recipes Phase 0/1**: tracked `canonical_recipes.json` schema file
+  with 7 approved slugs, CI validator gate (`check_canonical_recipes.sh`), and
+  `<noscript>` anchors in the home shell serving the approved set
+  ([#3216](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3216),
+  KAN-116).
+
+### Changed
+
+- **Angular Router + component decomposition**: `AppComponent` reduced from
+  1095 to 75 lines. Standalone components with lazy loading (`/kitchen`,
+  `/recipe/:id`), `PreloadAllModules`, flat route config in `app.routes.ts`,
+  and signal-based service facades (`ToastService`, `ModalService`,
+  `RecipeStateService`). Three production chunks instead of one monolith
+  ([#3207](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3207),
+  KAN-118).
+
+### Fixed
+
+- **Non-blocking SSR save guard**: `/?save=<slug>` no longer blocks initial
+  navigation with async I/O — the kitchen page paints instantly while the save
+  resolves in the background. Network failures show a retriable error instead of
+  a false "not found" message
+  ([#3214](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3214),
+  KAN-118).
+
+### Dependencies
+
+- Angular group bumped (9 packages)
+  ([#3222](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3222))
+- `dd-trace` 6.4.0 → 6.6.0
+  ([#3224](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3224))
+- `rate-limit-redis` 5.0.0 → 6.0.0
+  ([#3225](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3225))
+- Linting group bumped (3 packages)
+  ([#3223](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3223))
+- `google-auth-library` 10.9.0 → 10.9.1
+  ([#3228](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3228))
+- `@google-cloud/secret-manager` 6.2.0 → 6.3.0
+  ([#3227](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3227))
+- GitHub Actions group bumped (8 actions)
+  ([#3226](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3226))
+
+---
+
 ## [0.4.1] - 2026-07-20
 
 Follow-up fix release: makes a published recipe's public page reachable from
