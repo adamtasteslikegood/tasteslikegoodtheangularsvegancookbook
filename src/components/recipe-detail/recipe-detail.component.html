@@ -38,8 +38,11 @@
             Vegan Recipe
           </div>
 
-          <!-- Action Buttons -->
-          <div class="flex items-center gap-2">
+          <!-- Action Buttons — must wrap (#3264): a non-wrapping flex row
+               can't shrink below its content, so when the View link mounts
+               on publish it overflowed the half-width grid column and
+               painted behind the adjacent (position: relative) image. -->
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
             <button
               (click)="exportRecipe(r)"
               class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
@@ -62,7 +65,7 @@
             </button>
 
             <!-- Publish Controls -->
-            <div class="flex items-center gap-2 ml-2 pl-4 border-l border-stone-200">
+            <div class="flex flex-wrap items-center gap-2 ml-2 pl-4 border-l border-stone-200">
               @if (canPublish()) {
                 <div class="flex items-center gap-2">
                   <span
