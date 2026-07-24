@@ -6,7 +6,55 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.4.4] - 2026-07-24
+
+### Fixed
+
+- **Publish failures are no longer silent** (KAN-104,
+  [#3146](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3146)):
+  titles with no ASCII letters/numbers (all-emoji, pure-CJK/Cyrillic) are
+  pre-checked client-side with an explanatory toast instead of hitting the
+  server's 400 silently, and a publish/unpublish that fails to sync now
+  reverts _and_ tells the user (previously it only reverted).
+
+### Security
+
+- **Manually entered recipes can no longer be published** (KAN-140): the
+  manual-entry form is unmediated free text, and the notes-abuse walkthrough
+  (live-verified) showed post-publish edits reach the public page instantly.
+  New Backend `origin` column ('manual' | 'generated' | 'saved', backfilled
+  from the manual-entry blob signature, immutable once set) with a publish
+  gate returning 400; SPA disables the toggle for manual recipes and stamps
+  provenance at creation. **Notes are split into two fields**: generated
+  notes are now read-only (they render on the public page) and the editor
+  writes a new private `personalNotes` field that the public payload
+  allowlist never exposes — closing the edit-notes-after-publish loop
+  (live-verified on /r/vegan-zucchini-poppers). Requires Backend
+  [tasteslikegood.com#240](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/240).
+
+### Added
+
+- **Scheduled image repair** (KAN-141): new deploy-only Cloud Run Job
+  `flask-backend-image-repair` — detects recipes with no image bytes
+  (canonical first, then published, then oldest; the blank-hero
+  URL-without-bytes rows count as imageless) and enqueues regeneration
+  through the existing Pub/Sub worker path, capped per run
+  (`IMAGE_REPAIR_LIMIT=10`). Runs daily via a one-time Cloud Scheduler
+  trigger created after the first deploy. Backend script:
+  [tasteslikegood.com#241](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/241).
+- **Publish state resolves to one DB row** (KAN-139,
+  [#3217](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3217)):
+  Backend migration adds `is_canonical` (locks the 7 curated canonical
+  recipes — unpublish/re-slug/delete return 400; content edits still allowed)
+  and `source_slug` (server-side mirror of the blob's `sourceSlug`,
+  backfilled). SPA renders the publish toggle greyed while the initial server
+  sync is pending and for copies saved from a public recipe (tooltip names
+  the source page), disables it outright for canonical recipes, and disables
+  delete for canonical recipes in the Kitchen. The SSR CTA's repeat-save
+  dedup now waits for the server recipe list, so copies that exist only
+  server-side (or with stale local blobs) are caught instead of re-saved.
+  Requires the Backend pointer bump to
+  [tasteslikegood.com#239](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/239).
 
 ---
 

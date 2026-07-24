@@ -48,7 +48,10 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
             saveRecipe: vi.fn(),
           },
         },
-        { provide: PersistenceService, useValue: { saveRecipe: persistenceSaveRecipe } },
+        {
+          provide: PersistenceService,
+          useValue: { saveRecipe: persistenceSaveRecipe, publishStateSync: () => 'synced' },
+        },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
@@ -105,6 +108,50 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
 
   // KAN-137 confirm-guard: first publish of a copy saved from a public recipe
   // must be an informed choice — and "no" must leave the recipe untouched.
+  // KAN-140: generated notes render live on /r/<slug> unmoderated, so the
+  // editor only ever touches the private personalNotes field.
+  describe('notes editor edits personalNotes only', () => {
+    it('opens with personalNotes, not the generated notes', () => {
+      const { component } = createComponent({ isGuest: false });
+      component.recipe.set({
+        id: 'pub-1',
+        name: 'Vegan Cornbread',
+        is_public: true,
+        slug: 'vegan-cornbread',
+        notes: 'generated public notes',
+        personalNotes: 'my private tweaks',
+      } as never);
+
+      component.startEditNotes();
+
+      expect(component.isEditingNotes()).toBe(true);
+      expect(component.editedNotes()).toBe('my private tweaks');
+    });
+
+    it('saveNotes writes personalNotes and leaves the generated notes untouched', async () => {
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+      component.recipe.set({
+        id: 'pub-1',
+        name: 'Vegan Cornbread',
+        is_public: true,
+        slug: 'vegan-cornbread',
+        notes: 'generated public notes',
+      } as never);
+
+      component.startEditNotes();
+      component.editedNotes.set('do not tell the internet');
+      await component.saveNotes();
+
+      const saved = component.recipe() as {
+        notes?: string;
+        personalNotes?: string;
+      } | null;
+      expect(saved?.notes).toBe('generated public notes');
+      expect(saved?.personalNotes).toBe('do not tell the internet');
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('togglePublic confirm-guard', () => {
     const savedCopy = () =>
       ({
@@ -153,6 +200,78 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       expect(confirmMock).not.toHaveBeenCalled();
       expect(recipe.is_public).toBe(true);
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    });
+
+    // KAN-104 (#3146): empty-slug titles are pre-checked client-side with an
+    // explanatory toast instead of a silent server 400.
+    it('blocks publishing a title that derives an empty slug and says why', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        name: '🌮🌮🌮',
+        sourceSlug: undefined,
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/can't be published/i));
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBeFalsy();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('reverts and surfaces a toast when the publish fails to sync', async () => {
+      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+      persistenceSaveRecipe.mockResolvedValue(false);
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const recipe = savedCopy() as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(recipe.is_public).toBeFalsy();
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/publishing failed to sync/i));
+      expect(consoleError).toHaveBeenCalled();
+    });
+
+    // KAN-140: manually entered recipes cannot be published.
+    it('blocks publishing a manually entered recipe with a toast', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        origin: 'manual',
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/manually entered/i));
+      expect(recipe.is_public).toBeFalsy();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    // KAN-139: canonical recipes are server-locked — the toggle must be inert.
+    it('ignores toggle attempts on a canonical recipe', async () => {
+      const confirmMock = vi.fn();
+      vi.stubGlobal('confirm', confirmMock);
+      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
+
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        is_canonical: true,
+        is_public: true,
+        slug: 'vegan-cornbread',
+      } as { is_public?: boolean };
+      await component.togglePublic(recipe as never);
+
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(recipe.is_public).toBe(true);
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
     });
 
     it('does not prompt on unpublish', async () => {

@@ -1,4 +1,4 @@
-import { Injectable, effect, untracked, inject } from '@angular/core';
+import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook } from '../auth.types';
@@ -22,7 +22,25 @@ export class PersistenceService {
   private _apiSynced = false;
   private readonly auth = inject(AuthService);
 
+  /**
+   * KAN-139 — publish state is server-owned, so the publish toggle renders
+   * greyed until the first API load settles: 'pending' while the initial
+   * sync is in flight, 'synced' once server rows have been merged in,
+   * 'failed' when all retries were exhausted (local state is then the best
+   * we have and the toggle re-enables rather than staying dead).
+   */
+  readonly publishStateSync = signal<'pending' | 'synced' | 'failed'>('pending');
+
+  /** Resolves when the first loadFromApi() settles (success OR exhausted
+   *  retries) — lets flows that must see server rows (the SSR CTA's
+   *  repeat-save dedup) wait for the merge instead of racing it. */
+  readonly firstSyncSettled: Promise<void>;
+  private _settleFirstSync!: () => void;
+
   constructor() {
+    this.firstSyncSettled = new Promise<void>((resolve) => {
+      this._settleFirstSync = resolve;
+    });
     // Auto-load from API when a logged-in user's session is confirmed.
     // Uses untracked() so signal writes inside loadFromApi() don't
     // create a reactive dependency in the effect.
@@ -236,11 +254,32 @@ export class PersistenceService {
         const recipesData = await recipesRes.json();
         const collectionsData = await collectionsRes.json();
 
-        // With the backend fix, data.id and the outer id are now consistent.
-        // We use the data field directly since it contains the complete recipe
-        // with the correct ID already set by the backend.
+        // The blob (r.data) is the complete recipe, but its slug/is_public
+        // copies can lag the DB columns on rows written before the backend
+        // synced blob and column on every write — Adam's repeat-save trap
+        // miss (KAN-139) was exactly such a row. When the backend exposes
+        // the columns (is_canonical present = new contract), they win,
+        // including nulls; older backends fall back to the blob unchanged.
         const recipes: Recipe[] = (recipesData.recipes ?? []).map(
-          (r: { id: string; data: Recipe }) => r.data
+          (r: {
+            id: string;
+            data: Recipe;
+            slug?: string | null;
+            is_public?: boolean;
+            is_canonical?: boolean;
+            source_slug?: string | null;
+            origin?: Recipe['origin'] | null;
+          }) => {
+            if (r.is_canonical === undefined) return r.data;
+            return {
+              ...r.data,
+              slug: r.slug ?? undefined,
+              is_public: r.is_public,
+              is_canonical: r.is_canonical,
+              sourceSlug: r.data.sourceSlug ?? r.source_slug ?? undefined,
+              origin: r.origin ?? r.data.origin,
+            };
+          }
         );
 
         const cookbooks: Cookbook[] = (collectionsData.collections ?? []).map(this._toCookbook);
@@ -249,6 +288,8 @@ export class PersistenceService {
           `[PersistenceService] Hydrating ${recipes.length} recipes, ${cookbooks.length} cookbooks`
         );
         this.auth.hydrate(recipes, cookbooks);
+        this.publishStateSync.set('synced');
+        this._settleFirstSync();
         return;
       } catch (err) {
         console.warn('[PersistenceService] loadFromApi attempt failed:', err);
@@ -258,6 +299,8 @@ export class PersistenceService {
       '[PersistenceService] loadFromApi failed after all retries, will retry on next auth change'
     );
     this._apiSynced = false;
+    this.publishStateSync.set('failed');
+    this._settleFirstSync();
   }
 
   /** POST a recipe to Flask; the endpoint upserts same-owner recipes, so
