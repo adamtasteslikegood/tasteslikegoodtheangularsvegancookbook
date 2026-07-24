@@ -63,6 +63,11 @@ export function publicLinkKind(recipe: {
  * 'locked' — canonical recipe: the server rejects unpublish/re-slug/delete
  *            with 400, so the toggle is disabled outright with an
  *            explanatory title.
+ * 'manual' — a manually entered, unpublished recipe (KAN-140): the server
+ *            rejects publishing it with 400, so the toggle is disabled.
+ *            Published manual rows (legacy, pre-gate) fall through to
+ *            'normal' — they must stay unpublishable-off but
+ *            unpublish-able.
  * 'source' — a copy saved from a public recipe that is not itself
  *            published: rendered greyed by default (its publish state
  *            belongs to the source page), but still clickable — the
@@ -75,9 +80,13 @@ export function publishToggleKind(recipe: {
   slug?: string;
   sourceSlug?: string;
   is_canonical?: boolean;
-}): 'locked' | 'source' | 'normal' {
+  origin?: string;
+}): 'locked' | 'manual' | 'source' | 'normal' {
   if (recipe.is_canonical === true) {
     return 'locked';
+  }
+  if (recipe.origin === 'manual' && recipe.is_public !== true) {
+    return 'manual';
   }
   return publicLinkKind(recipe) === 'source' ? 'source' : 'normal';
 }

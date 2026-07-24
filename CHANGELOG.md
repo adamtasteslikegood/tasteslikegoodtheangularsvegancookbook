@@ -17,6 +17,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   server's 400 silently, and a publish/unpublish that fails to sync now
   reverts _and_ tells the user (previously it only reverted).
 
+### Security
+
+- **Manually entered recipes can no longer be published** (KAN-140): the
+  manual-entry form is unmediated free text, and the notes-abuse walkthrough
+  (live-verified) showed post-publish edits reach the public page instantly.
+  New Backend `origin` column ('manual' | 'generated' | 'saved', backfilled
+  from the manual-entry blob signature, immutable once set) with a publish
+  gate returning 400; SPA disables the toggle for manual recipes and stamps
+  provenance at creation. **Notes are split into two fields**: generated
+  notes are now read-only (they render on the public page) and the editor
+  writes a new private `personalNotes` field that the public payload
+  allowlist never exposes — closing the edit-notes-after-publish loop
+  (live-verified on /r/vegan-zucchini-poppers). Requires Backend
+  [tasteslikegood.com#240](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/240).
+
 ### Added
 
 - **Publish state resolves to one DB row** (KAN-139,
