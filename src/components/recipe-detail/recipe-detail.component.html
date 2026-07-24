@@ -79,13 +79,19 @@
                     [attr.aria-checked]="r.is_public"
                     aria-labelledby="public-toggle-label"
                     (click)="togglePublic(r)"
-                    [disabled]="publishToggleKind(r) === 'locked' || publishTogglePending()"
+                    [disabled]="
+                      publishToggleKind(r) === 'locked' ||
+                      publishToggleKind(r) === 'manual' ||
+                      publishTogglePending()
+                    "
                     [title]="publishToggleTitle(r)"
                     class="relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none shadow-inner"
                     [class.bg-green-600]="r.is_public"
                     [class.bg-stone-300]="!r.is_public"
                     [class.opacity-40]="publishToggleKind(r) !== 'normal' || publishTogglePending()"
-                    [class.cursor-not-allowed]="publishToggleKind(r) === 'locked'"
+                    [class.cursor-not-allowed]="
+                      publishToggleKind(r) === 'locked' || publishToggleKind(r) === 'manual'
+                    "
                   >
                     <span
                       class="inline-block h-3 w-3 transform rounded-full bg-white transition-transform"
@@ -401,11 +407,14 @@
               </svg>
               Chef's Notes
             </h4>
+            <!-- KAN-140: generated notes are read-only (they render on the
+                 public page); the pencil edits the private personalNotes
+                 field, which the public payload allowlist never exposes. -->
             @if (!isEditingNotes()) {
               <button
                 (click)="startEditNotes()"
                 class="text-yellow-700 hover:text-yellow-900 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="Edit Notes"
+                title="Edit my private notes"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -426,7 +435,13 @@
           </div>
 
           @if (isEditingNotes()) {
+            <p class="text-yellow-900 italic whitespace-pre-wrap">
+              {{ r.notes || 'No notes added yet.' }}
+            </p>
             <div class="mt-3">
+              <label class="block text-xs font-bold text-yellow-800 mb-1"
+                >My notes (private — never published)</label
+              >
               <textarea
                 [(ngModel)]="editedNotes"
                 rows="4"
@@ -451,6 +466,13 @@
             <p class="text-yellow-900 italic whitespace-pre-wrap">
               {{ r.notes || 'No notes added yet.' }}
             </p>
+            @if (r.personalNotes) {
+              <p
+                class="mt-3 pt-3 border-t border-yellow-100 text-yellow-900/80 italic whitespace-pre-wrap text-sm"
+              >
+                <span class="font-bold not-italic">My notes (private): </span>{{ r.personalNotes }}
+              </p>
+            }
           }
         </div>
       </div>
