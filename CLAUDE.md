@@ -170,6 +170,10 @@ The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remot
 
 There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
 
+## Commit and push cadence
+
+On feature branches, commit and push after every significant work-run so work is recoverable from the remote if the VM/session dies. Stage only intentional files, keep commits scoped, and push immediately after each local commit unless the user explicitly says not to.
+
 ## Pull request lifecycle
 
 Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
@@ -285,6 +289,31 @@ Requirements for `pm-daemon` to actually sync:
 - `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` enforces this allowlist across all `scripts/pm/` tooling and restricts Jira writes to the `KAN` and `RCP` projects (read-only rollups/briefings may also include `PLZG`/`TO`); any other site (including the `tasteslikegood-dev.atlassian.net` service shell) or project key raises a loud error instead of proceeding.
 - `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
 
+### Driving the PM tooling
+
+```bash
+npm run pm:start             # verify connectivity + build local briefing
+npm run pm:brief             # refresh local PM context
+npm run pm:sync              # publish non-destructive briefing update to Confluence
+npm run pm:status            # inspect live Jira + PR + Confluence + prod status
+npm run pm:daemon            # start the PM daemon in background on this VM
+npm run pm:daemon:status     # check if the daemon is alive
+npm run pm:daemon:logs       # tail daemon logs
+npm run pm:daemon:stop       # stop the background daemon
+npm run pm:daemon:foreground # foreground mode for debugging
+```
+
+`scripts/pm/sync_jira_confluence_status.py` backs `pm:status` — live Jira issues (KAN + RCP), open GitHub PRs, Confluence page info, and a production health check. Deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py`. Env: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`.
+
+**Jira project keys** (all on `tasteslikegood.atlassian.net`, the only site for work items):
+
+- **Recipe app (this repo):** `KAN` = active execution, branch/work ownership, in-flight state; `RCP` = delivery planning, epics, sprint scope, acceptance criteria. These are the ONLY projects this repo's tooling may write to.
+- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`.
+- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen and re-keyed `TOSVC` ("SERVICE-HOLD — do not use").
+- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: writes limited to `KAN,RCP`; read-only rollups/briefings may also include `PLZG,TO`. Anything else (including `TOSVC`) is refused with an error.
+
+Set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP` in `.env`. Set `PM_DAEMON_DISABLE_WATCHER=1` to opt a daemon out of watching.
+
 To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
 
 **Expect MANY `pm_daemon.py` processes — one per session, and that's correct.** Every agent session (each Claude Code window, each Copilot CLI, each background job, each worktree) spawns its own daemon as an MCP stdio child; they each need their own server on their own pipes. Only the **file watcher** is a singleton: the first daemon to take `.claude/pm-daemon-watcher.lock` (an exclusive `flock` in the main checkout) runs the `watchdog` Observer, and every other daemon logs `File watcher already owned by another pm_daemon (pid N); serving MCP tools only` and comes up fully functional minus the watcher. Before this lock existed, N sessions meant N observers all racing to PUT the same Confluence pages on every save (13 were seen at once). Do not "fix" the extra daemons by killing them — killing a live session's daemon breaks that session's MCP tools. See `docs/PM_TOOLING.md` § _The watcher is a singleton_.
@@ -299,6 +328,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
   - `git -C Backend log --oneline origin/main..origin/dev` — commits on `dev` not yet promoted to Backend `main`
   - `cd Backend && uv run flask db heads` — must print exactly one line with `(head)`. Two heads = unmerged migrations, deploy will break.
   - `git submodule update --remote Backend` — fast-forward the pointer to the latest `dev` tip when ready
+- **gbrain and the Backend submodule** — if gbrain is configured on your machine, `Backend/` is indexed as a _separate, non-federated_ source (`gstack-code-backend`), so `code-def`/`code-refs`/`search`/`query` against Backend Python need an explicit `--source gstack-code-backend` or they silently miss. Never run a bare `/sync-gbrain` from inside `Backend/`: it has no `.gbrain-source` pin, so the code stage registers the cwd as a _new_ federated source and re-indexes the whole repo alongside the existing one. The nested-path guard does not catch it (the real source lives in gbrain's managed clone dir, so there is no path overlap). Verified with `--dry-run` 2026-07-24. Re-sync with `gbrain sync --source gstack-code-backend --strategy code`.
 - **CI auto-formats** — `ci.yml` is now just a push-only Prettier auto-commit safety net: PRs are already gated by `format:check` in pr-gate and direct pushes to `dev`/`main` are blocked by branch protection, so it's a near-no-op and bot format commits are rare rather than routine
 - **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular must move together, manually. Dependabot ignores `@angular/*` semver-major updates; when upgrading Angular, bump `typescript`, all `@angular/*`, and `@angular-eslint/*` in the same PR
 
@@ -361,102 +391,3 @@ Follow the four Karpathy principles when writing or modifying code in this proje
 4. **Goal-Driven Execution** — every action should move toward a verifiable success criterion. State what "done" looks like before starting.
 
 For the full reference, see the `karpathy-check` slash command / `karpathy-coder` skill / `cs-karpathy-reviewer` agent under the **optional** `alirez-claude-skills/` submodule (not initialized by default — see the Submodules note in the "Session start" section).
-
-## GBrain Configuration (configured by /setup-gbrain)
-
-- Mode: local-stdio
-- Engine: postgres (Railway TCP proxy, dedicated `gbrain` database; schema v122)
-- gbrain version: 0.42.56.0 (reconfigured 2026-07-04 to Railway Postgres)
-- Embeddings: openai:text-embedding-3-large (1536d)
-- chat/expansion: openai:gpt-5.2
-- Config file: `~/.gbrain/config.json` (mode 0600)
-- MCP registered: yes (user scope, `gbrain serve` via `~/.bun/bin/gbrain`)
-- Artifacts repo: https://github.com/adamtasteslikegood/gstack-artifacts-adam
-- Artifacts sync: full (federated source `gstack-artifacts-adam`)
-- Transcript ingest: incremental (initial bulk of 24 files done 2026-07-04)
-- Current repo policy: read-write (code imported: 134 pages, 831 chunks, embedded)
-- Trust policy: personal
-- Rollback backup: old 0.18.x brain (252 pages, last write 2026-05-07)
-  preserved untouched in the `railway` database on the same Railway server
-
-## GBrain Search Guidance (configured by /sync-gbrain)
-
-<!-- gstack-gbrain-search-guidance:start -->
-
-GBrain is set up and synced on this machine. The agent should prefer gbrain
-over Grep when the question is semantic or when you don't know the exact
-identifier yet.
-
-**This worktree is pinned to a worktree-scoped code source** via the
-`.gbrain-source` file in the repo root (kubectl-style context).
-`gbrain code-def`, `code-refs`, `code-callers`, `code-callees`, `search`, and
-`query` from anywhere under this worktree route to that source by default —
-no `--source` flag needed (gbrain >= 0.41.38.0; on older gbrain the call-graph
-commands need `--source "$(cat .gbrain-source)"`). Conductor sibling worktrees
-of the same repo each have their own pin and their own indexed pages, so
-semantic results match the code on disk here.
-
-Call-graph queries (`code-callers`/`code-callees`) also need the graph to be
-built first — run `/sync-gbrain --dream` (or `--full`) if they return
-`count: 0`. This only works if this source's gbrain schema pack extracts code
-symbols; on a non-code-aware pack `--dream` completes but the graph stays empty
-and reports a WARN. `code-def`/`code-refs` need the same extraction.
-
-Two indexed corpora available via the `gbrain` CLI:
-
-- This worktree's code (auto-pinned via `.gbrain-source`).
-- `~/.gstack/` curated memory (registered as `gstack-brain-<user>` source via
-  the existing federation pipeline).
-
-**`Backend/` is a separate gbrain source, not part of the pinned corpus above.**
-`Backend/` is a git submodule (a gitlink, not a plain directory), and gbrain's
-code-index sync refuses to register a source whose path is nested inside an
-already-registered source's path — so it can't just be folded into this
-worktree's pin. It's registered instead as `gstack-code-backend`, cloned via
-`--url` from `adamtasteslikegood/tasteslikegood.com` into gbrain's own managed
-clone directory (sidesteps the path-overlap check entirely). It is **not
-federated** — every `code-def`/`code-refs`/`code-callers`/`code-callees`/
-`search`/`query` call against Backend Python needs an explicit
-`--source gstack-code-backend` flag, or it silently misses. Re-sync it with
-`gbrain sync --source gstack-code-backend --strategy code`, and never with a
-bare `/sync-gbrain` run from inside `Backend/`.
-
-**Why not `/sync-gbrain` from `Backend/`:** it does not no-op there. `Backend/`
-has no `.gbrain-source` pin, so the orchestrator's code stage falls back to
-registering the cwd as a _new_ federated source (`gstack-code-com-<hash>`
-`--path .../Backend`), re-indexing the whole repo alongside the pages already
-held by `gstack-code-backend`. The nested-path guard does not catch this, because
-`gstack-code-backend` lives in gbrain's managed clone directory rather than at
-the `Backend/` path, so there is no path overlap to detect. Verified with
-`--dry-run` on 2026-07-24. If you want the memory + brain-sync stages while in
-`Backend/`, run `gstack-gbrain-sync.ts --no-code`. From a submodule cwd, always
-`--dry-run` first and read the `would:` line before letting the code stage run.
-
-The `/sync-gbrain` skill also rewrites the block below from a fixed template
-that asserts the worktree is pinned via `.gbrain-source`. That assertion is
-false in `Backend/`, and a verbatim rewrite there would delete this paragraph —
-so do not let the skill write its guidance block into `Backend/CLAUDE.md`.
-
-Prefer gbrain when:
-
-- "Where is X handled?" / semantic intent, no exact string yet:
-  `gbrain search "<terms>"` or `gbrain query "<question>"`
-- "Where is symbol Y defined?" / symbol-based code questions:
-  `gbrain code-def <symbol>` or `gbrain code-refs <symbol>`
-- "What calls Y?" / "What does Y depend on?":
-  `gbrain code-callers <symbol>` / `gbrain code-callees <symbol>`
-- "What did we decide last time?" / past plans, retros, learnings:
-  `gbrain search "<terms>" --source gstack-brain-<user>`
-
-Grep is still right for known exact strings, regex, multiline patterns, and
-file globs. Run `/sync-gbrain` after meaningful code changes; for ongoing
-auto-sync across all worktrees, run `gbrain autopilot --install` once per
-machine — gbrain's daemon handles incremental refresh on a schedule.
-
-Safety: don't run `/sync-gbrain` while `gbrain autopilot` is active — the
-orchestrator refuses destructive source ops when it detects a running autopilot
-to avoid racing it (#1734). Prefer registering user repos with `gbrain sources
-add --path <dir>` (no `--url`): URL-managed sources can auto-reclone, and the
-sync code walk for them requires an explicit `--allow-reclone` opt-in.
-
-<!-- gstack-gbrain-search-guidance:end -->
