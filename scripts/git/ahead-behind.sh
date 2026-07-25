@@ -30,7 +30,16 @@ Options:
   --for-each       Compare each branch against its configured upstream.
                    This is the previous local-vs-origin behavior.
   --submodules     Include submodules in checks
+  --exit-on-divergence
+                   Exit 2 when any repo has a divergent branch (for CI gates).
+                   Divergence alone exits 0 by default.
   -h, --help       Show this help message
+
+Exit codes:
+  0  Every repo was inspected successfully (drift may still be reported)
+  1  At least one repo could not be inspected (not a repo root, fetch failed,
+     base ref unresolvable) — the report is NOT a clean bill of health
+  2  --exit-on-divergence was passed and at least one repo is divergent
 
 Comparison behavior:
   Default mode compares every branch against the repo's GitHub default branch
@@ -73,7 +82,15 @@ SORT_MODE="divergence"
 COMPARE_MODE="base"
 BASE_REF=""
 SUBMODULES=false
+EXIT_ON_DIVERGENCE=false
 REPOS=()
+
+# Resolved once per repo in the main loop, then reused by every branch lookup.
+# Plain global (not an assoc array) so pipeline subshells inherit it.
+REPO_BASE_REF=""
+# Set whenever a comparison could not be computed; gates the "all up to date" line.
+COUNT_ERRORS=0
+GH_WARNED=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -132,6 +149,10 @@ while [[ $# -gt 0 ]]; do
       SUBMODULES=true
       shift
       ;;
+    --exit-on-divergence)
+      EXIT_ON_DIVERGENCE=true
+      shift
+      ;;
     -*)
       echo "Error: Unknown option $1" >&2
       exit 1
@@ -184,6 +205,11 @@ resolve_default_base_ref() {
     if [[ -n "$default_branch" ]] && git -C "$path" rev-parse --verify "origin/$default_branch^{commit}" >/dev/null 2>&1; then
       echo "origin/$default_branch"
       return 0
+    fi
+    # An empty answer means auth/rate-limit failure, not "no default branch";
+    # say so instead of silently changing the comparison basis below.
+    if [[ -z "$default_branch" ]]; then
+      echo "⚠️  gh repo view failed for $path; falling back to origin/HEAD guess" >&2
     fi
   fi
 
@@ -241,7 +267,23 @@ normalize_base_ref() {
     return 0
   fi
 
-  echo "$requested_ref"
+  # Returning the unresolved name would make rev-list fail silently and the
+  # "|| echo 0 0" fallback report a false 0↑ 0↓. Signal failure instead.
+  echo ""
+  return 1
+}
+
+# Function to resolve the compare ref for a repo, reusing the per-repo cache.
+# Without the cache this fires one `gh repo view` per branch per repo.
+resolve_compare_ref() {
+  local path="$1"
+
+  if [[ -n "$REPO_BASE_REF" ]]; then
+    echo "$REPO_BASE_REF"
+    return 0
+  fi
+
+  normalize_base_ref "$path" "$BASE_REF"
 }
 
 # Function to return the comparison label for a repo
@@ -254,7 +296,7 @@ get_compare_label() {
     return 0
   fi
 
-  compare_ref=$(normalize_base_ref "$path" "$BASE_REF")
+  compare_ref=$(resolve_compare_ref "$path") || compare_ref=""
   if [[ -n "$compare_ref" ]]; then
     echo "$compare_ref"
   else
@@ -276,14 +318,25 @@ get_branch_counts() {
     fi
     compare_ref="$upstream"
   else
-    compare_ref=$(normalize_base_ref "$path" "$BASE_REF")
+    compare_ref=$(resolve_compare_ref "$path") || compare_ref=""
     if [[ -z "$compare_ref" ]]; then
+      echo "WARN: base ref '${BASE_REF:-<repo default>}' does not resolve in $path" >&2
+      COUNT_ERRORS=1
+      # Numeric so callers doing $((ahead + behind)) still work; the non-zero
+      # return is what distinguishes "cannot compute" from "identical".
       echo "0 0"
-      return 0
+      return 1
     fi
   fi
 
-  git -C "$path" rev-list --left-right --count "$branch...$compare_ref" 2>/dev/null || echo "0 0"
+  local counts
+  if ! counts=$(git -C "$path" rev-list --left-right --count "$branch...$compare_ref" 2>/dev/null); then
+    echo "WARN: cannot compare $branch...$compare_ref in $path" >&2
+    COUNT_ERRORS=1
+    echo "0 0"
+    return 1
+  fi
+  printf '%s\n' "$counts"
 }
 
 # Function to process a single repository
@@ -291,11 +344,26 @@ process_repo() {
   local path="$1"
   local display_path="$2"
   local branch upstream counts ahead behind total dirty status_icon compare_label
+  local toplevel rel mode
 
   # Check if path is a git repo
   if ! git -C "$path" rev-parse --git-dir >/dev/null 2>&1; then
     echo -e "$display_path\t❌ Not a git repo"
     return 1
+  fi
+
+  # An uninitialized submodule is an empty directory: git discovery walks UP and
+  # silently resolves to the PARENT repo, so the parent's branches get reported
+  # under the submodule's heading. Detect it via the 160000 gitlink so ordinary
+  # subdirectory arguments (which also aren't repo roots) still work.
+  toplevel=$(git -C "$path" rev-parse --show-toplevel 2>/dev/null)
+  if [[ -n "$toplevel" && "$(realpath "$path" 2>/dev/null)" != "$toplevel" ]]; then
+    rel=$(realpath --relative-to="$toplevel" "$path" 2>/dev/null)
+    mode=$(git -C "$toplevel" ls-files --stage -- "$rel" 2>/dev/null | awk '{print $1}')
+    if [[ "$mode" == "160000" ]]; then
+      echo -e "$display_path\t❌ Uninitialized submodule (resolves to parent $toplevel) - run: git submodule update --init $rel"
+      return 1
+    fi
   fi
 
   # Fetch latest remote data
@@ -323,7 +391,10 @@ process_repo() {
     return 0
   fi
 
-  counts=$(get_branch_counts "$path" "$branch" "$upstream")
+  if ! counts=$(get_branch_counts "$path" "$branch" "$upstream"); then
+    echo -e "$display_path ($branch)\t❌ Cannot compare against ${BASE_REF:-repo default branch}$dirty"
+    return 1
+  fi
   read -r ahead behind <<< "$counts"
   total=$((ahead + behind))
   compare_label=$(get_compare_label "$path")
@@ -364,9 +435,20 @@ format_branch_prs() {
     return 0
   fi
 
+  local gh_rc=0
   pr_lines=$(
-    cd "$path" && gh pr list --state open --head "$branch" --json number,isDraft --jq '.[] | "#" + (.number | tostring) + (if .isDraft then "D" else "" end)' 2>/dev/null || true
-  )
+    cd "$path" && gh pr list --state open --head "$branch" --json number,isDraft --jq '.[] | "#" + (.number | tostring) + (if .isDraft then "D" else "" end)' 2>/dev/null
+  ) || gh_rc=$?
+
+  # A failed call must not be rendered as "0 open PRs".
+  if [[ $gh_rc -ne 0 ]]; then
+    if [[ "$GH_WARNED" != true ]]; then
+      echo "⚠️  gh pr list failed in $path (auth or rate limit?); PR counts shown as ?" >&2
+      GH_WARNED=true
+    fi
+    echo "?"
+    return 0
+  fi
 
   if [[ -z "$pr_lines" ]]; then
     echo "0"
@@ -451,10 +533,12 @@ echo -e "🔍 Checking ${#REPOS[@]} repo(s), top $N branches by $SORT_LABEL, ahe
 echo "================================================================================"
 
 # Collect all repos (including submodules)
+summary_failed=0
 all_repos=()
 for repo in "${REPOS[@]}"; do
   if [[ ! -d "$repo" ]]; then
     echo "⚠️ Skipping non-directory: $repo" >&2
+    summary_failed=$((summary_failed + 1))
     continue
   fi
   # Add main repo
@@ -495,12 +579,28 @@ for repo in "${unique_repos[@]}"; do
   done
 
   # Process repo summary
+  REPO_BASE_REF=""
   repo_status_output=$(process_repo "$repo" "$display_path")
   repo_status_code=$?
   echo "$repo_status_output"
 
+  # 1 = not a repo root / fetch failed / no branch / base ref unresolvable: the
+  # refs on disk are stale or absent, so no drift conclusion from them is valid.
+  # 2 = current branch is divergent, a normal result — keep going.
+  if [[ $repo_status_code -eq 1 ]]; then
+    summary_failed=$((summary_failed + 1))
+    echo "   ↳ skipping branch table for $display_path: repo could not be inspected" >&2
+    continue
+  fi
+
+  # Resolve the compare ref once per repo, after process_repo's fetch has landed,
+  # so every branch row below shares one value and one gh round-trip.
+  if [[ "$COMPARE_MODE" == "base" ]]; then
+    REPO_BASE_REF=$(normalize_base_ref "$repo" "$BASE_REF") || REPO_BASE_REF=""
+  fi
+
   if repo_has_divergent_branch "$repo"; then
-    ((summary_divergent++))
+    summary_divergent=$((summary_divergent + 1))
   fi
 
   # Show top branches if divergence exists
@@ -511,6 +611,20 @@ done
 
 # Final summary
 echo -e "\n📊 SUMMARY: $summary_divergent/${#unique_repos[@]} repos have divergence (ahead or behind)"
+if [[ $summary_failed -gt 0 ]]; then
+  echo "❌ $summary_failed repo(s) could not be inspected — this report is NOT a clean bill of health" >&2
+  exit 1
+fi
+if [[ $COUNT_ERRORS -ne 0 ]]; then
+  echo "❌ One or more branch comparisons could not be computed — results are incomplete" >&2
+  exit 1
+fi
 if [[ $summary_divergent -eq 0 ]]; then
   echo "✅ All repos are up to date!"
+  exit 0
 fi
+
+if [[ "$EXIT_ON_DIVERGENCE" == true ]]; then
+  exit 2
+fi
+exit 0
