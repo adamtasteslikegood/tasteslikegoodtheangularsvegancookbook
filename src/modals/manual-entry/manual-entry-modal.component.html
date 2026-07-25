@@ -266,8 +266,10 @@
             </div>
 
             <div>
+              <!-- GH #3256 (KAN-144): these save as personalNotes — the private,
+                   editable field — not as the read-only generated `notes`. -->
               <label for="manual-notes" class="block text-sm font-medium text-stone-600 mb-1 mt-4"
-                >Chef's Notes</label
+                >Chef's Notes <span class="text-stone-400 font-normal">(private)</span></label
               >
               <textarea
                 id="manual-notes"
