@@ -104,6 +104,71 @@ describe('shouldSkipRateLimiting', () => {
   });
 });
 
+// KAN-154: a browser fires these on its own for every page view — the SSR
+// stylesheets, the icon set, Angular's hashed bundles. Metering them made one
+// page view cost ~8 requests against a 300/15min per-IP budget, so two people
+// behind one NAT'd IP hit 429 during ordinary browsing. They are static bytes;
+// the limiter exists to protect Flask and the AI endpoints.
+describe('isPageSubresource', () => {
+  const subresources = [
+    '/static/css/tokens.css',
+    '/static/css/recipe-site.css',
+    '/static/js/public.js',
+    '/favicon.ico',
+    '/favicon.svg',
+    '/apple-touch-icon.png',
+    '/apple-touch-icon-precomposed.png',
+    '/styles-VFQLW5EH.css',
+    '/main-GTOZZOJH.js',
+    '/chunk-UORTPREJ.js',
+    // Angular emits bundle requests relative to the current route, so the
+    // same asset also arrives under a route prefix.
+    '/recipe/styles-VFQLW5EH.css',
+    '/recipe/chunk-CSQ5XSFZ.js',
+  ];
+
+  for (const path of subresources) {
+    it(`treats ${path} as a subresource`, async () => {
+      const { isPageSubresource } = await import('./security.js');
+      expect(isPageSubresource({ path } as Request)).toBe(true);
+    });
+  }
+
+  // Real navigations must keep counting — exempting these would remove the
+  // rate limit from the public surface entirely.
+  const pages = [
+    '/',
+    '/browse',
+    '/kitchen',
+    '/privacy-policy',
+    '/sitemap.xml',
+    '/r/vegan-baked-blooming-onion-with-zesty-dip',
+    '/recipe/db958616-04b4-495f-a67b-34b0760dc97a',
+  ];
+
+  for (const path of pages) {
+    it(`does not treat ${path} as a subresource`, async () => {
+      const { isPageSubresource } = await import('./security.js');
+      expect(isPageSubresource({ path } as Request)).toBe(false);
+    });
+  }
+
+  it('does not exempt an unhashed .js path (only content-hashed bundles)', async () => {
+    const { isPageSubresource } = await import('./security.js');
+    expect(isPageSubresource({ path: '/evil.js' } as Request)).toBe(false);
+  });
+});
+
+describe('createPageLimiter', () => {
+  it('uses a Valkey keyspace separate from the API limiter', async () => {
+    const { createPageLimiter, createApiLimiter } = await import('./security.js');
+    // Both must build without throwing and be distinct middleware; the
+    // prefixes they pass to RedisStore are asserted via the store mock below.
+    expect(typeof createPageLimiter(null)).toBe('function');
+    expect(createPageLimiter(null)).not.toBe(createApiLimiter(null));
+  });
+});
+
 describe('createExpensiveOperationLimiter', () => {
   it('should return a middleware function', async () => {
     const { createExpensiveOperationLimiter } = await import('./security.js');

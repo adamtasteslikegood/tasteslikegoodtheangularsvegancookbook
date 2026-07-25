@@ -112,3 +112,34 @@ describe('SSR page proxying (guard against regressions)', () => {
     expect(await res.text()).toBe(STUB_HTML);
   });
 });
+
+/**
+ * KAN-154 (production incident 2026-07-25): iOS Safari requests both
+ * apple-touch-icon paths on every page view without any <link> tag. The repo
+ * ships no PNG icon, so they fell through to the SPA catch-all and returned
+ * 13KB of index.html with max-age=0 — uncacheable, so iOS re-asked on the next
+ * page. Those two paths accounted for 44 of the 84 HTTP 429s that locked two
+ * users out of the public site during ordinary browsing.
+ */
+describe('apple-touch-icon requests do not leak the SPA shell', () => {
+  for (const iconPath of ['/apple-touch-icon.png', '/apple-touch-icon-precomposed.png']) {
+    it(`answers ${iconPath} with a cacheable 204, not index.html`, async () => {
+      const res = await fetch(`${baseUrl}${iconPath}`);
+      expect(res.status).toBe(204);
+      // A 204 carries no body, so no content-type at all — which is precisely
+      // the fix: the old behaviour advertised text/html and shipped 13KB.
+      expect(res.headers.get('content-type')).toBeNull();
+      expect(res.headers.get('cache-control')).toContain('max-age=86400');
+      expect(await res.text()).toBe('');
+    });
+  }
+
+  // Guards the icon regex against over-matching: a normal SPA route must still
+  // reach the catch-all rather than being answered with an empty 204. (It 404s
+  // here only because this harness has no Angular build to serve index.html
+  // from; the point is that it is not 204.)
+  it('does not swallow ordinary SPA routes', async () => {
+    const res = await fetch(`${baseUrl}/kitchen`);
+    expect(res.status).not.toBe(204);
+  });
+});
