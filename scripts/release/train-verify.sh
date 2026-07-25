@@ -15,6 +15,13 @@
 
 set -euo pipefail
 
+# Resolve to an absolute path before any `cd`, so the alembic-heads.sh sibling
+# call below still points at the right file when the script is invoked as
+# `./train-verify.sh` from within scripts/release/ (BASH_SOURCE stays literal,
+# and the `cd "$ROOT"` a few lines down would otherwise leave a bare `.` pointing
+# at the repo root and turn the check into a spurious "could not determine").
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 BACKEND_REPO="adamtasteslikegood/tasteslikegood.com"
 COOKBOOK_REPO="adamtasteslikegood/tasteslikegoodtheangularsvegancookbook"
 
@@ -140,7 +147,7 @@ pointer_content_state="matches-backend-main-content"
 #    fails the migrate Job and aborts the deploy mid-release.
 #    Shared with pr-gate.yml's required "Backend — single Alembic head" job so
 #    the release train and the merge gate can never disagree about the answer.
-heads=$("$(dirname "${BASH_SOURCE[0]}")/alembic-heads.sh" 2>/dev/null || echo "error")
+heads=$("$SCRIPT_DIR/alembic-heads.sh" 2>/dev/null || echo "error")
 
 # 5. Version / CHANGELOG coherence. pr-gate enforces this on the release PR;
 #    checking it here means a bad bump is caught before the PR exists.
