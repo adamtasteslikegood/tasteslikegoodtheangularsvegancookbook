@@ -51,6 +51,9 @@ You have **2 options** to commit and push:
 
 ### Option 1: Automated (Recommended) 🚀
 
+> **Historical.** `commit-phase-1.sh` has been removed — it hardcoded 2024 paths
+> and branches that no longer exist. Use `scripts/git/git-workflow.sh` instead.
+
 ```bash
 # Make executable and run
 chmod +x commit-phase-1.sh
