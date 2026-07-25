@@ -107,6 +107,22 @@ jobs:
           PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
+  # Branched Alembic heads make `flask db upgrade` refuse to run, which fails
+  # the flask-backend-migrate Cloud Run Job and aborts the deploy mid-release.
+  # This ran only on release-train.yml's manual dispatch and daily cron, so a
+  # pointer bump onto a two-head Backend could merge clean and surface hours
+  # later. It is a required check now: same script train-verify.sh station 4
+  # calls, so the gate and the release train cannot disagree.
+  alembic-heads:
+    name: Backend — single Alembic head
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Verify exactly one Alembic head
+        run: ./scripts/release/alembic-heads.sh --check
+
   # ── Docker ────────────────────────────────────────────────────────────────
   # Builds the production Express image (no push, no credentials). Catches
   # Dockerfile/lockfile breakage before a release tag hands it to Cloud Build
@@ -160,6 +176,7 @@ jobs:
       - frontend-build
       - frontend-test
       - backend-test
+      - alembic-heads
       - docker-build
       - changelog-check
       - canonical-recipes
