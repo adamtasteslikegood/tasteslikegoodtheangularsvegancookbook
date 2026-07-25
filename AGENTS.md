@@ -259,7 +259,7 @@ Pre-release tags like `v0.3.0-rc.1` create a GitHub Release without triggering p
 
 ## Non-obvious patterns
 
-- **Rate limiter** uses Valkey for distributed state; `server/valkey.ts` has open GH issues (#163, #162) for edge cases
+- **Rate limiter** uses Valkey for distributed state. GH #163/#162 (`server/valkey.ts` edge cases, KAN-16/KAN-17) were fixed and closed 2026-04-15 — new Valkey errors are Flask-side, not these
 - **AI model names** include `models/` prefix (e.g., `models/gemini-3.1-pro-preview`); filter by `generateContent` in `supported_generation_methods`
 - **CI auto-formats** — Prettier runs as a CI job and commits fixes on push; don't be alarmed by bot commits
 - **TypeScript is pinned exactly** (`6.0.3`) — Angular majors peer-require specific TS majors (Angular 22 needs TS >=6.0 <6.1), so TS and Angular move together, manually
