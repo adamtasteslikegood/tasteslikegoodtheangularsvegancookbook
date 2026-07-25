@@ -170,6 +170,10 @@ The `.gitmodules` `Backend` entry tracks `dev`, so `git submodule update --remot
 
 There is no path that ships Backend code without a corresponding cookbook PR — production deploys whatever SHA the cookbook submodule pins at the moment of the release tag.
 
+## Commit and push cadence
+
+On feature branches, commit and push after every significant work-run so work is recoverable from the remote if the VM/session dies. Stage only intentional files, keep commits scoped, and push immediately after each local commit unless the user explicitly says not to.
+
 ## Pull request lifecycle
 
 Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
@@ -284,6 +288,31 @@ Requirements for `pm-daemon` to actually sync:
 - `.env` (project root) must contain `ATLASSIAN_EMAIL` and `ATLASSIAN_API_TOKEN`. Without them the MCP tools register but Confluence sync logs `WARNING: Atlassian credentials missing` and no-ops.
 - `ATLASSIAN_URL` must be `tasteslikegood.atlassian.net` — the only Atlassian site for work items. `scripts/pm/_atlassian_guard.py` enforces this allowlist across all `scripts/pm/` tooling and restricts Jira writes to the `KAN` and `RCP` projects (read-only rollups/briefings may also include `PLZG`/`TO`); any other site (including the `tasteslikegood-dev.atlassian.net` service shell) or project key raises a loud error instead of proceeding.
 - `python3 -m venv` must work (Debian/Ubuntu: `sudo apt install python3.12-venv`).
+
+### Driving the PM tooling
+
+```bash
+npm run pm:start             # verify connectivity + build local briefing
+npm run pm:brief             # refresh local PM context
+npm run pm:sync              # publish non-destructive briefing update to Confluence
+npm run pm:status            # inspect live Jira + PR + Confluence + prod status
+npm run pm:daemon            # start the PM daemon in background on this VM
+npm run pm:daemon:status     # check if the daemon is alive
+npm run pm:daemon:logs       # tail daemon logs
+npm run pm:daemon:stop       # stop the background daemon
+npm run pm:daemon:foreground # foreground mode for debugging
+```
+
+`scripts/pm/sync_jira_confluence_status.py` backs `pm:status` — live Jira issues (KAN + RCP), open GitHub PRs, Confluence page info, and a production health check. Deps: `bash scripts/pm/run_pm_script.sh sync_jira_confluence_status.py`. Env: `ATLASSIAN_EMAIL`, `ATLASSIAN_API_TOKEN`, `ATLASSIAN_URL`, `GITHUB_TOKEN`.
+
+**Jira project keys** (all on `tasteslikegood.atlassian.net`, the only site for work items):
+
+- **Recipe app (this repo):** `KAN` = active execution, branch/work ownership, in-flight state; `RCP` = delivery planning, epics, sprint scope, acceptance criteria. These are the ONLY projects this repo's tooling may write to.
+- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`.
+- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen and re-keyed `TOSVC` ("SERVICE-HOLD — do not use").
+- `JIRA_PROJECTS=...` overrides are validated by `scripts/pm/_atlassian_guard.py`: writes limited to `KAN,RCP`; read-only rollups/briefings may also include `PLZG,TO`. Anything else (including `TOSVC`) is refused with an error.
+
+Set `ATLASSIAN_JIRA_PROJECT_KEY=KAN` and `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY=RCP` in `.env`. Set `PM_DAEMON_DISABLE_WATCHER=1` to opt a daemon out of watching.
 
 To verify the daemon is running during a session: `ps -ef | grep pm_daemon | grep -v grep`. If you don't see it, your agent isn't reading `.mcp.json` — check the agent's MCP loader logs.
 
