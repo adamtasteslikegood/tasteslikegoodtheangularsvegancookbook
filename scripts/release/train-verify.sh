@@ -110,7 +110,12 @@ pointer_state="matches-backend-dev"
 
 # Trees, not commits: a promotion merge makes main's SHA differ from dev's while
 # the content is identical, and pinning either one deploys the same code.
-pointer_tree=$(git -C Backend rev-parse "$pointer^{tree}" 2>/dev/null || echo "unknown")
+#
+# An unresolvable pinned SHA is "could not check", not "differs" — reporting it
+# as a content mismatch would be the same sin as a false green, just inverted:
+# a confident answer where there is none. Same treatment as count_ahead().
+pointer_tree=$(git -C Backend rev-parse "$pointer^{tree}" 2>/dev/null) ||
+  die "pinned Backend SHA $pointer is not in the local object database — run: git -C Backend fetch origin"
 backend_main_tree=$(git -C Backend rev-parse "origin/main^{tree}")
 pointer_content_state="matches-backend-main-content"
 [ "$pointer_tree" = "$backend_main_tree" ] || pointer_content_state="differs-from-backend-main-content"
@@ -121,6 +126,12 @@ heads=$(
   python3 - <<'PY' 2>/dev/null || echo "error"
 import pathlib, re
 
+# Heads = revisions nobody names as a parent, which is how alembic computes
+# them. Parsed rather than shelled out to `flask db heads` so this station
+# needs no Backend virtualenv. The down_revision pattern deliberately allows a
+# tuple to span lines: a merge migration's `down_revision = ('a', 'b')` is one
+# line as alembic writes it, but a formatter will wrap a long one, and missing
+# those parents would over-count heads and block a release that is fine.
 versions = pathlib.Path("Backend/migrations/versions")
 revisions, parents = set(), set()
 for path in versions.glob("*.py"):
@@ -128,7 +139,11 @@ for path in versions.glob("*.py"):
     match = re.search(r"^revision(?::\s*str)?\s*=\s*['\"]([^'\"]+)['\"]", text, re.M)
     if match:
         revisions.add(match.group(1))
-    for down in re.findall(r"^down_revision(?::\s*[^=]+)?\s*=\s*(.+)$", text, re.M):
+    for down in re.findall(
+        r"down_revision(?:\s*:[^=]*)?\s*=\s*(\([^)]*\)|\[[^\]]*\]|['\"][^'\"]*['\"])",
+        text,
+        re.S,
+    ):
         parents.update(re.findall(r"['\"]([^'\"]+)['\"]", down))
 print(len(revisions - parents) if revisions else "error")
 PY
