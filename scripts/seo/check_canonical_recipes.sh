@@ -2,7 +2,7 @@
 # CI gate: validate canonical recipe list against index.html anchors.
 # Reads specs/canonical-recipes.json and checks:
 #   1. JSON is valid
-#   2. 3–7 recipes listed (Phase 0/1 bound)
+#   2. 3–8 recipes listed (Phase 0/1 bound)
 #   3. Every slug has a matching <a href="/r/{slug}"> in index.html <noscript>
 #   4. No anchors in index.html that aren't in the canonical list
 #
@@ -37,10 +37,13 @@ if ! jq empty "$CANONICAL_FILE" 2>/dev/null; then
   exit 1
 fi
 
-# 2. Count check (3–7)
+# 2. Count check (3–8). Raised from 7 for KAN-158: the upper bound exists to keep
+# the noscript nav a curated set rather than a dump of the whole catalog, so it
+# moves deliberately, one slug at a time, with Adam's approval on the PR. Keep
+# this in sync with maxItems in specs/canonical-recipes.schema.json.
 count=$(jq '.recipes | length' "$CANONICAL_FILE")
-if (( count < 3 || count > 7 )); then
-  echo "FAIL: canonical list has $count recipes (must be 3–7)"
+if (( count < 3 || count > 8 )); then
+  echo "FAIL: canonical list has $count recipes (must be 3–8)"
   errors=$((errors + 1))
 fi
 
