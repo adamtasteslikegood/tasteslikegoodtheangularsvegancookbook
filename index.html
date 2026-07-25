@@ -3,6 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!--
+      Anchors every relative URL in this document at the site root. The Angular
+      builder injects its bundles as bare filenames (main-<hash>.js), which the
+      browser resolves against the *current directory* of the document URL. On
+      "/" and "/kitchen" that directory is "/" and the bundles load. On a
+      two-segment route it is not: reloading /recipe/<id> made the browser ask
+      for /recipe/main-<hash>.js, which no build artifact matches, so the
+      request fell through to the SPA catch-all and came back as 13KB of this
+      very file labelled text/html. Helmet's X-Content-Type-Options: nosniff
+      then (correctly) refuses to execute HTML as a script, Angular never
+      bootstraps, and the page is blank with no router — so in-page links and
+      the back button are dead too.
+
+      Keep this above any relative URL in the head: the element only governs
+      what follows it. Guarded by src/app-shell.test.ts.
+    -->
+    <base href="/" />
     <title>Tasteslikegood.org — VeganGenius Chef: AI-Powered Vegan Recipe Generator & Cookbook</title>
 
     <!-- SEO Meta Tags -->
@@ -139,6 +156,7 @@
         <a href="/r/classic-vegan-chocolate-chip-cookies">Classic Vegan Chocolate Chip Cookies</a>
         <a href="/r/maple-smoked-tempeh-blt">Maple Smoked Tempeh BLT</a>
         <a href="/r/vegan-street-style-tofu-tacos">Vegan Street Style Tofu Tacos</a>
+        <a href="/r/vegan-orange-chicken-style-seitan-with-white-rice">Vegan Orange Chicken Style Seitan with White Rice</a>
       </nav>
     </noscript>
   </body>
