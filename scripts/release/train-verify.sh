@@ -27,8 +27,11 @@ usage() {
 Usage: scripts/release/train-verify.sh [--json] [--for-release] [--no-fetch]
 
   --json          machine-readable output (one JSON object on stdout)
-  --for-release   stricter: also require that there is something to ship and
-                  that the submodule pointer matches the Backend tip
+  --for-release   stricter: also require that there is something to ship, that
+                  the submodule pointer matches the Backend tip, and that this
+                  version is not already tagged. Queries origin for the tag even
+                  under --no-fetch (one ref lookup) — guessing there would mean
+                  greenlighting a release that silently never deploys.
   --no-fetch      skip network fetches; compare whatever refs are already local
                   (faster, but a stale origin/* gives a stale answer)
 
@@ -157,6 +160,37 @@ if [ "$version" != "unknown" ] && grep -qE "^## \[?${version//./\\.}\]?" CHANGEL
   changelog_state="present"
 fi
 
+# 6. Is this version already shipped? Once vX.Y.Z is cut the version is spent:
+#    release.yml checks `git ls-remote --tags` first and skips tag creation,
+#    the GitHub Release, and therefore the Cloud Build trigger. Re-merging a
+#    release PR on a spent version is the quietest failure in the whole train —
+#    green PR, green workflow, no tag, no deploy, no error. The rule Adam
+#    stated for the freeze window is the fix: once a tag is cut, the next thing
+#    to land needs a patch bump.
+#
+#    Under --for-release this asks origin (same query release.yml makes, so the
+#    answers cannot disagree) and refuses to guess if the network fails. In the
+#    default mode it is informational and reads local tags, which is honest
+#    about being only as fresh as the last fetch.
+if [ "$FOR_RELEASE" = "1" ]; then
+  # --exit-code distinguishes the two "no tag" answers: 2 means the query
+  # succeeded and matched nothing, anything else means the query itself failed.
+  # Collapsing them would turn an offline run into a confident "safe to ship".
+  ls_remote_rc=0
+  git ls-remote --exit-code --tags origin "refs/tags/v$version" >/dev/null 2>&1 || ls_remote_rc=$?
+  case "$ls_remote_rc" in
+    0) tag_state="already-tagged" ;;
+    2) tag_state="not-tagged" ;;
+    *) die "could not query origin for tag v$version (git ls-remote exit $ls_remote_rc) — cannot tell whether this version is already shipped" ;;
+  esac
+else
+  if git rev-parse --verify --quiet "refs/tags/v$version" >/dev/null; then
+    tag_state="already-tagged (local)"
+  else
+    tag_state="not-tagged (local)"
+  fi
+fi
+
 # ── Verdict ─────────────────────────────────────────────────────────────────
 
 blocking=()
@@ -182,6 +216,8 @@ if [ "$FOR_RELEASE" = "1" ]; then
     blocking+=("submodule pointer content differs from Backend main — promote Backend dev→main first")
   [ "$changelog_state" = "present" ] ||
     blocking+=("CHANGELOG.md has no '## [$version]' section — pr-gate will fail the release PR")
+  [ "$tag_state" != "already-tagged" ] ||
+    blocking+=("v$version is already tagged — release.yml would skip the tag, the Release, and the Cloud Build trigger and report success. Bump package.json (patch, at minimum) before cutting.")
 else
   [ "$backend_pending" = "0" ] ||
     warnings+=("Backend dev is $backend_pending commit(s) ahead of main — promotion needed before the next release")
@@ -213,13 +249,14 @@ if [ "$FORMAT" = "json" ]; then
   printf '"pointer":{"sha":"%s","state":"%s","content":"%s"},' "$pointer" "$pointer_state" "$pointer_content_state"
   printf '"alembic_heads":"%s",' "$heads"
   printf '"changelog":"%s",' "$changelog_state"
+  printf '"tag":"%s",' "$tag_state"
   printf '"blocking":%s,' "$(json_array ${blocking[@]+"${blocking[@]}"})"
   printf '"warnings":%s' "$(json_array ${warnings[@]+"${warnings[@]}"})"
   printf '}\n'
 else
   echo "Release train — verify stations"
   echo "  repos            $COOKBOOK_REPO + $BACKEND_REPO"
-  echo "  version          $version (CHANGELOG section: $changelog_state)"
+  echo "  version          $version (CHANGELOG section: $changelog_state, tag v$version: $tag_state)"
   echo
   printf '  %-34s %s\n' "cookbook main->dev back-sync owed" "$cookbook_backsync"
   printf '  %-34s %s\n' "cookbook dev->main pending" "$cookbook_pending"
