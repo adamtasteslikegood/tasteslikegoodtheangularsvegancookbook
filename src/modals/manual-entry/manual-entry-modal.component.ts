@@ -124,7 +124,10 @@ export class ManualEntryModalComponent {
       servings: info.servings,
       ingredients,
       instructions: this.manualInstructions(),
-      notes: info.notes,
+      // GH #3256 (KAN-144): the chef's own notes are private notes, not
+      // generated content. Writing them to `notes` — read-only since KAN-140 —
+      // froze them the moment the recipe was saved.
+      personalNotes: info.notes,
       tags: info.tags
         .split(',')
         .map((t) => t.trim())
