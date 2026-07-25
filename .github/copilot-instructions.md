@@ -236,9 +236,9 @@ npm start
 **Rules:**
 
 - API keys are **server-side only** — never exposed to the browser bundle.
-- The `VITE_` prefix is a naming convention carried over from the project's origin — not used for secrets.
+- The `VITE_` prefix is a dead naming convention carried over from the project's origin. Nothing reads it.
 - Never hardcode API keys in source files or commit them.
-- If you add a new variable that genuinely needs to be read in the Angular client bundle, use the `VITE_` prefix — Vite will inline it at build time. Do not do this for secrets.
+- Do **not** add `VITE_`-prefixed variables expecting them to reach the browser. This is an Angular CLI build: it does not expose `import.meta.env`, and there are zero occurrences of it in `src/`. A variable added that way reads `undefined` at runtime with no build error. Client-visible config belongs in `src/environments/`.
 
 ---
 
