@@ -164,15 +164,6 @@ export OPENAI_ENDPOINT="https://..." # Optional (custom endpoint)
 
 ---
 
-### `commit-phase-1.sh`
-
-Legacy script for Phase 1 implementation. Commits specific files with predefined messages.
-
-**Usage:**
-
-```bash
-./scripts/commit-phase-1.sh
-```
 
 ### `list_revisions.sh`
 
