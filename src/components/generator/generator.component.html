@@ -573,9 +573,14 @@
               </div>
             </div>
           } @else {
-            <p class="text-yellow-900 italic whitespace-pre-wrap">
-              {{ r.notes || 'No notes added yet.' }}
-            </p>
+            <!-- GH #3256 (KAN-144): "No notes added yet." directly above the
+                 user's own notes reads as a contradiction — a migrated manual
+                 recipe has no generated notes but plenty of personal ones. -->
+            @if (r.notes || !r.personalNotes) {
+              <p class="text-yellow-900 italic whitespace-pre-wrap">
+                {{ r.notes || 'No notes added yet.' }}
+              </p>
+            }
             @if (r.personalNotes) {
               <p
                 class="mt-3 pt-3 border-t border-yellow-100 text-yellow-900/80 italic whitespace-pre-wrap text-sm"
