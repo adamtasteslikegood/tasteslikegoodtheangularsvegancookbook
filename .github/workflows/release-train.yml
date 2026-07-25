@@ -1,0 +1,83 @@
+# Release train — verify stations (KAN-138).
+# Thin slice of the two-repo release train: the read-only half. It answers
+# "would the next release be correct?" and never mutates either repo.
+#
+# Why read-only here and not the back-syncs too: the train spans this repo and
+# the Backend repo, and GITHUB_TOKEN is scoped to this one. Opening the
+# Backend main→dev PR needs cross-repo write, and merging a back-sync needs to
+# bypass `required_linear_history` on dev — both of which today only Adam's
+# account can do. Those steps live in scripts/release/train-backsync.sh and run
+# locally. See scripts/release/README.md.
+
+name: Release train — verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      for_release:
+        description: 'Strict mode: also require a shippable payload, a current submodule pointer, and a matching CHANGELOG section'
+        type: boolean
+        default: false
+  schedule:
+    # Daily. The recurring failure this catches is a skipped back-sync after a
+    # promotion, which is invisible until the next release reads a drift count
+    # that never returns to zero.
+    - cron: '0 15 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify stations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (with Backend submodule)
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Make both repos' branches visible
+        # actions/checkout fetches a single branch, so origin/main does not
+        # exist by default — and every station here compares main against dev.
+        run: |
+          git config --unset-all remote.origin.fetch || true
+          git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin --prune --quiet
+          git -C Backend fetch origin --prune --quiet
+
+      - name: Verify
+        id: verify
+        run: |
+          set +e
+          args=(--no-fetch)
+          if [ "${{ inputs.for_release }}" = "true" ]; then args+=(--for-release); fi
+          ./scripts/release/train-verify.sh "${args[@]}" | tee /tmp/train-verify.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          ./scripts/release/train-verify.sh "${args[@]}" --json > /tmp/train-verify.json
+          exit 0
+
+      - name: Summary
+        run: |
+          {
+            echo '## Release train — verify stations'
+            echo
+            echo '```'
+            cat /tmp/train-verify.txt
+            echo '```'
+            echo
+            echo '<details><summary>JSON</summary>'
+            echo
+            echo '```json'
+            cat /tmp/train-verify.json
+            echo '```'
+            echo
+            echo '</details>'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail on blocking drift
+        if: steps.verify.outputs.exit_code != '0'
+        run: |
+          echo "::error::Release train is blocked — see the job summary."
+          exit 1

@@ -15,6 +15,9 @@
 
 ## Option 1: Automated Script (Recommended)
 
+> **Historical.** `commit-phase-1.sh` has been removed — it hardcoded 2024 paths
+> and branches that no longer exist. Use `scripts/git/git-workflow.sh` instead.
+
 ```bash
 # Make script executable
 chmod +x commit-phase-1.sh
