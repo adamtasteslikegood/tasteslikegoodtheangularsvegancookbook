@@ -6,6 +6,93 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+## [0.4.5] - 2026-07-25
+
+Backend submodule pointer: `50cdbbb` → **`ff92120`** (Backend `main`, promoted in
+Backend [#249](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/249)).
+**No new Alembic migrations** — single head unchanged, so the
+`flask-backend-migrate` Cloud Run Job runs as a no-op.
+
+### Fixed
+
+- **Valkey IAM token refresh no longer leaves a 30-minute dead window**
+  (KAN-16, Backend [#247](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/247)).
+  `_refresh_loop()` caught refresh failures and then slept the full 45-minute
+  interval, so a failure at t=45min let the token expire at t=60 with no further
+  attempt until t=90 — every Valkey cache write failing in between (258
+  `AuthenticationError`s over five days). It now retries with exponential
+  backoff (30s → 60s → 120s, capped at the normal interval, reset on success).
+  The client also forces RESP2, since redis-py 8.x defaults to RESP3 and rewrites
+  password-only credentials to `AUTH default <token>`; that is hardening rather
+  than the root cause, which remains unidentified — the underlying reason
+  refreshes fail is still open.
+
+- **SPA publish-state fix cluster** (KAN-149,
+  [#3262](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3262),
+  [#3263](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3263),
+  [#3264](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3264)),
+  from Adam's post-v0.4.4 zucchini-poppers field test:
+  - The View link no longer renders a client-predicted slug that could 404
+    or point at another recipe on a name collision — the client stops
+    deriving slugs on publish entirely and adopts the server-minted slug
+    (collision → `-N` suffix) once the sync resolves. Root cause was
+    zoneless change detection: the publish flow mutated the recipe object
+    in place, so neither the server's corrected slug nor the failure revert
+    ever re-rendered; the flip now goes through the signal immutably.
+  - Refreshing `/recipe/:id` no longer renders a blank page: the cold
+    deep-link fetch treated the `GET /api/recipes/:id` row shape
+    (`{…columns, data: {…blob}}`) as the recipe blob, leaving
+    ingredients/instructions undefined. The KAN-139 column-over-blob merge
+    is extracted into a shared `recipeFromRow` util (per #3209) used by both
+    the persistence sync and the deep-link fetch.
+  - Toggling publish ON no longer pushes the freshly-mounted View link
+    behind the recipe image: the action rows were non-wrapping flex rows
+    inside a `minmax(0, 1fr)` grid column, so the extra link overflowed
+    under the adjacent `position: relative` image block; the rows now wrap.
+
+- **An unavailable publish toggle now says why** (KAN-143,
+  [#3255](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3255)).
+  The reason was hidden in a `title` on a `disabled` button — unreachable by
+  keyboard and unreliable on hover — so the toggle just sat there doing nothing.
+  It now uses `aria-disabled` and raises a toast explaining the reason.
+
+- **Manual-entry notes stopped being overwritten** (KAN-144,
+  [#3256](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3256)).
+  Manual recipes wrote user notes into the shared `notes` field, which the
+  generated-recipe path also owns; they now use `personalNotes`, with existing
+  entries migrated on first edit.
+
+### Changed
+
+- **Shared recipe logic extracted into `RecipeViewBase`** (KAN-126,
+  [#3209](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/issues/3209)) —
+  Generator and RecipeDetail had drifted copies of the same publish, save, and
+  notes handlers.
+
+- **Release-train verification is now a script, not a memory exercise**
+  (KAN-138). `scripts/release/train-verify.sh` checks back-sync debt, promotion
+  debt, the submodule pointer against Backend `main`, Alembic head count, the
+  CHANGELOG section, and whether the version is already tagged — the last of
+  which catches a silent failure where `release.yml` skips the tag, the Release,
+  and the Cloud Build trigger while reporting success. `train-backsync.sh` opens
+  the `main → dev` back-sync PRs, and a scheduled workflow runs the verifier
+  daily.
+
+### Documentation
+
+- **Agent-instruction files single-sourced on `CLAUDE.md`** (KAN-153). The five
+  tracked files had drifted into contradicting each other and, in two cases,
+  into instructions that fail if followed: `GEMINI.md` told readers to
+  `pip install -r requirements.txt` (deleted 2026-07-18), and
+  `.github/copilot-instructions.md` directed agents to add `VITE_`-prefixed
+  variables for the client bundle, which an Angular CLI build never reads.
+  `AGENTS.md` is now a stub carrying only the non-Claude delta.
+
+- Architecture docs corrected to describe Valkey's real role and the actual
+  frontend/backend request flows (KAN-150).
+
 ## [0.4.4] - 2026-07-24
 
 ### Fixed

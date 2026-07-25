@@ -19,7 +19,7 @@ This project is a full-stack application featuring an Angular/React frontend and
 **Key Technologies:**
 
 - **Frontend:** Angular 22 SPA (TypeScript, `angular.json`, `index.tsx`) with Angular Router (lazy loading), Signals API, Tailwind CSS (`tailwind.config.js`), Vitest (`vitest.config.ts`), ESLint.
-- **Backend:** Python (`Backend/app.py`), managed with `pip` and `pyproject.toml`/`requirements.txt`.
+- **Backend:** Python (`Backend/app.py`), managed with `uv` and `pyproject.toml`/`uv.lock`.
 - **Infrastructure:** Docker (`Dockerfile`, `Backend/Dockerfile`), Google Cloud Build (`cloudbuild.yaml`), GitHub Actions.
 - **Code Quality:** Qodana (`qodana.yaml`), Prettier (`.prettierrc`).
 - **Agents/Skills:** Uses custom Gemini CLI and Claude skills (located in `alirez-claude-skills/`).
@@ -38,9 +38,7 @@ This project is a full-stack application featuring an Angular/React frontend and
 - **Setup Environment:**
   ```bash
   cd Backend
-  ./setup_venv.sh
-  source .venv/bin/activate
-  pip install -r requirements.txt
+  uv sync
   ```
 - **Database Setup:** `bash init_database.sh`
 - **Run Server:** `python app.py` or through the provided shell scripts (e.g., `run_debug.sh`).

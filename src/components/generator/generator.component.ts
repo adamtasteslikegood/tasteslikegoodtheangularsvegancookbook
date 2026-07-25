@@ -1,20 +1,8 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { GeminiService } from '../../services/gemini.service';
-import { AuthService } from '../../services/auth.service';
-import { PersistenceService } from '../../services/persistence.service';
-import { RecipeStateService } from '../../services/recipe-state.service';
-import { ModalService } from '../../services/modal.service';
-import { ToastService } from '../../services/toast.service';
-import {
-  isPublicViewable,
-  publicLinkKind,
-  publicSlugOf,
-  publishToggleKind,
-} from '../../utils/public-link';
-import { slugFromTitle } from '../../utils/slug';
-import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
+import { RecipeViewBase } from '../shared/recipe-view.base';
+import type { Recipe } from '../../recipe.types';
 
 @Component({
   selector: 'app-generator',
@@ -22,58 +10,19 @@ import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../..
   imports: [CommonModule, FormsModule],
   templateUrl: './generator.component.html',
 })
-export class GeneratorComponent {
-  private readonly geminiService = inject(GeminiService);
-  private readonly persistenceService = inject(PersistenceService);
-  readonly authService = inject(AuthService);
-  private readonly recipeState = inject(RecipeStateService);
-  private readonly modalService = inject(ModalService);
-  private readonly toastService = inject(ToastService);
-
-  readonly recipe = this.recipeState.currentRecipe;
-  readonly generatedImageUrl = this.recipeState.generatedImageUrl;
-  readonly isSaved = this.recipeState.isSaved;
-
+export class GeneratorComponent extends RecipeViewBase {
   prompt = signal('');
   isRecipeLoading = signal(false);
-  isImageLoading = signal(false);
   error = signal<string | null>(null);
-  servingsMultiplier = signal(1);
-  isEditingNotes = signal(false);
-  editedNotes = signal('');
 
-  canPublish = computed(() => {
-    const user = this.authService.currentUser();
-    return !!user && user.isGuest === false;
-  });
-
-  scaledIngredients = computed(() => {
-    const r = this.recipe();
-    const mult = this.servingsMultiplier();
-    if (!r) return null;
-
-    const scaleIngredient = (ing: Ingredient): Ingredient => {
-      let newAmount: number | number[];
-      if (Array.isArray(ing.amount)) {
-        newAmount = ing.amount.map((val) => Number((val * mult).toFixed(2)));
-      } else {
-        newAmount = Number((ing.amount * mult).toFixed(2));
-      }
-      return { ...ing, amount: newAmount };
-    };
-
-    const scaledGroup: IngredientGroup = {};
-    if (r.ingredients.wet) scaledGroup.wet = r.ingredients.wet.map(scaleIngredient);
-    if (r.ingredients.dry) scaledGroup.dry = r.ingredients.dry.map(scaleIngredient);
-    if (r.ingredients.other) scaledGroup.other = r.ingredients.other.map(scaleIngredient);
-    return scaledGroup;
-  });
-
-  scaledServings = computed(() => {
-    const r = this.recipe();
-    if (!r) return 0;
-    return Math.round(r.servings * this.servingsMultiplier());
-  });
+  /**
+   * A guest activating the publish toggle gets the sign-in modal here, where
+   * recipe-detail stays silent (its template renders a dedicated "Sign in to
+   * publish" button instead — #3211).
+   */
+  protected override onPublishDenied(): void {
+    this.modalService.openAuth();
+  }
 
   async onGenerate() {
     if (!this.prompt().trim()) return;
@@ -125,27 +74,6 @@ export class GeneratorComponent {
     }
   }
 
-  async regenerateImage() {
-    const currentRecipe = this.recipe();
-    if (!currentRecipe) return;
-    const targetId = currentRecipe.id;
-    this.isImageLoading.set(true);
-    try {
-      const imageUrl = await this.geminiService.generateImage(targetId, true);
-      if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
-      }
-      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
-    } catch (err) {
-      console.error('Image regeneration failed', err);
-    } finally {
-      if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
-      }
-    }
-  }
-
   async onSaveRecipe() {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
@@ -153,174 +81,12 @@ export class GeneratorComponent {
     this.isSaved.set(true);
   }
 
-  startEditNotes() {
-    const r = this.recipe();
-    if (!r) return;
-    // KAN-140: the editor only ever touches personalNotes — the generated
-    // notes render on the public page and must not be user-writable.
-    this.editedNotes.set(r.personalNotes || '');
-    this.isEditingNotes.set(true);
-  }
-
-  cancelEditNotes() {
-    this.isEditingNotes.set(false);
-    this.editedNotes.set('');
-  }
-
-  async saveNotes() {
-    const r = this.recipe();
-    if (r) {
-      const updatedRecipe = { ...r, personalNotes: this.editedNotes() };
-      this.recipe.set(updatedRecipe);
-      await this.persistenceService.saveRecipe(updatedRecipe);
-      this.isEditingNotes.set(false);
-    }
-  }
-
-  updatePortions(multiplier: number) {
-    this.servingsMultiplier.set(multiplier);
-  }
-
   openAddToCookbookModal() {
     const r = this.recipe();
     if (r) this.modalService.openAddToCookbook(r);
   }
 
-  exportRecipe(recipe: Recipe) {
-    const fileName = `${recipe.name.replace(/\s+/g, '_')}.json`;
-    const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  async togglePublic(recipe: Recipe) {
-    if (!this.canPublish()) {
-      this.modalService.openAuth();
-      return;
-    }
-    // KAN-139: the server rejects publish-state changes on canonical recipes
-    // (400), and while the initial sync is pending we don't yet know the
-    // authoritative state — the template disables the toggle in both cases;
-    // this guard backstops it.
-    if (recipe.is_canonical || this.publishTogglePending()) return;
-    const nextState = !recipe.is_public;
-
-    // KAN-140: manually entered recipes cannot be published — the server
-    // rejects with 400; the template disables the toggle, this backstops it.
-    if (nextState && recipe.origin === 'manual') {
-      this.toastService.show("Manually entered recipes can't be published.");
-      return;
-    }
-
-    // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
-    // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
-    // with 400. Same derivation as the server (parity is spec-pinned), so
-    // catch it before the round trip and say why instead of failing silently.
-    if (nextState && !recipe.slug && !this.slugFromTitle(recipe.name)) {
-      this.toastService.show(
-        "This recipe can't be published: its title has no letters or numbers (a-z, 0-9) to build a public link from."
-      );
-      return;
-    }
-
-    // KAN-137: first publish of a copy saved from a public recipe would mint
-    // a near-identical second public page (name collision → -N slug). Make
-    // that an informed choice instead of a silent side effect.
-    if (
-      nextState &&
-      !recipe.slug &&
-      recipe.sourceSlug &&
-      !confirm(
-        `This recipe was saved from a public recipe that may still be live at /r/${recipe.sourceSlug}. Publish your copy as a separate public page?`
-      )
-    ) {
-      return;
-    }
-
-    recipe.is_public = nextState;
-
-    if (nextState && !recipe.slug) {
-      recipe.slug = this.slugFromTitle(recipe.name);
-    }
-
-    try {
-      const synced = await this.persistenceService.saveRecipe(recipe);
-      if (!synced) {
-        throw new Error('Publish state failed to sync to the server');
-      }
-    } catch (err) {
-      console.error('Failed to toggle public state:', err);
-      recipe.is_public = !nextState;
-      this.authService.saveRecipe(recipe);
-      // KAN-104 (#3146): the revert already worked; without a message the
-      // user just sees the switch snap back with no explanation.
-      this.toastService.show(
-        nextState
-          ? 'Publishing failed to sync to the server. Check your connection and try again.'
-          : 'Unpublishing failed to sync to the server. Check your connection and try again.'
-      );
-    }
-  }
-
-  isPublicViewable(recipe: Recipe): boolean {
-    return isPublicViewable(recipe);
-  }
-
-  publicLinkKind(recipe: Recipe): 'own' | 'source' | null {
-    return publicLinkKind(recipe);
-  }
-
-  publicSlugOf(recipe: Recipe): string | null {
-    return publicSlugOf(recipe);
-  }
-
-  publishToggleKind(recipe: Recipe): 'locked' | 'manual' | 'source' | 'normal' {
-    return publishToggleKind(recipe);
-  }
-
-  publishTogglePending(): boolean {
-    return this.persistenceService.publishStateSync() === 'pending';
-  }
-
-  publishToggleTitle(recipe: Recipe): string {
-    if (this.publishTogglePending()) return 'Checking publish state…';
-    const kind = publishToggleKind(recipe);
-    if (kind === 'locked') return 'Canonical recipe — publish state is locked';
-    if (kind === 'manual') return "Manually entered recipes can't be published.";
-    if (kind === 'source') {
-      return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
-    }
-    return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
-  }
-
-  private slugFromTitle = slugFromTitle;
-
-  formatAmount(amount: number | number[]): string {
-    if (Array.isArray(amount)) {
-      return amount.join(' - ');
-    }
-    const decimal = amount;
-    if (Math.abs(decimal - 0.25) < 0.01) return '1/4';
-    if (Math.abs(decimal - 0.5) < 0.01) return '1/2';
-    if (Math.abs(decimal - 0.75) < 0.01) return '3/4';
-    if (Math.abs(decimal - 0.33) < 0.01) return '1/3';
-    if (Math.abs(decimal - 0.66) < 0.01) return '2/3';
-    return decimal.toString();
-  }
-
   isString(val: unknown): boolean {
     return typeof val === 'string';
-  }
-
-  instructionText(step: string | InstructionStep): string {
-    return typeof step === 'string' ? step : step.description;
-  }
-
-  openAuthModal() {
-    this.modalService.openAuth();
   }
 }
