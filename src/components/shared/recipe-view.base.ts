@@ -113,12 +113,25 @@ export abstract class RecipeViewBase {
     }
   }
 
+  /**
+   * GH #3256 (KAN-144): manual entry used to write the user's own "Chef's
+   * Notes" into `notes` — the field KAN-140 froze as generated, publicly
+   * rendered, read-only content. Those recipes were left with notes they
+   * could no longer edit and a pencil that opened an empty box.
+   *
+   * A manual recipe can never be published, so nothing public depends on its
+   * `notes`: on first edit, adopt the text into personalNotes instead.
+   */
+  private migratesLegacyNotes(r: Recipe): boolean {
+    return r.origin === 'manual' && !r.personalNotes && !!r.notes;
+  }
+
   startEditNotes() {
     const r = this.recipe();
     if (!r) return;
     // KAN-140: the editor only ever touches personalNotes — the generated
     // notes render on the public page and must not be user-writable.
-    this.editedNotes.set(r.personalNotes || '');
+    this.editedNotes.set(this.migratesLegacyNotes(r) ? (r.notes ?? '') : r.personalNotes || '');
     this.isEditingNotes.set(true);
   }
 
@@ -130,7 +143,10 @@ export abstract class RecipeViewBase {
   async saveNotes() {
     const r = this.recipe();
     if (r) {
-      const updatedRecipe = { ...r, personalNotes: this.editedNotes() };
+      const updatedRecipe: Recipe = { ...r, personalNotes: this.editedNotes() };
+      // Clear the adopted legacy field so the same text doesn't render twice —
+      // once read-only above the editor, once as "My notes (private)".
+      if (this.migratesLegacyNotes(r)) updatedRecipe.notes = '';
       this.recipe.set(updatedRecipe);
       await this.persistenceService.saveRecipe(updatedRecipe);
       this.isEditingNotes.set(false);
@@ -148,9 +164,15 @@ export abstract class RecipeViewBase {
     }
     // KAN-139: the server rejects publish-state changes on canonical recipes
     // (400), and while the initial sync is pending we don't yet know the
-    // authoritative state — the template disables the toggle in both cases;
-    // this guard backstops it.
-    if (recipe.is_canonical || this.publishTogglePending()) return;
+    // authoritative state.
+    //
+    // GH #3255 (KAN-143): say why rather than no-op. The template used to hide
+    // the reason in a `title` on a `disabled` button — unreachable by keyboard
+    // and unreliable on hover — so an unavailable toggle just sat there.
+    if (recipe.is_canonical || this.publishTogglePending()) {
+      this.toastService.show(this.publishToggleTitle(recipe));
+      return;
+    }
     const nextState = !recipe.is_public;
 
     // KAN-140: manually entered recipes cannot be published — the server

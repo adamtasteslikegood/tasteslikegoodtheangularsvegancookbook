@@ -28,7 +28,7 @@ describe('RecipeViewBase', () => {
     vi.restoreAllMocks();
   });
 
-  const createHost = (opts: { isGuest?: boolean } = {}) => {
+  const createHost = (opts: { isGuest?: boolean; publishStateSync?: string } = {}) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
@@ -48,7 +48,10 @@ describe('RecipeViewBase', () => {
         },
         {
           provide: PersistenceService,
-          useValue: { saveRecipe: persistenceSaveRecipe, publishStateSync: () => 'synced' },
+          useValue: {
+            saveRecipe: persistenceSaveRecipe,
+            publishStateSync: () => opts.publishStateSync ?? 'synced',
+          },
         },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
@@ -95,6 +98,90 @@ describe('RecipeViewBase', () => {
     expect(persistenceSaveRecipe).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'r1', is_public: true })
     );
+  });
+
+  // GH #3255 (KAN-143): the reason a toggle is unavailable used to live only in
+  // a `title` on a `disabled` button, which neither surfaces a tooltip reliably
+  // nor is reachable by keyboard — so the explanation could never appear.
+  // Activating an unavailable toggle now says why out loud.
+  it('says why a canonical recipe cannot be unpublished', async () => {
+    const { host, persistenceSaveRecipe } = createHost();
+
+    await host.togglePublic({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      is_canonical: true,
+      is_public: true,
+    } as never);
+
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/locked/i));
+    expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+  });
+
+  it('says why the toggle is inert while the publish state is still syncing', async () => {
+    const { host, persistenceSaveRecipe } = createHost({ publishStateSync: 'pending' });
+
+    await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread' } as never);
+
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/checking publish state/i));
+    expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+  });
+
+  // GH #3256 (KAN-144): manual entry wrote the user's own notes into `notes`,
+  // the generated-content field the editor treats as read-only — so those notes
+  // were frozen and the pencil opened an empty box. Manual recipes are never
+  // published, so nothing public depends on their `notes`: adopt the text.
+  it('seeds the editor from the legacy notes of a manually entered recipe', () => {
+    const { host } = createHost();
+    host.recipe.set({
+      id: 'r1',
+      name: 'Grandma Cornbread',
+      origin: 'manual',
+      notes: 'skillet must be screaming hot',
+    } as never);
+
+    host.startEditNotes();
+
+    expect(host.editedNotes()).toBe('skillet must be screaming hot');
+  });
+
+  it('migrates legacy manual notes into personalNotes and clears the legacy field', async () => {
+    const { host, persistenceSaveRecipe } = createHost();
+    host.recipe.set({
+      id: 'r1',
+      name: 'Grandma Cornbread',
+      origin: 'manual',
+      notes: 'skillet must be screaming hot',
+    } as never);
+
+    host.startEditNotes();
+    host.editedNotes.set('skillet must be screaming hot — and use bacon fat');
+    await host.saveNotes();
+
+    const saved = host.recipe() as { notes?: string; personalNotes?: string } | null;
+    expect(saved?.personalNotes).toBe('skillet must be screaming hot — and use bacon fat');
+    expect(saved?.notes).toBe('');
+    expect(persistenceSaveRecipe).toHaveBeenCalledWith(expect.objectContaining({ notes: '' }));
+  });
+
+  it('never adopts the generated notes of a generated recipe', async () => {
+    const { host } = createHost();
+    host.recipe.set({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      origin: 'generated',
+      notes: 'generated public notes',
+    } as never);
+
+    host.startEditNotes();
+    expect(host.editedNotes()).toBe('');
+
+    host.editedNotes.set('my private tweaks');
+    await host.saveNotes();
+
+    const saved = host.recipe() as { notes?: string; personalNotes?: string } | null;
+    expect(saved?.notes).toBe('generated public notes');
+    expect(saved?.personalNotes).toBe('my private tweaks');
   });
 
   it('formats fractional and ranged amounts', () => {
