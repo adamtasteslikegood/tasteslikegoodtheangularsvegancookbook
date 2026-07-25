@@ -8,6 +8,74 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.6] - 2026-07-25
+
+Backend submodule pointer: `ff92120` → **`38736da`** (Backend `main`, promoted in
+Backend [#252](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/252)).
+**One new Alembic migration** (`e4a7b2d9c5f1`, chaining onto `d1e5a9c3f7b2`) —
+unlike v0.4.5, the `flask-backend-migrate` Cloud Run Job does real work this
+release. Head count after it applies: exactly 1.
+
+Two production defects reported during walkthrough round 2, both of which made
+ordinary browsing fail rather than any exotic path.
+
+### Fixed
+
+- **Reloading a recipe deep link no longer renders a blank page with a dead
+  router** (KAN-159,
+  [#3282](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3282)).
+  `index.html` shipped no `<base>` element, and the Angular builder injects its
+  bundles as bare filenames (`main-<hash>.js`). Browsers resolve those against
+  the document's current _directory_, so route depth decided whether the app
+  booted at all: `/` and `/kitchen` resolved `/main-<hash>.js` and worked, while
+  `/recipe/<id>` asked for `/recipe/main-<hash>.js`, matched no build artifact,
+  fell through to the Express SPA catch-all, and got 13KB of `index.html` back
+  labelled `text/html`. Adding `<base href="/">` anchors bundle resolution at the
+  site root regardless of route depth. A new `src/app-shell.test.ts` guards the
+  shell by tokenizing it left-to-right, so markup merely _mentioned_ inside a
+  comment can't satisfy the check.
+
+- **Ordinary mobile browsing no longer exhausts the per-IP rate limit**
+  (KAN-154,
+  [#3281](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3281)).
+  Two users sharing one home connection both hit
+  `{"error": "Too many requests, please try again later."}` on `/browse` and on
+  individual `/r/<slug>` pages — 84 × HTTP 429 on `express-frontend` after the
+  v0.4.5 deploy, against 0 in the preceding 24 hours. Every subresource the
+  browser fetched on its own was metered as a navigation against the same
+  300 req / 15 min bucket, putting one page view at roughly 8 counted requests
+  (≈37 page views per 15 minutes before lockout). Three causes, all fixed:
+  static subresources are now exempt from the page limiter; `/apple-touch-icon`
+  and `/apple-touch-icon-precomposed.png` are served explicitly instead of
+  falling through to the catch-all as 13KB of HTML labelled `image/png` (that
+  path alone was 44 of the 429s); and the page limiter now owns an `rl:page:`
+  Valkey keyspace instead of sharing `rl:api:`, so browsing can no longer drain
+  the `/api` budget.
+
+### Added
+
+- **Eighth canonical recipe: orange-chicken-style seitan** (KAN-158,
+  [#3283](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3283)
+  - Backend [#251](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/251)).
+    The set's first Asian/takeout-style entry, already ranking top for a
+    partial-slug query with its hero image intact. `is_canonical = true` makes the
+    public page durable: `_guard_canonical` refuses unpublish, re-slug, and delete,
+    so an indexed `/r/` page can't later turn into a 404. Schema `maxItems` and the
+    SEO gate's count bound both move 7 → 8 together, so they can't disagree about
+    what is valid.
+
+- **The single-Alembic-head check is now a required merge gate** (KAN-138,
+  [#3285](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3285)).
+  The check already existed and was already correct — station 4 of
+  `scripts/release/train-verify.sh` — but nothing ran it before a merge:
+  `release-train.yml` fires only on manual dispatch and a daily cron, and
+  `pr-gate.yml` had no Alembic check at all. A pointer bump onto a branched-head
+  Backend therefore merged clean and surfaced on the next cron, or at deploy,
+  where two heads make `flask db upgrade` refuse, fail the migrate Job, and abort
+  the release with the previous Flask revision left serving. The logic moved to
+  `scripts/release/alembic-heads.sh` (one implementation, shared by both callers)
+  and `pr-gate.yml` gained `Backend — single Alembic head` in `gate.needs`.
+
 ## [0.4.5] - 2026-07-25
 
 Backend submodule pointer: `50cdbbb` → **`ff92120`** (Backend `main`, promoted in
