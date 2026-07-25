@@ -15,7 +15,7 @@
     "recipes": {
       "type": "array",
       "minItems": 3,
-      "maxItems": 7,
+      "maxItems": 8,
       "items": {
         "type": "object",
         "required": ["slug", "title", "rationale", "added", "score"],

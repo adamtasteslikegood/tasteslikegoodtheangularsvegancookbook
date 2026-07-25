@@ -15,6 +15,13 @@
 
 set -euo pipefail
 
+# Resolve to an absolute path before any `cd`, so the alembic-heads.sh sibling
+# call below still points at the right file when the script is invoked as
+# `./train-verify.sh` from within scripts/release/ (BASH_SOURCE stays literal,
+# and the `cd "$ROOT"` a few lines down would otherwise leave a bare `.` pointing
+# at the repo root and turn the check into a spurious "could not determine").
+SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
 BACKEND_REPO="adamtasteslikegood/tasteslikegood.com"
 COOKBOOK_REPO="adamtasteslikegood/tasteslikegoodtheangularsvegancookbook"
 
@@ -138,32 +145,9 @@ pointer_content_state="matches-backend-main-content"
 
 # 4. Alembic heads. Two heads means `flask db upgrade` refuses to run, which
 #    fails the migrate Job and aborts the deploy mid-release.
-heads=$(
-  python3 - <<'PY' 2>/dev/null || echo "error"
-import pathlib, re
-
-# Heads = revisions nobody names as a parent, which is how alembic computes
-# them. Parsed rather than shelled out to `flask db heads` so this station
-# needs no Backend virtualenv. The down_revision pattern deliberately allows a
-# tuple to span lines: a merge migration's `down_revision = ('a', 'b')` is one
-# line as alembic writes it, but a formatter will wrap a long one, and missing
-# those parents would over-count heads and block a release that is fine.
-versions = pathlib.Path("Backend/migrations/versions")
-revisions, parents = set(), set()
-for path in versions.glob("*.py"):
-    text = path.read_text(encoding="utf-8", errors="replace")
-    match = re.search(r"^revision(?::\s*str)?\s*=\s*['\"]([^'\"]+)['\"]", text, re.M)
-    if match:
-        revisions.add(match.group(1))
-    for down in re.findall(
-        r"down_revision(?:\s*:[^=]*)?\s*=\s*(\([^)]*\)|\[[^\]]*\]|['\"][^'\"]*['\"])",
-        text,
-        re.S,
-    ):
-        parents.update(re.findall(r"['\"]([^'\"]+)['\"]", down))
-print(len(revisions - parents) if revisions else "error")
-PY
-)
+#    Shared with pr-gate.yml's required "Backend — single Alembic head" job so
+#    the release train and the merge gate can never disagree about the answer.
+heads=$("$SCRIPT_DIR/alembic-heads.sh" 2>/dev/null || echo "error")
 
 # 5. Version / CHANGELOG coherence. pr-gate enforces this on the release PR;
 #    checking it here means a bad bump is caught before the PR exists.

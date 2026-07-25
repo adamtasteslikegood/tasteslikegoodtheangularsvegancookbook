@@ -5,6 +5,7 @@ import type { Server } from 'node:http';
 import {
   applySecurityMiddleware,
   createApiLimiter,
+  createPageLimiter,
   createErrorHandler,
   createExpensiveOperationLimiter,
   createRequestLogger,
@@ -78,8 +79,11 @@ export const ready = (async () => {
   // Expensive AI operations: 20 req / hour per IP
   app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
   app.use('/api/generate_image', createExpensiveOperationLimiter(valkeyClient));
-  // Static HTML shell (index.html) catch-all: reuse general API limiter
-  const staticPageLimiter = createApiLimiter(valkeyClient);
+  // Public HTML surface (SPA shell, SSR pages, standalone static pages).
+  // KAN-154: its own limiter, not a second createApiLimiter — that shared the
+  // `rl:api:` Valkey keyspace with the /api limiter above, and it metered
+  // static subresources as if they were navigations.
+  const staticPageLimiter = createPageLimiter(valkeyClient);
 
   // Apply security middleware (Helmet headers) and request logging before
   // the Flask proxy so that security headers and telemetry cover all
@@ -131,6 +135,23 @@ export const ready = (async () => {
     // page navigation re-fetches the favicon and counts toward
     // staticPageLimiter's 300 req / 15 min per-IP budget. Cache it for a day.
     res.sendFile(path.join(publicPath, 'favicon.svg'), { maxAge: '1d' });
+  });
+
+  // /apple-touch-icon.png + /apple-touch-icon-precomposed.png — iOS Safari
+  // requests both by convention on every page view, with no <link> needed.
+  // The repo ships no PNG icon, so they fell through to the SPA catch-all and
+  // came back as 13KB of index.html labelled image/png with max-age=0 — which
+  // iOS neither caches nor accepts, so it asked again on the next page. That
+  // was 60 requests and 44 of the 429s in the KAN-154 incident: the same
+  // defect #3164 fixed for /favicon.ico, on the paths it missed.
+  //
+  // 204 rather than 404: both stop the index.html leak, but a cacheable 204
+  // tells iOS not to re-probe, and 404s are re-requested. iOS falls back to a
+  // page screenshot for the home-screen icon, which is the pre-existing
+  // behaviour anyway.
+  app.get(/^\/apple-touch-icon(-precomposed)?\.png$/, staticPageLimiter, (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.status(204).end();
   });
 
   // Flask SSR routes — individual public recipes, the browse index, and the
