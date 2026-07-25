@@ -27,11 +27,12 @@ usage() {
 Usage: scripts/release/train-verify.sh [--json] [--for-release] [--no-fetch]
 
   --json          machine-readable output (one JSON object on stdout)
-  --for-release   stricter: also require that there is something to ship, that
-                  the submodule pointer matches the Backend tip, and that this
-                  version is not already tagged. Queries origin for the tag even
-                  under --no-fetch (one ref lookup) — guessing there would mean
-                  greenlighting a release that silently never deploys.
+  --for-release   stricter. Also requires: something to ship; the submodule
+                  pointer pinned to Backend main's own SHA; the CHANGELOG
+                  section naming that SHA; and this version not already tagged.
+                  Queries origin for the tag even under --no-fetch (one ref
+                  lookup) — guessing there would mean greenlighting a release
+                  that silently never deploys.
   --no-fetch      skip network fetches; compare whatever refs are already local
                   (faster, but a stale origin/* gives a stale answer)
 
@@ -108,8 +109,20 @@ pointer=$(git rev-parse origin/dev:Backend)
 backend_dev_tip=$(git -C Backend rev-parse origin/dev)
 backend_main_tip=$(git -C Backend rev-parse origin/main)
 
-pointer_state="matches-backend-dev"
-[ "$pointer" = "$backend_dev_tip" ] || pointer_state="behind-backend-dev"
+# The pointer targets Backend **main**, not dev. main is the promoted tip and
+# the branch that is meant to equal the deployed codebase, so pinning main's own
+# SHA is what makes "which Backend commit is in production?" answerable by
+# looking at one ref. Pinning a dev-side SHA that merely has main's content —
+# which is what shipped in v0.3.9 and what the pointer does right now — leaves
+# the deployed SHA and Backend main permanently disagreeing.
+pointer_state="matches-backend-main"
+[ "$pointer" = "$backend_main_tip" ] || pointer_state="differs-from-backend-main"
+
+# Diagnostic only, but it changes what the fix is: identical trees mean the
+# pointer is merely aimed at the wrong SHA (bump it), while differing trees mean
+# Backend dev→main has not been promoted yet (promote first, then bump).
+pointer_vs_dev="matches-backend-dev"
+[ "$pointer" = "$backend_dev_tip" ] || pointer_vs_dev="differs-from-backend-dev"
 
 # Trees, not commits: a promotion merge makes main's SHA differ from dev's while
 # the content is identical, and pinning either one deploys the same code.
@@ -158,6 +171,42 @@ version=$(node -p "require('./package.json').version" 2>/dev/null || echo "unkno
 changelog_state="missing"
 if [ "$version" != "unknown" ] && grep -qE "^## \[?${version//./\\.}\]?" CHANGELOG.md 2>/dev/null; then
   changelog_state="present"
+fi
+
+# 5b. The release notes must name the Backend SHA they ship. Production deploys
+#     whatever the pointer pins at tag time, so without this the CHANGELOG
+#     describes the frontend half of a release and stays silent about the other
+#     half. The convention already exists informally (v0.3.7, v0.3.9, v0.4.0);
+#     this makes it checkable. Any abbreviation of the pinned SHA counts, since
+#     that is how the existing entries are written.
+changelog_pointer_state="absent"
+if [ "$changelog_state" = "present" ]; then
+  changelog_pointer_state=$(
+    python3 - "$version" "$pointer" <<'PY' 2>/dev/null || echo "error"
+import pathlib, re, sys
+
+version, pointer = sys.argv[1], sys.argv[2]
+text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8", errors="replace")
+
+# This version's section only: heading through the next h2 (or EOF). Scanning
+# the whole file would happily match the PREVIOUS release's pointer line and
+# call it present.
+match = re.search(
+    r"^##\s+\[?" + re.escape(version) + r"\]?.*?$(.*?)(?=^##\s|\Z)",
+    text,
+    re.M | re.S,
+)
+if not match:
+    print("missing-section")
+    raise SystemExit
+
+for token in re.findall(r"\b[0-9a-f]{7,40}\b", match.group(1)):
+    if pointer.startswith(token):
+        print("present")
+        raise SystemExit
+print("absent")
+PY
+  )
 fi
 
 # 6. Is this version already shipped? Once vX.Y.Z is cut the version is spent:
@@ -210,10 +259,18 @@ esac
 if [ "$FOR_RELEASE" = "1" ]; then
   [ "$cookbook_pending" != "0" ] ||
     blocking+=("nothing to release: dev is not ahead of main")
-  [ "$pointer_state" = "matches-backend-dev" ] ||
-    blocking+=("submodule pointer is behind Backend dev — bump it before cutting the release")
-  [ "$pointer_content_state" = "matches-backend-main-content" ] ||
-    blocking+=("submodule pointer content differs from Backend main — promote Backend dev→main first")
+  if [ "$pointer_state" != "matches-backend-main" ]; then
+    if [ "$pointer_content_state" = "matches-backend-main-content" ]; then
+      blocking+=("submodule pointer pins ${pointer:0:12}, Backend main is ${backend_main_tip:0:12} (identical tree) — bump the pointer to main's own SHA: git -C Backend checkout ${backend_main_tip:0:12} && git add Backend")
+    else
+      blocking+=("submodule pointer content differs from Backend main — promote Backend dev→main first, then pin main's SHA")
+    fi
+  fi
+  case "$changelog_pointer_state" in
+    present) ;;
+    error) blocking+=("could not read the CHANGELOG section for $version to check the pinned Backend SHA") ;;
+    *) blocking+=("CHANGELOG section for $version does not name the pinned Backend SHA (${pointer:0:12}) — the release notes would describe only the frontend half of what deploys") ;;
+  esac
   [ "$changelog_state" = "present" ] ||
     blocking+=("CHANGELOG.md has no '## [$version]' section — pr-gate will fail the release PR")
   [ "$tag_state" != "already-tagged" ] ||
@@ -221,10 +278,12 @@ if [ "$FOR_RELEASE" = "1" ]; then
 else
   [ "$backend_pending" = "0" ] ||
     warnings+=("Backend dev is $backend_pending commit(s) ahead of main — promotion needed before the next release")
-  [ "$pointer_state" = "matches-backend-dev" ] ||
-    warnings+=("submodule pointer is behind Backend dev")
+  [ "$pointer_state" = "matches-backend-main" ] ||
+    warnings+=("submodule pointer pins ${pointer:0:12}, Backend main is ${backend_main_tip:0:12}")
   [ "$changelog_state" = "present" ] ||
     warnings+=("CHANGELOG.md has no '## [$version]' section yet")
+  [ "$changelog_state" != "present" ] || [ "$changelog_pointer_state" = "present" ] ||
+    warnings+=("CHANGELOG section for $version does not name the pinned Backend SHA yet")
 fi
 
 status="clean"
@@ -246,9 +305,10 @@ if [ "$FORMAT" = "json" ]; then
   printf '"version":"%s",' "$version"
   printf '"cookbook":{"backsync_owed":%s,"pending_release":%s},' "$cookbook_backsync" "$cookbook_pending"
   printf '"backend":{"backsync_owed":%s,"pending_promotion":%s},' "$backend_backsync" "$backend_pending"
-  printf '"pointer":{"sha":"%s","state":"%s","content":"%s"},' "$pointer" "$pointer_state" "$pointer_content_state"
+  printf '"pointer":{"sha":"%s","state":"%s","content":"%s","vs_backend_dev":"%s","backend_main":"%s"},' "$pointer" "$pointer_state" "$pointer_content_state" "$pointer_vs_dev" "$backend_main_tip"
   printf '"alembic_heads":"%s",' "$heads"
   printf '"changelog":"%s",' "$changelog_state"
+  printf '"changelog_pointer":"%s",' "$changelog_pointer_state"
   printf '"tag":"%s",' "$tag_state"
   printf '"blocking":%s,' "$(json_array ${blocking[@]+"${blocking[@]}"})"
   printf '"warnings":%s' "$(json_array ${warnings[@]+"${warnings[@]}"})"
@@ -263,7 +323,9 @@ else
   printf '  %-34s %s\n' "Backend  main->dev back-sync owed" "$backend_backsync"
   printf '  %-34s %s\n' "Backend  dev->main pending" "$backend_pending"
   printf '  %-34s %s (%s)\n' "submodule pointer" "${pointer:0:12}" "$pointer_state"
+  printf '  %-34s %s\n' "Backend  main tip" "${backend_main_tip:0:12}"
   printf '  %-34s %s\n' "pointer content vs Backend main" "$pointer_content_state"
+  printf '  %-34s %s\n' "CHANGELOG names pinned SHA" "$changelog_pointer_state"
   printf '  %-34s %s\n' "alembic heads" "$heads"
   echo
 

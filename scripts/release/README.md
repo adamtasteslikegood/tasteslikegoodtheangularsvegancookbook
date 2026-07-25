@@ -93,6 +93,31 @@ Two options, neither blocking:
 - **Relax to `first_time_contributors`** if the pending-run noise is annoying:
   `gh api -X PUT repos/{o}/{r}/actions/permissions/fork-pr-contributor-approval -f approval_policy=first_time_contributors`
 
+## The pointer targets Backend `main`
+
+Decided 2026-07-25. The submodule pointer pins **Backend `main`'s own SHA** —
+not a `dev`-side SHA that merely carries main's content.
+
+Both deploy the same code, so this is not about what runs. It is about being
+able to answer "which Backend commit is in production?" from one ref. v0.3.9
+pinned `18a303a` while Backend `main` was `53af0941`; today's pointer pins
+`50cdbbb` while Backend `main` is `dfc5cad`. Identical trees each time, and a
+deployed SHA that appears nowhere on the branch that is supposed to equal
+production.
+
+`--for-release` blocks on it and distinguishes the two causes, because the fix
+differs:
+
+- **identical trees** — the pointer is aimed at the wrong SHA. Bump it.
+- **differing trees** — Backend `dev → main` was never promoted. Promote, then pin.
+
+The release's CHANGELOG section must also **name the pinned SHA**. Production
+deploys whatever the pointer pins at tag time, so without it the release notes
+describe the frontend half of a release and stay silent about the other half.
+The convention already existed informally (v0.3.7, v0.3.9, v0.4.0); the station
+makes it checkable, and accepts any abbreviation, which is how those entries are
+written.
+
 ## The freeze window (spec — for when the driver lands)
 
 Today's scripts verify and back-sync; they do not drive the train. When a driver
