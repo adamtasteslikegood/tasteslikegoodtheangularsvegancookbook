@@ -14,7 +14,10 @@ permissions:
   issues: read
   pull-requests: read
 
-network: defaults
+network:
+  allowed:
+    - defaults
+    - "localhost"
 
 tools:
   github:
