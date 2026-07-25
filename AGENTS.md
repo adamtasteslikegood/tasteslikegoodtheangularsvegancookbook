@@ -15,9 +15,6 @@ cannot drift again. What remains here is the delta for non-Claude agents.
 These sections describe Claude Code specifics and do not apply to you:
 
 - **gstack** — the `/browse`, `/ship`, `/review` … skill table
-- **GBrain Configuration** / **GBrain Search Guidance** — written for Claude Code:
-  it assumes the `/sync-gbrain` and `/browse` skills and the `.gbrain-source`
-  worktree pin those skills manage
 - **Startup (agent sessions)** — `.mcp.json` auto-spawn is Claude Code behaviour.
   The PM daemon facts in that section (watcher singleton, "expect many
   daemons", the `npm run pm:*` loop, the Jira project-key allowlist) are true
