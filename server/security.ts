@@ -49,6 +49,34 @@ export function shouldSkipRateLimiting(req: Request): boolean {
   return req.path === '/health' || IMAGE_SERVING_RE.test(req.path);
 }
 
+// Subresources a browser requests on its own for every page view: Flask's SSR
+// stylesheets/scripts and the icon set that iOS probes by convention.
+const SUBRESOURCE_PREFIX_RE = /^\/(?:static\/|favicon\.|apple-touch-icon)/;
+
+// Angular's content-hashed build output (main-GTOZZOJH.js, styles-VFQLW5EH.css,
+// chunk-UORTPREJ.js). Anchored on the hash so an arbitrary /evil.js is not
+// exempt. Bundles also arrive under a route prefix (/recipe/main-….js) because
+// the SPA requests them relative to the current URL, so this matches on the
+// basename rather than the whole path.
+const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
+
+/**
+ * Returns true for static subresources that must not count against the page
+ * rate limit.
+ *
+ * KAN-154: these were metered like real navigations, so a single SSR page view
+ * cost ~8 requests out of a 300 req / 15 min per-IP budget — roughly 37 page
+ * views per quarter hour, shared by every device behind one NAT'd address.
+ * Two people browsing recipes exhausted it and both got 429s. Rate limiting
+ * here exists to protect Flask and the AI endpoints; metering CSS bought
+ * nothing and cost the public surface.
+ *
+ * Exported for unit testing.
+ */
+export function isPageSubresource(req: Request): boolean {
+  return SUBRESOURCE_PREFIX_RE.test(req.path) || HASHED_BUNDLE_RE.test(req.path);
+}
+
 // Rate limiter for general API requests
 export const createApiLimiter = (
   valkeyClient: Redis | null = null,
@@ -65,6 +93,33 @@ export const createApiLimiter = (
     skip: shouldSkipRateLimiting,
     keyGenerator: (req) => getClientIp(req),
     store: buildRedisStore(valkeyClient, 'rl:api:'),
+  });
+};
+
+/**
+ * Rate limiter for the public HTML surface: the SPA shell, the Flask-rendered
+ * SSR pages, and the standalone static pages.
+ *
+ * KAN-154: kept separate from createApiLimiter for two reasons. It skips
+ * static subresources (see isPageSubresource), and it writes to its own Valkey
+ * keyspace — previously both limiters were built from createApiLimiter and so
+ * shared the `rl:api:` prefix, letting ordinary browsing exhaust the budget
+ * for /api/* on the same IP.
+ */
+export const createPageLimiter = (
+  valkeyClient: Redis | null = null,
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 300
+) => {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+    skip: isPageSubresource,
+    keyGenerator: (req) => getClientIp(req),
+    store: buildRedisStore(valkeyClient, 'rl:page:'),
   });
 };
 
