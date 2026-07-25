@@ -162,10 +162,21 @@ describe('isPageSubresource', () => {
 describe('createPageLimiter', () => {
   it('uses a Valkey keyspace separate from the API limiter', async () => {
     const { createPageLimiter, createApiLimiter } = await import('./security.js');
-    // Both must build without throwing and be distinct middleware; the
-    // prefixes they pass to RedisStore are asserted via the store mock below.
-    expect(typeof createPageLimiter(null)).toBe('function');
-    expect(createPageLimiter(null)).not.toBe(createApiLimiter(null));
+    const RedisStore = (await import('rate-limit-redis')).default as unknown as {
+      mockClear: () => void;
+      mock: { calls: Array<[{ prefix: string }]> };
+    };
+    RedisStore.mockClear();
+
+    const valkeyClient = { call: vi.fn() } as unknown as Parameters<typeof createPageLimiter>[0];
+    expect(typeof createPageLimiter(valkeyClient)).toBe('function');
+    expect(createPageLimiter(valkeyClient)).not.toBe(createApiLimiter(valkeyClient));
+
+    // KAN-154 regression guard: the page and API limiters must write to
+    // separate Valkey keyspaces, or ordinary browsing exhausts the /api budget.
+    const prefixes = RedisStore.mock.calls.map((call) => call[0].prefix);
+    expect(prefixes).toContain('rl:page:');
+    expect(prefixes).toContain('rl:api:');
   });
 });
 
