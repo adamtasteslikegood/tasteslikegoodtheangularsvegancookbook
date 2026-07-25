@@ -291,7 +291,7 @@ To verify the daemon is running during a session: `ps -ef | grep pm_daemon | gre
 
 ## Non-obvious patterns
 
-- **Rate limiter** uses Valkey for distributed state across Express replicas; `server/valkey.ts` has open GH issues (#163, #162) for edge cases under broken connections — see KAN-16, KAN-17
+- **Rate limiter** uses Valkey for distributed state across Express replicas. GH #163/#162 (Express client edge cases under broken connections, KAN-16/KAN-17) were **fixed and closed 2026-04-15** — do not attribute new Valkey errors to them. The live Valkey concerns are Flask-side and separate: IAM token-refresh auth failures (Backend #247) and the response-cache code lost in merge `07123c2` (KAN-151)
 - **AI model names** — entries from the model-list API carry the `models/` prefix (e.g., `models/gemini-3.1-pro-preview`; filter by `generateContent` in `supported_generation_methods`), while `Backend/config.py` `DEFAULT_MODEL` and the generation paths use bare IDs (`gemini-3.1-pro-preview`); both forms are in active use
 - **Backend submodule** — `Backend/` is a git submodule (remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`) and accounts for roughly half of the project. Before starting any backend work or shipping a release, ALWAYS check the Backend repo for open PRs and recent commits that may not yet be reflected in the parent's submodule pointer. Quick checks:
   - `gh pr list -R adamtasteslikegood/tasteslikegood.com --state open` — open Backend PRs
