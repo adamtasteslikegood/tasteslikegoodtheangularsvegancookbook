@@ -6,6 +6,7 @@ same day — see close-out below. Item B (flow gaps) is the sprint's remaining c
 _Re-planned 2026-07-24 evening (`/cs:pm-loop`, PLAN-OK):_ item B's first wave is fully merged;
 the remaining committed scope is **B1–B3 below**, batched into one release, closed by walkthrough
 round 2. Adam's scope picks and the hold-the-release decision are recorded in that section.
+**Wave-2 progress (2026-07-24): B1 ✅ · B3 ✅ · B2 open** — then v0.4.5 and walkthrough round 2.
 
 ## Charter (locked decisions)
 
@@ -61,10 +62,12 @@ artifacts, and the `-N` handling is correct for users. What the sprint targets i
 UX gaps in publish→save→view plus #3146 (empty-slug 400 swallowed) and #3147 (canonical slug
 stability on rename, per the identity principle in charter row 2).
 
-**Also observed (not sprint scope):** the migrate-job env used by the one-off jobs still throws
-`Valkey IAM auth failed: SSL CERTIFICATE_VERIFY_FAILED` (falls back gracefully) — the VALKEY_CA
-wiring that fixed the _service_ (#3176/Backend #222) apparently never reached the
-`flask-backend-migrate` job config. Filed for follow-up consideration.
+**Also observed (not sprint scope) — since RESOLVED:** the migrate-job env used by the one-off jobs
+threw `Valkey IAM auth failed: SSL CERTIFICATE_VERIFY_FAILED` (falling back gracefully), because the
+VALKEY_CA wiring that fixed the _service_ (#3176/Backend #222) had not yet reached the
+`flask-backend-migrate` job config at the time of the dedupe run. **#3253 wired it and shipped**
+(`7cf0641`, an ancestor of `main`) — verified live 2026-07-24: `flask-backend-migrate` now carries
+`VALKEY_CA_CERT` via secretKeyRef, as does `flask-backend-image-repair`. Nothing left to file.
 
 ## Item B — SPA↔SSR flow-gap burn-down
 
@@ -89,19 +92,72 @@ are the reason a release is still owed before the sprint can close.
 
 WIP ≤ 3 still holds — these are the only committed items; everything else stays parked.
 
-| #      | Item                                     | Jira        | Proving gate (machine-checkable unless noted)                                                                                                      | Reviewer |
-| ------ | ---------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| **B1** | Image-repair job: Scheduler + sanity run | KAN-141     | `gcloud scheduler jobs describe` returns the trigger AND `gcloud run jobs executions list --job=<repair>` shows ≥1 execution with status Succeeded | Adam     |
-| **B2** | Codex P2s from KAN-140                   | KAN-143/144 | one PR closing GH #3255 + #3256; `Gate — all checks passed` SUCCESS; `npm test` exit 0                                                             | Adam     |
-| **B3** | Shared-method extraction (#3209)         | KAN-126     | `togglePublic` defined exactly 1× under `src/` (was 2×); `npm test` exit 0; `Gate — all checks passed` SUCCESS                                     | Adam     |
+| #      | Item                                                   | Jira        | Proving gate (machine-checkable unless noted)                                                                                                                                          | Reviewer |
+| ------ | ------------------------------------------------------ | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| **B1** | ✅ **DONE** — Image-repair job: Scheduler + sanity run | KAN-141     | `gcloud scheduler jobs describe` returns the trigger AND `gcloud run jobs executions list --job=<repair>` shows ≥1 execution with status Succeeded — **both met, see close-out below** | Adam     |
+| **B2** | Codex P2s from KAN-140                                 | KAN-143/144 | one PR closing GH #3255 + #3256; `Gate — all checks passed` SUCCESS; `npm test` exit 0                                                                                                 | Adam     |
+| **B3** | ✅ **DONE** — Shared-method extraction (#3209)         | KAN-126     | `togglePublic` defined exactly 1× under `src/` (was 2×); `npm test` exit 0; `Gate — all checks passed` SUCCESS — **all three met, see close-out below**                                | Adam     |
 
 **Release decision (Adam, 2026-07-24):** _hold_ — do not cut v0.4.5 for KAN-149 alone. Batch B1–B3
 onto `dev` first, then one release. Trade-off accepted knowingly: the walkthrough gate waits on that
 release, and the release blast radius grows.
 
+### B1 close-out — image-repair Scheduler + sanity run (2026-07-24)
+
+**Scheduler `flask-backend-image-repair-daily`** (us-central1): `0 3 * * *` America/Los_Angeles,
+ENABLED, POST → the Cloud Run Admin API `jobs/flask-backend-image-repair:run`, OAuth SA
+`746675616486-compute@developer.gserviceaccount.com`. That SA was granted `roles/run.invoker`
+**scoped to this job only** — the job had no IAM bindings at all before this. Verified live rather
+than merely configured: a forced run set `lastAttemptTime` 2026-07-25T00:03:39Z with no error code;
+next fire 2026-07-25T10:00:04Z.
+
+**Runs — 4/4 succeeded, 0 failed:** `vh58t` (`--dry-run`, 10 found / 0 enqueued) · `4nhz5` (manual,
+10/10 enqueued) · `b9fsh` (**scheduler-triggered**, 10/10 enqueued) · `ggsp7` (direct API POST while
+isolating the trigger path — redundant in hindsight, harmless).
+
+**Findings:** 10 imageless recipes, **zero canonical** (all 7 curated slugs have images). One was
+**public** — `vegan-english-breakfast-with-oven-dried-tomatoes`, a live blank hero/OG. The other 9
+were private. The backlog exceeds one run's limit of 10, so successive daily runs will drain it.
+
+**End-to-end proof:** that public recipe now serves a real image —
+`GET /api/recipes/48b3856c-…/image` → `HTTP 200, image/png, 1,930,022 bytes`; `/r/<slug>` 200 with
+og:image pointing at it. **Adam visually confirmed the hero rendering live on the SSR page.**
+
+### B3 close-out — shared recipe methods extracted (2026-07-24)
+
+PR **#3268** merged to `dev` as `1974f4d`, closing GH #3209.
+
+`GeneratorComponent` and `RecipeDetailComponent` carried ~13 byte-identical methods, so every fix
+landed twice — the `togglePublic` redundant-save bug (`da445b3`) and the KAN-149 immutability fix
+both did, and #3265 grew the duplication further. Both reviewers on #3265 flagged it.
+
+Shared state and behaviour now live in `src/components/shared/recipe-view.base.ts`, which both
+components extend. **−515 lines across the two components, +16.** Each keeps what is genuinely its
+own: prompt/generation state on the generator, routing and the cold deep-link fetch on recipe-detail.
+
+**The one genuine divergence is now an explicit seam.** The two `togglePublic` copies were identical
+_except_ that a guest activating the toggle gets the auth modal in the generator, while recipe-detail
+stays silent (its template renders a dedicated "Sign in to publish" button, #3211). Collapsing them
+would have dropped that silently; it is now the `protected onPublishDenied()` hook — default silent,
+overridden in the generator.
+
+**Testing — the real risk here was that `GeneratorComponent` had no test file at all**, so its half
+of this logic was unprotected before the move. Net first, then the refactor: 10 generator tests
+pinning behaviour through its surface, plus 5 tests on the base's own contract. The generator tests
+were **mutation-checked** — collapsing the guest branch onto recipe-detail's silent version, exactly
+the mistake this extraction could make, fails the first test. Suite **190 → 205 passing**; lint,
+`format:check`, `type-check` and build clean.
+
+**Bundle (measured by stash-and-rebuild, since the base is imported by the _eager_ generator):**
+initial 885.64 → 885.78 kB (+0.14 kB); `recipe-detail` lazy chunk 21.19 → **16.81 kB (−21%)**, as it
+no longer carries a duplicate copy. The 500 kB initial-budget warning is pre-existing on `dev`.
+
+Left alone deliberately: `kitchen.component.ts` also has an `exportRecipe()`, but it exports the
+whole cookbook — a different function that merely shares a name, not duplication.
+
 ### Close gate for Sprint 3
 
-1. B1–B3 merged to `dev`.
+1. ~~B1~~ ✅ · ~~B3~~ ✅ · **B2** merged to `dev`.
 2. **v0.4.5** cut `dev` → `main`, tag fires, both Cloud Run services live-verified.
 3. **Walkthrough round 2** — Adam re-runs publish → save → view on ≥2 recipes (≥1 generated,
    ≥1 manually entered), explicitly including the #3264 View-link/image overlap, which shipped
@@ -125,4 +181,4 @@ sprint (8 children). KAN-143/144 had placeholder summaries of literally "P2" —
 
 Imageless-recipe disposition rules (post-dedupe decision item) · #3147 canonical-slug-on-rename
 decision · Phase-2 automated rubric scoring · home-page redesign · Valkey KAN-16/KAN-17 ·
-migrate-job VALKEY_CA wiring (filed) · Backend dependabot PR #243 (actions bump, unrelated to sprint).
+Backend dependabot PR #243 (actions bump, unrelated to sprint).
