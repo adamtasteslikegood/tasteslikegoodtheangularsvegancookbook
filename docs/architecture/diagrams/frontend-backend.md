@@ -36,9 +36,13 @@ graph LR
     P -->|rows| F
     F -->|JSON| E
     E -->|JSON| B
-    V[(Valkey)] -.->|rate-limit state| E
+    V[(Valkey — Memorystore)] -.->|rate-limit state| E
+    V -.->|response cache| F
     B -.->|localStorage written first| B
 ```
+
+Valkey serves **two independent consumers**: Express's rate limiter and Flask's
+response cache. See [Valkey is shared, and Flask caches into it](#valkey-is-shared-and-flask-caches-into-it).
 
 The initial document is a **static shell**. `server/index.ts:166-168` answers the
 SPA catch-all with `dist/index.html` off disk — no template engine, no data
@@ -109,8 +113,10 @@ Everything the request-flow diagrams elide, all in `server/index.ts`:
 - **Rate limiting** — 300 requests / 15 min per IP on `/api`, and 20 / hour on
   the two AI endpoints (`server/security.ts:55-78`). The same general limiter is
   reused for the static shell and SSR routes.
-- **Valkey** — backs the rate limiter with shared state across Express replicas,
-  falling back to in-memory when unavailable (`server/valkey.ts`).
+- **Valkey (rate-limit state only)** — gives the limiter shared state across
+  Express replicas, falling back to in-memory when unavailable
+  (`server/valkey.ts`). This is only one of Valkey's two roles — Flask caches
+  into the same instance, see below.
 - **Helmet + request logging**, applied before the proxy so headers and telemetry
   cover proxied `/api/*` traffic too.
 - **AI input validation** — `server/validation.ts` buffers and validates the JSON
@@ -122,6 +128,56 @@ Everything the request-flow diagrams elide, all in `server/index.ts`:
   `/privacy-policy` and `/favicon.ico` that must precede the SPA catch-all.
 - **Graceful shutdown** — drains in-flight HTTP, stops the Valkey token-refresh
   timer, closes the connection.
+
+## Valkey is shared, and Flask caches into it
+
+One Memorystore instance, two unrelated consumers. Express uses it for
+rate-limit state; **Flask uses it as a response cache**. Neither knows about the
+other, and the key spaces do not overlap.
+
+```mermaid
+graph LR
+    R[GET /api/recipes/id/image] --> F[Flask]
+    F -->|access check FIRST| F
+    F -->|hit| V[(Valkey)]
+    V -->|image bytes| R
+    F -->|miss| G[GCS bucket]
+    G -->|bytes| F
+    F -->|safe_set, 24h TTL| V
+```
+
+`Backend/app.py:132-197` wires Flask-Caching with `CACHE_TYPE = "RedisCache"`,
+authenticating to Memorystore with GCP IAM
+(`utils/valkey_auth.create_iam_redis_client`). An unreachable Valkey **degrades
+to per-worker `SimpleCache` rather than failing startup**, and per-call failures
+are swallowed by `safe_get` / `safe_set` in `utils/cache_utils.py`. That
+degradation is silent by design, so "is the cache actually working in
+production?" is a log question (`Response cache: Valkey/Redis backend` vs.
+`in-memory SimpleCache fallback`), not something you can infer from behaviour.
+
+**What is cached today:** recipe **image bytes**, 24h TTL, key
+`vgc:img:<recipe_id>` (`blueprints/generation_api_bp.py:290-321`). It is a
+read-through cache in front of the GCS bucket, with legacy base64-in-DB as the
+fallback source. Both surfaces benefit — the same endpoint serves SPA and public
+SSR pages, varying only the HTTP `Cache-Control` (`public, max-age=86400` for
+published recipes, `private, no-store` otherwise).
+
+The cache read deliberately sits **below** the ownership check: the key is global
+(one image per recipe, identical for everyone), so returning on a hit before
+checking access would leak private and deleted recipes' images to anyone holding
+the UUID.
+
+**What is not cached yet:** `utils/cache_utils.py` also defines key builders and
+TTLs for recipe JSON (`TTL_MEDIUM`, 600s), recipe stats (`TTL_SHORT`, 300s), and
+collections — and `worker_api_bp.py` already invalidates recipe entries on write.
+But `recipes_api_bp.py` and `collections_api_bp.py` contain no cache references
+at all; only `worker_api_bp.py` and `generation_api_bp.py` import `cache_utils`.
+The invalidation side is wired ahead of the read side.
+
+> **Do not confuse this with `invalidate_cache()`** in the legacy
+> `recipes_bp.py` / `generation_bp.py`. That one comes from
+> `repositories.recipe_repository` and clears a file-based cache on the old JSON
+> storage path — nothing to do with Valkey.
 
 ## The write path can skip the database
 
@@ -141,6 +197,9 @@ Two Cloud Run services and one Cloud Run **Job** in `us-central1`:
 - `flask-backend` — Python/gunicorn, port 5000, no public auth
 - `flask-backend-migrate` — **Job**, runs `flask db upgrade` before each Flask
   service deploy; a failure aborts the build and the old revision keeps serving
+
+Both services reach Cloud SQL and Memorystore (Valkey) over private IP in the
+same VPC; the migrate Job runs in that VPC too, for the same reason.
 
 `cloudbuild.yaml` builds both images, runs the migrate Job to completion, then
 deploys Flask and Express in sequence.
@@ -180,14 +239,18 @@ follow. Each was checked against the code:
 
 ## Source references
 
-| Concern                       | File                                                                 |
-| ----------------------------- | -------------------------------------------------------------------- |
-| Route mounting order          | `server/index.ts`                                                    |
-| Reverse proxy                 | `server/proxy.ts`                                                    |
-| Helmet, rate limiters, logger | `server/security.ts`                                                 |
-| Valkey client + fallback      | `server/valkey.ts`                                                   |
-| AI endpoint validation        | `server/validation.ts`                                               |
-| Public SSR routes             | `Backend/blueprints/public_bp.py`                                    |
-| Public SSR templates          | `Backend/templates/public/`                                          |
-| SSR → SPA entry handoff       | `src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts` |
-| localStorage-first writes     | `src/services/persistence.service.ts`                                |
+| Concern                        | File                                                                 |
+| ------------------------------ | -------------------------------------------------------------------- |
+| Route mounting order           | `server/index.ts`                                                    |
+| Reverse proxy                  | `server/proxy.ts`                                                    |
+| Helmet, rate limiters, logger  | `server/security.ts`                                                 |
+| Valkey client + fallback       | `server/valkey.ts` (Express, rate limiting)                          |
+| Flask response cache wiring    | `Backend/app.py` (`create_app`, cache block)                         |
+| Cache keys, TTLs, safe get/set | `Backend/utils/cache_utils.py`                                       |
+| IAM auth to Memorystore        | `Backend/utils/valkey_auth.py`                                       |
+| Cached image endpoint          | `Backend/blueprints/generation_api_bp.py`                            |
+| AI endpoint validation         | `server/validation.ts`                                               |
+| Public SSR routes              | `Backend/blueprints/public_bp.py`                                    |
+| Public SSR templates           | `Backend/templates/public/`                                          |
+| SSR → SPA entry handoff        | `src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts` |
+| localStorage-first writes      | `src/services/persistence.service.ts`                                |
