@@ -93,6 +93,90 @@ Two options, neither blocking:
 - **Relax to `first_time_contributors`** if the pending-run noise is annoying:
   `gh api -X PUT repos/{o}/{r}/actions/permissions/fork-pr-contributor-approval -f approval_policy=first_time_contributors`
 
+## The pointer targets Backend `main`
+
+Decided 2026-07-25. The submodule pointer pins **Backend `main`'s own SHA** —
+not a `dev`-side SHA that merely carries main's content.
+
+Both deploy the same code, so this is not about what runs. It is about being
+able to answer "which Backend commit is in production?" from one ref. v0.3.9
+pinned `18a303a` while Backend `main` was `53af0941`; today's pointer pins
+`50cdbbb` while Backend `main` is `dfc5cad`. Identical trees each time, and a
+deployed SHA that appears nowhere on the branch that is supposed to equal
+production.
+
+`--for-release` blocks on it and distinguishes the two causes, because the fix
+differs:
+
+- **identical trees** — the pointer is aimed at the wrong SHA. Bump it.
+- **differing trees** — Backend `dev → main` was never promoted. Promote, then pin.
+
+The release's CHANGELOG section must also **name the pinned SHA**. Production
+deploys whatever the pointer pins at tag time, so without it the release notes
+describe the frontend half of a release and stay silent about the other half.
+The convention already existed informally (v0.3.7, v0.3.9, v0.4.0); the station
+makes it checkable, and accepts any abbreviation, which is how those entries are
+written.
+
+## The freeze window (spec — for when the driver lands)
+
+Today's scripts verify and back-sync; they do not drive the train. When a driver
+does exist it needs a freeze, because the train's payload is mutable underneath
+it: **a `dev → main` PR merges the live tip of `dev`, not the tip as of when the
+PR was opened.** Anything merged to `dev` between opening the release PR and
+merging it ships silently, outside the CHANGELOG, under a version that never
+described it.
+
+### When it opens
+
+The moment the version bump + CHANGELOG land on `dev`. That is when `dev`'s tip
+*becomes* the release payload — earlier than the release PR, which is already
+too late.
+
+### When it closes — asymmetric, and this is the part worth getting right
+
+| ref | unlocks at | why there |
+| --- | --- | --- |
+| `dev` (both repos) | **tag `vX.Y.Z` exists on origin** | The tag is the moment the version becomes immutable, which is precisely what makes "any new push means a patch bump" true. It also *has* to be here: step 8/9 back-sync writes to `dev`. |
+| `main` (both repos) | **deploy verified live** | If Cloud Build fails, the only correct recovery is a patch bump through the normal train. Holding `main` through that window is what stops a panic hotfix pushed straight to it — the one move that would break `main === deployed`. |
+
+Not a hypothetical: v0.3.0 died in the migrate job and v0.3.4 died parsing the
+Express Dockerfile. Both recovered exactly this way, as v0.3.1 and v0.3.5.
+
+### Mechanism — two layers
+
+**1. Detection (build this first).** At freeze-open the driver snapshots the four
+ref SHAs — `dev` and `main` on both repos — and re-checks them before every
+mutating step. Any movement aborts and names the ref that moved. No GitHub
+config is written, so a crashed run leaves nothing to clean up, and it catches
+the real failure at the moment it would do damage.
+
+**2. Enforcement (needs a decision + one experiment).** Note what does *not*
+work: the `update` rule ("Restrict updates") governs direct pushes, and both
+branches already block those by requiring a PR — so it adds nothing against the
+actual threat, which is a **merge**. The primitive that blocks merges is a
+**required status check that never reports**: a dedicated `release-freeze`
+ruleset per repo, normally `enforcement: disabled`, holding one
+`required_status_checks` rule for a context (`release-freeze`) that no workflow
+ever publishes. Flip it to `active` to freeze; every PR merge then sits at
+"expected — waiting for status", except for bypass actors. Bypass stays repo
+admin in `pull_request` mode, so the train's own merges still land while other
+agent sessions, Dependabot merges, and UI merges are held.
+
+This layer is unverified here — it needs the ruleset created and one throwaway
+PR to confirm the block actually lands. It also needs a standalone `--unfreeze`
+escape hatch, and the freeze state written locally *before* the API call, or an
+aborted train leaves both repos frozen with no record of why.
+
+### Already enforced
+
+The "spent version" half of the rule is live now, as a station:
+`--for-release` refuses to proceed when `v<package.json version>` is already
+tagged. `release.yml` checks `git ls-remote --tags` first and skips tag
+creation, the GitHub Release, and therefore the Cloud Build trigger — so
+re-merging a release PR on a spent version produces a green PR, a green
+workflow, and no deploy, with nothing anywhere reporting a failure.
+
 ## Still manual
 
 Deliberately, not from lack of time — these carry judgment or a credential the
