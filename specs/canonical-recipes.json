@@ -1,7 +1,7 @@
 {
   "$schema": "./canonical-recipes.schema.json",
   "version": 1,
-  "updated": "2026-07-23",
+  "updated": "2026-07-25",
   "recipes": [
     {
       "slug": "classic-vegan-margherita-pizza",
@@ -85,6 +85,18 @@
         "breadth": 5,
         "search_intent": 4,
         "content_quality": 4
+      }
+    },
+    {
+      "slug": "vegan-orange-chicken-style-seitan-with-white-rice",
+      "title": "Vegan Orange Chicken Style Seitan with White Rice",
+      "rationale": "Asian/takeout-style breadth (new category for the set); proven search performance — ranks first for a partial-slug query with image and working link; complete content (17 ingredients, 10 steps, hero image)",
+      "added": "2026-07-25",
+      "score": {
+        "representativeness": 5,
+        "breadth": 5,
+        "search_intent": 5,
+        "content_quality": 5
       }
     }
   ]
