@@ -172,15 +172,20 @@
                     >Public</span
                   >
                   <!-- KAN-139: greyed while the initial server sync is pending
-                       and for copies saved from a public recipe; disabled
-                       outright when the recipe is canonical (server-locked). -->
+                       and for copies saved from a public recipe; unavailable
+                       when the recipe is canonical (server-locked).
+                       GH #3255 (KAN-143): aria-disabled, not disabled — a
+                       disabled button takes no focus and shows no reliable
+                       tooltip, so the `title` explaining *why* could never
+                       reach the user. togglePublic() refuses the change and
+                       toasts the reason instead. -->
                   <button
                     type="button"
                     role="switch"
                     [attr.aria-checked]="r.is_public"
                     aria-labelledby="public-toggle-label"
                     (click)="togglePublic(r)"
-                    [disabled]="
+                    [attr.aria-disabled]="
                       publishToggleKind(r) === 'locked' ||
                       publishToggleKind(r) === 'manual' ||
                       publishTogglePending()
