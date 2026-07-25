@@ -55,6 +55,34 @@ ALLOW_PROTECTED=false
 # Branches that must be changed through a PR, never by a direct commit/push
 readonly PROTECTED_BRANCHES_RE='^(main|master|dev)$'
 
+# Run-level failure state. commit_changes/push_changes distinguish two kinds of
+# non-zero return:
+#   1  benign no-op — nothing to commit, user declined at a prompt
+#   2  the operation was requested and did NOT happen
+# Only the second sets this flag. Without it the script printed
+# "All operations completed successfully!" and exited 0 after a rejected commit
+# or a fatal push, which is how a caller (or a release-train step) proceeds on
+# work that was never published.
+RUN_FAILED=false
+RUN_FAILURES=()
+readonly RC_NOOP=1
+readonly RC_FAILED=2
+
+record_failure() {
+    RUN_FAILED=true
+    RUN_FAILURES+=("$1")
+}
+
+# Consume a commit_changes/push_changes status: record real failures, ignore
+# benign no-ops. Returns the original status so callers can still branch on it.
+note_status() {
+    local status=$1 what=$2
+    if (( status >= RC_FAILED )); then
+        record_failure "$what"
+    fi
+    return "$status"
+}
+
 # Branches (auto-detected by default)
 MAIN_BRANCH=""
 SUB_BRANCH=""
@@ -660,8 +688,9 @@ commit_changes() {
         return 0
     fi
 
-    # Stage files first
-    stage_files "$repo_name" || return 1
+    # Stage files first. A failed `git add` is a real failure, not a no-op:
+    # committing after it would publish a partial change set.
+    stage_files "$repo_name" || return "$RC_FAILED"
 
     # Check if there are changes to commit
     if ! has_staged_changes; then
@@ -715,7 +744,7 @@ commit_changes() {
     if (( commit_status != 0 )); then
         print_error "Commit FAILED in $repo_name (git commit exited $commit_status)"
         print_warning "Changes remain staged; nothing was pushed for $repo_name."
-        return 1
+        return "$RC_FAILED"
     fi
 
     print_success "Committed to $repo_name"
@@ -736,16 +765,16 @@ push_changes() {
     # interactive branch prompts, both of which run after the pre-flight check.
     if [[ "$branch" == "HEAD" ]] || [[ -z "$branch" ]]; then
         print_error "Refusing to push $repo_name: detached HEAD has no branch to publish"
-        return 1
+        return "$RC_FAILED"
     fi
     if [[ "$branch" =~ $PROTECTED_BRANCHES_RE ]] && [[ "$ALLOW_PROTECTED" != true ]]; then
         print_error "Refusing to push $repo_name to protected branch origin/$branch"
         print_error "Open a PR instead, or pass --allow-protected."
-        return 1
+        return "$RC_FAILED"
     fi
     if [[ "$(get_current_branch)" != "$branch" ]]; then
         print_error "Refusing to push $repo_name: HEAD is '$(get_current_branch)', push target is '$branch'"
-        return 1
+        return "$RC_FAILED"
     fi
 
     if [[ "$DRY_RUN" == true ]]; then
@@ -767,7 +796,7 @@ push_changes() {
             fi
         else
             print_error "Use --interactive flag to confirm force push to $branch"
-            return 1
+            return "$RC_FAILED"
         fi
     fi
 
@@ -776,7 +805,10 @@ push_changes() {
         print_warning "Remote branch 'origin/$branch' does not exist"
         if [[ "$INTERACTIVE" == true ]] || [[ "$CONFIRM_PUSH" == true ]]; then
             if confirm "Create new remote branch 'origin/$branch'?"; then
-                git push -u origin "$branch"
+                git push -u origin "$branch" || {
+                    print_error "Push FAILED for $repo_name (origin/$branch, new branch)"
+                    return "$RC_FAILED"
+                }
                 print_success "Pushed $repo_name to origin/$branch (new branch)"
                 return 0
             else
@@ -785,7 +817,10 @@ push_changes() {
             fi
         else
             print_info "Creating new remote branch 'origin/$branch'"
-            git push -u origin "$branch"
+            git push -u origin "$branch" || {
+                print_error "Push FAILED for $repo_name (origin/$branch, new branch)"
+                return "$RC_FAILED"
+            }
             print_success "Pushed $repo_name to origin/$branch (new branch)"
             return 0
         fi
@@ -806,10 +841,16 @@ push_changes() {
     # Perform push
     if [[ "$FORCE_OPERATIONS" == true ]]; then
         print_warning "Force pushing $repo_name..."
-        git push --force origin "$branch"
+        git push --force origin "$branch" || {
+            print_error "Force push FAILED for $repo_name (origin/$branch)"
+            return "$RC_FAILED"
+        }
         print_success "Force pushed $repo_name to origin/$branch"
     else
-        git push origin "$branch"
+        git push origin "$branch" || {
+            print_error "Push FAILED for $repo_name (origin/$branch)"
+            return "$RC_FAILED"
+        }
         print_success "Pushed $repo_name to origin/$branch"
     fi
     echo ""
@@ -909,6 +950,8 @@ process_submodules() {
             if commit_changes "$sm_path" "$branch" true; then
                 committed=true
                 COMMITTED_SUBMODULES+=("$sm_path")
+            else
+                note_status $? "commit in submodule '$sm_path'" || true
             fi
         fi
 
@@ -919,7 +962,7 @@ process_submodules() {
             local sm_head
             sm_head=$(git rev-parse HEAD)
             if [[ "$committed" == true ]] || ! git merge-base --is-ancestor "$sm_head" "origin/$branch" 2>/dev/null; then
-                push_changes "$sm_path" "$branch"
+                push_changes "$sm_path" "$branch" || note_status $? "push of submodule '$sm_path' to origin/$branch" || true
             fi
         fi
 
@@ -1009,12 +1052,14 @@ process_main_repo() {
     if [[ "$DO_COMMIT" == true ]]; then
         if commit_changes "Main Repository" "$MAIN_BRANCH" false; then
             MAIN_COMMITTED=true
+        else
+            note_status $? "commit in the main repository" || true
         fi
     fi
 
     # Push
     if [[ "$DO_PUSH" == true ]] && [[ "$MAIN_COMMITTED" == true ]]; then
-        push_changes "Main Repository" "$MAIN_BRANCH"
+        push_changes "Main Repository" "$MAIN_BRANCH" || note_status $? "push of the main repository to origin/$MAIN_BRANCH" || true
     fi
 }
 
@@ -1461,6 +1506,18 @@ main() {
         print_info "Main repo latest commits:"
         git log --oneline -3
         echo ""
+    fi
+
+    if [[ "$RUN_FAILED" == true ]]; then
+        print_error "Run FAILED — ${#RUN_FAILURES[@]} operation(s) did not complete:"
+        local failure
+        for failure in "${RUN_FAILURES[@]}"; do
+            print_error "  - $failure"
+        done
+        if [[ "$DRY_RUN" == true ]]; then
+            print_info "This was a DRY RUN - no actual changes were made"
+        fi
+        exit 1
     fi
 
     print_success "All operations completed successfully!"
