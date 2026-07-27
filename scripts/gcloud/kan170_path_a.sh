@@ -124,9 +124,19 @@ case "$COMMAND" in
     # Do NOT instead repoint Pub/Sub at the bare service URL: Flask verifies
     # audience=request.base_url (Backend/blueprints/worker_api_bp.py), which is
     # the path-bearing form, so that "fix" breaks the app-side check instead.
+    # Resolve the host first and refuse to continue if it's empty. `describe`
+    # silences stderr, so a missing service, wrong region, or transient
+    # permissions error all surface as empty output — and `grep -F ""` matches
+    # every line, which would register every unrelated Pub/Sub push endpoint in
+    # the project as a custom audience on flask-backend under --apply.
+    FLASK_HOST="$(describe "$FLASK_SERVICE" 'value(status.url)' | sed 's|https://||')"
+    if [[ -z "$FLASK_HOST" ]]; then
+      echo "ERROR: could not resolve status.url for $FLASK_SERVICE in $PROJECT_ID/$REGION — aborting before Pub/Sub audience registration" >&2
+      exit 1
+    fi
     AUDIENCES="$(gcloud pubsub subscriptions list --project="$PROJECT_ID" \
       --format='value(pushConfig.pushEndpoint)' 2>/dev/null \
-      | grep -F "$(describe "$FLASK_SERVICE" 'value(status.url)' | sed 's|https://||')" || true)"
+      | grep -F "$FLASK_HOST" || true)"
 
     if [[ -z "$AUDIENCES" ]]; then
       warn "no Pub/Sub push subscriptions found targeting $FLASK_SERVICE — skipping custom audiences"
