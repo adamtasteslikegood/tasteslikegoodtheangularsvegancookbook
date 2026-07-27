@@ -96,16 +96,24 @@ run() {
 
 # Probe the customer-facing site. After egress/ingress changes this is the
 # signal that matters — not whether the gcloud command returned 0.
+#
+# MUST probe a PROXIED path. GET / is served by Express from disk (the SPA
+# shell) and never touches Flask, so it returns 200 even when every
+# Flask-backed route is 403 or 404 — which is exactly the failure this function
+# exists to catch, and it would have returned 0 and skipped the rollback branch.
+# /api/health is Express-local too and equally blind. /sitemap.xml is proxied
+# (server/index.ts), so it actually exercises Express→Flask.
 check_site() {
-  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/"; return 0; }
+  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/sitemap.xml"; return 0; }
   log "Waiting 15s for the new revision to take traffic..."
   sleep 15
   local code
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "${PUBLIC_URL}/" || echo 000)"
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "${PUBLIC_URL}/sitemap.xml" || echo 000)"
   if [[ "$code" == "200" ]]; then
-    log "GET $PUBLIC_URL/ → 200 (healthy)"
+    log "GET $PUBLIC_URL/sitemap.xml → 200 (Express→Flask healthy)"
   else
-    warn "GET $PUBLIC_URL/ → $code — SITE MAY BE DOWN. Roll back this step now."
+    warn "GET $PUBLIC_URL/sitemap.xml → $code — EXPRESS→FLASK IS BROKEN. Roll back this step now."
+    warn "404 here means the request reached Cloud Run as EXTERNAL; 403 means auth."
     return 1
   fi
 }

@@ -16,10 +16,17 @@
 #
 #   1. ./scripts/gcloud/kan170_path_a.sh prepare --apply
 #   2. deploy Express with the server/flask-auth.ts token path
-#   3. ./scripts/gcloud/kan170_verify.sh          (site healthy, token arriving)
+#   3. ./scripts/gcloud/kan170_verify.sh   (token PRECONDITIONS green, site up)
 #   4. ./scripts/gcloud/kan170_path_a.sh cutover --apply
-#   5. ./scripts/gcloud/kan170_verify.sh          (anon 403, site 200)
+#   5. ./scripts/gcloud/kan170_verify.sh   (anon 403, AND /sitemap.xml still 200)
 #      rollback in seconds:  ./scripts/gcloud/kan170_path_a.sh rollback --apply
+#
+# Step 3 checks NECESSARY conditions (FLASK_BACKEND_URL is a bare https run.app
+# origin so a token gets minted; the Express SA holds an invoker binding). It
+# cannot prove a token is actually being sent — while the check is disabled,
+# Flask accepts every request either way, so nothing observable distinguishes a
+# working token path from a broken one. Step 5's proxied probe is the first
+# real proof, which is why rollback must be one command away.
 #
 # Dry run is the DEFAULT. Nothing mutates without --apply.
 #

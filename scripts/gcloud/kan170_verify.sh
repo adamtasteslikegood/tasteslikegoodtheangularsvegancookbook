@@ -115,7 +115,37 @@ else
   echo "$ROUTERS" | sed 's/^/    /'
 fi
 
-# ── 5. Live probes ──────────────────────────────────────────────────────────
+# ── 5. Token preconditions ──────────────────────────────────────────────────
+# Neither of these proves a token is being sent — that is only observable after
+# the cutover, when a proxied route either works or 403s. But both are NECESSARY,
+# and each fails silently on its own, so checking them turns two invisible
+# misconfigurations into visible ones before the irreversible-feeling step.
+log "Token preconditions (necessary, not sufficient)"
+
+# server/flask-auth.ts mints a token only when FLASK_BACKEND_URL is https and
+# *.run.app — a custom domain is not a valid Cloud Run audience. This value is
+# service config, not set in cloudbuild.yaml, so nothing else validates it.
+EXPRESS_FLASK_URL="$(describe "$EXPRESS_SERVICE" \
+  'value(spec.template.spec.containers[0].env.filter("name:FLASK_BACKEND_URL").extract("value").flatten())')"
+if [[ "$EXPRESS_FLASK_URL" =~ ^https://[^/]*\.run\.app$ ]]; then
+  ok "FLASK_BACKEND_URL is an https run.app origin — a token will be minted"
+elif [[ -z "$EXPRESS_FLASK_URL" ]]; then
+  bad "FLASK_BACKEND_URL is unset on $EXPRESS_SERVICE — NO token will be minted"
+else
+  bad "FLASK_BACKEND_URL is not a bare https run.app origin — NO token will be minted"
+  info "a trailing slash, a path, or a custom domain all silently disable auth"
+fi
+
+EXPRESS_SA="$(describe "$EXPRESS_SERVICE" 'value(spec.template.spec.serviceAccountName)')"
+if gcloud run services get-iam-policy "$FLASK_SERVICE" --project="$PROJECT_ID" --region="$REGION" \
+    --format='value(bindings.members)' 2>/dev/null | grep -qF "$EXPRESS_SA"; then
+  ok "$EXPRESS_SERVICE's runtime SA holds an invoker binding on $FLASK_SERVICE"
+else
+  bad "$EXPRESS_SERVICE's runtime SA has NO invoker binding — cutover would 403 everything"
+  info "run: ./scripts/gcloud/kan170_path_a.sh prepare --apply"
+fi
+
+# ── 6. Live probes ──────────────────────────────────────────────────────────
 # GET only. Never POST to /api/generate* from a check script: those endpoints
 # complete and bill Gemini/Imagen even for an unauthenticated caller.
 log "Live probes"
@@ -123,7 +153,13 @@ log "Live probes"
 probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000"; }
 
 FLASK_ANON="$(probe "${FLASK_URL}/")"
-SITE="$(probe "${PUBLIC_URL}/")"
+SITE_ROOT="$(probe "${PUBLIC_URL}/")"
+# THE load-bearing probe. GET / is served by Express from disk (the SPA shell)
+# and NEVER touches Flask, so it returns 200 even when every Flask-backed route
+# is 403 — verified empirically. /api/health is Express-local too and equally
+# blind. /sitemap.xml is proxied (server/index.ts app.get('/sitemap.xml',
+# ssrProxy)), so it is the cheapest GET that actually exercises Express→Flask.
+SITE_PROXIED="$(probe "${PUBLIC_URL}/sitemap.xml")"
 
 if [[ "$FLASK_ANON" == "403" || "$FLASK_ANON" == "404" ]]; then
   ok "anonymous GET / on $FLASK_SERVICE → $FLASK_ANON (closed)"
@@ -131,10 +167,17 @@ else
   bad "anonymous GET / on $FLASK_SERVICE → $FLASK_ANON (EXPOSED — expected 403/404)"
 fi
 
-if [[ "$SITE" == "200" ]]; then
-  ok "GET $PUBLIC_URL/ → 200 (site healthy)"
+if [[ "$SITE_ROOT" == "200" ]]; then
+  ok "GET $PUBLIC_URL/ → 200 (Express shell up — proves nothing about Flask)"
 else
-  bad "GET $PUBLIC_URL/ → $SITE (SITE IS DOWN — expected 200)"
+  bad "GET $PUBLIC_URL/ → $SITE_ROOT (Express itself is down — expected 200)"
+fi
+
+if [[ "$SITE_PROXIED" == "200" ]]; then
+  ok "GET $PUBLIC_URL/sitemap.xml → 200 (Express→Flask path WORKING)"
+else
+  bad "GET $PUBLIC_URL/sitemap.xml → $SITE_PROXIED (Express→Flask path BROKEN — expected 200)"
+  info "this is the probe that matters; 403 here means the token is missing or unauthorised"
 fi
 
 echo
