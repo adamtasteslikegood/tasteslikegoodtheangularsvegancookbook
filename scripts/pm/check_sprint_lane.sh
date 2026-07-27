@@ -32,12 +32,18 @@ set -a; source .env; set +a
 : "${ATLASSIAN_API_TOKEN:?FAIL(2): ATLASSIAN_API_TOKEN unset}"
 
 SITE="https://tasteslikegood.atlassian.net"
-LABEL="${1:-}"
 
-python3 - "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" "$SITE" "$LABEL" <<'PY'
-import base64, json, sys, urllib.error, urllib.parse, urllib.request
+# Credentials go through the environment, never argv — argv is world-readable in `ps`,
+# and every other scripts/pm/*.py already reads ATLASSIAN_API_TOKEN from os.environ.
+export ATLASSIAN_SITE="$SITE"
+export SPRINT_LANE_LABEL="${1:-}"
 
-auth, site, label = sys.argv[1], sys.argv[2], sys.argv[3]
+python3 <<'PY'
+import base64, json, os, sys, urllib.error, urllib.parse, urllib.request
+
+site = os.environ["ATLASSIAN_SITE"]
+label = os.environ.get("SPRINT_LANE_LABEL", "")
+auth = f'{os.environ["ATLASSIAN_EMAIL"]}:{os.environ["ATLASSIAN_API_TOKEN"]}'
 hdr = {"Authorization": "Basic " + base64.b64encode(auth.encode()).decode(),
        "Accept": "application/json"}
 
@@ -50,9 +56,16 @@ def jql(q, fields):
             p["nextPageToken"] = tok
         url = f"{site}/rest/api/3/search/jql?" + urllib.parse.urlencode(p)
         try:
-            d = json.load(urllib.request.urlopen(urllib.request.Request(url, headers=hdr)))
+            # timeout matches atlassian_pm_link.py:101 — an unbounded urlopen would hang
+            # forever on a stalled connection, which matters the moment this is wired
+            # into CI rather than run by hand.
+            req = urllib.request.Request(url, headers=hdr)
+            d = json.load(urllib.request.urlopen(req, timeout=30))
         except urllib.error.HTTPError as e:
             print(f"FAIL(2): Jira API {e.code} on {q!r}", file=sys.stderr)
+            sys.exit(2)
+        except (urllib.error.URLError, TimeoutError) as e:
+            print(f"FAIL(2): Jira API unreachable ({e}) on {q!r}", file=sys.stderr)
             sys.exit(2)
         out += d.get("issues", [])
         tok = d.get("nextPageToken")
