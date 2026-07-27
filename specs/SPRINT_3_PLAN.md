@@ -182,3 +182,123 @@ sprint (8 children). KAN-143/144 had placeholder summaries of literally "P2" —
 Imageless-recipe disposition rules (post-dedupe decision item) · #3147 canonical-slug-on-rename
 decision · Phase-2 automated rubric scoring · home-page redesign · Valkey KAN-16/KAN-17 ·
 Backend dependabot PR #243 (actions bump, unrelated to sprint).
+
+---
+
+## Sprint 3 CLOSE-OUT — 2026-07-26 (epic KAN-136 → Done)
+
+Closed via `/cs:pm-loop` after `/cs:grill-pm` locked 7/7 branches with Adam the same day.
+Close gate as written above, item by item:
+
+| Gate | Result |
+| --- | --- |
+| 1. B1 · B3 · **B2** merged to `dev` | ✅ B2 = `a10d8a5` (PR #3271, KAN-143/144) |
+| 2. Release cut, tag fired, both services live-verified | ✅ **overshot** — v0.4.5 *and* v0.4.6 shipped; prod `200` |
+| 3. Walkthrough round 2 | ✅ ran 2026-07-25 — cited in the CHANGELOG v0.4.6 preamble |
+| 4. Epic KAN-136 → Done with the close-out written here | ✅ this section |
+
+**Walkthrough round 2 produced six tickets, not ≤3** — the gate allowed "accept, or file ≤3 new
+gaps." Three were fixed inside the sprint and shipped in v0.4.6; three carry forward as Sprint 4's
+committed scope. That overrun is recorded rather than smoothed over: the acceptance gate has now
+generated a sprint's worth of work twice running (round 1 → KAN-149; round 2 → six tickets), which
+is why Sprint 4 carries **R4** — round-3 findings go to the backlog by default.
+
+| Round-2 finding | Disposition |
+| --- | --- |
+| KAN-154 · public SSR pages 429 during normal browsing | shipped v0.4.6 — `4f57907` (PR #3281) |
+| KAN-158 · promote orange-chicken seitan to canonical (cap → 8) | shipped v0.4.6 — `af87c001` (PR #3283) + pointer `ccf7c7a` (PR #3284) |
+| KAN-159 · SPA deep-link reload returns a blank, dead page | shipped v0.4.6 — `3be0216` (PR #3282) |
+| KAN-155 · publish fails "Recipe ID collision" on foreign-owned rows | → **Sprint 4** committed |
+| KAN-156 · duplicate "you already have this recipe" toast | → **Sprint 4** committed |
+| KAN-157 · unpublish 4 dedup-suffixed public recipes | → **Sprint 4** committed |
+
+### Board reconciliation — the third occurrence, and what it cost
+
+Every sprint-3 child had shipped code on `origin/main` while the board read In Review / In Progress.
+Ten rows were transitioned to Done, each carrying its landing SHA, PR and release tag as a comment
+(`git tag --contains <sha>` verified per row, not asserted):
+
+| Issue | Landed | PR | Released |
+| --- | --- | --- | --- |
+| KAN-126 | `1974f4d` | #3268 | v0.4.5 |
+| KAN-137 | `d747b6e` | #3244 | v0.4.3 |
+| KAN-139 | `e40f14b` | #3250 (+ Backend #239) | v0.4.4 |
+| KAN-140 | `7c6d732` | #3252 (+ Backend #240) | v0.4.4 |
+| KAN-143 | `a10d8a5` | #3271 | v0.4.5 |
+| KAN-144 | `a10d8a5` | #3271 | v0.4.5 |
+| KAN-149 | `f0ef889` | #3265 | v0.4.5 |
+| KAN-154 | `4f57907` | #3281 | v0.4.6 |
+| KAN-158 | `af87c001` | #3283 | v0.4.6 |
+| KAN-159 | `3be0216` | #3282 | v0.4.6 |
+
+KAN-141 was already Done. **KAN-155/156/157 were deliberately NOT closed** — they have zero commits
+in either repo, so closing them would have been a false Done in the opposite direction. They were
+re-labelled `sprint-3` → `sprint-4`.
+
+This is the second hand-reconciliation in three days (the 07-24 re-plan closed eight such rows).
+Two occurrences is a system property, not bad luck. The real fix already exists as an unbuilt
+backlog row — **KAN-97** "auto-transition on PR merge" (twin: RCP-39) — and is now named, accepted
+and scheduled for Sprint 5 rather than silently re-paid a third time (Sprint 4 **R2**).
+
+### The KAN/RCP lane was structurally broken, not just neglected
+
+Adam raised this during the grill; verified against the Agile API rather than the docs:
+
+```
+GET /rest/agile/1.0/board/34/sprint      (KAN)
+  → {"errorMessages":["The board does not support sprints"]}
+
+id=34  simple  KAN board        project=KAN
+id=166 scrum   RCP board        project=RCP
+id=168 scrum   RCP Scrum Board  project=RCP
+  sprint id=9 "RCP Sprint 1"  state=ACTIVE  2026-04-28 → 2026-05-12   (11 weeks overdue)
+  sprint id=3 "RCP Sprint 1"  state=future                             (duplicate)
+```
+
+**No work this project has ever called a sprint has been a Jira sprint.** Sprints 1–3 were
+`sprint-N` labels on a board the API refuses to attach a sprint to — which is why every flow
+measure has to be hand-rolled through `jira_snapshot_bridge.py` and why no burndown or velocity
+report has ever existed. `docs/guides/agile/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md` recorded "Sprint
+support: not supported by this board" on 2026-04-27 and recommended a Scrum board; that
+recommendation was never executed.
+
+The cause is structural, not discipline: KAN's issue types carry `scope: {PROJECT, 10034}`
+(team-managed — one `createJiraIssue` away for an agent), RCP's carry none (company-managed, shared
+schemes). The easier project pulled the work.
+
+Actions taken: stale sprint **id 9 closed** (its 5 incomplete rows returned to the RCP backlog,
+nothing deleted), duplicate future sprint **id 3 deleted**, and a real sprint **"Sprint 4"
+(id 43) created on board 168**. Five shadow RCP rows were reconciled to the same evidence standard
+as KAN — RCP-44 (→ KAN-137/KAN-149, v0.4.3/v0.4.5), RCP-46 (→ KAN-140 + KAN-141, v0.4.4),
+RCP-51 (→ KAN-139, v0.4.4), RCP-52 (→ KAN-118 `2cb90e1` PR #3207, v0.4.2) → Done; **RCP-43 closed
+as a duplicate of KAN-156**, not as delivered, so the pair collapses onto one live row. RCP-49
+(manual toggle/unpublish/delete field-test loop) stays open deliberately — it *is* the walkthrough.
+
+### Found but deliberately not acted on
+
+Closing sprint 9 surfaced five more RCP rows describing the **v0.2 Anti-Recipe Site**, which has
+been live in production for months: **RCP-3** (the v0.2 epic), **RCP-1**, **RCP-7**, **RCP-20**,
+**RCP-4**. They are stale in exactly the way this close-out just fixed elsewhere. They were left
+alone under the sprint's own budget rule — hygiene is capped at one pass and agents may not
+self-authorize scope. Filed here as the first Sprint 5 candidate.
+
+### Flow metrics, measured after the reconciliation (never before)
+
+Measuring before transitioning would have left ten shipped items' cycle-time clocks still running.
+Raw vs. filtered (`daily-status`, `agentic-workflows`, `report` excluded — 21 bot-filed rows of 125):
+
+| Measure | Raw (125 rows) | Filtered (104 rows) |
+| --- | --- | --- |
+| Done / WIP | 57 / 4 | 49 / 4 |
+| Cycle time p50 | 1 d | 1 d |
+| **Cycle time p85** | **78 d** | **3 d** |
+| SLE @ p85 (conformance) | 78 d (86.0%) | 3 d (85.7%) |
+
+The bot rows were not a rounding error — they moved p85 cycle time by a factor of 26 and would have
+set the Service Level Expectation at 78 days. Filtered is the real number.
+
+**Throughput is now contaminated by this very close-out and must not be used to forecast.** Batch-
+closing ten rows dated today, for work delivered across four releases, reads as 32 resolved/week
+(7-day) and 18.5/week (14-day) against a 2.77/week lifetime average. That spike is an artifact of
+the reconciliation, not capacity. See Sprint 4's forecast section for how that was handled instead
+of quietly using the flattering number.
