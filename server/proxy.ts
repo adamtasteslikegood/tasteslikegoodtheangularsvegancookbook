@@ -16,6 +16,7 @@ import https from 'node:https';
 import type { Request, Response } from 'express';
 import type { RawBodyRequest } from './validation.js';
 import { sanitizeForLog } from './security.js';
+import { getFlaskAuthHeader } from './flask-auth.js';
 
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
@@ -31,11 +32,26 @@ export function createFlaskProxy(label = 'Flask') {
   const transport = target.protocol === 'https:' ? https : http;
 
   return (req: Request, res: Response) => {
+    // Express does not await handlers. Minting the ID token is async (a cache
+    // hit in steady state), so the real work runs in an async closure. The
+    // request body stream is safe across the await: this proxy is the terminal
+    // handler, nothing upstream attaches a 'data' listener, and an
+    // IncomingMessage stays paused until .pipe() resumes it. AI endpoints are
+    // unaffected either way — validation.ts already buffered them into rawBody.
+    void forward(req, res);
+  };
+
+  async function forward(req: Request, res: Response): Promise<void> {
     const originalHost = req.headers.host || req.hostname;
     // Validation middleware (server/validation.ts) buffers the body of AI
     // endpoint requests before this proxy runs; when present, replay those
     // bytes instead of piping the (already consumed) request stream.
     const rawBody = (req as RawBodyRequest).rawBody;
+    // KAN-170: proves Express's identity to Cloud Run's invoker IAM check.
+    // Null while the token can't be minted (local dev, or a metadata failure) —
+    // the request still goes through, because before the check is enabled Flask
+    // accepts it anyway, and after it is enabled a 403 is the honest answer.
+    const authHeader = await getFlaskAuthHeader();
     const headers: http.OutgoingHttpHeaders = {
       ...req.headers,
       // Host must match the target so Cloud Run's frontend load balancer
@@ -45,6 +61,20 @@ export function createFlaskProxy(label = 'Flask') {
       'x-forwarded-host': originalHost,
       'x-forwarded-proto': (req.headers['x-forwarded-proto'] as string) || req.protocol,
     };
+    // Assigned AFTER the spread above, so a client-supplied value can never
+    // win. Deleted first so a browser cannot inject its own token when auth is
+    // disabled and nothing overwrites the key.
+    //
+    // X-Serverless-Authorization, NOT Authorization: Cloud Run consumes this
+    // header for the invoker check and strips it before the container sees it,
+    // which leaves the client's own Authorization header intact end to end.
+    // Flask reads that header in two live code paths — require_admin
+    // (Backend/utils/admin_auth.py, guarding the /api/admin/* routes Express
+    // proxies) and require_pubsub_oidc — so overwriting it would break both.
+    delete headers['x-serverless-authorization'];
+    if (authHeader) {
+      headers['x-serverless-authorization'] = authHeader;
+    }
     if (rawBody !== undefined) {
       // body-parser inflates encoded bodies (gzip/deflate/br) BEFORE its
       // verify hook captures them, so rawBody is always identity-encoded.
@@ -98,7 +128,7 @@ export function createFlaskProxy(label = 'Flask') {
       // stream has not been consumed.
       req.pipe(proxyReq, { end: true });
     }
-  };
+  }
 }
 
 /** Backward-compatible alias for auth routes. */

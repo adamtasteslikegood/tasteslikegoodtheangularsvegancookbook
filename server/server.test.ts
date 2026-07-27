@@ -751,6 +751,9 @@ describe('createFlaskProxy Host header', () => {
     } as unknown as Response;
 
     handler(req, res);
+    // KAN-170: the proxy awaits an ID token before dispatching, so the
+    // outgoing request is issued on a later tick rather than synchronously.
+    await new Promise((resolve) => setImmediate(resolve));
 
     expect(captured.host).toBe('flask-backend-xyz.a.run.app');
     expect(captured.xfh).toBe('www.tasteslikegood.org');
@@ -808,6 +811,9 @@ describe('createFlaskProxy log injection prevention', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     handler(req, res);
+    // KAN-170: errorCallback is registered inside the proxy's async dispatch,
+    // so it does not exist until the ID-token await has settled.
+    await new Promise((resolve) => setImmediate(resolve));
 
     // Trigger the error event with a newline smuggled into the message
     errorCallback?.(new Error('connection\nrefused: forged entry'));
@@ -868,6 +874,8 @@ describe('createFlaskProxy log injection prevention', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     handler(req, res);
+    // KAN-170: see above — the error handler is wired on a later tick.
+    await new Promise((resolve) => setImmediate(resolve));
     errorCallback?.(new Error('connection refused'));
 
     const logged: string = errorSpy.mock.calls[0][0] as string;
