@@ -206,4 +206,55 @@ describe('createFlaskProxy auth headers', () => {
 
     vi.doUnmock('node:https');
   });
+
+  it('does not dispatch to Flask when the client disconnects during the token mint', async () => {
+    process.env.FLASK_BACKEND_URL = RUN_APP_URL;
+    // Deferred mint: keeps forward() suspended at `await getFlaskAuthHeader()`
+    // so the test can flip res.destroyed inside that exact window, then release.
+    let releaseMint!: (client: unknown) => void;
+    getIdTokenClient.mockReturnValue(new Promise((resolve) => (releaseMint = resolve)));
+
+    const request = vi.fn();
+    vi.resetModules();
+    vi.doMock('node:https', () => ({ default: { request } }));
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    const req = {
+      headers: { host: 'www.tasteslikegood.org' },
+      hostname: 'www.tasteslikegood.org',
+      originalUrl: '/api/recipes',
+      method: 'GET',
+      protocol: 'https',
+      on: vi.fn(),
+      pipe: vi.fn(),
+    } as unknown as Request;
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+      destroyed: false,
+    } as unknown as Response;
+
+    handler(req, res);
+    // Let forward() run up to (and suspend at) the getFlaskAuthHeader await.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // The client disconnects mid-mint, then the mint completes.
+    res.destroyed = true;
+    releaseMint({
+      getRequestHeaders: vi
+        .fn()
+        .mockResolvedValue(new Headers({ authorization: 'Bearer test-id-token' })),
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // The `if (res.destroyed) return` guard must bail before dispatch: a
+    // socket to Flask whose response has nowhere to go must never be opened.
+    expect(request).not.toHaveBeenCalled();
+    expect(req.pipe).not.toHaveBeenCalled();
+
+    vi.doUnmock('node:https');
+  });
 });
