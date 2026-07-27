@@ -136,3 +136,12 @@ scripts/pm/.venv/
 
 # agent-harness per-run working state (plan/state/evidence scratch)
 .agent-harness/
+
+# Security scanner / posture exports — never commit these.
+# They publish internal identifiers and an itemised list of unremediated
+# findings, which is a map of known-unfixed weaknesses. Both repos are public.
+# Keep them in Confluence or the GCP console instead. See KAN-171.
+*.sarif
+*.sarif.json
+**/logs_findings/
+findings.csv
