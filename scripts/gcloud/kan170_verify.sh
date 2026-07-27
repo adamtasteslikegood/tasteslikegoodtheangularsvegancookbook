@@ -48,8 +48,11 @@ require curl
 
 # --project is passed per command: mutating the user's global gcloud config
 # from a check script is a rude side effect.
+# `|| true` is load-bearing: under `set -e`, VAR=$(cmd) takes the substitution's
+# exit status, so a failing gcloud would kill this script silently (stderr is
+# suppressed) and make the "could not resolve" guard below unreachable.
 describe() {
-  gcloud run services describe "$1" --project="$PROJECT_ID" --region="$REGION" --format="$2" 2>/dev/null
+  gcloud run services describe "$1" --project="$PROJECT_ID" --region="$REGION" --format="$2" 2>/dev/null || true
 }
 
 # ── 1. Service configuration ────────────────────────────────────────────────

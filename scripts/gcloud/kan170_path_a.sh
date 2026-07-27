@@ -69,8 +69,15 @@ run() {
   fi
 }
 
+# `|| true` is load-bearing, not defensive clutter. Under `set -e` an assignment
+# of the form VAR=$(cmd) takes the exit status of the substitution, so a failing
+# gcloud (missing service, wrong region, expired credentials) would kill the
+# script — and because stderr is suppressed here, it would die SILENTLY with
+# exit 1 and no message. That also made every `[[ -z "$VAR" ]]` guard below
+# unreachable in precisely the case it exists to catch. Swallow the status so
+# the guards can do their job and report something a human can act on.
 describe() {
-  gcloud run services describe "$1" --project="$PROJECT_ID" --region="$REGION" --format="$2" 2>/dev/null
+  gcloud run services describe "$1" --project="$PROJECT_ID" --region="$REGION" --format="$2" 2>/dev/null || true
 }
 
 # gcloud exposes the annotation as --[no-]invoker-iam-check. Older gcloud

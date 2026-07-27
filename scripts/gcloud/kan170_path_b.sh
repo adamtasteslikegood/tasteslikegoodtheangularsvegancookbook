@@ -150,8 +150,13 @@ case "$COMMAND" in
     # Restoration, not a new design: this service was created with
     # ingress=internal and was opened to `all` on 2026-03-09T10:20:31Z, which is
     # the exact moment the exposure began.
+    # `|| true`: under `set -e`, VAR=$(cmd) takes the substitution's exit status,
+    # so a failing gcloud would kill the script silently (stderr is suppressed)
+    # instead of reaching the guard below. Failing open here would be the worst
+    # outcome of the three — the guard is what stops an ordering mistake from
+    # taking the site down.
     EXPRESS_EGRESS="$(gcloud run services describe "$EXPRESS_SERVICE" --project="$PROJECT_ID" \
-      --region="$REGION" --format='value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])' 2>/dev/null)"
+      --region="$REGION" --format='value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])' 2>/dev/null || true)"
     if [[ "$EXPRESS_EGRESS" != "all-traffic" ]]; then
       echo "ERROR: $EXPRESS_SERVICE egress is '$EXPRESS_EGRESS', not 'all-traffic'." >&2
       echo "       Closing Flask's ingress now would refuse Express's calls as EXTERNAL and take the site down." >&2
