@@ -8,6 +8,29 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security
+
+- **Express now authenticates to the Flask backend with a Google-signed ID
+  token** (KAN-170). `flask-backend` was anonymously invokable from the public
+  internet, so `POST /api/generate` completed and billed Gemini/Imagen for
+  unauthenticated callers, bypassing every Express limiter and validator. The
+  deploy config could not have revealed it: `--no-allow-unauthenticated` edits
+  the IAM policy, while the `run.googleapis.com/invoker-iam-disabled=true`
+  annotation switches the invoker IAM check off wholesale — so the flag was
+  inert and both the build config and the IAM policy read as secure.
+
+  New `server/flask-auth.ts` mints the token (audience = the backend origin,
+  cached and refreshed by `google-auth-library`) and `server/proxy.ts` sends it
+  in `X-Serverless-Authorization` — deliberately not `Authorization`, which
+  Cloud Run forwards unmodified and which Flask reads for `require_admin` and
+  `require_pubsub_oidc`. Local development is unaffected: no token is minted
+  for a non-`run.app` target, so `npm run dev` still works.
+
+  Ships with `scripts/gcloud/kan170_{verify,path_a,path_b}.sh` (dry-run by
+  default) and a runbook at
+  `docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md`. Enabling the invoker
+  check in production is a separate, staged operator step.
+
 ## [0.4.6] - 2026-07-25
 
 Backend submodule pointer: `ff92120` → **`38736da`** (Backend `main`, promoted in
