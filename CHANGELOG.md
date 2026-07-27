@@ -6,7 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.4.7] - 2026-07-27
+
+Backend submodule pointer: `38736da` → **`0de1e2b`** (Backend `main` tip,
+promoted zero-diff in Backend
+[#254](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/254)).
+No content delta and no new Alembic migrations, so the
+`flask-backend-migrate` Cloud Run Job is a no-op this release.
+
+**This release changes no production behaviour.** Express begins sending a
+Google-signed ID token to Flask; Flask continues to accept anonymous callers
+until the invoker IAM check is enabled in the separately-run KAN-170 cutover
+(`docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md`).
 
 ### Security
 
@@ -30,6 +41,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   default) and a runbook at
   `docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md`. Enabling the invoker
   check in production is a separate, staged operator step.
+
+- **Security-scanner and posture exports are no longer committed** (KAN-171,
+  [#3299](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3299)).
+  A committed Security Command Center findings export published internal
+  project identifiers and a list of unremediated findings in a public repo —
+  a map of known-unfixed weaknesses, and one of the breadcrumbs that made the
+  KAN-170 surface trivially discoverable. Removed, with an ignore rule so
+  future exports stay out of git.
 
 ## [0.4.6] - 2026-07-25
 
