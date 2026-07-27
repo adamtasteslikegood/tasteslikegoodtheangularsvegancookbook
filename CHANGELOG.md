@@ -8,9 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.7] - 2026-07-27
 
-Backend submodule pointer: unchanged at **`38736da`** — no new Alembic
-migrations, so the `flask-backend-migrate` Cloud Run Job is a no-op this
-release.
+Backend submodule pointer: `38736da` → **`0de1e2b`** (Backend `main` tip,
+promoted zero-diff in Backend
+[#254](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/254)).
+No content delta and no new Alembic migrations, so the
+`flask-backend-migrate` Cloud Run Job is a no-op this release.
 
 **This release changes no production behaviour.** Express begins sending a
 Google-signed ID token to Flask; Flask continues to accept anonymous callers
