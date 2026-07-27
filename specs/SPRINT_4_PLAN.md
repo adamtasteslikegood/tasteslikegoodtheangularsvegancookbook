@@ -94,13 +94,30 @@ The ticket asked whether production actually receives IPv6 client addresses toda
 - **Latent on the customer path.** Neither `www.tasteslikegood.org` nor the apex publishes an `AAAA`
   record; both resolve to `34.8.251.224` only. An IPv6 request from a host with working IPv6 (3 global
   addresses, IPv6 → google.com `200`) fails outright — a server-side negative, not a local artifact.
-- **Possibly live via `*.run.app`.** `run.app` and `cloud.run.app` both publish `AAAA` records, and
-  `express-frontend` is a public unauthenticated Cloud Run service, so its `*.run.app` URL plausibly
-  reaches the same limiters over IPv6 and routes around the IPv4-only custom domain.
+- **Confirmed by request logs, 2026-07-27:** 1000 `express-frontend` request-log entries sampled over
+  7 days returned **1000 IPv4, 0 IPv6, 0 unparseable.** Production receives no IPv6 client traffic.
+- **The `*.run.app` bypass hypothesis is refuted for `express-frontend`.** Its ingress is
+  `internal-and-cloud-load-balancing` and its `run.app` URL returns **404** from off-network — Google's
+  frontend refuses to route, so the container never sees the request and no bucket is consumed. Worth
+  having tested rather than assumed: that hostname _does_ publish `AAAA` and does answer at TLS.
 
-**Still open:** confirming the `run.app` path needs the service URL plus request-log inspection, which
-is blocked on `gcloud` reauthentication (interactive). **The fix is correct either way** — only the
-urgency framing depends on the answer, so this does not block S4.
+**Resolved: exposure is LATENT, not live.** S4 stays a correctness/hardening item; its urgency is
+lower than if traffic had been arriving.
+
+### Surfaced while verifying: KAN-170 (P1), which reorders this
+
+Verifying the above found a larger hole, filed as **KAN-170** and linked **blocks KAN-161**:
+`flask-backend` is publicly invokable (`ingress=all` plus `invoker-iam-disabled=true`, which renders
+`cloudbuild.yaml`'s `--no-allow-unauthenticated` inert), and `POST /api/generate` has **no Flask-side
+auth and no Flask-side rate limiting** — `flask-limiter` is not even a dependency. The 20/hr AI budget
+that S4 hardens is therefore defeatable without any IPv6 involvement, by addressing Flask directly.
+
+S4 remains correct — Express is still the only metered path for ordinary users — but it guards a door
+with an open window beside it. **Whether KAN-170 preempts this sprint is Adam's call** (R4 reserves
+interruption for a P1 production break, and this is an exposure rather than an outage). Details,
+severity calibration and three remediation options are on the ticket; nothing in production was
+changed. The service hostname is deliberately kept out of this repo — both repos are public, and it
+is currently absent from tracked files, CT logs (wildcard cert), response headers and the JS bundle.
 
 ## Forecast — and why the flattering number was refused
 
@@ -114,8 +131,9 @@ v0.4.6 — injected ten resolutions dated today. Trailing throughput consequentl
 board hygiene, not capacity. Forecasting from it would have been the mirror image of the defect this
 sprint just fixed: letting Jira timestamps stand in for what actually shipped when.
 
-**Forecast of record (verbatim):** _"3 committed items. Monte Carlo over filtered lifetime weekly
-throughput (10k trials, seed 42): p50 3 weeks, p70 4, p85 7, p95 10. This is deliberately the
+**Forecast of record (verbatim, re-derived for 4 items after the scope amendment):** _"4 committed
+items. Monte Carlo over filtered lifetime weekly throughput (10k trials, seed 42): p50 4 weeks, p70 6,
+p85 8, p95 13 — superseding the 3-item range (p50 3 · p70 4 · p85 7 · p95 10). This is deliberately the
 pessimistic basis — trailing throughput is contaminated by the 2026-07-26 batch reconciliation and
 is not used. No delivery date is promised; the range is re-derived after each item completes, and
 trailing throughput becomes usable again once the batch ages out (~2 weeks) or is recomputed from
