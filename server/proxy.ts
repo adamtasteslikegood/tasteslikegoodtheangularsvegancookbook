@@ -58,6 +58,16 @@ export function createFlaskProxy(label = 'Flask') {
     // endpoint requests before this proxy runs; when present, replay those
     // bytes instead of piping the (already consumed) request stream.
     const rawBody = (req as RawBodyRequest).rawBody;
+    // Before the await below, req has no listeners yet in the streaming path
+    // (req.pipe() — which attaches one — now runs AFTER the await, not in the
+    // same tick as before). A no-op keeps req from ever being listener-less:
+    // an unlistened 'error' on an IncomingMessage is an uncaught exception
+    // under Node's default policy, and server/index.ts installs no
+    // uncaughtException handler, so a client disconnecting mid-mint would
+    // crash the whole process, not just this request. AI-endpoint requests
+    // are already ended/destroyed by validation.ts by this point, so this is
+    // a no-op for them and only matters for the streamed path below.
+    req.on('error', () => {});
     // KAN-170: proves Express's identity to Cloud Run's invoker IAM check.
     // Null while the token can't be minted (local dev, or a metadata failure) —
     // the request still goes through, because before the check is enabled Flask

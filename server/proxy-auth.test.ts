@@ -14,6 +14,7 @@
  * reads that one in require_admin (/api/admin/*) and require_pubsub_oidc.
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { EventEmitter } from 'node:events';
 import type { Request, Response } from 'express';
 
 // Placeholder host only — the real flask-backend hostname is kept out of
@@ -71,6 +72,7 @@ async function captureHeaders(reqHeaders: Record<string, string>): Promise<Recor
     originalUrl: '/api/recipes',
     method: 'GET',
     protocol: 'https',
+    on: vi.fn(),
     pipe: vi.fn(),
   } as unknown as Request;
   const res = {
@@ -143,6 +145,7 @@ describe('createFlaskProxy auth headers', () => {
       originalUrl: '/api/recipes',
       method: 'GET',
       protocol: 'http',
+      on: vi.fn(),
       pipe: vi.fn(),
     } as unknown as Request;
     const res = {
@@ -160,5 +163,47 @@ describe('createFlaskProxy auth headers', () => {
     expect(captured.headers?.host).toBe('localhost:5000');
     expect(captured.headers?.['x-serverless-authorization']).toBeUndefined();
     expect(getIdTokenClient).not.toHaveBeenCalled();
+  });
+
+  it('does not crash when the client disconnects while the ID token is being minted', async () => {
+    process.env.FLASK_BACKEND_URL = RUN_APP_URL;
+    // A promise that never resolves during this test, so forward() stays
+    // suspended at `await getFlaskAuthHeader()` — the exact window in which
+    // req must already have an 'error' listener attached.
+    getIdTokenClient.mockReturnValue(new Promise(() => {}));
+
+    vi.resetModules();
+    vi.doMock('node:https', () => ({ default: { request: vi.fn() } }));
+    const { createFlaskProxy } = await import('./proxy.js');
+    const handler = createFlaskProxy('Test');
+
+    // A real EventEmitter, not a vi.fn() stub: this test needs Node's actual
+    // "unlistened 'error' throws" behavior to prove the fix, not a mock of it.
+    const req = Object.assign(new EventEmitter(), {
+      headers: { host: 'www.tasteslikegood.org' },
+      hostname: 'www.tasteslikegood.org',
+      originalUrl: '/api/recipes',
+      method: 'GET',
+      protocol: 'https',
+      pipe: vi.fn(),
+    }) as unknown as Request;
+    const res = {
+      writeHead: vi.fn(),
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+      headersSent: false,
+    } as unknown as Response;
+
+    handler(req, res);
+    // Let forward() run up to (and suspend at) the getFlaskAuthHeader await.
+    await new Promise((resolve) => setImmediate(resolve));
+
+    // Before the fix, req had no listeners here: req.pipe() — which attaches
+    // one — only ran after this await. An unlistened 'error' on an
+    // EventEmitter throws by default, and server/index.ts installs no
+    // uncaughtException handler, so this would have crashed the process.
+    expect(() => req.emit('error', new Error('ECONNRESET'))).not.toThrow();
+
+    vi.doUnmock('node:https');
   });
 });

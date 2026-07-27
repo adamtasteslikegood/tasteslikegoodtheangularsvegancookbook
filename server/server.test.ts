@@ -740,6 +740,7 @@ describe('createFlaskProxy Host header', () => {
       originalUrl: '/api/auth/login',
       method: 'GET',
       protocol: 'https',
+      on: vi.fn(),
       pipe: vi.fn(),
     } as unknown as Request;
 
@@ -798,6 +799,7 @@ describe('createFlaskProxy log injection prevention', () => {
       originalUrl: '/api/recipes\nGET /admin HTTP/1.1',
       method: 'GET\ninjected',
       protocol: 'http',
+      on: vi.fn(),
       pipe: vi.fn(),
     } as unknown as Request;
 
@@ -861,6 +863,7 @@ describe('createFlaskProxy log injection prevention', () => {
       originalUrl: `/api/test${sep}injected`,
       method: 'GET',
       protocol: 'http',
+      on: vi.fn(),
       pipe: vi.fn(),
     } as unknown as Request;
 
