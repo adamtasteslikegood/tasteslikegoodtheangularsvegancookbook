@@ -38,7 +38,18 @@ export function createFlaskProxy(label = 'Flask') {
     // handler, nothing upstream attaches a 'data' listener, and an
     // IncomingMessage stays paused until .pipe() resumes it. AI endpoints are
     // unaffected either way — validation.ts already buffered them into rawBody.
-    void forward(req, res);
+    //
+    // The catch is not decorative: an unhandled rejection here would terminate
+    // the process under Node's default policy, turning one malformed request
+    // into a dropped container.
+    forward(req, res).catch((err: unknown) => {
+      console.error(
+        `[${label} Proxy] ${sanitizeForLog(req.method)} ${sanitizeForLog(req.originalUrl)} dispatch failed: ${sanitizeForLog((err as Error).message)}`
+      );
+      if (!res.headersSent) {
+        res.status(502).json({ error: 'Backend service unavailable' });
+      }
+    });
   };
 
   async function forward(req: Request, res: Response): Promise<void> {
@@ -52,6 +63,15 @@ export function createFlaskProxy(label = 'Flask') {
     // the request still goes through, because before the check is enabled Flask
     // accepts it anyway, and after it is enabled a 403 is the honest answer.
     const authHeader = await getFlaskAuthHeader();
+    // The await above is a window the synchronous version did not have: a
+    // client can disconnect during it. Dispatching anyway would open a socket
+    // to Flask whose response has nowhere to go.
+    //
+    // Test only `res`. req.destroyed is ALSO true for every AI-endpoint request
+    // here — validation.ts fully consumes that body stream to buffer rawBody,
+    // which ends and destroys the IncomingMessage — so including it drops
+    // exactly the requests this proxy is most careful about replaying.
+    if (res.destroyed) return;
     const headers: http.OutgoingHttpHeaders = {
       ...req.headers,
       // Host must match the target so Cloud Run's frontend load balancer
