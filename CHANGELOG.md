@@ -6,7 +6,49 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.4.7] - 2026-07-27
+
+Backend submodule pointer: `38736da` → **`0de1e2b`** (Backend `main` tip,
+promoted zero-diff in Backend
+[#254](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/254)).
+No content delta and no new Alembic migrations, so the
+`flask-backend-migrate` Cloud Run Job is a no-op this release.
+
+**This release changes no production behaviour.** Express begins sending a
+Google-signed ID token to Flask; Flask continues to accept anonymous callers
+until the invoker IAM check is enabled in the separately-run KAN-170 cutover
+(`docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md`).
+
+### Security
+
+- **Express now authenticates to the Flask backend with a Google-signed ID
+  token** (KAN-170). `flask-backend` was anonymously invokable from the public
+  internet, so `POST /api/generate` completed and billed Gemini/Imagen for
+  unauthenticated callers, bypassing every Express limiter and validator. The
+  deploy config could not have revealed it: `--no-allow-unauthenticated` edits
+  the IAM policy, while the `run.googleapis.com/invoker-iam-disabled=true`
+  annotation switches the invoker IAM check off wholesale — so the flag was
+  inert and both the build config and the IAM policy read as secure.
+
+  New `server/flask-auth.ts` mints the token (audience = the backend origin,
+  cached and refreshed by `google-auth-library`) and `server/proxy.ts` sends it
+  in `X-Serverless-Authorization` — deliberately not `Authorization`, which
+  Cloud Run forwards unmodified and which Flask reads for `require_admin` and
+  `require_pubsub_oidc`. Local development is unaffected: no token is minted
+  for a non-`run.app` target, so `npm run dev` still works.
+
+  Ships with `scripts/gcloud/kan170_{verify,path_a,path_b}.sh` (dry-run by
+  default) and a runbook at
+  `docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md`. Enabling the invoker
+  check in production is a separate, staged operator step.
+
+- **Security-scanner and posture exports are no longer committed** (KAN-171,
+  [#3299](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3299)).
+  A committed Security Command Center findings export published internal
+  project identifiers and a list of unremediated findings in a public repo —
+  a map of known-unfixed weaknesses, and one of the breadcrumbs that made the
+  KAN-170 surface trivially discoverable. Removed, with an ignore rule so
+  future exports stay out of git.
 
 ## [0.4.6] - 2026-07-25
 
