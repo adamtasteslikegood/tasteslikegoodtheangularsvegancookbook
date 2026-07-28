@@ -38,10 +38,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Deliberately NOT the GCP_WORKLOAD_IDENTITY_PROVIDER / GCP_SERVICE_ACCOUNT
+      # pair used by gc-build-deploy.yml. That workflow treats a non-empty value
+      # in those two secrets as "deployment is configured" and changes behaviour
+      # accordingly, so pointing them at this read-only identity would make the
+      # deploy path believe it is wired up while holding an SA that cannot
+      # deploy. Separate names keep a read-only detector from re-configuring a
+      # write path.
       - uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_POSTURE_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_POSTURE_SERVICE_ACCOUNT }}
 
       - uses: google-github-actions/setup-gcloud@v3
 
