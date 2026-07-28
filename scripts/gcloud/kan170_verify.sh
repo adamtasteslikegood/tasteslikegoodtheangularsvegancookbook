@@ -66,34 +66,64 @@ assert_posture() {
     ok "invoker IAM check is ENFORCED on $FLASK_SERVICE"
   fi
 
-  if [[ "$ingress" == "all" ]]; then
+  # An UNSET ingress annotation is not a pass. Cloud Run's permissive setting is
+  # the one that omits nothing useful here — an absent value is an unknown, and
+  # a posture check that reads unknown as safe is the exact defect KAN-173
+  # exists to remove. Both ingress assertions therefore demand a known value;
+  # only an explicitly non-`all` setting counts as closed.
+  if [[ -z "$ingress" ]]; then
+    bad "ingress is UNSET on $FLASK_SERVICE — unknown state, not a pass"
+  elif [[ "$ingress" == "all" ]]; then
     bad "ingress=all — $FLASK_SERVICE is reachable directly from the internet"
   else
-    ok "ingress=${ingress:-<unset>} — direct internet access is refused"
+    ok "ingress=$ingress — direct internet access is refused"
   fi
 
   # express-frontend carries the SAME invoker-iam-disabled=true annotation and
   # is held shut by ingress alone — see docs/security/SECURITY_DECISIONS.md.
   # Widening its ingress therefore reproduces KAN-170 on the other service, with
   # no IAM change to make it visible.
-  if [[ "$express_ingress" == "all" ]]; then
+  if [[ -z "$express_ingress" ]]; then
+    bad "ingress is UNSET on $EXPRESS_SERVICE — unknown state, not a pass (KAN-172)"
+  elif [[ "$express_ingress" == "all" ]]; then
     bad "ingress=all on $EXPRESS_SERVICE — its only guard has been removed (KAN-172)"
   else
-    ok "ingress=${express_ingress:-<unset>} on $EXPRESS_SERVICE — load-balancer path only"
+    ok "ingress=$express_ingress on $EXPRESS_SERVICE — load-balancer path only"
   fi
 }
 
 # Runs before `require gcloud` on purpose: the self-test needs no credentials
 # and no network, so CI can prove the gate is live on every PR.
 if [[ "${1:-}" == "--self-test" ]]; then
-  log "Self-test — driving the posture assertions with drifted values"
+  log "Self-test — driving the posture assertions with known-bad values"
   info "No gcloud, no network. Proves this check can FAIL (KAN-173)."
-  assert_posture "true" "all" "all" # the exact KAN-170 exposure, on both services
-  if [[ "$FAILURES" -eq 3 ]]; then
-    printf '\n\033[32mSELF-TEST PASS\033[0m — drift raised %d failures; a scheduled run would exit 1.\n' "$FAILURES"
+
+  info "scenario 1 — the exact KAN-170 exposure, on both services"
+  assert_posture "true" "all" "all"
+  EXPOSED_FAILURES="$FAILURES"
+
+  # Scenario 2 exists because scenario 1 alone cannot catch the regression that
+  # matters most: annotations that read back empty. Reported as a pass, that is
+  # a green run over an unknown production state.
+  #
+  # Expected 2, not 3, and the difference is the point. Absence means something
+  # DIFFERENT for each annotation. An absent `invoker-iam-disabled` genuinely
+  # means the invoker check is enforced — that is the safe state, and reporting
+  # it as a pass is correct. An absent `ingress` carries no such guarantee, so
+  # only those two may treat empty as a failure. Blanket "unknown is unsafe"
+  # would be wrong here; this asymmetry is deliberate.
+  FAILURES=0
+  info "scenario 2 — annotations unreadable; unknown ingress must not read as safe"
+  assert_posture "" "" ""
+  UNKNOWN_FAILURES="$FAILURES"
+
+  if [[ "$EXPOSED_FAILURES" -eq 3 && "$UNKNOWN_FAILURES" -eq 2 ]]; then
+    printf '\n\033[32mSELF-TEST PASS\033[0m — exposure raised %d, unknown-ingress raised %d; a scheduled run would exit 1.\n' \
+      "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES"
     exit 0
   fi
-  printf '\n\033[31mSELF-TEST FAIL\033[0m — drift raised %d failures, expected 3.\n' "$FAILURES"
+  printf '\n\033[31mSELF-TEST FAIL\033[0m — expected 3 and 2, got %d and %d.\n' \
+    "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES"
   printf 'The posture check can no longer detect the exposure it exists for. Fix before trusting a green run.\n'
   exit 1
 fi
@@ -120,6 +150,7 @@ FLASK_INGRESS="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.goog
 FLASK_IAM_OFF="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.googleapis.com/invoker-iam-disabled"])')"
 FLASK_EGRESS="$(describe "$FLASK_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])')"
 FLASK_URL="$(describe "$FLASK_SERVICE" 'value(status.url)')"
+EXPRESS_URL="$(describe "$EXPRESS_SERVICE" 'value(status.url)')"
 EXPRESS_INGRESS="$(describe "$EXPRESS_SERVICE" 'value(metadata.annotations["run.googleapis.com/ingress"])')"
 EXPRESS_EGRESS="$(describe "$EXPRESS_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])')"
 
@@ -130,7 +161,11 @@ if [[ -z "$FLASK_URL" ]]; then
   echo "ERROR: could not resolve $FLASK_SERVICE in $PROJECT_ID/$REGION" >&2
   exit 1
 fi
-if [[ -z "$EXPRESS_INGRESS" ]]; then
+# Gate on status.url, mirroring the Flask check exactly. Gating on the ingress
+# annotation instead conflated two different failures: a service that does not
+# resolve, and a service that resolves with no ingress annotation. The second is
+# a real posture question and now belongs to assert_posture, which fails it.
+if [[ -z "$EXPRESS_URL" ]]; then
   echo "ERROR: could not resolve $EXPRESS_SERVICE in $PROJECT_ID/$REGION" >&2
   exit 1
 fi
@@ -209,7 +244,19 @@ fi
 # complete and bill Gemini/Imagen even for an unauthenticated caller.
 log "Live probes"
 
-probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000"; }
+# One retry on a transport failure. curl returning 000 is indistinguishable from
+# "exposed" or "site down" to the assertions below, so without this a single
+# dropped packet on the daily run raises a security-labelled alert for what was
+# a network blip. A genuine outage still fails — it just has to fail twice.
+probe() {
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000")"
+  if [[ "$code" == "000" ]]; then
+    sleep 2
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000")"
+  fi
+  printf '%s' "$code"
+}
 
 FLASK_ANON="$(probe "${FLASK_URL}/")"
 SITE_ROOT="$(probe "${PUBLIC_URL}/")"
