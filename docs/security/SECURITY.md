@@ -368,6 +368,24 @@ curl -X POST http://localhost:8080/api/recipe \
 - [ ] API key rotation schedule
 - [ ] Backup and disaster recovery plan
 
+## Repository content policy
+
+Both repositories are **public**. Security scanner and posture exports — Security
+Command Center findings, SARIF, and similar — must never be committed. Enforced
+by `.gitignore`; rationale and scope in
+[`SECURITY_DECISIONS.md`](./SECURITY_DECISIONS.md) § D-2.
+
+The short version: an export is an itemised list of your own known-unfixed
+weaknesses. The leaked identifiers are the lesser harm — publishing the
+prioritised worklist is the greater one, and it is not mitigated by any amount
+of obscurity. Keep exports in Confluence or the GCP console and link to them.
+
+Deliberate security postures that could otherwise read as oversights are
+recorded in the same file. If you find yourself working around a policy control
+(Domain Restricted Sharing, an org policy, a branch ruleset), write the decision
+down there — that omission is exactly how KAN-170 stayed invisible for 4.6
+months.
+
 ## Compliance & Standards
 
 This implementation aligns with:

@@ -121,6 +121,11 @@ would. Run one only if you want the cost figure for its own sake.
 
 ## What this does not fix
 
-- `express-frontend` is _also_ `invoker-iam-disabled=true`, guarded solely by `ingress=internal-and-cloud-load-balancing`. Acceptable for a public frontend behind a load balancer, but it should be a recorded decision rather than an accident of DRS.
 - Flask still has no rate limiting of its own (`flask-limiter` is not a dependency) and no auth on the generation endpoints. Express remains the only limiter; both paths work by ensuring Express is the only reachable caller.
-- **Nothing detects recurrence.** `kan170_verify.sh` runs when an operator types it; no CI job or scheduled check asserts that `invoker-iam-disabled` stays absent, or that `express-frontend`'s ingress is not widened later. The 4.6-month dwell was a _detection_ failure — the annotation is invisible in both artifacts a reviewer would check — and that half is still open. Precedent for closing it: the single-Alembic-head check sat unused in `scripts/` until it was wired into `pr-gate.yml` **and** `gate.needs` (KAN-138).
+
+## What has since been closed
+
+- `express-frontend` is _also_ `invoker-iam-disabled=true`, guarded solely by `ingress=internal-and-cloud-load-balancing`. That is now a **recorded decision** rather than an accident of DRS — see [`SECURITY_DECISIONS.md`](./SECURITY_DECISIONS.md) § D-1 (KAN-172).
+- **Recurrence detection**, closed 2026-07-28 (KAN-173). `kan170_verify.sh` no longer merely prints: it accumulates failures and **exits 1** on drift, and it now asserts `express-frontend`'s ingress directly, since ingress is that service's only guard. `.github/workflows/security-posture-check.yml` runs it daily against production.
+
+  The precedent cited here originally — the single-Alembic-head check sitting unused in `scripts/` until it reached `pr-gate.yml` **and** `gate.needs` (KAN-138) — was followed in both halves. The script previously always exited 0, so scheduling it alone would have produced a permanently green run: a check that cannot fail is documentation, not a gate. It therefore also ships with `--self-test`, which drives the assertions with drifted values, needs neither credentials nor network, and runs on every PR as the `Security — posture check can fail` job (in `gate.needs`). That job exists to catch a detector that has quietly stopped detecting — the failure mode where a green run and a clean posture are indistinguishable.
