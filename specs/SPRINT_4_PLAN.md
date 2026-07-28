@@ -143,7 +143,11 @@ v0.4.6 — injected ten resolutions dated today. Trailing throughput consequentl
 board hygiene, not capacity. Forecasting from it would have been the mirror image of the defect this
 sprint just fixed: letting Jira timestamps stand in for what actually shipped when.
 
-**Forecast of record (verbatim, re-derived for 4 items after the scope amendment):** _"4 committed
+**WITHDRAWN 2026-07-28** — the paragraph below is retained as historical record of the number that
+was refused; see the "Timebox — Adam's override" section above for the methodology reason. **Do not
+quote these numbers.**
+
+**~~Forecast of record~~ (verbatim, re-derived for 4 items after the scope amendment):** _"4 committed
 items. Monte Carlo over filtered lifetime weekly throughput (10k trials, seed 42): p50 4 weeks, p70 6,
 p85 8, p95 13 — superseding the 3-item range (p50 3 · p70 4 · p85 7 · p95 10). This is deliberately the
 pessimistic basis — trailing throughput is contaminated by the 2026-07-26 batch reconciliation and
