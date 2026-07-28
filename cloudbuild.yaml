@@ -235,6 +235,26 @@ steps:
       # below; created by scripts/gcloud/setup_valkey_ca.sh.
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest,DD_API_KEY=DD_API_KEY:latest
       - --labels=service=flask-backend,dd_sls_mcp_tool=true
+      # KAN-170. --no-allow-unauthenticated is NOT what secures this service and
+      # never was. It edits the IAM policy (removing allUsers), while the
+      # annotation run.googleapis.com/invoker-iam-disabled=true switches the
+      # invoker IAM check off wholesale — so the annotation wins and the flag is
+      # inert. It cannot even clear it: from 2026-03-09 to 2026-07-27 this line
+      # sat here unchanged across ~100 deploys while the service accepted
+      # anonymous requests from the public internet, and both artifacts a
+      # reviewer would check (this file, and the IAM policy) said the opposite
+      # of the truth.
+      #
+      # --invoker-iam-check is the flag that actually clears the annotation.
+      # Keep BOTH: the line below is the real control, and --no-allow-unauthenticated
+      # stays only because removing it would re-add allUsers on the next deploy.
+      #
+      # Note this is a SERVICE-level setting, applied the moment this step runs —
+      # before the Express step below rolls out. Never land this flag in the same
+      # release that first ships the Express ID-token code (server/flask-auth.ts):
+      # the old Express revision would be serving without a token for the ~60s
+      # between the two deploy steps and every proxied route would 403.
+      - --invoker-iam-check
       - --no-allow-unauthenticated
       - --quiet
       - --network=default

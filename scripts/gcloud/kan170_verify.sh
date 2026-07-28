@@ -93,7 +93,12 @@ gcloud run services get-iam-policy "$FLASK_SERVICE" \
   --format='value(bindings.role,bindings.members)' 2>/dev/null | sed 's/^/    /' \
   || info "(none)"
 
-CUSTOM_AUD="$(describe "$FLASK_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/custom-audiences"])')"
+# Custom audiences live on the SERVICE-level metadata annotations, not the
+# revision template. The template path read here before 2026-07-27 is never
+# populated by `gcloud run services update --add-custom-audiences`, so this
+# line reported "<none>" during the KAN-170 cutover while the live service
+# annotation provably listed both worker endpoints.
+CUSTOM_AUD="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.googleapis.com/custom-audiences"])')"
 info "custom audiences: ${CUSTOM_AUD:-<none>}"
 
 # ── 3. Pub/Sub push subscriptions ───────────────────────────────────────────
