@@ -59,24 +59,45 @@ info() { printf '    %s\n' "$*"; }
 assert_posture() {
   local iam_off="$1" ingress="$2" express_ingress="$3"
 
+  # flask-backend has two possible guards — invoker IAM enforcement (Path A,
+  # shipped v0.4.7) and closed ingress (Path B, never executed; KAN-176). The
+  # assertion is that AT LEAST ONE holds.
+  #
+  # Demanding both would be stricter but wrong, and wrong in the specific way
+  # this check exists to prevent. KAN-170 closed on Path A with Path B recorded
+  # as not-needed, so a both-guards assertion fails every single run against the
+  # posture the board actually agreed to. A check that is permanently red is not
+  # a stricter check; it is an ignored one, and the drift it exists to catch
+  # then hides in its own noise. Encode the agreed posture, and track the gap
+  # between agreed and ideal on a ticket (KAN-176) rather than in a failing job.
+  #
+  # Both guards gone simultaneously IS the KAN-170 exposure, reproduced exactly:
+  # that is what fails here, within 24h of the flip.
+  local flask_guards=0
+
   # The annotation is the landmine: absent means the invoker IAM check is ON.
   if [[ "$iam_off" == "true" || "$iam_off" == "True" ]]; then
-    bad "invoker IAM check is DISABLED on $FLASK_SERVICE (the KAN-170 landmine)"
+    info "invoker IAM check is DISABLED on $FLASK_SERVICE (the KAN-170 landmine annotation)"
   else
     ok "invoker IAM check is ENFORCED on $FLASK_SERVICE"
+    flask_guards=$((flask_guards + 1))
   fi
 
-  # An UNSET ingress annotation is not a pass. Cloud Run's permissive setting is
-  # the one that omits nothing useful here — an absent value is an unknown, and
-  # a posture check that reads unknown as safe is the exact defect KAN-173
-  # exists to remove. Both ingress assertions therefore demand a known value;
-  # only an explicitly non-`all` setting counts as closed.
+  # An UNSET ingress annotation is never counted as a guard. Absence here is an
+  # unknown, and a posture check that reads unknown as safe is the exact defect
+  # KAN-173 exists to remove — so unknown ingress cannot rescue a disabled IAM
+  # check. Only an explicitly non-`all` value counts as closed.
   if [[ -z "$ingress" ]]; then
-    bad "ingress is UNSET on $FLASK_SERVICE — unknown state, not a pass"
+    info "ingress is UNSET on $FLASK_SERVICE — unknown, NOT counted as a guard"
   elif [[ "$ingress" == "all" ]]; then
-    bad "ingress=all — $FLASK_SERVICE is reachable directly from the internet"
+    info "ingress=all on $FLASK_SERVICE — no network guard (Path B not executed; KAN-176)"
   else
-    ok "ingress=$ingress — direct internet access is refused"
+    ok "ingress=$ingress on $FLASK_SERVICE — direct internet access is refused"
+    flask_guards=$((flask_guards + 1))
+  fi
+
+  if [[ "$flask_guards" -eq 0 ]]; then
+    bad "$FLASK_SERVICE has NO guard left — invoker IAM disabled AND ingress open/unknown. This is KAN-170."
   fi
 
   # express-frontend carries the SAME invoker-iam-disabled=true annotation and
@@ -98,7 +119,7 @@ if [[ "${1:-}" == "--self-test" ]]; then
   log "Self-test — driving the posture assertions with known-bad values"
   info "No gcloud, no network. Proves this check can FAIL (KAN-173)."
 
-  info "scenario 1 — the exact KAN-170 exposure, on both services"
+  info "scenario 1 — the exact KAN-170 exposure: both guards gone, on both services"
   assert_posture "true" "all" "all"
   EXPOSED_FAILURES="$FAILURES"
 
@@ -106,24 +127,39 @@ if [[ "${1:-}" == "--self-test" ]]; then
   # matters most: annotations that read back empty. Reported as a pass, that is
   # a green run over an unknown production state.
   #
-  # Expected 2, not 3, and the difference is the point. Absence means something
-  # DIFFERENT for each annotation. An absent `invoker-iam-disabled` genuinely
-  # means the invoker check is enforced — that is the safe state, and reporting
-  # it as a pass is correct. An absent `ingress` carries no such guarantee, so
-  # only those two may treat empty as a failure. Blanket "unknown is unsafe"
-  # would be wrong here; this asymmetry is deliberate.
+  # Absence means something DIFFERENT for each annotation. An absent
+  # `invoker-iam-disabled` genuinely means the invoker check is enforced — the
+  # safe state, correctly a pass, and on its own a sufficient guard. An absent
+  # `ingress` carries no such guarantee and is never counted as a guard. The
+  # single failure here is express-frontend, which has no second guard to fall
+  # back on. This asymmetry is deliberate.
   FAILURES=0
-  info "scenario 2 — annotations unreadable; unknown ingress must not read as safe"
+  info "scenario 2 — annotations unreadable; unknown ingress must not count as a guard"
   assert_posture "" "" ""
   UNKNOWN_FAILURES="$FAILURES"
 
-  if [[ "$EXPOSED_FAILURES" -eq 3 && "$UNKNOWN_FAILURES" -eq 2 ]]; then
-    printf '\n\033[32mSELF-TEST PASS\033[0m — exposure raised %d, unknown-ingress raised %d; a scheduled run would exit 1.\n' \
-      "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES"
+  # Scenarios 3 and 4 pin the single-guard rule from both sides. Without them a
+  # future edit could silently collapse it back to "any disabled IAM fails"
+  # (permanently red against the agreed posture) or "disabled IAM always passes"
+  # (blind to the landmine) and the self-test would not notice either.
+  FAILURES=0
+  info "scenario 3 — IAM disabled but ingress CLOSED: one guard holds, must NOT fail"
+  assert_posture "true" "internal" "internal-and-cloud-load-balancing"
+  ONE_GUARD_FAILURES="$FAILURES"
+
+  FAILURES=0
+  info "scenario 4 — IAM disabled and ingress UNKNOWN: unknown cannot rescue it"
+  assert_posture "true" "" "internal-and-cloud-load-balancing"
+  UNKNOWN_RESCUE_FAILURES="$FAILURES"
+
+  if [[ "$EXPOSED_FAILURES" -eq 2 && "$UNKNOWN_FAILURES" -eq 1 &&
+    "$ONE_GUARD_FAILURES" -eq 0 && "$UNKNOWN_RESCUE_FAILURES" -eq 1 ]]; then
+    printf '\n\033[32mSELF-TEST PASS\033[0m — exposure %d, unknown %d, one-guard %d, unknown-rescue %d; a scheduled run would exit 1.\n' \
+      "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES" "$ONE_GUARD_FAILURES" "$UNKNOWN_RESCUE_FAILURES"
     exit 0
   fi
-  printf '\n\033[31mSELF-TEST FAIL\033[0m — expected 3 and 2, got %d and %d.\n' \
-    "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES"
+  printf '\n\033[31mSELF-TEST FAIL\033[0m — expected 2/1/0/1, got %d/%d/%d/%d.\n' \
+    "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES" "$ONE_GUARD_FAILURES" "$UNKNOWN_RESCUE_FAILURES"
   printf 'The posture check can no longer detect the exposure it exists for. Fix before trusting a green run.\n'
   exit 1
 fi
