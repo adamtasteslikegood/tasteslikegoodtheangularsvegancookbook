@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # Make sibling modules importable whether this file is run as a script or imported.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
+from _canonical_pm_files import canonical_pm_files, page_title_for
 from _confluence_format import markdown_to_storage
 from _watcher_lock import (
     DISABLE_ENV,
@@ -72,38 +73,12 @@ BRIEFING_FILE = Path('.agent-work/pm/PROJECT_PM_BRIEFING.md')
 # Initialize FastMCP server
 mcp = FastMCP("PM Daemon")
 
-CANONICAL_PM_FILES = [
-    Path("specs/plan.md"),
-    Path("specs/roadmap.md"),
-    Path("specs/planning_notes.md"),
-    Path("specs/design-plan.md"),
-    Path("specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md"),
-    Path("specs/SPRINT_0_PLAN.md"),
-    Path("specs/ATLASSIAN_PM_LINK.md"),
-]
-WATCHED_FILES = [path.name for path in CANONICAL_PM_FILES]
-
-# Stable, version-free Confluence page titles per canonical PM file. Titles must
-# NOT carry a release version: the daemon looks pages up by title, so a moving
-# prefix (the old hardcoded "v0.2 ...") would strand each page under its old name
-# and spawn a duplicate on the next bump. See KAN-109.
-CANONICAL_PAGE_TITLES = {
-    "roadmap.md": "Project Roadmap",
-    "plan.md": "Execution Plan",
-    "planning_notes.md": "Planning Session Review & Notes",
-    "design-plan.md": "Design Implementation Plan",
-    "SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md": "Scrum Bootstrap & Board Plan",
-    "SPRINT_0_PLAN.md": "Sprint 0 Plan",
-    "ATLASSIAN_PM_LINK.md": "Atlassian PM Link",
-}
-
-
-def _page_title_for(filepath: Path) -> str:
-    """Stable Confluence page title for a canonical PM file (no version prefix)."""
-    return CANONICAL_PAGE_TITLES.get(
-        filepath.name,
-        filepath.name.replace(".md", "").replace("_", " ").title(),
-    )
+# The file set and page titles live in _canonical_pm_files (KAN-187) so the
+# SessionStart briefing hook can import the SAME definition instead of keeping an
+# inline copy that drifts. Resolve via canonical_pm_files(root) at call time — the
+# set is glob-backed, so a sprint plan added mid-session is picked up without a
+# daemon restart. Do not re-introduce a module-level list here.
+_page_title_for = page_title_for
 
 
 def _find_confluence_page_id(title: str) -> str | None:
@@ -125,15 +100,25 @@ def _find_confluence_page_id(title: str) -> str | None:
 class PMFileEventHandler(FileSystemEventHandler):
     def __init__(self, workspace_dir):
         self.workspace_dir = Path(workspace_dir)
-        self.canonical_files = [self.workspace_dir / path for path in CANONICAL_PM_FILES]
         super().__init__()
 
     def _is_canonical_pm_file(self, filepath: Path) -> bool:
+        # Re-resolved on every event rather than cached in __init__: the daemon is
+        # long-lived, and a sprint plan created after startup must start syncing
+        # immediately. Caching the list here is what would make SPRINT_5_PLAN.md
+        # need a restart to be noticed. (KAN-187)
         try:
             resolved = filepath.resolve()
         except FileNotFoundError:
             return False
-        return any(resolved == candidate.resolve() for candidate in self.canonical_files if candidate.exists())
+        for relative_path in canonical_pm_files(self.workspace_dir):
+            candidate = self.workspace_dir / relative_path
+            try:
+                if resolved == candidate.resolve():
+                    return True
+            except FileNotFoundError:
+                continue
+        return False
 
     def on_modified(self, event):
         if event.is_directory:
@@ -274,7 +259,7 @@ def get_project_status() -> str:
             logger.error(f"Failed to read {briefing_path}: {e}")
 
     status = []
-    for relative_path in CANONICAL_PM_FILES:
+    for relative_path in canonical_pm_files(workspace_dir):
         filepath = workspace_dir / relative_path
         if not filepath.exists():
             continue
@@ -300,7 +285,8 @@ def sync_pm_documents() -> str:
     handler = PMFileEventHandler(workspace_dir)
     synced = []
     failed = []
-    for relative_path in CANONICAL_PM_FILES:
+    considered = canonical_pm_files(workspace_dir)
+    for relative_path in considered:
         filepath = workspace_dir / relative_path
         if not filepath.exists():
             continue
@@ -308,17 +294,25 @@ def sync_pm_documents() -> str:
             synced.append(str(filepath.relative_to(workspace_dir)))
         else:
             failed.append(str(filepath.relative_to(workspace_dir)))
-            
+
     result = []
     if synced:
         result.append(f"Sync successful for: {', '.join(synced)}")
     if failed:
         result.append(f"Sync failed for: {', '.join(failed)}")
-        
+
     if not result:
         return "No local planning files found to sync."
-        
-    return ". ".join(result) + ". The PM Daemon has finished updating the documents in Atlassian."
+
+    # Always state the size of the considered set. The old message reported only
+    # what it synced, so a file that was never on the list looked identical to a
+    # file that synced fine — which is how four sprint plans went missing without
+    # anyone noticing. Naming the denominator makes an omission visible. (KAN-187)
+    return (
+        ". ".join(result)
+        + f". Considered {len(considered)} canonical PM file(s). "
+        "The PM Daemon has finished updating the documents in Atlassian."
+    )
 
 @mcp.tool()
 def refresh_project_briefing(publish: bool = False) -> str:

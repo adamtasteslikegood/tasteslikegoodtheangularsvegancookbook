@@ -57,23 +57,53 @@ fi
 # the char caps and file list identical to the MCP tool and handles encoding.
 BRIEFING=$(CWD="$CWD" MAIN_REPO="$MAIN_REPO" python3 <<'PY' 2>/dev/null || true
 import os
+import sys
 from pathlib import Path
 
 BRIEFING_FILE = Path(".agent-work/pm/PROJECT_PM_BRIEFING.md")
-CANONICAL = [
-    "specs/plan.md",
-    "specs/roadmap.md",
-    "specs/planning_notes.md",
-    "specs/design-plan.md",
-    "specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
-    "specs/SPRINT_0_PLAN.md",
-    "specs/ATLASSIAN_PM_LINK.md",
-]
 
 roots = []
 for r in (os.environ.get("CWD"), os.environ.get("MAIN_REPO")):
     if r and r not in roots:
         roots.append(Path(r))
+
+# The canonical file set comes from scripts/pm/_canonical_pm_files.py — the SAME
+# module pm_daemon.py uses — instead of the inline list that used to live here.
+# Two copies is how the daemon ended up syncing a 182-byte SPRINT_0 stub while
+# four real sprint plans were absent from Confluence for four sprints. (KAN-187)
+#
+# That module is deliberately stdlib-only so this import works under the system
+# python3, outside the daemon's .venv. If it cannot be found (a checkout without
+# scripts/, say), fall back to the curated names so the hook still briefs rather
+# than going silent — it is fail-open by contract.
+canonical_pm_files = None
+for root in roots:
+    candidate = root / "scripts" / "pm"
+    if (candidate / "_canonical_pm_files.py").is_file():
+        sys.path.insert(0, str(candidate))
+        try:
+            from _canonical_pm_files import canonical_pm_files
+        except Exception:
+            canonical_pm_files = None
+        break
+
+if canonical_pm_files is None:
+    _FALLBACK = [
+        "specs/plan.md",
+        "specs/roadmap.md",
+        "specs/planning_notes.md",
+        "specs/design-plan.md",
+        "specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
+        "specs/ATLASSIAN_PM_LINK.md",
+    ]
+
+    def canonical_pm_files(root="."):
+        base = Path(root)
+        found = [p for p in _FALLBACK if (base / p).is_file()]
+        found += sorted(
+            m.relative_to(base).as_posix() for m in base.glob("specs/SPRINT_*_PLAN.md") if m.is_file()
+        )
+        return [Path(p) for p in found]
 
 # Prefer the pre-baked briefing file from whichever root has it.
 for root in roots:
@@ -92,7 +122,8 @@ for root in roots:
 status = []
 seen = set()
 for root in roots:
-    for rel in CANONICAL:
+    for rel_path in canonical_pm_files(root):
+        rel = rel_path.as_posix()
         fp = root / rel
         if rel in seen or not fp.exists():
             continue

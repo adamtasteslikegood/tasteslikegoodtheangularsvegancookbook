@@ -4,8 +4,8 @@ description: Run and drive the PM daemon (scripts/pm) — the FastMCP stdio serv
 ---
 
 The PM daemon (`scripts/pm/pm_daemon.py`) is a **stdio MCP server** (FastMCP)
-plus a watchdog file-watcher that pushes seven `specs/*.md` planning docs to
-Confluence on save. There is no GUI. Drive it programmatically via
+plus a watchdog file-watcher that pushes the canonical `specs/*.md` planning docs
+to Confluence on save. There is no GUI. Drive it programmatically via
 `.claude/skills/run-pm-daemon/driver.py` — a stdlib-only MCP client that
 spawns the daemon, handshakes, and calls tools. All paths below are written
 relative to the repo root, but every entry point (`driver.py`, the
@@ -37,11 +37,11 @@ python3 .claude/skills/run-pm-daemon/driver.py status    # get_project_status (r
 python3 .claude/skills/run-pm-daemon/driver.py call refresh_project_briefing --args '{}'
 ```
 
-| command | what it does |
-|---|---|
-| `list` | initialize + tools/list; prints the 5 tool names/descriptions |
-| `status` | calls `get_project_status`; prints the PM briefing (falls back to `specs/*.md` heads when `.agent-work/pm/PROJECT_PM_BRIEFING.md` is absent) |
-| `call <tool> --args '{json}'` | calls any tool; `--timeout N` for slow ones |
+| command                       | what it does                                                                                                                                 |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `list`                        | initialize + tools/list; prints the 5 tool names/descriptions                                                                                |
+| `status`                      | calls `get_project_status`; prints the PM briefing (falls back to `specs/*.md` heads when `.agent-work/pm/PROJECT_PM_BRIEFING.md` is absent) |
+| `call <tool> --args '{json}'` | calls any tool; `--timeout N` for slow ones                                                                                                  |
 
 The 5 tools: `get_project_status` (read-only), `sync_pm_documents`
 (**writes Confluence**), `refresh_project_briefing` (reads live Jira/Confluence,
@@ -64,10 +64,13 @@ tail -3 .agent-work/pm/pm-daemon.log       # "Running in --watch-only mode..."
 bash scripts/pm/daemon_control.sh stop
 ```
 
-While ANY daemon instance runs (watch-only or MCP), saving one of the seven
-watched files (`specs/plan.md`, `roadmap.md`, `planning_notes.md`,
-`design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`,
-`ATLASSIAN_PM_LINK.md`) pushes it to Confluence immediately — real writes.
+While ANY daemon instance runs (watch-only or MCP), saving a watched file pushes it
+to Confluence immediately — real writes. The watched set is the curated
+`specs/plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`,
+`SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`,
+plus every `specs/SPRINT_*_PLAN.md` by glob. It is defined once in
+`scripts/pm/_canonical_pm_files.py` (KAN-187) — read it there rather than trusting
+any list in prose, including this one.
 
 ## Run: CLI scripts
 
