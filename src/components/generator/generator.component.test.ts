@@ -33,7 +33,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue(true);
+    const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
@@ -49,7 +49,11 @@ describe('GeneratorComponent shared recipe behaviour', () => {
         },
         {
           provide: PersistenceService,
-          useValue: { saveRecipe: persistenceSaveRecipe, publishStateSync: () => 'synced' },
+          useValue: {
+            saveRecipe: persistenceSaveRecipe,
+            saveRecipeDetailed: persistenceSaveRecipe,
+            publishStateSync: () => 'synced',
+          },
         },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
@@ -91,7 +95,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       // The client must not predict a slug — the server mints it (#3262).
       expect(saved.slug).toBeUndefined();
       authUser.savedRecipes = [{ ...recipe, is_public: true, slug: 'vegan-cornbread-2' }];
-      return true;
+      return { ok: true };
     });
 
     await component.togglePublic(recipe as never);

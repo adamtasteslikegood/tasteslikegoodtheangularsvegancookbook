@@ -33,7 +33,11 @@ describe('RecipeViewBase', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue(true);
+    // One spy behind both save entry points: saveNotes uses saveRecipe,
+    // togglePublic uses saveRecipeDetailed (KAN-155). `{ ok: true }` satisfies
+    // both — it is the SaveOutcome the detailed caller reads, and truthy for the
+    // boolean one.
+    const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
     const authUser = { isGuest: opts.isGuest ?? false, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
@@ -50,6 +54,7 @@ describe('RecipeViewBase', () => {
           provide: PersistenceService,
           useValue: {
             saveRecipe: persistenceSaveRecipe,
+            saveRecipeDetailed: persistenceSaveRecipe,
             publishStateSync: () => opts.publishStateSync ?? 'synced',
           },
         },

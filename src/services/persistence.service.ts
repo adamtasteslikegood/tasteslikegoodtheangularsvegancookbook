@@ -5,6 +5,95 @@ import { Cookbook } from '../auth.types';
 import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
+ * Why a save did not land (KAN-155).
+ *
+ * The three `OWNERSHIP_*` values mirror the server's `code` on a 409 verbatim.
+ * They are NOT derived here: only the server has seen the stored row, so only it
+ * can say which refusal fired. Inferring them client-side from auth state would
+ * be a guess wearing the costume of a fact.
+ *
+ *   OWNERSHIP_OTHER_ACCOUNT        a different real account owns it. Final.
+ *   OWNERSHIP_OTHER_GUEST_SESSION  another guest session owns it — usually the
+ *                                  user's own stale tab. Logging in resolves it.
+ *   OWNERSHIP_ORPHANED_GUEST_ROW   an unclaimed guest row, caller authenticated.
+ *                                  Known-incomplete: still refused pending the
+ *                                  ownership-repair policy on KAN-155.
+ *   ownership                      a 409 with no/unknown code — an older Backend,
+ *                                  or a code this build predates.
+ *   sync                           transport or non-409 server failure.
+ */
+export type SaveRefusal =
+  | 'OWNERSHIP_OTHER_ACCOUNT'
+  | 'OWNERSHIP_OTHER_GUEST_SESSION'
+  | 'OWNERSHIP_ORPHANED_GUEST_ROW'
+  | 'ownership'
+  | 'sync';
+
+export interface SaveOutcome {
+  ok: boolean;
+  refusal?: SaveRefusal;
+}
+
+/** Minimal shape of what `interpretSaveResponse` needs from a `Response`. */
+interface SaveResponseLike {
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+}
+
+/**
+ * Decide what a POST /api/recipes response means. Returns `null` when the save
+ * succeeded and the caller should continue to the slug mirror-back.
+ *
+ * Pulled out of `_apiSaveRecipe` as a pure function so it can be tested
+ * directly — this is precisely where KAN-155's regression lived, and
+ * `PersistenceService`'s constructor registers an `effect()`, so constructing
+ * the real service in a unit test needs change-detection wiring that this
+ * repo's plain-`Injector.create` test setup does not have. The decision is
+ * worth testing; the DI ceremony to reach it is not.
+ */
+export async function interpretSaveResponse(res: SaveResponseLike): Promise<SaveOutcome | null> {
+  // KAN-155: 409 means exactly one thing here — the row exists and is owned by
+  // someone else, so the write was REFUSED and nothing was stored. This used to
+  // fall through to success, back when the endpoint only ever upserted and the
+  // comment read "the current API never returns 409". That stopped being true
+  // when the ownership refusal moved from 500 to 409 (Backend #256), and the
+  // stale branch then reported a rejected write as a successful one — leaving
+  // the optimistic `is_public: true` on screen over a row the server rejected.
+  if (res.status === 409) {
+    return { ok: false, refusal: await ownershipRefusalOf(res) };
+  }
+  if (!res.ok) {
+    return { ok: false, refusal: 'sync' };
+  }
+  return null;
+}
+
+/**
+ * Narrow a 409 to which ownership refusal fired, from the server's `code`.
+ *
+ * Falls back to the generic `'ownership'` when `code` is absent or unknown — a
+ * Backend older than the three-code split still answers a bare 409, and a code
+ * newer than this build must degrade to "refused" rather than to "succeeded".
+ * Never throws: a 409 is a refusal regardless of what its body contains.
+ */
+async function ownershipRefusalOf(res: SaveResponseLike): Promise<SaveRefusal> {
+  try {
+    const code = (await res.json()) as { code?: unknown } | null;
+    if (
+      code?.code === 'OWNERSHIP_OTHER_ACCOUNT' ||
+      code?.code === 'OWNERSHIP_OTHER_GUEST_SESSION' ||
+      code?.code === 'OWNERSHIP_ORPHANED_GUEST_ROW'
+    ) {
+      return code.code;
+    }
+  } catch {
+    // Body missing or not JSON — still a refusal, just an unspecific one.
+  }
+  return 'ownership';
+}
+
+/**
  * PersistenceService — hybrid persistence layer for Phase IV.
  *
  * Strategy:
@@ -68,10 +157,20 @@ export class PersistenceService {
   // ─── Public API (components call these instead of AuthService directly) ──
 
   /** Resolves `false` when the API sync failed so callers with optimistic UI
-   *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`. */
+   *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`.
+   *  Callers that need to explain WHY should use `saveRecipeDetailed`. */
   async saveRecipe(recipe: Recipe): Promise<boolean> {
+    return (await this.saveRecipeDetailed(recipe)).ok;
+  }
+
+  /** As `saveRecipe`, but reports why a save was refused (KAN-155).
+   *
+   *  Kept separate rather than widening `saveRecipe`'s return type: the boolean
+   *  contract has a dozen background-sync callers that only need "did it land",
+   *  and none of them should have to care about refusal reasons. */
+  async saveRecipeDetailed(recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return true;
+    if (!user) return { ok: true };
 
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
@@ -288,18 +387,18 @@ export class PersistenceService {
    *  addRecipeToCookbook, ...) rely on that. Returns `false` on failure
    *  instead so callers that need to react to a failed sync (e.g. revert
    *  optimistic UI state) can check the resolved value. */
-  private async _apiSaveRecipe(recipe: Recipe): Promise<boolean> {
+  private async _apiSaveRecipe(recipe: Recipe): Promise<SaveOutcome> {
     try {
       const res = await this._fetch('/api/recipes', {
         method: 'POST',
         body: JSON.stringify({ ...recipe, id: recipe.id }),
       });
-      // The current API never returns 409 (it upserts instead of conflicting);
-      // tolerated defensively so a backend that reintroduces duplicate
-      // conflicts doesn't spam warnings for an already-persisted recipe.
-      if (!res.ok && res.status !== 409) {
-        console.warn(`[PersistenceService] saveRecipe ${res.status}`);
-        return false;
+      const refused = await interpretSaveResponse(res);
+      if (refused) {
+        if (refused.refusal === 'sync') {
+          console.warn(`[PersistenceService] saveRecipe ${res.status}`);
+        }
+        return refused;
       }
       // Publish flow: the server may assign a different slug than the client
       // sent (uniqueness collision suffix), so mirror its authoritative
@@ -318,10 +417,10 @@ export class PersistenceService {
       } catch {
         // Body missing or not JSON — keep the optimistic local value.
       }
-      return true;
+      return { ok: true };
     } catch (err) {
       console.warn('[PersistenceService] apiSaveRecipe failed:', err);
-      return false;
+      return { ok: false, refusal: 'sync' };
     }
   }
 
