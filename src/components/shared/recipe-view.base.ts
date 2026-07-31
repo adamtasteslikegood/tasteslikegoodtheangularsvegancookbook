@@ -1,6 +1,6 @@
 import { computed, inject, signal } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
-import { PersistenceService } from '../../services/persistence.service';
+import { PersistenceService, type SaveRefusal } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
@@ -13,6 +13,59 @@ import {
 } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
+
+/** Carries the server's refusal reason through the existing throw/catch in
+ *  `togglePublic`, so the catch can explain what happened instead of assuming
+ *  the network broke. */
+export class PublishSyncError extends Error {
+  constructor(readonly refusal: SaveRefusal) {
+    super(`Publish state failed to sync to the server (${refusal})`);
+    this.name = 'PublishSyncError';
+  }
+}
+
+/**
+ * The toast for a failed publish/unpublish (KAN-155).
+ *
+ * The old copy said "Check your connection and try again" for every failure.
+ * That is right for a genuine sync failure and wrong for a deliberate refusal —
+ * it blamed the user's network for a permission decision. But the reverse
+ * over-correction is just as wrong: RCP-61's repro is a stale tab whose auth had
+ * not resolved, where the row really is the user's own and retrying after
+ * logging in really does work. Telling that user "this belongs to a different
+ * account" would tell them to abandon their own recipe.
+ *
+ * So: one message per situation, and the network advice survives where it is
+ * actually true.
+ */
+export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean): string {
+  // The ownership check fires on the same POST regardless of direction, so an
+  // UNPUBLISH can be refused too. Hardcoding "published" told a user trying to
+  // unpublish that their recipe "can't be published" — right reason, wrong verb.
+  const verb = publishing ? 'published' : 'unpublished';
+
+  switch (refusal) {
+    case 'OWNERSHIP_OTHER_ACCOUNT':
+      return `This recipe belongs to a different account, so it can’t be ${verb} from here.`;
+    case 'OWNERSHIP_OTHER_GUEST_SESSION':
+      // Deliberately verb-free: the remedy is the message, and it is the same in
+      // both directions.
+      return 'This recipe was saved in a different browser session. Log in and try again — if it’s yours, it’ll be there.';
+    case 'OWNERSHIP_ORPHANED_GUEST_ROW':
+      // Known-incomplete on KAN-155: the repair is not built, so do not promise
+      // that retrying works. Say what is true and stop.
+      return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
+    case 'ownership':
+      // 409 without a recognised code — an older Backend, or one newer than this
+      // build. Refused for certain, specific reason unknown; say only that much.
+      return `This recipe can’t be ${verb} from this account or session.`;
+    case 'sync':
+    default:
+      return publishing
+        ? 'Publishing failed to sync to the server. Check your connection and try again.'
+        : 'Unpublishing failed to sync to the server. Check your connection and try again.';
+  }
+}
 
 /**
  * State and behaviour shared by the two components that render a single recipe
@@ -219,9 +272,9 @@ export abstract class RecipeViewBase {
     }
 
     try {
-      const synced = await this.persistenceService.saveRecipe(updated);
-      if (!synced) {
-        throw new Error('Publish state failed to sync to the server');
+      const outcome = await this.persistenceService.saveRecipeDetailed(updated);
+      if (!outcome.ok) {
+        throw new PublishSyncError(outcome.refusal ?? 'sync');
       }
       // Adopt the server-authoritative row (slug included) into the viewed
       // signal — auth state was just updated by the save's mirror-back.
@@ -238,9 +291,7 @@ export abstract class RecipeViewBase {
       // KAN-104 (#3146): the revert already worked; without a message the
       // user just sees the switch snap back with no explanation.
       this.toastService.show(
-        nextState
-          ? 'Publishing failed to sync to the server. Check your connection and try again.'
-          : 'Unpublishing failed to sync to the server. Check your connection and try again.'
+        publishFailureMessage(err instanceof PublishSyncError ? err.refusal : 'sync', nextState)
       );
     }
   }

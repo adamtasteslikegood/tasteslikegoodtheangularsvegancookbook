@@ -32,7 +32,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue(true);
+    const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
     // Mutable so tests can emulate the persistence mirror-back writing the
     // server-minted slug into auth state mid-save (KAN-149 / #3262).
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
@@ -53,7 +53,11 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
         },
         {
           provide: PersistenceService,
-          useValue: { saveRecipe: persistenceSaveRecipe, publishStateSync: () => 'synced' },
+          useValue: {
+            saveRecipe: persistenceSaveRecipe,
+            saveRecipeDetailed: persistenceSaveRecipe,
+            publishStateSync: () => 'synced',
+          },
         },
         { provide: GeminiService, useValue: {} },
         { provide: RecipeStateService, useValue: recipeState },
@@ -274,7 +278,7 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       persistenceSaveRecipe.mockImplementation(async (saved: { slug?: string }) => {
         expect(saved.slug).toBeUndefined();
         authUser.savedRecipes = [{ ...recipe, is_public: true, slug: 'vegan-cornbread-2' }];
-        return true;
+        return { ok: true };
       });
 
       await component.togglePublic(recipe as never);
