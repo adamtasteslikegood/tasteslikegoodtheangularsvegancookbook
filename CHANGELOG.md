@@ -6,6 +6,74 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.8] - 2026-07-31
+
+Backend submodule pointer: `0de1e2b` → **`7b6347e`** — Backend `main`'s own tip,
+the merge commit of
+[#261](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/261), rather
+than the dev-side SHA it promoted. Both have identical trees, so this pins the
+same code; pinning main's own SHA is what keeps "which Backend commit is in
+production?" answerable from a single ref. Carries the KAN-155 ownership-refusal
+work from Backend
+[#256](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/256),
+[#259](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/259) and
+[#261](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/261).
+Single Alembic head (`e4a7b2d9c5f1`) and no new migrations in the range, so
+`flask-backend-migrate` runs as a no-op.
+
+### Fixed
+
+- **A refused publish is no longer reported as a success** (KAN-155,
+  [#3316](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3316)
+  - Backend #256/#259). Publishing a recipe whose row belongs to another
+    account or another guest session was refused by the server and shown to the
+    user as _published_: the toggle stayed on over a row that was never written.
+    The refusal now propagates as a structured outcome instead of collapsing
+    into a bare `false`, the optimistic UI state reverts, and the toast says
+    which refusal fired rather than blaming the network for a permission
+    decision. The message also tracks the toggle direction — an unpublish that
+    was refused used to report that the recipe "can't be **published**".
+
+  Three server-side cases are distinguished, each with its own remedy: a
+  different real account owns it (final); another guest session owns it (log
+  in and retry — the RCP-61 stale-tab case, where retrying genuinely works);
+  and an unclaimed guest row with the caller authenticated (no repair exists
+  yet, so the copy does not promise that retrying helps). An unrecognised or
+  missing code degrades to a generic refusal, never to success.
+
+- **Sprint plans now reach Confluence** (KAN-187,
+  [#3315](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3315)).
+  The PM sync watched a hardcoded 7-file list that named a 182-byte
+  `SPRINT_0_PLAN.md` stub and omitted `SPRINT_1..4_PLAN.md` — roughly 91 KB of
+  real planning that had never been published, across four sprints, while
+  `sync_pm_documents` reported "Sync successful" every time. Sprint plans are
+  now matched by glob so future sprints need no code change, the file set is
+  defined once in `scripts/pm/_canonical_pm_files.py` and imported by both the
+  daemon and the SessionStart briefing hook, and the sync names how many files
+  it considered so an omission is visible instead of indistinguishable from
+  success.
+
+### Security
+
+- **`flask-backend` is no longer publicly invokable** (KAN-170/KAN-171/KAN-173,
+  [#3303](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3303),
+  [#3305](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3305),
+  [#3307](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3307)).
+  `--invoker-iam-check` is persisted in `cloudbuild.yaml` so the setting
+  survives redeploys, and posture-drift detection runs on a dedicated
+  read-only Workload Identity Federation identity. The detection workflow was
+  previously unrunnable — no WIF provider existed — so it passed while
+  detecting nothing; it is now proven to fail for the reason it exists
+  (KAN-176).
+
+### Changed
+
+- Sprint 4 re-cut to a single lane on KAN-155, with the borrowed Monte Carlo
+  forecast formally withdrawn: it was computed over KAN throughput and
+  presented as a forecast for an RCP board that has run zero sprints.
+- `gh-aw` bumped to v0.83.4; the MCP-gateway firewall-denial root cause is
+  documented (KAN-134).
+
 ## [0.4.7] - 2026-07-27
 
 Backend submodule pointer: `38736da` → **`0de1e2b`** (Backend `main` tip,

@@ -31,6 +31,7 @@ from typing import Any
 # imported (e.g. by publish_session_log.py).
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import validate_atlassian_site  # noqa: E402
+from _canonical_pm_files import BRIEFING_SUMMARY_FILES  # noqa: E402
 from _jira_projects import resolve_jira_projects  # noqa: E402
 from _confluence_format import markdown_to_storage  # noqa: E402
 
@@ -38,12 +39,10 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUTPUT = REPO_ROOT / ".agent-work" / "pm" / "PROJECT_PM_BRIEFING.md"
 DEFAULT_CACHE = REPO_ROOT / ".agent-work" / "pm" / "atlassian-state.json"
 DEFAULT_WORK_REFLECTION = REPO_ROOT / ".agent-work" / "pm" / "JIRA_KAN_WORK_REFLECTION.md"
-LOCAL_PM_FILES = [
-    "specs/planning_notes.md",
-    "specs/plan.md",
-    "specs/roadmap.md",
-    "specs/design-plan.md",
-]
+# The briefing summary is deliberately NARROWER than the Confluence sync set —
+# the briefing is injected at session start under a 12k-char cap and the sprint
+# plans alone are ~91 KB. That narrowness is intentional; the duplicate
+# definition was not. Both sets now live in _canonical_pm_files (KAN-187).
 
 
 @dataclasses.dataclass(frozen=True)
@@ -353,7 +352,7 @@ def summarize_confluence(client: AtlassianClient, config: Config, limit: int) ->
 
 def summarize_local_pm_files() -> list[dict[str, str]]:
     summaries: list[dict[str, str]] = []
-    for filename in LOCAL_PM_FILES:
+    for filename in BRIEFING_SUMMARY_FILES:
         path = REPO_ROOT / filename
         if not path.exists():
             continue

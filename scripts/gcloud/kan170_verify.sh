@@ -26,6 +26,13 @@
 #
 # Usage:
 #   ./scripts/gcloud/kan170_verify.sh
+#   ./scripts/gcloud/kan170_verify.sh --self-test   # no gcloud, no network
+#
+# Exit status (KAN-173): 0 when every check passes, 1 when any fails. Before
+# 2026-07-28 this script only printed and always exited 0, so scheduling it
+# would have produced a green run forever — the same shape as the Alembic head
+# check that sat unused in scripts/ until it was wired into pr-gate.yml AND
+# gate.needs (KAN-138). A check that cannot fail is documentation, not a gate.
 
 set -euo pipefail
 
@@ -35,10 +42,127 @@ FLASK_SERVICE="${FLASK_SERVICE:-flask-backend}"
 EXPRESS_SERVICE="${EXPRESS_SERVICE:-express-frontend}"
 PUBLIC_URL="${PUBLIC_URL:-https://www.tasteslikegood.org}"
 
+FAILURES=0
+
 log() { printf '\033[36m[kan170-verify]\033[0m %s\n' "$*"; }
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
-bad() { printf '  \033[31m✗\033[0m %s\n' "$*"; }
+bad() {
+  printf '  \033[31m✗\033[0m %s\n' "$*"
+  FAILURES=$((FAILURES + 1))
+}
 info() { printf '    %s\n' "$*"; }
+
+# The two annotations that define the KAN-170 exposure. Extracted from the main
+# flow purely so --self-test can drive them with drifted values: the risk with a
+# scheduled posture check is that it silently passes while pointed at the wrong
+# thing, and the only way to trust a green run is to have seen a red one.
+assert_posture() {
+  local iam_off="$1" ingress="$2" express_ingress="$3"
+
+  # flask-backend has two possible guards — invoker IAM enforcement (Path A,
+  # shipped v0.4.7) and closed ingress (Path B, never executed; KAN-176). The
+  # assertion is that AT LEAST ONE holds.
+  #
+  # Demanding both would be stricter but wrong, and wrong in the specific way
+  # this check exists to prevent. KAN-170 closed on Path A with Path B recorded
+  # as not-needed, so a both-guards assertion fails every single run against the
+  # posture the board actually agreed to. A check that is permanently red is not
+  # a stricter check; it is an ignored one, and the drift it exists to catch
+  # then hides in its own noise. Encode the agreed posture, and track the gap
+  # between agreed and ideal on a ticket (KAN-176) rather than in a failing job.
+  #
+  # Both guards gone simultaneously IS the KAN-170 exposure, reproduced exactly:
+  # that is what fails here, within 24h of the flip.
+  local flask_guards=0
+
+  # The annotation is the landmine: absent means the invoker IAM check is ON.
+  if [[ "$iam_off" == "true" || "$iam_off" == "True" ]]; then
+    info "invoker IAM check is DISABLED on $FLASK_SERVICE (the KAN-170 landmine annotation)"
+  else
+    ok "invoker IAM check is ENFORCED on $FLASK_SERVICE"
+    flask_guards=$((flask_guards + 1))
+  fi
+
+  # An UNSET ingress annotation is never counted as a guard. Absence here is an
+  # unknown, and a posture check that reads unknown as safe is the exact defect
+  # KAN-173 exists to remove — so unknown ingress cannot rescue a disabled IAM
+  # check. Only an explicitly non-`all` value counts as closed.
+  if [[ -z "$ingress" ]]; then
+    info "ingress is UNSET on $FLASK_SERVICE — unknown, NOT counted as a guard"
+  elif [[ "$ingress" == "all" ]]; then
+    info "ingress=all on $FLASK_SERVICE — no network guard (Path B not executed; KAN-176)"
+  else
+    ok "ingress=$ingress on $FLASK_SERVICE — direct internet access is refused"
+    flask_guards=$((flask_guards + 1))
+  fi
+
+  if [[ "$flask_guards" -eq 0 ]]; then
+    bad "$FLASK_SERVICE has NO guard left — invoker IAM disabled AND ingress open/unknown. This is KAN-170."
+  fi
+
+  # express-frontend carries the SAME invoker-iam-disabled=true annotation and
+  # is held shut by ingress alone — see docs/security/SECURITY_DECISIONS.md.
+  # Widening its ingress therefore reproduces KAN-170 on the other service, with
+  # no IAM change to make it visible.
+  if [[ -z "$express_ingress" ]]; then
+    bad "ingress is UNSET on $EXPRESS_SERVICE — unknown state, not a pass (KAN-172)"
+  elif [[ "$express_ingress" == "all" ]]; then
+    bad "ingress=all on $EXPRESS_SERVICE — its only guard has been removed (KAN-172)"
+  else
+    ok "ingress=$express_ingress on $EXPRESS_SERVICE — load-balancer path only"
+  fi
+}
+
+# Runs before `require gcloud` on purpose: the self-test needs no credentials
+# and no network, so CI can prove the gate is live on every PR.
+if [[ "${1:-}" == "--self-test" ]]; then
+  log "Self-test — driving the posture assertions with known-bad values"
+  info "No gcloud, no network. Proves this check can FAIL (KAN-173)."
+
+  info "scenario 1 — the exact KAN-170 exposure: both guards gone, on both services"
+  assert_posture "true" "all" "all"
+  EXPOSED_FAILURES="$FAILURES"
+
+  # Scenario 2 exists because scenario 1 alone cannot catch the regression that
+  # matters most: annotations that read back empty. Reported as a pass, that is
+  # a green run over an unknown production state.
+  #
+  # Absence means something DIFFERENT for each annotation. An absent
+  # `invoker-iam-disabled` genuinely means the invoker check is enforced — the
+  # safe state, correctly a pass, and on its own a sufficient guard. An absent
+  # `ingress` carries no such guarantee and is never counted as a guard. The
+  # single failure here is express-frontend, which has no second guard to fall
+  # back on. This asymmetry is deliberate.
+  FAILURES=0
+  info "scenario 2 — annotations unreadable; unknown ingress must not count as a guard"
+  assert_posture "" "" ""
+  UNKNOWN_FAILURES="$FAILURES"
+
+  # Scenarios 3 and 4 pin the single-guard rule from both sides. Without them a
+  # future edit could silently collapse it back to "any disabled IAM fails"
+  # (permanently red against the agreed posture) or "disabled IAM always passes"
+  # (blind to the landmine) and the self-test would not notice either.
+  FAILURES=0
+  info "scenario 3 — IAM disabled but ingress CLOSED: one guard holds, must NOT fail"
+  assert_posture "true" "internal" "internal-and-cloud-load-balancing"
+  ONE_GUARD_FAILURES="$FAILURES"
+
+  FAILURES=0
+  info "scenario 4 — IAM disabled and ingress UNKNOWN: unknown cannot rescue it"
+  assert_posture "true" "" "internal-and-cloud-load-balancing"
+  UNKNOWN_RESCUE_FAILURES="$FAILURES"
+
+  if [[ "$EXPOSED_FAILURES" -eq 2 && "$UNKNOWN_FAILURES" -eq 1 &&
+    "$ONE_GUARD_FAILURES" -eq 0 && "$UNKNOWN_RESCUE_FAILURES" -eq 1 ]]; then
+    printf '\n\033[32mSELF-TEST PASS\033[0m — exposure %d, unknown %d, one-guard %d, unknown-rescue %d; a scheduled run would exit 1.\n' \
+      "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES" "$ONE_GUARD_FAILURES" "$UNKNOWN_RESCUE_FAILURES"
+    exit 0
+  fi
+  printf '\n\033[31mSELF-TEST FAIL\033[0m — expected 2/1/0/1, got %d/%d/%d/%d.\n' \
+    "$EXPOSED_FAILURES" "$UNKNOWN_FAILURES" "$ONE_GUARD_FAILURES" "$UNKNOWN_RESCUE_FAILURES"
+  printf 'The posture check can no longer detect the exposure it exists for. Fix before trusting a green run.\n'
+  exit 1
+fi
 
 require() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: $1 not found in PATH"; exit 1; }
@@ -62,29 +186,30 @@ FLASK_INGRESS="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.goog
 FLASK_IAM_OFF="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.googleapis.com/invoker-iam-disabled"])')"
 FLASK_EGRESS="$(describe "$FLASK_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])')"
 FLASK_URL="$(describe "$FLASK_SERVICE" 'value(status.url)')"
+EXPRESS_URL="$(describe "$EXPRESS_SERVICE" 'value(status.url)')"
 EXPRESS_INGRESS="$(describe "$EXPRESS_SERVICE" 'value(metadata.annotations["run.googleapis.com/ingress"])')"
 EXPRESS_EGRESS="$(describe "$EXPRESS_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/vpc-access-egress"])')"
 
+# Unresolvable services must abort, never pass. A scheduled check whose target
+# has been renamed or moved would otherwise read every annotation as empty and
+# report the posture as correct — green because it looked at nothing.
 if [[ -z "$FLASK_URL" ]]; then
   echo "ERROR: could not resolve $FLASK_SERVICE in $PROJECT_ID/$REGION" >&2
+  exit 1
+fi
+# Gate on status.url, mirroring the Flask check exactly. Gating on the ingress
+# annotation instead conflated two different failures: a service that does not
+# resolve, and a service that resolves with no ingress annotation. The second is
+# a real posture question and now belongs to assert_posture, which fails it.
+if [[ -z "$EXPRESS_URL" ]]; then
+  echo "ERROR: could not resolve $EXPRESS_SERVICE in $PROJECT_ID/$REGION" >&2
   exit 1
 fi
 
 info "$FLASK_SERVICE   ingress=${FLASK_INGRESS:-<unset>} invoker-iam-disabled=${FLASK_IAM_OFF:-<absent>} egress=${FLASK_EGRESS:-<unset>}"
 info "$EXPRESS_SERVICE ingress=${EXPRESS_INGRESS:-<unset>} egress=${EXPRESS_EGRESS:-<unset>}"
 
-# The annotation is the landmine: absent means the invoker IAM check is ON.
-if [[ "$FLASK_IAM_OFF" == "true" || "$FLASK_IAM_OFF" == "True" ]]; then
-  bad "invoker IAM check is DISABLED on $FLASK_SERVICE (the KAN-170 landmine)"
-else
-  ok "invoker IAM check is ENFORCED on $FLASK_SERVICE"
-fi
-
-if [[ "$FLASK_INGRESS" == "all" ]]; then
-  bad "ingress=all — $FLASK_SERVICE is reachable directly from the internet"
-else
-  ok "ingress=${FLASK_INGRESS} — direct internet access is refused"
-fi
+assert_posture "$FLASK_IAM_OFF" "$FLASK_INGRESS" "$EXPRESS_INGRESS"
 
 # ── 2. IAM + audiences ──────────────────────────────────────────────────────
 log "IAM invoker bindings on $FLASK_SERVICE"
@@ -93,7 +218,12 @@ gcloud run services get-iam-policy "$FLASK_SERVICE" \
   --format='value(bindings.role,bindings.members)' 2>/dev/null | sed 's/^/    /' \
   || info "(none)"
 
-CUSTOM_AUD="$(describe "$FLASK_SERVICE" 'value(spec.template.metadata.annotations["run.googleapis.com/custom-audiences"])')"
+# Custom audiences live on the SERVICE-level metadata annotations, not the
+# revision template. The template path read here before 2026-07-27 is never
+# populated by `gcloud run services update --add-custom-audiences`, so this
+# line reported "<none>" during the KAN-170 cutover while the live service
+# annotation provably listed both worker endpoints.
+CUSTOM_AUD="$(describe "$FLASK_SERVICE" 'value(metadata.annotations["run.googleapis.com/custom-audiences"])')"
 info "custom audiences: ${CUSTOM_AUD:-<none>}"
 
 # ── 3. Pub/Sub push subscriptions ───────────────────────────────────────────
@@ -150,7 +280,19 @@ fi
 # complete and bill Gemini/Imagen even for an unauthenticated caller.
 log "Live probes"
 
-probe() { curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000"; }
+# One retry on a transport failure. curl returning 000 is indistinguishable from
+# "exposed" or "site down" to the assertions below, so without this a single
+# dropped packet on the daily run raises a security-labelled alert for what was
+# a network blip. A genuine outage still fails — it just has to fail twice.
+probe() {
+  local code
+  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000")"
+  if [[ "$code" == "000" ]]; then
+    sleep 2
+    code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$1" 2>/dev/null || echo "000")"
+  fi
+  printf '%s' "$code"
+}
 
 FLASK_ANON="$(probe "${FLASK_URL}/")"
 SITE_ROOT="$(probe "${PUBLIC_URL}/")"
@@ -186,4 +328,9 @@ info "403 = token was valid but the caller lacks roles/run.invoker"
 info "401 = token missing, malformed, or minted for the wrong audience"
 info "404 = request reached Cloud Run as EXTERNAL and was refused by internal ingress"
 echo
-log "Done."
+
+if [[ "$FAILURES" -gt 0 ]]; then
+  log "FAILED — $FAILURES check(s) did not pass."
+  exit 1
+fi
+log "Done — all checks passed."

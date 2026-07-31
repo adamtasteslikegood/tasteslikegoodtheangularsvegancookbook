@@ -5,7 +5,8 @@ _Jira epic:_ **RCP-54** (delivery/acceptance) · _Jira sprint:_ **"Sprint 4", id
 _Execution tickets:_ **KAN-155 · KAN-156 · KAN-157 · KAN-161** (KAN = execution, RCP = scope/acceptance)
 _Status:_ ✅ **LOCKED via `/cs:grill-pm` — 7/7 branches confirmed by Adam, 2026-07-26.**
 _Amended same day (see "Scope amendment" below):_ **KAN-161 added → WIP 4**, KAN-160 scheduled Sprint 5.
-Charter only. **No implementation started this session** by explicit scope bound.
+_Amended again 2026-07-30 (see "Grill amendment" below):_ **re-cut single-lane to KAN-155**, release
+pulled in-box, **R7** added as the dominant risk, **KAN-181** filed as a behaviour-preservation charter.
 
 **This is the first real Jira sprint this project has ever had.** Sprints 1–3 were `sprint-N`
 labels on KAN board 34, which the Agile API refuses to attach a sprint to
@@ -18,11 +19,107 @@ full finding and the lane repair.
 | --- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1   | **Outcome / DONE**    | Two machine gates. **(a) Sprint 3 close-out:** `project in (KAN, RCP) AND labels = sprint-3 AND statusCategory != Done` returns **zero rows** — done 2026-07-26. **(b) Sprint 4 planning:** this file carries all six charter rows, epic RCP-54 exists with its committed children in sprint 43 (**4 after the amendment**), and `python3 .claude/skills/harness-qa-loop/plan_qa.py` exits 0. Sprint 4 _delivery_ closes when KAN-155/156/157/**161** each pass their own gate below.                      |
 | 2   | **Measurement**       | WIP ≤ 3 as chartered, **amended to 4 on 2026-07-26** (Adam, see Scope amendment). No story points. Four mandatory measures reported **filtered** — `daily-status`, `agentic-workflows` and `report` rows excluded (21 of 125 KAN rows are bot-filed). Measure **after** status reconciliation, never before: shipped work reading In Review leaves its cycle-time clock running. The filter is not cosmetic — it moved p85 cycle time from **78 d → 3 d** and would otherwise have set the SLE at 78 days. |
-| 3   | **Forecast honesty**  | Zero invented dates, and **no trailing-throughput forecast this sprint** (contaminated — see below). Monte Carlo over lifetime throughput (filtered, 10k trials, seed 42), **re-derived for 4 items after the amendment**: **p50 4 weeks · p70 6 · p85 8 · p95 13** (was p50 3 · p85 7 at 3 items). Range only, never a date. Sprint 43 was created with **no start/end dates**; setting the timebox is Adam's call and is recorded as his override.                                                       |
+| 3   | **Forecast honesty**  | Zero invented dates, and **no trailing-throughput forecast this sprint** (contaminated — see below). Monte Carlo over lifetime throughput (filtered, 10k trials, seed 42), re-derived for 4 items: p50 4 weeks · p70 6 · p85 8 · p95 13. **WITHDRAWN 2026-07-28 — see the override row below; do not quote these numbers.** Sprint 43 was created with **no start/end dates**; setting the timebox is Adam's call and is recorded as his override.                                                         |
 | 4   | **Ownership**         | Owner = Adam on all four; agent authors; **reviewer is never the author.** Per-item reviewers in the scope tables below. Escalation → Adam, reason written into this file at the moment of escalation. `delivery_loop_gate.py` refuses a plan with an unnamed owner or reviewer.                                                                                                                                                                                                                           |
 | 5   | **Jira lane**         | **RCP holds the sprint, KAN keeps execution** — the model `docs/ATLASSIAN_PM_LINK.md` already specified and practice had abandoned. Cap: RCP gets this epic + the sprint's acceptance rows and nothing else — chartered at ≤3, **now 4** (RCP-58 added with KAN-161). Acceptance rows RCP-55/56/57/58 are `Relates`-linked to KAN-155/156/157/161, asserted by `scripts/pm/check_sprint_lane.sh`.                                                                                                          |
 | 6   | **Risk (pre-mortem)** | Six owned risks, R1–R6, below. R1 (the lane collapses again) and R2 (status drifts a third time) are both **recurrences**, not hypotheticals.                                                                                                                                                                                                                                                                                                                                                              |
 | 7   | **Budgets**           | 3 attempts/task · 12 iterations/goal · escalation reviewer Adam. Terminal states are exactly three: **verified-close, escalated, explicitly waived by Adam** — "looks done" is not one. **Blocked-on-human is a pause, not an attempt.** Hygiene capped at one pass. **No agent-initiated scope.** Copilot/Codex spend stays under the fixed blocking budget set 2026-07-24.                                                                                                                               |
+
+## Timebox — Adam's override, recorded 2026-07-28
+
+Charter row 3 reserved the timebox to Adam. He set it, and rejected the forecast that row carried.
+
+**Sprint 43 activated 2026-07-28T09:56:24Z, ending 2026-07-31T23:59:00Z — Friday of the same week.** Sprint goal updated at activation to name all four items rather than three.
+
+**The Monte Carlo is withdrawn, and the reason generalises.** Adam's objection: _"the 4 items are a day's work — the data for previous sprints is not available, or the results of this space's 0 sprints history."_ That is correct and it is a methodology fault, not a disagreement about estimates. The p50-4-weeks figure was computed over **filtered lifetime KAN throughput** and then presented as a forecast for an **RCP** sprint. RCP has run **zero** sprints. Borrowing another lane's throughput — a lane with different item granularity, filed under a different working model — and reporting the output as this board's forecast is precisely the invented-confidence that row 3 exists to forbid. The row's own principle caught the row's own number.
+
+Consequence: **Sprint 4 produces the first legitimate data point for this board, and there is nothing to compare it against.** No forecast should be quoted for Sprint 5 either — one sprint is not a distribution. Treat forecasting as unavailable until RCP has enough closed sprints of its own to sample, and say "unavailable" rather than substituting a proxy.
+
+Practical read on the timebox: four items sized at roughly a day means a Tue→Fri box is a real deadline rather than a stretch, and if it rolls, that is signal about sizing rather than a failed sprint.
+
+## Grill amendment — 2026-07-30, single-lane re-cut
+
+Second `/cs:grill-pm` pass, 6/6 branches confirmed by Adam. The charter below stands; what follows
+amends how the remaining box is spent, and adds the risk that now dominates.
+
+**Starting state, verified rather than assumed.** With ~1.5 days left in the box, all four committed
+items had **zero implementation**. Every commit bearing `KAN-155/156/157/161` across `origin/dev`
+and `origin/main` in **both** repos touches only `specs/SPRINT_*.md` and
+`scripts/pm/check_sprint_lane.sh`. The engineering hours of 07-27→07-29 went to KAN-170/173/176 —
+the P1 security preemption R4 reserved to Adam, correctly taken.
+
+| #   | Amendment                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | **Single-lane re-cut to KAN-155.** It is the only item breaking a user now. S2 is a cosmetic double toast, S3 is content hygiene, S4's own verification concluded exposure is **LATENT, not live** (see "KAN-161 — exposure verification", line 201). KAN-156/157/161 stay committed in sprint 43, are not pulled, and are **expected to roll** — recorded as a sizing data point per "Practical read on the timebox", line 38.                               |
+| A2  | **No flow re-measure.** Over zero completions it returns the charter's own baseline. Two numbers only: KAN-155's **work item age — filed 2026-07-25, ~5 days against a p85 of 3 days, already an SLE breach**; and status reconciled first per charter row 2. **KAN-161 transitioned In Progress → To Do** — R2 drift, third occurrence, reporting WIP 4 when true WIP was 0.                                                                                 |
+| A3  | **KAN-155 splits.** Agent-executable in-box: the R7 test pair, a distinct ownership-refusal signal instead of bare `None`, and an honest message replacing "Check your connection". **Blocked-on-Adam (a pause, not an attempt):** the true owner of prod row `62ccf6fc…`, and the ownership-repair policy. **Named trap: (a)+(b) alone make the P1 legible but still broken.** The close-out must not read "done" over a recipe that still will not publish. |
+| A4  | **The release comes in-box** — and it is not a cost KAN-155 imposes. Cookbook `dev` is **13 commits ahead of `main`** with the KAN-170/173/176 posture work; the release was already owed. KAN-155 rides it.                                                                                                                                                                                                                                                  |
+| A5  | **Review rounds are unbudgeted and unlimited, deliberately.** Capping them creates pressure to declare "ready" prematurely, which is the observed failure mode. The gate is on the failure instead: **"ready to merge" may not be said until every open thread on that PR has a posted reply.** Escalation trigger, not a cap — a **third round of substantive findings** on one PR means the change is wrong, not that review is slow.                       |
+
+### Release train — Adam's corrected order (2026-07-30)
+
+**Backend never fires a build on push to `main`. Only the cookbook tag push fires Cloud Build.**
+Promoting the cookbook before Backend `main` therefore deploys a pointer to a SHA that is not on
+Backend `main`.
+
+```
+1. Backend main → dev back-sync      (owed now: main is 1 ahead at 0de1e2b,
+                                      and cookbook dev currently pins that main-only commit)
+2. KAN-155 fix PR → Backend dev
+3. Backend dev → main                 (NO build fires — lane move only)
+4. Cookbook pointer bump → cookbook dev
+5. Cookbook dev → main, v0.4.8        === tag → Cloud Build → deploy
+```
+
+**Forbidden anti-pattern, named because it already happened:** treating the Backend `main → dev`
+back-sync as "too much trouble" and deferring Backend commits to the next tag. It is the cheapest PR
+in the train, and skipping it is what puts the submodule pointer on `main`-only code.
+
+Adam's ask for a ruleset blocking a cookbook merge to `main` without a tagged release is recorded on
+**KAN-138**, which already owns release-train automation. Not built this sprint — charter row 7
+forbids agent-initiated scope.
+
+### R7 — the risk that now dominates
+
+**The fix makes the symptom disappear by weakening the ownership check.** Six months later this
+failed because `same_owner` at `db_recipe_repository.py:566-586` got relaxed, publish started
+succeeding, the toast went away, the test went green, and we shipped a privilege escalation on
+recipe rows. The ticket even supplies the rationale: one of its two candidate owners is a
+legitimately-orphaned guest row; the other is a **different real human's account**. A fix that
+cannot tell those apart is not a fix.
+
+Mitigation is **two** tests, and the second is the load-bearing one:
+
+- **(i)** orphaned guest row merged to this user at OAuth login → publish **succeeds**. Must **fail**
+  on today's code.
+- **(ii)** row owned by a **different authenticated account** → publish **still refused**, with the
+  new distinct signal. Must pass **before and after** the fix, and must **fail** if `same_owner` is
+  loosened.
+
+Mutation-check both. With only (i), "green" and "correct" have come apart.
+
+**R8** — the release carries 13 commits authored by other sessions. Read the actual payload before
+step 5 and confirm the KAN-173/176 posture work is CI-only and cannot reach the deployed app at
+runtime.
+
+### KAN-181 — behaviour-preservation charter
+
+Adam walked the full save → duplicate-toast → publish-refusal → unpublish → republish cycle live on
+2026-07-29 and reported it **technically correct**. Filed as **KAN-181** (`Relates` → KAN-155,
+labelled `not-sprint-4`, so it is outside committed scope and outside the lane assertion). Six
+invariants INV-1…INV-6, all verified green in production.
+
+**INV-4 is the one that binds this sprint:** when the row is owned by another account or session,
+publish is **REFUSED** and no public page and no DB row is created. **The refusal is correct. Do not
+loosen it.** In Adam's own scenario the refusal was right behaviour — the only defect on that path is
+the message blaming his connection for a deliberate integrity refusal.
+
+Adam's scope boundary, verbatim: _"KAN-155 is to check this cycle for a **new** recipe, not one that
+predated the migrations that catch the loop in the first place."_ For rows predating the migrations,
+the refusal is the designed trap firing as intended.
+
+**No future change may loosen INV-1…INV-6 to make a symptom disappear.** Any PR relaxing an
+ownership or duplicate check must show which invariant it preserves and how.
 
 ## Committed scope — WIP 4 (chartered ≤ 3, amended)
 
@@ -131,7 +228,11 @@ v0.4.6 — injected ten resolutions dated today. Trailing throughput consequentl
 board hygiene, not capacity. Forecasting from it would have been the mirror image of the defect this
 sprint just fixed: letting Jira timestamps stand in for what actually shipped when.
 
-**Forecast of record (verbatim, re-derived for 4 items after the scope amendment):** _"4 committed
+**WITHDRAWN 2026-07-28** — the paragraph below is retained as historical record of the number that
+was refused; see the "Timebox — Adam's override" section above for the methodology reason. **Do not
+quote these numbers.**
+
+**~~Forecast of record~~ (verbatim, re-derived for 4 items after the scope amendment):** _"4 committed
 items. Monte Carlo over filtered lifetime weekly throughput (10k trials, seed 42): p50 4 weeks, p70 6,
 p85 8, p95 13 — superseding the 3-item range (p50 3 · p70 4 · p85 7 · p95 10). This is deliberately the
 pessimistic basis — trailing throughput is contaminated by the 2026-07-26 batch reconciliation and
