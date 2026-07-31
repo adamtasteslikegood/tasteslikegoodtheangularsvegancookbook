@@ -88,12 +88,19 @@ for root in roots:
         break
 
 if canonical_pm_files is None:
+    # Mirrors CURATED_PM_FILES exactly, SPRINT_0_PLAN.md included at its curated
+    # position. Leaving it out did not lose the file — the glob still found it —
+    # but it arrived AFTER ATLASSIAN_PM_LINK instead of before, so the fail-open
+    # briefing came out ordered differently from a normal one. (Review catch on
+    # #3315, round 2.) Same reason the sort key below is numeric: this branch has
+    # to agree with the module, not merely return the same set.
     _FALLBACK = [
         "specs/plan.md",
         "specs/roadmap.md",
         "specs/planning_notes.md",
         "specs/design-plan.md",
         "specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
+        "specs/SPRINT_0_PLAN.md",
         "specs/ATLASSIAN_PM_LINK.md",
     ]
 
@@ -108,12 +115,18 @@ if canonical_pm_files is None:
 
     def canonical_pm_files(root="."):
         base = Path(root)
-        found = [p for p in _FALLBACK if (base / p).is_file()]
-        found += sorted(
+        globbed = sorted(
             (m.relative_to(base).as_posix() for m in base.glob("specs/SPRINT_*_PLAN.md") if m.is_file()),
             key=_sprint_key,
         )
-        return [Path(p) for p in found]
+        # Dedupe like the module does: SPRINT_0_PLAN.md is both curated and
+        # glob-matched, so without this it would be briefed twice.
+        ordered, seen = [], set()
+        for rel in _FALLBACK + globbed:
+            if rel not in seen and (base / rel).is_file():
+                seen.add(rel)
+                ordered.append(rel)
+        return [Path(p) for p in ordered]
 
 # Prefer the pre-baked briefing file from whichever root has it.
 for root in roots:

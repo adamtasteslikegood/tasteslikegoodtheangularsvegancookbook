@@ -78,7 +78,6 @@ mcp = FastMCP("PM Daemon")
 # inline copy that drifts. Resolve via canonical_pm_files(root) at call time — the
 # set is glob-backed, so a sprint plan added mid-session is picked up without a
 # daemon restart. Do not re-introduce a module-level list here.
-_page_title_for = page_title_for
 
 
 def _find_confluence_page_id(title: str) -> str | None:
@@ -144,7 +143,7 @@ class PMFileEventHandler(FileSystemEventHandler):
             logger.error("Cannot sync to confluence: No auth headers.")
             return False
         
-        title = _page_title_for(filepath)
+        title = page_title_for(filepath)
         # One-time migration off the old hardcoded "v0.2 ..." titles: if a page
         # still lives under the legacy name, update THAT page in place so
         # Confluence renames it, rather than creating a duplicate. (KAN-109)

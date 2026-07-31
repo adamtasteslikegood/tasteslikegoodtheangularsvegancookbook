@@ -296,6 +296,37 @@ class TestHookAgreesWithDaemon(unittest.TestCase):
                 ["specs/SPRINT_1_PLAN.md", "specs/SPRINT_2_PLAN.md", "specs/SPRINT_10_PLAN.md"],
             )
 
+    @unittest.skipUnless(_HOOK.is_file(), "briefing hook not present")
+    def test_fallback_order_matches_the_module_exactly(self):
+        """Review catch on #3315, round 2 — and the gap the round-1 tests left.
+
+        `test_hook_and_module_resolve_the_same_set` builds a repo that HAS
+        scripts/pm, so it only ever exercised the import branch; the two fallback
+        tests above check membership and sprint sort but never the full order. In
+        between sat a real divergence: the fallback omitted SPRINT_0_PLAN.md from
+        its curated list, so the glob appended it AFTER ATLASSIAN_PM_LINK while
+        the module emits it BEFORE. Same files, different briefing — in the one
+        path nobody is watching.
+
+        Scope limit, stated rather than assumed: this does NOT cover the
+        fallback's dedupe. Mutation-checked — deleting that guard keeps this test
+        green, because the hook's own consumer loop carries a second `seen` set
+        that drops duplicates before they reach the output. The dedupe stays for
+        parity with the module's contract, not because anything here pins it.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)  # no scripts/pm — forces the fallback branch
+            (root / "specs").mkdir(parents=True)
+            for relative_path in CURATED_PM_FILES:
+                (root / relative_path).write_text(f"# {relative_path}\n", encoding="utf-8")
+            for name in ("SPRINT_2_PLAN.md", "SPRINT_11_PLAN.md", "SPRINT_1_PLAN.md"):
+                (root / "specs" / name).write_text(f"# {name}\n", encoding="utf-8")
+
+            self.assertEqual(
+                self._hook_files(root),
+                [p.as_posix() for p in canonical_pm_files(root)],
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
