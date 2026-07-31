@@ -34,9 +34,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _canonical_pm_files import (  # noqa: E402
+    BRIEFING_SUMMARY_FILES,
     CURATED_PM_FILES,
     SPRINT_GLOBS,
     canonical_pm_files,
+    could_be_canonical,
     page_title_for,
 )
 
@@ -126,6 +128,63 @@ class TestCanonicalSet(unittest.TestCase):
         self.assertEqual(page_title_for(Path("specs/roadmap.md")), "Project Roadmap")
         for name in ("SPRINT_4_PLAN.md", "roadmap.md", "plan.md"):
             self.assertNotIn("v0.", page_title_for(Path("specs") / name))
+
+
+class TestCouldBeCanonical(unittest.TestCase):
+    """The no-I/O reject used by the watchdog hot path.
+
+    The observer runs recursive=True over the whole workspace, so this is called
+    for every file event in the repo. It must be cheap AND it must never reject
+    something canonical_pm_files() would accept — a false negative here silently
+    stops syncing a real plan.
+    """
+
+    def test_accepts_every_curated_and_sprint_basename(self):
+        for relative_path in CURATED_PM_FILES:
+            self.assertTrue(could_be_canonical(Path(relative_path).name), relative_path)
+        for name in ("SPRINT_1_PLAN.md", "SPRINT_10_PLAN.md", "SPRINT_999_PLAN.md"):
+            self.assertTrue(could_be_canonical(name), name)
+
+    def test_rejects_the_noise_it_exists_to_reject(self):
+        for name in ("main.js", "index.html", "ORIG_HEAD", "package.json", "SPRINT_NOTES.md"):
+            self.assertFalse(could_be_canonical(name), name)
+
+    def test_never_rejects_what_canonical_pm_files_accepts(self):
+        """The invariant that matters: the fast path must not shadow the slow one."""
+        with tempfile.TemporaryDirectory() as td:
+            root = _make_repo(
+                Path(td),
+                [Path(p).name for p in CURATED_PM_FILES]
+                + ["SPRINT_2_PLAN.md", "SPRINT_11_PLAN.md"],
+            )
+            for relative_path in canonical_pm_files(root):
+                self.assertTrue(could_be_canonical(relative_path.name), relative_path)
+
+    def test_does_no_filesystem_access(self):
+        # Cheapness is the entire point; a path that does not exist anywhere must
+        # still answer instantly and correctly.
+        self.assertTrue(could_be_canonical("SPRINT_7_PLAN.md"))
+        self.assertFalse(could_be_canonical("nope.md"))
+
+
+class TestBriefingSummarySet(unittest.TestCase):
+    """The briefing set is narrower than the sync set on purpose (12k cap), but
+    it must be DEFINED once — it was a drifted copy in atlassian_pm_link.py."""
+
+    def test_briefing_set_is_a_subset_of_the_curated_set(self):
+        self.assertTrue(set(BRIEFING_SUMMARY_FILES).issubset(set(CURATED_PM_FILES)))
+
+    def test_briefing_set_excludes_sprint_plans(self):
+        # ~91 KB of sprint plans would evict everything else from a 12k briefing.
+        for relative_path in BRIEFING_SUMMARY_FILES:
+            self.assertNotIn("SPRINT_", relative_path)
+
+    def test_atlassian_pm_link_imports_the_shared_set(self):
+        """Pins the de-duplication itself: KAN-187 named this file's local list as
+        duplicate #3, and the first cut of the fix left it in place."""
+        src = (_PM_DIR / "atlassian_pm_link.py").read_text(encoding="utf-8")
+        self.assertIn("from _canonical_pm_files import BRIEFING_SUMMARY_FILES", src)
+        self.assertNotIn("LOCAL_PM_FILES", src)
 
 
 class TestStdlibOnly(unittest.TestCase):
@@ -220,6 +279,22 @@ class TestHookAgreesWithDaemon(unittest.TestCase):
             files = self._hook_files(root)
             self.assertIn("specs/plan.md", files)
             self.assertIn("specs/SPRINT_5_PLAN.md", files)
+
+    @unittest.skipUnless(_HOOK.is_file(), "briefing hook not present")
+    def test_fallback_sorts_sprints_numerically_like_the_module(self):
+        """Review catch on #3315: the fallback lex-sorted, so SPRINT_10 landed
+        between SPRINT_1 and SPRINT_2 while the module ordered them numerically.
+        Only reachable in the fail-open path, but a silent reordering of the
+        briefing is exactly the kind of difference nobody would think to check."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)  # no scripts/pm — forces the fallback branch
+            (root / "specs").mkdir(parents=True)
+            for name in ("SPRINT_1_PLAN.md", "SPRINT_2_PLAN.md", "SPRINT_10_PLAN.md"):
+                (root / "specs" / name).write_text(f"# {name}\n", encoding="utf-8")
+            self.assertEqual(
+                self._hook_files(root),
+                ["specs/SPRINT_1_PLAN.md", "specs/SPRINT_2_PLAN.md", "specs/SPRINT_10_PLAN.md"],
+            )
 
 
 if __name__ == "__main__":

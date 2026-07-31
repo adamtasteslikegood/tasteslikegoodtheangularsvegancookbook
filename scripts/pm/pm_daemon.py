@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 # Make sibling modules importable whether this file is run as a script or imported.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _atlassian_guard import AtlassianGuardError, validate_atlassian_site, validate_jira_project_key
-from _canonical_pm_files import canonical_pm_files, page_title_for
+from _canonical_pm_files import canonical_pm_files, could_be_canonical, page_title_for
 from _confluence_format import markdown_to_storage
 from _watcher_lock import (
     DISABLE_ENV,
@@ -103,6 +103,15 @@ class PMFileEventHandler(FileSystemEventHandler):
         super().__init__()
 
     def _is_canonical_pm_file(self, filepath: Path) -> bool:
+        # Basename reject FIRST, before any filesystem access. The observer is
+        # scheduled recursive=True over the whole workspace, so this runs for
+        # every file event in the repo — Angular builds, node_modules writes, git
+        # index churn. Without this, each one re-globbed specs/ and stat'd every
+        # candidate. Review catch on #3315; the glob-per-event was introduced by
+        # this same PR, so it is a regression fix, not a pre-existing cost.
+        if not could_be_canonical(filepath.name):
+            return False
+
         # Re-resolved on every event rather than cached in __init__: the daemon is
         # long-lived, and a sprint plan created after startup must start syncing
         # immediately. Caching the list here is what would make SPRINT_5_PLAN.md

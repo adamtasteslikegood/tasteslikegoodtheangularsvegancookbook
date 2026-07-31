@@ -27,6 +27,7 @@ daemon's `.venv`, with no network. Adding a third-party import here breaks the h
 silently (it is fail-open by design and would just stop injecting the briefing).
 """
 
+from fnmatch import fnmatch
 from pathlib import Path
 
 # Curated entries, in briefing order. These are exact paths, always included when
@@ -44,6 +45,45 @@ CURATED_PM_FILES = [
 
 # Every sprint plan, forever, without a code change. This line is the actual fix.
 SPRINT_GLOBS = ["specs/SPRINT_*_PLAN.md"]
+
+# The narrower set summarised into .agent-work/pm/PROJECT_PM_BRIEFING.md by
+# atlassian_pm_link.py. Deliberately NOT the full canonical set: the briefing is
+# injected at session start under a 12k-char cap, and the four sprint plans alone
+# are ~91 KB — they would evict everything else. Narrow on purpose, in one place.
+#
+# It lives here rather than in atlassian_pm_link.py because that copy (formerly
+# LOCAL_PM_FILES) had already drifted away from the sync set, and was named in
+# KAN-187 as duplicate #3. Two DIFFERENT sets is fine; two DEFINITIONS is not.
+BRIEFING_SUMMARY_FILES = [
+    "specs/planning_notes.md",
+    "specs/plan.md",
+    "specs/roadmap.md",
+    "specs/design-plan.md",
+]
+
+# Basenames that could possibly be canonical, for callers that must reject a path
+# cheaply. The watchdog observer runs recursive=True over the whole workspace
+# (pm_daemon.py), so on_modified fires for every file event in the repo — Angular
+# builds, node_modules writes, git index churn, thousands per session. Without a
+# no-I/O reject, each of those would re-glob specs/ and stat every candidate.
+#
+# Derived from the same constants above rather than re-stated as a regex, so it
+# cannot drift from SPRINT_GLOBS — a hand-written r"SPRINT_\d+_PLAN\.md" in the
+# daemon would be a new copy of the very thing this module exists to hold once.
+_CURATED_BASENAMES = frozenset(Path(p).name for p in CURATED_PM_FILES)
+_SPRINT_BASENAME_GLOBS = frozenset(Path(p).name for p in SPRINT_GLOBS)
+
+
+def could_be_canonical(name: str) -> bool:
+    """True if `name` might be a canonical PM file. Cheap, no filesystem access.
+
+    A `True` answer is not a decision — callers still confirm against
+    canonical_pm_files(). A `False` answer is final, which is the point: it lets
+    the hot path bail before touching the disk.
+    """
+    return name in _CURATED_BASENAMES or any(
+        fnmatch(name, pattern) for pattern in _SPRINT_BASENAME_GLOBS
+    )
 
 # Stable, version-free Confluence page titles. Titles must NOT carry a release
 # version: the daemon looks pages up by title, so a moving prefix (the old

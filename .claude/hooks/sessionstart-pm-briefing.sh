@@ -97,11 +97,21 @@ if canonical_pm_files is None:
         "specs/ATLASSIAN_PM_LINK.md",
     ]
 
+    def _sprint_key(rel):
+        # Numeric, matching _canonical_pm_files._sprint_sort_key. Plain sorted()
+        # would put SPRINT_10 between SPRINT_1 and SPRINT_2; the module orders
+        # them numerically and a test pins that, so the fallback must agree
+        # rather than quietly reorder the briefing. (Review catch on #3315.)
+        stem = Path(rel).name
+        mid = stem[len("SPRINT_"):-len("_PLAN.md")] if stem.startswith("SPRINT_") else ""
+        return (0, int(mid), "") if mid.isdigit() else (1, 0, stem)
+
     def canonical_pm_files(root="."):
         base = Path(root)
         found = [p for p in _FALLBACK if (base / p).is_file()]
         found += sorted(
-            m.relative_to(base).as_posix() for m in base.glob("specs/SPRINT_*_PLAN.md") if m.is_file()
+            (m.relative_to(base).as_posix() for m in base.glob("specs/SPRINT_*_PLAN.md") if m.is_file()),
+            key=_sprint_key,
         )
         return [Path(p) for p in found]
 

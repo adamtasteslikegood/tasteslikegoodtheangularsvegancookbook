@@ -81,13 +81,29 @@ The daemon watches `specs/` and auto-syncs these to Confluence:
   `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`
 - **Globbed:** `SPRINT_*_PLAN.md` — every sprint plan, with no code change per sprint
 
-**The set is defined in exactly one place: `scripts/pm/_canonical_pm_files.py`.** The
-daemon and the SessionStart briefing hook (`.claude/hooks/sessionstart-pm-briefing.sh`)
-both import it. Do not re-add a list to either — that duplication is what caused
-KAN-187, where the hardcoded list named the 182-byte `SPRINT_0_PLAN.md` stub and
-omitted `SPRINT_1..4_PLAN.md`, so ~91 KB of real sprint planning never reached
-Confluence for four sprints while the placeholder synced fine. Nobody noticed because
-`sync_pm_documents` reports what it synced and never what it skipped.
+**Both file sets are defined in exactly one place: `scripts/pm/_canonical_pm_files.py`.**
+
+| Set                                 | Used by                                                                       | Scope                    |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------ |
+| `CURATED_PM_FILES` + `SPRINT_GLOBS` | `pm_daemon.py` (watcher + `sync_pm_documents`), the briefing hook's file scan | everything above         |
+| `BRIEFING_SUMMARY_FILES`            | `atlassian_pm_link.py` → `PROJECT_PM_BRIEFING.md`                             | the 4 planning docs only |
+
+The briefing set is **narrower on purpose** — the briefing is injected at session
+start under a 12k-char cap, and the sprint plans alone are ~91 KB, so including them
+would evict everything else. Two different sets is fine; two _definitions_ is not.
+
+Do not re-add a list to any consumer. That duplication is what caused KAN-187: the
+hardcoded list named the 182-byte `SPRINT_0_PLAN.md` stub and omitted
+`SPRINT_1..4_PLAN.md`, so ~91 KB of real sprint planning never reached Confluence for
+four sprints while the placeholder synced fine. Nobody noticed because
+`sync_pm_documents` reports what it synced and never what it skipped — and the first
+cut of the fix still left `atlassian_pm_link.py`'s drifted copy in place, caught in
+review on #3315.
+
+`could_be_canonical()` is a no-I/O basename reject for the watchdog hot path: the
+observer runs `recursive=True` over the whole workspace, so it sees every file event
+in the repo. It is derived from the same constants rather than a hand-written regex,
+so it cannot drift from them.
 
 Anything else under `specs/` (`ux-backlog.md`, `KAN-119_LOOP_PLAN.md`,
 `CANONICAL_RECIPES_ROLLOUT.md`) is deliberately **not** synced — Adam's scope call,
