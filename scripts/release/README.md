@@ -4,11 +4,18 @@ Automation for the two-repo release train. This is the **thin slice**: the
 mechanical, no-judgment steps. Version choice, Backend promotion, and the
 release PR itself stay human.
 
-| Piece | Where it runs | What it does |
-| --- | --- | --- |
-| `train-verify.sh` | anywhere (local + CI) | read-only drift stations; exit 1 on blocking drift |
-| `.github/workflows/release-train.yml` | GitHub Actions (dispatch + daily) | runs the verifier, publishes a job summary, fails on blocking drift |
-| `train-backsync.sh` | **local only** | opens (and optionally merges) the `main → dev` back-sync PRs |
+**The ordered procedure is [`RUNBOOK.md`](./RUNBOOK.md)** — it used to live on
+KAN-138, where a checkout could not reach it and it drifted from `CLAUDE.md`
+(KAN-191). Follow it rather than reconstructing the order from memory.
+
+| Piece                                 | Where it runs                     | What it does                                                                                      |
+| ------------------------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `RUNBOOK.md`                          | —                                 | the procedure: 10 ordered steps and the traps that bite at each                                   |
+| `train-run.sh`                        | **local only**                    | interactive driver: walks the runbook, prints state before every mutating step, keeps a checklist |
+| `train-verify.sh`                     | anywhere (local + CI)             | read-only drift stations; exit 1 on blocking drift                                                |
+| `.github/workflows/pr-gate.yml`       | GitHub Actions (PRs to `main`)    | runs `--for-release` as a **required** check — this is what makes the stations a gate             |
+| `.github/workflows/release-train.yml` | GitHub Actions (dispatch + daily) | runs the verifier, publishes a job summary, fails on blocking drift                               |
+| `train-backsync.sh`                   | **local only**                    | opens (and optionally merges) the `main → dev` back-sync PRs                                      |
 
 ## Why the split
 
@@ -48,15 +55,15 @@ could not actually check is how a broken gate ships green.
 
 Pulled from the live rulesets, not from memory:
 
-| | cookbook | Backend |
-| --- | --- | --- |
-| default branch | `dev` | `dev` |
-| `main` merge methods | `merge`, `rebase` (**squash blocked**) | `merge`, `rebase` (**squash blocked**) |
-| `main` rules | deletion, non-fast-forward, PR required, code scanning, code quality | + required status checks |
-| `dev` merge methods | `merge`, `squash`, `rebase` | same |
-| `dev` extra rule | **`required_linear_history`** | **`required_linear_history`** |
-| approvals required | 0 | 0 |
-| bypass | repo admin (`RepositoryRole/5`) on PR merge, plus several GitHub Apps | same |
+|                      | cookbook                                                              | Backend                                |
+| -------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| default branch       | `dev`                                                                 | `dev`                                  |
+| `main` merge methods | `merge`, `rebase` (**squash blocked**)                                | `merge`, `rebase` (**squash blocked**) |
+| `main` rules         | deletion, non-fast-forward, PR required, code scanning, code quality  | + required status checks               |
+| `dev` merge methods  | `merge`, `squash`, `rebase`                                           | same                                   |
+| `dev` extra rule     | **`required_linear_history`**                                         | **`required_linear_history`**          |
+| approvals required   | 0                                                                     | 0                                      |
+| bypass               | repo admin (`RepositoryRole/5`) on PR merge, plus several GitHub Apps | same                                   |
 
 ## The `action_required` gate — resolved
 
@@ -130,15 +137,15 @@ described it.
 ### When it opens
 
 The moment the version bump + CHANGELOG land on `dev`. That is when `dev`'s tip
-*becomes* the release payload — earlier than the release PR, which is already
+_becomes_ the release payload — earlier than the release PR, which is already
 too late.
 
 ### When it closes — asymmetric, and this is the part worth getting right
 
-| ref | unlocks at | why there |
-| --- | --- | --- |
-| `dev` (both repos) | **tag `vX.Y.Z` exists on origin** | The tag is the moment the version becomes immutable, which is precisely what makes "any new push means a patch bump" true. It also *has* to be here: step 8/9 back-sync writes to `dev`. |
-| `main` (both repos) | **deploy verified live** | If Cloud Build fails, the only correct recovery is a patch bump through the normal train. Holding `main` through that window is what stops a panic hotfix pushed straight to it — the one move that would break `main === deployed`. |
+| ref                 | unlocks at                        | why there                                                                                                                                                                                                                            |
+| ------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `dev` (both repos)  | **tag `vX.Y.Z` exists on origin** | The tag is the moment the version becomes immutable, which is precisely what makes "any new push means a patch bump" true. It also _has_ to be here: step 8/9 back-sync writes to `dev`.                                             |
+| `main` (both repos) | **deploy verified live**          | If Cloud Build fails, the only correct recovery is a patch bump through the normal train. Holding `main` through that window is what stops a panic hotfix pushed straight to it — the one move that would break `main === deployed`. |
 
 Not a hypothetical: v0.3.0 died in the migrate job and v0.3.4 died parsing the
 Express Dockerfile. Both recovered exactly this way, as v0.3.1 and v0.3.5.
@@ -151,7 +158,7 @@ mutating step. Any movement aborts and names the ref that moved. No GitHub
 config is written, so a crashed run leaves nothing to clean up, and it catches
 the real failure at the moment it would do damage.
 
-**2. Enforcement (needs a decision + one experiment).** Note what does *not*
+**2. Enforcement (needs a decision + one experiment).** Note what does _not_
 work: the `update` rule ("Restrict updates") governs direct pushes, and both
 branches already block those by requiring a PR — so it adds nothing against the
 actual threat, which is a **merge**. The primitive that blocks merges is a
@@ -165,7 +172,7 @@ agent sessions, Dependabot merges, and UI merges are held.
 
 This layer is unverified here — it needs the ruleset created and one throwaway
 PR to confirm the block actually lands. It also needs a standalone `--unfreeze`
-escape hatch, and the freeze state written locally *before* the API call, or an
+escape hatch, and the freeze state written locally _before_ the API call, or an
 aborted train leaves both repos frozen with no record of why.
 
 ### Already enforced
@@ -187,4 +194,6 @@ automation should not hold:
 - the release PR `dev → main` and its merge (which fires the tag and the deploy)
 - live verification after Cloud Build
 
-The full ordered runbook lives on **KAN-138**.
+The full ordered runbook is **[`RUNBOOK.md`](./RUNBOOK.md)**, driven by
+**[`train-run.sh`](./train-run.sh)**. It no longer lives on KAN-138 — a procedure
+a checkout cannot read is a procedure that drifts (KAN-191).
