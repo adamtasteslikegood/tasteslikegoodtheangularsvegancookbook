@@ -176,6 +176,48 @@ jobs:
       - uses: actions/checkout@v7
       - run: bash scripts/gcloud/kan170_verify.sh --self-test
 
+  # Release-train stations, on main-targeting PRs ONLY (KAN-191).
+  #
+  # train-verify.sh has existed since KAN-138 and correctly exits 1 on blocking
+  # drift — but release-train.yml runs it on workflow_dispatch and a daily cron,
+  # so nothing ever merged on its result. v0.4.8 shipped a pointer that Station 3
+  # blocked; it was corrected because a human read the output, not because CI
+  # stopped the merge. This job is what makes the station a gate.
+  #
+  # dev-targeting PRs skip it deliberately: a lagging pointer and an unpaid
+  # back-sync are normal mid-cycle states, and blocking them would train people
+  # to ignore this check. `gate` treats `skipped` as passing.
+  release-train:
+    name: Release train — verify stations
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      # checkout fetches only the PR ref; the stations compare origin/dev against
+      # origin/main in BOTH repos, so those remote-tracking refs must exist.
+      # Without this the script dies at exit 2 ("could not determine") rather
+      # than passing — the right failure, but a useless one.
+      - name: Fetch full refs for both repos
+        run: |
+          git config --unset-all remote.origin.fetch || true
+          git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin --prune --tags
+          git -C Backend fetch origin --prune
+      # --no-fetch because the step above already did it; --for-release still
+      # queries origin for the tag regardless, which is the one lookup that must
+      # not be guessed.
+      #
+      # This exact checkout+fetch pair is proven, not assumed: release-train.yml
+      # runs it daily, and run 30557811029 (2026-07-30) exited 1 with
+      # "BLOCK Backend main→dev back-sync owed" — i.e. it resolved refs in BOTH
+      # repos and failed for the reason the check exists, rather than dying at
+      # exit 2 on its own plumbing.
+      - name: Verify release-train stations
+        run: ./scripts/release/train-verify.sh --for-release --no-fetch
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -192,6 +234,7 @@ jobs:
       - changelog-check
       - canonical-recipes
       - posture-check-self-test
+      - release-train
     if: always()
     runs-on: ubuntu-latest
     steps:
