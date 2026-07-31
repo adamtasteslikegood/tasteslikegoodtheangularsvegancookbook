@@ -8,8 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.8] - 2026-07-31
 
-Backend submodule pointer: `0de1e2b` → **`73fb091`**, carrying the KAN-155
-ownership-refusal work from Backend
+Backend submodule pointer: `0de1e2b` → **`7b6347e`** — Backend `main`'s own tip,
+the merge commit of
+[#261](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/261), rather
+than the dev-side SHA it promoted. Both have identical trees, so this pins the
+same code; pinning main's own SHA is what keeps "which Backend commit is in
+production?" answerable from a single ref. Carries the KAN-155 ownership-refusal
+work from Backend
 [#256](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/256),
 [#259](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/259) and
 [#261](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/261).
