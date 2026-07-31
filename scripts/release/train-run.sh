@@ -282,7 +282,13 @@ verify_prod() {
     # `|| echo 0` on top of that yields the two-line string "0\n0", which then
     # blows up $(( )) with an arithmetic syntax error and derails the whole
     # mode. Found by running this against the live v0.4.8 deploy.
-    hits=$(grep -c -- "$marker" "$tmp" 2>/dev/null)
+    #
+    # `-F` because markers are code strings or prose picked by the release
+    # driver, and they routinely contain regex metacharacters (`.` in
+    # `publishFailureMessage.ts`, `()` in `foo()`, `[` in `arr[0]`). Default
+    # BRE either over-matches (`.` as any char) or errors out on unbalanced
+    # brackets/parens and reports "not live" for a release that IS live.
+    hits=$(grep -Fc -- "$marker" "$tmp" 2>/dev/null)
     [ -n "$hits" ] || hits=0
     total=$((total + hits))
     printf '    %-28s %8s bytes  hits=%s\n' "$a" "$(wc -c < "$tmp")" "$hits"

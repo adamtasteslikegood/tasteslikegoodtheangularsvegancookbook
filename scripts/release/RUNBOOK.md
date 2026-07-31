@@ -183,9 +183,13 @@ in CI.
 >
 > ```bash
 > for a in $(curl -s https://www.tasteslikegood.org/ | grep -oE '(main|chunk|polyfills)-[A-Z0-9]+\.js' | sort -u); do
->   curl -s "https://www.tasteslikegood.org/$a" | grep -c "<a string only this release has>"
+>   curl -s "https://www.tasteslikegood.org/$a" | grep -Fc -- "<a string only this release has>"
 > done
 > ```
+>
+> Use `grep -F` (fixed string), not the default regex — markers often contain
+> `.`, `()`, or `[]` (code identifiers, function calls), which the default BRE
+> either over-matches or errors on. `train-run.sh --verify-only` already does.
 >
 > Pick a string that is **new in this release and absent from the previous one**.
 > "Check your connection" was useless on v0.4.8 — the new code kept it for the
