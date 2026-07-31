@@ -101,6 +101,11 @@ describe('publish refusal messaging (KAN-155)', () => {
     const a = publishFailureMessage('OWNERSHIP_OTHER_GUEST_SESSION', true);
     const b = publishFailureMessage('OWNERSHIP_OTHER_GUEST_SESSION', false);
     expect(a).toBe(b);
+    // Equality alone is too weak: adding the SAME verb to both directions —
+    // the likeliest way this drifts, since the branch takes `publishing` and
+    // the four cases around it all use it — would keep a === b and slip past.
+    // Assert the property the test is named for. (Review catch on #3316.)
+    expect(a).not.toMatch(/publish/i);
   });
 
   it('gives every refusal a distinct message', () => {

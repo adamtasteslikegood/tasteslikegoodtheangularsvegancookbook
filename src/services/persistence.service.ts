@@ -387,9 +387,11 @@ export class PersistenceService {
   /** POST a recipe to Flask; the endpoint upserts same-owner recipes, so
    *  re-saves are idempotent (201 both on create and on update).
    *  Never rejects — background-sync callers (restoreRecipe,
-   *  addRecipeToCookbook, ...) rely on that. Returns `false` on failure
-   *  instead so callers that need to react to a failed sync (e.g. revert
-   *  optimistic UI state) can check the resolved value. */
+   *  addRecipeToCookbook, ...) rely on that. Resolves to a `SaveOutcome`
+   *  instead, so callers that need to react to a failed sync (e.g. revert
+   *  optimistic UI state) can check `.ok`, and the publish path can read
+   *  `.refusal` to say WHY. Was a bare `false` before KAN-155, which is
+   *  exactly what made a refusal indistinguishable from a network failure. */
   private async _apiSaveRecipe(recipe: Recipe): Promise<SaveOutcome> {
     try {
       const res = await this._fetch('/api/recipes', {

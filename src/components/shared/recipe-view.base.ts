@@ -1,6 +1,6 @@
 import { computed, inject, signal } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
-import { PersistenceService, SaveRefusal } from '../../services/persistence.service';
+import { PersistenceService, type SaveRefusal } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
