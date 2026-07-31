@@ -79,13 +79,16 @@ export async function interpretSaveResponse(res: SaveResponseLike): Promise<Save
  */
 async function ownershipRefusalOf(res: SaveResponseLike): Promise<SaveRefusal> {
   try {
-    const code = (await res.json()) as { code?: unknown } | null;
+    // `unknown`, not `SaveRefusal`: this is unvalidated JSON off the wire. Typing
+    // it as the validated type would assert the very thing the comparisons below
+    // exist to check, and would silently admit any future server string.
+    const body = (await res.json()) as { code?: unknown } | null;
     if (
-      code?.code === 'OWNERSHIP_OTHER_ACCOUNT' ||
-      code?.code === 'OWNERSHIP_OTHER_GUEST_SESSION' ||
-      code?.code === 'OWNERSHIP_ORPHANED_GUEST_ROW'
+      body?.code === 'OWNERSHIP_OTHER_ACCOUNT' ||
+      body?.code === 'OWNERSHIP_OTHER_GUEST_SESSION' ||
+      body?.code === 'OWNERSHIP_ORPHANED_GUEST_ROW'
     ) {
-      return code.code;
+      return body.code;
     }
   } catch {
     // Body missing or not JSON — still a refusal, just an unspecific one.

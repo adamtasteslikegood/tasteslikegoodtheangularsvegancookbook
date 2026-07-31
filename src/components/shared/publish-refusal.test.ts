@@ -72,6 +72,37 @@ describe('publish refusal messaging (KAN-155)', () => {
     expect(msg).toContain('logged in');
   });
 
+  it('uses the verb matching the direction, in both directions', () => {
+    // Review catch on #3316. The ownership check fires on the same POST whichever
+    // way the toggle is moving, so an UNPUBLISH can be refused too — and the copy
+    // hardcoded "published", telling that user their recipe "can't be published".
+    //
+    // My own test above already looped over both `publishing` values and missed
+    // this: it asserted only the ABSENCE of "connection", never that the verb
+    // tracked the direction. The loop was right; the assertion was too weak.
+    for (const refusal of OWNERSHIP) {
+      const unpublishing = publishFailureMessage(refusal, false);
+      expect(
+        unpublishing,
+        `${refusal} must not say "be published" when unpublishing`
+      ).not.toContain('be published');
+    }
+    expect(publishFailureMessage('OWNERSHIP_OTHER_ACCOUNT', true)).toContain('be published');
+    expect(publishFailureMessage('OWNERSHIP_OTHER_ACCOUNT', false)).toContain('be unpublished');
+    expect(publishFailureMessage('OWNERSHIP_ORPHANED_GUEST_ROW', true)).toContain('be published');
+    expect(publishFailureMessage('OWNERSHIP_ORPHANED_GUEST_ROW', false)).toContain(
+      'be unpublished'
+    );
+  });
+
+  it('keeps the guest-session message verb-free in both directions', () => {
+    // Its remedy ("log in and try again") is identical either way, so it carries
+    // no verb at all. Pinned so a later edit does not add one in one direction.
+    const a = publishFailureMessage('OWNERSHIP_OTHER_GUEST_SESSION', true);
+    const b = publishFailureMessage('OWNERSHIP_OTHER_GUEST_SESSION', false);
+    expect(a).toBe(b);
+  });
+
   it('gives every refusal a distinct message', () => {
     const all = [...OWNERSHIP, 'sync' as SaveRefusal].map((r) => publishFailureMessage(r, true));
     expect(new Set(all).size).toBe(all.length);

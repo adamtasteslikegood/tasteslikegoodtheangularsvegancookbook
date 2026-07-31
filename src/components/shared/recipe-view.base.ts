@@ -39,21 +39,26 @@ export class PublishSyncError extends Error {
  * actually true.
  */
 export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean): string {
+  // The ownership check fires on the same POST regardless of direction, so an
+  // UNPUBLISH can be refused too. Hardcoding "published" told a user trying to
+  // unpublish that their recipe "can't be published" — right reason, wrong verb.
+  const verb = publishing ? 'published' : 'unpublished';
+
   switch (refusal) {
     case 'OWNERSHIP_OTHER_ACCOUNT':
-      return 'This recipe belongs to a different account, so it can’t be published from here.';
+      return `This recipe belongs to a different account, so it can’t be ${verb} from here.`;
     case 'OWNERSHIP_OTHER_GUEST_SESSION':
+      // Deliberately verb-free: the remedy is the message, and it is the same in
+      // both directions.
       return 'This recipe was saved in a different browser session. Log in and try again — if it’s yours, it’ll be there.';
     case 'OWNERSHIP_ORPHANED_GUEST_ROW':
       // Known-incomplete on KAN-155: the repair is not built, so do not promise
       // that retrying works. Say what is true and stop.
-      return 'This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be published.';
+      return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
     case 'ownership':
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
-      return publishing
-        ? 'This recipe can’t be published from this account or session.'
-        : 'This recipe can’t be unpublished from this account or session.';
+      return `This recipe can’t be ${verb} from this account or session.`;
     case 'sync':
     default:
       return publishing
