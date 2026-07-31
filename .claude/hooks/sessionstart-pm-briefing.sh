@@ -57,23 +57,76 @@ fi
 # the char caps and file list identical to the MCP tool and handles encoding.
 BRIEFING=$(CWD="$CWD" MAIN_REPO="$MAIN_REPO" python3 <<'PY' 2>/dev/null || true
 import os
+import sys
 from pathlib import Path
 
 BRIEFING_FILE = Path(".agent-work/pm/PROJECT_PM_BRIEFING.md")
-CANONICAL = [
-    "specs/plan.md",
-    "specs/roadmap.md",
-    "specs/planning_notes.md",
-    "specs/design-plan.md",
-    "specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
-    "specs/SPRINT_0_PLAN.md",
-    "specs/ATLASSIAN_PM_LINK.md",
-]
 
 roots = []
 for r in (os.environ.get("CWD"), os.environ.get("MAIN_REPO")):
     if r and r not in roots:
         roots.append(Path(r))
+
+# The canonical file set comes from scripts/pm/_canonical_pm_files.py — the SAME
+# module pm_daemon.py uses — instead of the inline list that used to live here.
+# Two copies is how the daemon ended up syncing a 182-byte SPRINT_0 stub while
+# four real sprint plans were absent from Confluence for four sprints. (KAN-187)
+#
+# That module is deliberately stdlib-only so this import works under the system
+# python3, outside the daemon's .venv. If it cannot be found (a checkout without
+# scripts/, say), fall back to the curated names so the hook still briefs rather
+# than going silent — it is fail-open by contract.
+canonical_pm_files = None
+for root in roots:
+    candidate = root / "scripts" / "pm"
+    if (candidate / "_canonical_pm_files.py").is_file():
+        sys.path.insert(0, str(candidate))
+        try:
+            from _canonical_pm_files import canonical_pm_files
+        except Exception:
+            canonical_pm_files = None
+        break
+
+if canonical_pm_files is None:
+    # Mirrors CURATED_PM_FILES exactly, SPRINT_0_PLAN.md included at its curated
+    # position. Leaving it out did not lose the file — the glob still found it —
+    # but it arrived AFTER ATLASSIAN_PM_LINK instead of before, so the fail-open
+    # briefing came out ordered differently from a normal one. (Review catch on
+    # #3315, round 2.) Same reason the sort key below is numeric: this branch has
+    # to agree with the module, not merely return the same set.
+    _FALLBACK = [
+        "specs/plan.md",
+        "specs/roadmap.md",
+        "specs/planning_notes.md",
+        "specs/design-plan.md",
+        "specs/SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md",
+        "specs/SPRINT_0_PLAN.md",
+        "specs/ATLASSIAN_PM_LINK.md",
+    ]
+
+    def _sprint_key(rel):
+        # Numeric, matching _canonical_pm_files._sprint_sort_key. Plain sorted()
+        # would put SPRINT_10 between SPRINT_1 and SPRINT_2; the module orders
+        # them numerically and a test pins that, so the fallback must agree
+        # rather than quietly reorder the briefing. (Review catch on #3315.)
+        stem = Path(rel).name
+        mid = stem[len("SPRINT_"):-len("_PLAN.md")] if stem.startswith("SPRINT_") else ""
+        return (0, int(mid), "") if mid.isdigit() else (1, 0, stem)
+
+    def canonical_pm_files(root="."):
+        base = Path(root)
+        globbed = sorted(
+            (m.relative_to(base).as_posix() for m in base.glob("specs/SPRINT_*_PLAN.md") if m.is_file()),
+            key=_sprint_key,
+        )
+        # Dedupe like the module does: SPRINT_0_PLAN.md is both curated and
+        # glob-matched, so without this it would be briefed twice.
+        ordered, seen = [], set()
+        for rel in _FALLBACK + globbed:
+            if rel not in seen and (base / rel).is_file():
+                seen.add(rel)
+                ordered.append(rel)
+        return [Path(p) for p in ordered]
 
 # Prefer the pre-baked briefing file from whichever root has it.
 for root in roots:
@@ -92,7 +145,8 @@ for root in roots:
 status = []
 seen = set()
 for root in roots:
-    for rel in CANONICAL:
+    for rel_path in canonical_pm_files(root):
+        rel = rel_path.as_posix()
         fp = root / rel
         if rel in seen or not fp.exists():
             continue

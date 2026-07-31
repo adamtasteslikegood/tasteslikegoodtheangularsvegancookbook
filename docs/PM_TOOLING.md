@@ -15,6 +15,7 @@ An MCP server + file watcher that runs during agent sessions.
 **Auto-start:** Declared in `.mcp.json` — agents that support MCP will spawn it automatically.
 
 **Manual start:**
+
 ```bash
 scripts/pm/run_pm_daemon.sh
 ```
@@ -23,10 +24,10 @@ scripts/pm/run_pm_daemon.sh
 
 Every agent session — each Claude Code window, each Copilot CLI, each background
 job, each git worktree — spawns its **own** `pm_daemon.py` as an MCP stdio child.
-That is correct for the MCP *tools*: each session needs its own server on its own
+That is correct for the MCP _tools_: each session needs its own server on its own
 pipes. Expect to see several `pm_daemon.py` processes and don't be alarmed.
 
-It was very wrong for the *watcher*. Each daemon also started a `watchdog`
+It was very wrong for the _watcher_. Each daemon also started a `watchdog`
 Observer, so N sessions meant N observers all watching the same `specs/*.md` and
 all racing to PUT the same Confluence pages on every save. **13 concurrent
 daemons were observed in the wild**, i.e. 13 writers fighting over one page.
@@ -35,10 +36,10 @@ The watcher is now elected by an exclusive `flock` (`scripts/pm/_watcher_lock.py
 
 - The first daemon to grab `.claude/pm-daemon-watcher.lock` runs the Observer.
 - Every other daemon logs `File watcher already owned by another pm_daemon (pid N);
-  serving MCP tools only` and comes up **fully functional minus the watcher**. MCP
+serving MCP tools only` and comes up **fully functional minus the watcher**. MCP
   tools are never degraded by losing the election.
 - The lock lives in the **main checkout**, resolved via `git rev-parse
-  --git-common-dir`. Worktrees share one Confluence space, so they must share one
+--git-common-dir`. Worktrees share one Confluence space, so they must share one
   lock — a per-worktree lock would elect one watcher per worktree and reintroduce
   the exact race.
 - **No stale-lock recovery path exists, by design.** The kernel releases an `flock`
@@ -65,23 +66,54 @@ missing or empty, no daemon holds the lock and nothing is being watched.
 
 #### MCP Tools
 
-| Tool | Description |
-|------|-------------|
-| `get_project_status` | Returns current planning file contents as a briefing |
-| `sync_pm_documents` | Force-sync all `specs/*.md` files to Confluence |
-| `create_epic_from_roadmap` | Create a Jira Epic from roadmap planning |
-| `log_agent_session` | Log a structured agent session summary to Confluence |
+| Tool                       | Description                                                                                        |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `get_project_status`       | Returns current planning file contents as a briefing                                               |
+| `sync_pm_documents`        | Force-sync the canonical PM files (NOT all of `specs/*.md` — see File Watcher below) to Confluence |
+| `create_epic_from_roadmap` | Create a Jira Epic from roadmap planning                                                           |
+| `log_agent_session`        | Log a structured agent session summary to Confluence                                               |
 
 #### File Watcher
 
-The daemon watches `specs/` for changes to these files and auto-syncs them to Confluence:
-- `plan.md`, `roadmap.md`, `planning_notes.md`
-- `design-plan.md`, `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`
-- `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`
+The daemon watches `specs/` and auto-syncs these to Confluence:
+
+- **Curated:** `plan.md`, `roadmap.md`, `planning_notes.md`, `design-plan.md`,
+  `SCRUM_BOOTSTRAP_AND_BOARD_PLAN.md`, `SPRINT_0_PLAN.md`, `ATLASSIAN_PM_LINK.md`
+- **Globbed:** `SPRINT_*_PLAN.md` — every sprint plan, with no code change per sprint
+
+**Both file sets are defined in exactly one place: `scripts/pm/_canonical_pm_files.py`.**
+
+| Set                                 | Used by                                                                       | Scope                    |
+| ----------------------------------- | ----------------------------------------------------------------------------- | ------------------------ |
+| `CURATED_PM_FILES` + `SPRINT_GLOBS` | `pm_daemon.py` (watcher + `sync_pm_documents`), the briefing hook's file scan | everything above         |
+| `BRIEFING_SUMMARY_FILES`            | `atlassian_pm_link.py` → `PROJECT_PM_BRIEFING.md`                             | the 4 planning docs only |
+
+The briefing set is **narrower on purpose** — the briefing is injected at session
+start under a 12k-char cap, and the sprint plans alone are ~91 KB, so including them
+would evict everything else. Two different sets is fine; two _definitions_ is not.
+
+Do not re-add a list to any consumer. That duplication is what caused KAN-187: the
+hardcoded list named the 182-byte `SPRINT_0_PLAN.md` stub and omitted
+`SPRINT_1..4_PLAN.md`, so ~91 KB of real sprint planning never reached Confluence for
+four sprints while the placeholder synced fine. Nobody noticed because
+`sync_pm_documents` reports what it synced and never what it skipped — and the first
+cut of the fix still left `atlassian_pm_link.py`'s drifted copy in place, caught in
+review on #3315.
+
+`could_be_canonical()` is a no-I/O basename reject for the watchdog hot path: the
+observer runs `recursive=True` over the whole workspace, so it sees every file event
+in the repo. It is derived from the same constants rather than a hand-written regex,
+so it cannot drift from them.
+
+Anything else under `specs/` (`ux-backlog.md`, `KAN-119_LOOP_PLAN.md`,
+`CANONICAL_RECIPES_ROLLOUT.md`) is deliberately **not** synced — Adam's scope call,
+2026-07-30. To add a category, edit `SPRINT_GLOBS`/`CURATED_PM_FILES` in that module;
+`scripts/pm/test_canonical_pm_files.py` asserts the hook and the daemon still agree.
 
 ### 2. Session Logging (`log_agent_session`)
 
 Creates structured Confluence pages for each agent session with:
+
 - Session metadata (ID, agent, timestamp, duration, branch)
 - Summary of work completed
 - Key decisions and trade-offs
@@ -100,6 +132,7 @@ Creates structured Confluence pages for each agent session with:
 ### 3. Jira/Confluence Status (`scripts/pm/sync_jira_confluence_status.py`)
 
 Fetches live project status from:
+
 - Jira issues (KAN, RCP projects)
 - Open GitHub PRs
 - Confluence pages
@@ -117,11 +150,11 @@ Standalone utility for Atlassian API operations. Dependency-free (uses only the 
 
 ### Required Environment Variables
 
-| Variable | Description |
-|----------|-------------|
-| `ATLASSIAN_EMAIL` | Atlassian account email |
-| `ATLASSIAN_API_TOKEN` | Atlassian API token |
-| `ATLASSIAN_URL` | Atlassian instance (default: `tasteslikegood.atlassian.net` — the only allowed value, see allowlist below) |
+| Variable              | Description                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `ATLASSIAN_EMAIL`     | Atlassian account email                                                                                    |
+| `ATLASSIAN_API_TOKEN` | Atlassian API token                                                                                        |
+| `ATLASSIAN_URL`       | Atlassian instance (default: `tasteslikegood.atlassian.net` — the only allowed value, see allowlist below) |
 
 ### Site and project allowlist
 
@@ -141,14 +174,14 @@ items):
 
 ### Optional Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ATLASSIAN_CONFLUENCE_SPACE_ID` | `11042818` | Target Confluence space |
-| `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID` | `11796481` | Parent page for synced docs |
-| `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set) |
-| `ATLASSIAN_JIRA_PROJECT_KEY` | `KAN` | Execution Jira project for active work |
-| `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY` | `RCP` | Delivery Jira project for epics/sprints/scope |
-| `JIRA_PROJECTS` | `KAN,RCP` | Optional explicit CSV of Jira projects to include in PM briefings (read-only: `KAN,RCP,PLZG,TO` allowed; anything else refused by the allowlist) |
+| Variable                                          | Default        | Description                                                                                                                                      |
+| ------------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ATLASSIAN_CONFLUENCE_SPACE_ID`                   | `11042818`     | Target Confluence space                                                                                                                          |
+| `ATLASSIAN_CONFLUENCE_PARENT_PAGE_ID`             | `11796481`     | Parent page for synced docs                                                                                                                      |
+| `ATLASSIAN_CONFLUENCE_SESSION_LOG_PARENT_PAGE_ID` | Same as parent | Parent page for session logs (alias: `CONFLUENCE_SESSION_LOGS_PARENT_ID`; the prefixed name wins if both are set)                                |
+| `ATLASSIAN_JIRA_PROJECT_KEY`                      | `KAN`          | Execution Jira project for active work                                                                                                           |
+| `ATLASSIAN_JIRA_DELIVERY_PROJECT_KEY`             | `RCP`          | Delivery Jira project for epics/sprints/scope                                                                                                    |
+| `JIRA_PROJECTS`                                   | `KAN,RCP`      | Optional explicit CSV of Jira projects to include in PM briefings (read-only: `KAN,RCP,PLZG,TO` allowed; anything else refused by the allowlist) |
 
 ## Session logging
 
