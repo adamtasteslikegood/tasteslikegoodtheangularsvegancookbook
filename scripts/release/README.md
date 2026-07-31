@@ -45,6 +45,11 @@ Backend refs with the default token.
 # Pay down back-sync debt (dry run by default)
 ./scripts/release/train-backsync.sh
 ./scripts/release/train-backsync.sh --apply --merge
+
+# Drive the whole train (stops before every mutating step)
+./scripts/release/train-run.sh --status        # state + checklist, changes nothing
+./scripts/release/train-run.sh                 # walk to the next action
+./scripts/release/train-run.sh --verify-only --marker '<string new in this release>'
 ```
 
 Exit codes are the contract: `0` clean, `1` blocking drift, `2` could not
@@ -125,10 +130,12 @@ The convention already existed informally (v0.3.7, v0.3.9, v0.4.0); the station
 makes it checkable, and accepts any abbreviation, which is how those entries are
 written.
 
-## The freeze window (spec — for when the driver lands)
+## The freeze window (partially implemented)
 
-Today's scripts verify and back-sync; they do not drive the train. When a driver
-does exist it needs a freeze, because the train's payload is mutable underneath
+The driver landed in KAN-191 (`train-run.sh`), so the first half of this is live:
+it prints the freeze warning before the release PR and re-reads state on every
+run rather than trusting a checklist tick. The **enforcement** layer below is
+still a spec. A freeze matters because the train's payload is mutable underneath
 it: **a `dev → main` PR merges the live tip of `dev`, not the tip as of when the
 PR was opened.** Anything merged to `dev` between opening the release PR and
 merging it ships silently, outside the CHANGELOG, under a version that never
@@ -190,9 +197,11 @@ Deliberately, not from lack of time — these carry judgment or a credential the
 automation should not hold:
 
 - choosing the version number and writing the CHANGELOG section
-- the Backend `dev → main` promotion
+- the Backend `dev → main` promotion (the driver opens the PR; a human merges it)
 - the release PR `dev → main` and its merge (which fires the tag and the deploy)
-- live verification after Cloud Build
+- accepting the live verification after Cloud Build — `train-run.sh --verify-only`
+  runs the check and reports, but choosing the marker string, and believing the
+  result, stay human
 
 The full ordered runbook is **[`RUNBOOK.md`](./RUNBOOK.md)**, driven by
 **[`train-run.sh`](./train-run.sh)**. It no longer lives on KAN-138 — a procedure
