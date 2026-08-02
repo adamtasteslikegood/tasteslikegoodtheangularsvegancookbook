@@ -218,6 +218,39 @@ jobs:
       - name: Verify release-train stations
         run: ./scripts/release/train-verify.sh --for-release --no-fetch
 
+  # ── Sprint lane ───────────────────────────────────────────────────────────
+  # Sprint 4 retrospective action: make check_sprint_lane.sh a blocking gate rather
+  # than a script run on demand. Success measure from the retro, verbatim: "a PR
+  # orphaning a sprint-N row fails CI". Adding it to `gate.needs` below is what makes
+  # that true — `gate` is the required status check, so nothing in branch protection
+  # needs to change.
+  #
+  # Risk R1/R2 across Sprint 3-5: the KAN/RCP lane collapsed once because the split
+  # was a convention nobody asserted. The script has held it for a full sprint; this
+  # is what stops it depending on someone remembering to run it.
+  #
+  # SKIPPED on fork PRs (including Dependabot) because repository secrets are not
+  # available there and the Jira query is impossible. `gate` treats skipped as
+  # passing — the same carve-out release-train documents above. Stated plainly rather
+  # than hidden: a fork PR is not lane-checked.
+  #
+  # It does NOT skip merely because the secrets are unset on a same-repo PR. That case
+  # exits 2 and fails, because a gate that silently passes when it cannot run is worse
+  # than no gate — it is the failure mode this whole job exists to correct.
+  sprint-lane:
+    name: Sprint lane — KAN/RCP link
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    env:
+      ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+      ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      # No .env in CI — the script reads these from the environment instead, and
+      # exits 2 (not 0) if they are missing.
+      - name: Assert the KAN/RCP sprint lane
+        run: bash scripts/pm/check_sprint_lane.sh
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -235,6 +268,7 @@ jobs:
       - canonical-recipes
       - posture-check-self-test
       - release-train
+      - sprint-lane
     if: always()
     runs-on: ubuntu-latest
     steps:

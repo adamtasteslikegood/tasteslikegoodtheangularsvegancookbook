@@ -12,10 +12,19 @@
 # team-managed (one createJiraIssue away for an agent) while RCP is company-managed.
 # A convention that isn't asserted is how the drift happened. This is the assertion.
 #
-# HONEST LIMIT: this is a script, NOT a blocking CI gate. It fails locally / on demand.
-# Wiring it into pr-gate.yml + `gate.needs` is what would make it a gate — the same
-# distinction that made the Alembic head-check look like a gate for weeks while only
-# running on release-train dispatch. Do not describe this as a gate until it is one.
+# THIS IS NOW A BLOCKING GATE (Sprint 4 retrospective action, S8).
+# `pr-gate.yml` runs it in the `sprint-lane` job and `gate.needs` includes that job,
+# so a PR that orphans a `sprint-N` KAN row fails CI. Before that wiring it was a
+# script run on demand — the same distinction that made the Alembic head-check look
+# like a gate for weeks while only running on release-train dispatch.
+#
+# TWO LIMITS THAT REMAIN, both deliberate and neither fixed by the wiring:
+#   1. It passes VACUOUSLY when no row carries the label — "every open sprint-N row
+#      is linked" is trivially true over an empty set. It detects lane DRIFT, not a
+#      missing sprint. Pair it with a membership census if you need the latter.
+#   2. Fork PRs (including Dependabot) cannot read repository secrets, so the job is
+#      SKIPPED there and `gate` counts skipped as passing. Same documented carve-out
+#      as the release-train job. A fork PR is therefore not lane-checked.
 #
 # Exit codes:
 #   0  every non-Done sprint-labelled KAN row is linked to an RCP row
@@ -26,10 +35,22 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
-[[ -f .env ]] || { echo "FAIL(2): .env not found; need ATLASSIAN_EMAIL + ATLASSIAN_API_TOKEN" >&2; exit 2; }
-set -a; source .env; set +a
-: "${ATLASSIAN_EMAIL:?FAIL(2): ATLASSIAN_EMAIL unset}"
-: "${ATLASSIAN_API_TOKEN:?FAIL(2): ATLASSIAN_API_TOKEN unset}"
+# `.env` is how a developer machine supplies credentials; CI injects them as
+# environment variables from repository secrets instead. A missing .env is therefore
+# only fatal when the variables are not already present — but an unset variable still
+# exits 2 rather than passing, so a misconfigured CI job fails closed rather than
+# reporting a green lane it never checked.
+if [[ -f .env ]]; then set -a; source .env; set +a; fi
+# Explicit `exit 2`, not `${VAR:?...}`. The :? construct aborts with status 1, which
+# this script's own contract defines as "an orphan was found — the lane is drifting".
+# A CI job with no credentials would then be read as real lane drift. Credential
+# failure must be distinguishable from a finding.
+for _v in ATLASSIAN_EMAIL ATLASSIAN_API_TOKEN; do
+  if [[ -z "${!_v:-}" ]]; then
+    echo "FAIL(2): $_v unset (no .env, and not in the environment)" >&2
+    exit 2
+  fi
+done
 
 SITE="https://tasteslikegood.atlassian.net"
 
