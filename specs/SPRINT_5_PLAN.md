@@ -61,12 +61,44 @@ work in `git log`. A rule that infers status from PRs will mark those items wron
 direction. **Generalised rule to encode, not just to remember: "no commits" is evidence of nothing for
 non-code items.**
 
+## Retrospective actions carried in — and two that are NOT committed
+
+Source: **[Sprint 4 Retrospective — 2026-08-01](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/51019869)**
+(Confluence TLG). Its "Actions for Next Sprint" table names five actions targeted at Sprint 5. This
+charter was drafted from `SPRINT_4_PLAN.md`'s close-out section **without reading that page**, so the
+mapping below was reconstructed afterwards. Three actions were already covered by accident; **two were
+missed outright.**
+
+| Retro action | Status here |
+| ------------- | ------------ |
+| Build KAN-97 auto-transition on PR merge | ✅ **committed — S5** |
+| File the regression test owed by KAN-156 | ✅ **committed — S3** (KAN-198) |
+| Charter Sprint 5 with an epic + acceptance rows | ✅ **done** — RCP-65, sprint 46 |
+| **Wire `check_sprint_lane.sh` into `pr-gate.yml` + `gate.needs`** | ❌ **NOT in committed scope — needs Adam's call** |
+| **Retitle RCP-55** (title asserts pre-amendment behaviour) | ❌ **NOT in committed scope — needs Adam's call** |
+
+Both misses were verified still open, not assumed: `grep -rn check_sprint_lane .github/workflows/`
+returns nothing and `gate.needs` lists eleven jobs, none of them the lane check; RCP-55 is still titled
+*"Publishing succeeds regardless of which account or guest session owns the row"*, which is the
+behaviour Sprint 4 deliberately did **not** ship.
+
+Neither is added here, because charter row 7 forbids agent-initiated scope and the committed set is
+Adam's. **RCP-55 in particular must stay a human decision** — Sprint 4's close-out declined to retitle
+it for exactly that reason: *"rewriting an acceptance row to match what shipped is exactly the move
+that should require a human."*
+
+**The lesson is about where a retrospective lives.** The close-out section inside `SPRINT_4_PLAN.md`
+and the Confluence retro are two different documents with two different action lists, and only the
+repo one is visible to an agent working from a checkout. A charter built from the repo alone will
+silently miss retro actions every time. **Read the Confluence retro when chartering, and treat its
+actions table as an input, not a summary.**
+
 ## Owned risks (pre-mortem)
 
 | ID     | Risk                                                                                                                                                                                                            | Mitigation                                                                                                                                                                                                                                                     |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **R1** | **The commitment is 3.5× the count Sprint 4 delivered — dominant, new.** 7 items / 8 days against a measured 2 items / 3 days. Stated two ways, because they differ and only one is flattering: **3.5× by count** (7 committed vs 2 delivered), but only **~1.3× by rate** (0.88 items/day vs 0.67). The longer box absorbs most of the overcommit; it does not absorb the coordination cost. Most likely failure is not one item failing but **six items in flight and none finished**. | Single-lane discipline: **S1 first, alone, to a merged PR** before S2–S7 open in parallel. Sprint 4's own lesson was that four simultaneous items produced one shipped fix. If the box ends with >2 rolled, that is a **sizing verdict**, not a failed sprint. |
-| **R2** | **The KAN/RCP lane collapses** — it did once, then **held a full sprint** in Sprint 4. Structural pull unchanged: team-managed KAN is one `createJiraIssue` away for an agent.                                     | Assert it: `check_sprint_lane.sh sprint-5` in the close gate. **Honest limit, unchanged: this is a script, NOT a blocking CI gate.** Wiring it into `pr-gate.yml` + `gate.needs` is what would make it one.                                                     |
+| **R2** | **The KAN/RCP lane collapses** — it did once, then **held a full sprint** in Sprint 4. Structural pull unchanged: team-managed KAN is one `createJiraIssue` away for an agent.                                     | Assert it: `check_sprint_lane.sh sprint-5` in the close gate. **Honest limit: this is a script, NOT a blocking CI gate** — verified, it appears in no workflow and `gate.needs` does not list it. The Sprint 4 retro **assigns wiring it into `pr-gate.yml` + `gate.needs` to Sprint 5**, with the success measure "a PR orphaning a `sprint-N` row fails CI". That action is **not in this sprint's committed seven** and is awaiting Adam's scope call — do not read R2 as mitigated until it lands. |
 | **R3** | **Status drifts a fifth time.** Fired 07-24, 07-26, and twice more through Sprint 4. It is now a **missing mechanism, not a lapse**.                                                                              | The mechanism is **committed scope this sprint (S5)**. Until it lands, reconcile before measuring, never after. Note S5's own blind spot for non-code items, above.                                                                                             |
 | **R4** | **S4 (KAN-160) gets sliced after all.** Sprint 4 chartered it as deserving its own sprint; it now shares a box with six other items — the exact partial-slice outcome that decision refused.                      | S4's gate is the **contract existing and being adopted by ≥2 call sites**, not "some patches generalised". If the box runs out, S4 **rolls whole**. A half-migrated classification contract is worse than none — two conventions instead of one.                |
 | **R5** | **S7 (staging env) has unbounded scope** — "no dev/staging environment" is an infrastructure programme, not a ticket, and can absorb the entire box.                                                              | S7's in-box deliverable is a **written, costed plan with one decision for Adam**, not a running environment. Building it is explicitly out of scope and needs its own charter.                                                                                  |
