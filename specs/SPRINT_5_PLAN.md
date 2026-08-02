@@ -79,8 +79,8 @@ missed outright.**
 | **Wire `check_sprint_lane.sh` into `pr-gate.yml` + `gate.needs`** | ✅ **committed 2026-08-02 — S8** (KAN-200 ↔ RCP-70), Adam's call |
 | **Retitle RCP-55** (title asserted pre-amendment behaviour)       | ✅ **settled 2026-08-02** — retitled on Adam's approval          |
 
-Both misses were verified still open at the time, not assumed: `grep -rn check_sprint_lane
-.github/workflows/` returned nothing and `gate.needs` listed eleven jobs, none of them the lane check;
+Both misses were verified still open at the time, not assumed. A `grep` for `check_sprint_lane` across
+`.github/workflows/` returned nothing, and `gate.needs` listed eleven jobs, none of them the lane check;
 RCP-55 was still titled _"Publishing succeeds regardless of which account or guest session owns the
 row"_, which is the behaviour Sprint 4 deliberately did **not** ship.
 
