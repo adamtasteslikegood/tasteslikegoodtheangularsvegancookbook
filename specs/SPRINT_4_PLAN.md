@@ -281,3 +281,123 @@ KAN-160 (**GO, Sprint 5** — see decision log) · KAN-97 auto-transition (Sprin
 candidate) · RCP-47 unpublish-confirmation dialog · RCP-49 (standing walkthrough story, stays open)
 · KAN-151 Valkey response-cache read paths · KAN-104/105 (#3146/#3147 slug decisions) · imageless-
 recipe disposition rules · home-page redesign.
+
+## Close-out — 2026-08-01
+
+_Sprint 43 closed 2026-08-02T04:22Z. Box ran 2026-07-28T09:56Z → 2026-07-31T23:59Z._
+**Result: 2 of 4 committed items delivered, 2 rolled. One of the two "delivered" has code behind it.**
+
+| #      | Item                          | Jira             | Disposition                                                              |
+| ------ | ----------------------------- | ---------------- | ------------------------------------------------------------------------ |
+| **S1** | Publish "Recipe ID collision" | KAN-155 ↔ RCP-55 | ✅ **Delivered** — shipped in **v0.4.8**, 2026-07-30 21:25 PDT, in-box   |
+| **S2** | Duplicate first-save toast    | KAN-156 ↔ RCP-56 | ✅ **Delivered** — walkthrough-verified by Adam; regression test owed    |
+| **S3** | Dedup-suffix unpublish        | KAN-157 ↔ RCP-57 | ↩️ **Rolled** — in flight past the box (manual prod-data work)           |
+| **S4** | IPv6 rate-limit keying        | KAN-161 ↔ RCP-58 | ↩️ **Rolled** — zero implementation                                      |
+
+### What the gates said
+
+Both machine gates from charter row 1 pass, and both were confirmed **failing before** the close-out
+work started — a gate that already passes proves nothing.
+
+- `bash scripts/pm/check_sprint_lane.sh sprint-4` → **exit 0**. **R1 did not recur**: the KAN/RCP lane
+  held for a full sprint, the first time that is true. The assertion earned its keep.
+- Close JQL `project in (KAN, RCP) AND labels = sprint-4 AND statusCategory != Done` → **zero rows**.
+
+**The close JQL is answered by rolls, not by false Dones.** KAN-157/RCP-57 and KAN-161/RCP-58 shed
+`sprint-4` and carry `rolled-from-sprint-4` + `sprint-5-candidate`. Dropping the label is what makes a
+roll legible to the gate; keeping `rolled-from-sprint-4` is what stops the miss being erased. A rolled
+item is no longer a Sprint 4 item — it is not a completed one.
+
+### S1 — the one real delivery
+
+Backend `9ceb360` split the ownership 409 into three client-actionable codes and added
+`tests/test_recipe_ownership_publish.py` (118 lines); cookbook `b561a7d` stopped reporting a refused
+publish as success, with `769a80f` / `31edf9c` fixing refusal copy and closing a weak verb-free
+assertion. Promoted Backend `7b6347e` → cookbook pointer → **v0.4.8**.
+
+**R7 held, and this is the sprint's most important negative result.** The dominant risk was that the
+fix would make the symptom disappear by weakening `same_owner` — shipping a privilege escalation on
+recipe rows. It did not. The refusal is **preserved**; what changed is that it is now *legible* and no
+longer reported as success. INV-1…INV-6 are intact. The trap named in A3 — "the close-out must not read
+'done' over a recipe that still will not publish" — is worth re-reading: for rows predating the
+migrations, publish is still refused, **by design**.
+
+### Evidence gaps — recorded, not smoothed over
+
+1. **S2 is walkthrough-verified, and the regression test is still owed.** Adam confirmed he closed
+   KAN-156 from a **live walkthrough** on 2026-08-01 — which is why the row moved To Do → Done directly,
+   with no intermediate state, right after he set RCP-56 In Progress to work it. That is a legitimate
+   close under charter row 7. What it is *not* is S2's chartered machine gate: no Vitest spec asserts
+   "a first-time save emits exactly one toast", so nothing stops the duplicate toast returning the next
+   time the save/publish signal path changes. **The test is carried into Sprint 5 as a retrospective
+   action.** Recorded here because a walkthrough and a regression test are different guarantees, and the
+   board shows both as "Done".
+2. **RCP-55's title still asserts pre-amendment behaviour** — *"Publishing succeeds regardless of which
+   account or guest session owns the row"* — which this sprint deliberately did **not** ship, and must
+   not. Superseded by KAN-181 INV-4. Closed against amended acceptance; flagged for retitling on the
+   ticket. Not retitled here, because rewriting an acceptance row to match what shipped is exactly the
+   move that should require a human.
+
+### Board correction — three rows were never committed scope
+
+**RCP-64, KAN-194, KAN-195** carried the `sprint-4` label but were filed 2026-07-31 as walkthrough
+round-3 findings. Charter **R4** sends round-3 findings to the backlog by default — that rule exists so
+a sprint can close instead of absorbing every new finding, and it was silently violated by the labels.
+Relabelled `walkthrough-round-3`. **All three remain open and unfixed**; only sprint membership changed.
+
+**A correction worth keeping, because the mistake generalises.** RCP-57 read In Progress while
+KAN-157 had no commits, and this close-out originally called that R2 status drift and reset RCP-57 to
+To Do. **That was wrong.** Adam had set RCP-57 In Progress deliberately, because he was working the
+item by hand: KAN-157 is manual production-data work, which produces **no commits no matter how much
+of it is done**. The status was accurate and the reconciliation overwrote it. Both rows are now In
+Progress, and the lane inconsistency was real but pointed the other way — KAN-157 should have moved
+up, not RCP-57 down.
+
+**Generalised rule: "no commits" is evidence of nothing for items whose deliverable is not code.**
+Prod-data cleanups, console/IAM changes, business config and live walkthrough verification all look
+identical to unstarted work in `git log`. Ask before inferring. R2's mitigation (KAN-97
+auto-transition on PR merge) also cannot cover these items, since there is no PR to merge — a fact
+worth carrying into the Sprint 5 design of it.
+
+### The sizing data point — this board's first, and the only number worth quoting
+
+**4 committed · 2 delivered · 1 with code.** KAN-155 was filed 2026-07-25 and shipped 2026-07-30:
+**5 days work-item age against an SLE of p85 = 3 days — a breach**, and it was the single-lane priority.
+
+**No forecast is quoted for Sprint 5, and that is the methodology holding rather than an omission.**
+One sprint is not a distribution. The charter already withdrew a Monte Carlo forecast for borrowing
+filtered KAN lifetime throughput to predict an **RCP** sprint — a lane with different granularity and
+zero closed sprints. Sprint 4 produces exactly one data point against nothing. Say **"unavailable"**;
+do not substitute a proxy. Trailing throughput remains contaminated by the 2026-07-26 batch
+reconciliation and is still unusable.
+
+**The honest read on the box:** four items sized at "roughly a day" produced one shipped fix in a
+Tue→Fri box, while the engineering hours of 07-27→07-29 went to the KAN-170/173/176 security
+preemption — the interruption R4 reserved to Adam, correctly taken. The sprint did not fail; the
+estimate did. That is the signal A1 predicted when it recorded S2/S3/S4 as *expected to roll* with
+~1.5 days left and zero implementation across all four.
+
+### Risks — how they actually resolved
+
+| ID     | Outcome                                                                                                                     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------- |
+| **R1** | **Did not recur.** Lane held a full sprint; `check_sprint_lane.sh` exit 0. Still a script, **not** a blocking CI gate.       |
+| **R2** | **Recurred (4th time).** RCP-57 drifted from KAN-157. KAN-97 remains unbuilt — this is now a missing mechanism, not a lapse. |
+| **R3** | **Held.** Hygiene stayed close-out work; the sprint closed on its committed set.                                            |
+| **R4** | **Fired, correctly.** Round-3 findings (RCP-64/KAN-194/KAN-195) went to backlog — after a label correction, not by default.  |
+| **R5** | **Not exercised** — KAN-157 never ran. The human approval gate on the exact 4 slugs carries forward untouched.               |
+| **R6** | **Clear.** KAN-155 dragged no migration; single Alembic head throughout.                                                     |
+| **R7** | **Held, and it mattered.** Ownership refusal made legible, not loosened. See S1.                                            |
+| **R8** | **Cleared.** The v0.4.8 payload was read before promotion; KAN-173/176 posture work is CI-only.                             |
+
+### Carried to Sprint 5
+
+**KAN-157**, **KAN-161** (rolled, `sprint-5-candidate`) · **KAN-160** (chartered Sprint 5;
+architectural, deliberately not sliced) · **KAN-97** auto-transition — the standing R2 fix, now four
+occurrences overdue · **KAN-170** (P1 exposure; **blocks the value of KAN-161** — Express is not the
+only metered path while Flask is directly addressable) · the S2 regression test, if Adam confirms
+KAN-156 was closed from a live walkthrough.
+
+Two label conventions to keep: `sprint-5-candidate` is **not** `sprint-5` — a `sprint-N` label asserts
+membership in a sprint that has an RCP epic and an acceptance row, and Sprint 5 has neither yet. And
+`rolled-from-sprint-4` is what makes the miss survive the close.
