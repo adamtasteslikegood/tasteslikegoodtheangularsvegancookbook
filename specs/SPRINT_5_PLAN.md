@@ -77,23 +77,29 @@ missed outright.**
 | File the regression test owed by KAN-156                          | ✅ **committed — S3** (KAN-198)                                  |
 | Charter Sprint 5 with an epic + acceptance rows                   | ✅ **done** — RCP-65, sprint 46                                  |
 | **Wire `check_sprint_lane.sh` into `pr-gate.yml` + `gate.needs`** | ✅ **committed 2026-08-02 — S8** (KAN-200 ↔ RCP-70), Adam's call |
-| **Retitle RCP-55** (title asserts pre-amendment behaviour)        | ⏳ **still open — status is `Done`, the TITLE is not fixed**     |
+| **Retitle RCP-55** (title asserted pre-amendment behaviour)       | ✅ **settled 2026-08-02** — retitled on Adam's approval          |
 
-Both misses were verified still open, not assumed: `grep -rn check_sprint_lane .github/workflows/`
-returns nothing and `gate.needs` lists eleven jobs, none of them the lane check; RCP-55 is still titled
-_"Publishing succeeds regardless of which account or guest session owns the row"_, which is the
-behaviour Sprint 4 deliberately did **not** ship.
+Both misses were verified still open at the time, not assumed: `grep -rn check_sprint_lane
+.github/workflows/` returned nothing and `gate.needs` listed eleven jobs, none of them the lane check;
+RCP-55 was still titled _"Publishing succeeds regardless of which account or guest session owns the
+row"_, which is the behaviour Sprint 4 deliberately did **not** ship.
 
-**Resolved 2026-08-02.** Adam committed the lane-gate wiring as **S8**; WIP moves 7 → 8 and is
-knowingly exceeded by five over the chartered cap, on the same terms as charter row 2.
+**Both resolved 2026-08-02.** Adam committed the lane-gate wiring as **S8** (WIP moves 7 → 8,
+knowingly exceeded by five over the chartered cap, on the same terms as charter row 2) and approved the
+RCP-55 retitle. **The Sprint 4 retro's actions table is now fully accounted for** — three delivered
+into scope, one done at charter time, one settled directly.
 
-**RCP-55 stays open, and the distinction matters.** Its _status_ is `Done` (resolution Done,
-2026-08-01) — Adam closed it and that is correct. The retro action was to **retitle** it, which status
-does not touch: it still reads _"Publishing succeeds regardless of which account or guest session owns
-the row"_, describing behaviour Sprint 4 deliberately did **not** ship. A closed row carrying a false
-description of what shipped is a worse artifact than an open one, because nothing will revisit it.
-Left to a human, as Sprint 4's close-out required: _"rewriting an acceptance row to match what shipped
-is exactly the move that should require a human."_
+**RCP-55 — settled, and the distinction is worth keeping.** Its _status_ was already `Done`
+(resolution Done, 2026-08-01) and that was correct; status and title are different things, and closing
+a row does not fix what it claims. It now reads _"Publishing a recipe owned by another account or guest
+session is refused with a distinct, actionable reason — never reported as success (INV-4)"_, which is
+what v0.4.8 actually shipped: the ownership refusal **preserved and made legible**, not loosened. The
+old wording described the flattering outcome that would have required weakening `same_owner` — Sprint
+4's dominant risk R7.
+
+The previous title is recorded verbatim in a comment on the ticket rather than erased, because Sprint
+4's close-out was right that _"rewriting an acceptance row to match what shipped is exactly the move
+that should require a human."_ The rule held: it waited for Adam, and the amendment is auditable.
 
 **The lesson is about where a retrospective lives.** The close-out section inside `SPRINT_4_PLAN.md`
 and the Confluence retro are two different documents with two different action lists, and only the
