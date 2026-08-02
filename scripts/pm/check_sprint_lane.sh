@@ -18,13 +18,17 @@
 # script run on demand — the same distinction that made the Alembic head-check look
 # like a gate for weeks while only running on release-train dispatch.
 #
-# TWO LIMITS THAT REMAIN, both deliberate and neither fixed by the wiring:
+# THREE LIMITS THAT REMAIN, all deliberate and none fixed by the wiring:
 #   1. It passes VACUOUSLY when no row carries the label — "every open sprint-N row
 #      is linked" is trivially true over an empty set. It detects lane DRIFT, not a
 #      missing sprint. Pair it with a membership census if you need the latter.
-#   2. Fork PRs (including Dependabot) cannot read repository secrets, so the job is
-#      SKIPPED there and `gate` counts skipped as passing. Same documented carve-out
-#      as the release-train job. A fork PR is therefore not lane-checked.
+#   2. Called with no argument (as CI does) it checks only the NEWEST sprint-N label.
+#      An orphan on an older, superseded label does not fail CI.
+#   3. The CI job is skipped for fork PRs AND for Dependabot PRs, and `gate` counts
+#      skipped as passing. These are two different cases, not one: a Dependabot PR is
+#      NOT a fork — it is a same-repo `dependabot/...` branch that is merely denied
+#      secrets — so it needs its own actor test in the workflow. Without it the job
+#      runs, exits 2, and blocks every dependency update.
 #
 # Exit codes:
 #   0  every non-Done sprint-labelled KAN row is linked to an RCP row

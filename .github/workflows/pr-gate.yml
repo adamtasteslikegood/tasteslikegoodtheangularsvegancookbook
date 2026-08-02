@@ -229,17 +229,37 @@ jobs:
   # was a convention nobody asserted. The script has held it for a full sprint; this
   # is what stops it depending on someone remembering to run it.
   #
-  # SKIPPED on fork PRs (including Dependabot) because repository secrets are not
-  # available there and the Jira query is impossible. `gate` treats skipped as
-  # passing — the same carve-out release-train documents above. Stated plainly rather
-  # than hidden: a fork PR is not lane-checked.
+  # SCOPE: it asserts the NEWEST `sprint-N` label in KAN — the current sprint — because
+  # that is what check_sprint_lane.sh defaults to when given no argument. An orphan on
+  # an older, superseded sprint label does not fail CI. That is the intended scope (a
+  # closed sprint's rows are Done and filtered out anyway), but the retro's phrasing
+  # "a PR orphaning a sprint-N row fails CI" is broader than what this enforces, so the
+  # narrower truth is written here rather than left to be discovered.
   #
-  # It does NOT skip merely because the secrets are unset on a same-repo PR. That case
-  # exits 2 and fails, because a gate that silently passes when it cannot run is worse
-  # than no gate — it is the failure mode this whole job exists to correct.
+  # SKIPPED in two cases, both of which `gate` counts as passing:
+  #   1. Fork PRs — repository secrets are unavailable, so the Jira query is impossible.
+  #   2. Dependabot PRs — these are NOT forks. They are same-repo branches
+  #      (`dependabot/...`, head owner == this repo), so the fork test above does not
+  #      catch them, but Actions secrets are still withheld from them by default.
+  #      Without the explicit actor test this job would run, exit 2, and block EVERY
+  #      dependency update. Caught in review on PR #3336 before it could do that.
+  # A fork or Dependabot PR is therefore not lane-checked. Neither touches sprint labels.
+  #
+  # It does NOT skip merely because the secrets are unset on an ordinary same-repo PR.
+  # That case exits 2 and fails, because a gate that silently passes when it cannot run
+  # is worse than no gate — it is the failure mode this whole job exists to correct.
   sprint-lane:
     name: Sprint lane — KAN/RCP link
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
+    # Both Dependabot tests are kept deliberately, not redundantly. `github.actor` is
+    # the actor of the *triggering event* — on a manual re-run it becomes the human who
+    # pressed the button, so that test alone can let a re-run of a Dependabot PR through.
+    # `pull_request.user.login` is the PR author and never changes. Either one is enough
+    # for the ordinary case; together they hold for re-runs too. The failure mode being
+    # guarded is "every dependency update is blocked", which earns the belt and braces.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     env:
       ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
