@@ -290,8 +290,8 @@ _Sprint 43 closed 2026-08-02T04:22Z. Box ran 2026-07-28T09:56Z → 2026-07-31T23
 | #      | Item                          | Jira             | Disposition                                                              |
 | ------ | ----------------------------- | ---------------- | ------------------------------------------------------------------------ |
 | **S1** | Publish "Recipe ID collision" | KAN-155 ↔ RCP-55 | ✅ **Delivered** — shipped in **v0.4.8**, 2026-07-30 21:25 PDT, in-box   |
-| **S2** | Duplicate first-save toast    | KAN-156 ↔ RCP-56 | ✅ **Closed by Adam** — no fix commit, no test; see "Evidence gaps"      |
-| **S3** | Dedup-suffix unpublish        | KAN-157 ↔ RCP-57 | ↩️ **Rolled** — zero implementation                                      |
+| **S2** | Duplicate first-save toast    | KAN-156 ↔ RCP-56 | ✅ **Delivered** — walkthrough-verified by Adam; regression test owed    |
+| **S3** | Dedup-suffix unpublish        | KAN-157 ↔ RCP-57 | ↩️ **Rolled** — in flight past the box (manual prod-data work)           |
 | **S4** | IPv6 rate-limit keying        | KAN-161 ↔ RCP-58 | ↩️ **Rolled** — zero implementation                                      |
 
 ### What the gates said
@@ -324,14 +324,14 @@ migrations, publish is still refused, **by design**.
 
 ### Evidence gaps — recorded, not smoothed over
 
-1. **S2 has no repo evidence.** `git log --grep=KAN-156` across `origin/main` and `origin/dev` in both
-   repos returns only sprint-plan documentation commits, and no Vitest spec asserts S2's chartered
-   proving gate ("a first-time save emits exactly one toast"). KAN-156 was transitioned to Done by Adam
-   on 2026-08-01. That is a legitimate terminal state under charter row 7 — *explicitly waived by Adam* —
-   but it is **not** the machine gate S2 was chartered with, and the two should not be conflated.
-   Plausible mechanism if it is genuinely fixed: the duplicate toast and the false publish-success rode
-   the same save/publish signal path, so `b561a7d` may have removed it incidentally. **If so, the
-   regression test is still owed.** Question posted on KAN-156.
+1. **S2 is walkthrough-verified, and the regression test is still owed.** Adam confirmed he closed
+   KAN-156 from a **live walkthrough** on 2026-08-01 — which is why the row moved To Do → Done directly,
+   with no intermediate state, right after he set RCP-56 In Progress to work it. That is a legitimate
+   close under charter row 7. What it is *not* is S2's chartered machine gate: no Vitest spec asserts
+   "a first-time save emits exactly one toast", so nothing stops the duplicate toast returning the next
+   time the save/publish signal path changes. **The test is carried into Sprint 5 as a retrospective
+   action.** Recorded here because a walkthrough and a regression test are different guarantees, and the
+   board shows both as "Done".
 2. **RCP-55's title still asserts pre-amendment behaviour** — *"Publishing succeeds regardless of which
    account or guest session owns the row"* — which this sprint deliberately did **not** ship, and must
    not. Superseded by KAN-181 INV-4. Closed against amended acceptance; flagged for retitling on the
@@ -345,10 +345,19 @@ round-3 findings. Charter **R4** sends round-3 findings to the backlog by defaul
 a sprint can close instead of absorbing every new finding, and it was silently violated by the labels.
 Relabelled `walkthrough-round-3`. **All three remain open and unfixed**; only sprint membership changed.
 
-Left as it was: **RCP-57 read In Progress while KAN-157 had zero implementation** — reset to To Do.
-That is **R2 (status drift) recurring for the fourth time**. R2's mitigation was never built: KAN-97
-auto-transition on PR merge is still unbuilt and still scheduled. Four occurrences is no longer drift,
-it is the absence of a mechanism.
+**A correction worth keeping, because the mistake generalises.** RCP-57 read In Progress while
+KAN-157 had no commits, and this close-out originally called that R2 status drift and reset RCP-57 to
+To Do. **That was wrong.** Adam had set RCP-57 In Progress deliberately, because he was working the
+item by hand: KAN-157 is manual production-data work, which produces **no commits no matter how much
+of it is done**. The status was accurate and the reconciliation overwrote it. Both rows are now In
+Progress, and the lane inconsistency was real but pointed the other way — KAN-157 should have moved
+up, not RCP-57 down.
+
+**Generalised rule: "no commits" is evidence of nothing for items whose deliverable is not code.**
+Prod-data cleanups, console/IAM changes, business config and live walkthrough verification all look
+identical to unstarted work in `git log`. Ask before inferring. R2's mitigation (KAN-97
+auto-transition on PR merge) also cannot cover these items, since there is no PR to merge — a fact
+worth carrying into the Sprint 5 design of it.
 
 ### The sizing data point — this board's first, and the only number worth quoting
 
