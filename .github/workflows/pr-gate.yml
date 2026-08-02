@@ -239,7 +239,7 @@ jobs:
   # than no gate — it is the failure mode this whole job exists to correct.
   sprint-lane:
     name: Sprint lane — KAN/RCP link
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     env:
       ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
