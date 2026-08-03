@@ -143,6 +143,19 @@ fi
   BRANCH=$(git -C "$PROJECT_DIR" branch --show-current 2>/dev/null || echo unknown)
   STAMP=$(date -u +%Y%m%d-%H%M%S)
 
+  # PM snapshot: the facts the summarizer cannot see for itself. It runs with
+  # --allowedTools '' and can read nothing but this prompt, so without this it
+  # could never cite a PR number or the branch's position — it could only repeat
+  # what happened to be typed in the conversation. Same checkout-preference rule
+  # as DIGEST_PY above; fails open to no snapshot rather than costing the log.
+  SNAP_SH="$PROJECT_DIR/.claude/hooks/lib/pm-snapshot.sh"
+  [ -f "$SNAP_SH" ] || SNAP_SH="$MAIN_REPO/.claude/hooks/lib/pm-snapshot.sh"
+  PM_SNAPSHOT=""
+  if [ -f "$SNAP_SH" ]; then
+    PM_SNAPSHOT=$(bash "$SNAP_SH" "$PROJECT_DIR" "$MAIN_REPO" "$BRANCH" 2>>"$LOG" || echo "")
+  fi
+  [ -n "$PM_SNAPSHOT" ] || PM_SNAPSHOT="(PM snapshot unavailable.)"
+
   PROMPT="You are writing a session log for an engineering team's Confluence.
 
 Below is a condensed transcript of a Claude Code session on branch \`$BRANCH\`.
@@ -166,8 +179,38 @@ Bullets of work explicitly left undone, deferred, or flagged. If none, 'None.'
 Bullets of anything surprising, non-obvious, or that cost time — the things a
 future session would want to know. If none, 'None.'
 
+## Atlassian Alignment
+Open with exactly one verdict in bold — **Aligned**, **Partially aligned**, or
+**Drifting** — then 1-3 bullets of evidence naming the specific KAN/RCP keys and
+PR numbers you saw. Judge with this rubric (AOTA — Atlassian Outside The Agent):
+  * Git = code truth. KAN = execution truth (who is on what, blockers, handoffs).
+    RCP = delivery truth (sprint scope, epics, acceptance criteria).
+    Confluence = durable narrative and session-history truth.
+  * **Aligned** — active work is visible in KAN, delivery impact is visible in
+    RCP, durable context is in Confluence, and all three match the branch/PR
+    state shown in the PM snapshot below.
+  * **Partially aligned** — one of KAN/RCP/Confluence is stale or missing key
+    updates. The work is visible, but a fresh agent could not resume cleanly.
+  * **Drifting** — branch/PR reality materially differs from what Jira or
+    Confluence says. A future agent reading Atlassian alone would assume wrong.
+If you have too little to judge, write '**Partially aligned** — insufficient
+evidence in transcript' and say what is missing. Never guess a verdict you
+cannot support from the transcript or the snapshot.
+
 Rules: be concrete, name files and identifiers, no filler, no preamble. Do not
-invent anything not present in the transcript. Output ONLY the markdown.
+invent anything not present in the transcript or the PM snapshot. Where the two
+disagree on branch, PR, or commit facts, TRUST THE SNAPSHOT — it was read from
+the machine just now; the transcript may be stale or aspirational.
+
+NEVER reproduce secrets on this page: no API keys, bearer tokens, .env contents,
+or credentials pasted into the terminal. If sensitive material did appear in the
+session, record only the operational fact that it appeared, that it was omitted
+here, and whether rotation looks warranted.
+
+Output ONLY the markdown.
+
+--- PM SNAPSHOT (read from the machine, authoritative for branch/PR facts) ---
+$PM_SNAPSHOT
 
 --- TRANSCRIPT DIGEST ---
 $(cat "$DIGEST")"
