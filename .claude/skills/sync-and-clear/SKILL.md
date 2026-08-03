@@ -62,12 +62,30 @@ If the daemon is unavailable, fall back to the script path:
 bash scripts/pm/run_pm_script.sh publish_session_log.py --file <path.md>
 ```
 
-### 3. Sync any modified planning docs
+### 3. Assess Atlassian alignment
+
+Before you call the tool, decide whether Atlassian actually matches the work.
+Read [`references/AOTA_MODEL.md`](references/AOTA_MODEL.md) and commit to one
+verdict — **Aligned**, **Partially aligned**, or **Drifting** — then lead the
+`summary` with it and name the KAN/RCP keys that justify it.
+
+This is the judgement a transcript cannot supply, and it is why logs kept
+rendering "Atlassian Alignment: Not assessed". The auto-capture hooks now emit
+the same verdict from a compressed copy of the rubric inlined in their prompts,
+so manual and automatic logs stay comparable.
+
+If the verdict is anything but **Aligned**, convert the gap into concrete
+follow-ups using [`references/TODO_SCHEMA.md`](references/TODO_SCHEMA.md) —
+KAN execution, RCP delivery, and Confluence buckets kept separate — and pass
+them as `follow_up_items`. A "Drifting" verdict with no TODOs is a
+note-to-nobody.
+
+### 4. Sync any modified planning docs
 
 If this session changed anything under `specs/`, call
 `mcp__pm-daemon__sync_pm_documents` so Confluence matches the repo.
 
-### 4. Verify, then hand off
+### 5. Verify, then hand off
 
 The tool returns a Confluence URL. **Check the return value**:
 
@@ -89,3 +107,19 @@ Close with the URL and an explicit: *"Session logged. Safe to `/clear` now."*
   needs the reasoning, not the transcript.
 - If something failed this session, the log says so. Session logs that only
   record wins are how a team learns the wrong lesson twice.
+- Never put secrets on the page — no API keys, tokens, or `.env` contents. If
+  sensitive material surfaced, record only that it did, that it was omitted, and
+  whether rotation is warranted.
+
+## References
+
+- [`references/AOTA_MODEL.md`](references/AOTA_MODEL.md) — the Atlassian
+  Outside The Agent operating model and the three-way alignment rubric.
+- [`references/TODO_SCHEMA.md`](references/TODO_SCHEMA.md) — the shape for
+  splitting follow-up work across KAN, RCP, and Confluence.
+
+Both are ported from `.pi/skills/atlassian-session-log/references/`, which stays
+in place for the pi agent. The pi extension
+(`.pi/extensions/atlassian-aota/index.js`) registers pi's own `/session-log` and
+`/sync-clear` commands against the *same* publisher, `publish_session_log.py` —
+so pi and Claude write to one Confluence index, not two.
