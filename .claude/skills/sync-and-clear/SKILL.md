@@ -34,7 +34,25 @@ git status --short
 git log --oneline origin/dev..HEAD 2>/dev/null | head -20
 ```
 
-### 2. Call the MCP tool
+### 2. Assess Atlassian alignment
+
+Decide whether Atlassian actually matches the work before calling the tool.
+Read [`references/AOTA_MODEL.md`](references/AOTA_MODEL.md) and commit to one
+verdict — **Aligned**, **Partially aligned**, or **Drifting** — and note the
+KAN/RCP keys that justify it.
+
+This is the judgement a transcript cannot supply, and it is why logs kept
+rendering "Atlassian Alignment: Not assessed". The auto-capture hooks now emit
+the same verdict from a compressed copy of the rubric inlined in their prompts,
+so manual and automatic logs stay comparable.
+
+If the verdict is anything but **Aligned**, convert the gap into concrete
+follow-ups using [`references/TODO_SCHEMA.md`](references/TODO_SCHEMA.md) —
+KAN execution, RCP delivery, and Confluence buckets kept separate — and pass
+them as `follow_up_items` in the next step. A "Drifting" verdict with no TODOs
+is a note-to-nobody.
+
+### 3. Call the MCP tool
 
 Call `mcp__pm-daemon__log_agent_session` with these arguments:
 
@@ -42,6 +60,8 @@ Call `mcp__pm-daemon__log_agent_session` with these arguments:
   changed. Lead with the outcome.
 - `agent_name` — e.g. `"Claude Code (Opus 4.8)"`. Include the model.
 - `branch` — from `git branch --show-current`.
+- `atlassian_alignment` — the verdict from step 2, e.g.
+  `"Aligned — KAN-202 tracks execution, RCP-42 covers delivery scope"`.
 - `key_decisions` — list. Each entry is a decision **and why**. Note reversals
   explicitly.
 - `files_changed` — list of paths actually modified this session.
@@ -61,24 +81,6 @@ If the daemon is unavailable, fall back to the script path:
 # write the markdown yourself, then:
 bash scripts/pm/run_pm_script.sh publish_session_log.py --file <path.md>
 ```
-
-### 3. Assess Atlassian alignment
-
-Before you call the tool, decide whether Atlassian actually matches the work.
-Read [`references/AOTA_MODEL.md`](references/AOTA_MODEL.md) and commit to one
-verdict — **Aligned**, **Partially aligned**, or **Drifting** — then lead the
-`summary` with it and name the KAN/RCP keys that justify it.
-
-This is the judgement a transcript cannot supply, and it is why logs kept
-rendering "Atlassian Alignment: Not assessed". The auto-capture hooks now emit
-the same verdict from a compressed copy of the rubric inlined in their prompts,
-so manual and automatic logs stay comparable.
-
-If the verdict is anything but **Aligned**, convert the gap into concrete
-follow-ups using [`references/TODO_SCHEMA.md`](references/TODO_SCHEMA.md) —
-KAN execution, RCP delivery, and Confluence buckets kept separate — and pass
-them as `follow_up_items`. A "Drifting" verdict with no TODOs is a
-note-to-nobody.
 
 ### 4. Sync any modified planning docs
 

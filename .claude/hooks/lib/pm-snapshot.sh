@@ -48,8 +48,14 @@ echo "- Branch: \`$BRANCH\`"
 AHEAD=$(_t 10 git -C "$PROJECT_DIR" rev-list --count origin/dev..HEAD 2>/dev/null || echo "")
 [ -n "$AHEAD" ] && echo "- Commits ahead of \`origin/dev\`: $AHEAD"
 
-DIRTY=$(_t 10 git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ')
-[ -n "$DIRTY" ] && echo "- Uncommitted files in working tree: $DIRTY"
+if DIRTY_OUT=$(_t 10 git -C "$PROJECT_DIR" status --porcelain 2>/dev/null); then
+  if [ -n "$DIRTY_OUT" ]; then
+    DIRTY=$(echo "$DIRTY_OUT" | wc -l | tr -d ' ')
+  else
+    DIRTY=0
+  fi
+  echo "- Uncommitted files in working tree: $DIRTY"
+fi
 
 # Cap the file list: a big refactor would otherwise crowd out the transcript.
 CHANGED=$(_t 10 git -C "$PROJECT_DIR" diff --name-only origin/dev...HEAD 2>/dev/null | head -25)
@@ -102,7 +108,9 @@ if [ -f "$BRIEFING" ]; then
   # `date -r` is BSD; GNU needs -r too but with a different meaning for other
   # flags, so use stat where available and fall back quietly.
   MTIME=$(date -u -r "$BRIEFING" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null \
-          || stat -c %y "$BRIEFING" 2>/dev/null || echo "unknown")
+          || stat -c %y "$BRIEFING" 2>/dev/null \
+          || stat -f '%Sm' -t '%Y-%m-%dT%H:%M:%SZ' "$BRIEFING" 2>/dev/null \
+          || echo "unknown")
   echo "- PM briefing last refreshed: $MTIME"
 else
   echo "- PM briefing: absent (run \`npm run pm:brief\`)"
