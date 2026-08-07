@@ -1,14 +1,23 @@
 # Runtime dependencies for scripts/monitoring/gcp_mcp_server.py
 # Install with: pip install -r scripts/monitoring/requirements.txt
 #
+# EVERY floor here carries a major-version ceiling. There is no lockfile and
+# nothing in CI builds this image, so a bare floor means the next `docker build`
+# silently adopts whatever major shipped that morning. That is not theoretical:
+# mcp 2.0.0 (2026-07-28) deleted mcp/server/fastmcp/ and the Railway service
+# crash-looped on `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`
+# from the next rebuild onward. Raise a ceiling deliberately, with a test.
+#
 # mcp >= 1.10 is required for the Streamable HTTP transport used by the hosted
 # Cloud Run connector (mcp.streamable_http_app()); stdio mode works on older
 # releases but the pin is unified so both transports share one venv/image.
-mcp>=1.10.0
-google-cloud-monitoring>=2.21.0
+# < 2.0 because 2.x replaces mcp.server.fastmcp with mcp.server.mcpserver;
+# gcp_mcp_server.py imports FastMCP directly and has not been ported.
+mcp>=1.10.0,<2.0.0
+google-cloud-monitoring>=2.21.0,<3.0.0
 # Only used by the HTTP transport (_run_http); both ship with mcp's server
 # extra, but gcp_mcp_server.py imports starlette directly and uvicorn is the
 # HTTP entrypoint, so both are pinned explicitly — the Cloud Run image must
 # not depend on mcp's dependency graph keeping them around.
-starlette>=0.40.0
-uvicorn>=0.30.0
+starlette>=0.40.0,<2.0.0
+uvicorn>=0.30.0,<1.0.0
