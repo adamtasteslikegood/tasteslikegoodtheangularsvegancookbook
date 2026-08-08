@@ -74,8 +74,21 @@ and this release is the first to actually carry it to users.
   handshake: under RESP3 ioredis authenticates via `HELLO` and injects a `default`
   username, which Memorystore IAM auth does not use, and a rejected AUTH is not a
   protocol-negotiation error so the automatic RESP2 fallback would not catch it.
-- Dependency upgrades — 23 bumps, including Angular 22.1.2, `vite` 8.2.0,
-  `google-auth-library` 11, `ioredis` 6, and `dd-trace` 6.8.0.
+- **Release-train driver: walk-mode step 4 reads the local gitlink; `verify_prod`
+  hardened** — KAN-211,
+  [#3365](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3365).
+  Step 4 checked the pointer via `git rev-parse origin/dev:Backend`, but a re-pin is
+  staged locally and does not reach `origin/dev` until the release PR merges — so the
+  driver could call a correctly-pinned tree wrong. It now reads `:Backend` from the
+  index, matching the same fix already made to `do_bump()` in #3361. `verify_prod`
+  switches `grep -c` → `grep -Fc` so a marker containing regex metacharacters matches
+  literally, and cleans its scratch file on an `EXIT` trap rather than only on success.
+- Dependency upgrades — 23 bumps, including Angular 22.1.0, `vite` 8.2.0,
+  `google-auth-library` 11, `ioredis` 6, and `dd-trace` 6.8.0. `@angular/build` and
+  `@angular/cli` had been pinned to `22.1.2` while the rest of the family sat at
+  `22.1.0` — a version never published for `@angular/core` — and were aligned down to
+  `22.1.0` (KAN-211); `@typescript-eslint/parser` was synced to `^8.66.0` to match the
+  plugin it is released in lockstep with.
 
 ### Documentation
 
