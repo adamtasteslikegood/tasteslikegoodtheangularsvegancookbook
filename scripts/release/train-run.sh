@@ -244,8 +244,16 @@ STEPS=(
 # RUNBOOK step 5 requires both: train-verify checks the section against the
 # ACTUAL pointer, so the SHA in the prose and the gitlink must agree.
 # Prints one of: missing | absent | section-only | named
+#
+# Reads the gitlink from THIS WORKING TREE (index, falling back to HEAD), not
+# $POINTER from gather() (origin/dev:Backend): do_bump() scaffolds the
+# CHANGELOG naming the locally-staged pointer, which doesn't reach origin/dev
+# until the release PR merges. The same KAN-138 staleness do_bump() and the
+# step-4 check were already fixed for — see their comments.
 changelog_state() {
-  python3 - "$VERSION" "$POINTER" <<'PY' 2>/dev/null || echo "missing"
+  local local_pointer
+  local_pointer=$(git rev-parse :Backend 2>/dev/null || git rev-parse HEAD:Backend 2>/dev/null || echo "$POINTER")
+  python3 - "$VERSION" "$local_pointer" <<'PY' 2>/dev/null || echo "missing"
 import re, sys
 ver, pointer = sys.argv[1], sys.argv[2]
 try:
