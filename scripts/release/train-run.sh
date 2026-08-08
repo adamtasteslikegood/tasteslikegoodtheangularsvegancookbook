@@ -381,13 +381,22 @@ verify_prod() {
 
   info "searching every served asset for: $marker"
   local tmp; tmp=$(mktemp)
+  # ${tmp:-}, not $tmp: under `set -u`, this trap re-evaluates at whatever
+  # point the script actually exits — which is after verify_prod() has
+  # returned and its `local tmp` has gone out of scope entirely, not just
+  # out of value. An unguarded $tmp there is an unbound-variable error, not
+  # a no-op.
+  trap '[ -n "${tmp:-}" ] && rm -f "$tmp"' EXIT
   for a in $assets; do
     curl -s --max-time 30 "$PROD/$a" -o "$tmp" || continue
     # `grep -c` ALREADY prints 0 when it matches nothing, and exits 1. A
     # `|| echo 0` on top of that yields the two-line string "0\n0", which then
     # blows up $(( )) with an arithmetic syntax error and derails the whole
     # mode. Found by running this against the live v0.4.8 deploy.
-    hits=$(grep -c -- "$marker" "$tmp" 2>/dev/null)
+    # -F: the marker is matched as a literal string, not a regex — a marker
+    # containing regex metacharacters (e.g. a CSS class like "a.b[0]") would
+    # otherwise silently under/over-count.
+    hits=$(grep -Fc -- "$marker" "$tmp" 2>/dev/null)
     [ -n "$hits" ] || hits=0
     total=$((total + hits))
     printf '    %-28s %8s bytes  hits=%s\n' "$a" "$(wc -c < "$tmp")" "$hits"
@@ -578,8 +587,20 @@ fi
 ok "no back-sync debt on either repo"
 
 # Step 4 — pointer.
-if [ "$POINTER" != "$BE_MAIN_FULL" ]; then
-  bad "pointer $POINTER_SHORT != Backend main ${BE_MAIN_FULL:0:12} (RUNBOOK step 4)"
+#
+# Read the gitlink from THIS WORKING TREE (index, falling back to HEAD), not
+# $POINTER from gather() (`origin/dev:Backend`): step 4 stages the re-pin
+# locally on the release branch, and it does not reach origin/dev until this
+# release PR merges. Checking against origin/dev here is the same KAN-138 trap
+# do_bump() was fixed for above — see its comment for the full story.
+STEP4_POINTER=$(git rev-parse :Backend 2>/dev/null || git rev-parse HEAD:Backend 2>/dev/null || echo "")
+STEP4_POINTER_SHORT=${STEP4_POINTER:0:12}
+if [ -z "$STEP4_POINTER" ]; then
+  bad "could not read the Backend gitlink from this working tree"
+  exit 1
+fi
+if [ "$STEP4_POINTER" != "$BE_MAIN_FULL" ]; then
+  bad "pointer $STEP4_POINTER_SHORT != Backend main ${BE_MAIN_FULL:0:12} (RUNBOOK step 4)"
   info "do NOT use 'git submodule update --remote Backend' — .gitmodules tracks dev,"
   info "and dev's tip is structurally never main's tip after a promotion+back-sync."
   say ""
