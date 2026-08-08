@@ -28,9 +28,41 @@ jobs:
           retry-on-snapshot-warnings: true
           # Only allow permissive licenses; blocks GPL, AGPL, and other copyleft licenses
           allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, BlueOak-1.0.0, CC0-1.0, CC-BY-3.0, CC-BY-4.0, Unlicense, WTFPL, Python-2.0
+          # Package-level exemptions. Each entry needs a recorded reason — an
+          # unexplained purl here is indistinguishable from a policy hole.
+          #
           # protobufjs >=7.6.3 declares 'BSD-3-Clause AND LicenseRef-scancode-protobuf'.
           # The LicenseRef component is Google's protobuf license (BSD-style with a
           # sublicensing clause) — permissive, but the compound SPDX expression fails
           # the allow-list above. Exempt the package so security bumps aren't blocked
-          # (see issue #3010).
-          allow-dependencies-licenses: pkg:npm/protobufjs
+          # (see issue #3010, KAN-90).
+          #
+          # lightningcss and its platform binaries declare MPL-2.0, which is file-level
+          # copyleft rather than the project-level copyleft this allow-list exists to
+          # block. It is a Rust-compiled CSS transformer that runs at BUILD time, reached
+          # transitively through vite (devDependency) and @angular/build; no MPL source is
+          # redistributed in the browser bundle and we do not modify it.
+          #
+          # It is also already in the tree at 1.32.0 — dependency-review only license-checks
+          # packages with change_type 'added', so the copy on dev was never gated, and only
+          # a version bump re-adds it and trips the check. Without these entries EVERY vite
+          # or @angular/build bump that moves the lightningcss version fails a required
+          # status check (KAN-208, first hit on PR #3348 bumping vite 8.1.5 → 8.2.0).
+          #
+          # Exempted per-package rather than adding MPL-2.0 to allow-licenses above: a
+          # blanket entry would also permit MPL for genuine runtime dependencies, which is
+          # a different risk decision than this one.
+          allow-dependencies-licenses: >-
+            pkg:npm/protobufjs,
+            pkg:npm/lightningcss,
+            pkg:npm/lightningcss-android-arm64,
+            pkg:npm/lightningcss-darwin-arm64,
+            pkg:npm/lightningcss-darwin-x64,
+            pkg:npm/lightningcss-freebsd-x64,
+            pkg:npm/lightningcss-linux-arm-gnueabihf,
+            pkg:npm/lightningcss-linux-arm64-gnu,
+            pkg:npm/lightningcss-linux-arm64-musl,
+            pkg:npm/lightningcss-linux-x64-gnu,
+            pkg:npm/lightningcss-linux-x64-musl,
+            pkg:npm/lightningcss-win32-arm64-msvc,
+            pkg:npm/lightningcss-win32-x64-msvc
