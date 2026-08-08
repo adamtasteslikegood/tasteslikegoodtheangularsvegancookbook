@@ -85,10 +85,10 @@ and this release is the first to actually carry it to users.
   literally, and cleans its scratch file on an `EXIT` trap rather than only on success.
 - Dependency upgrades — 23 bumps, including Angular 22.1.0, `vite` 8.2.0,
   `google-auth-library` 11, `ioredis` 6, and `dd-trace` 6.8.0. `@angular/build` and
-  `@angular/cli` had been pinned to `22.1.2` while the rest of the family sat at
-  `22.1.0` — a version never published for `@angular/core` — and were aligned down to
-  `22.1.0` (KAN-211); `@typescript-eslint/parser` was synced to `^8.66.0` to match the
-  plugin it is released in lockstep with.
+  `@angular/cli` had been pinned to 22.1.2 while the rest of the family sat at 22.1.0
+  — a version never published for `@angular/core` — and were aligned down to 22.1.0
+  (KAN-211); `@typescript-eslint/parser` was synced to 8.66.0 to match the plugin it
+  is released in lockstep with.
 
 ### Documentation
 
