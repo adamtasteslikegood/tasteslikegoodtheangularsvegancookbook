@@ -233,6 +233,107 @@ describe('SsrEntryService', () => {
     expect(consoleError).toHaveBeenCalled();
   });
 
+  // ── KAN-198: the regression gate owed by KAN-156 ──────────────────────────
+  // KAN-156 ("Good news — you already have this recipe" firing right after a
+  // successful first-time save) was closed on a live walkthrough, with no test.
+  // The charter's proving gate was "a first-time save emits exactly one toast".
+  // These two assert it — the first for the ordinary path, the second for the
+  // mechanism KAN-156 actually documented.
+  describe('a first-time save emits exactly one toast (KAN-156 / KAN-198)', () => {
+    // saveRecipe here PERSISTS into savedRecipes, the way the real
+    // PersistenceService does. Without that the dedup check at the top of
+    // handleSave can never observe the row the save just wrote, and the
+    // duplicate toast this guards against becomes unreproducible.
+    const createPersistingService = (savedRecipes: unknown[]) => {
+      const saveRecipe = vi.fn().mockImplementation(async (recipe: unknown) => {
+        savedRecipes.push(recipe);
+        return true;
+      });
+      const injector = Injector.create({
+        providers: [
+          {
+            provide: AuthService,
+            useValue: {
+              ready: Promise.resolve(),
+              ensureGuestSession: vi.fn(),
+              currentUser: () => ({ isGuest: false, savedRecipes }),
+            },
+          },
+          {
+            provide: PersistenceService,
+            useValue: { saveRecipe, firstSyncSettled: Promise.resolve() },
+          },
+          { provide: ToastService, useValue: { show: toastShow } },
+        ],
+      });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+        })
+      );
+      const service = runInInjectionContext(injector, () => new SsrEntryService());
+      return { service, saveRecipe };
+    };
+
+    it('emits exactly one toast on the ordinary single-invocation path', async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+      const { service, saveRecipe } = createPersistingService([]);
+
+      await service.handleSave('thai-peanut-noodles');
+
+      expect(saveRecipe).toHaveBeenCalledTimes(1);
+      expect(toastShow).toHaveBeenCalledTimes(1);
+      expect(toastShow.mock.calls[0][0]).toMatch(/saved to your cookbook/i);
+    });
+
+    // The KAN-156 mechanism, verbatim from the ticket: ssrEntryGuard invokes
+    // handleSave fire-and-forget and immediately returns a redirect, so when the
+    // guard runs more than once for the same ?save=<slug> entry the invocations
+    // overlap. Whichever loses the race reaches the dedup check after the winner
+    // has persisted the copy, matches on sourceSlug, and emits the bogus second
+    // toast — while ALSO having written a duplicate row.
+    it('emits exactly one toast when the guard invokes handleSave twice for one entry', async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+      const savedRecipes: unknown[] = [];
+      const { service, saveRecipe } = createPersistingService(savedRecipes);
+
+      await Promise.all([
+        service.handleSave('thai-peanut-noodles'),
+        service.handleSave('thai-peanut-noodles'),
+      ]);
+
+      // One user action → one persisted recipe → one toast.
+      expect(saveRecipe).toHaveBeenCalledTimes(1);
+      expect(savedRecipes).toHaveLength(1);
+      expect(toastShow).toHaveBeenCalledTimes(1);
+      expect(toastShow.mock.calls[0][0]).toMatch(/saved to your cookbook/i);
+      // The specific wrong toast from the bug report must never appear here.
+      expect(toastShow.mock.calls.map((c) => c[0]).join(' ')).not.toMatch(
+        /already have this recipe/i
+      );
+    });
+
+    // The dedup must be scoped to an in-flight entry, not a permanent
+    // "handled" set: a user who saves, deletes, and saves again is making a
+    // genuine second request and must not be silently ignored.
+    it('still handles a later save of the same slug once the first has settled', async () => {
+      vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+      const savedRecipes: unknown[] = [];
+      const { service } = createPersistingService(savedRecipes);
+
+      await service.handleSave('thai-peanut-noodles');
+      expect(toastShow).toHaveBeenCalledTimes(1);
+
+      // The row is now present, so this is the legitimate "you already have it"
+      // path — a response, not silence.
+      await service.handleSave('thai-peanut-noodles');
+      expect(toastShow).toHaveBeenCalledTimes(2);
+      expect(toastShow.mock.calls[1][0]).toMatch(/already have this recipe/i);
+    });
+  });
+
   it('handleAuth waits for auth ready', async () => {
     let resolveReady!: () => void;
     const readyPromise = new Promise<void>((r) => {
