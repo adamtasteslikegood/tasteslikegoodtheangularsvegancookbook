@@ -11,6 +11,19 @@ export class SsrEntryService {
   private readonly persistence = inject(PersistenceService);
   private readonly toast = inject(ToastService);
 
+  // KAN-156/KAN-198: ssrEntryGuard calls handleSave fire-and-forget and returns
+  // a redirect immediately, so a guard that runs more than once for the same
+  // ?save=<slug> entry starts overlapping saves. Without this map both pass the
+  // dedup check below while savedRecipes is still empty, and BOTH persist —
+  // whichever finishes second then re-reads the row the first just wrote and
+  // emits the bogus "you already have this recipe" toast. KAN-156 was triaged as
+  // cosmetic; the duplicate row is the part that was missed.
+  //
+  // Scoped to in-flight calls only, deliberately not a permanent handled-set: a
+  // user who saves, deletes, and saves again is making a genuine second request
+  // and must get a response rather than silence.
+  private readonly inFlightSaves = new Map<string, Promise<void>>();
+
   async handleSave(slug: string): Promise<void> {
     const normalizedSlug = slug.trim().toLowerCase();
     if (!/^[a-z0-9-]+$/.test(normalizedSlug)) {
@@ -18,6 +31,17 @@ export class SsrEntryService {
       return;
     }
 
+    const inFlight = this.inFlightSaves.get(normalizedSlug);
+    if (inFlight) return inFlight;
+
+    const save = this.runSave(normalizedSlug).finally(() => {
+      this.inFlightSaves.delete(normalizedSlug);
+    });
+    this.inFlightSaves.set(normalizedSlug, save);
+    return save;
+  }
+
+  private async runSave(normalizedSlug: string): Promise<void> {
     try {
       await this.auth.ready;
       this.auth.ensureGuestSession();

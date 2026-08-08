@@ -176,6 +176,101 @@ jobs:
       - uses: actions/checkout@v7
       - run: bash scripts/gcloud/kan170_verify.sh --self-test
 
+  # Release-train stations, on main-targeting PRs ONLY (KAN-191).
+  #
+  # train-verify.sh has existed since KAN-138 and correctly exits 1 on blocking
+  # drift — but release-train.yml runs it on workflow_dispatch and a daily cron,
+  # so nothing ever merged on its result. v0.4.8 shipped a pointer that Station 3
+  # blocked; it was corrected because a human read the output, not because CI
+  # stopped the merge. This job is what makes the station a gate.
+  #
+  # dev-targeting PRs skip it deliberately: a lagging pointer and an unpaid
+  # back-sync are normal mid-cycle states, and blocking them would train people
+  # to ignore this check. `gate` treats `skipped` as passing.
+  release-train:
+    name: Release train — verify stations
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      # checkout fetches only the PR ref; the stations compare origin/dev against
+      # origin/main in BOTH repos, so those remote-tracking refs must exist.
+      # Without this the script dies at exit 2 ("could not determine") rather
+      # than passing — the right failure, but a useless one.
+      - name: Fetch full refs for both repos
+        run: |
+          git config --unset-all remote.origin.fetch || true
+          git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin --prune --tags
+          git -C Backend fetch origin --prune
+      # --no-fetch because the step above already did it; --for-release still
+      # queries origin for the tag regardless, which is the one lookup that must
+      # not be guessed.
+      #
+      # This exact checkout+fetch pair is proven, not assumed: release-train.yml
+      # runs it daily, and run 30557811029 (2026-07-30) exited 1 with
+      # "BLOCK Backend main→dev back-sync owed" — i.e. it resolved refs in BOTH
+      # repos and failed for the reason the check exists, rather than dying at
+      # exit 2 on its own plumbing.
+      - name: Verify release-train stations
+        run: ./scripts/release/train-verify.sh --for-release --no-fetch
+
+  # ── Sprint lane ───────────────────────────────────────────────────────────
+  # Sprint 4 retrospective action: make check_sprint_lane.sh a blocking gate rather
+  # than a script run on demand. Success measure from the retro, verbatim: "a PR
+  # orphaning a sprint-N row fails CI". Adding it to `gate.needs` below is what makes
+  # that true — `gate` is the required status check, so nothing in branch protection
+  # needs to change.
+  #
+  # Risk R1/R2 across Sprint 3-5: the KAN/RCP lane collapsed once because the split
+  # was a convention nobody asserted. The script has held it for a full sprint; this
+  # is what stops it depending on someone remembering to run it.
+  #
+  # SCOPE: it asserts the NEWEST `sprint-N` label in KAN — the current sprint — because
+  # that is what check_sprint_lane.sh defaults to when given no argument. An orphan on
+  # an older, superseded sprint label does not fail CI. That is the intended scope (a
+  # closed sprint's rows are Done and filtered out anyway), but the retro's phrasing
+  # "a PR orphaning a sprint-N row fails CI" is broader than what this enforces, so the
+  # narrower truth is written here rather than left to be discovered.
+  #
+  # SKIPPED in two cases, both of which `gate` counts as passing:
+  #   1. Fork PRs — repository secrets are unavailable, so the Jira query is impossible.
+  #   2. Dependabot PRs — these are NOT forks. They are same-repo branches
+  #      (`dependabot/...`, head owner == this repo), so the fork test above does not
+  #      catch them, but Actions secrets are still withheld from them by default.
+  #      Without the explicit actor test this job would run, exit 2, and block EVERY
+  #      dependency update. Caught in review on PR #3336 before it could do that.
+  # A fork or Dependabot PR is therefore not lane-checked. Neither touches sprint labels.
+  #
+  # It does NOT skip merely because the secrets are unset on an ordinary same-repo PR.
+  # That case exits 2 and fails, because a gate that silently passes when it cannot run
+  # is worse than no gate — it is the failure mode this whole job exists to correct.
+  sprint-lane:
+    name: Sprint lane — KAN/RCP link
+    # Both Dependabot tests are kept deliberately, not redundantly. `github.actor` is
+    # the actor of the *triggering event* — on a manual re-run it becomes the human who
+    # pressed the button, so that test alone can let a re-run of a Dependabot PR through.
+    # `pull_request.user.login` is the PR author and never changes. Either one is enough
+    # for the ordinary case; together they hold for re-runs too. The failure mode being
+    # guarded is "every dependency update is blocked", which earns the belt and braces.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && github.actor != 'dependabot[bot]'
+      && github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    env:
+      ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+      ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      # No .env in CI — the script reads these from the environment instead, and
+      # exits 2 (not 0) if they are missing.
+      - name: Assert the KAN/RCP sprint lane
+        run: bash scripts/pm/check_sprint_lane.sh
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -192,6 +287,8 @@ jobs:
       - changelog-check
       - canonical-recipes
       - posture-check-self-test
+      - release-train
+      - sprint-lane
     if: always()
     runs-on: ubuntu-latest
     steps:

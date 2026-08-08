@@ -6,6 +6,105 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.9] - 2026-08-07
+
+Backend submodule pointer: `7b6347e` → **`f1219e8`** — Backend `main`'s own tip, the
+merge commit of
+[#271](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/271).
+
+**The headline is a data-correctness fix that had never reached production.** The
+guest→login merge was carrying rows across without running the duplicate-recipe
+check, so signing in after saving as a guest silently created duplicates. The fix
+merged to Backend `dev` during Sprint 5 but sat there — `dev` is not what deploys —
+and this release is the first to actually carry it to users.
+
+### Fixed
+
+- **Guest→login merge now runs the duplicate-recipe check (INV-1) instead of
+  silently carrying rows over** — KAN-186, Backend
+  [#267](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/267) +
+  [#3344](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3344).
+  Per-row dedup on identity keys, cookbook `recipe_ids` remapped, public guest rows
+  guarded.
+- **A first-time save from a public recipe page no longer creates a duplicate
+  recipe** — KAN-198,
+  [#3358](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3358).
+  `ssrEntryGuard` invokes `handleSave` fire-and-forget, so a guard running twice for
+  one `?save=<slug>` entry started two overlapping saves; both passed the dedup check
+  while the cookbook was still empty and **both persisted**, and the straggler then
+  re-read the row the first had just written and reported "you already have this
+  recipe" after a save that had just succeeded. Repeat invocations now join the
+  in-flight save.
+
+  This was filed as KAN-156 and triaged _cosmetic, no data impact_. Writing the
+  regression test owed for it is what showed the duplicate **row**; the stray toast
+  was only its visible symptom.
+
+- **`Dependency Review` no longer blocks every `vite` upgrade** — KAN-208,
+  [#3357](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3357).
+  `lightningcss` and its eleven platform binaries declare MPL-2.0 and were never
+  license-gated, because the action only checks _added_ packages and the copy already
+  in the lockfile predated the policy. Exempted per-package, mirroring `protobufjs`.
+- **The `gcp-monitor` image can no longer be broken by an unpinned transitive
+  resolve** — KAN-207,
+  [#3356](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3356).
+
+### Changed
+
+- **Every commit pushed to an open PR is now reviewed** — KAN-183,
+  [#3334](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3334).
+  The AI review workflows excluded `synchronize`, so anything pushed after the first
+  review went unreviewed, silently, on both repos.
+- **A PR that orphans a `sprint-N` row now fails CI** — KAN-200,
+  [#3336](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3336).
+  `check_sprint_lane.sh` runs as a `pr-gate` job in `gate.needs` rather than as a
+  script someone remembers to run.
+- **Release-train driver: the checklist is now truthful** — KAN-138,
+  [#3359](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3359) +
+  [#3361](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3361).
+  It declared ten steps and only ever marked four, so six read `[ ]` forever even
+  once done. Marks are now derived from observable state, authoritative in both
+  directions. Adds RUNBOOK step 10 and a `--bump X.Y.Z` assist that writes
+  `package.json`, **both** `package-lock.json` self-references, and a CHANGELOG
+  section naming the pinned SHA — refusing outright if the pointer does not yet pin
+  Backend `main`.
+- **`ioredis` 6 is pinned to RESP2** — KAN-209,
+  [#3353](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3353).
+  Not for reply shapes (`replyMode: "legacy"` keeps those identical) but for the
+  handshake: under RESP3 ioredis authenticates via `HELLO` and injects a `default`
+  username, which Memorystore IAM auth does not use, and a rejected AUTH is not a
+  protocol-negotiation error so the automatic RESP2 fallback would not catch it.
+- **Release-train driver: state checks read the local gitlink; `verify_prod` hardened**
+  — KAN-211,
+  [#3365](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3365) +
+  [#3367](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3367).
+  The driver decided the pointer via `git rev-parse origin/dev:Backend`, but a re-pin is
+  staged locally and does not reach `origin/dev` until the release PR merges — so it
+  could call a correctly-pinned tree wrong. Fixed at the walk-mode step-4 check (#3365)
+  and in `changelog_state()` (#3367), which had reported step 5 as `section-only` on a
+  CHANGELOG that named the right SHA. Both now read `:Backend` from the index, matching
+  `do_bump()` in #3361. `verify_prod` switches `grep -c` → `grep -Fc` so a marker
+  containing regex metacharacters matches literally, and cleans its scratch file on an
+  `EXIT` trap rather than only on success.
+
+  Three read sites still resolve the pointer from `origin/dev` — the `--status`
+  display, the step-1 checklist mark, and the release-PR body. They are stale in the
+  same window and are held for the next release, where the fix belongs at the single
+  point that computes it rather than a fourth patch at the call site.
+
+- Dependency upgrades — 23 bumps, including Angular 22.1.0, `vite` 8.2.0,
+  `google-auth-library` 11, `ioredis` 6, and `dd-trace` 6.8.0. `@angular/build` and
+  `@angular/cli` had been pinned to 22.1.2 while the rest of the family sat at 22.1.0
+  — a version never published for `@angular/core` — and were aligned down to 22.1.0
+  (KAN-211); `@typescript-eslint/parser` was synced to 8.66.0 to match the plugin it
+  is released in lockstep with.
+
+### Documentation
+
+- Sprint 4 and Sprint 5 close-outs and the Sprint 5 charter (KAN-155, RCP-65).
+  Sprint 5 delivered 4 of 8 with the per-day rate falling 0.67 → 0.50, recorded as a
+  sizing verdict rather than smoothed over.
+
 ## [0.4.8] - 2026-07-31
 
 Backend submodule pointer: `0de1e2b` → **`7b6347e`** — Backend `main`'s own tip,

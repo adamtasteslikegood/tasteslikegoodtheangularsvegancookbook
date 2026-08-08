@@ -12,7 +12,7 @@ fixes, and leaves a comment per fix. It is **never** a required check
 
 ```mermaid
 flowchart TD
-    PR[PR opened / ready / labeled 'claude-review'] --> GUARD{same-repo &&<br/>not bot/Dependabot &&<br/>not draft?}
+    PR[PR opened / ready / pushed 'synchronize' / labeled 'claude-review'] --> GUARD{same-repo &&<br/>not bot/Dependabot &&<br/>not draft?}
     GUARD -->|no| SKIP([skip cleanly — no secrets on forks])
     GUARD -->|yes| PICK["Pick model (deterministic):<br/>vars.CLAUDE_REVIEW_MODEL,<br/>default claude-opus-4-7<br/>(≠ authoring 4.8 / Fable 5 → cheaper + independent)"]
     PICK --> DIFF["Read the diff vs base branch"]
@@ -31,7 +31,9 @@ flowchart TD
     style SKIP fill:#6b7280,color:#fff
 ```
 
-**Cost controls:** runs once per PR (`opened` / `ready_for_review`), on-demand via
-the `claude-review` label or `workflow_dispatch` — **not** on every `synchronize`
-push; `concurrency` cancels superseded runs; the model is always the cheaper
-Opus 4.x tier.
+**Cost controls:** runs on PR open (`opened` / `ready_for_review`), on every push
+(`synchronize`, so later commits are reviewed too — TAS-3006), on-demand via the
+`claude-review` label, and via `workflow_dispatch`; `concurrency:
+cancel-in-progress` collapses rapid pushes to one review and the `sender.type !=
+'Bot'` guard stops the action's own `--fix` pushes from re-triggering it; the
+model is always the cheaper Opus 4.x tier.

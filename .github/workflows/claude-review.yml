@@ -34,10 +34,14 @@ name: Claude Review (independent model)
 
 on:
   pull_request:
-    # Auto once per PR (opened / un-drafted) + on-demand via the `claude-review`
-    # label. Deliberately NOT `synchronize` — one review per PR keeps cost bounded;
-    # re-request by re-applying the label. To review every push, add `synchronize`.
-    types: [opened, ready_for_review, labeled]
+    # Auto on PR open / un-draft AND on every push (`synchronize`) so commits
+    # pushed after the first review are reviewed too (TAS-3006 / KAN-183) — the PR
+    # lifecycle in CLAUDE.md ("monitor it, answer every comment, loop until
+    # merged") depends on the review loop covering later pushes, not just the first.
+    # Also on-demand via the `claude-review` label. The bot's own `--fix` pushes do
+    # NOT re-trigger (the `if:` guard below skips `github.event.sender.type == 'Bot'`),
+    # and `concurrency: cancel-in-progress` collapses rapid pushes to one review.
+    types: [opened, ready_for_review, labeled, synchronize]
     branches: [main, dev, 'dev/**']
   workflow_dispatch:
     inputs:
@@ -74,7 +78,7 @@ jobs:
 
     steps:
       - name: Checkout PR head
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # For pull_request events this is the PR branch, so --fix can push back.
           ref: ${{ github.head_ref }}
@@ -132,7 +136,7 @@ jobs:
 
       - name: Review + fix + comment
         if: steps.auth.outputs.present == 'true'
-        uses: anthropics/claude-code-action@44423bdec74b97d67543eb16c110546762c110b2 # v1
+        uses: anthropics/claude-code-action@9db594c7a0e82298c121c18b7f08aa1579ce7341 # v1
         with:
           # OAuth token (subscription) is primary; the action prefers it when set and
           # falls back to the API key when the OAuth secret is empty/unset.

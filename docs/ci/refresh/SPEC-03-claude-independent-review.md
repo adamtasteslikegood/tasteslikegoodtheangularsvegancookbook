@@ -63,9 +63,13 @@ with the model + effort used.
 - **Advisory:** `continue-on-error: true`; the job is **never** added to required
   status checks (SPEC-02). A missing `ANTHROPIC_API_KEY` or a flaky call cannot
   block a merge.
-- **Cost bounded:** triggers on `opened` / `ready_for_review` (once per PR) + the
-  `claude-review` label (on-demand re-review) + `workflow_dispatch` —
-  **not** on every `synchronize` push. `concurrency` cancels superseded runs.
+- **Reviews every push:** triggers on `opened` / `ready_for_review` + every
+  `synchronize` push (TAS-3006 / KAN-183 — commits pushed after the first review
+  must be reviewed too) + the `claude-review` label (on-demand re-review) +
+  `workflow_dispatch`. `concurrency: cancel-in-progress` collapses rapid pushes to
+  a single review, and the `sender.type != 'Bot'` guard stops the action's own
+  `--fix` pushes from re-triggering it — so cost stays bounded without dropping
+  `synchronize`.
   Model is always the cheaper Opus 4.x tier. `--max-turns 60` caps the agent loop
   (raised from 15 in cookbook #3129 after real reviews hit the ceiling mid-diff).
 - **Pushes to the PR branch:** `--fix` commits fixes back. Because it only runs on
@@ -104,7 +108,7 @@ with the model + effort used.
 
 | Choice | Default | Flip to |
 |---|---|---|
-| When it runs | once per PR + label + dispatch | add `synchronize` for every push |
+| When it runs | every push (`synchronize`) + open + label + dispatch (TAS-3006) | drop `synchronize` for once-per-PR |
 | Fix behavior | applies fixes (`--fix`) + comments | comment-only (drop `--fix` from prompt) |
 | Model | `claude-opus-4-7` (placeholder) | set `CLAUDE_REVIEW_MODEL` variable |
 | Effort | reviewer reasons per-diff | pin an effort in the prompt |
