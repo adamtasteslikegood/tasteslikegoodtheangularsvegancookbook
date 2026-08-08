@@ -31,8 +31,8 @@
     "type-check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p server/tsconfig.server.json"
   },
   "dependencies": {
-    "@angular/build": "22.1.2",
-    "@angular/cli": "22.1.2",
+    "@angular/build": "22.1.0",
+    "@angular/cli": "22.1.0",
     "@angular/common": "22.1.0",
     "@angular/compiler": "22.1.0",
     "@angular/compiler-cli": "22.1.0",
@@ -63,7 +63,7 @@
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.2",
     "@typescript-eslint/eslint-plugin": "^8.66.0",
-    "@typescript-eslint/parser": "^8.62.1",
+    "@typescript-eslint/parser": "^8.66.0",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.0.0",
