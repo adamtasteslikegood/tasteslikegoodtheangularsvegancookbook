@@ -381,7 +381,12 @@ verify_prod() {
 
   info "searching every served asset for: $marker"
   local tmp; tmp=$(mktemp)
-  trap 'rm -f "$tmp"' EXIT
+  # ${tmp:-}, not $tmp: under `set -u`, this trap re-evaluates at whatever
+  # point the script actually exits — which is after verify_prod() has
+  # returned and its `local tmp` has gone out of scope entirely, not just
+  # out of value. An unguarded $tmp there is an unbound-variable error, not
+  # a no-op.
+  trap '[ -n "${tmp:-}" ] && rm -f "$tmp"' EXIT
   for a in $assets; do
     curl -s --max-time 30 "$PROD/$a" -o "$tmp" || continue
     # `grep -c` ALREADY prints 0 when it matches nothing, and exits 1. A
