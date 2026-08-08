@@ -147,6 +147,105 @@ redesign.
 
 ## Close-out
 
-_To be written at the end of the box. It must record: which of S1–S8 delivered, which rolled, what the
-gates said (and that they were confirmed failing first), R1's verdict on sizing, and the second data
-point for this board's throughput._
+_Written 2026-08-07, with the box's final day (2026-08-08) still open._ Nothing below is a forecast
+for that day: it records what is true at the time of writing. **If anything lands on 08-08 this
+section must be amended, not supplemented** — a close-out with a second, later addendum is how
+Sprint 4's roll list ended up disagreeing with the board.
+
+### Delivered — 4 of 8
+
+| #      | Item                          | Jira             | Evidence                                                                                                |
+| ------ | ----------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| **S1** | Guest→login merge runs INV-1  | KAN-186 ↔ RCP-61 | Backend #267 → Backend `dev`; cookbook pointer #3344. **Not in production yet** — see the caveat below. |
+| **S3** | Duplicate first-save toast    | KAN-198 ↔ RCP-66 | #3358 — three Vitest specs, suite 281 → 284. Gate **confirmed failing first**.                          |
+| **S6** | AI review on `synchronize`    | KAN-183 ↔ RCP-68 | #3334                                                                                                   |
+| **S8** | `check_sprint_lane.sh` gating | KAN-200 ↔ RCP-70 | #3336 — `sprint-lane` job in `pr-gate.yml`, added to `gate.needs`                                       |
+
+### Rolled — 4 of 8
+
+**S2** (KAN-161 · rate-limit IPv6 keying) — **rolls a second consecutive sprint with zero
+implementation.** Two sprints carrying an item that never starts is a signal about the item, not the
+box; it should not be re-committed a third time without deciding why it keeps losing. Exposure
+remains verified LATENT, not live.
+**S4** (KAN-160 · route/request classification contract) — rolls **whole**, exactly as R4 required.
+No partial slice was taken.
+**S5** (KAN-97 · auto-transition on PR merge) — the standing R3 fix, now **five** occurrences overdue.
+**S7** (KAN-182 · staging-environment plan) — not started. Its absence has a cost this sprint made
+concrete: see the S1 caveat.
+
+### S1 is delivered but not deployed — and that distinction is the sprint's sharpest finding
+
+The KAN-186 fix is merged on Backend `dev` and pinned by cookbook `dev`. It is **not on Backend
+`main`, and therefore not in production.** The promotion PR (Backend #271) was open at the time of
+writing. So the only committed item that was breaking a user today is fixed in the repo and still
+broken for users.
+
+That gap is not a process slip; it is the structural cost of having no environment between `dev` and
+production — **which is S7, the item that rolled.** The sprint produced its own evidence for the item
+it deferred.
+
+### Gates — and the one that was confirmed failing first
+
+Charter row 1's planning gates both held: this file carries the charter rows, RCP-65 exists with its
+eight acceptance children, and the lane check is now a blocking CI job rather than a script.
+
+**S3's gate is the one worth recording, because it was proven failing before the fix and the failure
+contradicted the ticket.** KAN-156 was triaged _"Low priority — cosmetic, no data impact."_ The test
+written to assert "a first-time save emits exactly one toast" failed on `saveRecipe` being called
+**twice** — the race persists a **duplicate recipe row**; the extra toast is a symptom, not the bug.
+A row closed on a live walkthrough had its impact recorded wrong, and only writing the test surfaced
+it. That is the general argument for S3's whole category, made concrete.
+
+Second-order finding, recorded because it generalises past this row: the existing suite mocked
+`saveRecipe` as `vi.fn().mockResolvedValue(true)` — resolving without recording state. **A mock that
+returns success without persisting cannot catch a read-after-write race**, so the duplicate was
+unreproducible by construction. This suite has that shape in several places.
+
+### R1's verdict on sizing — the commitment was too large, and the rate says so
+
+R1 predicted the dominant failure would be "six items in flight and none finished". **That did not
+happen.** Single-lane discipline held: S1 went first and alone to a merged PR, and the four delivered
+items were each finished rather than left partial. R1's stated mitigation worked.
+
+R1's arithmetic still lost. Charter row 2 recorded WIP 8 against a chartered cap of ≤3, knowingly
+exceeded, and 4 rolled — double the ">2 rolled is a sizing verdict" threshold R1 set for itself.
+**The verdict is: the commitment was too large.**
+
+Stated the unflattering way, which is the way that is true:
+
+| Sprint | Box    | Committed | Delivered | Delivered/day |
+| ------ | ------ | --------- | --------- | ------------- |
+| 4      | 3 days | 4         | 2         | **0.67**      |
+| 5      | 8 days | 8         | 4         | **0.50**      |
+
+Delivered count doubled — on a box **2.67× longer**. The per-day rate **fell**, 0.67 → 0.50. The
+longer box did not absorb the overcommit; it diluted it. Do not quote "4 delivered, up from 2"
+without the denominator.
+
+### Second data point for this board's throughput
+
+Board 168 now has **two** measured sprints: 4 committed / 2 delivered in 3 days, and 8 committed / 4
+delivered in 8 days. Two points is still not a distribution, so **charter row 3 stands unchanged: no
+forecast.** What two points do support is a bound — nothing in this board's history shows a rate
+above ~0.67 items/day, and Sprint 5 came in below it. A Sprint 6 committing more than ~4 items in a
+week is committing above everything measured so far.
+
+### Worked outside the sprint, on Adam's call
+
+Recorded here so it is visible in the numbers' context but **explicitly not counted** as sprint
+scope — KAN-138 is listed under "Not in this sprint" above and stays there:
+
+- **KAN-138** (#3359) — audited `RUNBOOK.md`'s eleven steps against `train-run.sh`. The checklist
+  declared ten steps and only ever marked four, so six read `[ ]` forever and a completed release
+  still showed a mostly empty checklist. Fixed by deriving marks from observable state, plus a
+  step-5 `--bump` assist and RUNBOOK step 10.
+- **KAN-208** (#3357) — `Dependency Review`, a required check, blocked every `vite` bump on
+  `lightningcss` (MPL-2.0). Exempted per-package.
+- **KAN-209** — filed, not worked: the RESP2 pin added when taking ioredis 6 (#3353), because
+  RESP3's `HELLO` handshake injects a `default` username that Memorystore IAM auth does not use.
+
+### Carried to Sprint 6
+
+KAN-161 (S2 — decide _why_ it keeps rolling before re-committing) · KAN-160 (S4, whole) · KAN-97
+(S5, five overdue) · KAN-182 (S7 — S1 supplied fresh evidence for it) · KAN-209 · KAN-90 (the
+protobufjs sibling of KAN-208).
