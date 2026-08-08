@@ -27,6 +27,7 @@
 #   ./scripts/release/train-run.sh --verify-only   # step 9 (production check) alone
 #   ./scripts/release/train-run.sh --verify-only --marker 'some new string'
 #                                                # non-interactive: pass the marker
+#   ./scripts/release/train-run.sh --bump 0.4.9    # step 5: version + CHANGELOG scaffold
 #   ./scripts/release/train-run.sh --reset         # clear the checklist, start a fresh release
 #   ./scripts/release/train-run.sh --dry-run       # print every command, run none of them
 
@@ -44,6 +45,7 @@ PROD="https://www.tasteslikegood.org"
 DRY_RUN=0
 MODE="walk"
 MARKER=""
+BUMP_TO=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -51,6 +53,12 @@ while [ $# -gt 0 ]; do
     --verify-only) MODE="verify" ;;
     --reset) MODE="reset" ;;
     --dry-run) DRY_RUN=1 ;;
+    --bump)
+      shift
+      [ $# -gt 0 ] || { echo "--bump needs a version (X.Y.Z)" >&2; exit 2; }
+      MODE="bump"
+      BUMP_TO="$1"
+      ;;
     --marker)
       shift
       [ $# -gt 0 ] || { echo "--marker needs a value" >&2; exit 2; }
@@ -229,7 +237,104 @@ STEPS=(
   "7|Tag vX.Y.Z pushed → Cloud Build fires"
   "8|Back-sync both repos"
   "9|Verify production by content"
+  "10|Close out (stations green, drift zero, Jira moved with evidence)"
 )
+
+# ── does the CHANGELOG section for $VERSION exist, and does it name the pointer?
+# RUNBOOK step 5 requires both: train-verify checks the section against the
+# ACTUAL pointer, so the SHA in the prose and the gitlink must agree.
+# Prints one of: missing | absent | section-only | named
+changelog_state() {
+  python3 - "$VERSION" "$POINTER" <<'PY' 2>/dev/null || echo "missing"
+import re, sys
+ver, pointer = sys.argv[1], sys.argv[2]
+try:
+    text = open("CHANGELOG.md").read()
+except OSError:
+    print("missing"); raise SystemExit
+m = re.search(r"^##\s*\[?" + re.escape(ver) + r"\]?.*?$(.*?)(?=^##\s|\Z)", text, re.M | re.S)
+if not m:
+    print("absent"); raise SystemExit
+body = m.group(1)
+for sha in re.findall(r"\b[0-9a-f]{7,40}\b", body):
+    if pointer.startswith(sha) or sha.startswith(pointer[:7]):
+        print("named"); raise SystemExit
+print("section-only")
+PY
+}
+
+# ── derive checklist state from what is OBSERVABLY true ─────────────────────
+# Before this, the driver declared ten steps and only ever marked four (2, 4, 6,
+# 8) — the ones it performs itself. Steps 0/1/3/5/7/9 rendered "[ ]" forever
+# even after you had done them, so a completed release still showed a mostly
+# empty checklist. A checklist that cannot be completed is one nobody reads,
+# which is the same failure the RUNBOOK names about the back-sync count.
+#
+# Every mark below is derived from a decisive observable, never from "we
+# probably did that by now". A step with no decisive signal stays blank on
+# purpose — an unticked box is honest, a wrongly ticked one is not.
+#
+# Derived marks are AUTHORITATIVE IN BOTH DIRECTIONS — each run sets or clears
+# them. Only setting would be worse than not marking at all: the state file
+# outlives a release, so a step that was true for vX.Y.Z would stay ticked into
+# the next train and the checklist would quietly describe the previous release.
+# The state file is not reset on a version change, because the version legitimately
+# changes mid-train at step 5.
+derive_steps() {
+  local mark
+
+  # 0 — gather() has fetched both repos and read the stations by the time this runs.
+  state_set 0 "done"
+
+  # 1 — a Backend change is on Backend dev. Decisive either way:
+  #     trees differ  → work is on dev, not yet promoted
+  #     trees match AND the pointer already pins main → nothing Backend-side this release
+  if [ "$BE_PROMOTION_OWED" -eq 1 ]; then
+    state_set 1 "done"
+  elif [ "$POINTER" = "$BE_MAIN_FULL" ]; then
+    state_set 1 "skipped"
+  else
+    state_set 1 ""
+  fi
+
+  # 3 — the Backend back-sync specifically (step 8 is the both-repos sweep).
+  [ "$BE_BACKSYNC" -eq 0 ] && mark="done" || mark=""
+  state_set 3 "$mark"
+
+  # 5 — version + CHANGELOG. Only "named" counts: a section that does not name
+  #     the pinned SHA is exactly what train-verify blocks on, so marking it
+  #     done would tick a box the gate still refuses.
+  if [ "$(changelog_state)" = "named" ] && [ -z "$TAG_EXISTS" ]; then
+    state_set 5 "done"
+  else
+    state_set 5 ""
+  fi
+
+  # 7 — the tag exists on the remote, which is what actually fires Cloud Build.
+  [ -n "$TAG_EXISTS" ] && mark="done" || mark=""
+  state_set 7 "$mark"
+
+  # 9 — "verified in production" cannot be true for a version that was never
+  #     tagged, so an untagged current version clears last release's proof.
+  #     Setting it stays exclusive to verify_prod's content check.
+  [ -z "$TAG_EXISTS" ] && state_set 9 ""
+
+  # 8 — both repos clean.
+  if [ "$BE_BACKSYNC" -eq 0 ] && [ "$CB_BACKSYNC" -eq 0 ]; then
+    state_set 8 "done"
+  else
+    state_set 8 ""
+  fi
+
+  # 10 — close-out: nothing pending, nothing owed, and the tag is pushed. The
+  #      Jira half of step 10 is not observable from here and stays human.
+  if [ -n "$TAG_EXISTS" ] && [ "$CB_PENDING" -eq 0 ] &&
+    [ "$CB_BACKSYNC" -eq 0 ] && [ "$BE_BACKSYNC" -eq 0 ]; then
+    state_set 10 "done"
+  else
+    state_set 10 ""
+  fi
+}
 
 print_checklist() {
   head2 "Checklist  ${DIM}($STATE)${X}"
@@ -291,6 +396,9 @@ verify_prod() {
 
   if [ "$total" -gt 0 ]; then
     ok "marker found in $total place(s) — this release IS live"
+    # Step 9 is proven by content, so mark it only here — never from "the merge
+    # went green", which is what the RUNBOOK's step 9 trap is about.
+    state_set 9 "done"
     return 0
   fi
   bad "marker not found in any served asset — the deploy is not live yet (or the marker is wrong)"
@@ -298,11 +406,103 @@ verify_prod() {
   return 1
 }
 
+# ── step 5 assist: the mechanical half of the version bump ──────────────────
+# RUNBOOK step 5 is "deliberately still human" for the CHANGELOG *prose* and the
+# version *choice*. The edits around that prose are not judgment, they are
+# fiddly: package.json, BOTH package-lock self-references (the runbook calls out
+# "both" because missing the second is a known miss), and a CHANGELOG section
+# that must name the pinned Backend SHA or train-verify blocks.
+#
+# This writes those mechanics and leaves the prose as a TODO for a human. It
+# does not commit, branch, or push — the release branch and the words stay
+# yours.
+do_bump() {
+  local to="$1"
+  head2 "Step 5 — version bump + CHANGELOG scaffold"
+
+  [[ "$to" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+    die "--bump needs a bare X.Y.Z (no leading v, no pre-release): got '$to'"
+  [ "$to" != "$VERSION" ] || die "already at $to — pick the next version"
+  if git ls-remote --tags origin "refs/tags/v$to" 2>/dev/null | grep -q .; then
+    die "v$to is already tagged — release.yml would skip the tag AND report success"
+  fi
+
+  info "version   $VERSION → $to"
+
+  # Step 5 comes AFTER step 4 for a reason: the CHANGELOG section names the
+  # pinned SHA, and train-verify checks that name against the actual gitlink.
+  # Scaffolding it while the pointer still pins Backend dev bakes the KAN-191
+  # trap into the prose, where it reads as deliberate.
+  if [ "$POINTER" = "$BE_MAIN_FULL" ]; then
+    info "pointer   $POINTER_SHORT (Backend main) ✓"
+  else
+    bad "pointer   $POINTER_SHORT does NOT pin Backend main (${BE_MAIN_FULL:0:12})"
+    info "RUNBOOK step 4 comes first, or this CHANGELOG will name the wrong SHA:"
+    info "  git -C Backend fetch origin --prune && git -C Backend checkout origin/main && git add Backend"
+    die "refusing to scaffold a CHANGELOG against a non-main pointer"
+  fi
+
+  if [ "$DRY_RUN" = "1" ]; then
+    info "would rewrite: package.json, package-lock.json (both self-refs), CHANGELOG.md"
+    return 0
+  fi
+
+  python3 - "$to" "$POINTER_SHORT" <<'PY' || die "bump failed"
+import json, re, sys, datetime
+
+to, pointer = sys.argv[1], sys.argv[2]
+
+pkg = json.load(open("package.json"))
+pkg["version"] = to
+with open("package.json", "w") as f:
+    json.dump(pkg, f, indent=2)
+    f.write("\n")
+
+# BOTH self-references: the top-level "version" and packages[""]["version"].
+# Missing the second leaves the lockfile disagreeing with package.json.
+lock = json.load(open("package-lock.json"))
+lock["version"] = to
+if "" in lock.get("packages", {}):
+    lock["packages"][""]["version"] = to
+with open("package-lock.json", "w") as f:
+    json.dump(lock, f, indent=2)
+    f.write("\n")
+
+text = open("CHANGELOG.md").read()
+if re.search(r"^##\s*\[?" + re.escape(to) + r"\]?", text, re.M):
+    print(f"CHANGELOG already has a section for {to} — left untouched")
+else:
+    today = datetime.date.today().isoformat()
+    section = (
+        f"## [{to}] - {today}\n\n"
+        f"### Changed\n\n"
+        f"- TODO: describe this release. Backend pointer pinned at `{pointer}`.\n\n"
+    )
+    m = re.search(r"^##\s", text, re.M)
+    text = text[: m.start()] + section + text[m.start() :] if m else text + "\n" + section
+    open("CHANGELOG.md", "w").write(text)
+    print(f"CHANGELOG section [{to}] inserted, naming pointer {pointer}")
+PY
+
+  ok "package.json + package-lock.json (both self-refs) → $to"
+  say ""
+  warn "STILL YOURS: replace the CHANGELOG TODO with real prose, then:"
+  info "  npx prettier --write CHANGELOG.md package.json package-lock.json"
+  info "  ./scripts/release/train-verify.sh --for-release    # must exit 0"
+  info "  open the PR into dev — never straight to main"
+}
+
 # ── modes ───────────────────────────────────────────────────────────────────
 gather
+derive_steps
 
 if [ "$MODE" = "verify" ]; then
   verify_prod "$MARKER"
+  exit $?
+fi
+
+if [ "$MODE" = "bump" ]; then
+  do_bump "$BUMP_TO"
   exit $?
 fi
 
