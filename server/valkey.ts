@@ -108,6 +108,27 @@ export async function createValkeyClient(): Promise<Redis | null> {
     const options: Record<string, unknown> = {
       host,
       port,
+      // ioredis 6 defaults to RESP3. Reply shapes are NOT the concern — its
+      // `replyMode: "legacy"` default keeps those identical to RESP2, and the
+      // only replies we consume are rate-limit-redis' EVAL array and AUTH's
+      // simple string.
+      //
+      // The concern is the handshake. Under RESP3 ioredis authenticates via
+      // HELLO, and with a password-only credential it injects a username:
+      // `HELLO 3 AUTH default <password>` (ioredis/built/redis/event_handler.js).
+      // That is exactly what refreshTokenInPlace() below deliberately avoids for
+      // Memorystore IAM auth, where the IAM access token is the password and the
+      // username is not `default`. Worse, a rejected AUTH is not a protocol
+      // negotiation error, so ioredis' automatic RESP2 fallback (which only
+      // catches NOPROTO / unknown-command) would not rescue it — the client
+      // would simply fail to connect, and getValkeyClient() would degrade every
+      // replica to in-memory rate limiting.
+      //
+      // With no staging environment (KAN-182) that failure would first appear in
+      // production, on the limiter metering paid Gemini and Imagen calls.
+      // Pinning RESP2 keeps this bump to the library change alone.
+      // Revisit once RESP3 can be exercised against a real Valkey (KAN-209).
+      protocol: 2,
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       retryStrategy: (times: number) => Math.min(times * 200, 5000),
