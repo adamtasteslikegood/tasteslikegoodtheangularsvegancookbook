@@ -429,14 +429,30 @@ do_bump() {
 
   info "version   $VERSION → $to"
 
+  # Read the pointer THIS WORKING TREE will ship, not origin/dev's.
+  #
+  # gather()'s $POINTER is `git rev-parse origin/dev:Backend`, which is right
+  # for the status display but wrong here: RUNBOOK step 4 stages the re-pin
+  # locally on the release branch, and it does not reach origin/dev until this
+  # release PR merges. Comparing against origin/dev at step 5 therefore refuses
+  # a correctly-ordered release — caught on this guard's first real use, cutting
+  # v0.4.9, where step 4 had just pinned Backend main and the guard still saw
+  # dev's old pointer.
+  #
+  # The index is the right source: it holds the gitlink that will be committed.
+  local local_pointer local_short
+  local_pointer=$(git rev-parse :Backend 2>/dev/null || git rev-parse HEAD:Backend 2>/dev/null || echo "")
+  [ -n "$local_pointer" ] || die "could not read the Backend gitlink from this tree"
+  local_short=${local_pointer:0:12}
+
   # Step 5 comes AFTER step 4 for a reason: the CHANGELOG section names the
   # pinned SHA, and train-verify checks that name against the actual gitlink.
   # Scaffolding it while the pointer still pins Backend dev bakes the KAN-191
   # trap into the prose, where it reads as deliberate.
-  if [ "$POINTER" = "$BE_MAIN_FULL" ]; then
-    info "pointer   $POINTER_SHORT (Backend main) ✓"
+  if [ "$local_pointer" = "$BE_MAIN_FULL" ]; then
+    info "pointer   $local_short (Backend main) ✓"
   else
-    bad "pointer   $POINTER_SHORT does NOT pin Backend main (${BE_MAIN_FULL:0:12})"
+    bad "pointer   $local_short does NOT pin Backend main (${BE_MAIN_FULL:0:12})"
     info "RUNBOOK step 4 comes first, or this CHANGELOG will name the wrong SHA:"
     info "  git -C Backend fetch origin --prune && git -C Backend checkout origin/main && git add Backend"
     die "refusing to scaffold a CHANGELOG against a non-main pointer"
@@ -447,7 +463,7 @@ do_bump() {
     return 0
   fi
 
-  python3 - "$to" "$POINTER_SHORT" <<'PY' || die "bump failed"
+  python3 - "$to" "$local_short" <<'PY' || die "bump failed"
 import json, re, sys, datetime
 
 to, pointer = sys.argv[1], sys.argv[2]
