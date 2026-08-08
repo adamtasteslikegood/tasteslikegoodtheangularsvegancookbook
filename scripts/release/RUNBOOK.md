@@ -115,6 +115,22 @@ Bump `package.json` **and both self-references in `package-lock.json`**. Add a
 `train-verify` checks the section against the _actual pointer_, so the SHA in the
 prose and the gitlink must be the same value.
 
+The driver writes those mechanics for you — the fiddly part, not the judgment:
+
+```bash
+./scripts/release/train-run.sh --bump X.Y.Z
+```
+
+It rewrites `package.json`, **both** `package-lock.json` self-references, and
+inserts a dated `## [X.Y.Z]` section naming the pinned SHA with a `TODO` where
+the prose goes. It does not branch, commit, or push. It **refuses** (exit 2) if
+the version is malformed, unchanged, already tagged, or — the one that matters —
+if the pointer does not yet pin Backend `main`: scaffolding the section before
+step 4 bakes the KAN-191 wrong-SHA trap into the prose, where it then reads as
+deliberate.
+
+Then write the actual prose and verify:
+
 ```bash
 npx prettier --write CHANGELOG.md      # the section will not be Prettier-clean by hand
 ./scripts/release/train-verify.sh --for-release   # must exit 0
@@ -226,3 +242,31 @@ disagree.
 
 Version choice and CHANGELOG prose; the Backend promotion; merging the release PR;
 and accepting the production verification. Everything else the driver does.
+
+## What the driver's checklist means
+
+`train-run.sh` keeps a checklist under `.agent-work/release/` and **derives most
+of it from observable state on every run** — it does not simply record what it
+did. A box is ticked only against a decisive signal:
+
+| Step  | Ticked by                                                           |
+| ----- | ------------------------------------------------------------------- |
+| 0     | the fetch + station read at the top of every run                    |
+| 1     | Backend `dev`'s tree differing from `main` (or `skipped` if none)   |
+| 2 · 4 | the driver performing them, or observing them already true          |
+| 3 · 8 | the back-sync counts being zero                                     |
+| 5     | a CHANGELOG section that **names the pinned SHA**, version untagged |
+| 6     | the release PR being opened                                         |
+| 7     | the tag existing **on the remote**                                  |
+| 9     | `verify_prod` finding the marker in a served asset                  |
+| 10    | tag pushed, nothing pending, no drift on either repo                |
+
+Derived marks are **authoritative in both directions** — cleared as readily as
+set. Before KAN-138 the driver declared ten steps and only ever marked four, so
+six of them read `[ ]` forever even once done, and a finished release still
+showed a mostly empty checklist. A checklist that cannot be completed stops being
+read, which is the same failure this document names about the back-sync count.
+
+Two things it deliberately does **not** infer: the Jira half of step 10, and
+step 9 from anything other than served content. "The merge went green" is not
+evidence a build is live.
