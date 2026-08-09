@@ -198,7 +198,7 @@ npm run pm:daemon:status     # check if daemon is alive
 - @scripts/release/RUNBOOK.md — release train procedure
 - @docs/PM_TOOLING.md — PM daemon and Confluence sync
 - @docs/MCP_GCP_MONITORING.md — GCP monitoring MCP setup
-- @docs/rate_limit.md — rate limiting details
+- @docs/architecture/rate_limit.md — rate limiting details
 
 ## gstack
 
