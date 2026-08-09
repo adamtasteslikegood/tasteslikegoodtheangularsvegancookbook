@@ -101,6 +101,17 @@ FROM recipe WHERE is_public = true;
 
 There is **no image column** — image lives in the `data` JSON blob.
 
+> ### ⚠️ The image test does not work. Verified 2026-08-08.
+>
+> Every row's image resolves to **`/api/recipes/<its own id>/image`** — derived from the row id,
+> so **no two rows can ever match on image, duplicate or not.** §3c below is structurally
+> incapable of returning a row and is kept only as a record of the dead end. Comparing images
+> for real would mean hashing the GCS objects, which is not worth building for a one-time purge.
+>
+> **Use `source_slug IS NULL` instead** — it identifies the author's original, and everything
+> with a `source_slug` is a saved copy. That turned out to be a cleaner signal than image ever
+> would have been. See §3f.
+
 ### 3b. POTENTIAL duplicates — public name collisions, any owner
 
 ```sql
@@ -109,7 +120,7 @@ FROM recipe WHERE is_public = true
 GROUP BY name HAVING count(*) > 1 ORDER BY dupes DESC, name;
 ```
 
-### 3c. CONFIRMED duplicates — same name AND same image
+### 3c. ~~CONFIRMED duplicates — same name AND same image~~ — DEAD END, returns nothing
 
 ```sql
 SELECT name,
@@ -123,9 +134,11 @@ HAVING count(*) > 1 ORDER BY dupes DESC, name;
 ### 3d. The KAN-194 pattern — imageless twins
 
 `togglePublic()` never backfills the image from the source recipe, so publish-toggle
-duplicates have **no image**. Their pairs are (original _with_ image, duplicate _without_),
-so **3c will not match them** — they hide in 3b. They are also the rows rendering a blank
-hero and blank OG image on the public site.
+duplicates were expected to have **no image**, hiding from 3c and surfacing only in 3b.
+
+**Did not appear in the 2026-08-08 data** — all 11 public duplicate rows carry an image URL
+(self-referential, per the warning in 3a). Keep the query for future passes; it was not the
+mechanism behind this set.
 
 ```sql
 SELECT name, count(*) AS rows_,
@@ -149,18 +162,61 @@ WHERE r.is_public = true
 ORDER BY r.name, r.created_at;
 ```
 
+### 3f. What §3e actually found — 2026-08-08
+
+11 public rows across 5 name groups. **None of them are KAN-213's bug.** Every duplicate carries
+a `source_slug` pointing at the original, so each is a _saved copy that inherited
+`is_public = true` from its source_ — the cross-author publish-state defect (KAN-137 cluster).
+These are exactly the rows created before that fix, which is the population this pass clears.
+
+| Group                                            | Original (`source_slug` NULL)                               | Saved copies now public                              |
+| ------------------------------------------------ | ----------------------------------------------------------- | ---------------------------------------------------- |
+| Vegan English Breakfast with Oven-Dried Tomatoes | user 7 · `48b3856c`                                         | user 3 · `a554e5d1` · user 1 · `6c80e79e`            |
+| Sparkling Iced Yuzu Matcha                       | user 2 · `16c74921`                                         | user 1 · `d3b9dbeb`                                  |
+| Homemade Vegan Flour Tortillas                   | user 1 · `d2332b8d`                                         | user 3 · `376378a8`                                  |
+| Vegan Banana Apple Cider Oatmeal Raisin Cookies  | user 1 · `8d4b84fc` (`generated`)                           | user 1 · `e8f8cd84` (`saved` — own recipe)           |
+| Vegan Cornbread                                  | user 1 · `2ae1c984` — **typo slug `vegasssdsdn-cornbread`** | user 3 · `7e480d4b` — **`is_canonical`**, clean slug |
+
+**Unpublish 6, keep 5.** Cornbread inverts the rule: the canonical copy wins and the typo-slugged
+original is the one that goes.
+
+**Consequence to decide before running §5:** `7e480d4b.source_slug = 'vegasssdsdn-cornbread'`, so
+unpublishing its source leaves the canonical Cornbread page pointing "source" at a 404 — the same
+defect class as KAN-212. A curated canonical recipe does not need provenance, so:
+
+```sql
+UPDATE recipe SET source_slug = NULL
+WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
+```
+
+### 3g. Not duplicates — do not purge these
+
+- **`"Generating..." × 2`** — placeholder name on rows with `status = 'generating'`; abandoned or
+  stuck generation jobs (see `worker_claim_token`). Two orphaned rows, not duplication. Worth a
+  separate look; **exclude from any purge list.**
+- **Same-name rows with different `source_slug` lineage** — e.g. "Vegan Oatmeal Raisin Cookies" vs
+  "Vegan Banana Apple Cider Oatmeal Raisin Cookies" are different recipes. Name alone is a
+  candidate list, never a verdict.
+
 ---
 
-## 4. Survivor rule
+---
 
-Pre-decided so the purge needs no judgement call mid-flight.
+## 4. Survivor rule — REVISED 2026-08-08 after seeing §3e
 
-1. **Never delete `is_canonical = true`.** Locked by design; seeded by migration.
-2. **Public rows: keep the one WITH an image, delete the imageless twin.** The KAN-194
-   publish-toggle duplicate is often the _newer_ row and always the worse one — it renders a
-   blank hero and blank OG. Beats `created_at` for this pass.
-3. **Otherwise: keep the oldest `created_at`.**
-4. **Tiebreak: if exactly one row is `is_public`, keep that one.**
+The image-based rule was written before the data was read and does not work (§3a). Replaced:
+
+1. **Never touch `is_canonical = true`.** Locked by design; seeded by migration. Every
+   statement in §5 carries `AND is_canonical = false` as a structural guard, so a mistyped id
+   still cannot reach a canonical row.
+2. **Keep the row with `source_slug IS NULL`** — the author's original. Unpublish the copies.
+   A saved copy should never have been public.
+3. **Exception — when a copy is canonical, the copy wins.** Cornbread: the canonical row holds
+   the clean slug `vegan-cornbread` while the original holds the typo slug
+   `vegasssdsdn-cornbread`. Keep canonical, unpublish the original.
+4. **Fall back to oldest `created_at`** only when neither rule decides.
+
+~~Keep the one WITH an image~~ — dead, see §3a.
 
 Scope: **a one-time purge of rows created before the guard exists.** Slug suffixing
 behaviour going forward is unchanged — a genuinely different recipe still gets `-2`.
@@ -169,37 +225,66 @@ behaviour going forward is unchanged — a genuinely different recipe still gets
 
 ## 5. The purge — transaction-wrapped, ends in ROLLBACK
 
-Replace the id list with ids you have actually read from §2b / §3e.
-**Do not write a blind `DELETE … USING`.**
+Two different actions for two different problems. **Do not conflate them.**
+
+### 5a. Public surface — UNPUBLISH, do not delete
+
+These 11 rows have live `/r/<slug>` URLs. Deleting turns each into a hard 404 and some may be
+indexed; duplicate content is the SEO harm, and a surviving _private_ row causes none.
+Unpublishing drops them from `/browse` and the sitemap immediately and is reversible. This is the
+precedent KAN-157 set for exactly this situation.
 
 ```sql
 BEGIN;
 
--- 1. preview EXACTLY what will go
+-- preview EXACTLY what changes
+SELECT id, name, slug, is_public, is_canonical FROM recipe WHERE id IN (
+  '376378a8-626f-44c6-bc36-e827eab79047','d3b9dbeb-136a-409e-8865-371ba94ec71b',
+  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5','2ae1c984-be3f-488f-9adb-5489c9fc8c28',
+  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7','6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63');
+
+UPDATE recipe SET is_public = false WHERE id IN (
+  '376378a8-626f-44c6-bc36-e827eab79047','d3b9dbeb-136a-409e-8865-371ba94ec71b',
+  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5','2ae1c984-be3f-488f-9adb-5489c9fc8c28',
+  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7','6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63')
+  AND is_canonical = false;
+
+-- optional, prevents a dead "source" link on the canonical Cornbread page (§3f)
+-- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
+
+-- must return 0 rows
+SELECT name, count(*) FROM recipe WHERE is_public = true
+GROUP BY name HAVING count(*) > 1;
+
+ROLLBACK;   -- → COMMIT once the preview and the zero both look right
+```
+
+`AND is_canonical = false` is a structural guard: even a mistyped id cannot reach `7e480d4b`.
+
+### 5b. Constraint blockers — DELETE, and only these
+
+Unpublishing does **not** clear these: the index keys on `source_slug` regardless of `is_public`.
+Use the ids read from §2b, not from memory.
+
+```sql
+BEGIN;
+
 SELECT id, name, slug, is_public, is_canonical, created_at
 FROM recipe WHERE id IN ('<id-1>', '<id-2>');
 
--- 2. refuse to proceed if any canonical row is in the list (must return 0)
 SELECT count(*) AS canonical_in_list
-FROM recipe WHERE id IN ('<id-1>', '<id-2>') AND is_canonical = true;
+FROM recipe WHERE id IN ('<id-1>', '<id-2>') AND is_canonical = true;   -- must be 0
 
--- 3. delete
 DELETE FROM recipe WHERE id IN ('<id-1>', '<id-2>') AND is_canonical = false;
 
--- 4. re-run the §2 count — must now return 0 rows
-SELECT user_id, source_slug, count(*) AS dupes
-FROM recipe
+SELECT user_id, source_slug, count(*) AS dupes FROM recipe
 WHERE source_slug IS NOT NULL AND user_id IS NOT NULL
-GROUP BY user_id, source_slug HAVING count(*) > 1;
+GROUP BY user_id, source_slug HAVING count(*) > 1;   -- must return 0 rows
 
-ROLLBACK;   -- swap to COMMIT only when every result above looks right
+ROLLBACK;   -- → COMMIT only when every result above is right
 ```
 
-Run it once ending in `ROLLBACK` and read the output. Then change the last line to `COMMIT`
-and run again. Backups are on (`backupConfiguration.enabled: true`) and deletion protection
-is enabled, but neither undoes a wrong `DELETE` cheaply.
-
----
+Backups are on and deletion protection is enabled, but neither undoes a wrong `DELETE` cheaply.
 
 ## 6. After the purge — the constraint (S1's actual deliverable)
 
