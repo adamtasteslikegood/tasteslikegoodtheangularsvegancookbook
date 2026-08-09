@@ -132,7 +132,7 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 
 - **Layer 1 — Angular 22 SPA** (`src/`): Standalone components with Signals API, flat route config in `src/app.routes.ts`. See `src/` directory structure for component tree.
 - **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation. No AI logic — purely proxy + static hosting.
-- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. `Backend/CLAUDE.md` is the authoritative reference for Backend details.
+- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: @Backend/CLAUDE.md
 - **Public SSR surface**: Express proxies `/r/<slug>`, `/browse`, `/sitemap.xml`, `/static/*` to Flask for server-side rendering before the SPA catch-all.
 - **Persistence**: `PersistenceService` writes localStorage first (instant UI), then syncs to Flask. Cloud SQL is authoritative; SQLite for local dev.
 
