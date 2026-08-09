@@ -1,13 +1,19 @@
 # Sprint 6 Plan — the duplicate invariant moves into the database
 
 _Chartered:_ 2026-08-08 · _Owner:_ Adam Schoen
-_Jira epic:_ **RCP-71** (delivery/acceptance) · _Acceptance row:_ **RCP-72** · _Execution ticket:_ **KAN-213**
-(KAN = execution, RCP = scope/acceptance)
+_Jira epic:_ **RCP-71** (delivery/acceptance)
+_Acceptance rows:_ **RCP-72 · RCP-39 · RCP-73** · _Execution tickets:_ **KAN-213 · KAN-97 · KAN-218**
+(KAN = execution, RCP = scope/acceptance) · `check_sprint_lane.sh sprint-6` exits 0
 _Jira sprint:_ **not yet created on board 168** — see the timebox row below.
 _Timebox:_ **NOT SET. Adam's call, and deliberately left open at charter time.**
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-08.** All six branches locked; scope selected by Adam.
 
-**This sprint commits to one outcome.** That is not modesty about the item's size — it is the only
+**This sprint commits to three items.** Scope opened from one to three on Adam's call, 2026-08-08,
+after the grill closed — KAN-97 and KAN-218 were added deliberately, not absorbed. Three at this
+board's measured rate (0.50–0.67 items/day) is roughly a 5–6 day box. The original single-outcome
+framing, and the reasoning that produced it, is kept below because it is what the sizing rests on.
+
+**The anchor is still one outcome.** That is not modesty about the item's size — it is the only
 commitment this board's measured history supports. Sprint 4 delivered 2 of 4 in three days (0.67
 items/day). Sprint 5 delivered 4 of 8 in eight days (0.50 items/day). The longer box did not absorb
 the overcommit; it diluted it. Nothing in this board's history shows a rate above ~0.67/day.
@@ -42,20 +48,42 @@ construction — KAN-213 says so in its own filing.
 
 ## Charter (locked decisions)
 
-| #   | Branch                | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| --- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| D1  | **Outcome / DONE**    | **One outcome: a duplicate recipe cannot be persisted, because the database refuses it.** Constraint keys on **`source_slug`, not title** — see the scope table for why that distinction is load-bearing. DONE = migration adds both partial unique indexes **and** a test firing two concurrent `POST /api/recipes` with the same `source_slug` asserts one row persisted plus **a 409 reaching the client**, confirmed **failing on today's code first**, plus `Gate — all checks passed` SUCCESS. **A full rewrite of the site was raised and rejected** — see "Rejected options". |
-| D2  | **Measurement**       | **Build no flow tooling.** There is none in this repo (`jira_snapshot_bridge.py`, cited by the PM canon, does not exist here), and a single-outcome sprint has no forecasting or queueing decision for it to inform: WIP is 1 by construction, cycle time is one number read off a PR. **Use item age instead — it costs nothing and is already decisive.** An item that ages without ever _starting_ is being declined, not rolled; its disposition is pulled-first or dropped, never re-committed. See the aging table.                                                             |
-| D3  | **Forecast honesty**  | **No date. No forecast.** Two sprints and six delivered items is far under the ≥10 completed items a distribution needs. Sprint 4 `[DECIDED]` this, Sprint 5 held it, nothing has changed. **The timebox is deliberately unset at charter time** — the read-only duplicate count (R2) is what bounds this work, and it has not run. Single digits → S1 is a 1–2 day item. Hundreds → the backfill _is_ the sprint and the constraint is Sprint 7. The number decides, not an estimate.                                                                                                |
-| D4  | **Ownership**         | Owner **Adam**; author **agent**; **reviewer is never the author** — (1) machine: the concurrent-POST test confirmed failing first, plus `Gate — all checks passed`; (2) Adam. Escalation → Adam, reason written into this file at the moment of escalation. As Sprint 5 recorded: **this is a convention, not a mechanically enforced gate** — nothing in this repo refuses a plan with an unnamed owner. **Adam holds the go/no-go on running the backfill against production.**                                                                                                    |
-| D5  | **Risk (pre-mortem)** | Four risks, R1–R4 below. **R1 is dominant and specific: existing code may route around the new constraint**, closing the sprint green while the bug lives. R2 (the count never runs) is the most _likely_. R3 folds into D1's definition of done. R4 is a scope rule.                                                                                                                                                                                                                                                                                                                 |
-| D6  | **Budgets**           | 3 attempts/task · 12 iterations/goal as a non-binding backstop · escalation reviewer **Adam**. Terminal states are exactly three: verified-close, escalated, explicitly waived by Adam. Two sprint-specific stop rules: **blocked prod access escalates immediately and does not retry** (KAN-182 documents four blocks in one session from exactly this); **scope growth escalates rather than absorbing** — if R1 is real and the slug retry loop needs rework, that is Adam's decision, not a silent expansion of D1.                                                              |
+| #   | Branch                | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --- | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | **Outcome / DONE**    | **Anchor outcome (S1): a duplicate recipe cannot be persisted, because the database refuses it.** S2 and S3 were added by Adam after the grill and carry their own gates. Constraint keys on **`source_slug`, not title** — see the scope table for why that distinction is load-bearing. DONE = migration adds both partial unique indexes **and** a test firing two concurrent `POST /api/recipes` with the same `source_slug` asserts one row persisted plus **a 409 reaching the client**, confirmed **failing on today's code first**, plus `Gate — all checks passed` SUCCESS. **A full rewrite of the site was raised and rejected** — see "Rejected options". |
+| D2  | **Measurement**       | **Build no flow tooling.** There is none in this repo (`jira_snapshot_bridge.py`, cited by the PM canon, does not exist here), and a three-item sprint has no forecasting or queueing decision for it to inform: cycle time is three numbers read off three PRs. **S2 is the exception that proves the rule** — it does not _measure_ flow, it fixes the substrate flow data is read from, which is why Adam committed it. **Use item age instead — it costs nothing and is already decisive.** An item that ages without ever _starting_ is being declined, not rolled; its disposition is pulled-first or dropped, never re-committed. See the aging table.         |
+| D3  | **Forecast honesty**  | **No date. No forecast.** Two sprints and six delivered items is far under the ≥10 completed items a distribution needs. Sprint 4 `[DECIDED]` this, Sprint 5 held it, nothing has changed. **The timebox is deliberately unset at charter time** — the read-only duplicate count (R2) is what bounds this work, and it has not run. Single digits → S1 is a 1–2 day item. Hundreds → the backfill _is_ the sprint and the constraint is Sprint 7. The number decides, not an estimate.                                                                                                                                                                                |
+| D4  | **Ownership**         | Owner **Adam**; author **agent**; **reviewer is never the author** — (1) machine: the concurrent-POST test confirmed failing first, plus `Gate — all checks passed`; (2) Adam. Escalation → Adam, reason written into this file at the moment of escalation. As Sprint 5 recorded: **this is a convention, not a mechanically enforced gate** — nothing in this repo refuses a plan with an unnamed owner. **Adam holds the go/no-go on running the backfill against production.**                                                                                                                                                                                    |
+| D5  | **Risk (pre-mortem)** | Four risks, R1–R4 below. **R1 is dominant: the new constraint surfaces as a raw 500 rather than a 409.** R1's first draft named the wrong mechanism and was corrected on review — see the note under R1. R2 (the count never runs) is the most _likely_. R3 folds into D1's definition of done. R4 is a scope rule.                                                                                                                                                                                                                                                                                                                                                   |
+| D6  | **Budgets**           | 3 attempts/task · 12 iterations/goal as a non-binding backstop · escalation reviewer **Adam**. Terminal states are exactly three: verified-close, escalated, explicitly waived by Adam. Two sprint-specific stop rules: **blocked prod access escalates immediately and does not retry** (KAN-182 documents four blocks in one session from exactly this); **scope growth escalates rather than absorbing** — S1/S2/S3 are the commitment; anything discovered inside them that grows the work is Adam's decision, not a silent expansion. Scope moved 1 → 3 **once, deliberately, by the owner**; that is not licence for it to drift further.                       |
 
-## Committed scope — one item
+## Committed scope — three items
 
-| #      | Item                                                              | Jira             | Why it is in                                                                                                                         |
-| ------ | ----------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| **S1** | Recipe create has no server-side duplicate check — DB enforces it | KAN-213 ↔ RCP-72 | The seventh ticket in a six-ticket cluster that has never had a root-cause fix attempted. It is the only item that ends the cluster. |
+| #      | Item                                                                     | Jira             | Why it is in                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------ | ------------------------------------------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S1** | Recipe create has no server-side duplicate check — DB enforces it        | KAN-213 ↔ RCP-72 | The seventh ticket in a six-ticket cluster that has never had a root-cause fix attempted. It is the only item that ends the cluster.                                                                                                                                                                                                                                                              |
+| **S2** | Auto-transition on PR merge                                              | KAN-97 ↔ RCP-39  | **26 days old, never started, six occurrences overdue.** Committed on Adam's reasoning: it is an easy win _and_ the precondition for the board carrying trustworthy data — without it, statuses lag merged work, which is exactly what corrupts the throughput and cycle-time figures D3 refuses to forecast from. Closing the aging item and fixing the measurement substrate are the same task. |
+| **S3** | Legitimate traffic and verified crawlers still 429 on the public surface | KAN-218 ↔ RCP-73 | **Committed on live evidence: Adam was rate-limited himself during Sprint 5 auditing.** Filed 2026-08-08. The likely mechanism is our own crawl gate — `check_canonical_recipes.sh --live` curls ~140 `/r/<slug>` URLs unthrottled against a 300 req/15 min per-IP budget. Crawlers have no exemption at all, which is an SEO failure that raises no alarm.                                       |
+
+### S3 is not KAN-161, and the distinction is why it is here
+
+KAN-161 was the item Adam asked to commit, on the reasoning that rate limiting might be "affecting
+crawlers or limiting traffic." **It is not.** The two are opposite defects:
+
+|               | KAN-161                                                  | **S3 / KAN-218**                                        |
+| ------------- | -------------------------------------------------------- | ------------------------------------------------------- |
+| Failure       | an IPv6 client rotating within a /64 **bypasses** limits | legitimate clients are **refused**                      |
+| Limiter is    | too **permissive** for IPv6                              | too **strict** for shared IPs and crawlers              |
+| Fix direction | mask IPv6 → /64, i.e. **stricter**                       | exempt or raise for legitimate traffic, i.e. **looser** |
+| Protects      | the 20/hr AI budget, and spend                           | the public surface, and SEO                             |
+
+KAN-161's fix does nothing for the 429 Adam hit, and /64 masking marginally worsens it by bucketing
+a whole household allocation. **KAN-161 stays in the backlog** — a genuine but LATENT cost-exposure
+fix: the customer path publishes no `AAAA` record, so it cannot fire today.
+
+Recorded at this length because committing KAN-161 would have shipped a fix that changed nothing
+about the observed failure — the exact shape of KAN-156, where the ticket that sounded right was not
+the one that fixed the problem.
 
 ### The constraint keys on `source_slug`, and that is what makes it safe
 
@@ -94,9 +122,27 @@ A unique index **cannot be applied to a table that already holds duplicates**; t
 fails. Production is known to hold them and **nobody has counted them**.
 
 ```sql
-SELECT user_id, count(*) FROM recipe
-GROUP BY user_id, source_slug HAVING count(*) > 1 AND source_slug IS NOT NULL;
+-- authenticated rows
+SELECT user_id, source_slug, count(*) AS dupes
+FROM recipe
+WHERE source_slug IS NOT NULL AND user_id IS NOT NULL
+GROUP BY user_id, source_slug
+HAVING count(*) > 1
+ORDER BY dupes DESC;
+
+-- guest rows (R3 — these must be counted too, or the guest index cannot be created)
+SELECT guest_session_id, source_slug, count(*) AS dupes
+FROM recipe
+WHERE source_slug IS NOT NULL AND guest_session_id IS NOT NULL
+GROUP BY guest_session_id, source_slug
+HAVING count(*) > 1
+ORDER BY dupes DESC;
 ```
+
+The grouping key must also appear in the `SELECT` list — otherwise the result identifies only _how
+many_ duplicates exist, not _which_ `source_slug` values they are, and the backfill has nothing to
+act on. (Caught by review on PR #3373; the first draft grouped by `source_slug` without selecting
+it, and filtered NULLs in `HAVING` rather than `WHERE`.)
 
 **Survivor rule, pre-decided so the backfill runs unattended:** keep oldest `created_at`; if exactly
 one row is `is_public`, keep that one instead.
@@ -115,11 +161,11 @@ be named with a reason. Source:
 [Sprint 5 Retrospective — 2026-08-09](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/54558724)
 (page `54558724`, authored by Rovo from board data alone).
 
-| Retro action                                                                | Committed?          | Reason                                                                                                                                                                                                                                                                                                                                |
-| --------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Finish RCP-39 / KAN-97 — auto-transition on PR merge                        | **NO**              | **Direct tension with D2, surfaced rather than resolved.** KAN-97 is **26 days old with zero implementation** and has been deferred every sprint since Sprint 3 — six occurrences. D2 says an item that ages without ever starting gets pulled first or dropped, never re-committed a seventh time. **Adam's call**, not the agent's. |
-| Close one repeated roll-forward story — RCP-58/KAN-161 or RCP-69/KAN-182    | **NO**              | Same class. KAN-161 has now rolled **two consecutive sprints with zero implementation** and carries both roll labels. Sprint 5's own close-out said it "should not be re-committed a third time without deciding why it keeps losing." That decision has not been made. **Adam's call.**                                              |
-| Separate architecture, verification and process work explicitly in planning | **YES** — in effect | D1's single-outcome discipline is the strongest available form of this: Sprint 6 commits to exactly one category. Architecture (KAN-160), verification (KAN-182) and process plumbing (KAN-97) are all explicitly out.                                                                                                                |
+| Retro action                                                                | Committed?          | Reason                                                                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Finish RCP-39 / KAN-97 — auto-transition on PR merge                        | **YES** — S2        | Surfaced as a D2 tension (26 days old, never started, six occurrences); **Adam decided to commit it**, on the reasoning that it is both an easy win and the precondition for the board carrying data worth forecasting from. D2's disposition rule is satisfied — the item was **pulled first**, which is one of the two dispositions it allows. |
+| Close one repeated roll-forward story — RCP-58/KAN-161 or RCP-69/KAN-182    | **PARTLY** — S3     | Adam committed to the rate-limiting problem, but the ticket that matches his stated reason is **KAN-218, not KAN-161** — see "S3 is not KAN-161" above. KAN-161 and KAN-182 stay in the backlog. The retro's intent is served; its named ticket is not the one that serves it.                                                                   |
+| Separate architecture, verification and process work explicitly in planning | **YES** — in effect | Three items, three distinct categories, each with its own acceptance row and gate: data integrity (S1), process plumbing (S2), production behaviour (S3). Architecture (KAN-160) and the staging environment (KAN-182) remain explicitly out.                                                                                                    |
 
 **The committed outcome (S1) does not appear in the retro's actions table at all.** That is not an
 oversight by the retro — KAN-213 was filed on 2026-08-08, after the board data the retro was written
@@ -161,14 +207,28 @@ are not rolling, they are being **declined**, every sprint, by whatever gets pul
 
 ## Risks (pre-mortem)
 
-**R1 — the constraint gets routed around by code that already exists. _Dominant._**
-`Backend/repositories/db_recipe_repository.py:272` describes catching a lost slug race and
-"re-stag[ing] with the next suffix." If that retry path catches the new `IntegrityError`, it will
-helpfully create the duplicate under `-2` and the constraint becomes decorative — sprint closes
-green, bug lives. Same shape as KAN-156, where a mock that resolved without persisting made the race
-unreproducible **by construction**.
-_Mitigation:_ the acceptance test asserts a **409 reaching the client**, not "one row exists"; and
-the retry loop is explicitly taught to distinguish slug collision from duplicate-source refusal.
+**R1 — the new constraint surfaces as a raw 500 instead of a 409. _Dominant._**
+Nothing in the write path converts an `IntegrityError` from a _new_ unique index into a client-legible
+refusal, so the first duplicate save after the migration lands breaks loudly and unhelpfully.
+_Mitigation:_ the acceptance test asserts a **409 reaching the client**, not "one row exists" — and
+the write path gains explicit handling that maps the `(user_id, source_slug)` /
+`(guest_session_id, source_slug)` violation to a 409, leaving every other integrity failure alone.
+
+> **Corrected on review (PR #3373).** R1's first draft claimed
+> `_commit_publish_retrying` (`Backend/repositories/db_recipe_repository.py`) would catch the new
+> `IntegrityError` and "helpfully create the duplicate under `-2`", making the constraint decorative.
+> **That was wrong**, and the mitigation it implied — "teach the retry loop to distinguish slug
+> collision from duplicate-source refusal" — was work that does not need doing. Verified against
+> Backend `origin/dev`: the retry fires only when `lost_slug_race` is true, which requires
+> `recipe_data["is_public"]` **and** another row already owning `Recipe.slug == attempted_slug`. A
+> `source_slug` violation leaves the slug uncontested, so `lost_slug_race` is `False` and the code
+> re-raises immediately; on a non-public save it short-circuits earlier still. The docstring says so
+> outright: _"Every other integrity failure … re-raises immediately rather than being retried."_
+>
+> The retry path is deliberately narrow and correct. **The charter mischaracterised safe code as
+> dangerous, which would have sent S1 implementation at the wrong target.** The DONE criterion is
+> unchanged; only its motivation and the size of the work are. Recorded rather than silently edited,
+> because "the plan named the wrong root cause" is exactly the failure this sprint exists to end.
 
 **R2 — the count never runs. _Most likely._** It needs prod DB access, which is friction, and the
 sprint stalls exactly where KAN-182 says it will.
@@ -201,11 +261,17 @@ rows survives** is pre-decided by rule precisely so it never becomes a curation 
 
 ## Explicitly not in this sprint
 
-KAN-97 · KAN-160 · KAN-161 · KAN-182 (all four rolled from Sprint 5, all carrying
-`rolled-from-sprint-5`) · KAN-194 · KAN-209 · KAN-90. Sprint 5's four undelivered rows were
-deliberately **not** parented to this epic — parking them here would be re-committing them a third
-time, which D2 identifies as the failing mechanism. They sit in the backlog until pulled
-deliberately.
+KAN-160 · **KAN-161** · KAN-182 · KAN-194 · KAN-209 · KAN-90.
+
+**KAN-161 is the notable exclusion**, because it was explicitly asked for and then withdrawn on
+evidence: it does not fix the 429 Adam hit, and KAN-218 does. See "S3 is not KAN-161". It remains a
+real cost-exposure fix, verified LATENT — no `AAAA` record on the customer path — so it cannot fire
+today.
+
+KAN-160 and KAN-182 keep `rolled-from-sprint-5` and sit in the backlog until pulled deliberately.
+Parking them in this epic to look complete would be re-committing them a third time, which D2
+identifies as the failing mechanism. **KAN-97 was the opposite case** — it was pulled first, which is
+the disposition D2 prescribes for an aged item, rather than rolled again.
 
 ## Worked outside the sprint, on Adam's call
 
