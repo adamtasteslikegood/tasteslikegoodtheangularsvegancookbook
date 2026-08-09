@@ -333,7 +333,7 @@ it — that name has only one public row and therefore no collision. It is not a
 unpublishing would pull the recipe off the public site entirely. The `-2` in a live URL is
 cosmetically odd, not a defect.
 
-### 5c. Cornbread — decide individually, last
+### 5c. Cornbread — ✅ DONE 2026-08-09, by Adam in the UI
 
 The only group where the **canonical copy survives and the original is unpublished**:
 
@@ -342,21 +342,71 @@ The only group where the **canonical copy survives and the original is unpublish
 | original, user 1 | `2ae1c984` | **`vegasssdsdn-cornbread`** — keyboard-mash typo, live | unpublish                |
 | copy, user 3     | `7e480d4b` | `vegan-cornbread` — clean                              | **keep, `is_canonical`** |
 
+Adam performed the unpublish through the app's publish toggle rather than SQL, so the statement
+below was never run. It is kept as the record of what the toggle did:
+
 ```sql
+-- NOT RUN — done via the UI publish toggle instead.
 UPDATE recipe SET is_public = false
 WHERE id = '2ae1c984-be3f-488f-9adb-5489c9fc8c28' AND is_canonical = false;
 ```
 
-```sql
--- PENDING DECISION: prevents a dead "source" link on /r/vegan-cornbread (KAN-212 class),
--- since 7e480d4b.source_slug points at the slug just unpublished.
--- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
-```
+#### The pending `source_slug = NULL` — decided: do NOT run it
+
+The statement was drafted on the premise that it _"prevents a dead 'source' link on
+`/r/vegan-cornbread` (KAN-212 class), since `7e480d4b.source_slug` points at the slug just
+unpublished."_ **Reading the code shows that premise is false**, so the fix is unnecessary:
+
+- `src/utils/public-link.ts:70` — `publicLinkKind()` returns `'own'` as its **first** branch when
+  `is_public === true && slug`. Row `7e480d4b` is published under its own clean slug, so the
+  function returns before it ever reaches the `sourceSlug` branch.
+- Therefore `publicSlugOf()` yields `vegan-cornbread`, not the dead slug — **no dead link renders.**
+- `publishToggleKind()` (`public-link.ts:110`) is `'normal'` for the same reason, so the toggle
+  title at `recipe-view.base.ts:325` that interpolates `sourceSlug` never renders either.
+- The KAN-137 confirm prompt at `recipe-view.base.ts:252` is guarded by `!recipe.slug`; this row
+  has a slug, so it does not fire.
+
+**Every code path that reads `sourceSlug` is short-circuited by the row being published under its
+own slug.** Nulling the column would change no rendered output — while destroying true provenance
+and, worse, **removing the row from the new index's coverage**, since both partial indexes in §6 are
+`WHERE source_slug IS NOT NULL`. Keeping the value is strictly the more-constrained choice.
+
+The residual — if `7e480d4b` is ever unpublished, the `'source'` fallback _would_ link to the dead
+`/r/vegasssdsdn-cornbread` — is **not a KAN-212 regression**. `public-link.ts:14–16` and `:61–63`
+document that case as a deliberate, accepted trade-off (_"worst case is a 404 on a public route, not
+a leak"_; the guard is _"deliberately narrow"_ so an unpublished copy of a **different** recipe keeps
+its link). No ticket needed.
+
+> **Fourth reversal of the session, same class as R1.** A safety statement was written from a
+> plausible-sounding premise about the code, and the code disproved it. R1 described
+> `_commit_publish_retrying` as dangerous when it never sees a `source_slug` violation; this one
+> described a dead link that cannot render. Both were caught by reading the code rather than
+> trusting the note. **Cost of not checking: a needless destructive `UPDATE` that would have
+> silently shrunk the constraint's coverage.**
+
+#### The gate — ✅ zero rows, verified 2026-08-09
 
 ```sql
 SELECT name, count(*) FROM recipe WHERE is_public = true
-GROUP BY name HAVING count(*) > 1;   -- now expect 0 rows
+GROUP BY name HAVING count(*) > 1;   -- expect 0 rows
 ```
+
+Verified **without DB access**, from the public surface the query describes. `/browse` renders every
+`is_public = true` row with its `name` in the card `alt` and its row id in the image `src`, so the
+public index _is_ the query's result set:
+
+| Check                                           | Result                                        |
+| ----------------------------------------------- | --------------------------------------------- |
+| Distinct public recipes on `/browse` (10 pages) | **76**                                        |
+| `/sitemap.xml` `/r/` entries                    | **76 — identical set**, no diff               |
+| Public rows sharing a `name`                    | **0** ← the gate                              |
+| `/r/vegasssdsdn-cornbread`                      | **404**, absent from sitemap — unpublished ✅ |
+| `/r/vegan-cornbread`                            | **200**, in sitemap — survivor kept ✅        |
+
+The sitemap agreeing exactly with the scraped index is what makes the count trustworthy: two
+independently generated views of the same `is_public` set, no missing page.
+
+**§5 is complete. The purge is done and both gates return zero rows — S1 moves to code.**
 
 ## 6. After the purge — the constraint (S1's actual deliverable)
 
