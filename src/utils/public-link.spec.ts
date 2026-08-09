@@ -34,6 +34,13 @@ describe('publicSlugOf', () => {
     expect(publicSlugOf({ is_public: true, slug: '' })).toBeNull();
     expect(publicSlugOf({ sourceSlug: '' })).toBeNull();
   });
+
+  // KAN-212 — see the publicLinkKind block for the full reasoning.
+  it("is null when the unpublished recipe's sourceSlug is its own slug", () => {
+    expect(
+      publicSlugOf({ is_public: false, slug: 'english-breakfast', sourceSlug: 'english-breakfast' })
+    ).toBeNull();
+  });
 });
 
 // KAN-137: the public toggle must never read OFF while an undifferentiated
@@ -68,6 +75,40 @@ describe('publicLinkKind', () => {
     expect(publicLinkKind({})).toBeNull();
     expect(publicLinkKind({ is_public: false, slug: 'draft' })).toBeNull();
     expect(publicLinkKind({ is_public: true })).toBeNull();
+  });
+
+  // KAN-212: found on live v0.4.9. When a recipe's sourceSlug IS its own slug,
+  // "the source" and "this recipe" are the same page — so unpublishing leaves
+  // the fallback pointing at the page just taken down and the link 404s. The
+  // 404 is correct; offering the link is not. There is no other recipe to
+  // degrade to, so the honest answer is no link.
+  it("is null after unpublishing when sourceSlug is the recipe's OWN slug", () => {
+    expect(
+      publicLinkKind({
+        is_public: false,
+        slug: 'english-breakfast',
+        sourceSlug: 'english-breakfast',
+      })
+    ).toBeNull();
+  });
+
+  it("is 'own' again once that same recipe is republished", () => {
+    // The other half of the cycle Adam walked live: republish → 200.
+    expect(
+      publicLinkKind({
+        is_public: true,
+        slug: 'english-breakfast',
+        sourceSlug: 'english-breakfast',
+      })
+    ).toBe('own');
+  });
+
+  it("still degrades to 'source' when the source is a DIFFERENT recipe", () => {
+    // The guard must be narrow: an unpublished copy of someone else's recipe
+    // keeps its link, which is the whole point of the sourceSlug fallback.
+    expect(
+      publicLinkKind({ is_public: false, slug: 'my-remix', sourceSlug: 'vegan-cornbread' })
+    ).toBe('source');
   });
 
   it('agrees with publicSlugOf/isPublicViewable on visibility', () => {
@@ -150,6 +191,20 @@ describe('publishToggleKind', () => {
   it('is normal for generated and saved origins', () => {
     expect(publishToggleKind({ origin: 'generated' })).toBe('normal');
     expect(publishToggleKind({ origin: 'saved', sourceSlug: 'x' })).toBe('source');
+  });
+
+  // KAN-212: 'source' greys the toggle because "its publish state belongs to
+  // the source page". When the row IS the source, that reasoning inverts — the
+  // publish state is its own, so the toggle must render normally. Adam
+  // unpublished and republished exactly this row on live and the toggle worked.
+  it("is normal when sourceSlug is the recipe's own slug", () => {
+    expect(
+      publishToggleKind({
+        is_public: false,
+        slug: 'english-breakfast',
+        sourceSlug: 'english-breakfast',
+      })
+    ).toBe('normal');
   });
 
   it('is normal for ordinary own recipes, published or not', () => {
