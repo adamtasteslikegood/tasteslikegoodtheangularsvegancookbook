@@ -279,7 +279,7 @@ unintended was unpublished. More than one means an id did not take.
 
 **Result 2026-08-08:** preview showed the 5, verify showed only Cornbread, committed. ✅
 
-### 5b. Constraint blockers — DELETE, and only these
+### 5b. Constraint blockers — DELETE, and only these — ✅ DONE 2026-08-08
 
 Unpublishing does **not** clear these: the index keys on `source_slug` regardless of
 `is_public`. Survivors are the older row in each pair; in the Fried Pizza Dough pair the age
@@ -317,6 +317,9 @@ SELECT user_id, source_slug, count(*) AS dupes FROM recipe
 WHERE source_slug IS NOT NULL AND user_id IS NOT NULL
 GROUP BY user_id, source_slug HAVING count(*) > 1;
 ```
+
+**Result 2026-08-08:** guard returned 0, `DELETE` reported success, and **statement 4 returned no
+rows**. The constraint-blocking duplicates are gone and the unique index is unblocked. ✅
 
 **These were not concurrent saves.** The pairs are **10 hours** and **3 days** apart — deliberate
 re-saves, not KAN-213's two-tab race. The constraint still catches them correctly (INV-1's "you
