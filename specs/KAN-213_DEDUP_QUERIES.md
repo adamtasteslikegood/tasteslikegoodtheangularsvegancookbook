@@ -227,37 +227,69 @@ Two different actions for two different problems. **Do not conflate them.**
 
 ### 5a. Public surface — UNPUBLISH, do not delete
 
-These 11 rows have live `/r/<slug>` URLs. Deleting turns each into a hard 404 and some may be
+These rows have live `/r/<slug>` URLs. Deleting turns each into a hard 404 and some may be
 indexed; duplicate content is the SEO harm, and a surviving _private_ row causes none.
-Unpublishing drops them from `/browse` and the sitemap immediately and is reversible. This is the
+Unpublishing drops them from `/browse` and the sitemap immediately and is reversible — the
 precedent KAN-157 set for exactly this situation.
+
+**Cornbread is deliberately excluded and handled separately in §5c** (Adam's call, 2026-08-08).
+It is the only group where the survivor is the _canonical copy_ rather than the original, and the
+only one carrying a dead-link decision. Five rows here, not six.
 
 ```sql
 BEGIN;
 
--- preview EXACTLY what changes
+-- preview exactly what changes (expect 5 rows, all is_canonical = false)
 SELECT id, name, slug, is_public, is_canonical FROM recipe WHERE id IN (
-  '376378a8-626f-44c6-bc36-e827eab79047','d3b9dbeb-136a-409e-8865-371ba94ec71b',
-  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5','2ae1c984-be3f-488f-9adb-5489c9fc8c28',
-  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7','6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63');
+  '376378a8-626f-44c6-bc36-e827eab79047',   -- Flour Tortillas   — user 3's copy
+  'd3b9dbeb-136a-409e-8865-371ba94ec71b',   -- Yuzu Matcha       — user 1's copy
+  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',   -- Banana Cookies    — user 1's own copy
+  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7',   -- English Breakfast — user 3's copy
+  '6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63');  -- English Breakfast — user 1's copy
 
 UPDATE recipe SET is_public = false WHERE id IN (
-  '376378a8-626f-44c6-bc36-e827eab79047','d3b9dbeb-136a-409e-8865-371ba94ec71b',
-  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5','2ae1c984-be3f-488f-9adb-5489c9fc8c28',
-  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7','6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63')
+  '376378a8-626f-44c6-bc36-e827eab79047',
+  'd3b9dbeb-136a-409e-8865-371ba94ec71b',
+  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',
+  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7',
+  '6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63')
   AND is_canonical = false;
 
--- optional, prevents a dead "source" link on the canonical Cornbread page (§3f)
--- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
-
--- must return 0 rows
+-- expect EXACTLY ONE row: Vegan Cornbread, 2 — everything else cleared
 SELECT name, count(*) FROM recipe WHERE is_public = true
 GROUP BY name HAVING count(*) > 1;
 
-ROLLBACK;   -- → COMMIT once the preview and the zero both look right
+ROLLBACK;   -- → COMMIT when the preview shows 5 and the check shows only Cornbread
 ```
 
-`AND is_canonical = false` is a structural guard: even a mistyped id cannot reach `7e480d4b`.
+**Read the verification carefully — it does not return zero here.** One row (`Vegan Cornbread | 2`)
+is success. Zero rows means something unintended was unpublished. More than one means an id did not
+take.
+
+`AND is_canonical = false` is a structural guard: even a mistyped id cannot reach a canonical row.
+
+### 5c. Cornbread — decide individually, after 5a
+
+The only group where the **canonical copy survives and the original is unpublished**:
+
+| Row              | id         | slug                                                   | Disposition              |
+| ---------------- | ---------- | ------------------------------------------------------ | ------------------------ |
+| original, user 1 | `2ae1c984` | **`vegasssdsdn-cornbread`** — keyboard-mash typo, live | unpublish                |
+| copy, user 3     | `7e480d4b` | `vegan-cornbread` — clean                              | **keep, `is_canonical`** |
+
+```sql
+BEGIN;
+UPDATE recipe SET is_public = false
+WHERE id = '2ae1c984-be3f-488f-9adb-5489c9fc8c28' AND is_canonical = false;
+
+-- pending decision: prevents a dead "source" link on /r/vegan-cornbread (KAN-212 class),
+-- since 7e480d4b.source_slug points at the slug just unpublished
+-- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
+
+SELECT name, count(*) FROM recipe WHERE is_public = true
+GROUP BY name HAVING count(*) > 1;   -- now expect 0 rows
+ROLLBACK;
+```
 
 ### 5b. Constraint blockers — DELETE, and only these
 
