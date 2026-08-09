@@ -4,8 +4,9 @@ _Chartered:_ 2026-08-08 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-71** (delivery/acceptance)
 _Acceptance rows:_ **RCP-72 · RCP-39 · RCP-73** · _Execution tickets:_ **KAN-213 · KAN-97 · KAN-218**
 (KAN = execution, RCP = scope/acceptance) · `check_sprint_lane.sh sprint-6` exits 0
-_Jira sprint:_ **not yet created on board 168** — see the timebox row below.
-_Timebox:_ **NOT SET. Adam's call, and deliberately left open at charter time.**
+_Jira sprint:_ **"Sprint 6", id 47, board 168** — created and activated 2026-08-08.
+_Timebox:_ **2026-08-08 → 2026-08-13** (six days, including the chartering day). Set by Adam once
+the duplicate count came back — see "Hard precondition", which is now **resolved**.
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-08.** All six branches locked; scope selected by Adam.
 
 **This sprint commits to three items.** Scope opened from one to three on Adam's call, 2026-08-08,
@@ -116,10 +117,29 @@ A `(user_id, normalized_title)` constraint was considered during the grill and *
 have blocked legitimate same-title variants, breaking that requirement. Recorded because the first
 draft of D1 proposed it.
 
-### Hard precondition — the count runs in the first hour
+### Hard precondition — RESOLVED 2026-08-08, and it is small
 
 A unique index **cannot be applied to a table that already holds duplicates**; the migration simply
-fails. Production is known to hold them and **nobody has counted them**.
+fails. The count ran via Cloud SQL Studio (KAN-217 opened that path in the same session):
+
+| Scope                                     | Result                                    |
+| ----------------------------------------- | ----------------------------------------- |
+| Authenticated — `(user_id, source_slug)`  | **2 groups × 2 rows**, both `user_id = 1` |
+| Guest — `(guest_session_id, source_slug)` | **0 rows**                                |
+
+**4 rows involved, 2 to delete.** The guest partial index needs no backfill at all, so R3 costs
+nothing. D3's stated branch — "single digits → S1 is a 1–2 day item" — is the one taken, which is
+what set the six-day box.
+
+**One reading nearly went wrong and is worth recording.** Re-running the query without its two
+`WHERE` clauses reported `user_id 1 → 112`. That is not 112 duplicates: `GROUP BY user_id,
+source_slug` collapses every `NULL` `source_slug` into a single bucket, so it counted "user 1 has 112
+recipes with no source". The `WHERE` clauses are load-bearing, not decoration. The same artifact made
+three guest rows look duplicated when they were different guests each saving one public recipe —
+legitimate behaviour, confirmed by the guest query returning zero.
+
+All queries, the survivor rule, and a transaction-wrapped purge that ends in `ROLLBACK` until
+deliberately changed live in **`specs/KAN-213_DEDUP_QUERIES.md`**.
 
 ```sql
 -- authenticated rows
@@ -153,6 +173,47 @@ commented out in `Backend/.env`. Reaching it needs either a Cloud Run Job in the
 `flask-backend-migrate` pattern) or a lower-friction path — Cloud SQL Studio, or IAM database
 authentication — **which Adam has asked be investigated first, since a read-only count should not
 require deploying a job.** That investigation starts when this charter's PR merges.
+
+### S1 also carries a one-time public-surface purge
+
+Added on Adam's direction, 2026-08-08: _"the public site has duplicates — this run is removing rows
+created BEFORE the fix that will stop duplicates from getting published."_
+
+This is **separate from the 4 rows above.** §2's count unblocks the migration; the public purge
+cleans what visitors actually see. Adam's test for a real duplicate is **same name AND same image**,
+with name alone giving the candidate list.
+
+**There is no image column** — image lives in the `data` JSON blob (`ai_image_url`,
+`stock_image_url`, `image`), so the comparison reaches into JSON.
+
+**KAN-194 interacts, and it changes the survivor rule.** `togglePublic()` never backfills the image
+from the source recipe, so publish-toggle duplicates have **no image at all**. Their pairs are
+(original _with_ image, duplicate _without_), which means a strict same-name-AND-same-image match
+**will not find them** — they surface only in the name-only list. They are also the rows rendering a
+blank hero and blank OG on the public site. So for public rows:
+
+> **Keep the row with an image; delete the imageless twin.** Fall back to oldest `created_at` only
+> when both have images or neither does. Never delete `is_canonical`.
+
+This beats `created_at` here because the publish-toggle duplicate is often the _newer_ row and always
+the worse one. Queries in `specs/KAN-213_DEDUP_QUERIES.md` §3–§5.
+
+**Scope guard:** this is a one-time purge of rows predating the guard. Slug-suffixing behaviour going
+forward is unchanged — a genuinely different recipe still gets `-2`, per Adam's requirement.
+
+### Known coverage limit — D1 does not make the table duplicate-free
+
+The indexes are **partial**: rows with `source_slug IS NULL` are not constrained, and they are the
+large majority of the table. That is correct by design — a generated or manually-entered recipe has
+no provenance to collide on, and a name-based constraint was **rejected** because two genuinely
+different recipes may share a title.
+
+Probing that blind spot returned 4 same-name groups among `NULL`-source rows, of which only 2 are
+confirmed same-user (`user_id = 2`); the other 2 were the same `NULL`-grouping artifact described
+above. **Same name is not the same recipe**, so this is a candidate list, not a defect count.
+Enforcing uniqueness there would require a normalized **content-hash column** — a schema change worth
+costing only against evidence, as a Sprint 7 ticket. **Not Sprint 6 scope**, and explicitly not
+justified by the misread "112".
 
 ## Sprint 5 retrospective — actions table walked row by row
 
@@ -230,10 +291,13 @@ the write path gains explicit handling that maps the `(user_id, source_slug)` /
 > unchanged; only its motivation and the size of the work are. Recorded rather than silently edited,
 > because "the plan named the wrong root cause" is exactly the failure this sprint exists to end.
 
-**R2 — the count never runs. _Most likely._** It needs prod DB access, which is friction, and the
-sprint stalls exactly where KAN-182 says it will.
-_Mitigation:_ **first hour, or S1 is declared unstartable.** Blocked access escalates immediately
-per D6 — it does not retry.
+**R2 — the count never runs. ~~_Most likely._~~ RETIRED 2026-08-08, before the box opened.**
+The risk was that prod DB access friction would stall the sprint exactly where KAN-182 predicts.
+It did not: Cloud SQL Studio reaches the private-IP instance with no infrastructure change, and the
+count ran the same day. KAN-217 (IAM database auth, deletion protection) was completed opportunistically
+alongside it and is **not** sprint scope.
+_Residual:_ none for S1. The path is documented in `specs/KAN-213_DEDUP_QUERIES.md` §0 so the next
+production question does not re-pay the discovery cost.
 
 **R3 — guest rows are missed.** `user_id` is nullable; guests key on `guest_session_id`, and guest
 saves are the KAN-186 path.
