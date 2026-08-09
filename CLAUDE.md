@@ -14,6 +14,49 @@ Local checkouts on this machine routinely lag `origin`, and parallel agent sessi
 
 Only after these checks: create the branch or worktree and start the work.
 
+### Starting work: branch or worktree
+
+After the sync above confirms local `dev` is up to date with `origin/dev`, choose one:
+
+**Option A — Feature branch (default for most work):**
+
+```bash
+git switch -c feat/my-topic origin/dev   # always base on the remote tip
+# ... work, commit, push ...
+git push -u origin feat/my-topic
+gh pr create --base dev
+```
+
+**Option B — Worktree (parallel work or long-running tasks):**
+
+```bash
+git worktree add .claude/worktrees/my-topic -b feat/my-topic origin/dev
+cd .claude/worktrees/my-topic
+# ... work in isolation, commit, push, PR as above ...
+```
+
+Both options base the branch on `origin/dev` (not local `dev`) to guarantee freshness.
+
+### Branch protection — what it means for you
+
+`dev` and `main` are protected: **direct pushes are rejected**. All changes reach them via PR only. If you try `git push` to `dev` you will get `push declined due to repository rule violations`. This is not a bug — create a branch, push it, and open a PR.
+
+Required status checks before merge: `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`.
+
+### Run checks locally before pushing
+
+Run these before `git push` to avoid CI failures:
+
+```bash
+npm run lint          # ESLint
+npm run format:check  # Prettier (or `npm run format` to auto-fix)
+npm run type-check    # TypeScript (both tsconfigs)
+npm test              # Vitest (server + src)
+cd Backend && uv run pytest  # Backend tests (if Backend touched)
+```
+
+For docs-only or config-only changes, `npm run format:check` is sufficient — the other checks won't fail on non-code files. When in doubt, run the full set; it takes ~60 seconds locally vs waiting for CI.
+
 ### Planning a sprint? Read the Confluence retro FIRST (not the repo close-out)
 
 **Applies to: chartering or planning any sprint, `/cs:grill-pm`, and any charter or plan document.**
