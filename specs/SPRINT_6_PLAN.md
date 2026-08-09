@@ -138,8 +138,11 @@ recipes with no source". The `WHERE` clauses are load-bearing, not decoration. T
 three guest rows look duplicated when they were different guests each saving one public recipe —
 legitimate behaviour, confirmed by the guest query returning zero.
 
-All queries, the survivor rule, and a transaction-wrapped purge that ends in `ROLLBACK` until
-deliberately changed live in **`specs/KAN-213_DEDUP_QUERIES.md`**.
+All queries, the survivor rule, and a one-statement-at-a-time purge — with a preview `SELECT`,
+an `is_canonical = false` write guard, and a zero-row verify after each mutation — live in
+**`specs/KAN-213_DEDUP_QUERIES.md`**. (The runbook previously wrapped the purge in
+`BEGIN…ROLLBACK`; Cloud SQL Studio does not honour those blocks reliably, so §5 was rewritten
+to guard each mutation individually — see the §5 preamble.)
 
 ```sql
 -- authenticated rows
