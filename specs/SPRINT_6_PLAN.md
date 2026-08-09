@@ -236,10 +236,28 @@ forward is unchanged — a genuinely different recipe still gets `-2`, per Adam'
 
 ### Known coverage limit — D1 does not make the table duplicate-free
 
-The indexes are **partial**: rows with `source_slug IS NULL` are not constrained, and they are the
-large majority of the table. That is correct by design — a generated or manually-entered recipe has
-no provenance to collide on, and a name-based constraint was **rejected** because two genuinely
-different recipes may share a title.
+The indexes are **partial**: rows with `source_slug IS NULL` are not constrained.
+
+An earlier draft called those "the large majority of the table", which understated it. Adam's
+correction, 2026-08-09: generated and manually entered recipes are not a majority, they are
+essentially the whole table. `origin` is `manual | generated | saved`, and only `saved` rows carry a
+`source_slug`. So:
+
+> **The constraint covers only copies a user took from someone else's public page. It does not
+> constrain a single recipe a user authored.**
+
+The one recorded number: user 1 held **112** `NULL`-source rows against **4** in `source_slug`
+duplicate groups — roughly **3%** coverage for that user.
+
+That corner is still the right one, and not by rationalisation: a saved copy is the only case where
+"these two rows are the same recipe" is a **machine-checkable fact**, because the copy records what
+it was copied from. Two separately generated recipes have no such identity — a name-based constraint
+was **rejected** because two genuinely different recipes may share a title.
+
+And the evidence says the corner is where the duplicates were: all 11 public duplicate rows carried a
+`source_slug`, and both constraint blockers were `source_slug` pairs. **100% of confirmed duplicates
+lived in that ~3%** — which KAN-220 explains rather than leaves to luck, since the ghost-session path
+produces `source_slug`-bearing rows by construction.
 
 Probing that blind spot returned 4 same-name groups among `NULL`-source rows, of which only 2 are
 confirmed same-user (`user_id = 2`); the other 2 were the same `NULL`-grouping artifact described

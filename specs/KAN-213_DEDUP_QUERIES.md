@@ -428,15 +428,47 @@ CREATE UNIQUE INDEX CONCURRENTLY uq_recipe_guest_source_slug
 `CONCURRENTLY` cannot run inside a transaction; in Alembic use
 `op.execute(...)` with `autocommit_block()`.
 
-### Known coverage limit — state it, do not paper over it
+### Known coverage limit — say the number, not "the large majority"
 
-These are **partial** indexes. Rows with `source_slug IS NULL` — generated and manually
-entered recipes, the large majority of the table — are **not constrained**. That is correct:
-a generated recipe has no provenance to collide on, and a name-based constraint was rejected
-because two genuinely different recipes may share a title.
+An earlier draft of this section called the uncovered rows "the large majority of the table",
+which reads as an edge case being disclosed. Adam's correction, 2026-08-09: **generated and
+manually entered recipes are not a majority of the table, they are essentially the whole of
+it.** `origin` is one of `manual | generated | saved` (`public-recipe.mapper.ts:31-32` sets
+`origin: 'saved'` and `sourceSlug` together), so:
 
-So D1 closes KAN-213's class. **It does not make the table duplicate-free**, and the charter
-must not be read that way.
+> **The indexes constrain only `origin = 'saved'` rows — copies a user took from someone
+> else's public page. They do not constrain a single recipe a user authored.**
+
+The one hard number recorded: user 1 held **112** rows with `source_slug IS NULL` against
+**4** rows in `source_slug` duplicate groups. Roughly **3%** coverage for that user. The
+honest description of that is not "a limit"; it is that the constraint covers a small,
+specific corner.
+
+Run this before quoting any other ratio — the 112 above is one user, not the table:
+
+```sql
+SELECT count(*) FILTER (WHERE source_slug IS NOT NULL) AS constrained,
+       count(*) FILTER (WHERE source_slug IS NULL)     AS unconstrained,
+       count(*)                                        AS total
+FROM recipe;
+```
+
+**Why that corner is still the right one — and it is not a rationalisation.** A saved copy is
+the only case where "these two rows are the same recipe" is a **machine-checkable fact**: the
+copy carries the id of what it was copied from. Two separately generated recipes have no such
+identity — similar text is not proof, and a name-based constraint was rejected because two
+genuinely different recipes may share a title. There is nothing to key on until a normalized
+content hash exists (Sprint 7 candidate).
+
+**And the evidence says the corner is where the duplicates were.** Every one of the 11 public
+duplicate rows in §3f carried a `source_slug`, and both constraint-blocking pairs in §5b were
+`source_slug` pairs. 100% of the _confirmed_ duplicates lived in the ~3%. KAN-220 explains why
+that is not a coincidence: the ghost-session path — an expired session silently downgraded to a
+guest before a save from a public page — produces `source_slug`-bearing rows by construction,
+and it is the mechanism actually generating these duplicates.
+
+So D1 closes KAN-213's class **and the live defect path**, while covering a small share of
+rows. **It does not make the table duplicate-free**, and the charter must not be read that way.
 
 ### Blind-spot probe (§3's cousin, for NULL-source rows)
 
