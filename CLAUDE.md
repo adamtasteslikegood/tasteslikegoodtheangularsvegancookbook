@@ -140,6 +140,7 @@ Opening a PR is not the end of the task. Every PR you author, or are actively wo
 Backend migrations live in `Backend/migrations/versions/` (Alembic via Flask-Migrate). Applied in production by Cloud Run Job `flask-backend-migrate`, wired into `cloudbuild.yaml` between image push and service deploy. A failure aborts the build; the old Flask revision keeps serving.
 
 Detect branched heads: `cd Backend && uv run flask db heads` (must be one line). Unify with:
+
 ```bash
 cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
 ```
