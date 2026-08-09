@@ -200,8 +200,6 @@ WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
 
 ---
 
----
-
 ## 4. Survivor rule — REVISED 2026-08-08 after seeing §3e
 
 The image-based rule was written before the data was read and does not work (§3a). Replaced:
