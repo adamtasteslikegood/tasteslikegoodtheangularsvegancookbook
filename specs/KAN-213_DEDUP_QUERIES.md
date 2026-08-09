@@ -3,8 +3,10 @@
 Working document for Sprint 6 / S1. Copy-paste into **Cloud SQL Studio**.
 Not synced to Confluence (same treatment as `specs/KAN-119_LOOP_PLAN.md`).
 
-> **Nothing here deletes anything until §5, and §5 runs inside a transaction that ends in
-> `ROLLBACK` until you deliberately change it.** Read a result before you act on it.
+> **Nothing here deletes anything until §5. Studio does not honour `BEGIN…ROLLBACK` blocks
+> reliably (§5 preamble), so §5 runs statements one at a time with a preview `SELECT`, an
+> `is_canonical = false` write guard, and a zero-row verify after each mutation.** Read every
+> result before running the next statement.
 
 ---
 
