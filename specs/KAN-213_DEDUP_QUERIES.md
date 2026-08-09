@@ -221,54 +221,114 @@ behaviour going forward is unchanged — a genuinely different recipe still gets
 
 ---
 
-## 5. The purge — transaction-wrapped, ends in ROLLBACK
+## 5. The purge — ONE STATEMENT AT A TIME, no transaction wrapper
 
-Two different actions for two different problems. **Do not conflate them.**
+> ### ⚠️ Cloud SQL Studio does not run `BEGIN…ROLLBACK` blocks reliably. Verified 2026-08-08.
+>
+> The first version of this section wrapped every purge in `BEGIN … ROLLBACK` and told you to
+> flip the last line to `COMMIT`. **That guard does not work in Studio**, and it contradicted
+> §0's own instruction to run statements one at a time.
+>
+> Proof: inside the §5b block, `SELECT … WHERE id IN ('e8f8cd84…','c491e407…')` returned **no
+> rows**, while the identical statement run standalone returned **both rows**. Same session, same
+> data, seconds apart. 5a happened to produce the right outcome — by luck, not by the rollback
+> it appeared to have.
+>
+> **A safety mechanism that silently does not work is worse than none**, because it buys
+> confidence it cannot honour. Same lesson as the retro automation that never fired and the
+> Alembic head-check that could not fail.
+>
+> **Run every statement below individually and read each result before the next.**
 
-### 5a. Public surface — UNPUBLISH, do not delete
+### 5a. Public surface — UNPUBLISH, do not delete — ✅ DONE 2026-08-08
 
 These rows have live `/r/<slug>` URLs. Deleting turns each into a hard 404 and some may be
 indexed; duplicate content is the SEO harm, and a surviving _private_ row causes none.
 Unpublishing drops them from `/browse` and the sitemap immediately and is reversible — the
-precedent KAN-157 set for exactly this situation.
-
-**Cornbread is deliberately excluded and handled separately in §5c** (Adam's call, 2026-08-08).
-It is the only group where the survivor is the _canonical copy_ rather than the original, and the
-only one carrying a dead-link decision. Five rows here, not six.
+precedent KAN-157 set. Cornbread deliberately excluded, see §5c.
 
 ```sql
-BEGIN;
-
--- preview exactly what changes (expect 5 rows, all is_canonical = false)
+-- 1. preview (expect 5 rows, all is_public = true, all is_canonical = false)
 SELECT id, name, slug, is_public, is_canonical FROM recipe WHERE id IN (
   '376378a8-626f-44c6-bc36-e827eab79047',   -- Flour Tortillas   — user 3's copy
   'd3b9dbeb-136a-409e-8865-371ba94ec71b',   -- Yuzu Matcha       — user 1's copy
   'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',   -- Banana Cookies    — user 1's own copy
   'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7',   -- English Breakfast — user 3's copy
   '6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63');  -- English Breakfast — user 1's copy
-
-UPDATE recipe SET is_public = false WHERE id IN (
-  '376378a8-626f-44c6-bc36-e827eab79047',
-  'd3b9dbeb-136a-409e-8865-371ba94ec71b',
-  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',
-  'a554e5d1-8f8b-407a-8b06-6b296c8bf0f7',
-  '6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63')
-  AND is_canonical = false;
-
--- expect EXACTLY ONE row: Vegan Cornbread, 2 — everything else cleared
-SELECT name, count(*) FROM recipe WHERE is_public = true
-GROUP BY name HAVING count(*) > 1;
-
-ROLLBACK;   -- → COMMIT when the preview shows 5 and the check shows only Cornbread
 ```
 
-**Read the verification carefully — it does not return zero here.** One row (`Vegan Cornbread | 2`)
-is success. Zero rows means something unintended was unpublished. More than one means an id did not
-take.
+```sql
+-- 2. apply
+UPDATE recipe SET is_public = false WHERE id IN (
+  '376378a8-626f-44c6-bc36-e827eab79047','d3b9dbeb-136a-409e-8865-371ba94ec71b',
+  'e8f8cd84-bc1e-42fa-a8d1-9918af1edea5','a554e5d1-8f8b-407a-8b06-6b296c8bf0f7',
+  '6c80e79e-d7fc-4eea-9b6d-ff24c15f7c63')
+  AND is_canonical = false;
+```
 
-`AND is_canonical = false` is a structural guard: even a mistyped id cannot reach a canonical row.
+```sql
+-- 3. verify — expect EXACTLY ONE row: Vegan Cornbread | 2. NOT zero.
+SELECT name, count(*) FROM recipe WHERE is_public = true
+GROUP BY name HAVING count(*) > 1;
+```
 
-### 5c. Cornbread — decide individually, after 5a
+One row is success; Cornbread is still duplicated on purpose. Zero would mean something
+unintended was unpublished. More than one means an id did not take.
+
+**Result 2026-08-08:** preview showed the 5, verify showed only Cornbread, committed. ✅
+
+### 5b. Constraint blockers — DELETE, and only these
+
+Unpublishing does **not** clear these: the index keys on `source_slug` regardless of
+`is_public`. Survivors are the older row in each pair; in the Fried Pizza Dough pair the age
+rule and the `is_public` tiebreak agree.
+
+| Group             | Keep                                         | Delete                       |
+| ----------------- | -------------------------------------------- | ---------------------------- |
+| Banana Cookies    | `bcf07835` — 07-31 06:31                     | **`e8f8cd84`** — 07-31 16:13 |
+| Fried Pizza Dough | `2ea758d4` — 07-30, also the only public one | **`c491e407`** — 08-02       |
+
+```sql
+-- 1. preview (expect 2 rows, both is_canonical = false)
+SELECT id, slug, source_slug, is_public, is_canonical, created_at FROM recipe
+WHERE id IN ('e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',
+             'c491e407-41b2-4b56-995e-8f15a1b1f0eb');
+```
+
+```sql
+-- 2. guard — must be 0
+SELECT count(*) AS canonical_in_list FROM recipe
+WHERE id IN ('e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',
+             'c491e407-41b2-4b56-995e-8f15a1b1f0eb') AND is_canonical = true;
+```
+
+```sql
+-- 3. IRREVERSIBLE — no rollback behind this. Expect 2 rows affected.
+DELETE FROM recipe
+WHERE id IN ('e8f8cd84-bc1e-42fa-a8d1-9918af1edea5',
+             'c491e407-41b2-4b56-995e-8f15a1b1f0eb') AND is_canonical = false;
+```
+
+```sql
+-- 4. THE GATE — must return 0 rows. Until it does, the unique index cannot be created.
+SELECT user_id, source_slug, count(*) AS dupes FROM recipe
+WHERE source_slug IS NOT NULL AND user_id IS NOT NULL
+GROUP BY user_id, source_slug HAVING count(*) > 1;
+```
+
+**These were not concurrent saves.** The pairs are **10 hours** and **3 days** apart — deliberate
+re-saves, not KAN-213's two-tab race. The constraint still catches them correctly (INV-1's "you
+already have this recipe" is exactly the right answer), but the duplicate population came from
+repeated saving rather than a race. That is a stronger argument for the constraint than the race
+was.
+
+**Left public on purpose: `2ea758d4`.** It is a saved copy serving
+`/r/vegan-fried-pizza-dough-with-powdered-sugar-2` while its original is private, so §3e never saw
+it — that name has only one public row and therefore no collision. It is not a visible duplicate;
+unpublishing would pull the recipe off the public site entirely. The `-2` in a live URL is
+cosmetically odd, not a defect.
+
+### 5c. Cornbread — decide individually, last
 
 The only group where the **canonical copy survives and the original is unpublished**:
 
@@ -278,43 +338,20 @@ The only group where the **canonical copy survives and the original is unpublish
 | copy, user 3     | `7e480d4b` | `vegan-cornbread` — clean                              | **keep, `is_canonical`** |
 
 ```sql
-BEGIN;
 UPDATE recipe SET is_public = false
 WHERE id = '2ae1c984-be3f-488f-9adb-5489c9fc8c28' AND is_canonical = false;
-
--- pending decision: prevents a dead "source" link on /r/vegan-cornbread (KAN-212 class),
--- since 7e480d4b.source_slug points at the slug just unpublished
--- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
-
-SELECT name, count(*) FROM recipe WHERE is_public = true
-GROUP BY name HAVING count(*) > 1;   -- now expect 0 rows
-ROLLBACK;
 ```
-
-### 5b. Constraint blockers — DELETE, and only these
-
-Unpublishing does **not** clear these: the index keys on `source_slug` regardless of `is_public`.
-Use the ids read from §2b, not from memory.
 
 ```sql
-BEGIN;
-
-SELECT id, name, slug, is_public, is_canonical, created_at
-FROM recipe WHERE id IN ('<id-1>', '<id-2>');
-
-SELECT count(*) AS canonical_in_list
-FROM recipe WHERE id IN ('<id-1>', '<id-2>') AND is_canonical = true;   -- must be 0
-
-DELETE FROM recipe WHERE id IN ('<id-1>', '<id-2>') AND is_canonical = false;
-
-SELECT user_id, source_slug, count(*) AS dupes FROM recipe
-WHERE source_slug IS NOT NULL AND user_id IS NOT NULL
-GROUP BY user_id, source_slug HAVING count(*) > 1;   -- must return 0 rows
-
-ROLLBACK;   -- → COMMIT only when every result above is right
+-- PENDING DECISION: prevents a dead "source" link on /r/vegan-cornbread (KAN-212 class),
+-- since 7e480d4b.source_slug points at the slug just unpublished.
+-- UPDATE recipe SET source_slug = NULL WHERE id = '7e480d4b-2a87-41e8-a9e0-f005eb19fa2d';
 ```
 
-Backups are on and deletion protection is enabled, but neither undoes a wrong `DELETE` cheaply.
+```sql
+SELECT name, count(*) FROM recipe WHERE is_public = true
+GROUP BY name HAVING count(*) > 1;   -- now expect 0 rows
+```
 
 ## 6. After the purge — the constraint (S1's actual deliverable)
 
