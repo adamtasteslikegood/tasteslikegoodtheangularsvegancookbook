@@ -3,8 +3,8 @@
 # check-submodule-sync.sh
 #
 # Guards against the "detached gitlink" failure mode: backend submodule's
-# main/dev diverge, or the parent repo's dev branch points at a submodule
-# SHA that isn't reachable from a clean line off submodule main.
+# main/dev diverge, or the parent repo's gitlink points at a submodule
+# SHA that isn't reachable from the PR's target branch.
 #
 # Two modes, chosen by $1:
 #
@@ -14,11 +14,11 @@
 #
 #   gitlink      Run INSIDE the parent repo (with submodule checked out).
 #                Fails if the parent's gitlink SHA for the submodule is not
-#                reachable from the submodule's dev branch tip.
+#                reachable from the given target branch (default: dev).
 #
 # Usage:
 #   ./check-submodule-sync.sh divergence
-#   ./check-submodule-sync.sh gitlink <submodule_path> [dev_branch] [main_branch]
+#   ./check-submodule-sync.sh gitlink <submodule_path> [target_branch]
 #
 # Exits non-zero + prints a reason on failure. Safe to wire directly into
 # a GH Action step.
@@ -63,9 +63,8 @@ case "$MODE" in
     ;;
 
   gitlink)
-    SUBMODULE_PATH="${2:?submodule path required, e.g. backend}"
-    DEV_BRANCH="${3:-$DEV_BRANCH_DEFAULT}"
-    MAIN_BRANCH="${4:-$MAIN_BRANCH_DEFAULT}"
+    SUBMODULE_PATH="${2:?submodule path required, e.g. Backend}"
+    TARGET_BRANCH="${3:-$DEV_BRANCH_DEFAULT}"
 
     [ -d "$SUBMODULE_PATH" ] || fail "submodule path '$SUBMODULE_PATH' not found"
 
@@ -73,32 +72,32 @@ case "$MODE" in
     [ -n "$GITLINK_SHA" ] || fail "could not resolve gitlink SHA for '$SUBMODULE_PATH'"
 
     pushd "$SUBMODULE_PATH" > /dev/null
-    git fetch origin "$DEV_BRANCH" "$MAIN_BRANCH" --quiet
-    DEV_TIP="$(git rev-parse "origin/$DEV_BRANCH")"
+    git fetch origin "$TARGET_BRANCH" --quiet
+    TARGET_TIP="$(git rev-parse "origin/$TARGET_BRANCH")"
 
     echo "parent gitlink -> $GITLINK_SHA"
-    echo "submodule $DEV_BRANCH tip -> $DEV_TIP"
+    echo "submodule $TARGET_BRANCH tip -> $TARGET_TIP"
 
-    if [ "$GITLINK_SHA" = "$DEV_TIP" ]; then
-      echo "ok: gitlink points exactly at submodule $DEV_BRANCH tip"
+    if [ "$GITLINK_SHA" = "$TARGET_TIP" ]; then
+      echo "ok: gitlink points exactly at submodule $TARGET_BRANCH tip"
       popd > /dev/null
       exit 0
     fi
 
     if git cat-file -e "$GITLINK_SHA^{commit}" 2>/dev/null \
-       && git merge-base --is-ancestor "$GITLINK_SHA" "$DEV_TIP"; then
-      echo "ok: gitlink SHA is an ancestor of submodule $DEV_BRANCH (stale but reachable, non-blocking)"
+       && git merge-base --is-ancestor "$GITLINK_SHA" "$TARGET_TIP"; then
+      echo "ok: gitlink SHA is an ancestor of submodule $TARGET_BRANCH (stale but reachable, non-blocking)"
       popd > /dev/null
       exit 0
     fi
 
     popd > /dev/null
-    fail "parent gitlink SHA ($GITLINK_SHA) for '$SUBMODULE_PATH' is not reachable from submodule $DEV_BRANCH tip ($DEV_TIP). The pointer is orphaned or points to a commit off a diverged branch. Re-run the sync step to select a valid commit and re-commit the gitlink."
+    fail "parent gitlink SHA ($GITLINK_SHA) for '$SUBMODULE_PATH' is not reachable from submodule $TARGET_BRANCH tip ($TARGET_TIP). The pointer is orphaned or points to a commit off a diverged branch. Re-run the sync step to select a valid commit and re-commit the gitlink."
     ;;
 
   *)
     echo "usage: $0 divergence [main_branch] [dev_branch]"
-    echo "       $0 gitlink <submodule_path> [dev_branch] [main_branch]"
+    echo "       $0 gitlink <submodule_path> [target_branch]"
     exit 2
     ;;
 esac
