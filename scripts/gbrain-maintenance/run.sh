@@ -38,21 +38,21 @@ SOURCES=$(gbrain sources list \
 
 if [ -z "$SOURCES" ]; then
   echo "[gbrain-maintenance] WARN: no sources found, running dream without --source"
-  gbrain dream || { echo "[gbrain-maintenance] WARN: dream (no source) failed"; FAILED=1; }
+  gbrain dream || { echo "[gbrain-maintenance] WARN: dream (no source) failed"; FAILED=$((FAILED + 1)); }
 else
   for src in $SOURCES; do
     echo "[gbrain-maintenance] dream --source ${src}"
-    gbrain dream --source "${src}" || { echo "[gbrain-maintenance] WARN: dream failed for ${src}"; FAILED=1; }
+    gbrain dream --source "${src}" || { echo "[gbrain-maintenance] WARN: dream failed for ${src}"; FAILED=$((FAILED + 1)); }
   done
 fi
 
 # Phase 2: Extract stale links
 echo "[gbrain-maintenance] extract --stale"
-gbrain extract --stale || { echo "[gbrain-maintenance] WARN: extract --stale failed"; FAILED=1; }
+gbrain extract --stale || { echo "[gbrain-maintenance] WARN: extract --stale failed"; FAILED=$((FAILED + 1)); }
 
 # Phase 3: Embed any stale chunks
 echo "[gbrain-maintenance] embed --stale"
-gbrain embed --stale || { echo "[gbrain-maintenance] WARN: embed --stale failed"; FAILED=1; }
+gbrain embed --stale || { echo "[gbrain-maintenance] WARN: embed --stale failed"; FAILED=$((FAILED + 1)); }
 
 # Phase 4: Doctor check (fast mode, best-effort — informational only)
 echo "[gbrain-maintenance] doctor --fast --json"
@@ -68,4 +68,4 @@ echo "[gbrain-maintenance] sources status"
 gbrain sources status || true
 
 echo "[gbrain-maintenance] $(date -u +%FT%TZ) done (score: ${SCORE}/100, failures: ${FAILED})"
-exit $FAILED
+exit "$FAILED"
