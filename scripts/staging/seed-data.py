@@ -19,7 +19,6 @@ Usage:
 """
 
 import argparse
-import json
 import os
 import sys
 import uuid
@@ -78,52 +77,60 @@ USERS = [
     },
 ]
 
+# Valid Recipe.status values (see Backend/blueprints/worker_api_bp.py):
+# 'ready' (resting/complete), 'generating', 'generating_image', 'processing',
+# 'error'. There is no 'complete' status.
 RECIPES = [
     # Published recipes (is_public=True)
     {
         "name": "Staging Vegan Pad Thai",
         "owner_idx": 0,
         "is_public": True,
-        "status": "complete",
+        "status": "ready",
     },
     {
         "name": "Staging Tofu Scramble",
         "owner_idx": 0,
         "is_public": True,
-        "status": "complete",
+        "status": "ready",
     },
     {
         "name": "Staging Mushroom Risotto",
         "owner_idx": 1,
         "is_public": True,
-        "status": "complete",
+        "status": "ready",
     },
     # Unpublished recipe (private to user)
     {
         "name": "Staging Secret Recipe",
         "owner_idx": 1,
         "is_public": False,
-        "status": "complete",
+        "status": "ready",
     },
-    # Saved copy (has source_slug pointing to a published recipe)
+    # Saved copy (has source_slug pointing to a published recipe). The slug
+    # column is globally unique, so saved copies cannot reuse the source slug —
+    # leave slug NULL and let source_slug carry the identity, matching how the
+    # app persists a save (Recipe._IDENTITY uses coalesce(source_slug, slug)).
     {
         "name": "Staging Vegan Pad Thai",
         "owner_idx": 1,
         "is_public": False,
-        "status": "complete",
+        "status": "ready",
         "source_slug": "staging-vegan-pad-thai",
+        "slug_override": None,
+        "origin": "saved",
     },
     # Orphaned guest recipe (no user_id, has guest_session_id)
     {
         "name": "Staging Guest Creation",
         "owner_idx": None,
         "is_public": False,
-        "status": "complete",
+        "status": "ready",
         "guest_session_id": "staging-guest-sess-001",
     },
     # Recipe stuck in generating state (edge case)
     {
-        "name": "Generating...",
+        "name": "Generating Placeholder",
         "owner_idx": 0,
         "is_public": False,
         "status": "generating",
@@ -192,19 +199,26 @@ def seed(dry_run=False):
                 created_recipe_ids.append(recipe_id)
                 continue
 
-            slug = data["slug"]
+            # slug_override lets a row (e.g. a saved copy) opt out of the
+            # slug-from-name default and store NULL, avoiding a collision with
+            # the source recipe's globally-unique slug.
+            slug = r["slug_override"] if "slug_override" in r else data["slug"]
             source_slug = r.get("source_slug")
             guest_session_id = r.get("guest_session_id")
 
+            # Recipe.data is a MutableDict(JSON) column — SQLAlchemy handles
+            # serialization. Pass the Python dict directly; json.dumps() here
+            # would double-encode (or fail MutableDict.coerce).
             recipe = Recipe(
                 id=recipe_id,
                 user_id=user_id,
                 name=r["name"],
-                data=json.dumps(data),
+                data=data,
                 slug=slug,
                 source_slug=source_slug,
                 status=r["status"],
                 is_public=r["is_public"],
+                origin=r.get("origin"),
                 guest_session_id=guest_session_id,
                 created_at=now - timedelta(days=len(RECIPES) - i),
                 updated_at=now - timedelta(days=len(RECIPES) - i),
@@ -226,11 +240,13 @@ def seed(dry_run=False):
                     for i, r in enumerate(RECIPES)
                     if r["owner_idx"] == 0 and r["status"] == "complete"
                 ]
+                # Cookbook.recipe_ids is a JSON column — pass the Python list
+                # directly. json.dumps() here would double-encode.
                 cookbook = Cookbook(
                     id=str(uuid.uuid4()),
                     user_id=created_users[0].id,
                     name="My Staging Cookbook",
-                    recipe_ids=json.dumps(public_ids),
+                    recipe_ids=public_ids,
                 )
                 db.session.add(cookbook)
                 print(f"  Created cookbook: 'My Staging Cookbook' ({len(public_ids)} recipes)")
