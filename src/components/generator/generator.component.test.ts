@@ -137,7 +137,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
   });
 
-  it('prompts before first publish of a sourceSlug copy and aborts on "no"', async () => {
+  // RCP-74: saved copies cannot be published. The guard fires before the
+  // confirm dialog, toasting the reason and returning early.
+  it('blocks publishing a saved copy with a toast and no confirm (RCP-74)', async () => {
     const confirmMock = vi.fn().mockReturnValue(false);
     vi.stubGlobal('confirm', confirmMock);
     const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
@@ -147,8 +149,10 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       sourceSlug: 'vegan-cornbread',
     } as never);
 
-    expect(confirmMock).toHaveBeenCalledOnce();
-    expect(confirmMock.mock.calls[0][0]).toContain('/r/vegan-cornbread');
+    expect(confirmMock).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/saved copies can't be published/i)
+    );
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
   });
 

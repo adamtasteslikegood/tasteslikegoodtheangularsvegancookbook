@@ -235,6 +235,16 @@ export abstract class RecipeViewBase {
       return;
     }
 
+    // RCP-74: saved copies cannot be published — the source page owns
+    // publication. The template disables the toggle, this backstops it.
+    // The server returns 403 if this somehow reaches it.
+    if (nextState && publishToggleKind(recipe) === 'source') {
+      this.toastService.show(
+        "Saved copies can't be published. The original recipe owns the public page."
+      );
+      return;
+    }
+
     // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
     // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
     // with 400. Same derivation as the server (parity is spec-pinned), so

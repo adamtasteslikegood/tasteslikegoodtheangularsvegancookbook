@@ -214,7 +214,9 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
         sourceSlug: 'vegan-cornbread',
       }) as never;
 
-    it('prompts before first publish of a sourceSlug copy and aborts on "no"', async () => {
+    // RCP-74: saved copies cannot be published. The toggle is disabled and
+    // togglePublic() returns early with a toast, before the confirm dialog.
+    it('blocks publishing a saved copy with a toast and no confirm (RCP-74)', async () => {
       const confirmMock = vi.fn().mockReturnValue(false);
       vi.stubGlobal('confirm', confirmMock);
       const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
@@ -222,26 +224,12 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       const recipe = savedCopy() as { is_public?: boolean; sourceSlug: string };
       await component.togglePublic(recipe as never);
 
-      expect(confirmMock).toHaveBeenCalledOnce();
-      expect(confirmMock.mock.calls[0][0]).toContain('/r/vegan-cornbread');
+      expect(confirmMock).not.toHaveBeenCalled();
+      expect(toastShow).toHaveBeenCalledWith(
+        expect.stringMatching(/saved copies can't be published/i)
+      );
       expect(recipe.is_public).toBeFalsy();
       expect(persistenceSaveRecipe).not.toHaveBeenCalled();
-    });
-
-    it('publishes the copy when confirmed', async () => {
-      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
-      const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
-
-      const recipe = savedCopy() as { is_public?: boolean };
-      await component.togglePublic(recipe as never);
-
-      // KAN-149 (#3262): the flip is immutable — the passed object stays
-      // untouched; the flipped copy is what goes to the server.
-      expect(recipe.is_public).toBeFalsy();
-      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
-      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'copy-1', is_public: true })
-      );
     });
 
     it('does not prompt when publishing an own recipe (no sourceSlug)', async () => {
@@ -309,12 +297,16 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
     });
 
     it('reverts and surfaces a toast when the publish fails to sync', async () => {
-      vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
       const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
       persistenceSaveRecipe.mockResolvedValue(false);
       const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const recipe = savedCopy() as { is_public?: boolean };
+      // Use a non-saved recipe (no sourceSlug) to test the sync failure path.
+      // RCP-74 blocks saved copies before reaching sync.
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+      } as { is_public?: boolean };
       component.recipe.set(recipe as never);
       await component.togglePublic(recipe as never);
 
