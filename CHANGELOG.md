@@ -6,6 +6,53 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.10] - 2026-08-10
+
+Backend submodule pointer: `f1219e8` → **`a94fac2`** — Backend `main`'s own tip, the
+merge commit of
+[#275](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/275).
+
+**Sprint 6 close-out.** The headline is a data-correctness fix: duplicate recipe
+saves are now refused by the database itself, not just by a client-side check that
+a user could route around.
+
+### Fixed
+
+- **Duplicate recipe saves are refused at the database layer** — a partial unique
+  index on `(owner, COALESCE(source_slug, slug))` rejects a second save of the same
+  source recipe instead of relying solely on the SPA's client-side check — KAN-213,
+  Backend [#273](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/273),
+  [#276](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/276)
+- **Migration dedup now runs to a fixed point, and the guest-merge collision it
+  could hit is bound** — a single dedup pass could leave a fresh collision behind
+  it; the migration now re-passes until none remain — KAN-223, Backend
+  [#277](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/277)
+- **gbrain maintenance cron no longer reports healthy runs that silently failed** —
+  `run.sh` swallowed dream/extract/embed exit codes; failures in any core phase now
+  propagate to the script's own exit code — KAN-97,
+  [#3384](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3384)
+
+### Added
+
+- **Jira issues auto-transition to Done when their PR merges** — extracts KAN-###
+  keys from the PR title and transitions To Do / In Progress / In Review issues;
+  RCP epic keys are deliberately never auto-closed by a single contributing PR —
+  KAN-97,
+  [#3380](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3380)
+- **Known search-engine and social-media crawlers are exempt from the page rate
+  limiter** (Googlebot, Bingbot, Applebot, DuckDuckBot, YandexBot, Slurp,
+  facebookexternalhit, Twitterbot, LinkedInBot, Pinterestbot, AdsBot-Google) — the
+  AI endpoints keep their own limiter on `/api`; metering crawlers on the public
+  SSR/HTML surface costs SEO while protecting nothing — KAN-218,
+  [#3380](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3380)
+
+### Changed
+
+- gbrain maintenance cron upgraded v0.42.56.0 → v0.43.0.0: dreams all active
+  federated sources instead of one hardcoded source, adds `embed --stale` and
+  `doctor --fast` phases with health-score logging —
+  [#3380](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3380)
+
 ## [0.4.9] - 2026-08-07
 
 Backend submodule pointer: `7b6347e` → **`f1219e8`** — Backend `main`'s own tip, the
