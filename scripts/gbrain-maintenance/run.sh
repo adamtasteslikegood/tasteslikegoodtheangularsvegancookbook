@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
 # Entry point for the gbrain maintenance cron service.
-# Writes gbrain config from env vars, runs dream + extract --stale, exits.
+# Writes gbrain config from env vars, runs dream on all active sources,
+# extracts stale links, embeds stale chunks, runs doctor, exits.
 set -euo pipefail
 
 : "${GBRAIN_DATABASE_URL:?GBRAIN_DATABASE_URL is required (Railway service variable)}"
 : "${OPENAI_API_KEY:?OPENAI_API_KEY is required (Railway service variable)}"
-
-# The code source to run the dream cycle against. Matches the owner's
-# worktree-scoped source pin (.gbrain-source on the dev machine).
-GBRAIN_DREAM_SOURCE="${GBRAIN_DREAM_SOURCE:-gstack-code-575c47df-9dc431}"
 
 umask 077
 mkdir -p ~/.gbrain
@@ -30,13 +27,42 @@ gbrain() { (cd /opt/gbrain && bun src/cli.ts "$@"); }
 
 echo "[gbrain-maintenance] $(date -u +%FT%TZ) version: $(gbrain --version)"
 
-echo "[gbrain-maintenance] dream --source ${GBRAIN_DREAM_SOURCE}"
-gbrain dream --source "${GBRAIN_DREAM_SOURCE}"
+# Phase 1: Dream cycle on all active federated sources
+echo "[gbrain-maintenance] discovering active sources..."
+SOURCES=$(gbrain sources list 2>&1 \
+  | grep -E '^\s+(gstack-|default)' \
+  | awk '{print $1}' \
+  | grep -v '^$' || true)
 
+if [ -z "$SOURCES" ]; then
+  echo "[gbrain-maintenance] WARN: no sources found, running dream without --source"
+  gbrain dream || true
+else
+  for src in $SOURCES; do
+    echo "[gbrain-maintenance] dream --source ${src}"
+    gbrain dream --source "${src}" || echo "[gbrain-maintenance] WARN: dream failed for ${src}"
+  done
+fi
+
+# Phase 2: Extract stale links
 echo "[gbrain-maintenance] extract --stale"
-gbrain extract --stale
+gbrain extract --stale || echo "[gbrain-maintenance] WARN: extract --stale failed"
 
-echo "[gbrain-maintenance] status snapshot"
-gbrain status || true
+# Phase 3: Embed any stale chunks
+echo "[gbrain-maintenance] embed --stale"
+gbrain embed --stale || echo "[gbrain-maintenance] WARN: embed --stale failed"
 
-echo "[gbrain-maintenance] $(date -u +%FT%TZ) done"
+# Phase 4: Doctor check (fast mode, non-blocking)
+echo "[gbrain-maintenance] doctor --fast --json"
+DOCTOR_OUTPUT=$(gbrain doctor --fast --json 2>&1) || true
+SCORE=$(echo "$DOCTOR_OUTPUT" | grep -oP '"overall_score":\s*\K[0-9]+' 2>/dev/null || echo "?")
+echo "[gbrain-maintenance] health score: ${SCORE}/100"
+
+# Log failed checks for visibility
+echo "$DOCTOR_OUTPUT" | grep -i '"status":"fail"' 2>/dev/null || echo "[gbrain-maintenance] no FAILs"
+
+# Phase 5: Sources status snapshot
+echo "[gbrain-maintenance] sources status"
+gbrain sources status || true
+
+echo "[gbrain-maintenance] $(date -u +%FT%TZ) done (score: ${SCORE}/100)"
