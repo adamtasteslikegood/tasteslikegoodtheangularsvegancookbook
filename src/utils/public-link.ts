@@ -14,16 +14,24 @@
  * The own published slug wins when both exist. A sourceSlug target can have
  * been unpublished since saving; worst case is a 404 on a public route, not
  * a leak.
+ *
+ * Derives from publicLinkKind rather than repeating its branches: the two must
+ * never disagree (a spec case asserts it), and KAN-212 was a guard that would
+ * otherwise have had to be written twice.
  */
 export function publicSlugOf(recipe: {
   is_public?: boolean;
   slug?: string;
   sourceSlug?: string;
 }): string | null {
-  if (recipe.is_public === true && recipe.slug) {
-    return recipe.slug;
+  switch (publicLinkKind(recipe)) {
+    case 'own':
+      return recipe.slug ?? null;
+    case 'source':
+      return recipe.sourceSlug ?? null;
+    default:
+      return null;
   }
-  return recipe.sourceSlug || null;
 }
 
 export function isPublicViewable(recipe: {
@@ -45,6 +53,14 @@ export function isPublicViewable(recipe: {
  *            otherwise a publish-capable user sees "toggle off + View
  *            present" and reads it as an inconsistency.
  * null     — no public page; no link.
+ *
+ * KAN-212 — the 'source' fallback assumes the source is some OTHER recipe that
+ * is still public. When sourceSlug equals this recipe's own slug, "the source"
+ * and "this recipe" are the same page, so unpublishing left the link pointing
+ * at the page just taken down: a guaranteed 404, found on live v0.4.9. There is
+ * no other recipe to degrade to, so the honest answer is no link at all. The
+ * guard is deliberately narrow — an unpublished copy of a DIFFERENT recipe
+ * still keeps its link, which is the entire point of the fallback.
  */
 export function publicLinkKind(recipe: {
   is_public?: boolean;
@@ -54,7 +70,10 @@ export function publicLinkKind(recipe: {
   if (recipe.is_public === true && recipe.slug) {
     return 'own';
   }
-  return recipe.sourceSlug ? 'source' : null;
+  if (!recipe.sourceSlug || recipe.sourceSlug === recipe.slug) {
+    return null;
+  }
+  return 'source';
 }
 
 /**

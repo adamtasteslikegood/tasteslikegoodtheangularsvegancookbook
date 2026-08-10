@@ -109,7 +109,7 @@ export async function createValkeyClient(): Promise<Redis | null> {
       host,
       port,
       // ioredis 6 defaults to RESP3. Reply shapes are NOT the concern — its
-      // `replyMode: "legacy"` default keeps those identical to RESP2, and the
+      // `replyMapping: "legacy"` default keeps those identical to RESP2, and the
       // only replies we consume are rate-limit-redis' EVAL array and AUTH's
       // simple string.
       //

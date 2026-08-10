@@ -12,8 +12,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# 646179047a8e4ad9c462d83ce9a67a50ba076de8 = v0.42.56.0
-ARG GBRAIN_COMMIT=646179047a8e4ad9c462d83ce9a67a50ba076de8
+# c5952b8714325eebb5842c93b5b58aeebab737d9 = v0.43.0.0
+ARG GBRAIN_COMMIT=c5952b8714325eebb5842c93b5b58aeebab737d9
 RUN git clone https://github.com/garrytan/gbrain.git /opt/gbrain \
     && git -C /opt/gbrain checkout "$GBRAIN_COMMIT" \
     && cd /opt/gbrain \

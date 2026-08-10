@@ -77,6 +77,22 @@ export function isPageSubresource(req: Request): boolean {
   return SUBRESOURCE_PREFIX_RE.test(req.path) || HASHED_BUNDLE_RE.test(req.path);
 }
 
+// KAN-218: known search-engine and social-media crawlers. User-agent detection
+// is sufficient here — this exempts rate limiting, not authentication. Crawlers
+// self-throttle via robots.txt; rate-limiting them costs SEO while protecting
+// nothing (the AI endpoints have their own limiter on /api).
+const CRAWLER_UA_RE =
+  /\b(Googlebot|Bingbot|Applebot|DuckDuckBot|YandexBot|Slurp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterestbot|AdsBot-Google)\b/i;
+
+/**
+ * Returns true for requests from known crawlers that should be exempt from the
+ * page rate limiter. Exported for unit testing.
+ */
+export function isKnownCrawler(req: Request): boolean {
+  const ua = req.headers['user-agent'];
+  return typeof ua === 'string' && CRAWLER_UA_RE.test(ua);
+}
+
 // Rate limiter for general API requests
 export const createApiLimiter = (
   valkeyClient: Redis | null = null,
@@ -117,7 +133,7 @@ export const createPageLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
-    skip: isPageSubresource,
+    skip: (req) => isPageSubresource(req) || isKnownCrawler(req),
     keyGenerator: (req) => getClientIp(req),
     store: buildRedisStore(valkeyClient, 'rl:page:'),
   });
