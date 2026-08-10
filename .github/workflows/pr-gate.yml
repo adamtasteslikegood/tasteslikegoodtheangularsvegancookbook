@@ -123,6 +123,37 @@ jobs:
       - name: Verify exactly one Alembic head
         run: ./scripts/release/alembic-heads.sh --check
 
+  # ── Submodule sync ────────────────────────────────────────────────────────
+  # Guards against the two ways the Backend submodule pointer goes wrong:
+  #   1. Backend main/dev diverge (back-sync owed) — "divergence" mode
+  #   2. Parent gitlink points at a SHA unreachable from Backend dev — "gitlink" mode
+  #
+  # The gitlink check catches the "staged submodule re-pin survives git switch"
+  # trap that has silently shipped wrong code (memory: v0.4.8, KAN-191). Unlike
+  # release-train (main-targeting only), this runs on ALL PRs because a
+  # dev-targeting PR with an orphaned pointer is equally dangerous — it just
+  # detonates later.
+
+  submodule-sync:
+    name: Backend — submodule sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+          fetch-depth: 0
+      - name: Fetch full refs for both repos
+        run: |
+          git config --unset-all remote.origin.fetch || true
+          git config --add remote.origin.fetch '+refs/heads/*:refs/remotes/origin/*'
+          git fetch origin --prune
+          git -C Backend fetch origin --prune
+      - name: Check Backend main/dev divergence
+        working-directory: Backend
+        run: bash ../scripts/git/check-submodule-sync.sh divergence
+      - name: Check gitlink reachability
+        run: bash scripts/git/check-submodule-sync.sh gitlink Backend
+
   # ── Docker ────────────────────────────────────────────────────────────────
   # Builds the production Express image (no push, no credentials). Catches
   # Dockerfile/lockfile breakage before a release tag hands it to Cloud Build
@@ -283,6 +314,7 @@ jobs:
       - frontend-test
       - backend-test
       - alembic-heads
+      - submodule-sync
       - docker-build
       - changelog-check
       - canonical-recipes
