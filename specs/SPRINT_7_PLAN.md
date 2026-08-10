@@ -1,10 +1,10 @@
 # Sprint 7 Plan — the publish guard and the contracts that were never written
 
 _Chartered:_ 2026-08-10 · _Owner:_ Adam Schoen
-_Jira epic:_ **TBD** (delivery/acceptance)
-_Acceptance rows:_ **TBD** · _Execution tickets:_ **RCP-74 · KAN-221 · KAN-160 · KAN-182**
+_Jira epic:_ **RCP-75** (delivery/acceptance)
+_Acceptance rows:_ **RCP-76** (S1) · **RCP-77** (S2) · **RCP-78** (S3) · _Execution tickets:_ **RCP-74 · KAN-221 · KAN-160 · KAN-182**
 (KAN = execution, RCP = scope/acceptance)
-_Jira sprint:_ **TBD** — to be created and activated when charter PR merges.
+_Jira sprint:_ **Sprint 7** (ID 49) — activated 2026-08-10.
 _Timebox:_ **6 days from activation** (no single-point date — see D3).
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-10.** All six branches locked; scope confirmed by Adam.
 
