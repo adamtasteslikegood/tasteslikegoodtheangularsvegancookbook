@@ -455,14 +455,14 @@ cookbook pointer bump, production migration, production verification.
 | Items/day                 | 0.67     | 0.50     | **1.00**     |
 | Rolled to next            | 2        | 4        | **0**        |
 
-**Items/day doubled.** The driver was not speed — it was scope discipline. D2's
+**Items/day doubled (vs Sprint 5: 0.50 → 1.00).** The driver was not speed — it was scope discipline. D2's
 "no forecast" held, and the three-item commitment matched the board's measured rate
 for the first time: 3 items in 3 days = 1.0/day at the same commit-to-deliver
 conversion the previous sprints failed at.
 
 ### Cycle times (charter → merged)
 
-| Item | Filed      | PR merged  | Days |
+| Item | Charter filed      | PR merged  | Days |
 | ---- | ---------- | ---------- | ---- |
 | S1   | 2026-08-08 | 2026-08-09 | 1    |
 | S2   | 2026-07-13 | 2026-08-10 | 28   |
