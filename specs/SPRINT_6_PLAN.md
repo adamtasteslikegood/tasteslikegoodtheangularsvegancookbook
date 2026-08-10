@@ -433,3 +433,74 @@ corner. KAN-221 "supersedes the shape rather than contradicting it."
 
 **Remaining S1 work is release-train, not acceptance:** Backend dev→main promotion,
 cookbook pointer bump, production migration, production verification.
+
+## Close-out — 2026-08-10
+
+**3 of 3 delivered. Nothing rolled. First 100% sprint.**
+
+| #      | Item                                                      | KAN        | RCP    | Evidence                                                                                                                                         |
+| ------ | --------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **S1** | DB-level duplicate refusal (`source_slug` unique indexes) | KAN-213 ✅ | RCP-72 | Backend #273 merged 2026-08-09 · promotion #275 · pointer #3382 · migration ran in v0.4.10 Cloud Build · both purge gates zero rows (2026-08-09) |
+| **S2** | Jira auto-transition on PR merge                          | KAN-97 ✅  | RCP-39 | #3380 merged 2026-08-10 · `jira-auto-transition.yml` active on `dev` and `main`                                                                 |
+| **S3** | Crawler rate-limit exemption on public surface            | KAN-218 ✅ | RCP-73 | #3380 merged 2026-08-10 · `isKnownCrawler()` in `server/security.ts` · deployed in v0.4.10                                                      |
+
+### Metrics
+
+| Metric                    | Sprint 4 | Sprint 5 | **Sprint 6** |
+| ------------------------- | -------- | -------- | ------------ |
+| Committed                 | 4        | 8        | **3**        |
+| Delivered                 | 2        | 4        | **3**        |
+| Delivery rate             | 50%      | 50%      | **100%**     |
+| Box (days)                | 3        | 8        | **3** of 6   |
+| Items/day                 | 0.67     | 0.50     | **1.00**     |
+| Rolled to next            | 2        | 4        | **0**        |
+
+**Items/day doubled (vs Sprint 5: 0.50 → 1.00).** The driver was not speed — it was scope discipline. D2's
+"no forecast" held, and the three-item commitment matched the board's measured rate
+for the first time: 3 items in 3 days = 1.0/day at the same commit-to-deliver
+conversion the previous sprints failed at.
+
+### Cycle times (charter → merged)
+
+| Item | Charter filed      | PR merged  | Days |
+| ---- | ---------- | ---------- | ---- |
+| S1   | 2026-08-08 | 2026-08-09 | 1    |
+| S2   | 2026-07-13 | 2026-08-10 | 28   |
+| S3   | 2026-08-08 | 2026-08-10 | 2    |
+
+S2's 28-day age is the item age (filed Sprint 3, rolled through 4 and 5, finally
+pulled in 6). Active work was ~1 day once committed.
+
+### Release
+
+**v0.4.10**, tagged 2026-08-10. CHANGELOG names all three items plus the gbrain
+cron exit-code fix (PR #3384, not sprint scope). Production serves 200 at
+`https://www.tasteslikegood.org/`. Back-sync complete: both cookbook and Backend
+`dev` carry one merge-commit ahead of `main` (the back-sync itself).
+
+### Sprint state
+
+- Jira sprint 47: **closed** `2026-08-10T12:00:53Z` (3 days of 6-day box)
+- KAN-213, KAN-97, KAN-218: **Done**
+- RCP-72, RCP-39, RCP-73: **Done**
+- RCP-71 (epic): **Done**
+
+### What this sprint proved
+
+The duplicate-recipe cluster — six tickets since 2026-07-18 — is closed by moving
+the invariant into the database. The constraint keys on `source_slug` (not title),
+so legitimate same-name recipes are unaffected. The coverage limit (only `saved`
+copies are constrained, ~3% of the table) is accepted: 100% of confirmed duplicates
+were in that corner.
+
+### Carried forward to Sprint 7
+
+- **RCP-74** — saved-recipe publish guard (the toggle should be disabled, not
+  clickable). Three-layer fix scoped: SPA template + `togglePublic()` + Backend
+  `_gate_is_public()`. Filed 2026-08-10 from Adam's repro.
+- **KAN-221** — split `user_id` into `user_id_author` / `user_id_saved_to`. Schema
+  migration, not blocked by RCP-74.
+- **KAN-215** — imageless published copy (blocked by publish guard).
+- **KAN-160** — recurring-defect board meeting (HELD since Sprint 4).
+- **KAN-161** — IPv6 rate-limit bypass (LATENT, no AAAA record).
+- **KAN-182** — no dev/staging environment.
