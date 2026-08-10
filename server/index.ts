@@ -64,11 +64,27 @@ export const ready = (async () => {
     next();
   });
 
+  // ── Staging: non-indexable (KAN-182) ──────────────────────────────
+  // When NODE_ENV=staging, tell crawlers not to index any page and serve
+  // a deny-all robots.txt. X-Robots-Tag covers every response (HTML, SSR
+  // proxied pages, API JSON) without needing to rewrite HTML bodies.
+  const isStaging = process.env.NODE_ENV === 'staging';
+  if (isStaging) {
+    app.get('/robots.txt', (_req, res) => {
+      res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+    });
+    app.use((_req, res, next) => {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      next();
+    });
+  }
+
   // Health check (local to Express — handled before the proxy)
   app.get('/api/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
       timestamp: new Date().toISOString(),
+      environment: isStaging ? 'staging' : process.env.NODE_ENV || 'development',
       rateLimitStore: valkeyClient ? 'valkey' : 'memory',
     });
   });
