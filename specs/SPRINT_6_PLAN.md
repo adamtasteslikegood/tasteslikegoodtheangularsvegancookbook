@@ -400,14 +400,14 @@ Recorded for visibility, **explicitly not counted** as sprint scope:
 
 ## Gates
 
-| Gate                 | Command                                          | State                                                                           |
-| -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
-| Sprint 5 close       | Jira sprint 46 `state=closed`                    | ✅ closed 2026-08-09T01:10:41Z                                                  |
-| Sprint 6 lane        | `bash scripts/pm/check_sprint_lane.sh sprint-6`  | ✅ exit 0 — 1 open KAN row, 0 orphans                                           |
-| Sprint 6 planning    | This file + RCP-71 epic + RCP-72 acceptance row  | ✅                                                                               |
-| S1 delivery          | Concurrent-POST test **confirmed failing first** | ✅ Backend #273 merged to `dev` 2026-08-09 — all 13 CI checks pass              |
-| Duplicate count (R2) | read-only query against prod                     | ✅ RESOLVED 2026-08-08 — 4 rows, 2 deleted, both purge gates return zero rows   |
-| S1 acceptance (D1)   | RCP-72 three DONE conditions                     | ✅ **MET 2026-08-09** — see assessment below                                    |
+| Gate                 | Command                                          | State                                                                         |
+| -------------------- | ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Sprint 5 close       | Jira sprint 46 `state=closed`                    | ✅ closed 2026-08-09T01:10:41Z                                                |
+| Sprint 6 lane        | `bash scripts/pm/check_sprint_lane.sh sprint-6`  | ✅ exit 0 — 1 open KAN row, 0 orphans                                         |
+| Sprint 6 planning    | This file + RCP-71 epic + RCP-72 acceptance row  | ✅                                                                            |
+| S1 delivery          | Concurrent-POST test **confirmed failing first** | ✅ Backend #273 merged to `dev` 2026-08-09 — all 13 CI checks pass            |
+| Duplicate count (R2) | read-only query against prod                     | ✅ RESOLVED 2026-08-08 — 4 rows, 2 deleted, both purge gates return zero rows |
+| S1 acceptance (D1)   | RCP-72 three DONE conditions                     | ✅ **MET 2026-08-09** — see assessment below                                  |
 
 **Note the lane gate passes _vacuously_ over an empty set** and only checks the newest `sprint-N`
 label — its own header says so. It detects lane drift, not a missing sprint.
