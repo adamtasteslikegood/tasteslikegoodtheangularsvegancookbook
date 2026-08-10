@@ -440,7 +440,7 @@ cookbook pointer bump, production migration, production verification.
 
 | #      | Item                                                      | KAN        | RCP    | Evidence                                                                                                                                         |
 | ------ | --------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **S1** | DB-level duplicate refusal (`source_slug` unique indexes) | KAN-213 ✅ | RCP-72 | Backend #273 merged 2026-08-09 · promotion #275 · pointer #3382 · migration ran in v0.4.10 Cloud Build · both purge gates zero rows (2026-08-09) |
+| **S1** | DB-level duplicate refusal (`source_slug` unique indexes) | KAN-213 ✅ | RCP-72 | Backend #273 merged 2026-08-09 · Backend promotion #275 · cookbook pointer #3382 · migration ran in v0.4.10 Cloud Build · both purge gates zero rows (2026-08-09) |
 | **S2** | Jira auto-transition on PR merge                          | KAN-97 ✅  | RCP-39 | #3380 merged 2026-08-10 · `jira-auto-transition.yml` active on `dev` and `main`                                                                 |
 | **S3** | Crawler rate-limit exemption on public surface            | KAN-218 ✅ | RCP-73 | #3380 merged 2026-08-10 · `isKnownCrawler()` in `server/security.ts` · deployed in v0.4.10                                                      |
 
