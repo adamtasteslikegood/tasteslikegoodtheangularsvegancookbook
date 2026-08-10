@@ -400,13 +400,36 @@ Recorded for visibility, **explicitly not counted** as sprint scope:
 
 ## Gates
 
-| Gate                 | Command                                          | State at charter                      |
-| -------------------- | ------------------------------------------------ | ------------------------------------- |
-| Sprint 5 close       | Jira sprint 46 `state=closed`                    | ✅ closed 2026-08-09T01:10:41Z        |
-| Sprint 6 lane        | `bash scripts/pm/check_sprint_lane.sh sprint-6`  | ✅ exit 0 — 1 open KAN row, 0 orphans |
-| Sprint 6 planning    | This file + RCP-71 epic + RCP-72 acceptance row  | ✅                                    |
-| S1 delivery          | Concurrent-POST test **confirmed failing first** | ⬜ not yet written                    |
-| Duplicate count (R2) | read-only query against prod                     | ⬜ **blocked — private-IP Cloud SQL** |
+| Gate                 | Command                                          | State                                                                           |
+| -------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Sprint 5 close       | Jira sprint 46 `state=closed`                    | ✅ closed 2026-08-09T01:10:41Z                                                  |
+| Sprint 6 lane        | `bash scripts/pm/check_sprint_lane.sh sprint-6`  | ✅ exit 0 — 1 open KAN row, 0 orphans                                           |
+| Sprint 6 planning    | This file + RCP-71 epic + RCP-72 acceptance row  | ✅                                                                               |
+| S1 delivery          | Concurrent-POST test **confirmed failing first** | ✅ Backend #273 merged to `dev` 2026-08-09 — all 13 CI checks pass              |
+| Duplicate count (R2) | read-only query against prod                     | ✅ RESOLVED 2026-08-08 — 4 rows, 2 deleted, both purge gates return zero rows   |
+| S1 acceptance (D1)   | RCP-72 three DONE conditions                     | ✅ **MET 2026-08-09** — see assessment below                                    |
 
 **Note the lane gate passes _vacuously_ over an empty set** and only checks the newest `sprint-N`
 label — its own header says so. It detects lane drift, not a missing sprint.
+
+## S1 acceptance assessment — 2026-08-09
+
+**Decision: S1 code meets RCP-72 acceptance criteria. Confirmed by Adam.**
+
+Backend PR #273 (`feat/kan-213-source-slug-unique-index`), merged to Backend `dev`
+2026-08-09T20:35:27Z (`61a8a42`). RCP-72's three DONE conditions:
+
+1. **Migration adds both partial unique indexes** — ✅ `c8f3b71d20a4`. Stronger than
+   charter spec: uses `COALESCE(source_slug, slug)` after Codex review caught a hole in
+   source_slug-only (an owner re-saving their own published recipe).
+2. **Concurrent-POST test → one row + 409, confirmed failing first** — ✅
+   `test_source_slug_unique.py:148`, structurally red-green by construction.
+3. **Gate — all checks passed** — ✅ All 13 Backend CI checks pass.
+
+**KAN-221 (split user_id into author/saved-to) → Sprint 7.** D6 scope guard, ticket's own
+description, and the charter all agree. The limitation it addresses is documented ("Known
+coverage limit" above) and accepted: 100% of confirmed duplicates were in the constrained
+corner. KAN-221 "supersedes the shape rather than contradicting it."
+
+**Remaining S1 work is release-train, not acceptance:** Backend dev→main promotion,
+cookbook pointer bump, production migration, production verification.
