@@ -159,6 +159,49 @@ describe('isPageSubresource', () => {
   });
 });
 
+// KAN-218: known crawlers are exempt from the page rate limiter so they can
+// index the public surface without hitting 429. The AI endpoints (/api) have
+// their own limiter; metering crawlers on the HTML surface costs SEO.
+describe('isKnownCrawler', () => {
+  const crawlers = [
+    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+    'Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15 (Applebot/0.1)',
+    'DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)',
+    'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
+    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatype.html)',
+    'Twitterbot/1.0',
+    'LinkedInBot/1.0',
+    'Mozilla/5.0 (compatible; AdsBot-Google; +http://www.google.com/adsbot.html)',
+    'Pinterestbot/1.0',
+  ];
+
+  for (const ua of crawlers) {
+    it(`exempts ${ua.split('/')[0].split('(')[0].trim() || ua.slice(0, 30)}`, async () => {
+      const { isKnownCrawler } = await import('./security.js');
+      expect(isKnownCrawler({ headers: { 'user-agent': ua } } as Request)).toBe(true);
+    });
+  }
+
+  const browsers = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'curl/8.5.0',
+  ];
+
+  for (const ua of browsers) {
+    it(`does not exempt ${ua.slice(0, 40)}`, async () => {
+      const { isKnownCrawler } = await import('./security.js');
+      expect(isKnownCrawler({ headers: { 'user-agent': ua } } as Request)).toBe(false);
+    });
+  }
+
+  it('returns false when no user-agent header', async () => {
+    const { isKnownCrawler } = await import('./security.js');
+    expect(isKnownCrawler({ headers: {} } as Request)).toBe(false);
+  });
+});
+
 describe('createPageLimiter', () => {
   it('uses a Valkey keyspace separate from the API limiter', async () => {
     const { createPageLimiter, createApiLimiter } = await import('./security.js');
