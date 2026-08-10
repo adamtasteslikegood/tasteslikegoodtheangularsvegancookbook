@@ -43,7 +43,7 @@ a user could route around.
   limiter** (Googlebot, Bingbot, Applebot, DuckDuckBot, YandexBot, Slurp,
   facebookexternalhit, Twitterbot, LinkedInBot, Pinterestbot, AdsBot-Google) — the
   AI endpoints keep their own limiter on `/api`; metering crawlers on the public
-  SSR/HTML surface cost SEO while protecting nothing — KAN-218,
+  SSR/HTML surface costs SEO while protecting nothing — KAN-218,
   [#3380](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3380)
 
 ### Changed
