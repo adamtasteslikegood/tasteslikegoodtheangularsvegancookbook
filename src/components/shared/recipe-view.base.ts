@@ -332,7 +332,7 @@ export abstract class RecipeViewBase {
     if (kind === 'locked') return 'Canonical recipe — publish state is locked';
     if (kind === 'manual') return "Manually entered recipes can't be published.";
     if (kind === 'source') {
-      return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
+      return `Saved copies can't be published — the original recipe at /r/${recipe.sourceSlug} owns the public page.`;
     }
     return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
   }
