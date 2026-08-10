@@ -27,6 +27,8 @@ gbrain() { (cd /opt/gbrain && bun src/cli.ts "$@"); }
 
 echo "[gbrain-maintenance] $(date -u +%FT%TZ) version: $(gbrain --version)"
 
+FAILED=0
+
 # Phase 1: Dream cycle on all active federated sources
 echo "[gbrain-maintenance] discovering active sources..."
 SOURCES=$(gbrain sources list \
@@ -36,23 +38,23 @@ SOURCES=$(gbrain sources list \
 
 if [ -z "$SOURCES" ]; then
   echo "[gbrain-maintenance] WARN: no sources found, running dream without --source"
-  gbrain dream || true
+  gbrain dream || { echo "[gbrain-maintenance] WARN: dream (no source) failed"; FAILED=1; }
 else
   for src in $SOURCES; do
     echo "[gbrain-maintenance] dream --source ${src}"
-    gbrain dream --source "${src}" || echo "[gbrain-maintenance] WARN: dream failed for ${src}"
+    gbrain dream --source "${src}" || { echo "[gbrain-maintenance] WARN: dream failed for ${src}"; FAILED=1; }
   done
 fi
 
 # Phase 2: Extract stale links
 echo "[gbrain-maintenance] extract --stale"
-gbrain extract --stale || echo "[gbrain-maintenance] WARN: extract --stale failed"
+gbrain extract --stale || { echo "[gbrain-maintenance] WARN: extract --stale failed"; FAILED=1; }
 
 # Phase 3: Embed any stale chunks
 echo "[gbrain-maintenance] embed --stale"
-gbrain embed --stale || echo "[gbrain-maintenance] WARN: embed --stale failed"
+gbrain embed --stale || { echo "[gbrain-maintenance] WARN: embed --stale failed"; FAILED=1; }
 
-# Phase 4: Doctor check (fast mode, non-blocking)
+# Phase 4: Doctor check (fast mode, best-effort — informational only)
 echo "[gbrain-maintenance] doctor --fast --json"
 DOCTOR_OUTPUT=$(gbrain doctor --fast --json 2>&1) || true
 SCORE=$(echo "$DOCTOR_OUTPUT" | grep -oP '"overall_score":\s*\K[0-9]+' 2>/dev/null || echo "?")
@@ -61,8 +63,9 @@ echo "[gbrain-maintenance] health score: ${SCORE}/100"
 # Log failed checks for visibility
 echo "$DOCTOR_OUTPUT" | grep -i '"status":"fail"' 2>/dev/null || echo "[gbrain-maintenance] no FAILs"
 
-# Phase 5: Sources status snapshot
+# Phase 5: Sources status snapshot (best-effort)
 echo "[gbrain-maintenance] sources status"
 gbrain sources status || true
 
-echo "[gbrain-maintenance] $(date -u +%FT%TZ) done (score: ${SCORE}/100)"
+echo "[gbrain-maintenance] $(date -u +%FT%TZ) done (score: ${SCORE}/100, failures: ${FAILED})"
+exit $FAILED
