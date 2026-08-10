@@ -163,21 +163,34 @@ describe('isPageSubresource', () => {
 // index the public surface without hitting 429. The AI endpoints (/api) have
 // their own limiter; metering crawlers on the HTML surface costs SEO.
 describe('isKnownCrawler', () => {
-  const crawlers = [
-    'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
-    'Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15 (Applebot/0.1)',
-    'DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)',
-    'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)',
-    'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatype.html)',
-    'Twitterbot/1.0',
-    'LinkedInBot/1.0',
-    'Mozilla/5.0 (compatible; AdsBot-Google; +http://www.google.com/adsbot.html)',
-    'Pinterestbot/1.0',
+  const crawlers: Array<[string, string]> = [
+    ['Googlebot', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)'],
+    ['Bingbot', 'Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)'],
+    [
+      'Applebot',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.1.1 Safari/605.1.15 (Applebot/0.1)',
+    ],
+    ['DuckDuckBot', 'DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)'],
+    ['YandexBot', 'Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)'],
+    [
+      'facebookexternalhit',
+      'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatype.html)',
+    ],
+    ['Twitterbot', 'Twitterbot/1.0'],
+    ['LinkedInBot', 'LinkedInBot/1.0'],
+    [
+      'AdsBot-Google',
+      'Mozilla/5.0 (compatible; AdsBot-Google; +http://www.google.com/adsbot.html)',
+    ],
+    ['Pinterestbot', 'Pinterestbot/1.0'],
+    [
+      'Slurp',
+      'Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)',
+    ],
   ];
 
-  for (const ua of crawlers) {
-    it(`exempts ${ua.split('/')[0].split('(')[0].trim() || ua.slice(0, 30)}`, async () => {
+  for (const [label, ua] of crawlers) {
+    it(`exempts ${label}`, async () => {
       const { isKnownCrawler } = await import('./security.js');
       expect(isKnownCrawler({ headers: { 'user-agent': ua } } as Request)).toBe(true);
     });

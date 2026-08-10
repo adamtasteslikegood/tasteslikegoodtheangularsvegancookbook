@@ -1,8 +1,10 @@
 # KAN-97 / RCP-39: auto-transition Jira issues to Done when a PR merges.
 #
-# Extracts KAN-### and RCP-### keys from the PR title and transitions any
-# that are in "To Do" or "In Progress" to "Done". Keys not in KAN/RCP are
-# ignored (the PM allowlist is KAN + RCP for writes).
+# Extracts KAN-### and RCP-### keys from the PR title. KAN issues in "To Do",
+# "In Progress", or "In Review" are transitioned to "Done". RCP keys are
+# epic/delivery-level (see root CLAUDE.md) and typically span multiple PRs,
+# so they are logged but never auto-transitioned — closing an RCP epic stays
+# a manual, deliberate call.
 #
 # Replaces the manual post-merge board update that was missed on six
 # consecutive PRs (Sprint 6 D2).
@@ -19,8 +21,13 @@ permissions:
 
 jobs:
   transition:
-    if: github.event.pull_request.merged == true
+    # Same-repo only (forks have no secrets → skip cleanly), consistent with
+    # the guard in run-prettier-formatting-with-reviewdog.yml and pr-gate.yml.
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Transition Jira issues to Done
         env:
@@ -34,8 +41,9 @@ jobs:
 
           SITE="tasteslikegood.atlassian.net"
 
-          # Extract KAN-### and RCP-### from the PR title
-          KEYS=$(echo "$PR_TITLE" | grep -oE '(KAN|RCP)-[0-9]+' | sort -u || true)
+          # Extract KAN-### and RCP-### from the PR title. Word-boundary
+          # anchored so e.g. "ORPHKAN-12" or "MYRCP-7" don't false-match.
+          KEYS=$(echo "$PR_TITLE" | grep -oE '\b(KAN|RCP)-[0-9]+\b' | sort -u || true)
 
           if [ -z "$KEYS" ]; then
             echo "No KAN/RCP keys in PR title — nothing to transition."
@@ -45,10 +53,23 @@ jobs:
           for KEY in $KEYS; do
             echo "::group::$KEY"
 
+            if [[ "$KEY" == RCP-* ]]; then
+              echo "$KEY is an RCP epic/delivery key — skipping auto-transition (manual closure only)."
+              echo "::endgroup::"
+              continue
+            fi
+
             # Fetch current status
-            STATUS=$(curl -sf -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
-              "https://$SITE/rest/api/3/issue/$KEY?fields=status" \
-              | jq -r '.fields.status.name' 2>/dev/null || echo "UNKNOWN")
+            STATUS_JSON=$(curl -sf -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+              "https://$SITE/rest/api/3/issue/$KEY?fields=status") || STATUS_JSON=""
+
+            if [ -z "$STATUS_JSON" ]; then
+              echo "::warning::$KEY: failed to fetch issue status from Jira (bad key, auth, or API outage)."
+              echo "::endgroup::"
+              continue
+            fi
+
+            STATUS=$(echo "$STATUS_JSON" | jq -r '.fields.status.name' 2>/dev/null || echo "UNKNOWN")
 
             if [ "$STATUS" = "Done" ]; then
               echo "$KEY is already Done — skipping."
@@ -63,9 +84,16 @@ jobs:
             fi
 
             # Get available transitions and find "Done"
-            DONE_ID=$(curl -sf -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
-              "https://$SITE/rest/api/3/issue/$KEY/transitions" \
-              | jq -r '.transitions[] | select(.name == "Done") | .id' 2>/dev/null || true)
+            TRANSITIONS_JSON=$(curl -sf -u "$ATLASSIAN_EMAIL:$ATLASSIAN_API_TOKEN" \
+              "https://$SITE/rest/api/3/issue/$KEY/transitions") || TRANSITIONS_JSON=""
+
+            if [ -z "$TRANSITIONS_JSON" ]; then
+              echo "::warning::$KEY: failed to fetch available transitions from Jira (auth or API outage)."
+              echo "::endgroup::"
+              continue
+            fi
+
+            DONE_ID=$(echo "$TRANSITIONS_JSON" | jq -r '.transitions[] | select(.name == "Done") | .id' 2>/dev/null || true)
 
             if [ -z "$DONE_ID" ]; then
               echo "::warning::$KEY: no 'Done' transition available from '$STATUS'."

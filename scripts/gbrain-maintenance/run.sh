@@ -29,7 +29,7 @@ echo "[gbrain-maintenance] $(date -u +%FT%TZ) version: $(gbrain --version)"
 
 # Phase 1: Dream cycle on all active federated sources
 echo "[gbrain-maintenance] discovering active sources..."
-SOURCES=$(gbrain sources list 2>&1 \
+SOURCES=$(gbrain sources list \
   | grep -E '^\s+(gstack-|default)' \
   | awk '{print $1}' \
   | grep -v '^$' || true)
