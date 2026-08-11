@@ -52,6 +52,12 @@ Cloud Run's edge.
 ./scripts/staging/deploy-staging.sh --apply --version v0.4.10
 ```
 
+**Image-tag gotcha:** the default tag is `v<package.json version>`, but the
+prod registry currently carries only commit-SHA tags (the release
+pipeline's `_VERSION` tagging step has never produced a `v*` tag there).
+Until that lands, pass the SHA prod runs, e.g.
+`--version "$(gcloud run services describe flask-backend --region=us-central1 --project=comdottasteslikegood --format='value(spec.template.spec.containers[0].image)' | sed 's/.*://')"`.
+
 ## Database (Railway Postgres)
 
 The staging database is a Railway Postgres in Railway project

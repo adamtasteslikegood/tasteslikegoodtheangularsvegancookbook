@@ -209,6 +209,12 @@ fi
 echo ""
 
 # ── Step 3: Deploy Express frontend (staging) ─────────────────────────
+# Public access uses --no-invoker-iam-check rather than
+# --allow-unauthenticated: the org's Domain Restricted Sharing policy
+# (iam.allowedPolicyMemberDomains) forbids binding allUsers, so the
+# allUsers invoker grant always fails here. Disabling the invoker IAM
+# check makes the service public without any IAM member.
+#
 # NODE_ENV=staging activates:
 #   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
@@ -227,7 +233,7 @@ run_cmd gcloud run deploy "${EXPRESS_SERVICE}" \
   --max-instances=2 \
   --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=${FLASK_STAGING_URL}" \
   --clear-secrets \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --quiet
 
 echo ""
