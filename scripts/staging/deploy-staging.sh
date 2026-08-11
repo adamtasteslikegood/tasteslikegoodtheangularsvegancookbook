@@ -1,10 +1,23 @@
 #!/usr/bin/env bash
 # deploy-staging.sh — Deploy staging Cloud Run services for express-frontend
-# and flask-backend. Reuses the production container images (no rebuild).
+# and flask-backend into the dedicated staging project.
+#
+# Staging lives in its own GCP project (comdottasteslikegood-staging, in the
+# org's Staging folder) — not in the prod project. Images are NOT rebuilt:
+# staging reuses the production images from the prod project's Artifact
+# Registry, which needs a one-time cross-project read grant (step 0 handles
+# it, idempotently).
 #
 # Staging services:
 #   express-frontend-staging  (public, serves SPA + proxies to flask-backend-staging)
-#   flask-backend-staging     (private, SQLite, no Gemini/Imagen, no Valkey)
+#   flask-backend-staging     (private: invoker IAM check ON, same posture as
+#                              prod flask-backend — Express authenticates with
+#                              a Google-signed ID token, see server/flask-auth.ts)
+#
+# Storage: SQLite in-container — ephemeral, resets on every deploy, pinned to
+# max-instances=1 so there is never more than one database. The durable
+# storage decision (seeded image vs Cloud SQL) is tracked in discussion #3394;
+# nothing here forecloses it.
 #
 # Dry run is the DEFAULT. Nothing mutates without --apply.
 #
@@ -12,21 +25,25 @@
 #   ./scripts/staging/deploy-staging.sh [--apply] [--version v0.4.10]
 #
 # Environment overrides:
-#   PROJECT_ID    — GCP project (default: comdottasteslikegood)
+#   PROJECT_ID    — staging GCP project (default: gen-lang-client-0491022701,
+#                   display name "comdottasteslikegood-staging")
+#   IMAGE_PROJECT — project whose Artifact Registry holds the images
+#                   (default: comdottasteslikegood — the prod registry)
 #   REGION        — Cloud Run region (default: us-central1)
 #   IMAGE_TAG     — Image tag to deploy (default: latest release tag)
 
 set -euo pipefail
 
-PROJECT_ID="${PROJECT_ID:-comdottasteslikegood}"
+PROJECT_ID="${PROJECT_ID:-gen-lang-client-0491022701}"
+IMAGE_PROJECT="${IMAGE_PROJECT:-comdottasteslikegood}"
 REGION="${REGION:-us-central1}"
-IMAGE_REGISTRY="${IMAGE_REGISTRY:-${REGION}-docker.pkg.dev/${PROJECT_ID}/vegangenius}"
+IMAGE_REGISTRY="${IMAGE_REGISTRY:-${REGION}-docker.pkg.dev/${IMAGE_PROJECT}/vegangenius}"
 
 FLASK_SERVICE="flask-backend-staging"
 EXPRESS_SERVICE="express-frontend-staging"
 
 DRY_RUN=true
-IMAGE_TAG=""
+IMAGE_TAG="${IMAGE_TAG:-}"
 
 # ── Parse args ────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -55,6 +72,7 @@ EXPRESS_IMAGE="${IMAGE_REGISTRY}/express-frontend:${IMAGE_TAG}"
 
 echo "=== Staging Deployment ==="
 echo "Project:        ${PROJECT_ID}"
+echo "Image project:  ${IMAGE_PROJECT}"
 echo "Region:         ${REGION}"
 echo "Image tag:      ${IMAGE_TAG}"
 echo "Flask image:    ${FLASK_IMAGE}"
@@ -71,15 +89,65 @@ run_cmd() {
   fi
 }
 
+# ── Step 0: Preflight (staging-project wiring, all idempotent) ────────
+echo "--- Step 0: Preflight ---"
+
+PROJECT_NUMBER="$(gcloud projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
+# The Cloud Run service agent pulls images; the default compute SA runs the
+# services (reads secrets, invokes Flask).
+RUN_SERVICE_AGENT="service-${PROJECT_NUMBER}@serverless-robot-prod.iam.gserviceaccount.com"
+COMPUTE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+
+# Secret Manager API must be enabled in the staging project — Cloud Run
+# resolves --set-secrets against its own project.
+if ! gcloud services list --project="${PROJECT_ID}" --enabled \
+    --filter="config.name=secretmanager.googleapis.com" \
+    --format="value(config.name)" 2>/dev/null | grep -q .; then
+  run_cmd gcloud services enable secretmanager.googleapis.com --project="${PROJECT_ID}"
+fi
+
+# The staging session-signing secret must exist in the staging project.
+if ! gcloud secrets describe FLASK_SECRET_KEY_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  CREATE_SECRET_CMD="echo -n \"\$(openssl rand -base64 32)\" | gcloud secrets create FLASK_SECRET_KEY_STAGING --data-file=- --project=${PROJECT_ID}"
+  if $DRY_RUN; then
+    echo "[DRY RUN] Secret FLASK_SECRET_KEY_STAGING missing in ${PROJECT_ID}; create it first:"
+    echo "          ${CREATE_SECRET_CMD}"
+  else
+    echo "ERROR: secret FLASK_SECRET_KEY_STAGING does not exist in ${PROJECT_ID}." >&2
+    echo "Create it, then re-run:" >&2
+    echo "  ${CREATE_SECRET_CMD}" >&2
+    exit 1
+  fi
+fi
+
+# Let the services' runtime SA read the secret.
+run_cmd gcloud secrets add-iam-policy-binding FLASK_SECRET_KEY_STAGING \
+  --project="${PROJECT_ID}" \
+  --member="serviceAccount:${COMPUTE_SA}" \
+  --role=roles/secretmanager.secretAccessor
+
+# Cross-project image pull: the staging project's Cloud Run service agent
+# needs read access to the prod Artifact Registry repo.
+run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
+  --project="${IMAGE_PROJECT}" --location="${REGION}" \
+  --member="serviceAccount:${RUN_SERVICE_AGENT}" \
+  --role=roles/artifactregistry.reader
+
+echo ""
+
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
-# Staging Flask uses SQLite (embedded, no Cloud SQL needed), no Gemini/Imagen
-# keys, no Valkey, no Pub/Sub, no Datadog. FLASK_ENV=staging activates
-# staging-specific behaviour (robots.txt deny-all).
+# Staging Flask uses SQLite (embedded, no Cloud SQL), no Gemini/Imagen keys,
+# no Valkey, no Pub/Sub, no Datadog. FLASK_ENV=staging activates
+# staging-specific behaviour.
 #
-# FLASK_SECRET_KEY is still needed for session signing — staging uses a
-# dedicated secret. If the secret doesn't exist yet, create it first:
-#   echo -n "$(openssl rand -base64 32)" | \
-#     gcloud secrets create FLASK_SECRET_KEY_STAGING --data-file=- --project=$PROJECT_ID
+# Posture mirrors prod flask-backend (KAN-170): the invoker IAM check stays
+# ON (--no-allow-unauthenticated), and Express authenticates with a
+# Google-signed ID token (server/flask-auth.ts). PUBSUB_AUTH_OPTIONAL is NOT
+# set: with PUBSUB_INVOKER_SA empty the worker push endpoints fail closed
+# with 503, which is correct — staging has no Pub/Sub.
+#
+# max-instances=1: SQLite lives in the container filesystem, so more than one
+# instance means divergent databases. One instance = one (ephemeral) DB.
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
 run_cmd gcloud run deploy "${FLASK_SERVICE}" \
@@ -89,11 +157,17 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --port=8080 \
   --memory=512Mi \
   --min-instances=0 \
-  --max-instances=2 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,DATABASE_URL=sqlite:///staging.db,FRONTEND_URL=,GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=,PUBSUB_AUTH_OPTIONAL=1" \
+  --max-instances=1 \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,DATABASE_URL=sqlite:///staging.db,FRONTEND_URL=,GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
   --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest" \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --quiet
+
+# Express (running as the compute SA) must be allowed to invoke Flask.
+run_cmd gcloud run services add-iam-policy-binding "${FLASK_SERVICE}" \
+  --region="${REGION}" --project="${PROJECT_ID}" \
+  --member="serviceAccount:${COMPUTE_SA}" \
+  --role=roles/run.invoker
 
 echo ""
 
@@ -112,7 +186,7 @@ echo ""
 
 # ── Step 3: Deploy Express frontend (staging) ─────────────────────────
 # NODE_ENV=staging activates:
-#   - noindex meta tag injection on all HTML pages
+#   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
 #   - No Gemini API key (generation endpoints disabled)
 #   - No Valkey (rate limiting falls back to in-memory)
@@ -142,12 +216,14 @@ if ! $DRY_RUN; then
   echo ""
   echo "=== Staging deployed ==="
   echo "Express (public): ${EXPRESS_STAGING_URL}"
-  echo "Flask (backend):  ${FLASK_STAGING_URL}"
+  echo "Flask (private):  ${FLASK_STAGING_URL}"
   echo ""
   echo "Verify:"
-  echo "  curl -s ${EXPRESS_STAGING_URL}/ | grep -c 'noindex'"
+  echo "  curl -sI ${EXPRESS_STAGING_URL}/ | grep -i x-robots-tag"
   echo "  curl -s ${EXPRESS_STAGING_URL}/robots.txt"
   echo "  curl -s ${EXPRESS_STAGING_URL}/api/health"
+  echo "  # Flask must NOT be directly reachable (expect 403):"
+  echo "  curl -s -o /dev/null -w '%{http_code}\\n' ${FLASK_STAGING_URL}/api/health"
 else
   echo "=== Dry run complete ==="
   echo "Re-run with --apply to deploy."
