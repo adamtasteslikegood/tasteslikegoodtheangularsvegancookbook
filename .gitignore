@@ -145,3 +145,4 @@ scripts/pm/.venv/
 *.sarif.json
 **/logs_findings/
 findings.csv
+ADAMS_SAVEDveganRECIPE_COOKBOOK_EXPORT_ALL-2026-08-10.json
