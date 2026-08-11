@@ -70,12 +70,14 @@ export const ready = (async () => {
   // proxied pages, API JSON) without needing to rewrite HTML bodies.
   const isStaging = process.env.NODE_ENV === 'staging';
   if (isStaging) {
-    app.get('/robots.txt', (_req, res) => {
-      res.type('text/plain').send('User-agent: *\nDisallow: /\n');
-    });
+    // Header middleware first: registering the robots.txt route before it
+    // would leave that one response without the X-Robots-Tag header.
     app.use((_req, res, next) => {
       res.setHeader('X-Robots-Tag', 'noindex, nofollow');
       next();
+    });
+    app.get('/robots.txt', (_req, res) => {
+      res.type('text/plain').send('User-agent: *\nDisallow: /\n');
     });
   }
 

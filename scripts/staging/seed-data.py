@@ -20,6 +20,7 @@ Usage:
 
 import argparse
 import os
+import re
 import sys
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -33,7 +34,10 @@ sys.path.insert(0, BACKEND_DIR)
 
 def make_recipe_data(name, description="A delicious vegan recipe.", servings=4):
     """Build a minimal recipe data dict matching the production schema."""
-    slug = name.lower().replace(" ", "-").replace("'", "")
+    # Match the app's slug shape (^[a-z0-9-]+$): collapse every
+    # non-alphanumeric run to a single hyphen instead of hand-stripping
+    # individual punctuation marks.
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return {
         "name": name,
         "description": description,
@@ -189,15 +193,8 @@ def seed(dry_run=False):
         now = datetime.now(timezone.utc)
 
         for i, r in enumerate(RECIPES):
-            recipe_id = str(uuid.uuid4())
             user_id = created_users[r["owner_idx"]].id if r["owner_idx"] is not None and not dry_run else None
             data = make_recipe_data(r["name"])
-
-            if dry_run:
-                owner_label = USERS[r["owner_idx"]]["email"] if r["owner_idx"] is not None else "guest"
-                print(f"  [DRY RUN] Would create recipe: {r['name']} (owner={owner_label}, public={r['is_public']})")
-                created_recipe_ids.append(recipe_id)
-                continue
 
             # slug_override lets a row (e.g. a saved copy) opt out of the
             # slug-from-name default and store NULL, avoiding a collision with
@@ -205,6 +202,29 @@ def seed(dry_run=False):
             slug = r["slug_override"] if "slug_override" in r else data["slug"]
             source_slug = r.get("source_slug")
             guest_session_id = r.get("guest_session_id")
+
+            if dry_run:
+                owner_label = USERS[r["owner_idx"]]["email"] if r["owner_idx"] is not None else "guest"
+                print(f"  [DRY RUN] Would create recipe: {r['name']} (owner={owner_label}, public={r['is_public']})")
+                created_recipe_ids.append(str(uuid.uuid4()))
+                continue
+
+            # Idempotency: slugs are deterministic from the name and globally
+            # unique, so a second run must skip rather than collide on the
+            # unique index. The saved copy stores slug=NULL, so it is
+            # identified by owner + source_slug + origin instead.
+            if slug is not None:
+                existing = Recipe.query.filter_by(slug=slug).first()
+            else:
+                existing = Recipe.query.filter_by(
+                    user_id=user_id, source_slug=source_slug, origin=r.get("origin")
+                ).first()
+            if existing:
+                print(f"  Recipe already exists: {r['name']} (id={existing.id})")
+                created_recipe_ids.append(existing.id)
+                continue
+
+            recipe_id = str(uuid.uuid4())
 
             # Recipe.data is a MutableDict(JSON) column — SQLAlchemy handles
             # serialization. Pass the Python dict directly; json.dumps() here
@@ -238,7 +258,7 @@ def seed(dry_run=False):
                 public_ids = [
                     created_recipe_ids[i]
                     for i, r in enumerate(RECIPES)
-                    if r["owner_idx"] == 0 and r["status"] == "complete"
+                    if r["owner_idx"] == 0 and r["status"] == "ready"
                 ]
                 # Cookbook.recipe_ids is a JSON column — pass the Python list
                 # directly. json.dumps() here would double-encode.
