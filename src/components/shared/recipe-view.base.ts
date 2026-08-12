@@ -260,20 +260,6 @@ export abstract class RecipeViewBase {
       return;
     }
 
-    // KAN-137: first publish of a copy saved from a public recipe would mint
-    // a near-identical second public page (name collision → -N slug). Make
-    // that an informed choice instead of a silent side effect.
-    if (
-      nextState &&
-      !recipe.slug &&
-      recipe.sourceSlug &&
-      !confirm(
-        `This recipe was saved from a public recipe that may still be live at /r/${recipe.sourceSlug}. Publish your copy as a separate public page?`
-      )
-    ) {
-      return;
-    }
-
     // KAN-149 (#3262): the flip is immutable and goes through the signal —
     // zoneless change detection never re-renders on in-place mutation, which
     // both hid the failure-revert below and froze the View link on a
