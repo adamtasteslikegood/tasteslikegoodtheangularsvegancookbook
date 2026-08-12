@@ -236,8 +236,10 @@ export abstract class RecipeViewBase {
     }
 
     // RCP-74: saved copies cannot be published — the source page owns
-    // publication. The template disables the toggle, this backstops it.
-    // The server returns 403 if this somehow reaches it.
+    // publication. Templates mark the toggle disabled for this kind, but this
+    // base is shared across surfaces and a template can forget (the generator
+    // shipped ungated): this guard is the refusal, not a courtesy. The server
+    // rejects the change with 403 once the Backend guard lands (Backend #279).
     if (nextState && publishToggleKind(recipe) === 'source') {
       // D1 copy: "This recipe is already live at [here]" — a different message
       // class from the manual refusal above. It redirects rather than scolds:

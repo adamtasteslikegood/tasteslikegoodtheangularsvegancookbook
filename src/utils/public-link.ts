@@ -90,7 +90,8 @@ export function publicLinkKind(recipe: {
  * 'source' — a copy saved from a public recipe that is not itself
  *            published: rendered greyed and disabled (RCP-74). Publish
  *            state belongs to the source page; togglePublic() short-circuits
- *            with a toast, and the server returns 403 as a backstop.
+ *            with a toast, and the server rejects the change with 403 once
+ *            the Backend guard lands (Backend #279).
  * 'normal' — everything else.
  */
 export function publishToggleKind(recipe: {
