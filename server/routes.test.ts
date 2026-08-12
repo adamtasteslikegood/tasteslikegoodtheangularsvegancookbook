@@ -8,25 +8,34 @@
  * browser refuses to apply a text/html stylesheet, so every public SSR page
  * rendered completely unstyled.
  *
- * These tests boot the real Express app against a stub Flask backend and
- * assert that /static/* is proxied to Flask (not swallowed by the SPA
- * fallback), alongside the pre-existing SSR routes.
+ * These tests boot the real Express app against a stub Flask backend and a
+ * stub Angular dist/ (a temp dir holding only index.html, wired in via the
+ * SPA_DIST_DIR test override) so the SPA catch-all is actually exercisable.
+ * They assert that /static/* is proxied to Flask (not swallowed by the SPA
+ * fallback), that unknown asset-like paths are never answered 200 text/html
+ * by the catch-all (RCP-77 AC4), and that page routes still get the shell.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import type { AddressInfo } from 'node:net';
 
 const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
+const STUB_SPA_SHELL = '<!doctype html><html><body>spa-shell</body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
 let baseUrl: string;
+let stubDistDir: string;
 
 // Captured so the env overrides below can be restored for other test files.
 const originalVitestEnv = process.env.VITEST;
 const originalFlaskUrl = process.env.FLASK_BACKEND_URL;
+const originalSpaDistDir = process.env.SPA_DIST_DIR;
 
 beforeAll(async () => {
   // Stub Flask backend: serves the SSR stylesheet and browse page.
@@ -47,6 +56,13 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => flaskStub.listen(0, '127.0.0.1', resolve));
   const flaskPort = (flaskStub.address() as AddressInfo).port;
+
+  // Stub Angular dist/: under Vitest index.ts runs from server/, so its
+  // relative dist resolution lands outside the repo. Point SPA_DIST_DIR at a
+  // temp dir holding only index.html so the catch-all has a shell to serve.
+  stubDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spa-dist-stub-'));
+  fs.writeFileSync(path.join(stubDistDir, 'index.html'), STUB_SPA_SHELL);
+  process.env.SPA_DIST_DIR = stubDistDir;
 
   // Must be set before importing index.ts — proxy.ts reads it at import time.
   process.env.FLASK_BACKEND_URL = `http://127.0.0.1:${flaskPort}`;
@@ -73,6 +89,12 @@ afterAll(async () => {
   } else {
     process.env.FLASK_BACKEND_URL = originalFlaskUrl;
   }
+  if (originalSpaDistDir === undefined) {
+    delete process.env.SPA_DIST_DIR;
+  } else {
+    process.env.SPA_DIST_DIR = originalSpaDistDir;
+  }
+  fs.rmSync(stubDistDir, { recursive: true, force: true });
   await new Promise<void>((resolve) => expressServer.close(() => resolve()));
   await new Promise<void>((resolve) => flaskStub.close(() => resolve()));
 });
@@ -135,11 +157,45 @@ describe('apple-touch-icon requests do not leak the SPA shell', () => {
   }
 
   // Guards the icon regex against over-matching: a normal SPA route must still
-  // reach the catch-all rather than being answered with an empty 204. (It 404s
-  // here only because this harness has no Angular build to serve index.html
-  // from; the point is that it is not 204.)
+  // reach the catch-all and receive the shell (served from the stub dist/),
+  // not an empty 204.
   it('does not swallow ordinary SPA routes', async () => {
     const res = await fetch(`${baseUrl}/kitchen`);
-    expect(res.status).not.toBe(204);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(STUB_SPA_SHELL);
+  });
+});
+
+/**
+ * RCP-77 AC4 (KAN-160): unrecognized paths must never be answered 200
+ * text/html by the SPA catch-all. An asset-like path that nothing earlier
+ * served (express.static miss, no route) must 404 — index.html as a fake
+ * .js/.css/.map is refused by browsers under X-Content-Type-Options: nosniff
+ * and reads as soft-404 shell spam to crawlers. The catch-all consults
+ * classifyRoute() from server/route-manifest.ts at runtime; these tests boot
+ * the real app and verify that enforcement end to end.
+ */
+describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 AC4)', () => {
+  for (const assetPath of ['/evil.js', '/nope/thing.css', '/x/y.map', '/deep/unknown.woff2']) {
+    it(`does not answer ${assetPath} with 200 text/html`, async () => {
+      const res = await fetch(`${baseUrl}${assetPath}`);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('content-type')).not.toContain('text/html');
+      expect(await res.text()).not.toContain('spa-shell');
+    });
+  }
+
+  it('still serves the SPA shell for known page routes', async () => {
+    const res = await fetch(`${baseUrl}/kitchen`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(await res.text()).toBe(STUB_SPA_SHELL);
+  });
+
+  it('still serves the shell for unknown non-asset paths (Angular owns its own 404)', async () => {
+    const res = await fetch(`${baseUrl}/some/unknown/page`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(await res.text()).toBe(STUB_SPA_SHELL);
   });
 });

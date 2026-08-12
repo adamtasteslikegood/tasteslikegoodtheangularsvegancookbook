@@ -281,6 +281,25 @@ steps:
       - --allow-unauthenticated
       - --quiet
 
+  # ── Post-deploy Valkey healthcheck (KAN-160) ──────────────────────────────
+  # Fail-fast: verify Express is using Valkey for rate limiting, not the
+  # in-memory fallback. If Valkey is unreachable or unauthenticated, Express
+  # degrades silently — this step makes that degradation a build failure
+  # rather than a silent production incident.
+  #
+  # Probes the canonical host, NOT the service's *.run.app URL: express-frontend
+  # runs ingress=internal-and-cloud-load-balancing, so run.app 404s from the
+  # Cloud Build default pool and probing it would red every release build
+  # (decision D2, 2026-08-11).
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Verify Valkey Health'
+    waitFor: ['Deploy Express Frontend']
+    entrypoint: bash
+    env:
+      - HEALTHCHECK_BASE_URL=https://www.tasteslikegood.org
+    args:
+      - scripts/gcloud/check-valkey-health.sh
+
 images:
   - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
   - $_IMAGE_REGISTRY/express-frontend:$_VERSION
