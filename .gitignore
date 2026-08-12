@@ -145,4 +145,7 @@ scripts/pm/.venv/
 *.sarif.json
 **/logs_findings/
 findings.csv
-ADAMS_SAVEDveganRECIPE_COOKBOOK_EXPORT_ALL-2026-08-10.json
+
+# Cookbook JSON exports used to seed staging (KAN-182) carry real recipe
+# content from a personal account. The repo is public — never commit them.
+*COOKBOOK_EXPORT*.json

@@ -14,10 +14,12 @@
 #                              prod flask-backend — Express authenticates with
 #                              a Google-signed ID token, see server/flask-auth.ts)
 #
-# Storage: SQLite in-container — ephemeral, resets on every deploy, pinned to
-# max-instances=1 so there is never more than one database. The durable
-# storage decision (seeded image vs Cloud SQL) is tracked in discussion #3394;
-# nothing here forecloses it.
+# Storage: Railway Postgres (Railway project "thriving-reverence"), reached
+# over Railway's public TCP proxy. The connection string lives in Secret
+# Manager as DATABASE_URL_STAGING in the staging project — never in this
+# script or the repo. Seed it with scripts/staging/seed-data.py --from-json
+# (see scripts/staging/README.md). Decision recorded in KAN-182 (2026-08-10,
+# supersedes discussion #3394's seeded-image vs Cloud SQL axis).
 #
 # Dry run is the DEFAULT. Nothing mutates without --apply.
 #
@@ -126,6 +128,56 @@ run_cmd gcloud secrets add-iam-policy-binding FLASK_SECRET_KEY_STAGING \
   --member="serviceAccount:${COMPUTE_SA}" \
   --role=roles/secretmanager.secretAccessor
 
+# The staging database URL (Railway Postgres) must exist in the staging
+# project. Unlike FLASK_SECRET_KEY_STAGING it cannot be generated here —
+# the value is Railway's DATABASE_PUBLIC_URL (project thriving-reverence →
+# Postgres → Variables) with sslmode=require appended.
+if ! gcloud secrets describe DATABASE_URL_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  CREATE_DB_SECRET_CMD="printf '%s' \"\${DATABASE_PUBLIC_URL}?sslmode=require\" | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
+  if $DRY_RUN; then
+    echo "[DRY RUN] Secret DATABASE_URL_STAGING missing in ${PROJECT_ID}; create it first:"
+    echo "          ${CREATE_DB_SECRET_CMD}"
+  else
+    echo "ERROR: secret DATABASE_URL_STAGING does not exist in ${PROJECT_ID}." >&2
+    echo "Copy DATABASE_PUBLIC_URL from the Railway dashboard, then re-run:" >&2
+    echo "  ${CREATE_DB_SECRET_CMD}" >&2
+    exit 1
+  fi
+fi
+
+run_cmd gcloud secrets add-iam-policy-binding DATABASE_URL_STAGING \
+  --project="${PROJECT_ID}" \
+  --member="serviceAccount:${COMPUTE_SA}" \
+  --role=roles/secretmanager.secretAccessor
+
+# Google OAuth login on staging is OPTIONAL and keys off secret presence:
+# when both staging OAuth secrets exist they are wired into Flask and the
+# Sign In button works; when absent, staging deploys without them and
+# /api/auth/login returns 500 "OAuth credentials not configured" (the SPA
+# stays guest-only). To enable, create an OAuth 2.0 Client ID (type: Web
+# application) in the staging project's console with redirect URI
+#   https://<express-staging-url>/api/auth/callback
+# (consent screen: External + Testing, with the logging-in Google accounts
+# added as test users is enough), then store both halves:
+#   printf '%s' "<client-id>" | gcloud secrets create GOOGLE_CLIENT_ID_STAGING --data-file=- --project=<staging-project>
+#   printf '%s' "<client-secret>" | gcloud secrets create GOOGLE_CLIENT_SECRET_STAGING --data-file=- --project=<staging-project>
+OAUTH_SECRETS=""
+if gcloud secrets describe GOOGLE_CLIENT_ID_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1 \
+    && gcloud secrets describe GOOGLE_CLIENT_SECRET_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  OAUTH_SECRETS=",GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest"
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_CLIENT_ID_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_CLIENT_SECRET_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  echo "OAuth login: enabled (staging OAuth secrets found)"
+else
+  echo "OAuth login: disabled (GOOGLE_CLIENT_ID_STAGING / GOOGLE_CLIENT_SECRET_STAGING not in ${PROJECT_ID})"
+fi
+
 # Cross-project image pull: the staging project's Cloud Run service agent
 # needs read access to the prod Artifact Registry repo.
 run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
@@ -136,9 +188,10 @@ run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
 echo ""
 
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
-# Staging Flask uses SQLite (embedded, no Cloud SQL), no Gemini/Imagen keys,
-# no Valkey, no Pub/Sub, no Datadog. FLASK_ENV=staging activates
-# staging-specific behaviour.
+# Staging Flask uses the Railway Postgres via the DATABASE_URL_STAGING
+# secret; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
+# Google OAuth login is wired in only when the staging OAuth secrets exist
+# (see step 0). FLASK_ENV=staging activates staging-specific behaviour.
 #
 # Posture mirrors prod flask-backend (KAN-170): the invoker IAM check stays
 # ON (--no-allow-unauthenticated), and Express authenticates with a
@@ -146,10 +199,25 @@ echo ""
 # set: with PUBSUB_INVOKER_SA empty the worker push endpoints fail closed
 # with 503, which is correct — staging has no Pub/Sub.
 #
-# max-instances=1: SQLite lives in the container filesystem, so more than one
-# instance means divergent databases. One instance = one (ephemeral) DB.
+# max-instances=1: no longer forced by storage (Postgres is external now),
+# kept as a cost ceiling — staging never needs more than one instance.
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
+
+# FRONTEND_URL is where the OAuth callback 302s the browser after login.
+# The Express staging URL is stable across revisions, so resolve it from the
+# existing service. On the very first deploy it doesn't exist yet — deploy
+# once, then re-run this script (idempotent) to wire it in.
+# SESSION_COOKIE_DOMAIN stays unset on purpose: run.app is on the Public
+# Suffix List, so host-only session cookies are the only shape that works.
+EXPRESS_EXISTING_URL="$(gcloud run services describe "${EXPRESS_SERVICE}" \
+  --region="${REGION}" --project="${PROJECT_ID}" \
+  --format='value(status.url)' 2>/dev/null || true)"
+if [[ -n "$OAUTH_SECRETS" && -z "$EXPRESS_EXISTING_URL" ]]; then
+  echo "NOTE: OAuth secrets exist but ${EXPRESS_SERVICE} has no URL yet;"
+  echo "      re-run after this deploy so FRONTEND_URL gets wired in."
+fi
+
 run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --image="${FLASK_IMAGE}" \
   --region="${REGION}" \
@@ -158,8 +226,8 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,DATABASE_URL=sqlite:///staging.db,FRONTEND_URL=,GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
-  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
+  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${OAUTH_SECRETS}" \
   --no-allow-unauthenticated \
   --quiet
 
@@ -185,6 +253,12 @@ fi
 echo ""
 
 # ── Step 3: Deploy Express frontend (staging) ─────────────────────────
+# Public access uses --no-invoker-iam-check rather than
+# --allow-unauthenticated: the org's Domain Restricted Sharing policy
+# (iam.allowedPolicyMemberDomains) forbids binding allUsers, so the
+# allUsers invoker grant always fails here. Disabling the invoker IAM
+# check makes the service public without any IAM member.
+#
 # NODE_ENV=staging activates:
 #   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
@@ -203,7 +277,7 @@ run_cmd gcloud run deploy "${EXPRESS_SERVICE}" \
   --max-instances=2 \
   --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=${FLASK_STAGING_URL}" \
   --clear-secrets \
-  --allow-unauthenticated \
+  --no-invoker-iam-check \
   --quiet
 
 echo ""
@@ -218,12 +292,8 @@ if ! $DRY_RUN; then
   echo "Express (public): ${EXPRESS_STAGING_URL}"
   echo "Flask (private):  ${FLASK_STAGING_URL}"
   echo ""
-  echo "Verify:"
-  echo "  curl -sI ${EXPRESS_STAGING_URL}/ | grep -i x-robots-tag"
-  echo "  curl -s ${EXPRESS_STAGING_URL}/robots.txt"
-  echo "  curl -s ${EXPRESS_STAGING_URL}/api/health"
-  echo "  # Flask must NOT be directly reachable (expect 403):"
-  echo "  curl -s -o /dev/null -w '%{http_code}\\n' ${FLASK_STAGING_URL}/api/health"
+  echo "Verify (machine-checkable S3 acceptance, exits 0/1):"
+  echo "  ./scripts/staging/verify-staging.sh ${EXPRESS_STAGING_URL} ${FLASK_STAGING_URL}"
 else
   echo "=== Dry run complete ==="
   echo "Re-run with --apply to deploy."
