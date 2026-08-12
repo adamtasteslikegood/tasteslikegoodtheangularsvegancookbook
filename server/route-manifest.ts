@@ -3,12 +3,17 @@
  *
  * KAN-160: replaces the hand-maintained isPageSubresource() allowlist in
  * security.ts. Every URL pattern the Express server recognizes is declared
- * here. The manifest is consumed by:
+ * here. The manifest is consumed at runtime by:
  *
  *   - security.ts  — determines which requests skip page rate limiting
- *   - index.ts     — (future) could drive route mounting programmatically
- *   - CI tests     — assert that unrecognized paths are NOT served as HTML
- *                    from the SPA catch-all
+ *                    (isPageSubresource)
+ *   - index.ts     — the SPA catch-all consults classifyRoute() to 404
+ *                    asset-like unrecognized paths instead of serving
+ *                    index.html as text/html (RCP-77 AC4)
+ *
+ * and by tests: route-manifest.test.ts unit-tests the classification;
+ * routes.test.ts boots the real Express app and asserts unknown asset-like
+ * paths are not answered 200 text/html by the catch-all.
  *
  * When adding a new route to Express, add its pattern here first.
  */
@@ -36,8 +41,9 @@ export const SUBRESOURCE_PREFIXES = ['/static/', '/favicon.', '/apple-touch-icon
 export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
 
 /**
- * Route categories recognized by Express. This is documentation and a
- * classification aid — the actual route mounting still lives in index.ts.
+ * Route categories recognized by Express. Route mounting still lives in
+ * index.ts; this manifest is the classification contract behind
+ * classifyRoute(), which the SPA catch-all consults at runtime (RCP-77 AC4).
  *
  * Categories:
  *   api         — proxied to Flask (/api/*)
@@ -84,8 +90,8 @@ export function isPageSubresource(req: Request): boolean {
 
 /**
  * Returns true if the path matches a known file-extension pattern that should
- * never be served the SPA shell (index.html). Used by CI tests to verify the
- * catch-all does not leak HTML for missing static assets.
+ * never be served the SPA shell (index.html). Consumed at runtime by
+ * classifyRoute() below (the SPA catch-all's 404 guard) and by CI tests.
  *
  * This covers common asset extensions that browsers/crawlers request. If the
  * file does not exist in the Angular build output (dist/), Express should 404
@@ -97,4 +103,36 @@ export const STATIC_ASSET_RE =
 
 export function looksLikeStaticAsset(path: string): boolean {
   return STATIC_ASSET_RE.test(path);
+}
+
+// ── Runtime route classification (RCP-77 AC4) ────────────────────────────
+
+/** Classification of a request path against ROUTE_MANIFEST. */
+export type RouteClass = 'api' | 'ssr' | 'ssrStatic' | 'standalone' | 'asset' | 'spa' | 'unknown';
+
+/**
+ * Classify a request path against the route manifest.
+ *
+ * Consumed at runtime by the SPA catch-all in index.ts: any path classified
+ * 'asset' that reaches the catch-all was not found by express.static or any
+ * earlier route, and must 404 rather than receive index.html as text/html —
+ * a text/html "asset" is refused by browsers under X-Content-Type-Options:
+ * nosniff and leaks the shell to crawlers (RCP-77 AC4).
+ *
+ * Order matters: named surfaces (api/ssr/standalone) win over the asset
+ * extension check (/sitemap.xml is ssr, /favicon.ico is standalone), and the
+ * asset check wins over SPA prefixes (/recipe/main-XXXXXXXX.js is a bundle
+ * request, not a recipe page).
+ */
+export function classifyRoute(path: string): RouteClass {
+  const { api, ssr, ssrStatic, standalone, spa } = ROUTE_MANIFEST;
+  if (path === api.prefix || path.startsWith(`${api.prefix}/`)) return 'api';
+  if ((ssr.paths as readonly string[]).includes(path)) return 'ssr';
+  if (ssr.prefixes.some((prefix) => path.startsWith(prefix))) return 'ssr';
+  if (ssrStatic.prefixes.some((prefix) => path.startsWith(prefix))) return 'ssrStatic';
+  if ((standalone.paths as readonly string[]).includes(path)) return 'standalone';
+  if (looksLikeStaticAsset(path)) return 'asset';
+  if ((spa.paths as readonly string[]).includes(path)) return 'spa';
+  if (spa.prefixes.some((prefix) => path.startsWith(prefix))) return 'spa';
+  return 'unknown';
 }

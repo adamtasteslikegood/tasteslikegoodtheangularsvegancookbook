@@ -1,15 +1,20 @@
 /**
- * Route-classification manifest tests (KAN-160).
+ * Route-classification manifest tests (KAN-160) — UNIT level.
  *
- * Verifies that:
+ * Verifies the classification functions in isolation:
  *   1. Known subresource patterns are correctly classified (page rate-limit skip)
- *   2. Known non-SPA paths (API, SSR, static assets) are NOT treated as SPA pages
- *   3. Static-asset file extensions are recognized (looksLikeStaticAsset)
- *   4. The manifest patterns agree with the actual route mounting in index.ts
+ *   2. Static-asset file extensions are recognized (looksLikeStaticAsset)
+ *   3. classifyRoute() maps paths to the manifest's route categories
+ *   4. The manifest literals stay in sync with the patterns index.ts mounts
+ *
+ * Runtime enforcement is NOT tested here: routes.test.ts boots the real
+ * Express app (with a stub dist/index.html) and asserts the SPA catch-all
+ * never answers unknown asset-like paths with 200 text/html (RCP-77 AC4).
  */
 import { describe, expect, it } from 'vitest';
 import type { Request } from 'express';
 import {
+  classifyRoute,
   isPageSubresource,
   looksLikeStaticAsset,
   SUBRESOURCE_PREFIXES,
@@ -186,5 +191,48 @@ describe('route-classification contract', () => {
   it('API prefix is not a static asset or subresource', () => {
     expect(looksLikeStaticAsset(ROUTE_MANIFEST.api.prefix)).toBe(false);
     expect(isPageSubresource({ path: ROUTE_MANIFEST.api.prefix } as Request)).toBe(false);
+  });
+});
+
+// ── classifyRoute (runtime consumer of ROUTE_MANIFEST) ───────────────────
+
+describe('classifyRoute', () => {
+  const cases: Array<[string, string]> = [
+    // Named surfaces
+    ['/api', 'api'],
+    ['/api/recipes', 'api'],
+    ['/browse', 'ssr'],
+    ['/sitemap.xml', 'ssr'],
+    ['/r/vegan-cookies', 'ssr'],
+    ['/static/css/tokens.css', 'ssrStatic'],
+    ['/privacy-policy', 'standalone'],
+    ['/favicon.ico', 'standalone'],
+    // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)
+    ['/evil.js', 'asset'],
+    ['/nope/thing.css', 'asset'],
+    ['/x/y.map', 'asset'],
+    ['/main-GTOZZOJH.js', 'asset'],
+    // Bundles requested relative to an SPA route are asset requests,
+    // not recipe pages — asset wins over the /recipe/ prefix.
+    ['/recipe/main-GTOZZOJH.js', 'asset'],
+    // SPA pages
+    ['/', 'spa'],
+    ['/kitchen', 'spa'],
+    ['/chunk-error', 'spa'],
+    ['/recipe/abc-123', 'spa'],
+    // Unrecognized non-asset paths fall through to the shell (Angular 404)
+    ['/some/unknown/page', 'unknown'],
+    ['/apiary', 'unknown'], // prefix check must not treat /apiary as /api
+  ];
+
+  it.each(cases)('classifies %s as %s', (path, expected) => {
+    expect(classifyRoute(path)).toBe(expected);
+  });
+
+  it('only the asset class triggers the catch-all 404 guard', () => {
+    // The runtime contract in index.ts: 404 iff classifyRoute() === 'asset'.
+    expect(classifyRoute('/evil.js')).toBe('asset');
+    expect(classifyRoute('/some/unknown/page')).not.toBe('asset');
+    expect(classifyRoute('/kitchen')).not.toBe('asset');
   });
 });
