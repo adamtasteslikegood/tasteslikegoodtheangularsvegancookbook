@@ -4,10 +4,14 @@
  * Supports GCP Memorystore IAM authentication with automatic token refresh.
  * Falls back gracefully to null (caller uses in-memory store) when Valkey
  * is unavailable or VALKEY_HOST is not set.
+ *
+ * Connection config is read from `valkey-config.ts` (KAN-160) — never from
+ * env vars directly. See that module for the full list of env vars consumed.
  */
 
 import { Redis, type RedisOptions } from 'ioredis';
 import { GoogleAuth } from 'google-auth-library';
+import { resolveValkeyConfig } from './valkey-config.js';
 
 // Token refresh interval (45 min — tokens last 60 min, 15-min buffer prevents
 // expiry under clock skew or delayed refresh execution)
@@ -68,8 +72,10 @@ async function refreshTokenInPlace(): Promise<void> {
  * returning null so no handles are left dangling.
  */
 export async function createValkeyClient(): Promise<Redis | null> {
-  const host = process.env.VALKEY_HOST;
-  if (!host) {
+  // KAN-160: all env-var reading is centralized in valkey-config.ts.
+  const config = resolveValkeyConfig();
+
+  if (!config.host) {
     // If a client exists from a previous call but VALKEY_HOST has since been
     // removed, tear it down to avoid leaking handles (e.g. in tests / dev).
     if (client) {
@@ -101,13 +107,10 @@ export async function createValkeyClient(): Promise<Redis | null> {
     }
   }
 
-  const port = Number.parseInt(process.env.VALKEY_PORT || '6379', 10);
-  const authMode = process.env.VALKEY_AUTH_MODE;
-
   try {
     const options: Record<string, unknown> = {
-      host,
-      port,
+      host: config.host,
+      port: config.port,
       // ioredis 6 defaults to RESP3. Reply shapes are NOT the concern — its
       // `replyMapping: "legacy"` default keeps those identical to RESP2, and the
       // only replies we consume are rate-limit-redis' EVAL array and AUTH's
@@ -134,15 +137,15 @@ export async function createValkeyClient(): Promise<Redis | null> {
       retryStrategy: (times: number) => Math.min(times * 200, 5000),
     };
 
-    if (authMode === 'iam') {
+    if (config.authMode === 'iam') {
       const { token, email } = await getIAMToken();
       const tlsOptions: Record<string, unknown> = {};
       // Memorystore server certs chain to a Google-managed private CA that the
       // system trust store can't verify — trust it explicitly via VALKEY_CA_CERT.
-      if (process.env.VALKEY_CA_CERT) {
-        tlsOptions.ca = process.env.VALKEY_CA_CERT;
+      if (config.caCert) {
+        tlsOptions.ca = config.caCert;
       }
-      if (process.env.VALKEY_TLS_INSECURE === 'true') {
+      if (config.tlsInsecure) {
         tlsOptions.rejectUnauthorized = false;
         console.warn(
           '[Valkey] WARNING: VALKEY_TLS_INSECURE=true — TLS certificate verification is DISABLED. Use only for local/dev.'
@@ -159,10 +162,10 @@ export async function createValkeyClient(): Promise<Redis | null> {
 
     // Verify the connection works
     await client.ping();
-    console.log(`✅ Valkey connected for rate limiting at ${host}:${port}`);
+    console.log(`✅ Valkey connected for rate limiting at ${config.host}:${config.port}`);
 
     // Start periodic token refresh for IAM auth
-    if (authMode === 'iam') {
+    if (config.authMode === 'iam') {
       refreshTimer = setInterval(async () => {
         try {
           await refreshTokenInPlace();
