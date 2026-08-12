@@ -34,10 +34,13 @@ Cloud Run's edge.
   (2026-08-10); it supersedes
   [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394)'s
   seeded-image vs Cloud SQL axis.
-- **Not an AI generation environment.** No `GEMINI_API_KEY` or
-  `GOOGLE_API_KEY` is set, so `/api/generate` and `/api/generate_image`
-  will fail. This is intentional: staging does not incur AI costs
-  (stub-vs-budget-key decision tracked in KAN-225).
+- **Not an AI generation environment.** No `GOOGLE_API_KEY` is set, and —
+  more fundamentally — staging has no Pub/Sub (`GCP_PROJECT_ID` is empty),
+  so `/api/generate` fails at the publish step regardless of any key. This
+  is intentional: staging does not incur AI costs (stub-vs-budget-key
+  decision tracked in KAN-225). To test generation, use
+  `local-generation.sh` (below) — the full pipeline on your machine, with
+  only the Gemini call leaving it.
 
 ## Quick start
 
@@ -104,6 +107,77 @@ The script is idempotent: re-running skips existing users, recipes (by id
 and by slug), and cookbooks. **Never commit an export file** — the repo is
 public; `.gitignore` blocks `*COOKBOOK_EXPORT*.json` as a guard.
 
+## Logging in on staging (Google OAuth)
+
+Login is **off by default**: without OAuth secrets the Sign In button dead-ends
+(`GET /api/auth/login` → 500 `"OAuth credentials not configured"`,
+`Backend/blueprints/auth_api_bp.py`) and the SPA stays guest-only. Guest
+sessions still read/write the staging DB — but scoped to a fresh
+`guest_session_id`, so the seeded cookbook is not visible.
+
+To enable real login:
+
+1. In the **staging project's** console, configure the OAuth consent screen
+   (External + Testing; add the Google accounts that will log in as test
+   users) and create an **OAuth 2.0 Client ID** (type: Web application) with
+   authorized redirect URI:
+
+   ```
+   https://<express-staging-url>/api/auth/callback
+   ```
+
+2. Store both halves as staging secrets:
+
+   ```bash
+   printf '%s' "<client-id>" | gcloud secrets create GOOGLE_CLIENT_ID_STAGING \
+     --data-file=- --project=gen-lang-client-0491022701
+   printf '%s' "<client-secret>" | gcloud secrets create GOOGLE_CLIENT_SECRET_STAGING \
+     --data-file=- --project=gen-lang-client-0491022701
+   ```
+
+3. Re-run `./scripts/staging/deploy-staging.sh --apply --version <tag>`. The
+   script detects the secrets, wires them plus `FRONTEND_URL` (resolved from
+   the existing Express service URL) into Flask, and login turns on. Without
+   the secrets the same deploy keeps login off — presence is the switch.
+
+**Owning the seeded cookbook:** imports land under the synthetic
+staging-admin user. `seed-data.py --claim-email <your-login-email>` moves
+those recipes/cookbooks to a user row with your email; the OAuth callback
+matches by email before creating a user, so your first Google login attaches
+to that row and the kitchen shows the claimed cookbook. Claimed the wrong
+address? Re-run with `--claim-from <wrong> --claim-email <right>`.
+
+## Local generation testing (Pub/Sub emulator)
+
+`local-generation.sh` runs the complete async generation pipeline locally:
+`POST /api/generate` → Pub/Sub emulator (Docker) → push subscription →
+`/api/worker/recipe` → Gemini. Only the Gemini call leaves your machine; no
+cloud infrastructure is touched.
+
+```bash
+# Terminal 1 — emulator + Flask (:5000), Ctrl-C stops both:
+./scripts/staging/local-generation.sh              # local sqlite
+./scripts/staging/local-generation.sh --staging-db # Railway staging Postgres
+
+# Terminal 2 — the SPA as usual:
+npm run dev
+```
+
+Requirements: Docker, uv, and a Gemini key — either `GOOGLE_API_KEY` in the
+environment or (preferred) the dedicated staging key stored once as the
+`GOOGLE_API_KEY_STAGING` secret, which the script fetches on every run:
+
+```bash
+printf '%s' "<the-key>" | gcloud secrets create GOOGLE_API_KEY_STAGING \
+  --data-file=- --project=gen-lang-client-0491022701
+```
+
+Notes: the target database must already have the schema (`flask db
+upgrade`); `GOOGLE_API_KEY=dummy` exercises everything but the Gemini call
+(the worker receives the push and fails only there — useful plumbing test);
+image jobs additionally need GCS (`GCS_BUCKET_NAME` + credentials) and fail
+gracefully without it, while recipe generation completes normally.
+
 ## Non-indexable
 
 Staging is non-indexable via two mechanisms, both activated by
@@ -113,8 +187,9 @@ Staging is non-indexable via two mechanisms, both activated by
    including `/robots.txt` itself.
 2. **`/robots.txt`** returns `Disallow: /` for all user agents.
 
-No real-user OAuth is configured. Staging uses its own
-`FLASK_SECRET_KEY_STAGING` secret for session signing.
+Staging uses its own `FLASK_SECRET_KEY_STAGING` secret for session signing;
+real-user OAuth is off unless the staging OAuth secrets exist (see "Logging
+in on staging" above).
 
 ## Prerequisites
 

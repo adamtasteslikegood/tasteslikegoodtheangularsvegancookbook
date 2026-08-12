@@ -256,7 +256,72 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
     return recipe_ids
 
 
-def seed(dry_run=False, from_json=None):
+def claim_ownership(claim_email, claim_from_email, dry_run=False):
+    """Reassign one synthetic owner's rows to a real login email.
+
+    Staging has no real-user OAuth by default, so imports land under a
+    synthetic owner. Once staging login is enabled, the person testing needs
+    those rows under THEIR account: this creates (or finds) a User with
+    `claim_email` and moves the synthetic owner's recipes and cookbooks to
+    it. The OAuth callback matches users by email before creating one
+    (Backend/blueprints/auth_api_bp.py), so the first Google login with that
+    address attaches to this row and the kitchen shows the claimed cookbook.
+
+    Saved copies deliberately live under a second synthetic owner (the
+    uq_recipe_user_recipe_identity constraint forbids holding a recipe and
+    its saved copy under one owner) — those are not touched. Re-runnable: a
+    second claim finds nothing left to move. Ran with the wrong email? Run
+    again with --claim-from <wrong-email> --claim-email <right-one>.
+    """
+    from sqlalchemy import func
+
+    from extensions import db
+    from models import Cookbook, Recipe, User
+
+    source = User.query.filter_by(email=claim_from_email).first()
+    if not source:
+        print(f"  Claim: no user with email {claim_from_email}; nothing to move")
+        return
+
+    if dry_run:
+        n = Recipe.query.filter_by(user_id=source.id).count()
+        print(f"  [DRY RUN] Would move {n} recipes + cookbooks from {claim_from_email} to {claim_email}")
+        return
+
+    target = User.query.filter_by(email=claim_email).first()
+    if not target:
+        target = User(email=claim_email, name=claim_email.split("@")[0])
+        db.session.add(target)
+        db.session.flush()
+        print(f"  Claim: created user {claim_email} (id={target.id}, google_id unset until first login)")
+
+    moved, skipped = 0, 0
+    for recipe in Recipe.query.filter_by(user_id=source.id).all():
+        identity = recipe.source_slug or recipe.slug
+        if identity is not None:
+            clash = Recipe.query.filter(
+                Recipe.user_id == target.id,
+                func.coalesce(Recipe.source_slug, Recipe.slug) == identity,
+            ).first()
+            if clash:
+                skipped += 1
+                print(f"  Claim: target already owns identity '{identity}', leaving: {recipe.name}")
+                continue
+        recipe.user_id = target.id
+        moved += 1
+
+    cb_moved = 0
+    for cookbook in Cookbook.query.filter_by(user_id=source.id).all():
+        if Cookbook.query.filter_by(user_id=target.id, name=cookbook.name).first():
+            print(f"  Claim: target already owns cookbook '{cookbook.name}', leaving it")
+            continue
+        cookbook.user_id = target.id
+        cb_moved += 1
+
+    print(f"  Claim: moved {moved} recipes, {cb_moved} cookbooks {claim_from_email} → {claim_email} ({skipped} skipped)")
+
+
+def seed(dry_run=False, from_json=None, claim_email=None, claim_from=None):
     """Create seed data in the staging database."""
     os.chdir(BACKEND_DIR)
 
@@ -356,8 +421,10 @@ def seed(dry_run=False, from_json=None):
 
         # ── Cookbooks ──
         if not dry_run and created_users[0] is not None:
-            # Check if cookbook already exists
-            existing_cb = Cookbook.query.filter_by(user_id=created_users[0].id).first()
+            # Existence check is by name, NOT owner: after --claim-email moves
+            # the cookbook to a real account, a re-run must not recreate a
+            # duplicate shell under staging-admin.
+            existing_cb = Cookbook.query.filter_by(name="My Staging Cookbook").first()
             if existing_cb:
                 print(f"  Cookbook already exists for user {created_users[0].email}")
             else:
@@ -387,9 +454,10 @@ def seed(dry_run=False, from_json=None):
             saved_owner = created_users[1] if len(created_users) > 1 else None
             imported_ids = import_export_json(from_json, owner, saved_owner=saved_owner, dry_run=dry_run)
             if not dry_run and imported_ids:
-                existing_cb = Cookbook.query.filter_by(
-                    user_id=owner.id, name="Imported Cookbook (staging)"
-                ).first()
+                # By name, not owner — same reason as 'My Staging Cookbook':
+                # a claim may have moved it to a real account, and the update
+                # branch should refresh THAT copy rather than recreate one.
+                existing_cb = Cookbook.query.filter_by(name="Imported Cookbook (staging)").first()
                 if existing_cb:
                     existing_cb.recipe_ids = imported_ids
                     print("  Updated cookbook: 'Imported Cookbook (staging)'")
@@ -403,6 +471,11 @@ def seed(dry_run=False, from_json=None):
                         )
                     )
                     print(f"  Created cookbook: 'Imported Cookbook (staging)' ({len(imported_ids)} recipes)")
+
+        # ── Ownership claim (optional) ──
+        if claim_email:
+            print(f"\n  Claiming {claim_from} rows for {claim_email}")
+            claim_ownership(claim_email, claim_from, dry_run=dry_run)
 
         if not dry_run:
             db.session.commit()
@@ -419,6 +492,18 @@ def main():
         metavar="PATH",
         help="Also import an Export Cookbook JSON file (rows owned by the synthetic staging-admin user)",
     )
+    parser.add_argument(
+        "--claim-email",
+        metavar="EMAIL",
+        help="Reassign the synthetic owner's recipes/cookbooks to this login email "
+        "(first Google login with it then owns them — see claim_ownership)",
+    )
+    parser.add_argument(
+        "--claim-from",
+        metavar="EMAIL",
+        default="staging-admin@example.test",
+        help="Owner email to move rows away from (default: the synthetic staging-admin)",
+    )
     args = parser.parse_args()
 
     # Resolve before seed() chdirs into Backend/.
@@ -429,7 +514,7 @@ def main():
     print(f"DATABASE_URL: {os.environ.get('DATABASE_URL', '(not set, will use default)')}")
     print("")
 
-    seed(dry_run=args.dry_run, from_json=from_json)
+    seed(dry_run=args.dry_run, from_json=from_json, claim_email=args.claim_email, claim_from=args.claim_from)
 
 
 if __name__ == "__main__":

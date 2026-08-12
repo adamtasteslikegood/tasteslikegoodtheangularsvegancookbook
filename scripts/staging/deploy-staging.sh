@@ -150,6 +150,34 @@ run_cmd gcloud secrets add-iam-policy-binding DATABASE_URL_STAGING \
   --member="serviceAccount:${COMPUTE_SA}" \
   --role=roles/secretmanager.secretAccessor
 
+# Google OAuth login on staging is OPTIONAL and keys off secret presence:
+# when both staging OAuth secrets exist they are wired into Flask and the
+# Sign In button works; when absent, staging deploys without them and
+# /api/auth/login returns 500 "OAuth credentials not configured" (the SPA
+# stays guest-only). To enable, create an OAuth 2.0 Client ID (type: Web
+# application) in the staging project's console with redirect URI
+#   https://<express-staging-url>/api/auth/callback
+# (consent screen: External + Testing, with the logging-in Google accounts
+# added as test users is enough), then store both halves:
+#   printf '%s' "<client-id>" | gcloud secrets create GOOGLE_CLIENT_ID_STAGING --data-file=- --project=<staging-project>
+#   printf '%s' "<client-secret>" | gcloud secrets create GOOGLE_CLIENT_SECRET_STAGING --data-file=- --project=<staging-project>
+OAUTH_SECRETS=""
+if gcloud secrets describe GOOGLE_CLIENT_ID_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1 \
+    && gcloud secrets describe GOOGLE_CLIENT_SECRET_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  OAUTH_SECRETS=",GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest"
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_CLIENT_ID_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_CLIENT_SECRET_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  echo "OAuth login: enabled (staging OAuth secrets found)"
+else
+  echo "OAuth login: disabled (GOOGLE_CLIENT_ID_STAGING / GOOGLE_CLIENT_SECRET_STAGING not in ${PROJECT_ID})"
+fi
+
 # Cross-project image pull: the staging project's Cloud Run service agent
 # needs read access to the prod Artifact Registry repo.
 run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
@@ -162,7 +190,8 @@ echo ""
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
 # Staging Flask uses the Railway Postgres via the DATABASE_URL_STAGING
 # secret; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
-# FLASK_ENV=staging activates staging-specific behaviour.
+# Google OAuth login is wired in only when the staging OAuth secrets exist
+# (see step 0). FLASK_ENV=staging activates staging-specific behaviour.
 #
 # Posture mirrors prod flask-backend (KAN-170): the invoker IAM check stays
 # ON (--no-allow-unauthenticated), and Express authenticates with a
@@ -174,6 +203,21 @@ echo ""
 # kept as a cost ceiling — staging never needs more than one instance.
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
+
+# FRONTEND_URL is where the OAuth callback 302s the browser after login.
+# The Express staging URL is stable across revisions, so resolve it from the
+# existing service. On the very first deploy it doesn't exist yet — deploy
+# once, then re-run this script (idempotent) to wire it in.
+# SESSION_COOKIE_DOMAIN stays unset on purpose: run.app is on the Public
+# Suffix List, so host-only session cookies are the only shape that works.
+EXPRESS_EXISTING_URL="$(gcloud run services describe "${EXPRESS_SERVICE}" \
+  --region="${REGION}" --project="${PROJECT_ID}" \
+  --format='value(status.url)' 2>/dev/null || true)"
+if [[ -n "$OAUTH_SECRETS" && -z "$EXPRESS_EXISTING_URL" ]]; then
+  echo "NOTE: OAuth secrets exist but ${EXPRESS_SERVICE} has no URL yet;"
+  echo "      re-run after this deploy so FRONTEND_URL gets wired in."
+fi
+
 run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --image="${FLASK_IMAGE}" \
   --region="${REGION}" \
@@ -182,8 +226,8 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=,GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
-  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
+  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${OAUTH_SECRETS}" \
   --no-allow-unauthenticated \
   --quiet
 
