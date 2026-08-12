@@ -15,8 +15,10 @@ export class SaveToastComponent {
   readonly viewRecipeRequested = output<Recipe>();
 
   toast = computed(() => {
-    const toasts = this.toastService.toasts();
-    return toasts.length > 0 ? { message: toasts[0].message, recipe: toasts[0].recipe } : null;
+    const t = this.toastService.toasts()[0];
+    return t
+      ? { message: t.message, recipe: t.recipe, linkUrl: t.linkUrl, linkLabel: t.linkLabel }
+      : null;
   });
 
   onView() {
