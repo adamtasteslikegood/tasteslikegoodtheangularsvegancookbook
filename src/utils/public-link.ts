@@ -88,10 +88,10 @@ export function publicLinkKind(recipe: {
  *            'normal' — they must stay unpublishable-off but
  *            unpublish-able.
  * 'source' — a copy saved from a public recipe that is not itself
- *            published: rendered greyed by default (its publish state
- *            belongs to the source page), but still clickable — the
- *            KAN-137 confirm gate makes publishing a separate copy an
- *            informed choice.
+ *            published: rendered greyed and disabled (RCP-74). Publish
+ *            state belongs to the source page; togglePublic() short-circuits
+ *            with a toast, and the server rejects the change with 403 once
+ *            the Backend guard lands (Backend #279).
  * 'normal' — everything else.
  */
 export function publishToggleKind(recipe: {

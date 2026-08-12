@@ -132,6 +132,32 @@ describe('RecipeViewBase', () => {
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
   });
 
+  // RCP-74 poison pill, owed since the "publishes the copy when confirmed"
+  // test was removed with the KAN-137 confirm flow: no test would otherwise
+  // fail if the guard were relaxed and a saved copy published again. confirm
+  // is stubbed to ACCEPT, so resurrecting any confirm-then-publish path
+  // reaches the save and fails here.
+  it('refuses to publish a saved copy — guard path, no confirm, nothing saved', async () => {
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
+    const { host, persistenceSaveRecipe } = createHost({ isGuest: false });
+    const recipe = {
+      id: 'copy-1',
+      name: 'Vegan Cornbread',
+      sourceSlug: 'vegan-cornbread',
+    } as unknown as { is_public?: boolean };
+    host.recipe.set(recipe as never);
+
+    await host.togglePublic(recipe as never);
+
+    expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    expect((host.recipe() as { is_public?: boolean } | null)?.is_public).toBeFalsy();
+    // The D1 refusal: a redirect to the live page, not a plain scold.
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/already live/i), null, 6000, {
+      url: '/r/vegan-cornbread',
+      label: 'here',
+    });
+  });
+
   // GH #3256 (KAN-144): manual entry wrote the user's own notes into `notes`,
   // the generated-content field the editor treats as read-only — so those notes
   // were frozen and the pencil opened an empty box. Manual recipes are never
