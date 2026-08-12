@@ -4,6 +4,10 @@ import helmet from 'helmet';
 import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import type { Redis } from 'ioredis';
 import { RATE_LIMIT_PREFIXES } from './valkey-config.js';
+// KAN-160: isPageSubresource and its regex patterns moved to route-manifest.ts.
+// Re-exported so existing consumers (tests importing from security.ts) don't break.
+import { isPageSubresource } from './route-manifest.js';
+export { isPageSubresource };
 
 /**
  * Security Configuration
@@ -49,12 +53,6 @@ const IMAGE_SERVING_RE = /^\/recipes\/[^/]+\/image$/;
 export function shouldSkipRateLimiting(req: Request): boolean {
   return req.path === '/health' || IMAGE_SERVING_RE.test(req.path);
 }
-
-// KAN-160: isPageSubresource and its regex patterns moved to route-manifest.ts.
-// Imported for local use (createPageLimiter skip function) and re-exported so
-// existing consumers (tests importing from security.ts) don't break.
-import { isPageSubresource } from './route-manifest.js';
-export { isPageSubresource };
 
 // KAN-218: known search-engine and social-media crawlers. User-agent detection
 // is sufficient here — this exempts rate limiting, not authentication. Crawlers
