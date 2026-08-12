@@ -45,7 +45,7 @@ Cloud Run's edge.
 ## Quick start
 
 ```bash
-# Dry run (prints gcloud commands without executing):
+# Dry run (skips mutations, prints what would run):
 ./scripts/staging/deploy-staging.sh
 
 # Actually deploy:

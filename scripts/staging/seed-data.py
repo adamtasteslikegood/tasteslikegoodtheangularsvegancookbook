@@ -31,10 +31,11 @@ import sys
 import uuid
 from datetime import datetime, timedelta, timezone
 
-# Add Backend to the path so we can import the app
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 BACKEND_DIR = os.path.join(REPO_ROOT, "Backend")
+if not os.path.isdir(BACKEND_DIR):
+    sys.exit(f"Backend submodule not found at {BACKEND_DIR} — run: git submodule update --init Backend")
 sys.path.insert(0, BACKEND_DIR)
 
 
