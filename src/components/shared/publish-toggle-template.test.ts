@@ -30,7 +30,9 @@ function publishToggle(html: string): string {
 }
 
 function binding(tag: string, name: string): string {
-  const match = tag.match(new RegExp(`\\[${name.replace(/[.[\]]/g, '\\$&')}\\]="([^"]*)"`));
+  const match = tag.match(
+    new RegExp(`\\[${name.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}\\]="([^"]*)"`)
+  );
   expect(match, `publish toggle must bind [${name}]`).not.toBeNull();
   return match![1];
 }
