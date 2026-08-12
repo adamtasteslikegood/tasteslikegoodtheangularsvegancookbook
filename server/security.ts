@@ -3,6 +3,7 @@ import RedisStore, { type RedisReply } from 'rate-limit-redis';
 import helmet from 'helmet';
 import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
 import type { Redis } from 'ioredis';
+import { RATE_LIMIT_PREFIXES } from './valkey-config.js';
 
 /**
  * Security Configuration
@@ -49,33 +50,11 @@ export function shouldSkipRateLimiting(req: Request): boolean {
   return req.path === '/health' || IMAGE_SERVING_RE.test(req.path);
 }
 
-// Subresources a browser requests on its own for every page view: Flask's SSR
-// stylesheets/scripts and the icon set that iOS probes by convention.
-const SUBRESOURCE_PREFIX_RE = /^\/(?:static\/|favicon\.|apple-touch-icon)/;
-
-// Angular's content-hashed build output (main-GTOZZOJH.js, styles-VFQLW5EH.css,
-// chunk-UORTPREJ.js). Anchored on the hash so an arbitrary /evil.js is not
-// exempt. Bundles also arrive under a route prefix (/recipe/main-….js) because
-// the SPA requests them relative to the current URL, so this matches on the
-// basename rather than the whole path.
-const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
-
-/**
- * Returns true for static subresources that must not count against the page
- * rate limit.
- *
- * KAN-154: these were metered like real navigations, so a single SSR page view
- * cost ~8 requests out of a 300 req / 15 min per-IP budget — roughly 37 page
- * views per quarter hour, shared by every device behind one NAT'd address.
- * Two people browsing recipes exhausted it and both got 429s. Rate limiting
- * here exists to protect Flask and the AI endpoints; metering CSS bought
- * nothing and cost the public surface.
- *
- * Exported for unit testing.
- */
-export function isPageSubresource(req: Request): boolean {
-  return SUBRESOURCE_PREFIX_RE.test(req.path) || HASHED_BUNDLE_RE.test(req.path);
-}
+// KAN-160: isPageSubresource and its regex patterns moved to route-manifest.ts.
+// Imported for local use (createPageLimiter skip function) and re-exported so
+// existing consumers (tests importing from security.ts) don't break.
+import { isPageSubresource } from './route-manifest.js';
+export { isPageSubresource };
 
 // KAN-218: known search-engine and social-media crawlers. User-agent detection
 // is sufficient here — this exempts rate limiting, not authentication. Crawlers
@@ -108,7 +87,7 @@ export const createApiLimiter = (
     // When mounted on /api, req.path is relative: /health, /recipes/…/image
     skip: shouldSkipRateLimiting,
     keyGenerator: (req) => getClientIp(req),
-    store: buildRedisStore(valkeyClient, 'rl:api:'),
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.api),
   });
 };
 
@@ -135,7 +114,7 @@ export const createPageLimiter = (
     message: { error: 'Too many requests, please try again later.' },
     skip: (req) => isPageSubresource(req) || isKnownCrawler(req),
     keyGenerator: (req) => getClientIp(req),
-    store: buildRedisStore(valkeyClient, 'rl:page:'),
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.page),
   });
 };
 
@@ -154,7 +133,7 @@ export const createExpensiveOperationLimiter = (
       error: 'Rate limit exceeded for this operation. Please try again later.',
     },
     keyGenerator: (req) => getClientIp(req),
-    store: buildRedisStore(valkeyClient, 'rl:expensive:'),
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.expensive),
   });
 };
 

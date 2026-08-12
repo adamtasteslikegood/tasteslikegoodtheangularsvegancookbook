@@ -235,6 +235,22 @@ export abstract class RecipeViewBase {
       return;
     }
 
+    // RCP-74: saved copies cannot be published — the source page owns
+    // publication. Templates mark the toggle disabled for this kind, but this
+    // base is shared across surfaces and a template can forget (the generator
+    // shipped ungated): this guard is the refusal, not a courtesy. The server
+    // rejects the change with 403 once the Backend guard lands (Backend #279).
+    if (nextState && publishToggleKind(recipe) === 'source') {
+      // D1 copy: "This recipe is already live at [here]" — a different message
+      // class from the manual refusal above. It redirects rather than scolds:
+      // "here" is a real hyperlink to the source's public page (RCP-76 AC3).
+      this.toastService.show('This recipe is already live at', null, 6000, {
+        url: `/r/${recipe.sourceSlug}`,
+        label: 'here',
+      });
+      return;
+    }
+
     // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
     // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
     // with 400. Same derivation as the server (parity is spec-pinned), so
@@ -243,20 +259,6 @@ export abstract class RecipeViewBase {
       this.toastService.show(
         "This recipe can't be published: its title has no letters or numbers (a-z, 0-9) to build a public link from."
       );
-      return;
-    }
-
-    // KAN-137: first publish of a copy saved from a public recipe would mint
-    // a near-identical second public page (name collision → -N slug). Make
-    // that an informed choice instead of a silent side effect.
-    if (
-      nextState &&
-      !recipe.slug &&
-      recipe.sourceSlug &&
-      !confirm(
-        `This recipe was saved from a public recipe that may still be live at /r/${recipe.sourceSlug}. Publish your copy as a separate public page?`
-      )
-    ) {
       return;
     }
 
@@ -322,7 +324,7 @@ export abstract class RecipeViewBase {
     if (kind === 'locked') return 'Canonical recipe — publish state is locked';
     if (kind === 'manual') return "Manually entered recipes can't be published.";
     if (kind === 'source') {
-      return `This recipe was saved from a public recipe (/r/${recipe.sourceSlug}). Publishing creates your own separate public page.`;
+      return `Saved copies can't be published — the original recipe at /r/${recipe.sourceSlug} owns the public page.`;
     }
     return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
   }

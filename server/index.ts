@@ -13,6 +13,7 @@ import {
 import { createFlaskProxy } from './proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
+import { classifyRoute } from './route-manifest.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -64,11 +65,29 @@ export const ready = (async () => {
     next();
   });
 
+  // ── Staging: non-indexable (KAN-182) ──────────────────────────────
+  // When NODE_ENV=staging, tell crawlers not to index any page and serve
+  // a deny-all robots.txt. X-Robots-Tag covers every response (HTML, SSR
+  // proxied pages, API JSON) without needing to rewrite HTML bodies.
+  const isStaging = process.env.NODE_ENV === 'staging';
+  if (isStaging) {
+    // Header middleware first: registering the robots.txt route before it
+    // would leave that one response without the X-Robots-Tag header.
+    app.use((_req, res, next) => {
+      res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+      next();
+    });
+    app.get('/robots.txt', (_req, res) => {
+      res.type('text/plain').send('User-agent: *\nDisallow: /\n');
+    });
+  }
+
   // Health check (local to Express — handled before the proxy)
   app.get('/api/health', (_req, res) => {
     res.status(200).json({
       status: 'ok',
       timestamp: new Date().toISOString(),
+      environment: isStaging ? 'staging' : process.env.NODE_ENV || 'development',
       rateLimitStore: valkeyClient ? 'valkey' : 'memory',
     });
   });
@@ -111,7 +130,13 @@ export const ready = (async () => {
   // ── Static file serving ─────────────────────────────────────────
   const __filename = fileURLToPath(import.meta.url);
   const __dirname = path.dirname(__filename);
-  const distPath = path.resolve(__dirname, '..', '..', 'dist');
+  // SPA_DIST_DIR is a test-only override: under Vitest this module runs from
+  // server/ (not the compiled server/dist/), so the relative resolution lands
+  // outside the repo and the SPA catch-all would have no index.html to serve.
+  // routes.test.ts points it at a stub dist/ fixture to exercise the catch-all.
+  const distPath = process.env.SPA_DIST_DIR
+    ? path.resolve(process.env.SPA_DIST_DIR)
+    : path.resolve(__dirname, '..', '..', 'dist');
 
   app.use(express.static(distPath));
 
@@ -184,7 +209,17 @@ export const ready = (async () => {
   // express.static so Angular build assets (if any collide) still win.
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
-  app.get('{*path}', staticPageLimiter, (_req, res) => {
+  app.get('{*path}', staticPageLimiter, (req, res) => {
+    // RCP-77 AC4 (KAN-160): an asset-like path reaching the catch-all was not
+    // found by express.static or any earlier route. Serving index.html here
+    // would answer 200 text/html for a missing .js/.css/.map — the browser
+    // refuses it under nosniff and crawlers see soft-404 shell spam. 404
+    // instead. Classification comes from the route manifest so the policy
+    // lives in one place (server/route-manifest.ts).
+    if (classifyRoute(req.path) === 'asset') {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
     res.sendFile(path.join(distPath, 'index.html'));
   });
 

@@ -188,6 +188,7 @@
                     [attr.aria-disabled]="
                       publishToggleKind(r) === 'locked' ||
                       publishToggleKind(r) === 'manual' ||
+                      publishToggleKind(r) === 'source' ||
                       publishTogglePending()
                     "
                     [title]="publishToggleTitle(r)"
@@ -196,7 +197,9 @@
                     [class.bg-stone-300]="!r.is_public"
                     [class.opacity-40]="publishToggleKind(r) !== 'normal' || publishTogglePending()"
                     [class.cursor-not-allowed]="
-                      publishToggleKind(r) === 'locked' || publishToggleKind(r) === 'manual'
+                      publishToggleKind(r) === 'locked' ||
+                      publishToggleKind(r) === 'manual' ||
+                      publishToggleKind(r) === 'source'
                     "
                   >
                     <span

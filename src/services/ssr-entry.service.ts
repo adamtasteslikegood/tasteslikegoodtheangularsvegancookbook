@@ -61,13 +61,21 @@ export class SsrEntryService {
       new Promise<void>((resolve) => setTimeout(resolve, 8_000)),
     ]);
 
-    const alreadySaved = this.auth
-      .currentUser()
-      ?.savedRecipes.find(
-        (r: Recipe) => r.sourceSlug === normalizedSlug || r.slug === normalizedSlug
-      );
-    if (alreadySaved) {
-      this.toast.show('Good news — you already have this recipe.', alreadySaved);
+    const saved = this.auth.currentUser()?.savedRecipes ?? [];
+
+    // RCP-74 AC3: a copy already saved from this public page means the intended
+    // flow has already succeeded — clicking Save again is idempotent, not a
+    // duplicate to warn about. Keep the dedup (no second row), drop the toast.
+    if (saved.find((r: Recipe) => r.sourceSlug === normalizedSlug)) {
+      return;
+    }
+
+    // Saving your OWN published recipe from its public page is the one genuine
+    // duplicate: the original row already lives in the cookbook, so a silent
+    // no-op would read as a broken Save button. Say why nothing new appeared.
+    const ownPublished = saved.find((r: Recipe) => r.slug === normalizedSlug);
+    if (ownPublished) {
+      this.toast.show('Good news — you already have this recipe.', ownPublished);
       return;
     }
 
