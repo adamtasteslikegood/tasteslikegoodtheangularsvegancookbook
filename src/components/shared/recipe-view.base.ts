@@ -239,9 +239,13 @@ export abstract class RecipeViewBase {
     // publication. The template disables the toggle, this backstops it.
     // The server returns 403 if this somehow reaches it.
     if (nextState && publishToggleKind(recipe) === 'source') {
-      this.toastService.show(
-        "Saved copies can't be published. The original recipe owns the public page."
-      );
+      // D1 copy: "This recipe is already live at [here]" — a different message
+      // class from the manual refusal above. It redirects rather than scolds:
+      // "here" is a real hyperlink to the source's public page (RCP-76 AC3).
+      this.toastService.show('This recipe is already live at', null, 6000, {
+        url: `/r/${recipe.sourceSlug}`,
+        label: 'here',
+      });
       return;
     }
 

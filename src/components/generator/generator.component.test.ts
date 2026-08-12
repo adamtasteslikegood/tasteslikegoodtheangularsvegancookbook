@@ -137,10 +137,12 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
   });
 
-  // RCP-74: saved copies cannot be published. The guard fires before the
-  // confirm dialog, toasting the reason and returning early.
-  it('blocks publishing a saved copy with a toast and no confirm (RCP-74)', async () => {
-    const confirmMock = vi.fn().mockReturnValue(false);
+  // RCP-74: saved copies cannot be published. The guard refuses with the D1
+  // redirect toast — "already live at [here]" linking the source's public
+  // page. confirm is stubbed to ACCEPT so a reintroduced KAN-137-style
+  // confirm flow would publish and fail this test (poison pill).
+  it('blocks publishing a saved copy with the already-live link toast (RCP-74)', async () => {
+    const confirmMock = vi.fn().mockReturnValue(true);
     vi.stubGlobal('confirm', confirmMock);
     const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
 
@@ -151,7 +153,10 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
     expect(confirmMock).not.toHaveBeenCalled();
     expect(toastShow).toHaveBeenCalledWith(
-      expect.stringMatching(/saved copies can't be published/i)
+      expect.stringMatching(/already live/i),
+      null,
+      expect.any(Number),
+      { url: '/r/vegan-cornbread', label: 'here' }
     );
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
   });

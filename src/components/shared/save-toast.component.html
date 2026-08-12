@@ -8,7 +8,18 @@
       class="flex items-center gap-3 rounded-2xl bg-stone-900 text-white shadow-2xl px-4 py-3 w-full max-w-sm"
     >
       <span class="flex-1 text-sm">{{ t.message }}</span>
-      @if (t.recipe) {
+      @if (t.linkUrl) {
+        <!-- RCP-74: a real hyperlink (full page load — /r/<slug> is SSR),
+             completing the sentence in the message, e.g. "…already live at"
+             + "here". -->
+        <a
+          [href]="t.linkUrl"
+          (click)="dismiss()"
+          class="text-sm font-semibold text-green-300 hover:text-green-200 underline underline-offset-2 whitespace-nowrap"
+        >
+          {{ t.linkLabel || 'View' }}
+        </a>
+      } @else if (t.recipe) {
         <button
           type="button"
           (click)="onView()"

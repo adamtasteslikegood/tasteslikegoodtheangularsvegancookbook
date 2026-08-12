@@ -215,9 +215,11 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
       }) as never;
 
     // RCP-74: saved copies cannot be published. The toggle is disabled and
-    // togglePublic() returns early with a toast, before the confirm dialog.
-    it('blocks publishing a saved copy with a toast and no confirm (RCP-74)', async () => {
-      const confirmMock = vi.fn().mockReturnValue(false);
+    // togglePublic() refuses with the D1 redirect toast — "already live at
+    // [here]" linking the source's public page. confirm is stubbed to ACCEPT
+    // so a reintroduced confirm flow would publish and fail this test.
+    it('blocks publishing a saved copy with the already-live link toast (RCP-74)', async () => {
+      const confirmMock = vi.fn().mockReturnValue(true);
       vi.stubGlobal('confirm', confirmMock);
       const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
 
@@ -226,7 +228,10 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
 
       expect(confirmMock).not.toHaveBeenCalled();
       expect(toastShow).toHaveBeenCalledWith(
-        expect.stringMatching(/saved copies can't be published/i)
+        expect.stringMatching(/already live/i),
+        null,
+        expect.any(Number),
+        { url: '/r/vegan-cornbread', label: 'here' }
       );
       expect(recipe.is_public).toBeFalsy();
       expect(persistenceSaveRecipe).not.toHaveBeenCalled();
