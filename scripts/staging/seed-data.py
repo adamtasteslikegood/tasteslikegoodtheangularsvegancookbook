@@ -161,6 +161,10 @@ RECIPES = [
 # prepTime/cookTime are canonical there).
 EXPORT_COLUMN_KEYS = {"id", "sourceSlug", "is_public", "is_canonical", "origin"}
 
+# Fields the SPA carries locally but that should never land in Recipe.data —
+# ai_image_data is base64 image bytes that bloats the DB.
+EXPORT_STRIP_KEYS = {"ai_image_data", "user_id"}
+
 # recipe_schema.json's required keys — records missing any are reported and
 # skipped rather than crashing the whole import.
 EXPORT_REQUIRED_KEYS = {"name", "prepTime", "cookTime", "servings", "ingredients", "instructions"}
@@ -208,7 +212,7 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
             print(f"  [DRY RUN] Would import: {rec['name']} (public={rec.get('is_public')})")
             continue
 
-        rid = rec.get("id") or str(uuid.uuid4())
+        rid = str(rec["id"]) if rec.get("id") else str(uuid.uuid4())
         if db.session.get(Recipe, rid):
             existed += 1
             recipe_ids.append(rid)
@@ -233,7 +237,7 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
                 print(f"  Identity already present for owner, skipping: {rec['name']} ({identity})")
                 continue
 
-        data = {k: v for k, v in rec.items() if k not in EXPORT_COLUMN_KEYS}
+        data = {k: v for k, v in rec.items() if k not in EXPORT_COLUMN_KEYS and k not in EXPORT_STRIP_KEYS}
         recipe = Recipe(
             id=rid,
             user_id=target.id,
@@ -508,6 +512,8 @@ def main():
 
     # Resolve before seed() chdirs into Backend/.
     from_json = os.path.abspath(args.from_json) if args.from_json else None
+    if from_json and not os.path.isfile(from_json):
+        parser.error(f"--from-json path does not exist: {from_json}")
 
     print("=== Staging Data Seeder ===")
     print(f"Backend dir: {BACKEND_DIR}")
