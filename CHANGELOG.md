@@ -6,6 +6,45 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.11] - 2026-08-12
+
+Backend submodule pointer: `a94fac2` → **`197e72f`** — Backend `main`'s own tip, the
+merge commit of
+[#281](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/281).
+
+**Sprint 7 close-out.** Three stories delivered: a server-side publish guard that
+prevents saved copies from being published, Valkey/healthcheck defect-contract
+fixes, and a minimal viable staging environment on Cloud Run.
+
+### Added
+
+- **Staging environment** — Express `X-Robots-Tag: noindex` middleware + deny-all
+  `robots.txt` when `NODE_ENV=staging`, Cloud Run deploy script (`deploy-staging.sh`)
+  reusing production images, Railway Postgres-backed seed-data script, and a local
+  generation emulator for end-to-end testing without AI billing — KAN-182,
+  [#3393](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3393),
+  [#3397](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3397)
+- **Saved-copy publish guard** — server-side 403 refuses publish requests for
+  recipes with `origin='saved'`, SPA disables the publish toggle on saved copies,
+  toast shows a link-capable refusal message — KAN-221 / RCP-74, Backend
+  [#279](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/279),
+  [#3391](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3391)
+- **SPA catch-all rejects unknown asset-like paths** with a 404 instead of serving
+  `index.html` — KAN-160,
+  [#3392](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3392)
+
+### Fixed
+
+- **Valkey config-factory** validates `VALKEY_PORT`, corrects the Flask-side factory
+  comment, and prevents silent misconfiguration — KAN-160, Backend
+  [#280](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/280),
+  [#3392](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3392)
+- **Deploy healthcheck** probes the canonical host, uses `python3` for JSON parsing,
+  and is `pipefail`-safe — KAN-160,
+  [#3392](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3392)
+- **Duplicate-save nag suppressed** on the save-from-public path (AC3) — RCP-74,
+  [#3391](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3391)
+
 ## [0.4.10] - 2026-08-10
 
 Backend submodule pointer: `f1219e8` → **`a94fac2`** — Backend `main`'s own tip, the
