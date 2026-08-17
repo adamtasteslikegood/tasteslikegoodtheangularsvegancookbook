@@ -52,9 +52,12 @@ describe('SsrEntryService', () => {
     return { service, saveRecipe };
   };
 
-  // RCP-74 AC3: saving from a public page is the intended flow, so an existing
-  // copy is idempotent success, not a duplicate to warn about — no row, no nag.
-  it('silently skips the save when a copy from this public page already exists', async () => {
+  // TAS-3056/RCP-79 (supersedes RCP-74 AC3): a copy already saved from this
+  // public page — including one whose original author is a different user, the
+  // case that only ever carries sourceSlug (never slug) — must surface the
+  // "you already have this recipe" toast pointing at the existing copy. The row
+  // is still deduped; only the previously-suppressed toast changes.
+  it('shows the already-saved toast when a copy from this public page already exists', async () => {
     const { service, saveRecipe } = createService({
       savedRecipes: [{ id: 'r1', name: 'Thai Peanut Noodles', sourceSlug: 'thai-peanut-noodles' }],
     });
@@ -62,7 +65,10 @@ describe('SsrEntryService', () => {
     await service.handleSave('thai-peanut-noodles');
 
     expect(saveRecipe).not.toHaveBeenCalled();
-    expect(toastShow).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'r1' })
+    );
   });
 
   it('waits for the first server sync so server-only copies are deduped (KAN-139)', async () => {
@@ -85,9 +91,13 @@ describe('SsrEntryService', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(saveRecipe).not.toHaveBeenCalled();
-    // RCP-74 AC3: the server-side copy makes this the same intended-flow
-    // re-entry as the local case — deduped without the duplicate nag.
-    expect(toastShow).not.toHaveBeenCalled();
+    // TAS-3056/RCP-79: the server-side copy is still deduped (no fetch, no new
+    // row — the KAN-139 point), but the user is now told they already have it,
+    // linked to the server copy the first sync surfaced.
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'server-copy' })
+    );
   });
 
   // The one genuine duplicate case (RCP-74 AC3 keeps this toast): the original
@@ -236,10 +246,13 @@ describe('SsrEntryService', () => {
   // ── KAN-198: the regression gate owed by KAN-156 ──────────────────────────
   // KAN-156 ("Good news — you already have this recipe" firing right after a
   // successful first-time save) was closed on a live walkthrough, with no test.
-  // The charter's proving gate was "a first-time save emits exactly one toast".
-  // These two assert it — the first for the ordinary path, the second for the
-  // mechanism KAN-156 actually documented.
-  describe('a first-time save emits exactly one toast (KAN-156 / KAN-198)', () => {
+  // The charter's proving gate was "one user action emits exactly one toast".
+  // The first two tests assert it for a single entry — the ordinary path and
+  // the overlapping-guard mechanism KAN-156 documented (collapsed upstream by
+  // inFlightSaves). The third covers a later, SEPARATE save of the same slug:
+  // a second user action, so its own already-saved confirmation is expected
+  // (TAS-3056/RCP-79), not a KAN-156 regression.
+  describe('one user action emits exactly one toast (KAN-156 / KAN-198)', () => {
     // saveRecipe here PERSISTS into savedRecipes, the way the real
     // PersistenceService does. Without that the dedup check at the top of
     // handleSave can never observe the row the save just wrote, and the
@@ -315,26 +328,26 @@ describe('SsrEntryService', () => {
       );
     });
 
-    // The dedup must be scoped to an in-flight entry, not a permanent
-    // "handled" set: a user who saves, deletes, and saves again is making a
-    // genuine second request the service must still process.
-    it('still dedups a later save of the same slug without adding a row or a nag', async () => {
+    // A later, separate save of the same slug is a genuine second user action
+    // the service must still process — the in-flight dedup is scoped to
+    // overlapping calls, not a permanent "handled" set.
+    it('dedups a later save of the same slug — no duplicate row, but confirms it is already saved', async () => {
       vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
       const savedRecipes: unknown[] = [];
       const { service } = createPersistingService(savedRecipes);
 
       await service.handleSave('thai-peanut-noodles');
       expect(toastShow).toHaveBeenCalledTimes(1);
+      expect(toastShow.mock.calls[0][0]).toMatch(/saved to your cookbook/i);
 
-      // The row is now present. RCP-74 AC3 superseded the KAN-156-era
-      // "a response, not silence" ruling for this path: re-saving from the
-      // public page is the intended flow re-run, so it dedups silently.
+      // The row is now present. TAS-3056/RCP-79 supersedes RCP-74 AC3: re-saving
+      // from the public page is a fresh user action, so it dedups the row (no
+      // second entry) yet still surfaces the "you already have this recipe"
+      // confirmation.
       await service.handleSave('thai-peanut-noodles');
       expect(savedRecipes).toHaveLength(1);
-      expect(toastShow).toHaveBeenCalledTimes(1);
-      expect(toastShow.mock.calls.map((c) => c[0]).join(' ')).not.toMatch(
-        /already have this recipe/i
-      );
+      expect(toastShow).toHaveBeenCalledTimes(2);
+      expect(toastShow.mock.calls[1][0]).toMatch(/already have this recipe/i);
     });
   });
 
