@@ -39,7 +39,7 @@ def build_mini_bar(token_count, context_size, width=5):
     if not context_size or not token_count:
         return f"{cc_session.DIM}{'░' * width}{cc_session.RESET}", "--"
 
-    pct = int(token_count * 100 / context_size)
+    pct = min(int(token_count * 100 / context_size), 100)
     if pct >= 90:
         color = cc_session.RED
     elif pct >= 70:

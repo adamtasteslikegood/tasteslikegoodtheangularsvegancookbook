@@ -19,7 +19,7 @@ def build_context_bar(pct, width=10):
         bar = "░" * width
         return f"{cc_session.DIM}{bar}{cc_session.RESET}", "--"
 
-    pct = int(pct)
+    pct = min(int(pct), 100)
     if pct >= 90:
         color = cc_session.RED
     elif pct >= 70:
