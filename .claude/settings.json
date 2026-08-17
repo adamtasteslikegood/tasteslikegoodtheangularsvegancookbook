@@ -1,8 +1,14 @@
 {
-  "enabledMcpjsonServers": [
-    "pm-daemon",
-    "gcp-monitor"
-  ],
+  "enabledMcpjsonServers": ["pm-daemon", "gcp-monitor"],
+  "statusLine": {
+    "type": "command",
+    "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/tui/statusline.py\"",
+    "refreshInterval": 10
+  },
+  "subagentStatusLine": {
+    "type": "command",
+    "command": "python3 \"$CLAUDE_PROJECT_DIR/scripts/tui/subagent_statusline.py\""
+  },
   "hooks": {
     "PreToolUse": [
       {
@@ -15,7 +21,7 @@
         ]
       },
       {
-        "matcher": "mcp__plugin_github_github__(add_reply_to_pull_request_comment|add_comment_to_pending_review|add_issue_comment|pull_request_review_write)",
+        "matcher": "mcp__plugin_github_github__(add_reply_to_pull_request_comment|add_comment_to_pending_review|add_issue_comment|pull_request_review_write|merge_pull_request)",
         "hooks": [
           {
             "type": "command",
