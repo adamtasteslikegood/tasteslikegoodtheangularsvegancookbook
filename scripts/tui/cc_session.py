@@ -102,6 +102,9 @@ def get_git_status(data):
     safe_id = "".join(ch for ch in raw_id if ch.isalnum() or ch in ("-", "_"))
     cache_file = f"/tmp/statusline-git-cache-{safe_id or 'unknown'}"
 
+    ws = data.get("workspace") or {}
+    cwd = ws.get("current_dir") or data.get("cwd") or None
+
     stale = True
     try:
         st = os.lstat(cache_file)
@@ -113,16 +116,27 @@ def get_git_status(data):
     if stale:
         try:
             subprocess.check_output(
-                ["git", "rev-parse", "--git-dir"], stderr=subprocess.DEVNULL
+                ["git", "rev-parse", "--git-dir"],
+                stderr=subprocess.DEVNULL,
+                cwd=cwd,
             )
             branch = subprocess.check_output(
-                ["git", "branch", "--show-current"], text=True
+                ["git", "branch", "--show-current"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                cwd=cwd,
             ).strip()
             staged_out = subprocess.check_output(
-                ["git", "diff", "--cached", "--numstat"], text=True
+                ["git", "diff", "--cached", "--numstat"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                cwd=cwd,
             ).strip()
             modified_out = subprocess.check_output(
-                ["git", "diff", "--numstat"], text=True
+                ["git", "diff", "--numstat"],
+                text=True,
+                stderr=subprocess.DEVNULL,
+                cwd=cwd,
             ).strip()
             staged_count = len(staged_out.split("\n")) if staged_out else 0
             modified_count = len(modified_out.split("\n")) if modified_out else 0

@@ -31,8 +31,10 @@ def shorten_model(model_id):
     for prefix, short in MODEL_SHORT.items():
         if model_id.startswith(prefix):
             return short
-    parts = model_id.replace("claude-", "").split("-")
-    return parts[0][0].upper() + ".".join(parts[1:]) if len(parts) > 1 else model_id
+    parts = [p for p in model_id.replace("claude-", "").split("-") if p]
+    if len(parts) < 2 or not parts[0]:
+        return model_id
+    return parts[0][0].upper() + ".".join(parts[1:])
 
 
 def build_mini_bar(token_count, context_size, width=5):
@@ -97,7 +99,10 @@ def main():
         task_id = task.get("id")
         if not task_id:
             continue
-        content = render_task(task)
+        try:
+            content = render_task(task)
+        except Exception:
+            content = "🤖 (render error)"
         print(json.dumps({"id": task_id, "content": content}))
 
 

@@ -36,7 +36,7 @@ def build_context_bar(pct, width=10):
 def rate_limit_5h(pct):
     if pct is None:
         return ""
-    pct = round(pct)
+    pct = min(round(pct), 100)
     width = 6
     filled = pct * width // 100
     empty = width - filled
@@ -53,7 +53,7 @@ def rate_limit_5h(pct):
 def rate_limit_7d(pct):
     if pct is None:
         return ""
-    pct = round(pct)
+    pct = min(round(pct), 100)
     total = 7
     filled = pct * total // 100
     empty = total - filled
@@ -67,12 +67,13 @@ def rate_limit_7d(pct):
     return f"📅7d {dots} {pct}%"
 
 
-def repo_link():
+def repo_link(cwd=None):
     try:
         remote = subprocess.check_output(
             ["git", "remote", "get-url", "origin"],
             stderr=subprocess.DEVNULL,
             text=True,
+            cwd=cwd or None,
         ).strip()
         remote = re.sub(r"^git@github\.com:", "https://github.com/", remote)
         remote = re.sub(r"(https?://)([^@]+@)", r"\1", remote)
@@ -97,16 +98,18 @@ def git_dirty(git_info):
 def pr_segment(pr_info):
     if pr_info is None:
         return ""
-    num = pr_info.get("number", "")
-    state = pr_info.get("review_state", "pending")
+    num = pr_info.get("number")
+    if num is None:
+        return ""
+    state = pr_info.get("review_state") or "pending"
     color_map = {
         "approved": cc_session.GREEN,
         "changes_requested": cc_session.RED,
     }
     color = color_map.get(state, cc_session.YELLOW)
-    state_label = state.replace("_", " ") if state else "pending"
+    state_label = state.replace("_", " ")
     emoji = {"approved": "✅", "changes_requested": "🔴"}.get(state, "🔶")
-    return f"  {emoji} {color}PR #{num} {state_label}{cc_session.RESET}"
+    return f"{emoji} {color}PR #{num} {state_label}{cc_session.RESET}"
 
 
 def main():
@@ -121,7 +124,7 @@ def main():
     pr = cc_session.get_pr(data)
     wt = cc_session.get_worktree(data)
 
-    link = repo_link()
+    link = repo_link(ws["current_dir"])
     if link:
         project_label = f"🔗 {link}"
     else:
@@ -139,7 +142,7 @@ def main():
 
     pr_text = pr_segment(pr)
     if pr_text:
-        parts.append(pr_text.strip())
+        parts.append(pr_text)
 
     print(" ".join(parts))
 
