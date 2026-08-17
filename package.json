@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@angular/build": "22.1.3",
-    "@angular/cli": "22.1.3",
+    "@angular/cli": "22.1.4",
     "@angular/common": "22.1.1",
     "@angular/compiler": "22.1.1",
     "@angular/compiler-cli": "22.1.1",
