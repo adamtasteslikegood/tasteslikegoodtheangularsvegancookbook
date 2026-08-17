@@ -77,12 +77,13 @@ def get_workspace(data):
 
 
 _GIT_CACHE_MAX_AGE = 5
+_O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
 
 
 def _safe_write(path, content):
     """Write a cache file, refusing to follow symlinks (O_NOFOLLOW)."""
     try:
-        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | _O_NOFOLLOW, 0o600)
         with os.fdopen(fd, "w") as f:
             f.write(content)
     except OSError:
@@ -91,7 +92,7 @@ def _safe_write(path, content):
 
 def _safe_read(path):
     """Read a cache file, refusing to follow symlinks (O_NOFOLLOW)."""
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    fd = os.open(path, os.O_RDONLY | _O_NOFOLLOW)
     with os.fdopen(fd, "r") as f:
         return f.read()
 
