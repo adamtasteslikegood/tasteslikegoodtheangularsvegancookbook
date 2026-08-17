@@ -63,19 +63,24 @@ export class SsrEntryService {
 
     const saved = this.auth.currentUser()?.savedRecipes ?? [];
 
-    // RCP-74 AC3: a copy already saved from this public page means the intended
-    // flow has already succeeded — clicking Save again is idempotent, not a
-    // duplicate to warn about. Keep the dedup (no second row), drop the toast.
-    if (saved.find((r: Recipe) => r.sourceSlug === normalizedSlug)) {
-      return;
-    }
-
-    // Saving your OWN published recipe from its public page is the one genuine
-    // duplicate: the original row already lives in the cookbook, so a silent
-    // no-op would read as a broken Save button. Say why nothing new appeared.
-    const ownPublished = saved.find((r: Recipe) => r.slug === normalizedSlug);
-    if (ownPublished) {
-      this.toast.show('Good news — you already have this recipe.', ownPublished);
+    // The recipe is already in the cookbook when either a copy saved earlier
+    // from this public page matches (sourceSlug — the only marker a copy of
+    // ANOTHER user's recipe carries, since such copies are never publishable
+    // and so never gain a slug) or the user's own published original matches
+    // (slug). Either way re-saving adds no row; tell the user and link them to
+    // the copy they already have. Prefer the sourceSlug copy when both exist.
+    //
+    // TAS-3056/RCP-79 supersedes RCP-74 AC3, which suppressed this toast for the
+    // sourceSlug case — so the confirmation fired only when the saver was the
+    // original author (the slug branch). Both cases now surface it consistently.
+    // The KAN-156 "one entry, one toast" guarantee is unaffected: overlapping
+    // saves of the same entry are collapsed upstream by inFlightSaves and never
+    // reach here twice, and the guard redirects off ?save= so no entry re-fires.
+    const alreadySaved =
+      saved.find((r: Recipe) => r.sourceSlug === normalizedSlug) ??
+      saved.find((r: Recipe) => r.slug === normalizedSlug);
+    if (alreadySaved) {
+      this.toast.show('Good news — you already have this recipe.', alreadySaved);
       return;
     }
 
