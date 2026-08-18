@@ -27,11 +27,16 @@ export type SaveRefusal =
   | 'OWNERSHIP_OTHER_GUEST_SESSION'
   | 'OWNERSHIP_ORPHANED_GUEST_ROW'
   | 'ownership'
+  | 'duplicate'
   | 'sync';
 
 export interface SaveOutcome {
   ok: boolean;
   refusal?: SaveRefusal;
+  /** True when the server already has this recipe — the save is a no-op, not
+   *  a failure. Callers should surface "you already have this" rather than
+   *  "saved to your cookbook" or an error. */
+  alreadySaved?: boolean;
 }
 
 /** Minimal shape of what `interpretSaveResponse` needs from a `Response`. */
@@ -53,15 +58,13 @@ interface SaveResponseLike {
  * worth testing; the DI ceremony to reach it is not.
  */
 export async function interpretSaveResponse(res: SaveResponseLike): Promise<SaveOutcome | null> {
-  // KAN-155: 409 means exactly one thing here — the row exists and is owned by
-  // someone else, so the write was REFUSED and nothing was stored. This used to
-  // fall through to success, back when the endpoint only ever upserted and the
-  // comment read "the current API never returns 409". That stopped being true
-  // when the ownership refusal moved from 500 to 409 (Backend #256), and the
-  // stale branch then reported a rejected write as a successful one — leaving
-  // the optimistic `is_public: true` on screen over a row the server rejected.
+  // KAN-155/KAN-241: a 409 carries TWO distinct refusals — ownership (KAN-155)
+  // and duplicate (KAN-213). The body is read once and classified here; both
+  // are refusals (ok: false), but the caller handles them differently:
+  // ownership → revert optimistic state and toast an explanation; duplicate →
+  // undo the ghost localStorage entry and tell the user they already have it.
   if (res.status === 409) {
-    return { ok: false, refusal: await ownershipRefusalOf(res) };
+    return { ok: false, refusal: await classifyRefusal409(res) };
   }
   if (!res.ok) {
     return { ok: false, refusal: 'sync' };
@@ -70,19 +73,27 @@ export async function interpretSaveResponse(res: SaveResponseLike): Promise<Save
 }
 
 /**
- * Narrow a 409 to which ownership refusal fired, from the server's `code`.
+ * Classify a 409 into one of two families: duplicate or ownership.
  *
- * Falls back to the generic `'ownership'` when `code` is absent or unknown — a
- * Backend older than the three-code split still answers a bare 409, and a code
- * newer than this build must degrade to "refused" rather than to "succeeded".
+ * KAN-241: the Backend now returns 409 for TWO situations — `RecipeDuplicateError`
+ * (code `RECIPE_ALREADY_SAVED`, KAN-213) and `RecipeOwnershipError` (three codes,
+ * KAN-155). Before this fix `interpretSaveResponse` treated every 409 as ownership,
+ * so a duplicate refusal surfaced as a generic ownership toast and left a ghost
+ * recipe in localStorage that could never sync.
+ *
+ * Falls back to `'ownership'` when `code` is absent or unknown — a Backend older
+ * than the three-code split still answers a bare 409, and a code newer than this
+ * build must degrade to "refused" rather than to "succeeded".
  * Never throws: a 409 is a refusal regardless of what its body contains.
  */
-async function ownershipRefusalOf(res: SaveResponseLike): Promise<SaveRefusal> {
+async function classifyRefusal409(res: SaveResponseLike): Promise<SaveRefusal> {
   try {
-    // `unknown`, not `SaveRefusal`: this is unvalidated JSON off the wire. Typing
-    // it as the validated type would assert the very thing the comparisons below
-    // exist to check, and would silently admit any future server string.
     const body = (await res.json()) as { code?: unknown } | null;
+    // Duplicate: the server already has this recipe for this owner.
+    if (body?.code === 'RECIPE_ALREADY_SAVED') {
+      return 'duplicate';
+    }
+    // Ownership: the row is owned by someone else.
     if (
       body?.code === 'OWNERSHIP_OTHER_ACCOUNT' ||
       body?.code === 'OWNERSHIP_OTHER_GUEST_SESSION' ||
@@ -178,7 +189,20 @@ export class PersistenceService {
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
 
-    return await this._apiSaveRecipe(recipe);
+    const outcome = await this._apiSaveRecipe(recipe);
+
+    // KAN-241: the server said "you already have this recipe" — the optimistic
+    // localStorage write above added a ghost (fresh UUID, so auth.saveRecipe's
+    // ID dedup did not catch it). Remove the ghost; the original is already on
+    // the server and will appear on the next hydrate. Scope the undo to the
+    // duplicate case only — ownership refusals are KAN-155 territory and have
+    // their own lifecycle.
+    if (outcome.refusal === 'duplicate') {
+      this.auth.removeRecipeById(recipe.id);
+      return { ok: true, alreadySaved: true };
+    }
+
+    return outcome;
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {
