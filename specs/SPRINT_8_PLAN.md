@@ -12,7 +12,8 @@ _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-17.** All six branches locked;
 **This sprint commits to six items.** The measured rate across four sprints
 (50%, 50%, 100%, 100%) supports 3 items per sprint. Six items exceeds that rate
 because two are retro carry-overs that have rolled repeatedly (KAN-161 five sprints,
-KAN-215 one sprint), and two are new bugs Adam reported today. The item cap adjusts
+KAN-215 one sprint), three are bugs Adam reported today (KAN-241, KAN-242, KAN-243),
+and one is a retro follow-up (KAN-244 staging polish). The item cap adjusts
 to accommodate the work — the work never reshapes to fit the cap (see R-4).
 
 ## Why this sprint exists
@@ -24,9 +25,9 @@ v0.4.8. Sprint 7 added the proper schema columns (`user_id_author`,
 workarounds were trying to approximate without schema support.
 
 The columns are now live. This sprint uses them to fix the regressions the
-workarounds introduced, while also addressing three bugs Adam reported today (ghost
-cookbook modal, image generation nav-away, imageless published copy) and two items
-that have rolled through multiple sprints without starting.
+workarounds introduced, while also addressing two other bugs Adam reported today
+(ghost cookbook modal, image generation nav-away), one staging retro action (KAN-244),
+and two items that have rolled without starting (KAN-161, KAN-215).
 
 The framing matters: the workarounds caused the regressions, not the schema work.
 Sprint 7's proper implementation is the fix, not the cause. Any retro or close-out
