@@ -30,7 +30,6 @@ export class GeneratorComponent extends RecipeViewBase {
     this.authService.ensureGuestSession();
 
     this.isRecipeLoading.set(true);
-    this.isImageLoading.set(false);
     this.error.set(null);
     this.recipeState.clearRecipe();
     this.servingsMultiplier.set(1);
@@ -57,9 +56,10 @@ export class GeneratorComponent extends RecipeViewBase {
 
   async triggerImageGeneration(recipe: Recipe) {
     const targetId = recipe.id;
-    this.isImageLoading.set(true);
+    const imagePromise = this.geminiService.generateImage(targetId);
+    this.recipeState.trackImageGeneration(targetId, imagePromise);
     try {
-      const imageUrl = await this.geminiService.generateImage(targetId);
+      const imageUrl = await imagePromise;
       if (this.recipe()?.id === targetId) {
         this.generatedImageUrl.set(imageUrl);
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
@@ -67,10 +67,6 @@ export class GeneratorComponent extends RecipeViewBase {
       this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
       console.error('Image generation failed', err);
-    } finally {
-      if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
-      }
     }
   }
 

@@ -95,7 +95,13 @@ export abstract class RecipeViewBase {
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
   readonly isSaved = this.recipeState.isSaved;
 
-  isImageLoading = signal(false);
+  /**
+   * KAN-243: image loading state is now derived from RecipeStateService's
+   * pending-generation tracking. Before this it was a per-component-instance
+   * writable signal — navigating away destroyed the signal while the async
+   * generation continued, so recipe-detail showed neither image nor spinner.
+   */
+  readonly isImageLoading = this.recipeState.isImageGenerating;
   servingsMultiplier = signal(1);
   isEditingNotes = signal(false);
   editedNotes = signal('');
@@ -149,9 +155,10 @@ export abstract class RecipeViewBase {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
     const targetId = currentRecipe.id;
-    this.isImageLoading.set(true);
+    const imagePromise = this.geminiService.generateImage(targetId, true);
+    this.recipeState.trackImageGeneration(targetId, imagePromise);
     try {
-      const imageUrl = await this.geminiService.generateImage(targetId, true);
+      const imageUrl = await imagePromise;
       if (this.recipe()?.id === targetId) {
         this.generatedImageUrl.set(imageUrl);
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
@@ -159,10 +166,6 @@ export abstract class RecipeViewBase {
       this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
       console.error('Image regeneration failed', err);
-    } finally {
-      if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
-      }
     }
   }
 
