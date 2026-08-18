@@ -110,7 +110,11 @@ export class SsrEntryService {
           (this.auth.currentUser()?.savedRecipes ?? []).find(
             (r: Recipe) => r.slug === normalizedSlug
           );
-        this.toast.show('Good news — you already have this recipe.', existing ?? recipe);
+        // Pass null when the existing copy isn't in local state yet (KAN-241):
+        // the ghost was just removed, so `recipe` points at a dead object whose
+        // View button would navigate to a recipe no longer in savedRecipes.
+        // The real copy surfaces on the next hydrate/sync cycle.
+        this.toast.show('Good news — you already have this recipe.', existing ?? null);
       } else if (outcome.ok) {
         this.toast.show('Saved to your cookbook.', recipe);
       } else {

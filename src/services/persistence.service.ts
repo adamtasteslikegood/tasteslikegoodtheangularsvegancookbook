@@ -20,6 +20,9 @@ import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
  *                                  ownership-repair policy on KAN-155.
  *   ownership                      a 409 with no/unknown code — an older Backend,
  *                                  or a code this build predates.
+ *   duplicate                      a 409 with code RECIPE_ALREADY_SAVED — the
+ *                                  server already has this recipe for this user.
+ *                                  Not a failure: the save is a no-op (KAN-241).
  *   sync                           transport or non-409 server failure.
  */
 export type SaveRefusal =
