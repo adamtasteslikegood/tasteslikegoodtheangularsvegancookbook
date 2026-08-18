@@ -42,11 +42,11 @@ STATE="$STATE_DIR/train-state.json"
 BACKEND_REPO="adamtasteslikegood/tasteslikegood.com"
 PROD="https://www.tasteslikegood.org"
 
-# Staging URL. Overridable via STAGING_URL env so --verify-only needs no
-# gcloud credentials. When unset, resolved on demand via gcloud.
+# Staging URL. Overridable via STAGING_URL env. Defaults to the known
+# Cloud Run URL so --verify-only works without gcloud credentials.
 STAGING_PROJECT="${STAGING_PROJECT:-gen-lang-client-0491022701}"
 STAGING_REGION="${STAGING_REGION:-us-central1}"
-STAGING="${STAGING_URL:-}"
+STAGING="${STAGING_URL:-https://express-frontend-staging-g24svmewaa-uc.a.run.app}"
 
 DRY_RUN=0
 MODE="walk"
@@ -408,7 +408,7 @@ verify_staging() {
   # STAGING_URL accidentally pointing at production, which would make the
   # whole gate silently meaningless.
   body=$(curl -sf --max-time 15 "$STAGING/api/health" 2>/dev/null || echo "")
-  if echo "$body" | grep -q '"environment".*"staging"'; then
+  if echo "$body" | grep -q '"environment":[[:space:]]*"staging"'; then
     ok "staging /api/health reports environment=staging"
   else
     bad "staging /api/health did not report environment=staging"

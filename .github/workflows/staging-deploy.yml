@@ -116,10 +116,18 @@ jobs:
 
           # Verify environment=staging (guards against URL misconfiguration)
           HEALTH=$(curl -sf --max-time 15 "$URL/api/health" || echo "")
-          if echo "$HEALTH" | grep -q '"environment".*"staging"'; then
+          if echo "$HEALTH" | grep -q '"environment":[[:space:]]*"staging"'; then
             echo "Staging /api/health reports environment=staging"
           else
             echo "::error::Staging /api/health did not report environment=staging"
             echo "Response: $HEALTH"
             exit 1
+          fi
+
+          # DB-backed page: /browse exercises Flask + Railway Postgres
+          BROWSE_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/browse" || echo "000")
+          if [ "$BROWSE_CODE" = "200" ]; then
+            echo "Staging /browse -> 200"
+          else
+            echo "::warning::Staging /browse returned $BROWSE_CODE (DB may be unreachable)"
           fi
