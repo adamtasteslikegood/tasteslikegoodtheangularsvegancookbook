@@ -180,7 +180,7 @@ export abstract class RecipeViewBase {
       const displayUrl = withCacheBuster(imageUrl);
       if (this.recipe()?.id === targetId) {
         this.generatedImageUrl.set(displayUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: displayUrl } : null));
+        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       }
       // Persist the busted URL, not the canonical one — otherwise nav-away
       // and back re-hydrates from savedRecipes with no buster and the
