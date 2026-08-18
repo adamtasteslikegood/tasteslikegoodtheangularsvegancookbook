@@ -159,9 +159,14 @@ export abstract class RecipeViewBase {
     this.recipeState.trackImageGeneration(targetId, imagePromise);
     try {
       const imageUrl = await imagePromise;
+      // Cache-bust: re-generate returns the same canonical URL, so
+      // signal.set() is a no-op and the browser serves stale bytes.
+      const displayUrl = imageUrl.includes('?')
+        ? `${imageUrl}&_t=${Date.now()}`
+        : `${imageUrl}?_t=${Date.now()}`;
       if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
+        this.generatedImageUrl.set(displayUrl);
+        this.recipe.update((r) => (r ? { ...r, ai_image_url: displayUrl } : null));
       }
       this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
