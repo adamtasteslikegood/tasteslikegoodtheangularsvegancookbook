@@ -106,8 +106,7 @@ contained four items. Their disposition against this charter:
 4. **Publish guard intact.** The Sprint 7 publish guard (RCP-74) still prevents
    publishing saved copies. `PUT /api/recipes/<id>` with `is_public: true` returns
    403 when `source_slug` is non-null and the user is not the author.
-5. **Gate passes.** `npm test && cd Backend && uv run pytest` pass. `Gate — all
-checks passed` SUCCESS.
+5. **Gate passes.** `npm test && cd Backend && uv run pytest` pass. `Gate — all checks passed` SUCCESS.
 
 ### Why this is straightforward now
 
