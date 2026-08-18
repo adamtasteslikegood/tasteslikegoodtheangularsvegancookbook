@@ -43,9 +43,10 @@ BACKEND_REPO="adamtasteslikegood/tasteslikegood.com"
 PROD="https://www.tasteslikegood.org"
 
 # Staging URL. Overridable via STAGING_URL env. Defaults to the known
-# Cloud Run URL so --verify-only works without gcloud credentials.
-STAGING_PROJECT="${STAGING_PROJECT:-gen-lang-client-0491022701}"
-STAGING_REGION="${STAGING_REGION:-us-central1}"
+# Cloud Run URL so --verify-only works without gcloud credentials. If the
+# service is redeployed to a new URL, either export STAGING_URL or update
+# this constant — there is deliberately no gcloud fallback (would require
+# auth in every operator's shell).
 STAGING="${STAGING_URL:-https://express-frontend-staging-g24svmewaa-uc.a.run.app}"
 
 DRY_RUN=0
@@ -368,21 +369,9 @@ print_checklist() {
 # Blocks --verify-only until staging returns 200 and reports environment=staging.
 # Retries handle the min-instances=0 cold start. Runs before verify_prod() so a
 # staging outage surfaces before anyone looks at production.
-resolve_staging_url() {
-  if [ -n "$STAGING" ]; then return 0; fi
-  STAGING=$(gcloud run services describe express-frontend-staging \
-    --region="$STAGING_REGION" --project="$STAGING_PROJECT" \
-    --format='value(status.url)' 2>/dev/null) || true
-  [ -n "$STAGING" ] || return 1
-}
-
 verify_staging() {
   head2 "Staging health gate"
 
-  if ! resolve_staging_url; then
-    bad "could not resolve staging URL (set STAGING_URL or authenticate gcloud)"
-    return 1
-  fi
   info "staging: $STAGING"
 
   local attempt code body
@@ -408,7 +397,8 @@ verify_staging() {
   # STAGING_URL accidentally pointing at production, which would make the
   # whole gate silently meaningless.
   body=$(curl -sf --max-time 15 "$STAGING/api/health" 2>/dev/null || echo "")
-  if echo "$body" | grep -q '"environment":[[:space:]]*"staging"'; then
+  # Anchor with `[,}]` so a substring elsewhere in the JSON cannot satisfy the guard.
+  if echo "$body" | grep -qE '"environment"[[:space:]]*:[[:space:]]*"staging"[[:space:]]*[,}]'; then
     ok "staging /api/health reports environment=staging"
   else
     bad "staging /api/health did not report environment=staging"
