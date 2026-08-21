@@ -67,6 +67,9 @@ export class GeneratorComponent extends RecipeViewBase {
       this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
       console.error('Image generation failed', err);
+      if (this.recipe()?.id === targetId) {
+        this.toastService.show("Couldn't generate the image. You can retry from the recipe page.");
+      }
     }
   }
 
