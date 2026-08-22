@@ -1,4 +1,4 @@
-import rateLimit, { type Store } from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator, type Store } from 'express-rate-limit';
 import RedisStore, { type RedisReply } from 'rate-limit-redis';
 import helmet from 'helmet';
 import type { Express, Request, Response, NextFunction, ErrorRequestHandler } from 'express';
@@ -15,14 +15,18 @@ import { RATE_LIMIT_PREFIXES } from './valkey-config.js';
  */
 
 /**
- * Extract the real client IP using Express's IP resolution.
+ * Rate-limit key generator with IPv6 subnet masking.
  *
- * This relies on Express's `req.ip`, which in turn uses the configured
- * `trust proxy` settings to safely interpret proxy headers.
+ * Uses express-rate-limit's `ipKeyGenerator()` to mask IPv6 addresses to
+ * their /56 subnet, preventing bypass via rotating addresses within the same
+ * allocation.  IPv4 addresses pass through unchanged.  Falls back to
+ * 'unknown' only when no IP is available at all.
+ *
+ * Exported for unit testing.
  */
-function getClientIp(req: Request): string {
+export function rateLimitKeyGenerator(req: Request): string {
   const ip = req.ip || req.socket.remoteAddress;
-  return ip || 'unknown';
+  return ip ? ipKeyGenerator(ip) : 'unknown';
 }
 
 /**
@@ -86,7 +90,7 @@ export const createApiLimiter = (
     message: { error: 'Too many requests, please try again later.' },
     // When mounted on /api, req.path is relative: /health, /recipes/…/image
     skip: shouldSkipRateLimiting,
-    keyGenerator: (req) => getClientIp(req),
+    keyGenerator: rateLimitKeyGenerator,
     store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.api),
   });
 };
@@ -113,7 +117,7 @@ export const createPageLimiter = (
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
     skip: (req) => isPageSubresource(req) || isKnownCrawler(req),
-    keyGenerator: (req) => getClientIp(req),
+    keyGenerator: rateLimitKeyGenerator,
     store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.page),
   });
 };
@@ -132,7 +136,7 @@ export const createExpensiveOperationLimiter = (
     message: {
       error: 'Rate limit exceeded for this operation. Please try again later.',
     },
-    keyGenerator: (req) => getClientIp(req),
+    keyGenerator: rateLimitKeyGenerator,
     store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.expensive),
   });
 };
