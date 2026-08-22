@@ -23,8 +23,12 @@ describe('SsrEntryService', () => {
     synced?: boolean;
     fetchResponse?: { ok: boolean; json: () => Promise<unknown> };
     firstSyncSettled?: Promise<void>;
+    alreadySaved?: boolean;
   }) => {
-    const saveRecipe = vi.fn().mockResolvedValue(opts.synced ?? true);
+    const saveOutcome =
+      opts.alreadySaved === true ? { ok: true, alreadySaved: true } : { ok: opts.synced ?? true };
+    const saveRecipeDetailed = vi.fn().mockResolvedValue(saveOutcome);
+    const saveRecipe = vi.fn().mockResolvedValue(saveOutcome.ok);
     const injector = Injector.create({
       providers: [
         {
@@ -40,7 +44,11 @@ describe('SsrEntryService', () => {
         },
         {
           provide: PersistenceService,
-          useValue: { saveRecipe, firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve() },
+          useValue: {
+            saveRecipe,
+            saveRecipeDetailed,
+            firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve(),
+          },
         },
         { provide: ToastService, useValue: { show: toastShow } },
       ],
@@ -49,7 +57,7 @@ describe('SsrEntryService', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opts.fetchResponse));
     }
     const service = runInInjectionContext(injector, () => new SsrEntryService());
-    return { service, saveRecipe };
+    return { service, saveRecipe: saveRecipeDetailed };
   };
 
   // TAS-3056/RCP-79 (supersedes RCP-74 AC3): a copy already saved from this
@@ -176,6 +184,34 @@ describe('SsrEntryService', () => {
     expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
   });
 
+  // KAN-241: the server returns 409 RECIPE_ALREADY_SAVED — the client-side dedup
+  // missed it (e.g. the copy has a different sourceSlug casing, or the first sync
+  // hadn't settled yet) but the server caught the duplicate. The ghost must be
+  // cleaned up and the user told they already have it.
+  it('shows the already-saved toast when the server returns a duplicate 409', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'ghost-id' });
+
+    const { service, saveRecipe } = createService({
+      savedRecipes: [],
+      alreadySaved: true,
+      fetchResponse: {
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      },
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).toHaveBeenCalledTimes(1);
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.any(Object)
+    );
+    // Must NOT show "saved to your cookbook" or "on this device"
+    expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
+    expect(toastShow.mock.calls[0][0]).not.toMatch(/on this device/i);
+  });
+
   it('rejects invalid slugs without making API calls', async () => {
     const { service, saveRecipe } = createService({});
 
@@ -258,9 +294,9 @@ describe('SsrEntryService', () => {
     // handleSave can never observe the row the save just wrote, and the
     // duplicate toast this guards against becomes unreproducible.
     const createPersistingService = (savedRecipes: unknown[]) => {
-      const saveRecipe = vi.fn().mockImplementation(async (recipe: unknown) => {
+      const saveRecipeDetailed = vi.fn().mockImplementation(async (recipe: unknown) => {
         savedRecipes.push(recipe);
-        return true;
+        return { ok: true };
       });
       const injector = Injector.create({
         providers: [
@@ -274,7 +310,7 @@ describe('SsrEntryService', () => {
           },
           {
             provide: PersistenceService,
-            useValue: { saveRecipe, firstSyncSettled: Promise.resolve() },
+            useValue: { saveRecipeDetailed, firstSyncSettled: Promise.resolve() },
           },
           { provide: ToastService, useValue: { show: toastShow } },
         ],
@@ -287,7 +323,7 @@ describe('SsrEntryService', () => {
         })
       );
       const service = runInInjectionContext(injector, () => new SsrEntryService());
-      return { service, saveRecipe };
+      return { service, saveRecipe: saveRecipeDetailed };
     };
 
     it('emits exactly one toast on the ordinary single-invocation path', async () => {
