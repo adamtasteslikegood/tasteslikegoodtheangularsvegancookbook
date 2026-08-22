@@ -1,0 +1,133 @@
+name: Staging — build and deploy
+
+# Rebuilds both images from the dev tip and deploys them to the staging
+# Cloud Run services whenever code merges to dev.  This keeps staging
+# tracking the integration branch without manual intervention (KAN-244).
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - 'specs/**'
+      - 'docs/**'
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  STAGING_PROJECT: gen-lang-client-0491022701
+  IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
+  REGION: us-central1
+
+jobs:
+  build-and-deploy:
+    name: Build images + deploy to staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Determine image tag
+        id: tag
+        run: echo "tag=staging-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # ── Build ────────────────────────────────────────────────────────
+      - name: Build Express frontend image
+        run: docker build -t "$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}" .
+
+      - name: Build Flask backend image
+        run: docker build -t "$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" -f Backend/Dockerfile Backend
+
+      # ── Push ─────────────────────────────────────────────────────────
+      - name: Push Express frontend image
+        run: docker push "$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}"
+
+      - name: Push Flask backend image
+        run: docker push "$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}"
+
+      # ── Deploy (image swap only — no IAM or secret mutations) ───────
+      - name: Deploy Flask backend to staging
+        run: |
+          gcloud run services update flask-backend-staging \
+            --image="$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" \
+            --region="$REGION" \
+            --project="$STAGING_PROJECT" \
+            --quiet
+
+      - name: Deploy Express frontend to staging
+        run: |
+          gcloud run services update express-frontend-staging \
+            --image="$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}" \
+            --region="$REGION" \
+            --project="$STAGING_PROJECT" \
+            --quiet
+
+      # ── Verify ───────────────────────────────────────────────────────
+      - name: Wait for cold start
+        run: sleep 10
+
+      - name: Resolve staging URL
+        id: url
+        run: |
+          EXPRESS_URL=$(gcloud run services describe express-frontend-staging \
+            --region="$REGION" --project="$STAGING_PROJECT" \
+            --format='value(status.url)')
+          echo "express=$EXPRESS_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test staging
+        run: |
+          URL="${{ steps.url.outputs.express }}"
+          echo "Staging URL: $URL"
+
+          # Retry up to 3 times for cold-start
+          for attempt in 1 2 3; do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/" || echo "000")
+            if [ "$CODE" = "200" ]; then break; fi
+            echo "Attempt $attempt: got $CODE, retrying in 10s..."
+            sleep 10
+          done
+
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Staging / returned $CODE after 3 attempts"
+            exit 1
+          fi
+          echo "Staging / -> 200"
+
+          # Verify environment=staging (guards against URL misconfiguration)
+          HEALTH=$(curl -sf --max-time 15 "$URL/api/health" || echo "")
+          if echo "$HEALTH" | grep -q '"environment":[[:space:]]*"staging"'; then
+            echo "Staging /api/health reports environment=staging"
+          else
+            echo "::error::Staging /api/health did not report environment=staging"
+            echo "Response: $HEALTH"
+            exit 1
+          fi
+
+          # DB-backed page: /browse exercises Flask + Railway Postgres
+          BROWSE_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/browse" || echo "000")
+          if [ "$BROWSE_CODE" = "200" ]; then
+            echo "Staging /browse -> 200"
+          else
+            echo "::warning::Staging /browse returned $BROWSE_CODE (DB may be unreachable)"
+          fi
