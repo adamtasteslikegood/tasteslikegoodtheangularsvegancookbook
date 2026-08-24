@@ -178,6 +178,22 @@ else
   echo "OAuth login: disabled (GOOGLE_CLIENT_ID_STAGING / GOOGLE_CLIENT_SECRET_STAGING not in ${PROJECT_ID})"
 fi
 
+# Gemini/Imagen API key is OPTIONAL — without it, recipe and image
+# generation endpoints return errors (no AI costs incurred). With it,
+# staging mirrors the full prod generation pipeline end-to-end.
+GEMINI_SECRET=""
+if gcloud secrets describe GOOGLE_API_KEY_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  GEMINI_SECRET=",GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest"
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_API_KEY_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  echo "Gemini/Imagen: enabled (GOOGLE_API_KEY_STAGING found)"
+else
+  echo "Gemini/Imagen: disabled (GOOGLE_API_KEY_STAGING not in ${PROJECT_ID})"
+  echo "  To enable: printf '%s' '<key>' | gcloud secrets create GOOGLE_API_KEY_STAGING --data-file=- --project=${PROJECT_ID}"
+fi
+
 # Cross-project image pull: the staging project's Cloud Run service agent
 # needs read access to the prod Artifact Registry repo.
 run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
@@ -188,16 +204,14 @@ run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
 echo ""
 
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
-# Staging Flask uses CloudSQL Postgres via the DATABASE_URL_STAGING
-# secret + Cloud SQL Auth Proxy; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
-# Google OAuth login is wired in only when the staging OAuth secrets exist
-# (see step 0). FLASK_ENV=staging activates staging-specific behaviour.
+# Staging Flask mirrors prod architecture: CloudSQL (Auth Proxy), Pub/Sub
+# (push subscriptions with OIDC), GCS (recipe images), and optionally
+# Gemini/Imagen (GOOGLE_API_KEY_STAGING) and Google OAuth. No Valkey
+# (rate limiting falls back to in-memory SimpleCache), no Datadog.
 #
 # Posture mirrors prod flask-backend (KAN-170): the invoker IAM check stays
 # ON (--no-allow-unauthenticated), and Express authenticates with a
-# Google-signed ID token (server/flask-auth.ts). PUBSUB_AUTH_OPTIONAL is NOT
-# set: with PUBSUB_INVOKER_SA empty the worker push endpoints fail closed
-# with 503, which is correct — staging has no Pub/Sub.
+# Google-signed ID token (server/flask-auth.ts).
 #
 # max-instances=1: kept as a cost ceiling — staging never needs more than
 # one instance.
@@ -226,8 +240,8 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
-  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${OAUTH_SECRETS}" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${GEMINI_SECRET}${OAUTH_SECRETS}" \
   --set-cloudsql-instances="${PROJECT_ID}:${REGION}:vegangenius-staging-db" \
   --network=default \
   --subnet=default \
@@ -266,9 +280,9 @@ echo ""
 # NODE_ENV=staging activates:
 #   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
-#   - No Gemini API key (generation endpoints disabled)
 #   - No Valkey (rate limiting falls back to in-memory)
 #   - No Datadog
+# Express is purely a proxy — Gemini, Pub/Sub, GCS are all Flask-side.
 
 echo "--- Step 3: Deploy ${EXPRESS_SERVICE} ---"
 run_cmd gcloud run deploy "${EXPRESS_SERVICE}" \
