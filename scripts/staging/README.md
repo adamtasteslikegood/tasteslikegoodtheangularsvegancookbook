@@ -16,7 +16,7 @@ the prod-built images (the deploy script wires it, idempotently).
 | Service                    | Purpose                | Access                      |
 | -------------------------- | ---------------------- | --------------------------- |
 | `express-frontend-staging` | SPA + proxy            | Public (`*.run.app`)        |
-| `flask-backend-staging`    | API (Railway Postgres) | Private — invoker IAM check |
+| `flask-backend-staging`    | API (CloudSQL Postgres) | Private — invoker IAM check |
 
 `flask-backend-staging` mirrors prod's posture (KAN-170): the invoker IAM
 check is ON, and Express authenticates with a Google-signed ID token
@@ -27,13 +27,13 @@ Cloud Run's edge.
 
 - **Not a build pipeline.** There is no separate `cloudbuild-staging.yaml`.
   The deploy script pulls the same images that production runs.
-- **Not a copy of production data.** No Cloud SQL, no real PII. The database
-  is a Railway Postgres (Railway project `thriving-reverence`) seeded from
-  the app's own Export Cookbook JSON — real recipe shapes, but every row is
-  owned by a synthetic `@example.test` user. Decision recorded in KAN-182
-  (2026-08-10); it supersedes
-  [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394)'s
-  seeded-image vs Cloud SQL axis.
+- **Not a copy of production data.** No real PII. The database is a CloudSQL
+  Postgres (db-f1-micro, `vegangenius-staging-db` in the staging project),
+  seeded from the app's own Export Cookbook JSON — real recipe shapes, but
+  every row is owned by a synthetic `@example.test` user. Migrated from
+  Railway Postgres to CloudSQL in KAN-248 (2026-08-24); supersedes the
+  Railway decision from KAN-182 and
+  [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394).
 - **Not an AI generation environment.** No `GOOGLE_API_KEY` is set, and —
   more fundamentally — staging has no Pub/Sub (`GCP_PROJECT_ID` is empty),
   so `/api/generate` fails at the publish step regardless of any key. This
@@ -61,21 +61,23 @@ pipeline's `_VERSION` tagging step has never produced a `v*` tag there).
 Until that lands, pass the SHA prod runs, e.g.
 `--version "$(gcloud run services describe flask-backend --region=us-central1 --project=comdottasteslikegood --format='value(spec.template.spec.containers[0].image)' | sed 's/.*://')"`.
 
-## Database (Railway Postgres)
+## Database (CloudSQL Postgres)
 
-The staging database is a Railway Postgres in Railway project
-`thriving-reverence`, reached from Cloud Run over Railway's public TCP
-proxy (`railway connect` is a local-machine tunnel; Cloud Run cannot use
-it, and Railway private networking is intra-Railway only). The connection
-string is stored **only** in Secret Manager as `DATABASE_URL_STAGING` in
-the staging project, with `sslmode=require` appended.
+The staging database is a CloudSQL Postgres (db-f1-micro, Postgres 15)
+instance `vegangenius-staging-db` in the staging project, private-IP only
+(10.62.0.3). Flask reaches it via the Cloud SQL Auth Proxy sidecar
+(`--set-cloudsql-instances` on the Cloud Run service).
 
-Schema comes from the normal Alembic migrations, run from `Backend/`
-against the Railway URL:
+The connection string is stored **only** in Secret Manager as
+`DATABASE_URL_STAGING` in the staging project, using a Unix-socket path:
+`postgresql://USER:PASS@/vegangenius?host=/cloudsql/gen-lang-client-0491022701:us-central1:vegangenius-staging-db`
+
+Schema comes from the normal Alembic migrations, run via Cloud Run Job
+(the private IP is not routable from a dev machine):
 
 ```bash
-cd Backend
-DATABASE_URL='<railway url>?sslmode=require' uv run flask db upgrade
+gcloud run jobs execute flask-staging-migrate \
+  --region=us-central1 --project=gen-lang-client-0491022701 --wait
 ```
 
 ## Seeding data
@@ -97,8 +99,14 @@ payload already matches `Backend/recipe_schema.json` (camelCase
 fields are lifted out (`sourceSlug` → `source_slug`).
 
 ```bash
+# Via Cloud Run Job (recommended — private IP not routable from dev machine):
+gcloud run jobs execute flask-staging-migrate \
+  --region=us-central1 --project=gen-lang-client-0491022701 --wait \
+  --args="python,-c,<seed-script-b64>"
+
+# Or locally if you have Cloud SQL Auth Proxy running:
 cd Backend
-DATABASE_URL='<railway url>?sslmode=require' uv run python \
+DATABASE_URL='postgresql://...' uv run python \
   ../scripts/staging/seed-data.py \
   --from-json ../<your-cookbook-export>.json
 ```
@@ -157,7 +165,7 @@ cloud infrastructure is touched.
 ```bash
 # Terminal 1 — emulator + Flask (:5000), Ctrl-C stops both:
 ./scripts/staging/local-generation.sh              # local sqlite
-./scripts/staging/local-generation.sh --staging-db # Railway staging Postgres
+./scripts/staging/local-generation.sh --staging-db # CloudSQL staging Postgres (needs Auth Proxy)
 
 # Terminal 2 — the SPA as usual:
 npm run dev
@@ -202,18 +210,17 @@ echo -n "$(openssl rand -base64 32)" | \
   gcloud secrets create FLASK_SECRET_KEY_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 
-# Database URL (copied from Railway: thriving-reverence → Postgres →
-# Variables → DATABASE_PUBLIC_URL, with sslmode=require appended):
-printf '%s' "${DATABASE_PUBLIC_URL}?sslmode=require" | \
+# Database URL (CloudSQL via Auth Proxy Unix socket):
+printf '%s' 'postgresql://vegangenius-staging-user:<PASSWORD>@/vegangenius?host=/cloudsql/gen-lang-client-0491022701:us-central1:vegangenius-staging-db' | \
   gcloud secrets create DATABASE_URL_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 ```
 
 Everything else (Secret Manager API enablement, secret-accessor grants,
-cross-project image-pull grant, Express→Flask invoker grant) is handled by
-`deploy-staging.sh` step 0/1, idempotently. If Railway's credentials are
-rotated, add a new secret version — no redeploy needed beyond a new
-revision picking up `:latest`.
+cross-project image-pull grant, Express→Flask invoker grant, CloudSQL proxy
+annotation) is handled by `deploy-staging.sh` step 0/1, idempotently. If
+the DB password is rotated, add a new secret version — no redeploy needed
+beyond a new revision picking up `:latest`.
 
 ## Verification
 

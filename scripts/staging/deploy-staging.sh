@@ -14,12 +14,12 @@
 #                              prod flask-backend — Express authenticates with
 #                              a Google-signed ID token, see server/flask-auth.ts)
 #
-# Storage: Railway Postgres (Railway project "thriving-reverence"), reached
-# over Railway's public TCP proxy. The connection string lives in Secret
-# Manager as DATABASE_URL_STAGING in the staging project — never in this
-# script or the repo. Seed it with scripts/staging/seed-data.py --from-json
-# (see scripts/staging/README.md). Decision recorded in KAN-182 (2026-08-10,
-# supersedes discussion #3394's seeded-image vs Cloud SQL axis).
+# Storage: CloudSQL Postgres (db-f1-micro in the staging project), reached
+# via Cloud SQL Auth Proxy (--set-cloudsql-instances). The connection string
+# lives in Secret Manager as DATABASE_URL_STAGING in the staging project —
+# never in this script or the repo. Seed it with scripts/staging/seed-data.py
+# --from-json (see scripts/staging/README.md). Decision recorded in KAN-248
+# (2026-08-24, supersedes Railway decision from KAN-182 / discussion #3394).
 #
 # Dry run is the DEFAULT. Nothing mutates without --apply.
 #
@@ -128,18 +128,18 @@ run_cmd gcloud secrets add-iam-policy-binding FLASK_SECRET_KEY_STAGING \
   --member="serviceAccount:${COMPUTE_SA}" \
   --role=roles/secretmanager.secretAccessor
 
-# The staging database URL (Railway Postgres) must exist in the staging
+# The staging database URL (CloudSQL Postgres) must exist in the staging
 # project. Unlike FLASK_SECRET_KEY_STAGING it cannot be generated here —
-# the value is Railway's DATABASE_PUBLIC_URL (project thriving-reverence →
-# Postgres → Variables) with sslmode=require appended.
+# the value is a Unix-socket connection string for the Cloud SQL Auth Proxy:
+#   postgresql://USER:PASS@/vegangenius?host=/cloudsql/PROJECT:REGION:INSTANCE
 if ! gcloud secrets describe DATABASE_URL_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  CREATE_DB_SECRET_CMD="printf '%s' \"\${DATABASE_PUBLIC_URL}?sslmode=require\" | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
+  CREATE_DB_SECRET_CMD="printf '%s' 'postgresql://USER:PASS@/vegangenius?host=/cloudsql/${PROJECT_ID}:${REGION}:vegangenius-staging-db' | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
   if $DRY_RUN; then
     echo "[DRY RUN] Secret DATABASE_URL_STAGING missing in ${PROJECT_ID}; create it first:"
     echo "          ${CREATE_DB_SECRET_CMD}"
   else
     echo "ERROR: secret DATABASE_URL_STAGING does not exist in ${PROJECT_ID}." >&2
-    echo "Copy DATABASE_PUBLIC_URL from the Railway dashboard, then re-run:" >&2
+    echo "Create it with the CloudSQL connection string, then re-run:" >&2
     echo "  ${CREATE_DB_SECRET_CMD}" >&2
     exit 1
   fi
@@ -188,8 +188,8 @@ run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
 echo ""
 
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
-# Staging Flask uses the Railway Postgres via the DATABASE_URL_STAGING
-# secret; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
+# Staging Flask uses CloudSQL Postgres via the DATABASE_URL_STAGING
+# secret + Cloud SQL Auth Proxy; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
 # Google OAuth login is wired in only when the staging OAuth secrets exist
 # (see step 0). FLASK_ENV=staging activates staging-specific behaviour.
 #
@@ -199,8 +199,8 @@ echo ""
 # set: with PUBSUB_INVOKER_SA empty the worker push endpoints fail closed
 # with 503, which is correct — staging has no Pub/Sub.
 #
-# max-instances=1: no longer forced by storage (Postgres is external now),
-# kept as a cost ceiling — staging never needs more than one instance.
+# max-instances=1: kept as a cost ceiling — staging never needs more than
+# one instance.
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
 
@@ -228,6 +228,10 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --max-instances=1 \
   --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
   --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${OAUTH_SECRETS}" \
+  --set-cloudsql-instances="${PROJECT_ID}:${REGION}:vegangenius-staging-db" \
+  --network=default \
+  --subnet=default \
+  --vpc-egress=private-ranges-only \
   --no-allow-unauthenticated \
   --quiet
 
