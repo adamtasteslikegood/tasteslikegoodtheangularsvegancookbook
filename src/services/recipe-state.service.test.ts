@@ -47,3 +47,95 @@ describe('RecipeStateService.viewRecipe', () => {
     expect(service.currentRecipe()).toBeNull();
   });
 });
+
+// KAN-243: image generation tracking survives component destruction.
+describe('RecipeStateService.trackImageGeneration', () => {
+  let service: RecipeStateService;
+
+  beforeEach(() => {
+    service = new RecipeStateService();
+  });
+
+  it('isImageGenerating is false when no recipe is viewed', () => {
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
+  it('isImageGenerating is false when viewed recipe has no pending generation', () => {
+    service.viewRecipe(recipe());
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
+  it('isImageGenerating becomes true when tracking starts for the viewed recipe', () => {
+    service.viewRecipe(recipe());
+    const promise = new Promise<string>(() => {}); // never settles
+    service.trackImageGeneration('r1', promise);
+    expect(service.isImageGenerating()).toBe(true);
+  });
+
+  it('isImageGenerating is false for a different recipe than the pending one', () => {
+    service.viewRecipe(recipe({ id: 'r2' }));
+    const promise = new Promise<string>(() => {});
+    service.trackImageGeneration('r1', promise);
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
+  it('isImageGenerating becomes true when navigating to a recipe with pending generation', () => {
+    const promise = new Promise<string>(() => {});
+    service.trackImageGeneration('r1', promise);
+    // No recipe viewed yet — should be false.
+    expect(service.isImageGenerating()).toBe(false);
+    // Navigate to the recipe with pending generation.
+    service.viewRecipe(recipe());
+    expect(service.isImageGenerating()).toBe(true);
+  });
+
+  it('clears pending state when the promise resolves', async () => {
+    service.viewRecipe(recipe());
+    let resolve!: (v: string) => void;
+    const promise = new Promise<string>((r) => {
+      resolve = r;
+    });
+    service.trackImageGeneration('r1', promise);
+    expect(service.isImageGenerating()).toBe(true);
+
+    resolve('/api/recipes/r1/image');
+    // Settlement callbacks are microtasks — flush them.
+    await Promise.resolve();
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
+  it('clears pending state when the promise rejects', async () => {
+    service.viewRecipe(recipe());
+    let reject!: (e: Error) => void;
+    const promise = new Promise<string>((_, r) => {
+      reject = r;
+    });
+    service.trackImageGeneration('r1', promise);
+    expect(service.isImageGenerating()).toBe(true);
+
+    reject(new Error('timeout'));
+    await Promise.resolve();
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
+  it('tracks multiple recipes independently', async () => {
+    let resolveR1!: (v: string) => void;
+    const p1 = new Promise<string>((r) => {
+      resolveR1 = r;
+    });
+    const p2 = new Promise<string>(() => {}); // never settles
+
+    service.trackImageGeneration('r1', p1);
+    service.trackImageGeneration('r2', p2);
+
+    service.viewRecipe(recipe({ id: 'r1' }));
+    expect(service.isImageGenerating()).toBe(true);
+
+    resolveR1('/img');
+    await Promise.resolve();
+    // r1 done, switch to r2 which is still pending.
+    expect(service.isImageGenerating()).toBe(false);
+    service.viewRecipe(recipe({ id: 'r2' }));
+    expect(service.isImageGenerating()).toBe(true);
+  });
+});
