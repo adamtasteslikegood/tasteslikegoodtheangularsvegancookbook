@@ -13,10 +13,10 @@ the prod-built images (the deploy script wires it, idempotently).
 
 ## Services
 
-| Service                    | Purpose                | Access                      |
-| -------------------------- | ---------------------- | --------------------------- |
-| `express-frontend-staging` | SPA + proxy            | Public (`*.run.app`)        |
-| `flask-backend-staging`    | API (CloudSQL Postgres) | Private — invoker IAM check |
+| Service                    | Purpose                              | Access                      |
+| -------------------------- | ------------------------------------ | --------------------------- |
+| `express-frontend-staging` | SPA + proxy                          | Public (`*.run.app`)        |
+| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check |
 
 `flask-backend-staging` mirrors prod's posture (KAN-170): the invoker IAM
 check is ON, and Express authenticates with a Google-signed ID token
@@ -34,13 +34,12 @@ Cloud Run's edge.
   Railway Postgres to CloudSQL in KAN-248 (2026-08-24); supersedes the
   Railway decision from KAN-182 and
   [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394).
-- **Not an AI generation environment.** No `GOOGLE_API_KEY` is set, and —
-  more fundamentally — staging has no Pub/Sub (`GCP_PROJECT_ID` is empty),
-  so `/api/generate` fails at the publish step regardless of any key. This
-  is intentional: staging does not incur AI costs (stub-vs-budget-key
-  decision tracked in KAN-225). To test generation, use
-  `local-generation.sh` (below) — the full pipeline on your machine, with
-  only the Gemini call leaving it.
+- **Not free to run.** Staging mirrors the full prod generation pipeline
+  (Gemini, Imagen, GCS) when `GOOGLE_API_KEY_STAGING` exists — recipe and
+  image generation incur real AI costs. The key is presence-toggled: remove
+  the secret to disable generation entirely (endpoints return errors, no
+  costs). `GEMINI_DEFAULT_MODEL` defaults to `gemini-3.1-pro-preview` but
+  staging currently overrides it to `gemini-3.7-flash` for model testing.
 
 ## Quick start
 
