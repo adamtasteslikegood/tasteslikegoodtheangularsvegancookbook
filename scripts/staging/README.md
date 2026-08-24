@@ -99,17 +99,21 @@ payload already matches `Backend/recipe_schema.json` (camelCase
 fields are lifted out (`sourceSlug` → `source_slug`).
 
 ```bash
-# Via Cloud Run Job (recommended — private IP not routable from dev machine):
-gcloud run jobs execute flask-staging-migrate \
-  --region=us-central1 --project=gen-lang-client-0491022701 --wait \
-  --args="python,-c,<seed-script-b64>"
-
-# Or locally if you have Cloud SQL Auth Proxy running:
+# Locally, via the Cloud SQL Auth Proxy (the private IP is not routable
+# from a dev machine, so the proxy is required). One-shot:
+cloud-sql-proxy --port 5432 \
+  gen-lang-client-0491022701:us-central1:vegangenius-staging-db &
 cd Backend
-DATABASE_URL='postgresql://...' uv run python \
-  ../scripts/staging/seed-data.py \
+DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \
+  uv run python ../scripts/staging/seed-data.py \
   --from-json ../<your-cookbook-export>.json
 ```
+
+To seed *from Cloud Run* instead, deploy `seed-data.py` as its own Job
+(the existing `flask-staging-migrate` Job runs `flask db upgrade` and its
+image doesn't ship the seed script's argv wiring). Track that in the
+KAN-248 follow-up if there's real demand — day-to-day seeding runs
+locally via the proxy.
 
 The script is idempotent: re-running skips existing users, recipes (by id
 and by slug), and cookbooks. **Never commit an export file** — the repo is
@@ -210,17 +214,25 @@ echo -n "$(openssl rand -base64 32)" | \
   gcloud secrets create FLASK_SECRET_KEY_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 
-# Database URL (CloudSQL via Auth Proxy Unix socket):
+# Database URL (CloudSQL via Auth Proxy Unix socket). Replace <PASSWORD>
+# with the CloudSQL user's real password BEFORE running this — the literal
+# string is not a template, `printf '%s'` will not substitute it, and Flask
+# will silently fail to connect on every revision until you overwrite the
+# secret version. URL-encode `@ : / ? # [ ]` in the password if present.
 printf '%s' 'postgresql://vegangenius-staging-user:<PASSWORD>@/vegangenius?host=/cloudsql/gen-lang-client-0491022701:us-central1:vegangenius-staging-db' | \
   gcloud secrets create DATABASE_URL_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 ```
 
-Everything else (Secret Manager API enablement, secret-accessor grants,
-cross-project image-pull grant, Express→Flask invoker grant, CloudSQL proxy
-annotation) is handled by `deploy-staging.sh` step 0/1, idempotently. If
-the DB password is rotated, add a new secret version — no redeploy needed
-beyond a new revision picking up `:latest`.
+`deploy-staging.sh` step 0/1 handles Secret Manager API enablement,
+secret-accessor grants, the cross-project image-pull grant, Express→Flask
+invoker binding, and the CloudSQL proxy annotation, all idempotently. It
+does **not** provision the CloudSQL instance, the VPC peering, the
+`flask-staging-migrate` Cloud Run Job, or grant the compute service account
+`roles/cloudsql.client`; those were done manually in KAN-248 and are
+expected to be pre-existing when this script runs. If the DB password is
+rotated, add a new secret version — no redeploy needed beyond a new
+revision picking up `:latest`.
 
 ## Verification
 

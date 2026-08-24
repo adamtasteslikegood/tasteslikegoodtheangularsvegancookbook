@@ -19,7 +19,7 @@
 #
 # Usage:
 #   ./scripts/staging/local-generation.sh                  # sqlite (Backend default)
-#   ./scripts/staging/local-generation.sh --staging-db     # Railway staging Postgres
+#   ./scripts/staging/local-generation.sh --staging-db     # CloudSQL staging Postgres (needs Auth Proxy — see below)
 #
 # Then in another terminal: npm run dev  (SPA on :3000, proxies /api → :5000)
 # or curl:  curl -X POST http://localhost:5000/api/generate \
@@ -34,8 +34,17 @@
 #
 # Database resolution:
 #   --staging-db      → Secret DATABASE_URL_STAGING (writes rows to the
-#                       Railway staging DB — that's the point, but know it)
-#   DATABASE_URL env  → used as-is
+#                       CloudSQL staging DB — that's the point, but know it).
+#                       The secret's value is a Cloud SQL Auth Proxy Unix-socket
+#                       URL (host=/cloudsql/PROJECT:REGION:INSTANCE). That
+#                       socket only exists on the dev machine if you are running
+#                       `cloud-sql-proxy` locally AND the socket lives at that
+#                       exact path (needs sudo, or a symlink from a writable
+#                       dir). Without it, Flask fails at connect. See the
+#                       preflight check below.
+#   DATABASE_URL env  → used as-is (override the secret's socket URL by
+#                       exporting a `localhost:5432` form if you run the
+#                       proxy on a TCP port instead of a socket).
 #   neither           → Backend default (local sqlite)
 #
 # Image generation note: the image worker additionally needs GCS
@@ -88,7 +97,31 @@ fi
 if $USE_STAGING_DB; then
   DATABASE_URL="$(gcloud secrets versions access latest \
     --secret=DATABASE_URL_STAGING --project="${PROJECT_ID}")"
-  echo "Database: Railway staging Postgres (from DATABASE_URL_STAGING)"
+  echo "Database: CloudSQL staging Postgres (from DATABASE_URL_STAGING)"
+  # KAN-248: the secret now holds a Cloud SQL Auth Proxy socket URL
+  # (host=/cloudsql/PROJECT:REGION:INSTANCE). That directory is created by
+  # Cloud Run's sidecar in production but does NOT exist on a dev machine.
+  # Warn early so Flask's cryptic SQLAlchemy connect error isn't the first
+  # signal something's wrong.
+  if [[ "$DATABASE_URL" == *"host=/cloudsql/"* ]]; then
+    SOCKET_DIR="$(printf '%s\n' "$DATABASE_URL" | sed -n 's/.*host=\([^&]*\).*/\1/p')"
+    if [[ ! -S "${SOCKET_DIR}/.s.PGSQL.5432" ]]; then
+      cat >&2 <<EOF
+WARNING: DATABASE_URL_STAGING points at ${SOCKET_DIR}, but no Postgres
+socket exists there. Start the Cloud SQL Auth Proxy first, e.g.:
+
+  sudo mkdir -p ${SOCKET_DIR%/*}
+  sudo chown \$USER ${SOCKET_DIR%/*}
+  cloud-sql-proxy --unix-socket ${SOCKET_DIR%/*} \\
+    ${SOCKET_DIR##*/}
+
+Or override with a TCP DATABASE_URL if you're running the proxy on a port:
+  cloud-sql-proxy --port 5432 ${SOCKET_DIR##*/}
+  DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \\
+    ./scripts/staging/local-generation.sh
+EOF
+    fi
+  fi
 elif [[ -n "${DATABASE_URL:-}" ]]; then
   echo "Database: DATABASE_URL from environment"
 else
