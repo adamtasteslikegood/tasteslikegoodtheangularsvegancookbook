@@ -39,8 +39,6 @@ supported it, silently breaking all image generation in production.
   RCP-79 / TAS-3056,
   [#3416](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3416)
 
-### Changed
-
 ---
 
 ## [0.4.11] - 2026-08-12
