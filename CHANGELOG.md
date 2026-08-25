@@ -33,6 +33,11 @@ supported it, silently breaking all image generation in production.
   `gemini-2.5-pro` to `gemini-3.1-pro-preview`; the
   `GEMINI_DEFAULT_MODEL` env var overrides it — KAN-248, Backend
   [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
+- **Already-saved toast fires for cross-author saves** — the "you already have this
+  recipe" confirmation only appeared when the saving user was the recipe's original
+  author; re-saving a recipe published by a different user now shows the toast —
+  RCP-79 / TAS-3056,
+  [#3416](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3416)
 
 ### Changed
 
