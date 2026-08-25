@@ -60,8 +60,8 @@ Three-tier architecture: **Angular 22 SPA → Express reverse-proxy → Flask AP
 
 Users can:
 
-- Generate vegan recipes from a natural-language prompt (Gemini — default model `gemini-3.1-pro-preview`, chosen server-side in Flask)
-- Have AI-generated food photos created for each recipe (Imagen `imagen-4.0-generate-001`)
+- Generate vegan recipes from a natural-language prompt (Gemini — production model `gemini-3.7-flash`, chosen server-side in Flask)
+- Have AI-generated food photos created for each recipe (Gemini `gemini-3-pro-image` in production)
 - Save recipes, organize them into named cookbooks, and scale ingredient portions
 - Enter recipes manually and import/export recipes as JSON
 - Publish recipes to the public SSR site (`is_public` + title-derived `slug`, served at `/r/<slug>` — see "Public Recipe Site" below)
@@ -147,14 +147,14 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 | Reverse proxy      | Node.js + Express                                                              | 26 / 5.x |
 | Backend API        | Python + Flask                                                                 | 3.x      |
 | Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate                          | —        |
-| AI — text          | Google Gemini in Flask (`google-genai` SDK) — default `gemini-3.1-pro-preview` | —        |
-| AI — images        | Google Imagen in Flask — `imagen-4.0-generate-001`                             | —        |
+| AI — text          | Google Gemini in Flask (`google-genai` SDK) — production `gemini-3.7-flash` | —        |
+| AI — images        | Google Gemini in Flask — production `gemini-3-pro-image`                   | —        |
 | Auth               | Google OAuth (Flask sessions) + localStorage guests                            | —        |
 | Deployment         | Google Cloud Run (2 services + 1 migrate Job) + Cloud Build                    | —        |
 | Linting            | ESLint (flat config) + Prettier                                                | 10 / 3   |
 | Testing            | Vitest (server + src unit tests)                                               | 4        |
 
-All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side: `DEFAULT_MODEL` in `Backend/config.py` and the generation paths use bare IDs (`gemini-3.1-pro-preview`), while entries from `GET /api/models` carry the `models/` prefix (e.g. `models/gemini-3.1-pro-preview`) — both forms are in active use.
+All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side: production pins `gemini-3.7-flash` and `gemini-3-pro-image` in `cloudbuild.yaml`; `Backend/config.py` retains `gemini-3.1-pro-preview` and `gemini-3.1-flash-image` as local/development fallbacks when the environment variables are unset. Generation paths use bare IDs, while entries from `GET /api/models` carry the `models/` prefix — both forms are in active use.
 
 ---
 
@@ -296,7 +296,7 @@ Since v0.2, recipes can be published to a public server-rendered site (SEO-focus
 ### Flask Backend (API + AI + Auth + DB)
 
 - Google OAuth via Flask sessions (server-side, not JWT).
-- Gemini recipe generation and Imagen image generation via the `google-genai` Python SDK. Default text model: `DEFAULT_MODEL = "gemini-3.1-pro-preview"` in `Backend/config.py`; images use `imagen-4.0-generate-001` (`Backend/services/image_service.py`).
+- Gemini recipe and image generation via the `google-genai` Python SDK. Production pins `GEMINI_DEFAULT_MODEL=gemini-3.7-flash` and `GEMINI_IMAGE_MODEL=gemini-3-pro-image` in `cloudbuild.yaml`; Backend defaults remain local/development fallbacks when those environment variables are unset.
 - `/api/generate` and `/api/generate_image` live in `blueprints/generation_api_bp.py` (`generation_bp.py` is legacy HTML-form helpers, not the JSON API).
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
 - Modular architecture: blueprints, repositories, services, models. `Backend/CLAUDE.md` is the authoritative Backend reference.
