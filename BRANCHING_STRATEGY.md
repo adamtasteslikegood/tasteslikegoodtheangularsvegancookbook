@@ -1,5 +1,12 @@
 # Branching Strategy
 
+> ⚠️ **Stale in places — `CLAUDE.md` is authoritative for this repo.**
+> This document is adapted from a generic ClaudeForge template. Its
+> merge-strategy and branch-protection sections described **squash merges and
+> `required_linear_history`**, neither of which applies here: no ruleset in
+> either repo sets `required_linear_history`, and on the cookbook **squash is
+> blocked** on `dev` and `main` (merge or rebase only). Corrected 2026-08-25.
+
 ClaudeForge uses a **Standard Branching Strategy** with protected branches and automated quality gates.
 
 ## Overview
@@ -22,7 +29,7 @@ feature/*, fix/*, hotfix/* → dev → main
 - ✅ All changes via pull requests
 - ✅ Automated quality gates required
 - ✅ Conventional Commits enforced
-- ✅ Linear history (squash merges)
+- ✅ Merge commits or rebase (squash is **blocked** on `dev` and `main`)
 
 ---
 
@@ -36,7 +43,7 @@ feature/*, fix/*, hotfix/* → dev → main
 
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `production-build`
-- ✅ Require linear history (squash merges only)
+- ✅ Merge or rebase only — squash blocked (`required_linear_history` is **not** set)
 - ✅ No force pushes
 - ✅ No deletions
 - ✅ Require review from CODEOWNERS
@@ -67,7 +74,7 @@ feature/*, fix/*, hotfix/* → dev → main
 
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `validate-pr`
-- ✅ Require linear history (squash merges only)
+- ✅ Merge or rebase only — squash blocked (`required_linear_history` is **not** set)
 - ✅ No force pushes
 - ✅ No deletions
 
@@ -356,7 +363,7 @@ Create hotfix release: v1.0.1
        - `production-build`
        - `validate-release-pr`
    - ✅ Require conversation resolution before merging
-   - ✅ Require linear history
+   - ✅ (not used — `required_linear_history` is deliberately unset)
    - ✅ Do not allow bypassing the above settings
 4. Under "Rules applied to everyone including administrators":
    - ✅ Restrict deletions
@@ -374,7 +381,7 @@ Create hotfix release: v1.0.1
      - Add required checks:
        - `quality-gates`
        - `validate-pr`
-   - ✅ Require linear history
+   - ✅ (not used — `required_linear_history` is deliberately unset)
    - ✅ Do not allow bypassing the above settings
 4. Under "Rules applied to everyone including administrators":
    - ✅ Restrict deletions
@@ -524,11 +531,18 @@ PR titles MUST follow Conventional Commits format.
 
 ## Merge Strategies
 
-ClaudeForge uses **Squash and Merge** exclusively.
+This repo uses **merge commits** (rebase also permitted). **Squash is blocked**
+by ruleset on `dev` and `main`.
 
-### Why Squash?
+Squashing collapses a branch's ancestry into a single commit, which makes
+`git log dev..<branch>` report every original commit as unmerged. During the
+v0.4.12 cut that hid a commit pushed to a release branch after it had merged.
+Compare **content** (`git diff origin/dev <branch> -- <path>`) when checking
+whether a branch still holds work.
 
-✅ **Linear history** - Easy to understand and navigate
+### Why merge commits?
+
+✅ **Readable history** - merge commits keep branch ancestry intact
 ✅ **Clean log** - One commit per feature/fix
 ✅ **Easy revert** - Revert entire feature with one command
 ✅ **Better releases** - Clear association between features and versions
