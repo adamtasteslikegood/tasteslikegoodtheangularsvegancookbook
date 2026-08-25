@@ -29,9 +29,9 @@ supported it, silently breaking all image generation in production.
   and returning shows the spinner until generation completes; adds first-time
   generation timeout toast — KAN-243,
   [#3420](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3420)
-- **Default recipe text model upgraded** — hardcoded default changed from
-  `gemini-2.5-pro` to `gemini-3.1-pro-preview`; the
-  `GEMINI_DEFAULT_MODEL` env var overrides it — KAN-248, Backend
+- **Recipe text model now overridable via env** — new `GEMINI_DEFAULT_MODEL` env
+  var overrides the default; unchanged fallback remains `gemini-3.1-pro-preview` —
+  KAN-248, Backend
   [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
 - **Regenerated image URL no longer persisted with its cache-buster** — the
   `?_t=<epoch>` marker is a display-only value; it is now held in
