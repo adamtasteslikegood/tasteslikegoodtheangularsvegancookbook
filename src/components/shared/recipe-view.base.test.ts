@@ -28,7 +28,13 @@ describe('RecipeViewBase', () => {
     vi.restoreAllMocks();
   });
 
-  const createHost = (opts: { isGuest?: boolean; publishStateSync?: string } = {}) => {
+  const createHost = (
+    opts: {
+      isGuest?: boolean;
+      publishStateSync?: string;
+      generateImage?: (id: string, force: boolean) => Promise<string>;
+    } = {}
+  ) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
@@ -58,7 +64,10 @@ describe('RecipeViewBase', () => {
             publishStateSync: () => opts.publishStateSync ?? 'synced',
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: { generateImage: opts.generateImage ?? vi.fn() },
+        },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
         { provide: ModalService, useValue: { openAuth: vi.fn() } },
@@ -72,7 +81,8 @@ describe('RecipeViewBase', () => {
     }
 
     const host = runInInjectionContext(injector, () => new Host());
-    return { host, persistenceSaveRecipe };
+    const authService = injector.get(AuthService);
+    return { host, persistenceSaveRecipe, recipeState, authService };
   };
 
   it('calls the onPublishDenied hook instead of saving when the user cannot publish', async () => {
@@ -229,5 +239,74 @@ describe('RecipeViewBase', () => {
     expect(host.instructionText({ description: 'Fold the batter' } as never)).toBe(
       'Fold the batter'
     );
+  });
+
+  // KAN-243 (review finding on #3433): `withCacheBuster` produces a *display*
+  // marker. #3420's follow-up 61f8e6e persisted that busted URL into
+  // `savedRecipes` so nav-away-and-back would not re-serve pre-regen bytes —
+  // which meant a later full save (saveNotes POSTs the whole recipe) wrote the
+  // client-only `?_t=<epoch>` marker back as the canonical `ai_image_url`.
+  //
+  // The marker now lives in RecipeStateService, keyed by recipe id, and is
+  // applied only when building a display URL. Persisted state stays canonical
+  // AND the buster still survives navigation.
+  describe('image regeneration cache-buster (KAN-243)', () => {
+    const CANONICAL = '/api/recipes/r1/image.jpg';
+
+    it('persists the canonical image URL, not the cache-busted display URL', async () => {
+      const { host, authService } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+      });
+      host.recipe.set({ id: 'r1', name: 'Vegan Cornbread' } as never);
+
+      await host.regenerateImage();
+
+      expect(authService.updateRecipeField).toHaveBeenCalledWith('r1', 'ai_image_url', CANONICAL);
+      const persisted = (authService.updateRecipeField as Mock).mock.calls[0][2] as string;
+      expect(persisted).not.toContain('_t=');
+      // the in-memory domain object is canonical too
+      expect((host.recipe() as { ai_image_url?: string }).ai_image_url).toBe(CANONICAL);
+    });
+
+    it('still shows a cache-busted URL for display after regenerating', async () => {
+      const { host } = createHost({ generateImage: vi.fn().mockResolvedValue(CANONICAL) });
+      host.recipe.set({ id: 'r1', name: 'Vegan Cornbread' } as never);
+
+      await host.regenerateImage();
+
+      expect(host.generatedImageUrl()).toMatch(/_t=\d+/);
+    });
+
+    it('regenerate -> navigate away and back -> save notes never POSTs a _t marker', async () => {
+      const { host, recipeState, persistenceSaveRecipe, authService } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+      });
+      host.recipe.set({ id: 'r1', name: 'Vegan Cornbread', origin: 'generated' } as never);
+
+      await host.regenerateImage();
+
+      // Nav away, then back: the recipe rehydrates from persisted state, which
+      // is what `updateRecipeField` wrote.
+      const persisted = (authService.updateRecipeField as Mock).mock.calls[0][2] as string;
+      recipeState.clearRecipe();
+      recipeState.viewRecipe({
+        id: 'r1',
+        name: 'Vegan Cornbread',
+        origin: 'generated',
+        ai_image_url: persisted,
+      } as never);
+
+      // the buster survives navigation for display...
+      expect(recipeState.generatedImageUrl()).toMatch(/_t=\d+/);
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      // ...but never reaches the API payload.
+      const payload = persistenceSaveRecipe.mock.calls.at(-1)?.[0] as { ai_image_url?: string };
+      expect(payload.ai_image_url).toBe(CANONICAL);
+      expect(payload.ai_image_url).not.toContain('_t=');
+    });
   });
 });

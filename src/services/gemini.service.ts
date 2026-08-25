@@ -62,6 +62,13 @@ export class GeminiService {
   /**
    * Generate an AI image for a recipe via the Flask backend.
    * The backend saves the image server-side and returns a URL path.
+   *
+   * KAN-243: added a 5-minute timeout to the async polling loop. Before
+   * this, a silent worker failure (status stuck on generating_image, or
+   * status=ready with no ai_image_url and no failure metadata) left the
+   * poll running indefinitely — the caller's promise never settled, so
+   * the loading spinner spun forever and the regenerate button stayed
+   * disabled.
    */
   async generateImage(recipeId: string, forceRegenerate = false): Promise<string> {
     const response = await fetch('/api/generate_image', {
@@ -79,9 +86,16 @@ export class GeminiService {
     const payload = await response.json();
 
     if (payload.status === 'generating_image') {
-      // Poll until image_url is populated
+      // Poll until image_url is populated, with a 5-minute timeout.
       return new Promise((resolve, reject) => {
+        const startTime = Date.now();
+        const TIMEOUT_MS = 5 * 60 * 1000;
         const poll = setInterval(async () => {
+          if (Date.now() - startTime > TIMEOUT_MS) {
+            clearInterval(poll);
+            reject(new Error('Image generation timed out after 5 minutes'));
+            return;
+          }
           try {
             const res = await fetch(`/api/recipes/${recipeId}/status`);
             if (!res.ok) {

@@ -180,7 +180,7 @@
               <div class="h-32 bg-stone-200 relative overflow-hidden">
                 @if (d.recipe.ai_image_url) {
                   <img
-                    [src]="d.recipe.ai_image_url"
+                    [src]="imageSrc(d.recipe)"
                     class="w-full h-full object-cover grayscale"
                     alt="{{ d.recipe.name }}"
                     loading="lazy"
@@ -336,7 +336,7 @@
               <div class="h-48 bg-stone-200 relative overflow-hidden">
                 @if (r.ai_image_url) {
                   <img
-                    [src]="r.ai_image_url"
+                    [src]="imageSrc(r)"
                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     alt="{{ r.name }}"
                     loading="lazy"
