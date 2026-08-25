@@ -41,9 +41,6 @@ supported it, silently breaking all image generation in production.
 
 ### Changed
 
-- Approved npm install-scripts for 8 known packages (Datadog, esbuild, parcel,
-  protobufjs, lmdb, msgpackr-extract)
-
 ---
 
 ## [0.4.11] - 2026-08-12
