@@ -33,6 +33,11 @@ supported it, silently breaking all image generation in production.
   `gemini-2.5-pro` to `gemini-3.1-pro-preview`; the
   `GEMINI_DEFAULT_MODEL` env var overrides it — KAN-248, Backend
   [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
+- **Regenerated image URL no longer persisted with its cache-buster** — the
+  `?_t=<epoch>` marker is a display-only value; it is now held in
+  `RecipeStateService` keyed by recipe id and applied when building the render
+  URL, so `ai_image_url` stays canonical in persisted state and a later full
+  save can no longer POST the client-only marker as the canonical URL — KAN-243
 - **Already-saved toast fires for cross-author saves** — the "you already have this
   recipe" confirmation only appeared when the saving user was the recipe's original
   author; re-saving a recipe published by a different user now shows the toast —
