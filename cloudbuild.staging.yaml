@@ -13,6 +13,8 @@
 #
 # Usage:
 #   gcloud builds submit --config=cloudbuild.staging.yaml \
+#     --ignore-file=.gcloudignore.staging \
+#     --substitutions=SHORT_SHA="$(git rev-parse --short HEAD)" \
 #     --project=gen-lang-client-0491022701
 #
 # Substitutions:
@@ -96,7 +98,7 @@ steps:
           echo "      because .gcloudignore excludes both Backend/ and .git." >&2
           exit 1
         fi
-        echo "Backend/ populated.
+        echo "Backend/ populated."
 
   # ── Build ───────────────────────────────────────────────────────────────────
 
