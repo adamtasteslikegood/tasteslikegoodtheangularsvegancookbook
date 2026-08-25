@@ -160,4 +160,5 @@ Cache failures fall through to the database or object store and do not fail the 
 - User-controlled log content is sanitized against control and newline injection.
 - Public projections are allowlisted separately from owner projections.
 - Deployed browser calls remain same-origin through Express; Flask CORS is defense-in-depth.
+- Recipe writes and exports canonicalize `ai_image_url`; the SPA's `?_t=` display cache token is never durable API data.
 - No response or export contains service credentials, OAuth tokens, Cloud SQL secrets, Pub/Sub tokens, or worker claim tokens.

@@ -167,6 +167,8 @@ Pub/Sub push /api/worker/image
 
 Safety blocks and empty responses become controlled failures. Expected-state and claim tokens prevent a late old job from overwriting newer regeneration. Terminal image failure restores top-level `ready` and records failure metadata. The SPA polls approximately every two seconds and imposes a separate five-minute experience timeout.
 
+The canonical image endpoint and browser cache-busting URL are separate state. The SPA may append `?_t=<epoch>` to force refreshed bytes, but must not store or POST that derived URL. Current merged code persists the display URL in local session state, so regenerate followed by later save/edit can contaminate canonical `ai_image_url`; this is a known v0.4.12 conformance defect requiring the normalization and regression coverage defined in the main acceptance criteria.
+
 ## 7. Persistence and caching
 
 ### 7.1 Cloud SQL
@@ -259,6 +261,7 @@ Minimum machine and user-path verification:
 - Canonical apex redirect and production security and indexing headers.
 - Staging noindex and robots, private Flask denial, browse data, public JSON, and static CSS.
 - Generation, model metadata and status, automatic image, navigation persistence, timeout, and failure.
+- Regenerate, navigate/reload, then save/edit/export without persisting the `?_t=` display cache token.
 - Owner or guest, duplicate save, source-copy lock, manual and canonical lock, and private-note exclusion.
 - Migration job, tests, build, and production-content checks.
 

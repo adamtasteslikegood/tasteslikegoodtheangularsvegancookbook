@@ -73,7 +73,7 @@ Duplicate Pub/Sub delivery is idempotent, and stale claims cannot overwrite curr
 - Shared `RecipeStateService` owns pending IDs, so progress survives route changes.
 - Poll approximately every two seconds; end after five minutes.
 - Validate model output bytes, store the current version in GCS, and serve through the authorized image API.
-- Regeneration forces new work and cache busting.
+- Regeneration forces new work and applies cache busting only to the displayed URL; the canonical recipe field remains token-free.
 - Safety block, empty response, unsupported bytes, timeout, or terminal worker error clears pending state and toasts; recipe content remains usable.
 
 On terminal image failure the backend returns the recipe to top-level `ready` and records failure in image metadata. This preserves the usable cooking content while allowing the client to end image progress.
@@ -85,7 +85,7 @@ On terminal image failure the backend returns the recipe to top-level `ready` an
 | Generate           | Valid prompt and no duplicate submit; starts async flow                       |
 | Save               | Persist through detailed owner-aware contract; Saved only after valid outcome |
 | Add to Cookbook    | Saved recipe; open multi-membership modal and allow new cookbook              |
-| Download JSON      | Portable recipe only; exclude credentials/transient state                     |
+| Download JSON      | Portable recipe only; exclude credentials/transient state/cache tokens        |
 | Scale              | Presentation-only ingredient calculation                                      |
 | Edit notes         | Writes only `personalNotes`; generated `notes` remains read-only              |
 | Regenerate image   | Persisted owner recipe; forced async image request                            |
@@ -141,3 +141,4 @@ Uses generation, image, status, recipe, auth, and collection APIs in [API Invent
 6. Saved copies remain private and link to the source.
 7. Duplicate and ownership refusals do not create client/server divergence.
 8. Public-save, auth-callback, and legacy-hash entries normalize to stable Angular routes.
+9. Regenerate/navigation/save never persists or exports the display-only `?_t=` image token.

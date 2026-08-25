@@ -62,7 +62,7 @@ Empty generated notes must not contradict existing personal notes. `personalNote
 
 - Existing image loads from owner/public-authorized image endpoint.
 - Shared service pending state survives navigation.
-- Forced regeneration uses cache busting after success.
+- Forced regeneration cache-busts display state after success without changing the canonical `ai_image_url` stored locally or server-side.
 - Poll roughly every two seconds and stop after five minutes.
 - Safety/no-image/network/worker failure clears loading while leaving recipe usable.
 
@@ -100,3 +100,4 @@ Uses recipe get/save/update, status/image, image-generation, and auth APIs. Open
 5. Image work survives navigation and terminates.
 6. Publication eligibility/refusal matches generator/backend.
 7. Saved public copy opens its source but cannot publish itself.
+8. Regenerate, navigate/reload, then save/edit retains a canonical token-free image URL.

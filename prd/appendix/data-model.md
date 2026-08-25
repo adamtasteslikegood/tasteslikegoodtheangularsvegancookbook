@@ -97,7 +97,7 @@ The `data` object and Angular `Recipe` type contain cooking content.
 | `tags`            | String array    | No                                   | Display and discovery keywords                                                      |
 | `image_keywords`  | String array    | No                                   | One to five generation/search hints when present                                    |
 | `stock_image_url` | URI or null     | No                                   | Optional stock image                                                                |
-| `ai_image_url`    | URI or null     | No                                   | Current generated image endpoint/reference                                          |
+| `ai_image_url`    | URI or null     | No                                   | Canonical generated image endpoint/reference; excludes display cache tokens         |
 | `image`           | URI or null     | No                                   | Compatibility/general image reference                                               |
 | `is_public`       | Boolean         | No                                   | Blob compatibility copy; database column wins                                       |
 | `slug`            | String          | No                                   | Blob compatibility copy; database column wins                                       |
@@ -127,6 +127,8 @@ Recipe-generation metadata may record model, actor identifier, original prompt, 
 - Recipe image: `gemini-3.1-flash-image`.
 
 The schema's historical image-generation description still mentions Imagen. Normative v0.4.12 runtime uses Gemini `generate_content`; schema wording should be updated in a follow-on patch **[TBC]**.
+
+The SPA may derive a display URL by adding `?_t=<epoch>` after regeneration. That token is transient UI state, not recipe data. Current merged code writes the derived URL into local session state, from which a later save can POST it. Conforming v0.4.12 patch behavior strips the token at every persistence/export boundary and stores only the canonical image endpoint.
 
 ## 4. User table and client projection
 

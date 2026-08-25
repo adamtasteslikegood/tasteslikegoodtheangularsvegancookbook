@@ -31,9 +31,9 @@ The production revisions observed on the evidence date used the v0.4.11 release 
 - Correct SPA fallback: real client routes receive `index.html`; unknown asset-like paths return `404`.
 - Cloud Run health, migration, Valkey, and production-content verification gates.
 
-### 2.2 v0.4.12 target
+### 2.2 v0.4.12 normative release assumption
 
-Per release scope, this PRD treats the following staged changes as successfully shipped:
+This is a post-release product contract, not a claim that every supporting Git ref was merged on the evidence date. Per the product owner's explicit scenario, this PRD treats the following staged changes as successfully shipped behavior:
 
 - Text generation defaults to `gemini-3.7-flash` unless `GEMINI_DEFAULT_MODEL` overrides it.
 - Image generation defaults to `gemini-3.1-flash-image` unless `GEMINI_IMAGE_MODEL` overrides it.
@@ -44,6 +44,10 @@ Per release scope, this PRD treats the following staged changes as successfully 
 - Guest-to-account merge deduplicates by persisted source identity, not normalized recipe name; distinct same-name private recipes survive.
 
 The `gemini-3.7-flash` default is taken from current Backend PR #298 (head `d723c6c`, implementation commit `1742dbe`). The same-name merge correction is taken from the separately staged `auth_api_bp.py` and `test_guest_merge_dedup.py` working change inspected on the evidence date. Both are intentionally normative here even though the release branch's pinned Backend commit predates them. “Must” describes required v0.4.12 behavior and the next one or two patch releases, not a speculative redesign.
+
+### 2.3 Known v0.4.12 conformance gap
+
+Merged image-navigation work correctly keeps pending state alive, but current regeneration code appends a presentation-only `?_t=<epoch>` cache token and writes that display URL into the locally persisted recipe. A later recipe save can send the token back as `ai_image_url`. This violates the canonical-data and no-transient-state requirements below. The immediate patch contract is to keep the cache token in display state only and strip it during hydration, local persistence, export, and API writes; regression coverage must include regenerate, navigate/reload, then save or edit.
 
 ## 3. Goals
 
@@ -130,6 +134,7 @@ The repository contains no approved product KPI targets. Baselines, owners, and 
 - v0.4.12 defaults are Gemini 3.7 Flash for text and Gemini 3.1 Flash Image for images.
 - Generated image bytes must be validated and stored in GCS when configured.
 - Regeneration must not let an older worker overwrite newer state.
+- Cache-busting query parameters are presentation-only and must never become canonical `ai_image_url` data in local storage, exports, or API writes.
 - The SPA must keep image state across routes and stop after five minutes with user-visible failure.
 
 ### 7.2 Persistence and ownership
@@ -253,6 +258,7 @@ The current privacy page says guest recipes/cookbooks remain only in `localStora
 12. `personalNotes` is absent from public JSON, SSR, metadata, and structured data.
 13. CI, migration checks, build, and post-deploy verification pass.
 14. Privacy/data-flow contradictions have an explicit disposition **[TBC]**.
+15. Regeneration refreshes the displayed image without persisting or exporting the `?_t=` cache token.
 
 ## 14. Open decisions
 
