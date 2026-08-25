@@ -41,9 +41,11 @@
 
 | Constant | Value | Used by |
 |----------|-------|---------|
-| Default text model | `gemini-3.1-pro-preview` (no `models/` prefix) | `POST /api/generate` |
+| Production text model | `gemini-3.7-flash` (no `models/` prefix) | `POST /api/generate` |
+| Backend text fallback (env unset) | `gemini-3.1-pro-preview` | Local/development generation |
 | Legacy form default | `models/gemini-2.5-flash` | Legacy `/generate_recipe` |
-| Image model | `imagen-4.0-generate-001` | Image worker + legacy image endpoints |
+| Production image model | `gemini-3-pro-image` | Image worker + legacy image endpoints |
+| Backend image fallback (env unset) | `gemini-3.1-flash-image` | Local/development image generation |
 | Preferred-model sort order | `models/gemini-2.5-pro`, `models/gemini-2.5-flash`, `models/gemini-2.0-flash`, `models/gemini-2.0-flash-exp`, `models/gemini-3-pro-preview`, `models/gemini-2.0-flash-lite`, `models/gemini-exp-1206`, `models/gemini-pro-latest`, `models/gemini-flash-latest` | `/api/models` |
 | Model filter | only `gemini`/`gemma`; excludes names containing `embedding, imagen, veo, live, tts, audio, robotics, aqa`; max **10** returned | `/api/models` |
 
