@@ -66,7 +66,7 @@ All browser traffic goes through Express (single origin). Express answers `/api/
 | Method | Path | Auth | Purpose |
 |--------|------|------|---------|
 | POST | `/api/worker/recipe` | Pub/Sub OIDC JWT (`email == PUBSUB_INVOKER_SA`, verified; `PUBSUB_AUTH_OPTIONAL=1` bypass for dev) | Generates recipe text: rebuilds the schema prompt, calls Gemini (server API key; temperature 0.7, JSON mime type), normalizes units, validates against the Draft-7 recipe schema, retries up to `GENERATION_MAX_ATTEMPTS` (default 3) in-process. Success → `status="ready"` + auto-queues image generation. Exhausted → `status="error"`. **Processing errors return 200** so Pub/Sub never redelivers a poison message. |
-| POST | `/api/worker/image` | Pub/Sub OIDC | Generates the food photo with production model `gemini-3-pro-image` (backend fallback `gemini-3.1-flash-image` when the env var is unset) (prompt from name + image_keywords, "professional food photography… overhead shot"). GCS-first storage (`gs://$GCS_BUCKET_NAME/images/<id>.png`), base64-in-DB fallback when no bucket. Sets `ai_image_url=/api/recipes/<id>/image`. No retry; failures recorded in `ai_metadata.image_generation`. |
+| POST | `/api/worker/image` | Pub/Sub OIDC | Generates the food photo with production model `gemini-3-pro-image` (backend fallback `gemini-3.1-flash-image` when the env var is unset); the prompt comes from name + image_keywords ("professional food photography… overhead shot"). GCS-first storage (`gs://$GCS_BUCKET_NAME/images/<id>.png`), base64-in-DB fallback when no bucket. Sets `ai_image_url=/api/recipes/<id>/image`. No retry; failures recorded in `ai_metadata.image_generation`. |
 
 ## SSR routes (proxied by Express; see [Public Recipe Pages](../pages/03-public-recipe-pages.md))
 
