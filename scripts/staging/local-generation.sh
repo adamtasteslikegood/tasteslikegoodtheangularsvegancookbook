@@ -107,7 +107,7 @@ if $USE_STAGING_DB; then
     SOCKET_DIR="$(printf '%s\n' "$DATABASE_URL" | sed -n 's/.*host=\([^&]*\).*/\1/p')"
     if [[ ! -S "${SOCKET_DIR}/.s.PGSQL.5432" ]]; then
       cat >&2 <<EOF
-WARNING: DATABASE_URL_STAGING points at ${SOCKET_DIR}, but no Postgres
+ERROR: DATABASE_URL_STAGING points at ${SOCKET_DIR}, but no Postgres
 socket exists there. Start the Cloud SQL Auth Proxy first, e.g.:
 
   sudo mkdir -p ${SOCKET_DIR%/*}
@@ -120,6 +120,7 @@ Or override with a TCP DATABASE_URL if you're running the proxy on a port:
   DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \\
     ./scripts/staging/local-generation.sh
 EOF
+      exit 1
     fi
   fi
 elif [[ -n "${DATABASE_URL:-}" ]]; then

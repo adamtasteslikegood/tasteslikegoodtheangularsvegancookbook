@@ -38,8 +38,9 @@ Cloud Run's edge.
   (Gemini, Imagen, GCS) when `GOOGLE_API_KEY_STAGING` exists — recipe and
   image generation incur real AI costs. The key is presence-toggled: remove
   the secret to disable generation entirely (endpoints return errors, no
-  costs). `GEMINI_DEFAULT_MODEL` defaults to `gemini-3.1-pro-preview` but
-  staging currently overrides it to `gemini-3.7-flash` for model testing.
+  costs). The model is whatever `Backend/config.py:DEFAULT_MODEL` pins
+  (currently `gemini-3.1-pro-preview`, same as prod) — there is no
+  per-environment override.
 
 ## Quick start
 
@@ -226,12 +227,24 @@ printf '%s' 'postgresql://vegangenius-staging-user:<PASSWORD>@/vegangenius?host=
 `deploy-staging.sh` step 0/1 handles Secret Manager API enablement,
 secret-accessor grants, the cross-project image-pull grant, Express→Flask
 invoker binding, and the CloudSQL proxy annotation, all idempotently. It
-does **not** provision the CloudSQL instance, the VPC peering, the
-`flask-staging-migrate` Cloud Run Job, or grant the compute service account
-`roles/cloudsql.client`; those were done manually in KAN-248 and are
-expected to be pre-existing when this script runs. If the DB password is
-rotated, add a new secret version — no redeploy needed beyond a new
-revision picking up `:latest`.
+does **not** provision the following, which must exist before running
+the script (or the Flask revision will deploy successfully but
+`/api/generate` and the image worker will 500 at runtime):
+
+- CloudSQL instance `vegangenius-staging-db`, the VPC peering,
+  `flask-staging-migrate` Cloud Run Job, and the compute SA's
+  `roles/cloudsql.client` grant (done manually in KAN-248).
+- GCS bucket `tasteslikegood-recipe-images-staging` and the compute SA's
+  write access to it (create with `gcloud storage buckets create` and
+  grant `roles/storage.objectAdmin`).
+- Pub/Sub topics `recipe-generation`, `image-generation`,
+  `generation-dlq` + push subscriptions, and the `pubsub-pusher`
+  service account. Provision by running
+  `PROJECT_ID=gen-lang-client-0491022701 scripts/gcloud/setup_pubsub.sh`
+  (the script defaults to the prod project, so the override is required).
+
+If the DB password is rotated, add a new secret version — no redeploy
+needed beyond a new revision picking up `:latest`.
 
 ## Verification
 

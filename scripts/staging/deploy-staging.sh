@@ -141,6 +141,11 @@ if ! gcloud secrets describe DATABASE_URL_STAGING --project="${PROJECT_ID}" >/de
     echo "ERROR: secret DATABASE_URL_STAGING does not exist in ${PROJECT_ID}." >&2
     echo "Create it with the CloudSQL connection string, then re-run:" >&2
     echo "  ${CREATE_DB_SECRET_CMD}" >&2
+    echo "" >&2
+    echo "IMPORTANT: replace USER:PASS with the real CloudSQL user and password" >&2
+    echo "before running the command above. printf will NOT substitute them, and" >&2
+    echo "Flask will silently fail to connect on every revision until you add a" >&2
+    echo "new secret version. URL-encode @ : / ? # [ ] in the password if present." >&2
     exit 1
   fi
 fi
