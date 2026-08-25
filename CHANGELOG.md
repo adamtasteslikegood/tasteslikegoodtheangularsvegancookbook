@@ -30,8 +30,8 @@ supported it, silently breaking all image generation in production.
   generation timeout toast — KAN-243,
   [#3420](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3420)
 - **Default recipe text model upgraded** — hardcoded default changed from
-  `gemini-2.5-pro` to `gemini-3.1-pro-preview` (less expensive, better quality on
-  staging); `GEMINI_DEFAULT_MODEL` env var overrides it — KAN-248, Backend
+  `gemini-2.5-pro` to `gemini-3.1-pro-preview`; the
+  `GEMINI_DEFAULT_MODEL` env var overrides it — KAN-248, Backend
   [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
 
 ### Changed
