@@ -542,10 +542,13 @@ whether a branch still holds work.
 
 ### Why merge commits?
 
-✅ **Readable history** - merge commits keep branch ancestry intact
-✅ **Clean log** - One commit per feature/fix
-✅ **Easy revert** - Revert entire feature with one command
-✅ **Better releases** - Clear association between features and versions
+✅ **Grouped history** — one merge commit identifies each feature/fix while
+preserving that branch's individual commits
+✅ **Readable ancestry** — `git log dev..<branch>` stays meaningful, so work that
+is genuinely unmerged is distinguishable from work already landed
+✅ **Easy revert** — `git revert -m 1 <merge-sha>` reverts the whole feature
+✅ **Better releases** — clear association between features and versions, with the
+underlying commits still reachable for bisect and blame
 
 ### How it Works
 
@@ -561,26 +564,32 @@ refactor: simplify code
 test: add unit tests
 ```
 
-**After merge (dev branch):**
+**After merge (dev branch):** the five commits are preserved, with a merge
+commit grouping them:
 
 ```
-feat(skill): add Rust templates (#42)
-
-- Add Rust template A
-- Add Rust template B
-- Simplify template selection
-- Add unit tests
-
-Co-authored-by: Developer <dev@example.com>
+*   Merge pull request #42 from feat/rust-templates   <- first-parent of dev
+|\
+| * test: add unit tests
+| * refactor: simplify code
+| * feat: add template B
+| * fix: correct typo
+| * feat: add template A
+|/
+* (previous dev tip)
 ```
+
+`git log --first-parent dev` shows one line per feature; dropping
+`--first-parent` shows the individual commits.
 
 ### Merge Commit Message
 
-Automatically generated:
+- **Title:** `Merge pull request #N from <branch>` (GitHub default), or the PR
+  title if you override it — keep Conventional Commits format when you do.
+- **Body:** From PR description.
 
-- **Title:** From PR title (Conventional Commits format)
-- **Body:** From PR description
-- **Footer:** PR number, co-authors
+The individual branch commits keep their own messages and authorship, so
+per-commit `Co-authored-by` trailers are preserved rather than merged into one.
 
 ---
 
