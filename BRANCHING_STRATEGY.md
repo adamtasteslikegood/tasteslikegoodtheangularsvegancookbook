@@ -118,7 +118,7 @@ feature/*, fix/*, hotfix/* → dev → main
 3. Push to origin: `git push -u origin feature/my-feature`
 4. Create PR to `dev`
 5. Pass quality gates and code review
-6. Squash merge to `dev`
+6. Merge to `dev` with a merge commit
 7. Delete feature branch
 
 **PR Requirements:**
@@ -274,7 +274,7 @@ pr-into-dev.yml runs:
 
 Code review + approval
 ↓
-Squash and merge to dev
+Merge commit to dev
 ↓
 Delete feature branch
 ```
@@ -584,9 +584,9 @@ commit grouping them:
 
 ### Merge Commit Message
 
-- **Title:** `Merge pull request #N from <branch>` (GitHub default), or the PR
-  title if you override it — keep Conventional Commits format when you do.
-- **Body:** From PR description.
+- **Title:** PR title (this repo's `merge_commit_title` is `PR_TITLE`) — keep
+  Conventional Commits format.
+- **Body:** PR description (this repo's `merge_commit_message` is `PR_BODY`).
 
 The individual branch commits keep their own messages and authorship, so
 per-commit `Co-authored-by` trailers are preserved rather than merged into one.
