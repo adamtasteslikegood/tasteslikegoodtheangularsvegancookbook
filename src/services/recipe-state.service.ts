@@ -2,14 +2,6 @@ import { Injectable, computed, signal } from '@angular/core';
 import type { Recipe } from '../recipe.types';
 
 /**
- * Base used only to parse *relative* image URLs. `URL` needs some base to
- * resolve against; the result is reduced back to path + query + fragment, so
- * this host never appears in the returned value. A literal is used rather than
- * `window.location.origin` so the helper works anywhere (unit tests, SSR).
- */
-const RELATIVE_URL_BASE = 'http://cache-buster.invalid';
-
-/**
  * Set/replace a `_t=<epoch>` cache-buster on an image URL, preserving any
  * existing query params and fragment. `searchParams.set` means a repeat
  * regenerate replaces the marker instead of stacking `?_t=A&_t=B`.
@@ -20,14 +12,33 @@ const RELATIVE_URL_BASE = 'http://cache-buster.invalid';
  */
 function withCacheBuster(imageUrl: string, at: number): string {
   // A `data:` URI has no server round-trip, so busting it is meaningless — and
-  // actively harmful: the scheme test below would treat it as relative, and
-  // reassembling from pathname/search would drop the `data:` scheme and glue
-  // `?_t=` into the base64 payload, rendering a broken <img>.
+  // actively harmful: it would be treated as relative below and the scheme
+  // would be lost.
   if (imageUrl.startsWith('data:')) return imageUrl;
-  const isAbsolute = /^https?:\/\//i.test(imageUrl);
-  const url = new URL(imageUrl, isAbsolute ? undefined : RELATIVE_URL_BASE);
-  url.searchParams.set('_t', String(at));
-  return isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`;
+
+  // Absolute http(s): round-tripping through URL is safe and normalises.
+  if (/^https?:\/\//i.test(imageUrl)) {
+    const url = new URL(imageUrl);
+    url.searchParams.set('_t', String(at));
+    return url.toString();
+  }
+
+  // Every other form — root-relative (`/a.jpg`), protocol-relative
+  // (`//host/a.jpg`) and document-relative (`a.jpg`) — is edited textually.
+  //
+  // Resolving these against a placeholder base and reassembling from
+  // pathname/search/hash silently rewrote them: `//host/a.jpg` lost its host
+  // and `a.jpg` was rebased to `/a.jpg`. Recipes imported from user JSON
+  // (`KitchenComponent.onImportFileSelected`) carry arbitrary `ai_image_url`
+  // values, so both forms are reachable.
+  const hashAt = imageUrl.indexOf('#');
+  const hash = hashAt === -1 ? '' : imageUrl.slice(hashAt);
+  const beforeHash = hashAt === -1 ? imageUrl : imageUrl.slice(0, hashAt);
+  const queryAt = beforeHash.indexOf('?');
+  const path = queryAt === -1 ? beforeHash : beforeHash.slice(0, queryAt);
+  const params = new URLSearchParams(queryAt === -1 ? '' : beforeHash.slice(queryAt + 1));
+  params.set('_t', String(at));
+  return `${path}?${params.toString()}${hash}`;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -37,7 +48,7 @@ export class RecipeStateService {
   readonly isSaved = signal(false);
 
   /**
-   * KAN-243: recipe IDs with in-flight image generation.
+   * KAN-243: in-flight image generations, as recipe id -> outstanding count.
    *
    * Tracked at the service level (root-scoped singleton) so the loading
    * state survives component destruction during SPA navigation. Before
@@ -45,7 +56,7 @@ export class RecipeStateService {
    * away from the generator destroyed the signal while the detached async
    * kept running, so recipe-detail showed neither image nor spinner.
    */
-  private readonly _pendingImageIds = signal(new Set<string>());
+  private readonly _pendingImageIds = signal(new Map<string, number>());
 
   /** Whether the currently viewed recipe has an in-flight image generation. */
   readonly isImageGenerating = computed(() => {
@@ -58,11 +69,22 @@ export class RecipeStateService {
    * (resolve or reject) automatically clears the pending state.
    */
   trackImageGeneration(recipeId: string, completion: Promise<string>): void {
-    this._pendingImageIds.update((ids) => new Set(ids).add(recipeId));
+    // Refcounted, not a Set: a user can start a second regenerate for the same
+    // recipe while the first is still in flight (the button reappears as soon
+    // as `isImageLoading()` goes false). With a Set, the first promise to
+    // settle cleared the id and the spinner vanished while the second call was
+    // still polling — the exact failure KAN-243 exists to fix.
+    this._pendingImageIds.update((counts) => {
+      const next = new Map(counts);
+      next.set(recipeId, (next.get(recipeId) ?? 0) + 1);
+      return next;
+    });
     const clear = () => {
-      this._pendingImageIds.update((ids) => {
-        const next = new Set(ids);
-        next.delete(recipeId);
+      this._pendingImageIds.update((counts) => {
+        const next = new Map(counts);
+        const remaining = (next.get(recipeId) ?? 1) - 1;
+        if (remaining > 0) next.set(recipeId, remaining);
+        else next.delete(recipeId);
         return next;
       });
     };

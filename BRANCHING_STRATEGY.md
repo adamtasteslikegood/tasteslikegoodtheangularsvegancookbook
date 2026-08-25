@@ -1,5 +1,12 @@
 # Branching Strategy
 
+> ⚠️ **Stale in places — `CLAUDE.md` is authoritative for this repo.**
+> This document is adapted from a generic ClaudeForge template. Its
+> merge-strategy and branch-protection sections described **squash merges and
+> `required_linear_history`**, neither of which applies here: no ruleset in
+> either repo sets `required_linear_history`, and on the cookbook **squash is
+> blocked** on `dev` and `main` (merge or rebase only). Corrected 2026-08-25.
+
 ClaudeForge uses a **Standard Branching Strategy** with protected branches and automated quality gates.
 
 ## Overview
@@ -22,7 +29,7 @@ feature/*, fix/*, hotfix/* → dev → main
 - ✅ All changes via pull requests
 - ✅ Automated quality gates required
 - ✅ Conventional Commits enforced
-- ✅ Linear history (squash merges)
+- ✅ Merge commits or rebase (squash is **blocked** on `dev` and `main`)
 
 ---
 
@@ -36,7 +43,7 @@ feature/*, fix/*, hotfix/* → dev → main
 
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `production-build`
-- ✅ Require linear history (squash merges only)
+- ✅ Merge or rebase only — squash blocked (`required_linear_history` is **not** set)
 - ✅ No force pushes
 - ✅ No deletions
 - ✅ Require review from CODEOWNERS
@@ -67,7 +74,7 @@ feature/*, fix/*, hotfix/* → dev → main
 
 - ✅ Require pull request before merging
 - ✅ Require status checks to pass: `quality-gates`, `validate-pr`
-- ✅ Require linear history (squash merges only)
+- ✅ Merge or rebase only — squash blocked (`required_linear_history` is **not** set)
 - ✅ No force pushes
 - ✅ No deletions
 
@@ -111,7 +118,7 @@ feature/*, fix/*, hotfix/* → dev → main
 3. Push to origin: `git push -u origin feature/my-feature`
 4. Create PR to `dev`
 5. Pass quality gates and code review
-6. Squash merge to `dev`
+6. Merge to `dev` with a merge commit
 7. Delete feature branch
 
 **PR Requirements:**
@@ -267,7 +274,7 @@ pr-into-dev.yml runs:
 
 Code review + approval
 ↓
-Squash and merge to dev
+Merge commit to dev
 ↓
 Delete feature branch
 ```
@@ -356,7 +363,7 @@ Create hotfix release: v1.0.1
        - `production-build`
        - `validate-release-pr`
    - ✅ Require conversation resolution before merging
-   - ✅ Require linear history
+   - ✅ (not used — `required_linear_history` is deliberately unset)
    - ✅ Do not allow bypassing the above settings
 4. Under "Rules applied to everyone including administrators":
    - ✅ Restrict deletions
@@ -374,7 +381,7 @@ Create hotfix release: v1.0.1
      - Add required checks:
        - `quality-gates`
        - `validate-pr`
-   - ✅ Require linear history
+   - ✅ (not used — `required_linear_history` is deliberately unset)
    - ✅ Do not allow bypassing the above settings
 4. Under "Rules applied to everyone including administrators":
    - ✅ Restrict deletions
@@ -524,14 +531,24 @@ PR titles MUST follow Conventional Commits format.
 
 ## Merge Strategies
 
-ClaudeForge uses **Squash and Merge** exclusively.
+This repo uses **merge commits** (rebase also permitted). **Squash is blocked**
+by ruleset on `dev` and `main`.
 
-### Why Squash?
+Squashing collapses a branch's ancestry into a single commit, which makes
+`git log dev..<branch>` report every original commit as unmerged. During the
+v0.4.12 cut that hid a commit pushed to a release branch after it had merged.
+Compare **content** (`git diff origin/dev <branch> -- <path>`) when checking
+whether a branch still holds work.
 
-✅ **Linear history** - Easy to understand and navigate
-✅ **Clean log** - One commit per feature/fix
-✅ **Easy revert** - Revert entire feature with one command
-✅ **Better releases** - Clear association between features and versions
+### Why merge commits?
+
+✅ **Grouped history** — one merge commit identifies each feature/fix while
+preserving that branch's individual commits
+✅ **Readable ancestry** — `git log dev..<branch>` stays meaningful, so work that
+is genuinely unmerged is distinguishable from work already landed
+✅ **Easy revert** — `git revert -m 1 <merge-sha>` reverts the whole feature
+✅ **Better releases** — clear association between features and versions, with the
+underlying commits still reachable for bisect and blame
 
 ### How it Works
 
@@ -547,26 +564,32 @@ refactor: simplify code
 test: add unit tests
 ```
 
-**After merge (dev branch):**
+**After merge (dev branch):** the five commits are preserved, with a merge
+commit grouping them:
 
 ```
-feat(skill): add Rust templates (#42)
-
-- Add Rust template A
-- Add Rust template B
-- Simplify template selection
-- Add unit tests
-
-Co-authored-by: Developer <dev@example.com>
+*   Merge pull request #42 from feat/rust-templates   <- first-parent of dev
+|\
+| * test: add unit tests
+| * refactor: simplify code
+| * feat: add template B
+| * fix: correct typo
+| * feat: add template A
+|/
+* (previous dev tip)
 ```
+
+`git log --first-parent dev` shows one line per feature; dropping
+`--first-parent` shows the individual commits.
 
 ### Merge Commit Message
 
-Automatically generated:
+- **Title:** PR title (this repo's `merge_commit_title` is `PR_TITLE`) — keep
+  Conventional Commits format.
+- **Body:** PR description (this repo's `merge_commit_message` is `PR_BODY`).
 
-- **Title:** From PR title (Conventional Commits format)
-- **Body:** From PR description
-- **Footer:** PR number, co-authors
+The individual branch commits keep their own messages and authorship, so
+per-commit `Co-authored-by` trailers are preserved rather than merged into one.
 
 ---
 
