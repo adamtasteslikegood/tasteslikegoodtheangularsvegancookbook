@@ -117,7 +117,7 @@ A failed server delete is not presented as successful trash movement.
 ## Synchronization and login merge
 
 - Local storage is a client cache and continuity layer; Cloud SQL is authoritative for server data.
-- Guest calls use `X-Guest-Session-ID`; signed-in calls use the secure session.
+- Guest calls send the Flask session cookie (`session_id`, server-issued) via `credentials: 'include'`; signed-in calls use the secure OAuth session on the same cookie.
 - Login transfers guest recipes and cookbooks to the account.
 - Dedup uses `source_recipe_id`, fallback `source_slug`, and a public own slug when required—not normalized name.
 - Same-name private generated recipes remain separate.

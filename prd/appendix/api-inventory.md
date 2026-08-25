@@ -8,7 +8,7 @@
 
 | Caller         | Identity mechanism                                             | Scope                                             |
 | -------------- | -------------------------------------------------------------- | ------------------------------------------------- |
-| Guest SPA      | `X-Guest-Session-ID` UUID plus browser local state             | Guest-owned recipes and cookbooks                 |
+| Guest SPA      | Flask session cookie (`session_id` set server-side) sent with `credentials: 'include'`, plus browser local state | Guest-owned recipes and cookbooks                 |
 | Signed-in SPA  | Secure Flask session created by Google OAuth                   | User-owned recipes and cookbooks                  |
 | Public visitor | No user identity                                               | Allowlisted public recipes, HTML, and images only |
 | Express proxy  | Google-signed ID token in `X-Serverless-Authorization`         | Invocation permission on private Flask Cloud Run  |
