@@ -118,6 +118,34 @@ describe('RecipeStateService.trackImageGeneration', () => {
     expect(service.isImageGenerating()).toBe(false);
   });
 
+  // Review finding on #3437: _pendingImageIds was a Set, so two overlapping
+  // generations for one recipe collapsed — the first to settle cleared the id
+  // and the spinner vanished while the second was still in flight.
+  it('keeps reporting generation until the LAST concurrent one settles', async () => {
+    service.viewRecipe(recipe());
+    let resolveA!: (v: string) => void;
+    let resolveB!: (v: string) => void;
+    const a = new Promise<string>((r) => {
+      resolveA = r;
+    });
+    const b = new Promise<string>((r) => {
+      resolveB = r;
+    });
+
+    service.trackImageGeneration('r1', a);
+    service.trackImageGeneration('r1', b);
+    expect(service.isImageGenerating()).toBe(true);
+
+    resolveA('/img-a');
+    await Promise.resolve();
+    // B is still in flight — the spinner must stay up.
+    expect(service.isImageGenerating()).toBe(true);
+
+    resolveB('/img-b');
+    await Promise.resolve();
+    expect(service.isImageGenerating()).toBe(false);
+  });
+
   it('tracks multiple recipes independently', async () => {
     let resolveR1!: (v: string) => void;
     const p1 = new Promise<string>((r) => {
@@ -197,6 +225,28 @@ describe('RecipeStateService image cache-busting', () => {
     service.markImageRegenerated('r1', 123);
     const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
     expect(service.imageDisplayUrl('r1', dataUri)).toBe(dataUri);
+  });
+
+  // Review findings on #3437: resolving relative URLs against a placeholder
+  // base and reassembling from pathname/search/hash silently rewrote them.
+  // Imported recipes (KitchenComponent.onImportFileSelected) carry arbitrary
+  // ai_image_url values, so both forms below are reachable.
+  it('preserves the host on protocol-relative URLs', () => {
+    service.markImageRegenerated('r1', 99);
+    expect(service.imageDisplayUrl('r1', '//cdn.example.com/img.jpg')).toBe(
+      '//cdn.example.com/img.jpg?_t=99'
+    );
+  });
+
+  it('keeps document-relative URLs document-relative', () => {
+    service.markImageRegenerated('r1', 99);
+    expect(service.imageDisplayUrl('r1', 'foo.jpg')).toBe('foo.jpg?_t=99');
+    expect(service.imageDisplayUrl('r1', '../up/img.jpg')).toBe('../up/img.jpg?_t=99');
+  });
+
+  it('replaces an existing _t on a relative URL rather than stacking', () => {
+    service.markImageRegenerated('r1', 7);
+    expect(service.imageDisplayUrl('r1', '/img.jpg?_t=1&w=5')).toBe('/img.jpg?_t=7&w=5');
   });
 
   it('returns null for a missing image URL', () => {

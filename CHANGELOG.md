@@ -44,6 +44,21 @@ supported it, silently breaking all image generation in production.
   RCP-79 / TAS-3056,
   [#3416](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3416)
 
+### Dependencies
+
+Fourteen dependency updates ship with this release. Two majors:
+
+- `@google-cloud/secret-manager` 6.3.0 → **7.0.0** — a direct **runtime**
+  dependency —
+  [#3410](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3410)
+- `@hono/node-server` 1.19.13 → **2.1.1** — transitive (via
+  `@modelcontextprotocol/sdk`), pulled in by the `npm_and_yarn` security group —
+  [#3415](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3415)
+
+Also: the Angular group (two rounds, 17 packages), `dd-trace` 6.8.0 → 6.11.0,
+`google-auth-library` 11.0.0 → 11.0.2, `express-rate-limit` 8.6.1 → 8.6.2,
+`vite` 8.2.0 → 8.2.1, plus the linting, types and GitHub Actions groups.
+
 ---
 
 ## [0.4.11] - 2026-08-12
