@@ -9,7 +9,9 @@
 #
 # Usage:
 #   gcloud builds submit --config=cloudbuild.staging.yaml \
-#     --ignore-file=.gcloudignore.staging --project=gen-lang-client-0491022701
+#     --ignore-file=.gcloudignore.staging \
+#     --substitutions=SHORT_SHA="$(git rev-parse --short HEAD)" \
+#     --project=gen-lang-client-0491022701
 
 .git
 .gitignore
