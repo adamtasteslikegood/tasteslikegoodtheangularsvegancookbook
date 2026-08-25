@@ -1,7 +1,7 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.4.11",
+  "version": "0.4.12",
   "type": "module",
   "scripts": {
     "dev": "ng serve",
@@ -76,5 +76,15 @@
   },
   "overrides": {
     "hono": "4.12.26"
+  },
+  "allowScripts": {
+    "@datadog/native-appsec@11.0.1": true,
+    "@datadog/native-iast-taint-tracking@4.2.0": true,
+    "@datadog/native-metrics@3.1.2": true,
+    "@parcel/watcher@2.5.6": true,
+    "esbuild@0.28.2": true,
+    "lmdb@3.5.6": true,
+    "msgpackr-extract@3.0.4": true,
+    "protobufjs@7.6.5": true
   }
 }

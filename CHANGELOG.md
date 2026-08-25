@@ -6,6 +6,40 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.12] - 2026-08-24
+
+Backend submodule pointer: `197e72f` → **`6becf93`** — Backend `main`'s own tip, the
+merge commit of
+[#293](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/293).
+
+**Image generation fix.** Migrated from the deprecated Imagen `generate_images` API
+to Gemini `generate_content` with `response_modalities=["IMAGE"]`. The previous
+`imagen-4.0-generate-001` model was not available via API key auth — only Vertex AI
+supported it, silently breaking all image generation in production.
+
+### Fixed
+
+- **Image generation restored** — new `GEMINI_IMAGE_MODEL` env var (defaults to
+  `gemini-3.1-flash-image`), `generate_content` API with null-safety guard for
+  safety-blocked responses — KAN-243, Backend
+  [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292),
+  [#294](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/294),
+  [#295](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/295)
+- **Image nav-away spinner** — tracks generation at service level so navigating away
+  and returning shows the spinner until generation completes; adds first-time
+  generation timeout toast — KAN-243,
+  [#3420](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3420)
+- **Configurable recipe text model** — `GEMINI_DEFAULT_MODEL` env var overrides the
+  default Gemini model for recipe generation — KAN-248, Backend
+  [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
+
+### Changed
+
+- Approved npm install-scripts for 8 known packages (Datadog, esbuild, parcel,
+  protobufjs, lmdb, msgpackr-extract)
+
+---
+
 ## [0.4.11] - 2026-08-12
 
 Backend submodule pointer: `a94fac2` → **`197e72f`** — Backend `main`'s own tip, the
