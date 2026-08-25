@@ -139,3 +139,76 @@ describe('RecipeStateService.trackImageGeneration', () => {
     expect(service.isImageGenerating()).toBe(true);
   });
 });
+
+// KAN-243 (review findings on #3433 / #3435): the `_t` cache-buster is a
+// display-only value. It lives here, keyed by recipe id, so `ai_image_url`
+// stays canonical in domain and persisted state while the marker still
+// survives SPA navigation.
+describe('RecipeStateService image cache-busting', () => {
+  let service: RecipeStateService;
+
+  beforeEach(() => {
+    service = new RecipeStateService();
+  });
+
+  it('returns the canonical URL untouched when nothing was regenerated', () => {
+    expect(service.imageDisplayUrl('r1', '/api/recipes/r1/image.jpg')).toBe(
+      '/api/recipes/r1/image.jpg'
+    );
+  });
+
+  it('applies a _t marker only to the recipe that was regenerated', () => {
+    service.markImageRegenerated('r1', 1700000000000);
+
+    expect(service.imageDisplayUrl('r1', '/api/recipes/r1/image.jpg')).toBe(
+      '/api/recipes/r1/image.jpg?_t=1700000000000'
+    );
+    expect(service.imageDisplayUrl('r2', '/api/recipes/r2/image.jpg')).toBe(
+      '/api/recipes/r2/image.jpg'
+    );
+  });
+
+  it('replaces rather than stacks the marker on repeat regenerates', () => {
+    service.markImageRegenerated('r1', 1);
+    service.markImageRegenerated('r1', 2);
+
+    const out = service.imageDisplayUrl('r1', '/api/recipes/r1/image.jpg') as string;
+    expect(out).toBe('/api/recipes/r1/image.jpg?_t=2');
+    expect(out.match(/_t=/g)).toHaveLength(1);
+  });
+
+  it('preserves existing query params and the fragment', () => {
+    service.markImageRegenerated('r1', 5);
+    expect(service.imageDisplayUrl('r1', '/img.jpg?w=200#top')).toBe('/img.jpg?w=200&_t=5#top');
+  });
+
+  it('handles absolute URLs without mangling the origin', () => {
+    service.markImageRegenerated('r1', 5);
+    expect(service.imageDisplayUrl('r1', 'https://cdn.test/img.jpg')).toBe(
+      'https://cdn.test/img.jpg?_t=5'
+    );
+  });
+
+  // The scheme test treats `data:` as relative, so reassembling from
+  // pathname/search dropped the scheme and glued `?_t=` into the base64
+  // payload — `data:image/png;base64,ABC` became `image/png;base64,ABC?_t=…`,
+  // which renders as a broken <img>.
+  it('leaves data: URIs completely untouched', () => {
+    service.markImageRegenerated('r1', 123);
+    const dataUri = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==';
+    expect(service.imageDisplayUrl('r1', dataUri)).toBe(dataUri);
+  });
+
+  it('returns null for a missing image URL', () => {
+    service.markImageRegenerated('r1', 1);
+    expect(service.imageDisplayUrl('r1', null)).toBeNull();
+    expect(service.imageDisplayUrl('r1', undefined)).toBeNull();
+    expect(service.imageDisplayUrl('r1', '')).toBeNull();
+  });
+
+  it('viewRecipe seeds the display URL through the buster', () => {
+    service.markImageRegenerated('r1', 77);
+    service.viewRecipe(recipe({ ai_image_url: '/img.jpg' } as Partial<Recipe>));
+    expect(service.generatedImageUrl()).toBe('/img.jpg?_t=77');
+  });
+});

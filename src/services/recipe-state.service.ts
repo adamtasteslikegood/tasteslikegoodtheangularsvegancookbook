@@ -15,9 +15,15 @@ const RELATIVE_URL_BASE = 'http://cache-buster.invalid';
  * regenerate replaces the marker instead of stacking `?_t=A&_t=B`.
  *
  * This produces a **display-only** value. It must never be persisted — see
- * `imageDisplayUrl` below.
+ * `imageDisplayUrl` below. Deliberately module-local: building busted URLs
+ * outside this service is how the persistence trap re-opens.
  */
-export function withCacheBuster(imageUrl: string, at: number): string {
+function withCacheBuster(imageUrl: string, at: number): string {
+  // A `data:` URI has no server round-trip, so busting it is meaningless — and
+  // actively harmful: the scheme test below would treat it as relative, and
+  // reassembling from pathname/search would drop the `data:` scheme and glue
+  // `?_t=` into the base64 payload, rendering a broken <img>.
+  if (imageUrl.startsWith('data:')) return imageUrl;
   const isAbsolute = /^https?:\/\//i.test(imageUrl);
   const url = new URL(imageUrl, isAbsolute ? undefined : RELATIVE_URL_BASE);
   url.searchParams.set('_t', String(at));
