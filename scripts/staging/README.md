@@ -240,7 +240,7 @@ the script (or the Flask revision will deploy successfully but
 - Pub/Sub topics `recipe-generation`, `image-generation`,
   `generation-dlq` + push subscriptions, and the `pubsub-pusher`
   service account. Provision by running
-  `PROJECT_ID=gen-lang-client-0491022701 scripts/gcloud/setup_pubsub.sh`
+  `PROJECT_ID=gen-lang-client-0491022701 FLASK_SERVICE=flask-backend-staging scripts/gcloud/setup_pubsub.sh`
   (the script defaults to the prod project, so the override is required).
 
 If the DB password is rotated, add a new secret version — no redeploy
