@@ -167,9 +167,10 @@ steps:
   # it; a Cloud Scheduler trigger (created once, out of band) runs it daily.
   # It detects recipes with no image bytes (canonical first, then published)
   # and enqueues regeneration through the same Pub/Sub path as the SPA's
-  # regenerate button; the flask-backend worker does the Imagen work, so the
-  # Job needs no Gemini credentials. Env/secrets mirror the migrate Job
-  # (same create_app boot) plus IMAGE_REPAIR_LIMIT.
+  # regenerate button; the flask-backend worker does the Gemini image
+  # generation (GEMINI_IMAGE_MODEL, currently gemini-3-pro-image), so the
+  # Job itself needs no Gemini credentials. Env/secrets mirror the migrate
+  # Job (same create_app boot) plus IMAGE_REPAIR_LIMIT.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Image Repair Job'
     waitFor: ['Push Flask Backend Image']
