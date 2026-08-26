@@ -55,6 +55,10 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
       // Known-incomplete on KAN-155: the repair is not built, so do not promise
       // that retrying works. Say what is true and stop.
       return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
+    case 'duplicate':
+      // KAN-241: structurally unreachable from togglePublic (you cannot publish a
+      // saved copy — the 403 guard fires first), but the type system includes it.
+      return 'You already have this recipe saved.';
     case 'ownership':
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
@@ -65,20 +69,6 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
         ? 'Publishing failed to sync to the server. Check your connection and try again.'
         : 'Unpublishing failed to sync to the server. Check your connection and try again.';
   }
-}
-
-/**
- * Set/replace a `_t=<epoch>` cache-buster on an image URL, preserving any
- * existing query params and fragment. Handles relative (`/api/…`) and
- * absolute URLs; `searchParams.set` means repeat regenerates replace the
- * marker instead of stacking `?_t=A&_t=B`.
- */
-function withCacheBuster(imageUrl: string): string {
-  const isAbsolute = /^https?:\/\//i.test(imageUrl);
-  const base = isAbsolute ? undefined : window.location.origin;
-  const url = new URL(imageUrl, base);
-  url.searchParams.set('_t', Date.now().toString());
-  return isAbsolute ? url.toString() : `${url.pathname}${url.search}${url.hash}`;
 }
 
 /**
@@ -174,18 +164,19 @@ export abstract class RecipeViewBase {
     try {
       const imageUrl = await imagePromise;
       // Cache-bust: re-generate returns the same canonical URL, so a bare
-      // signal.set() is a no-op and the browser serves stale bytes. Parse
-      // with URL so a fragment ('#…') doesn't get swallowed into the query
-      // and so a repeat regenerate replaces `_t` instead of appending it.
-      const displayUrl = withCacheBuster(imageUrl);
+      // signal.set() is a no-op and the browser serves stale bytes. The
+      // marker is recorded on RecipeStateService and applied only when
+      // building a display URL, so it survives nav-away (the service is a
+      // root singleton) without ever entering persisted state.
+      this.recipeState.markImageRegenerated(targetId);
       if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(displayUrl);
+        this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(targetId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       }
-      // Persist the busted URL, not the canonical one — otherwise nav-away
-      // and back re-hydrates from savedRecipes with no buster and the
-      // browser re-serves the pre-regen bytes.
-      this.authService.updateRecipeField(targetId, 'ai_image_url', displayUrl);
+      // Persist the CANONICAL url. Writing the busted one here put a
+      // client-only `?_t=` marker into savedRecipes, and saveNotes POSTs the
+      // whole recipe — so it came back as the canonical ai_image_url.
+      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
       console.error('Image regeneration failed', err);
       // The 5-min timeout in gemini.service now rejects rather than hanging.

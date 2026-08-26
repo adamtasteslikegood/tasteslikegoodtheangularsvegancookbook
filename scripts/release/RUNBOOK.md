@@ -178,16 +178,26 @@ never redeployed anything.
 ```
 
 Must be a **merge commit**. Squashing rewrites the commits, ancestry never
-converges, and the drift count never returns to zero. `dev` carries
-`required_linear_history` in both repos, so this only lands for an actor with
-ruleset bypass — a repo admin merging a PR. That is why this step is local and not
-in CI.
+converges, and the drift count never returns to zero. This step is local and not
+in CI because it needs credentials for both repos (Actions' `GITHUB_TOKEN` is
+scoped to one).
+
+> **Correction (2026-08-25).** This paragraph used to say `dev` carries
+> `required_linear_history` in both repos. That was never true — no ruleset in
+> either repo sets it. The cookbook's `dev` now allows only `merge` and `rebase`
+> (squash blocked), so a merge commit is the normal path, not a bypass.
 
 ### 9. Verify against production — by content
 
 ```bash
 ./scripts/release/train-run.sh --verify-only     # or the manual form below
 ```
+
+`--verify-only` runs a **staging health gate first**: it checks that the staging
+Cloud Run pair returns 200 and that `/api/health` reports `environment=staging`
+(guarding against `STAGING_URL` accidentally pointing at production). The default
+URL is hardcoded to the known staging service; override with `STAGING_URL` if the
+service is redeployed to a new URL.
 
 > **TRAP — verify the code, not the bundle name, and not `main-*.js` alone.**
 > On v0.4.8 the deploy was live while a poller grepping only `main-*.js` reported
