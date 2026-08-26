@@ -310,9 +310,10 @@ export class PersistenceService {
     }
 
     const data = await res.json();
-    // Sync the server-assigned cookbook into local state
+    // Sync the server-assigned cookbook into local state — guard against duplicates
+    // the same way the 409 path does, in case loadFromApi already hydrated it (KAN-242).
     const current = this.auth.currentUser();
-    if (current) {
+    if (current && !current.cookbooks.some((c) => c.id === data?.id)) {
       this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
     }
     return data?.id ?? null;

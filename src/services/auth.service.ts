@@ -257,10 +257,17 @@ export class AuthService {
 
     const merged = [...mergedApi, ...localOnly];
 
-    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response
+    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response,
+    // then deduplicate by id so races between loadFromApi and createCookbook never
+    // produce ghost double-entries in the add-to-cookbook modal (KAN-242).
     const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
     const localOnlyCookbooks = user.cookbooks.filter((c) => !apiCookbookIds.has(c.id));
-    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks];
+    const seenIds = new Set<string>();
+    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks].filter((c) => {
+      if (seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+      return true;
+    });
 
     const updated = { ...user, savedRecipes: merged, cookbooks: mergedCookbooks };
     this.currentUser.set(updated);

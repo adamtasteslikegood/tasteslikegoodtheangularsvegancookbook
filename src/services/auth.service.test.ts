@@ -278,3 +278,81 @@ describe('AuthService auth-check startup behavior', () => {
     });
   });
 });
+
+describe('AuthService.hydrate cookbook deduplication (KAN-242)', () => {
+  const localStorageMock = createLocalStorageMock();
+
+  const cbA = { id: 'cb-A', name: 'Favorites', description: '', recipeIds: ['r1'] };
+  const cbX = { id: 'cb-X', name: 'Session Recipes', description: '', recipeIds: ['r2'] };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('localStorage', localStorageMock);
+    vi.stubGlobal('window', {
+      location: { href: 'http://localhost/', search: '', hash: '', pathname: '/' },
+      history: { replaceState: vi.fn() },
+    });
+    vi.stubGlobal('document', { title: 'Vegangenius Chef' });
+    localStorageMock.clear();
+  });
+
+  afterEach(() => {
+    localStorageMock.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it('removes duplicate cookbook ids when the cookbooks parameter contains repeats', async () => {
+    const user = createAuthenticatedUser();
+    user.cookbooks = [cbA, cbX];
+    localStorageMock.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(user));
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    // Seed the user so hydrate has someone to update
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+    // Give the guest the two cookbooks
+    authService['currentUser'].set({ ...guest, cookbooks: [cbA, cbX] });
+
+    // Hydrate with duplicates in the incoming cookbooks array — simulates the
+    // race between loadFromApi and createCookbook (KAN-242).
+    authService.hydrate([], [cbA, cbX, cbX]);
+
+    const result = authService.currentUser()!;
+    expect(result.cookbooks).toHaveLength(2);
+    expect(result.cookbooks.map((c) => c.id)).toEqual(['cb-A', 'cb-X']);
+  });
+
+  it('prefers the API cookbook over a local duplicate with the same id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const localCopy = { ...cbA, name: 'Old Local Name' };
+    authService['currentUser'].set({ ...guest, cookbooks: [localCopy] });
+
+    const apiCopy = { ...cbA, name: 'Server Name' };
+    authService.hydrate([], [apiCopy]);
+
+    const result = authService.currentUser()!;
+    expect(result.cookbooks).toHaveLength(1);
+    expect(result.cookbooks[0].name).toBe('Server Name');
+  });
+});
