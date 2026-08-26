@@ -111,7 +111,10 @@ jobs:
                  "and re-run."
             exit 1
           fi
-          gcloud run jobs execute flask-staging-migrate \
+          # `jobs execute` cannot change the image. Update the Job to the just-built
+          # backend image and execute it in one blocking command; `--wait` implies
+          # `--execute-now` for `jobs update`.
+          gcloud run jobs update flask-staging-migrate \
             --region="$REGION" \
             --project="$STAGING_PROJECT" \
             --image="$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" \
