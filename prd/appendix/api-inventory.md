@@ -30,7 +30,7 @@ Express controls service-authorization headers and obtains its own private-servi
 | `GET`    | `/api/recipes/:id`          | Guest or user                           | Owner-scoped row                | `404` for missing or unavailable identifier.                                                                                                             |
 | `PUT`    | `/api/recipes/:id`          | Owner guest/user                        | Updated row                     | Enforces immutable ownership, origin/provenance, and publication locks.                                                                                  |
 | `DELETE` | `/api/recipes/:id`          | Owner guest/user                        | Deleted row                     | Canonical rows are locked; another owner's row is unavailable or refused.                                                                                |
-| `GET`    | `/api/recipes/stats`        | Guest or user                           | Owner-scoped counts             | Five-minute cache, invalidated on recipe mutation.                                                                                                       |
+| `GET`    | `/api/recipes/stats`        | Guest or user                           | Owner-scoped counts             | Not currently cached; see section 10.                                                                                                                    |
 | `GET`    | `/api/recipes/public/:slug` | Anonymous                               | Safe public payload             | `404` unless public. Allowlist excludes personal notes, session IDs, and private worker/ownership data.                                                  |
 
 ### 2.1 Recipe save refusal mapping
@@ -52,14 +52,14 @@ Base blueprint: `/api/collections`.
 
 | Method   | Path                                     | Caller           | Contract                                                                                                                 |
 | -------- | ---------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GET`    | `/api/collections`                       | Guest or user    | List owner-scoped cookbooks; five-minute list cache                                                                      |
+| `GET`    | `/api/collections`                       | Guest or user    | List owner-scoped cookbooks; not currently cached                                                                        |
 | `POST`   | `/api/collections`                       | Guest or user    | Create trimmed named cookbook. Repeated/idempotent request may return existing object; database uniqueness closes races. |
-| `GET`    | `/api/collections/:id`                   | Owner guest/user | Return one cookbook and membership data; ten-minute object cache                                                         |
+| `GET`    | `/api/collections/:id`                   | Owner guest/user | Return one cookbook and membership data; not currently cached                                                            |
 | `DELETE` | `/api/collections/:id`                   | Owner guest/user | Delete cookbook only; recipes remain                                                                                     |
 | `POST`   | `/api/collections/:id/recipes`           | Owner guest/user | Add owner-scoped recipe membership idempotently                                                                          |
 | `DELETE` | `/api/collections/:id/recipes/:recipeId` | Owner guest/user | Remove membership; recipe remains                                                                                        |
 
-Collection mutations invalidate collection list and object caches.
+Collection response caching and its invalidation helper are defined but unwired, so collection mutations currently have no cache to invalidate.
 
 ## 4. Authentication APIs
 
@@ -140,17 +140,16 @@ The retirement and access-hardening boundary for legacy routes is **[TBC]**. New
 | Public HTML page     | 300 per 15 minutes per IP | Static subresources and known crawlers skipped; separate Valkey prefix |
 | Expensive generation | 20 per hour per IP        | Recipe and image generation                                            |
 
-Valkey supplies distributed counters across Cloud Run instances; development or connection failure falls back to process memory. Express validates and buffers AI request bodies before proxying. Flask repeats schema, ownership, and domain validation.
+Valkey supplies distributed counters across Cloud Run instances; development or connection failure falls back to process memory. Express validates and buffers AI request bodies before proxying. Flask repeats ownership and domain validation and schema-validates AI-generated content on the worker path; client-supplied recipe payloads are not schema-validated.
 
 ## 10. Cache contract
 
-| Data                            | TTL                | Invalidation and privacy                                    |
-| ------------------------------- | ------------------ | ----------------------------------------------------------- |
-| Recipe stats                    | 5 minutes          | Owner-scoped; invalidated on recipe mutation                |
-| Collection list                 | 5 minutes          | Owner-scoped; invalidated on collection mutation            |
-| Individual recipe or collection | 10 minutes         | Owner-scoped; invalidated on mutation                       |
-| Recipe image bytes              | 24 hours           | Global key after authorization; invalidated on regeneration |
-| Legacy file recipe list         | 60 seconds default | Compatibility path only                                     |
+| Data                    | TTL                | Invalidation and privacy                                    |
+| ----------------------- | ------------------ | ----------------------------------------------------------- |
+| Recipe image bytes      | 24 hours           | Global key after authorization; invalidated on regeneration |
+| Legacy file recipe list | 60 seconds default | Compatibility path only                                     |
+
+Recipe, stats, and collection response caching is **not wired**. `utils/cache_utils.py` defines owner-scoped key builders for them plus five- and ten-minute TTL constants, but no blueprint imports those builders, so the keys are never written; `recipes_api_bp.py` and `collections_api_bp.py` perform no cache reads or writes. Recipe and image mutation paths do call their invalidation helpers (`invalidate_recipe`, `invalidate_recipe_image`); `invalidate_collection` is never called. Disposition is **[TBC]** — see the conformance gaps in the main PRD.
 
 Cache failures fall through to the database or object store and do not fail the product request.
 

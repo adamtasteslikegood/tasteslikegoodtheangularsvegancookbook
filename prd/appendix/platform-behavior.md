@@ -116,7 +116,7 @@ API and page counters use distinct Valkey prefixes. With Valkey unavailable, Exp
 
 ### 4.3 Application security
 
-- Flask independently validates schema, owner scope, provenance, publication, and role.
+- Flask independently validates owner scope, provenance, publication, and role, and schema-validates AI-generated content on the worker path; client-supplied recipe payloads reach persistence without schema validation.
 - Logs sanitize control and newline characters.
 - Client responses use stable safe messages and codes rather than exception internals.
 - OAuth uses state and PKCE; production forbids insecure transport and fails startup without a stable secret.
@@ -186,8 +186,8 @@ The canonical image endpoint and browser cache-busting URL are separate state. T
 ### 7.3 Valkey
 
 - Express: shared rate counters across instances.
-- Flask: owner-scoped recipe, stats, and collection response cache plus image bytes.
-- TTLs: five minutes for stats and lists, ten minutes for individual objects, one day for image bytes.
+- Flask: recipe image bytes only. Owner-scoped recipe, stats, and collection caching is defined in `utils/cache_utils.py` but not wired.
+- TTLs: one day for image bytes. The five- and ten-minute constants for stats, lists, and individual objects exist but are unused.
 - Mutations invalidate affected keys; cache faults fall through to Cloud SQL or GCS.
 - Production uses Memorystore or Valkey with IAM and TLS CA configuration.
 

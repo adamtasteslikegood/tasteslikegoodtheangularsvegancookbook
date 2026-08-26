@@ -45,9 +45,15 @@ This is a post-release product contract, not a claim that every supporting Git r
 
 The `gemini-3.7-flash` default is taken from current Backend PR #298 (head `d723c6c`, implementation commit `1742dbe`). The same-name merge correction is taken from the separately staged `auth_api_bp.py` and `test_guest_merge_dedup.py` working change inspected on the evidence date. Both are intentionally normative here even though the release branch's pinned Backend commit predates them. “Must” describes required v0.4.12 behavior and the next one or two patch releases, not a speculative redesign.
 
-### 2.3 Known v0.4.12 conformance gap
+### 2.3 Known v0.4.12 conformance gaps
 
-Merged image-navigation work correctly keeps pending state alive, but current regeneration code appends a presentation-only `?_t=<epoch>` cache token and writes that display URL into the locally persisted recipe. A later recipe save can send the token back as `ai_image_url`. This violates the canonical-data and no-transient-state requirements below. The immediate patch contract is to keep the cache token in display state only and strip it during hydration, local persistence, export, and API writes; regression coverage must include regenerate, navigate/reload, then save or edit.
+Three places where code observed on the evidence date deviates from what this PRD asserts. Each entry records the fact; the disposition is **[TBC]**.
+
+**Image cache token persists as canonical data.** Merged image-navigation work correctly keeps pending state alive, but current regeneration code appends a presentation-only `?_t=<epoch>` cache token and writes that display URL into the locally persisted recipe. A later recipe save can send the token back as `ai_image_url`. This violates the canonical-data and no-transient-state requirements below. The immediate patch contract is to keep the cache token in display state only and strip it during hydration, local persistence, export, and API writes; regression coverage must include regenerate, navigate/reload, then save or edit.
+
+**Response cache covers image bytes only.** `utils/cache_utils.py` defines owner-scoped key builders (`recipe_key`, `recipe_stats_key`, `collections_list_key`, `collection_key`) and the `TTL_SHORT` and `TTL_MEDIUM` constants, but no blueprint imports them, so those keys are never written. The only live population path is recipe image bytes (`vgc:img:<id>`, 24 hours) in `generation_api_bp.py`; `recipes_api_bp.py` and `collections_api_bp.py` perform no cache reads or writes. Invalidation is only partly wired: `worker_api_bp.py` calls `invalidate_recipe` and `invalidate_recipe_image`, while `invalidate_collection` is never called. Of the module's symbols only `safe_get`, `safe_set`, `recipe_image_key`, `TTL_IMAGE`, `invalidate_recipe`, and `invalidate_recipe_image` are imported anywhere. Section 10 of the API inventory now describes the wired behavior. Whether to wire the remaining caches or delete the unused helpers is **[TBC]**.
+
+**Client-supplied recipe payloads bypass schema validation.** AI-generated content is schema-checked: the worker reaches `recipe_schema.json` through `attempt_recipe_generation`, which raises on a validation error. Recipes written directly by the client — manual entry, JSON import, and saved copies — pass from `request.get_json()` into `create_recipe` and `update_recipe` with no `validate_recipe_data` call, so `/api/recipes` `POST` and `PUT` persist unvalidated blobs. Ownership, provenance, publication, and duplicate-identity checks do run on those paths; only JSON-Schema conformance is absent.
 
 ## 3. Goals
 
@@ -262,14 +268,14 @@ The current privacy page says guest recipes/cookbooks remain only in `localStora
 
 ## 14. Open decisions
 
-| Topic                      | Decision needed                                                   |
-| -------------------------- | ----------------------------------------------------------------- |
-| Product metrics            | Define approved KPIs, owners, baselines, and thresholds **[TBC]** |
-| Guest disclosure/retention | Align actual guest backend persistence with policy **[TBC]**      |
-| Account deletion           | Add promised product/API path or revise policy **[TBC]**          |
-| Analytics language         | Verify deployed collection and opt-out claims **[TBC]**           |
-| Recycle bin                | Decide whether durable/cross-device trash is required **[TBC]**   |
-| Legacy Flask/file APIs     | Define access and retirement boundary **[TBC]**                   |
+| Topic                      | Decision needed                                                                                                                                                                                                                                                                                            |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Product metrics            | Define approved KPIs, owners, baselines, and thresholds **[TBC]**                                                                                                                                                                                                                                          |
+| Guest disclosure/retention | Align actual guest backend persistence with policy **[TBC]**                                                                                                                                                                                                                                               |
+| Account deletion           | Add promised product/API path or revise policy **[TBC]**                                                                                                                                                                                                                                                   |
+| Analytics language         | Verify deployed collection and opt-out claims **[TBC]**                                                                                                                                                                                                                                                    |
+| Recycle bin                | Decide whether durable/cross-device trash is required **[TBC]**                                                                                                                                                                                                                                            |
+| Legacy Flask/file APIs     | Define access and retirement boundary. `create_app()` still registers `auth_bp` (`/auth`), `recipes_bp` (`/` and `/recipe/*`), and `generation_bp` (`/generate_recipe`); they are unreachable in production only because Express proxies a narrow path allowlist, not because Flask refuses them **[TBC]** |
 
 ## 15. Traceability
 
