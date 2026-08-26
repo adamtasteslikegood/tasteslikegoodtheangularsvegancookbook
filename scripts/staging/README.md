@@ -35,12 +35,14 @@ Cloud Run's edge.
   Railway decision from KAN-182 and
   [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394).
 - **Not free to run.** Staging mirrors the full prod generation pipeline
-  (Gemini, Imagen, GCS) when `GOOGLE_API_KEY_STAGING` exists — recipe and
-  image generation incur real AI costs. The key is presence-toggled: remove
-  the secret to disable generation entirely (endpoints return errors, no
-  costs). The model is whatever `Backend/config.py:DEFAULT_MODEL` pins
-  (currently `gemini-3.1-pro-preview`, same as prod) — there is no
-  per-environment override.
+  (Gemini text + image, GCS) when `GOOGLE_API_KEY_STAGING` exists — recipe
+  and image generation incur real AI costs. The key is presence-toggled:
+  remove the secret to disable generation entirely (endpoints return
+  errors, no costs). Models come from `Backend/config.py`: `DEFAULT_MODEL`
+  (`gemini-3.1-pro-preview`) and `IMAGE_MODEL` (`gemini-3.1-flash-image`),
+  each overridable per environment via `GEMINI_DEFAULT_MODEL` and
+  `GEMINI_IMAGE_MODEL`. Staging sets neither, so it tracks prod's
+  defaults.
 
 ## Quick start
 
