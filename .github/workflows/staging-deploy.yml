@@ -1,17 +1,79 @@
 name: Staging — build and deploy
 
-# Rebuilds both images from the dev tip and deploys them to the staging
-# Cloud Run services whenever code merges to dev.  This keeps staging
-# tracking the integration branch without manual intervention (KAN-244).
+# Rebuilds both images from the checked-out ref and deploys them to the staging
+# Cloud Run services (KAN-244).
+#
+# PROMOTED, not automatic. This ran on every push to `dev` until 2026-08-26;
+# that is deliberately gone. The target topology is `dev` -> (promotion) ->
+# gcp-staging -> Cloud Build -> production, so landing on `dev` is no longer
+# the same event as deploying to staging.
+#
+# Two ways to promote, both explicit acts:
+#   * push a `staging-v*` tag, e.g. `git tag staging-v0.5.0 && git push origin
+#     staging-v0.5.0`. This keeps KAN-244's acceptance criterion satisfied
+#     ("rebuilt automatically on merge to dev OR ON TAG PUSH") while leaving
+#     the promotion a decision rather than a side effect of merging.
+#   * `gh workflow run staging-deploy.yml --ref <ref>`, or the Actions tab.
+#
+# `staging-v*` cannot collide with the production Cloud Build trigger, whose
+# pattern is anchored digits-only (`^v[0-9]+\.[0-9]+\.[0-9]+$`) and so cannot
+# match a `staging-`-prefixed tag.
+#
+# PREREQUISITES — all satisfied as of 2026-08-26, verified against live GCP.
+# Recorded here because none of it is provisioned by code in this repo, so the
+# only durable record is this comment plus KAN-254.
+#
+#   * Workload Identity: pool/provider
+#       projects/746675616486/locations/global/workloadIdentityPools/
+#         github-actions/providers/github
+#     Pre-existing; its attributeCondition is already pinned to this repo, so
+#     it needed no change.
+#   * Deployer SA: staging-deployer@gen-lang-client-0491022701 — created in the
+#     STAGING project and bound to that pool with roles/iam.workloadIdentityUser
+#     scoped to this repo. Its permissions are deliberately narrow, and the
+#     narrowness is the point: a compromise of this workflow must not become a
+#     compromise of the staging project.
+#
+#       project-level : roles/run.developer      (NOT run.admin — run.developer
+#                       covers services.create/update and jobs.update/run while
+#                       excluding every *.setIamPolicy permission)
+#       on the runtime SA 26682253182-compute@developer:
+#                       roles/iam.serviceAccountUser
+#       on the staging AR repo `vegangenius`:
+#                       roles/artifactregistry.writer
+#       in comdottasteslikegood: NOTHING.
+#
+#     `iam.serviceAccountUser` is granted ON THAT ONE SERVICE ACCOUNT, never at
+#     project level. Project-level actAs plus deploy rights is a privilege-
+#     escalation pair: it would let a compromised workflow deploy attacker code
+#     running as ANY service account in the project, inheriting whatever
+#     secrets and API access those identities hold. All three staging workloads
+#     (flask-backend-staging, express-frontend-staging, flask-staging-migrate)
+#     run as that single compute SA, so one resource-scoped grant covers them
+#     and nothing else. Verified: the deployer cannot actAs pubsub-pusher or
+#     vertex-express.
+#
+#     Do NOT swap in tasteslikegood-github-actions@comdottasteslikegood: that
+#     one holds run.admin, artifactregistry.writer and storage.admin on
+#     PRODUCTION.
+#   * Secrets `GCP_STAGING_WIF_PROVIDER` / `GCP_STAGING_SERVICE_ACCOUNT` are
+#     set on the repo.
+#   * Cloud Run Job `flask-staging-migrate` EXISTS in the staging project
+#     (created 2026-08-24, `flask db upgrade`, CloudSQL annotation, VPC egress,
+#     DATABASE_URL_STAGING). An earlier revision of this comment claimed it did
+#     not exist in either project — that was wrong. What is true, and what the
+#     original note was reaching for, is that nothing in this repo provisions
+#     it: it is console-created state. Hence the fail-closed check below, which
+#     is about it being deleted or renamed out from under us, not about it
+#     never having existed.
+#   * Cloud Run can pull from the staging registry without an extra grant:
+#     roles/run.serviceAgent already includes
+#     artifactregistry.repositories.downloadArtifacts.
 
 on:
   push:
-    branches: [dev]
-    paths-ignore:
-      - 'specs/**'
-      - 'docs/**'
-      - '**.md'
-      - '.claude/**'
+    tags:
+      - 'staging-v*'
   workflow_dispatch:
 
 concurrency:
@@ -29,13 +91,23 @@ permissions:
 
 env:
   STAGING_PROJECT: gen-lang-client-0491022701
-  # Deliberately CROSS-PROJECT: images live in the production project's
-  # Artifact Registry, while the services run in the staging project. The
-  # staging Cloud Run service agent therefore needs artifactregistry.reader on
-  # comdottasteslikegood — without it the deploy succeeds and the revision then
-  # fails to pull, which surfaces as a healthy-looking deploy serving the old
-  # image. The preflight step below turns that into an explicit failure.
-  IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
+  # Staging's OWN Artifact Registry, not production's.
+  #
+  # `deploy-staging.sh` legitimately pulls cross-project: its job is to run the
+  # image production runs, so it reads from comdottasteslikegood and the staging
+  # service agent holds artifactregistry.reader there. This workflow is the
+  # opposite case — it BUILDS from a dev tip, i.e. code production does not
+  # have, so "identical to production" cannot apply to the result and the
+  # artifact is staging's own.
+  #
+  # Pushing these to the production registry would mean granting the staging
+  # deployer WRITE on production's registry, which would let a staging deploy
+  # overwrite a released production tag (`flask-backend:d1c3fad`). Staging
+  # should not hold a credential that can rewrite production artifacts.
+  #
+  # The repo already exists: projects/gen-lang-client-0491022701/locations/
+  # us-central1/repositories/vegangenius, created 2026-08-25.
+  IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
   REGION: us-central1
 
 jobs:
@@ -47,11 +119,19 @@ jobs:
         with:
           submodules: recursive
 
+      # Staging-specific secret names, not the bare GCP_* pair.
+      # `gc-build-deploy.yml` reads GCP_WORKLOAD_IDENTITY_PROVIDER /
+      # GCP_SERVICE_ACCOUNT for PRODUCTION Cloud Build. Sharing those names
+      # would force one identity to serve both lanes: either staging gets a
+      # credential with production write access, or production deploys start
+      # authenticating as the staging deployer. Prefixing follows the existing
+      # GCP_POSTURE_WIF_PROVIDER / GCP_POSTURE_SERVICE_ACCOUNT precedent in
+      # this repo, and the *_STAGING convention used for the app secrets.
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v3
@@ -63,16 +143,16 @@ jobs:
         id: tag
         run: echo "tag=staging-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      # Cross-project pull preflight: fail here with a named cause rather than
-      # letting the Cloud Run revision fail to pull later, which reads as a
-      # green deploy still serving the previous image.
-      - name: Preflight — staging can read the production Artifact Registry
+      # Registry preflight: fail here with a named cause rather than letting the
+      # push fail with a bare 403, or the Cloud Run revision fail to pull later
+      # — the latter reads as a green deploy still serving the previous image.
+      - name: Preflight — staging Artifact Registry is reachable
         run: |
           if ! gcloud artifacts repositories describe vegangenius \
-            --location="$REGION" --project=comdottasteslikegood >/dev/null 2>&1; then
+            --location="$REGION" --project="$STAGING_PROJECT" >/dev/null 2>&1; then
             echo "::error::Cannot read Artifact Registry 'vegangenius' in" \
-                 "comdottasteslikegood. The staging Cloud Run service agent needs" \
-                 "roles/artifactregistry.reader on that project."
+                 "$STAGING_PROJECT. Create it, or grant the deployer service" \
+                 "account roles/artifactregistry.writer on it."
             exit 1
           fi
 
