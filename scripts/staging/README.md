@@ -248,9 +248,11 @@ does **not** provision the following, which must exist before running
 the script (or the Flask revision will deploy successfully but
 `/api/generate` and the image worker will 500 at runtime):
 
-- CloudSQL instance `vegangenius-staging-db`, the VPC peering,
-  `flask-staging-migrate` Cloud Run Job, and the compute SA's
-  `roles/cloudsql.client` grant (done manually in KAN-248).
+- CloudSQL instance `vegangenius-staging-db`, the VPC peering, and the
+  `flask-staging-migrate` Cloud Run Job. (The compute SA's
+  `roles/cloudsql.client` grant used to be manual here; the deploy script
+  now binds it idempotently alongside the other roles, so it is no longer
+  a prerequisite.)
 - GCS bucket `tasteslikegood-recipe-images-staging` and the compute SA's
   write access to it (create with `gcloud storage buckets create` and
   grant `roles/storage.objectAdmin`).
@@ -259,6 +261,10 @@ the script (or the Flask revision will deploy successfully but
   service account. Provision by running
   `PROJECT_ID=gen-lang-client-0491022701 FLASK_SERVICE=flask-backend-staging scripts/gcloud/setup_pubsub.sh`
   (the script defaults to the prod project, so the override is required).
+  The deploy script does not create these, but it now checks for the
+  `pubsub-pusher` SA and warns with the exact command if it is missing —
+  the deploy itself still succeeds, because Cloud Run does not validate
+  env-var values.
 
 If the DB password is rotated, add a new secret version — no redeploy
 needed beyond a new revision picking up `:latest`.

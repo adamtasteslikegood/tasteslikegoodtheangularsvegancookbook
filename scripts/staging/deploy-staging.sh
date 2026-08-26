@@ -134,18 +134,28 @@ run_cmd gcloud secrets add-iam-policy-binding FLASK_SECRET_KEY_STAGING \
 #   postgresql://USER:PASS@/vegangenius?host=/cloudsql/PROJECT:REGION:INSTANCE
 if ! gcloud secrets describe DATABASE_URL_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
   CREATE_DB_SECRET_CMD="printf '%s' 'postgresql://USER:PASS@/vegangenius?host=/cloudsql/${PROJECT_ID}:${REGION}:vegangenius-staging-db' | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
+  # The USER:PASS warning belongs to the printed COMMAND, not to the error
+  # path, so both branches emit it. Dry run is the default invocation, so
+  # the dry-run text is the copy-paste source a first-time deployer actually
+  # sees; warning only in the --apply branch warns the people least likely
+  # to need it.
+  db_secret_warning() {
+    echo "IMPORTANT: replace USER:PASS with the real CloudSQL user and password" >&"$1"
+    echo "before running the command above. printf will NOT substitute them, and" >&"$1"
+    echo "Flask will silently fail to connect on every revision until you add a" >&"$1"
+    echo "new secret version. URL-encode @ : / ? # [ ] in the password if present." >&"$1"
+  }
   if $DRY_RUN; then
     echo "[DRY RUN] Secret DATABASE_URL_STAGING missing in ${PROJECT_ID}; create it first:"
     echo "          ${CREATE_DB_SECRET_CMD}"
+    echo ""
+    db_secret_warning 1
   else
     echo "ERROR: secret DATABASE_URL_STAGING does not exist in ${PROJECT_ID}." >&2
     echo "Create it with the CloudSQL connection string, then re-run:" >&2
     echo "  ${CREATE_DB_SECRET_CMD}" >&2
     echo "" >&2
-    echo "IMPORTANT: replace USER:PASS with the real CloudSQL user and password" >&2
-    echo "before running the command above. printf will NOT substitute them, and" >&2
-    echo "Flask will silently fail to connect on every revision until you add a" >&2
-    echo "new secret version. URL-encode @ : / ? # [ ] in the password if present." >&2
+    db_secret_warning 2
     exit 1
   fi
 fi
@@ -205,6 +215,33 @@ run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
   --project="${IMAGE_PROJECT}" --location="${REGION}" \
   --member="serviceAccount:${RUN_SERVICE_AGENT}" \
   --role=roles/artifactregistry.reader
+
+# The Auth Proxy sidecar mounted by --set-cloudsql-instances authenticates to
+# the Cloud SQL Admin API as the compute SA, so it needs roles/cloudsql.client.
+# This was a documented manual step, which made it the one prerequisite in this
+# script granted by prose rather than by code — every other role above is bound
+# idempotently right here. Missing it does not fail the deploy: the revision
+# comes up and every query then fails at connect with an error that reads like
+# the Cloud SQL Admin API is disabled.
+run_cmd gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${COMPUTE_SA}" \
+  --role=roles/cloudsql.client \
+  --condition=None
+
+# PUBSUB_INVOKER_SA is wired into the Flask env below unconditionally, and
+# Cloud Run does not validate env-var values — so if setup_pubsub.sh has never
+# run in this project, the deploy still succeeds and the worker push endpoint
+# then fails OIDC verification with no signal at deploy time. Surface it here
+# instead, where the fix is one command away.
+PUBSUB_PUSHER_SA="pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com"
+if ! gcloud iam service-accounts describe "${PUBSUB_PUSHER_SA}" \
+  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "WARNING: ${PUBSUB_PUSHER_SA} does not exist." >&2
+  echo "  Async generation will deploy but fail at OIDC verification." >&2
+  echo "  Create the Pub/Sub topics, subscriptions and pusher SA with:" >&2
+  echo "    PROJECT_ID=${PROJECT_ID} FLASK_SERVICE=${FLASK_SERVICE} \\" >&2
+  echo "      scripts/gcloud/setup_pubsub.sh" >&2
+fi
 
 echo ""
 

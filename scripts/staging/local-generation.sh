@@ -42,9 +42,12 @@
 #                       exact path (needs sudo, or a symlink from a writable
 #                       dir). Without it, Flask fails at connect. See the
 #                       preflight check below.
-#   DATABASE_URL env  → used as-is (override the secret's socket URL by
-#                       exporting a `localhost:5432` form if you run the
-#                       proxy on a TCP port instead of a socket).
+#   DATABASE_URL env  → used as-is, but ONLY without `--staging-db`. These
+#                       two are mutually exclusive, not layered: `--staging-db`
+#                       unconditionally reassigns DATABASE_URL from the secret
+#                       below, silently discarding anything you exported. To
+#                       point at a locally-run proxy on a TCP port, DROP
+#                       `--staging-db` and export a `localhost:5432` form.
 #   neither           → Backend default (local sqlite)
 #
 # Image generation note: the image worker additionally needs GCS
