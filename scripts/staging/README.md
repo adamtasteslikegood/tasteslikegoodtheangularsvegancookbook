@@ -18,10 +18,10 @@ grant that the deploy script wires idempotently.
 
 ## Services
 
-| Service                    | Purpose                | Access                      |
-| -------------------------- | ---------------------- | --------------------------- |
-| `express-frontend-staging` | SPA + proxy            | Public (`*.run.app`)        |
-| `flask-backend-staging`    | API (Railway Postgres) | Private — invoker IAM check |
+| Service                    | Purpose                              | Access                      |
+| -------------------------- | ------------------------------------ | --------------------------- |
+| `express-frontend-staging` | SPA + proxy                          | Public (`*.run.app`)        |
+| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check |
 
 `flask-backend-staging` mirrors prod's posture (KAN-170): the invoker IAM
 check is ON, and Express authenticates with a Google-signed ID token
@@ -31,25 +31,25 @@ Cloud Run's edge.
 ## What staging is NOT
 
 - **Not automatically tracking `dev`.** Promotion is explicit:
-  `staging-deploy.yml` runs on a `staging-v*` tag or `workflow_dispatch`.
-  Its WIF secrets and `flask-staging-migrate` Cloud Run Job are provisioned
-  out of band (tracked in KAN-254), and the workflow fails closed if required
-  infrastructure is missing. The manual deploy script remains available when
-  staging should run the exact images already built for production.
-- **Not a copy of production data.** No Cloud SQL, no real PII. The database
-  is a Railway Postgres (Railway project `thriving-reverence`) seeded from
-  the app's own Export Cookbook JSON — real recipe shapes, but every row is
-  owned by a synthetic `@example.test` user. Decision recorded in KAN-182
-  (2026-08-10); it supersedes
-  [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394)'s
-  seeded-image vs Cloud SQL axis.
-- **Not an AI generation environment.** No `GOOGLE_API_KEY` is set, and —
-  more fundamentally — staging has no Pub/Sub (`GCP_PROJECT_ID` is empty),
-  so `/api/generate` fails at the publish step regardless of any key. This
-  is intentional: staging does not incur AI costs (stub-vs-budget-key
-  decision tracked in KAN-225). To test generation, use
-  `local-generation.sh` (below) — the full pipeline on your machine, with
-  only the Gemini call leaving it.
+  `staging-deploy.yml` runs on a `staging-v*` tag or `workflow_dispatch`,
+  never on a push to `dev`. Landing on `dev` is not the same event as
+  deploying to staging. Pick the path by intent — the workflow builds an
+  arbitrary ref (unreleased code), the script redeploys the exact image
+  production runs.
+- **Not a copy of production data.** No real PII. The database is a CloudSQL
+  Postgres (db-f1-micro, `vegangenius-staging-db` in the staging project),
+  seeded from the app's own Export Cookbook JSON — real recipe shapes, but
+  every row is owned by a synthetic `@example.test` user. Migrated from
+  Railway Postgres to CloudSQL in KAN-248 (2026-08-24); supersedes the
+  Railway decision from KAN-182 and
+  [discussion #3394](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/discussions/3394).
+- **Not free to run.** Staging mirrors the full prod generation pipeline
+  (Gemini text + image, GCS) when `GOOGLE_API_KEY_STAGING` exists — recipe
+  and image generation incur real AI costs. The key is presence-toggled:
+  remove the secret to disable generation entirely (endpoints return
+  errors, no costs). Models come from `Backend/config.py`: `DEFAULT_MODEL`
+  and `IMAGE_MODEL`, each overridable per environment via
+  `GEMINI_DEFAULT_MODEL` and `GEMINI_IMAGE_MODEL`.
 
 ## Quick start
 
@@ -70,21 +70,23 @@ pipeline's `_VERSION` tagging step has never produced a `v*` tag there).
 Until that lands, pass the SHA prod runs, e.g.
 `--version "$(gcloud run services describe flask-backend --region=us-central1 --project=comdottasteslikegood --format='value(spec.template.spec.containers[0].image)' | sed 's/.*://')"`.
 
-## Database (Railway Postgres)
+## Database (CloudSQL Postgres)
 
-The staging database is a Railway Postgres in Railway project
-`thriving-reverence`, reached from Cloud Run over Railway's public TCP
-proxy (`railway connect` is a local-machine tunnel; Cloud Run cannot use
-it, and Railway private networking is intra-Railway only). The connection
-string is stored **only** in Secret Manager as `DATABASE_URL_STAGING` in
-the staging project, with `sslmode=require` appended.
+The staging database is a CloudSQL Postgres (db-f1-micro, Postgres 15)
+instance `vegangenius-staging-db` in the staging project, private-IP only
+(10.62.0.3). Flask reaches it via the Cloud SQL Auth Proxy sidecar
+(`--set-cloudsql-instances` on the Cloud Run service).
 
-Schema comes from the normal Alembic migrations, run from `Backend/`
-against the Railway URL:
+The connection string is stored **only** in Secret Manager as
+`DATABASE_URL_STAGING` in the staging project, using a Unix-socket path:
+`postgresql://USER:PASS@/vegangenius?host=/cloudsql/gen-lang-client-0491022701:us-central1:vegangenius-staging-db`
+
+Schema comes from the normal Alembic migrations, run via Cloud Run Job
+(the private IP is not routable from a dev machine):
 
 ```bash
-cd Backend
-DATABASE_URL='<railway url>?sslmode=require' uv run flask db upgrade
+gcloud run jobs execute flask-staging-migrate \
+  --region=us-central1 --project=gen-lang-client-0491022701 --wait
 ```
 
 ## Seeding data
@@ -105,10 +107,35 @@ payload already matches `Backend/recipe_schema.json` (camelCase
 `prepTime`/`cookTime` are canonical inside `Recipe.data`); only column
 fields are lifted out (`sourceSlug` → `source_slug`).
 
+**Where seeding can run from.** `vegangenius-staging-db` has a private IP
+(10.62.0.3) and no public IP. The Cloud SQL Auth Proxy authenticates and
+encrypts a connection; it does **not** create a network route. So the proxy
+alone does not make the instance reachable from a laptop — without a VPC
+route (VPN, Interconnect, or a bastion in the VPC) there is no proxy
+invocation that works, and if you do have a route the proxy needs
+`--private-ip`, because it targets the public IP by default and this
+instance has none.
+
+That leaves two supported paths:
+
+1. **A VPC-connected Cloud Run Job** — the same mechanism the migrations
+   use, and the answer for any automated or repeatable seeding. Not yet
+   provisioned: the `flask-staging-migrate` Job only runs migrations, and
+   its image does not ship the seed script's argv wiring. Tracked as a
+   KAN-248 follow-up.
+2. **Cloud SQL Studio** (console → the instance → Cloud SQL Studio) for
+   inspection and ad-hoc SQL. Works from a browser with no VPC route, but
+   runs SQL only — it cannot execute `seed-data.py`.
+
+From a machine that **is** on the VPC, the script runs like this — note
+`--private-ip`:
+
 ```bash
+cloud-sql-proxy --private-ip --port 5432 \
+  gen-lang-client-0491022701:us-central1:vegangenius-staging-db &
 cd Backend
-DATABASE_URL='<railway url>?sslmode=require' uv run python \
-  ../scripts/staging/seed-data.py \
+DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \
+  uv run python ../scripts/staging/seed-data.py \
   --from-json ../<your-cookbook-export>.json
 ```
 
@@ -166,7 +193,7 @@ cloud infrastructure is touched.
 ```bash
 # Terminal 1 — emulator + Flask (:5000), Ctrl-C stops both:
 ./scripts/staging/local-generation.sh              # local sqlite
-./scripts/staging/local-generation.sh --staging-db # Railway staging Postgres
+./scripts/staging/local-generation.sh --staging-db # CloudSQL staging Postgres (VPC-only, see below)
 
 # Terminal 2 — the SPA as usual:
 npm run dev
@@ -211,18 +238,43 @@ echo -n "$(openssl rand -base64 32)" | \
   gcloud secrets create FLASK_SECRET_KEY_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 
-# Database URL (copied from Railway: thriving-reverence → Postgres →
-# Variables → DATABASE_PUBLIC_URL, with sslmode=require appended):
-printf '%s' "${DATABASE_PUBLIC_URL}?sslmode=require" | \
+# Database URL (CloudSQL via Auth Proxy Unix socket). Replace <PASSWORD>
+# with the CloudSQL user's real password BEFORE running this — the literal
+# string is not a template, `printf '%s'` will not substitute it, and Flask
+# will silently fail to connect on every revision until you overwrite the
+# secret version. URL-encode `@ : / ? # [ ]` in the password if present.
+printf '%s' 'postgresql://vegangenius-staging-user:<PASSWORD>@/vegangenius?host=/cloudsql/gen-lang-client-0491022701:us-central1:vegangenius-staging-db' | \
   gcloud secrets create DATABASE_URL_STAGING \
     --data-file=- --project=gen-lang-client-0491022701
 ```
 
-Everything else (Secret Manager API enablement, secret-accessor grants,
-cross-project image-pull grant, Express→Flask invoker grant) is handled by
-`deploy-staging.sh` step 0/1, idempotently. If Railway's credentials are
-rotated, add a new secret version — no redeploy needed beyond a new
-revision picking up `:latest`.
+`deploy-staging.sh` step 0/1 handles Secret Manager API enablement,
+secret-accessor grants, the cross-project image-pull grant, Express→Flask
+invoker binding, and the CloudSQL proxy annotation, all idempotently. It
+does **not** provision the following, which must exist before running
+the script (or the Flask revision will deploy successfully but
+`/api/generate` and the image worker will 500 at runtime):
+
+- CloudSQL instance `vegangenius-staging-db`, the VPC peering, and the
+  `flask-staging-migrate` Cloud Run Job. (The compute SA's
+  `roles/cloudsql.client` grant used to be manual here; the deploy script
+  now binds it idempotently alongside the other roles, so it is no longer
+  a prerequisite.)
+- GCS bucket `tasteslikegood-recipe-images-staging` and the compute SA's
+  write access to it (create with `gcloud storage buckets create` and
+  grant `roles/storage.objectAdmin`).
+- Pub/Sub topics `recipe-generation`, `image-generation`,
+  `generation-dlq` + push subscriptions, and the `pubsub-pusher`
+  service account. Provision by running
+  `PROJECT_ID=gen-lang-client-0491022701 FLASK_SERVICE=flask-backend-staging scripts/gcloud/setup_pubsub.sh`
+  (the script defaults to the prod project, so the override is required).
+  The deploy script does not create these, but it now checks for the
+  `pubsub-pusher` SA and warns with the exact command if it is missing —
+  the deploy itself still succeeds, because Cloud Run does not validate
+  env-var values.
+
+If the DB password is rotated, add a new secret version — no redeploy
+needed beyond a new revision picking up `:latest`.
 
 ## Verification
 
