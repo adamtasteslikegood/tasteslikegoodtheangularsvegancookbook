@@ -581,9 +581,24 @@ gather
 derive_steps
 
 if [ "$MODE" = "verify" ]; then
-  verify_staging || { bad "staging health gate failed — not proceeding to production check"; exit 1; }
-  verify_prod "$MARKER"
-  exit $?
+  # Staging is checked FIRST but never gates the production check. --verify-only
+  # exists to answer "is this build actually live in production?", and a staging
+  # outage is precisely when an operator most needs that answer. Refusing to look
+  # at production because staging is down withholds the one fact being asked for.
+  #
+  # The gate keeps its teeth: a staging failure still makes the command exit
+  # non-zero, it just does so after production has been verified and reported.
+  staging_rc=0
+  verify_staging || staging_rc=1
+  [ "$staging_rc" -eq 0 ] || bad "staging health gate failed — continuing to the production check anyway"
+
+  prod_rc=0
+  verify_prod "$MARKER" || prod_rc=1
+
+  if [ "$prod_rc" -ne 0 ] || [ "$staging_rc" -ne 0 ]; then
+    exit 1
+  fi
+  exit 0
 fi
 
 if [ "$MODE" = "bump" ]; then
