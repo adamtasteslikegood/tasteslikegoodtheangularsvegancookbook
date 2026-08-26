@@ -3,13 +3,21 @@ name: Staging — build and deploy
 # Rebuilds both images from the checked-out ref and deploys them to the staging
 # Cloud Run services (KAN-244).
 #
-# EXPLICITLY TRIGGERED, never automatic. This ran on every push to `dev` until
-# 2026-08-26; that is deliberately gone. The target topology is
-# `dev` -> (explicit promotion) -> gcp-staging -> Cloud Build -> production, so
-# landing on `dev` is no longer the same event as deploying to staging. Run it
-# from the Actions tab ("Run workflow") or `gh workflow run staging-deploy.yml
-# --ref <ref>`. To add a tag gate later, add a `push: tags:` pattern here — the
-# job body needs no change.
+# PROMOTED, not automatic. This ran on every push to `dev` until 2026-08-26;
+# that is deliberately gone. The target topology is `dev` -> (promotion) ->
+# gcp-staging -> Cloud Build -> production, so landing on `dev` is no longer
+# the same event as deploying to staging.
+#
+# Two ways to promote, both explicit acts:
+#   * push a `staging-v*` tag, e.g. `git tag staging-v0.5.0 && git push origin
+#     staging-v0.5.0`. This keeps KAN-244's acceptance criterion satisfied
+#     ("rebuilt automatically on merge to dev OR ON TAG PUSH") while leaving
+#     the promotion a decision rather than a side effect of merging.
+#   * `gh workflow run staging-deploy.yml --ref <ref>`, or the Actions tab.
+#
+# `staging-v*` cannot collide with the production Cloud Build trigger, whose
+# pattern is anchored digits-only (`^v[0-9]+\.[0-9]+\.[0-9]+$`) and so cannot
+# match a `staging-`-prefixed tag.
 #
 # TWO PREREQUISITES ARE UNMET; the first run will fail until both are done:
 #
@@ -25,6 +33,9 @@ name: Staging — build and deploy
 #      an unmigrated database.
 
 on:
+  push:
+    tags:
+      - 'staging-v*'
   workflow_dispatch:
 
 concurrency:
