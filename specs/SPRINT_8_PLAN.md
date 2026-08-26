@@ -52,14 +52,19 @@ at close-out.
 
 ## Aging table (standing artifact — retro action from Sprint 6)
 
-| Item    | Filed      | Age (days) | Sprint history                 | Disposition                         |
-| ------- | ---------- | ---------- | ------------------------------ | ----------------------------------- |
-| KAN-241 | 2026-08-17 | 0          | New                            | **Anchor — commit**                 |
-| KAN-242 | 2026-08-17 | 0          | New                            | **Commit**                          |
-| KAN-243 | 2026-08-17 | 0          | New                            | **Commit**                          |
-| KAN-244 | 2026-08-17 | 0          | New (follow-up to KAN-182)     | **Commit — retro action**           |
-| KAN-161 | 2026-07-25 | 23         | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** |
-| KAN-215 | 2026-08-08 | 9          | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           |
+| Item    | Filed      | Age at close | Sprint history                 | Committed as                        | Final disposition                                        |
+| ------- | ---------- | ------------ | ------------------------------ | ----------------------------------- | -------------------------------------------------------- |
+| KAN-241 | 2026-08-17 | 9            | New                            | **Anchor — commit**                 | **Shipped** — #3421 (`2ce8a2e`). Residual KAN-252 filed. |
+| KAN-242 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped** — #3419. Zero review debt throughout.        |
+| KAN-243 | 2026-08-17 | 7            | New                            | **Commit**                          | **Shipped in v0.4.12**, verified in production.          |
+| KAN-244 | 2026-08-17 | 9            | New (follow-up to KAN-182)     | **Commit — retro action**           | **Shipped** — #3423 (`0bcc41b`) + #3442. KAN-254 closed. |
+| KAN-161 | 2026-07-25 | **32**       | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** | **Shipped** — #3422. **Not dropped** (see D3 note).      |
+| KAN-215 | 2026-08-08 | 18           | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           | **Shipped** — #3432 + Backend #286. KAN-251/253 filed.   |
+
+Age is measured from filing to 2026-08-26, the close date. Every item cleared the
+board; none rolled to Sprint 9. Note that the two oldest items — the ones the
+aging table exists to surface — were also the two that came closest to rolling a
+further sprint.
 
 ## Charter (locked decisions)
 
@@ -192,3 +197,56 @@ The sprint is closed when:
 4. Jira tickets transitioned with evidence (PR links, Gate results).
 5. Retrospective page created on Confluence (parent 50298881) with the "Actions
    for Next Sprint" table — the point of the retro, not a summary of the close-out.
+
+---
+
+## Close-out record — 2026-08-26
+
+**Sprint 8 closed 2026-08-26**, six days inside its 2026-09-01 box, with all six
+committed items merged and epic **RCP-80 Done**.
+
+### What shipped
+
+All six. One (S3/KAN-243) shipped mid-sprint in **v0.4.12** on 2026-08-24 as a P1
+fast-track forced by the Imagen 4.0 retirement. The other five merged to `dev` on
+2026-08-26 in a single extended close-out.
+
+That distinction matters more than the six-for-six count: **the scope was rescued
+by an unusual final-day push, not carried by normal sprint flow.** Read the
+outcome as a success and the process as a finding — the retro treats it that way.
+
+### What rolled forward
+
+Nothing from the committed scope. Deliberately carried into Sprint 9:
+
+- **KAN-248** (staging + model-selection follow-on) — cookbook PRs #3439, #3441
+  and Backend #298 open at close. Not a Sprint 8 item.
+- **KAN-151** (Valkey response-cache restore) — Backend #299, parked as a draft
+  until the Sprint 8 pointer bump lands.
+- **KAN-251, KAN-252, KAN-253** — residuals filed from S6, S1 and S6 respectively.
+
+### Gate results
+
+| Gate                              | Result                                                                                           |
+| --------------------------------- | ------------------------------------------------------------------------------------------------ |
+| PR Gate on all six SI PRs         | **Pass** (#3442 landed during a GitHub Actions major outage — see retro input 17)                |
+| Review debt at merge              | **Zero** unresolved threads across both repos, review bodies swept for suppressed-comment blocks |
+| Staging deploy pipeline           | **Validated end-to-end** — Actions run 32990996704, 16/16 steps                                  |
+| Acceptance rows RCP-81…RCP-86     | **Done**, each with PR/merge-SHA evidence on the ticket                                          |
+| Epic RCP-80                       | **Done**                                                                                         |
+| Jira sprint 50 · zombie sprint 49 | **Closed** (49 held four already-Done issues)                                                    |
+
+### Charter deviation worth recording
+
+**D3 did not fire.** The charter pre-authorised dropping KAN-161 after a half-day
+timebox with the rationale "no AAAA DNS, latent risk accepted — not rolled again."
+It was neither closed in half a day nor dropped; it rolled a fifth time and then
+landed in the close-out as #3422. A pre-made decision that does not execute is a
+process finding, not an engineering one — carried into the retro as such.
+
+### Retrospective
+
+**[Sprint 8 Retrospective — 2026-08-26](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/67207169)**
+
+Its **Actions for Next Sprint** table is a required input to the Sprint 9 charter,
+not a summary of this document. Walk it row by row before locking Sprint 9 scope.
