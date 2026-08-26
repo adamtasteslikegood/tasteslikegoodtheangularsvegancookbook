@@ -22,6 +22,17 @@ export class KitchenComponent {
   private readonly recipeState = inject(RecipeStateService);
   readonly modalService = inject(ModalService);
 
+  /**
+   * KAN-243: the tile `src`. `ai_image_url` is the canonical URL, so after a
+   * regenerate the browser would re-serve the pre-regen bytes — for public
+   * recipes the API sends `Cache-Control: public, max-age=86400`, so for up to
+   * 24 h. Routing through the state service applies the display-only `_t`
+   * marker for recipes regenerated this session.
+   */
+  imageSrc(r: { id: string; ai_image_url?: string | null }): string | null {
+    return this.recipeState.imageDisplayUrl(r.id, r.ai_image_url);
+  }
+
   constructor() {
     this.authService.ensureGuestSession();
   }
