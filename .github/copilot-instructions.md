@@ -124,7 +124,7 @@ Backend/                     # Flask backend (Python) — GIT SUBMODULE, pinned 
                              # auth) + public_bp.py SSR pages (/r/<slug>, /browse, sitemap)
   models/                    # SQLAlchemy models (Recipe carries is_public + slug)
   repositories/              # Data access layer
-  services/                  # Business logic (Gemini, Imagen, stock images)
+  services/                  # Business logic (Gemini text + image, stock images)
   templates/, static/        # Jinja templates + CSS for the public SSR pages
   migrations/                # Alembic/Flask-Migrate schema migrations
   Dockerfile                 # Flask production container
