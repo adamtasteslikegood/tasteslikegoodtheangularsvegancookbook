@@ -52,14 +52,14 @@ at close-out.
 
 ## Aging table (standing artifact — retro action from Sprint 6)
 
-| Item    | Filed      | Age at close | Sprint history                 | Committed as                        | Final disposition                                        |
-| ------- | ---------- | ------------ | ------------------------------ | ----------------------------------- | -------------------------------------------------------- |
-| KAN-241 | 2026-08-17 | 9            | New                            | **Anchor — commit**                 | **Shipped** — #3421 (`2ce8a2e`). Residual KAN-252 filed. |
-| KAN-242 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped** — #3419. Zero review debt throughout.        |
-| KAN-243 | 2026-08-17 | 7            | New                            | **Commit**                          | **Shipped in v0.4.12**, verified in production.          |
-| KAN-244 | 2026-08-17 | 9            | New (follow-up to KAN-182)     | **Commit — retro action**           | **Shipped** — #3423 (`0bcc41b`) + #3442. KAN-254 closed. |
-| KAN-161 | 2026-07-25 | **32**       | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** | **Shipped** — #3422. **Not dropped** (see D3 note).      |
-| KAN-215 | 2026-08-08 | 18           | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           | **Shipped** — #3432 + Backend #286. KAN-251/253 filed.   |
+| Item    | Filed      | Age at close | Sprint history                 | Committed as                        | Final disposition                                                   |
+| ------- | ---------- | ------------ | ------------------------------ | ----------------------------------- | ------------------------------------------------------------------- |
+| KAN-241 | 2026-08-17 | 9            | New                            | **Anchor — commit**                 | **Shipped** — #3421 (`2ce8a2e`). Residual KAN-252 filed.            |
+| KAN-242 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped** — #3419. Zero review debt throughout.                   |
+| KAN-243 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped in v0.4.12** — #3433 (`a1fbd20`), verified in production. |
+| KAN-244 | 2026-08-17 | 9            | New (follow-up to KAN-182)     | **Commit — retro action**           | **Shipped** — #3423 (`0bcc41b`) + #3442. KAN-254 closed.            |
+| KAN-161 | 2026-07-25 | **32**       | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** | **Shipped** — #3422. **Not dropped** (see D3 note).                 |
+| KAN-215 | 2026-08-08 | 18           | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           | **Shipped** — #3432 + Backend #286. KAN-251/253 filed.              |
 
 Age is measured from filing to 2026-08-26, the close date. Every item cleared the
 board; none rolled to Sprint 9. Note that the two oldest items — the ones the
@@ -223,7 +223,8 @@ Nothing from the committed scope. Deliberately carried into Sprint 9:
   and Backend #298 open at close. Not a Sprint 8 item.
 - **KAN-151** (Valkey response-cache restore) — Backend #299, parked as a draft
   until the Sprint 8 pointer bump lands.
-- **KAN-251, KAN-252, KAN-253** — residuals filed from S6, S1 and S6 respectively.
+- **KAN-251, KAN-252, KAN-253** — residuals filed from KAN-215 (S7→S8), KAN-241
+  (S8) and KAN-215 (S7→S8) respectively.
 
 ### Gate results
 
