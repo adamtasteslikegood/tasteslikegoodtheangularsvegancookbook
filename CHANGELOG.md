@@ -6,6 +6,61 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.4.12] - 2026-08-24
+
+Backend submodule pointer: `197e72f` → **`6becf93`** — Backend `main`'s own tip, the
+merge commit of
+[#293](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/293).
+
+**Image generation fix.** Migrated from the deprecated Imagen `generate_images` API
+to Gemini `generate_content` with `response_modalities=["IMAGE"]`. The previous
+`imagen-4.0-generate-001` model was not available via API key auth — only Vertex AI
+supported it, silently breaking all image generation in production.
+
+### Fixed
+
+- **Image generation restored** — new `GEMINI_IMAGE_MODEL` env var (defaults to
+  `gemini-3.1-flash-image`), `generate_content` API with null-safety guard for
+  safety-blocked responses — KAN-243, Backend
+  [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292),
+  [#294](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/294),
+  [#295](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/295)
+- **Image nav-away spinner** — tracks generation at service level so navigating away
+  and returning shows the spinner until generation completes; adds first-time
+  generation timeout toast — KAN-243,
+  [#3420](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3420)
+- **Recipe text model now overridable via env** — new `GEMINI_DEFAULT_MODEL` env
+  var overrides the default; unchanged fallback remains `gemini-3.1-pro-preview` —
+  KAN-248, Backend
+  [#292](https://github.com/adamtasteslikegood/tasteslikegood.com/pull/292)
+- **Regenerated image URL no longer persisted with its cache-buster** — the
+  `?_t=<epoch>` marker is a display-only value; it is now held in
+  `RecipeStateService` keyed by recipe id and applied when building the render
+  URL, so `ai_image_url` stays canonical in persisted state and a later full
+  save can no longer POST the client-only marker as the canonical URL — KAN-243
+- **Already-saved toast fires for cross-author saves** — the "you already have this
+  recipe" confirmation only appeared when the saving user was the recipe's original
+  author; re-saving a recipe published by a different user now shows the toast —
+  RCP-79 / TAS-3056,
+  [#3416](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3416)
+
+### Dependencies
+
+Fourteen dependency updates ship with this release. Two majors:
+
+- `@google-cloud/secret-manager` 6.3.0 → **7.0.0** — a direct **runtime**
+  dependency —
+  [#3410](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3410)
+- `@hono/node-server` 1.19.13 → **2.1.1** — transitive (via
+  `@modelcontextprotocol/sdk`), pulled in by the `npm_and_yarn` security group —
+  [#3415](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/pull/3415)
+
+Also: the Angular group (two rounds, 17 packages), `dd-trace` 6.8.0 → 6.11.0,
+`google-auth-library` 11.0.0 → 11.0.2, `express-rate-limit` 8.6.1 → 8.6.2,
+`vite` 8.2.0 → 8.2.1, plus the linting, types and GitHub Actions groups.
+
+---
+
 ## [0.4.11] - 2026-08-12
 
 Backend submodule pointer: `a94fac2` → **`197e72f`** — Backend `main`'s own tip, the
