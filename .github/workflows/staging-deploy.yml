@@ -1,17 +1,30 @@
 name: Staging — build and deploy
 
-# Rebuilds both images from the dev tip and deploys them to the staging
-# Cloud Run services whenever code merges to dev.  This keeps staging
-# tracking the integration branch without manual intervention (KAN-244).
+# Rebuilds both images from the checked-out ref and deploys them to the staging
+# Cloud Run services (KAN-244).
+#
+# EXPLICITLY TRIGGERED, never automatic. This ran on every push to `dev` until
+# 2026-08-26; that is deliberately gone. The target topology is
+# `dev` -> (explicit promotion) -> gcp-staging -> Cloud Build -> production, so
+# landing on `dev` is no longer the same event as deploying to staging. Run it
+# from the Actions tab ("Run workflow") or `gh workflow run staging-deploy.yml
+# --ref <ref>`. To add a tag gate later, add a `push: tags:` pattern here — the
+# job body needs no change.
+#
+# TWO PREREQUISITES ARE UNMET; the first run will fail until both are done:
+#
+#   1. Secrets `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` do
+#      not exist on this repo (only `GCP_POSTURE_*`, which are a separate
+#      narrowly-scoped audit identity and MUST NOT be reused here). Workload
+#      Identity Federation has to be set up against the staging project and
+#      those two secrets added. `gc-build-deploy.yml` references the same two
+#      names, but its deploy job is gated off, so this was never noticed —
+#      production deploys via the GCP-side Cloud Build tag trigger instead.
+#   2. Cloud Run Job `flask-staging-migrate` does not exist in either project.
+#      The migrate step below fails closed rather than deploying code against
+#      an unmigrated database.
 
 on:
-  push:
-    branches: [dev]
-    paths-ignore:
-      - 'specs/**'
-      - 'docs/**'
-      - '**.md'
-      - '.claude/**'
   workflow_dispatch:
 
 concurrency:
