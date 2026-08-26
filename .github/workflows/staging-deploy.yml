@@ -1,0 +1,207 @@
+name: Staging — build and deploy
+
+# Rebuilds both images from the dev tip and deploys them to the staging
+# Cloud Run services whenever code merges to dev.  This keeps staging
+# tracking the integration branch without manual intervention (KAN-244).
+
+on:
+  push:
+    branches: [dev]
+    paths-ignore:
+      - 'specs/**'
+      - 'docs/**'
+      - '**.md'
+      - '.claude/**'
+  workflow_dispatch:
+
+concurrency:
+  group: staging-deploy
+  # NOT cancel-in-progress. Flask and Express deploy in sequence, so cancelling
+  # mid-run can leave staging with a new Flask image and the old Express image
+  # (or a migrated DB and no deployed code) until the next run finishes — a
+  # split-brain window of minutes. Queueing costs latency; cancelling costs
+  # correctness.
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  STAGING_PROJECT: gen-lang-client-0491022701
+  # Deliberately CROSS-PROJECT: images live in the production project's
+  # Artifact Registry, while the services run in the staging project. The
+  # staging Cloud Run service agent therefore needs artifactregistry.reader on
+  # comdottasteslikegood — without it the deploy succeeds and the revision then
+  # fails to pull, which surfaces as a healthy-looking deploy serving the old
+  # image. The preflight step below turns that into an explicit failure.
+  IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
+  REGION: us-central1
+
+jobs:
+  build-and-deploy:
+    name: Build images + deploy to staging
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev --quiet
+
+      - name: Determine image tag
+        id: tag
+        run: echo "tag=staging-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      # Cross-project pull preflight: fail here with a named cause rather than
+      # letting the Cloud Run revision fail to pull later, which reads as a
+      # green deploy still serving the previous image.
+      - name: Preflight — staging can read the production Artifact Registry
+        run: |
+          if ! gcloud artifacts repositories describe vegangenius \
+            --location="$REGION" --project=comdottasteslikegood >/dev/null 2>&1; then
+            echo "::error::Cannot read Artifact Registry 'vegangenius' in" \
+                 "comdottasteslikegood. The staging Cloud Run service agent needs" \
+                 "roles/artifactregistry.reader on that project."
+            exit 1
+          fi
+
+      # ── Build ────────────────────────────────────────────────────────
+      - name: Build Express frontend image
+        run: docker build -t "$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}" .
+
+      - name: Build Flask backend image
+        run: docker build -t "$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" -f Backend/Dockerfile Backend
+
+      # ── Push ─────────────────────────────────────────────────────────
+      - name: Push Express frontend image
+        run: docker push "$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}"
+
+      - name: Push Flask backend image
+        run: docker push "$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}"
+
+      # ── Migrate ──────────────────────────────────────────────────────
+      # Must run BEFORE the Flask image rolls out, mirroring production, where
+      # cloudbuild.yaml runs the flask-backend-migrate Job between image push
+      # and service deploy. Without this a schema change deploys against a
+      # stale staging DB and fails at runtime ("recipe.status missing" style),
+      # which is exactly the class of failure staging exists to catch first.
+      #
+      # Fails closed. A staging deploy that cannot migrate must not ship a
+      # Flask image against an unmigrated schema — the old revision keeps
+      # serving instead, which is the desired failure.
+      - name: Run Alembic migrations against staging
+        run: |
+          if ! gcloud run jobs describe flask-staging-migrate \
+            --region="$REGION" --project="$STAGING_PROJECT" >/dev/null 2>&1; then
+            echo "::error::Cloud Run Job 'flask-staging-migrate' does not exist in" \
+                 "$STAGING_PROJECT/$REGION. Staging cannot migrate, so this deploy is" \
+                 "refused rather than shipping Flask against a possibly stale schema." \
+                 "Create the Job (mirroring the production flask-backend-migrate Job)" \
+                 "and re-run."
+            exit 1
+          fi
+          # `jobs execute` cannot change the image. Update the Job to the just-built
+          # backend image and execute it in one blocking command; `--wait` implies
+          # `--execute-now` for `jobs update`.
+          gcloud run jobs update flask-staging-migrate \
+            --region="$REGION" \
+            --project="$STAGING_PROJECT" \
+            --image="$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" \
+            --wait \
+            --quiet
+
+      # ── Deploy (image swap only — no IAM or secret mutations) ───────
+      - name: Deploy Flask backend to staging
+        run: |
+          gcloud run services update flask-backend-staging \
+            --image="$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" \
+            --region="$REGION" \
+            --project="$STAGING_PROJECT" \
+            --quiet
+
+      - name: Deploy Express frontend to staging
+        run: |
+          gcloud run services update express-frontend-staging \
+            --image="$IMAGE_REGISTRY/express-frontend:${{ steps.tag.outputs.tag }}" \
+            --region="$REGION" \
+            --project="$STAGING_PROJECT" \
+            --quiet
+
+      # ── Verify ───────────────────────────────────────────────────────
+      # No pre-emptive `sleep` here: the smoke test below already retries with
+      # backoff, so a fixed sleep only adds latency to the common case.
+
+      - name: Resolve staging URL
+        id: url
+        run: |
+          EXPRESS_URL=$(gcloud run services describe express-frontend-staging \
+            --region="$REGION" --project="$STAGING_PROJECT" \
+            --format='value(status.url)')
+          echo "express=$EXPRESS_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test staging
+        run: |
+          URL="${{ steps.url.outputs.express }}"
+          echo "Staging URL: $URL"
+
+          # Retry for cold start. Only sleep BETWEEN attempts — sleeping after
+          # the final failure just burns 10s before the job fails anyway.
+          ATTEMPTS=3
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/" || echo "000")
+            if [ "$CODE" = "200" ]; then break; fi
+            if [ "$attempt" -lt "$ATTEMPTS" ]; then
+              echo "Attempt $attempt: got $CODE, retrying in 10s..."
+              sleep 10
+            else
+              echo "Attempt $attempt: got $CODE"
+            fi
+          done
+
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Staging / returned $CODE after $ATTEMPTS attempts"
+            exit 1
+          fi
+          echo "Staging / -> 200"
+
+          # Verify environment=staging (guards against URL misconfiguration).
+          # Parsed with jq for an exact field match: a substring grep can be
+          # satisfied by the string appearing anywhere in the body.
+          HEALTH=$(curl -sf --max-time 15 "$URL/api/health" || echo "")
+          ENVIRONMENT=$(printf '%s' "$HEALTH" | jq -r '.environment // empty' 2>/dev/null || echo "")
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            echo "Staging /api/health reports environment=staging"
+          else
+            echo "::error::Staging /api/health reported environment='$ENVIRONMENT', expected 'staging'"
+            echo "Response: $HEALTH"
+            exit 1
+          fi
+
+          # /api/health is served by Express BEFORE the proxy (server/index.ts,
+          # "Health check (local to Express — handled before the proxy)"), so it
+          # returns 200 even when Flask is completely down. It proves Express is
+          # up and correctly configured, and nothing more.
+          #
+          # /browse is server-rendered by Flask against the staging Cloud SQL
+          # instance, so it is the probe that actually exercises Flask + the DB.
+          # It is a hard failure, not a warning: a staging deploy whose backend
+          # cannot serve a DB-backed page has not succeeded, and warning-only
+          # meant a broken Flask backend still reported a green deploy.
+          BROWSE_CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/browse" || echo "000")
+          if [ "$BROWSE_CODE" != "200" ]; then
+            echo "::error::Staging /browse returned $BROWSE_CODE — Flask or the staging" \
+                 "database is unreachable. Express being up is not sufficient."
+            exit 1
+          fi
+          echo "Staging /browse -> 200 (Flask + Cloud SQL reachable)"

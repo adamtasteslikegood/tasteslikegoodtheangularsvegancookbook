@@ -193,6 +193,12 @@ scoped to one).
 ./scripts/release/train-run.sh --verify-only     # or the manual form below
 ```
 
+`--verify-only` runs a **staging health gate first**: it checks that the staging
+Cloud Run pair returns 200 and that `/api/health` reports `environment=staging`
+(guarding against `STAGING_URL` accidentally pointing at production). The default
+URL is hardcoded to the known staging service; override with `STAGING_URL` if the
+service is redeployed to a new URL.
+
 > **TRAP — verify the code, not the bundle name, and not `main-*.js` alone.**
 > On v0.4.8 the deploy was live while a poller grepping only `main-*.js` reported
 > "not deployed" for twenty minutes. The app is code-split: `publishFailureMessage`
