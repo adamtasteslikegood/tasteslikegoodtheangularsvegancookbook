@@ -188,7 +188,7 @@ The canonical image endpoint and browser cache-busting URL are separate state. T
 - Express: shared rate counters across instances.
 - Flask: recipe image bytes only. Owner-scoped recipe, stats, and collection caching is defined in `utils/cache_utils.py` but not wired.
 - TTLs: one day for image bytes. The five- and ten-minute constants for stats, lists, and individual objects exist but are unused.
-- Mutations invalidate affected keys; cache faults fall through to Cloud SQL or GCS.
+- Successful recipe and image workers invalidate their affected keys; ordinary recipe CRUD and collection mutations do not call the defined invalidation helpers. Cache faults fall through to Cloud SQL or GCS.
 - Production uses Memorystore or Valkey with IAM and TLS CA configuration.
 
 ### 7.4 GCS
