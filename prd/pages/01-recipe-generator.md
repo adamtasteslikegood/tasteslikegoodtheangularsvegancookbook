@@ -7,7 +7,7 @@
 
 ## Overview
 
-The Generator is the landing experience of VeganGenius Chef. A visitor types what they're craving into a single prompt box, and the system generates a complete vegan recipe (name, description, timing, grouped ingredients, step-by-step method, chef's notes, tags) using Google Gemini, followed by an AI-generated food photo via Imagen. No account is required — a guest session is created automatically on first generation.
+The Generator is the landing experience of VeganGenius Chef. A visitor types what they're craving into a single prompt box, and the system generates a complete vegan recipe (name, description, timing, grouped ingredients, step-by-step method, chef's notes, tags) using Google Gemini, followed by an AI-generated food photo via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro). No account is required — a guest session is created automatically on first generation.
 
 The generated-recipe display doubles as the **recipe detail view**: opening a saved recipe from My Kitchen renders it in this same layout.
 
@@ -41,40 +41,40 @@ The generated-recipe display doubles as the **recipe detail view**: opening a sa
 
 ### Prompt Area
 
-| Field | Type | Required | Default | Validation | Notes |
-|-------|------|----------|---------|------------|-------|
-| Craving prompt | Text input | Yes | empty | Non-blank (trimmed) to enable Generate | Placeholder: "What are you craving? (e.g., 'spicy lentil tacos' or 'avocado chocolate mousse')". Enter key also submits. No Express-layer validation exists (see api-inventory appendix); Flask validates server-side. |
+| Field          | Type       | Required | Default | Validation                             | Notes                                                                                                                                                                                                                  |
+| -------------- | ---------- | -------- | ------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Craving prompt | Text input | Yes      | empty   | Non-blank (trimmed) to enable Generate | Placeholder: "What are you craving? (e.g., 'spicy lentil tacos' or 'avocado chocolate mousse')". Enter key also submits. No Express-layer validation exists (see api-inventory appendix); Flask validates server-side. |
 
 ### Recipe Display (read-only fields)
 
-| Field | Format | Notes |
-|-------|--------|-------|
-| Name | Large serif heading | `recipe.name` |
-| Description | Italic paragraph | |
-| Tags | `#tag` pills | Optional array |
-| Prep Time / Cook Time | `{n} min` | Static — not affected by scaling |
-| Servings | Integer | **Scaled**: `round(servings × multiplier)` |
-| Ingredients | Grouped lists: Wet, Dry, Other | Each row: amount + units (bold green, right-aligned), name, optional `(notes)` in italic. A group is hidden when empty. |
-| Ingredient amount | Fraction-friendly | Amounts 0.25/0.33/0.5/0.66/0.75 display as 1/4, 1/3, 1/2, 2/3, 3/4. Range amounts (`number[]`) display as `a - b`. |
-| Instructions | Numbered steps | Accepts plain strings or `{step, description}` objects (renders `description`). |
-| Chef's Notes | Yellow card, pre-wrap text | Shows "No notes added yet." when empty. |
-| Image | 4:3 cover photo | From `ai_image_url`; "AI Generated" badge overlaid. |
+| Field                 | Format                         | Notes                                                                                                                   |
+| --------------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Name                  | Large serif heading            | `recipe.name`                                                                                                           |
+| Description           | Italic paragraph               |                                                                                                                         |
+| Tags                  | `#tag` pills                   | Optional array                                                                                                          |
+| Prep Time / Cook Time | `{n} min`                      | Static — not affected by scaling                                                                                        |
+| Servings              | Integer                        | **Scaled**: `round(servings × multiplier)`                                                                              |
+| Ingredients           | Grouped lists: Wet, Dry, Other | Each row: amount + units (bold green, right-aligned), name, optional `(notes)` in italic. A group is hidden when empty. |
+| Ingredient amount     | Fraction-friendly              | Amounts 0.25/0.33/0.5/0.66/0.75 display as 1/4, 1/3, 1/2, 2/3, 3/4. Range amounts (`number[]`) display as `a - b`.      |
+| Instructions          | Numbered steps                 | Accepts plain strings or `{step, description}` objects (renders `description`).                                         |
+| Chef's Notes          | Yellow card, pre-wrap text     | Shows "No notes added yet." when empty.                                                                                 |
+| Image                 | 4:3 cover photo                | From `ai_image_url`; "AI Generated" badge overlaid.                                                                     |
 
 The recipe article carries `itemscope itemtype="https://schema.org/Recipe"` microdata for SEO.
 
 ### Action Buttons (recipe header)
 
-| Button | Visibility | Behavior |
-|--------|-----------|----------|
-| Save / Saved | Always (disabled once saved) | Persists recipe to cookbook (localStorage + API). Turns green "Saved" with checkmark. |
-| Add to Cookbook | Always | Opens Add to Cookbook modal (see below). |
-| Download (JSON) | Always | Client-side download of the single recipe as `<Recipe_Name>.json`. |
-| Public toggle | Signed-in (non-guest) users only | Publishes/unpublishes the recipe (see Publishing). |
-| "Sign in to publish" link | Guests, only after the recipe is saved | Opens the Auth modal. Gated on saved-state so a guest is never sent into the OAuth redirect with an unsaved in-memory recipe. |
-| Slug input + open-in-new-tab link | Signed-in AND recipe is public | Edit the public URL slug; link opens `/r/<slug>`. |
-| Regenerate image | On image hover, when not loading | Re-runs image generation with `force_regenerate: true`. |
-| Scale 0.5x / 1x / 2x | Always | Multiplies all ingredient amounts and servings; amounts rounded to 2 decimals. Default 1x; resets to 1x on each new generation. |
-| Edit notes (pencil) | On Chef's Notes hover | Inline textarea with Save/Cancel; Save persists the whole recipe. |
+| Button                            | Visibility                             | Behavior                                                                                                                        |
+| --------------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Save / Saved                      | Always (disabled once saved)           | Persists recipe to cookbook (localStorage + API). Turns green "Saved" with checkmark.                                           |
+| Add to Cookbook                   | Always                                 | Opens Add to Cookbook modal (see below).                                                                                        |
+| Download (JSON)                   | Always                                 | Client-side download of the single recipe as `<Recipe_Name>.json`.                                                              |
+| Public toggle                     | Signed-in (non-guest) users only       | Publishes/unpublishes the recipe (see Publishing).                                                                              |
+| "Sign in to publish" link         | Guests, only after the recipe is saved | Opens the Auth modal. Gated on saved-state so a guest is never sent into the OAuth redirect with an unsaved in-memory recipe.   |
+| Slug input + open-in-new-tab link | Signed-in AND recipe is public         | Edit the public URL slug; link opens `/r/<slug>`.                                                                               |
+| Regenerate image                  | On image hover, when not loading       | Re-runs image generation with `force_regenerate: true`.                                                                         |
+| Scale 0.5x / 1x / 2x              | Always                                 | Multiplies all ingredient amounts and servings; amounts rounded to 2 decimals. Default 1x; resets to 1x on each new generation. |
+| Edit notes (pencil)               | On Chef's Notes hover                  | Inline textarea with Save/Cancel; Save persists the whole recipe.                                                               |
 
 ## Interactions
 
@@ -146,17 +146,17 @@ The recipe article carries `itemscope itemtype="https://schema.org/Recipe"` micr
 
 ## API Dependencies
 
-| API | Method | Path | Trigger | Notes |
-|-----|--------|------|---------|-------|
-| Generate recipe | POST | `/api/generate` | Generate button | Body `{prompt}`. Rate-limited (AI tier). Saves to DB server-side. |
-| Generate image | POST | `/api/generate_image` | Auto after generate; Regenerate | Body `{recipe_id, force_regenerate}`. |
-| Recipe status | GET | `/api/recipes/<id>/status` | 2 s polling during async generation | Returns `{status, recipe}`. |
-| Save recipe | POST | `/api/recipes` | Save, notes, slug, publish toggle | Idempotent; 409 treated as success. |
-| Auth check | GET | `/api/auth/check` | App startup | `{authenticated, email, name, picture, user_id}`. |
-| Start login | GET | `/api/auth/login` | Google sign-in button | Returns `{authorization_url}`. |
-| Logout | POST | `/api/auth/logout` | Log Out | |
-| Cookbook membership | POST/DELETE | `/api/collections/<id>/recipes[/<rid>]` | Add to Cookbook confirm | |
-| List recipes/collections | GET | `/api/recipes`, `/api/collections` | Once per session after auth resolves | Hydrates local state; retried up to 2× at 1 s intervals. |
+| API                      | Method      | Path                                    | Trigger                              | Notes                                                             |
+| ------------------------ | ----------- | --------------------------------------- | ------------------------------------ | ----------------------------------------------------------------- |
+| Generate recipe          | POST        | `/api/generate`                         | Generate button                      | Body `{prompt}`. Rate-limited (AI tier). Saves to DB server-side. |
+| Generate image           | POST        | `/api/generate_image`                   | Auto after generate; Regenerate      | Body `{recipe_id, force_regenerate}`.                             |
+| Recipe status            | GET         | `/api/recipes/<id>/status`              | 2 s polling during async generation  | Returns `{status, recipe}`.                                       |
+| Save recipe              | POST        | `/api/recipes`                          | Save, notes, slug, publish toggle    | Idempotent; 409 treated as success.                               |
+| Auth check               | GET         | `/api/auth/check`                       | App startup                          | `{authenticated, email, name, picture, user_id}`.                 |
+| Start login              | GET         | `/api/auth/login`                       | Google sign-in button                | Returns `{authorization_url}`.                                    |
+| Logout                   | POST        | `/api/auth/logout`                      | Log Out                              |                                                                   |
+| Cookbook membership      | POST/DELETE | `/api/collections/<id>/recipes[/<rid>]` | Add to Cookbook confirm              |                                                                   |
+| List recipes/collections | GET         | `/api/recipes`, `/api/collections`      | Once per session after auth resolves | Hydrates local state; retried up to 2× at 1 s intervals.          |
 
 ## Page Relationships
 

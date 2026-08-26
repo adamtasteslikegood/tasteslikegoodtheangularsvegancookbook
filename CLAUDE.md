@@ -90,7 +90,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 ## Project
 
-**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
+**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.7-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field (currently v0.4.2)
@@ -236,7 +236,7 @@ npm run pm:daemon:status     # check if daemon is alive
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state. GH #163/#162 are FIXED (2026-04-15). Live concerns are Flask-side: IAM token-refresh (Backend #247) and response-cache lost in merge `07123c2` (KAN-151).
-- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use.
+- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use. The model choice itself is **settled**: `gemini-3.7-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) — both GA, both verified on the live API surface, set as the `config.py` defaults _and_ pinned in `cloudbuild.yaml`. There is no GA Gemini 3.x _Pro_ text model, so `gemini-3.1-pro-preview` is not an alternative: it is a preview model, and preview-model retirement is what took production down when Imagen 4.0 was withdrawn. Do not propose reverting either.
 - **Backend submodule** — remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`. Always check for open Backend PRs and unsynced commits before backend work or releases.
 - **gbrain and Backend** — Backend indexed as separate source `gstack-code-backend`; queries need `--source gstack-code-backend` or they silently miss. Never run `/sync-gbrain` from inside `Backend/`.
 - **TypeScript pinned exactly** (`6.0.3`) — Angular 22 needs TS >=6.0 <6.1. Bump TS + all `@angular/*` + `@angular-eslint/*` together.
