@@ -203,9 +203,15 @@ describe('SsrEntryService', () => {
     await service.handleSave('thai-peanut-noodles');
 
     expect(saveRecipe).toHaveBeenCalledTimes(1);
+    // Asserted as exactly `null`, not `expect.any(Object)`: `typeof null ===
+    // 'object'`, so the looser matcher accepted null by accident and could not
+    // tell "toast got the existing copy" from "toast got nothing". The service
+    // deliberately passes null here — the ghost was just removed and the real
+    // copy has not hydrated — so pin that contract rather than a matcher that
+    // holds either way.
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/already have this recipe/i),
-      expect.any(Object)
+      null
     );
     // Must NOT show "saved to your cookbook" or "on this device"
     expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
