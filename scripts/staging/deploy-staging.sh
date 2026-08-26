@@ -233,6 +233,20 @@ run_cmd gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
 # run in this project, the deploy still succeeds and the worker push endpoint
 # then fails OIDC verification with no signal at deploy time. Surface it here
 # instead, where the fix is one command away.
+# The Flask deploy below pins --network=default --subnet=default to reach the
+# CloudSQL private IP. A project provisioned under
+# constraints/compute.skipDefaultNetworkCreation has no `default` network, and
+# the deploy then fails with "Network default not found" — which reads like a
+# typo in this script rather than a missing prerequisite. Name it here instead.
+if ! gcloud compute networks describe default \
+  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "WARNING: VPC network 'default' not found in ${PROJECT_ID}." >&2
+  echo "  The Flask deploy pins --network=default --subnet=default to reach" >&2
+  echo "  the CloudSQL private IP, so it will fail with 'Network default not" >&2
+  echo "  found'. Create the default VPC and the CloudSQL peering (the KAN-248" >&2
+  echo "  setup), or repoint the --network/--subnet flags at the real network." >&2
+fi
+
 PUBSUB_PUSHER_SA="pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com"
 if ! gcloud iam service-accounts describe "${PUBSUB_PUSHER_SA}" \
   --project="${PROJECT_ID}" >/dev/null 2>&1; then
