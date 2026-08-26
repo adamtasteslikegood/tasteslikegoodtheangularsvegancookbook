@@ -24,6 +24,8 @@ permissions:
 
 env:
   STAGING_PROJECT: gen-lang-client-0491022701
+  # The staging Cloud Run runtime service accounts need
+  # roles/artifactregistry.reader on this cross-project registry.
   IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
   REGION: us-central1
 
@@ -84,9 +86,6 @@ jobs:
             --quiet
 
       # ── Verify ───────────────────────────────────────────────────────
-      - name: Wait for cold start
-        run: sleep 10
-
       - name: Resolve staging URL
         id: url
         run: |
@@ -104,8 +103,10 @@ jobs:
           for attempt in 1 2 3; do
             CODE=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$URL/" || echo "000")
             if [ "$CODE" = "200" ]; then break; fi
-            echo "Attempt $attempt: got $CODE, retrying in 10s..."
-            sleep 10
+            if [ "$attempt" -lt 3 ]; then
+              echo "Attempt $attempt: got $CODE, retrying in 10s..."
+              sleep 10
+            fi
           done
 
           if [ "$CODE" != "200" ]; then
@@ -116,7 +117,7 @@ jobs:
 
           # Verify environment=staging (guards against URL misconfiguration)
           HEALTH=$(curl -sf --max-time 15 "$URL/api/health" || echo "")
-          if echo "$HEALTH" | grep -q '"environment":[[:space:]]*"staging"'; then
+          if echo "$HEALTH" | grep -qE '"environment"[[:space:]]*:[[:space:]]*"staging"[[:space:]]*[,}]'; then
             echo "Staging /api/health reports environment=staging"
           else
             echo "::error::Staging /api/health did not report environment=staging"
@@ -129,5 +130,6 @@ jobs:
           if [ "$BROWSE_CODE" = "200" ]; then
             echo "Staging /browse -> 200"
           else
-            echo "::warning::Staging /browse returned $BROWSE_CODE (DB may be unreachable)"
+            echo "::error::Staging /browse returned $BROWSE_CODE (Flask or DB unavailable)"
+            exit 1
           fi
