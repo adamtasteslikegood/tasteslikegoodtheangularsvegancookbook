@@ -22,13 +22,16 @@ name: Staging — build and deploy
 # TWO PREREQUISITES ARE UNMET (KAN-254); the first run will fail until both
 # are done:
 #
-#   1. Secrets `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` do
-#      not exist on this repo (only `GCP_POSTURE_*`, which are a separate
-#      narrowly-scoped audit identity and MUST NOT be reused here). Workload
-#      Identity Federation has to be set up against the staging project and
-#      those two secrets added. `gc-build-deploy.yml` references the same two
-#      names, but its deploy job is gated off, so this was never noticed —
-#      production deploys via the GCP-side Cloud Build tag trigger instead.
+#   1. Secrets `GCP_STAGING_WIF_PROVIDER` and `GCP_STAGING_SERVICE_ACCOUNT`
+#      do not exist on this repo yet. The Workload Identity pool/provider
+#      already does and needs no changes — its attributeCondition is already
+#      pinned to this repo:
+#        projects/746675616486/locations/global/workloadIdentityPools/
+#          github-actions/providers/github
+#      What is missing is a deployer service account in the STAGING project,
+#      bound to that pool with roles/iam.workloadIdentityUser. Do NOT reuse
+#      tasteslikegood-github-actions@comdottasteslikegood — it holds
+#      run.admin, artifactregistry.writer and storage.admin on PRODUCTION.
 #   2. Cloud Run Job `flask-staging-migrate` does not exist in either project.
 #      The migrate step below fails closed rather than deploying code against
 #      an unmigrated database.
@@ -83,11 +86,19 @@ jobs:
         with:
           submodules: recursive
 
+      # Staging-specific secret names, not the bare GCP_* pair.
+      # `gc-build-deploy.yml` reads GCP_WORKLOAD_IDENTITY_PROVIDER /
+      # GCP_SERVICE_ACCOUNT for PRODUCTION Cloud Build. Sharing those names
+      # would force one identity to serve both lanes: either staging gets a
+      # credential with production write access, or production deploys start
+      # authenticating as the staging deployer. Prefixing follows the existing
+      # GCP_POSTURE_WIF_PROVIDER / GCP_POSTURE_SERVICE_ACCOUNT precedent in
+      # this repo, and the *_STAGING convention used for the app secrets.
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          workload_identity_provider: ${{ secrets.GCP_STAGING_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT }}
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v3
