@@ -29,10 +29,30 @@ name: Staging — build and deploy
 #     Pre-existing; its attributeCondition is already pinned to this repo, so
 #     it needed no change.
 #   * Deployer SA: staging-deployer@gen-lang-client-0491022701 — created in the
-#     STAGING project, bound to that pool with roles/iam.workloadIdentityUser
-#     for this repo, and granted run.admin + iam.serviceAccountUser on the
-#     staging project plus artifactregistry.writer on the staging repo. It
-#     holds NO roles in comdottasteslikegood, deliberately.
+#     STAGING project and bound to that pool with roles/iam.workloadIdentityUser
+#     scoped to this repo. Its permissions are deliberately narrow, and the
+#     narrowness is the point: a compromise of this workflow must not become a
+#     compromise of the staging project.
+#
+#       project-level : roles/run.developer      (NOT run.admin — run.developer
+#                       covers services.create/update and jobs.update/run while
+#                       excluding every *.setIamPolicy permission)
+#       on the runtime SA 26682253182-compute@developer:
+#                       roles/iam.serviceAccountUser
+#       on the staging AR repo `vegangenius`:
+#                       roles/artifactregistry.writer
+#       in comdottasteslikegood: NOTHING.
+#
+#     `iam.serviceAccountUser` is granted ON THAT ONE SERVICE ACCOUNT, never at
+#     project level. Project-level actAs plus deploy rights is a privilege-
+#     escalation pair: it would let a compromised workflow deploy attacker code
+#     running as ANY service account in the project, inheriting whatever
+#     secrets and API access those identities hold. All three staging workloads
+#     (flask-backend-staging, express-frontend-staging, flask-staging-migrate)
+#     run as that single compute SA, so one resource-scoped grant covers them
+#     and nothing else. Verified: the deployer cannot actAs pubsub-pusher or
+#     vertex-express.
+#
 #     Do NOT swap in tasteslikegood-github-actions@comdottasteslikegood: that
 #     one holds run.admin, artifactregistry.writer and storage.admin on
 #     PRODUCTION.
