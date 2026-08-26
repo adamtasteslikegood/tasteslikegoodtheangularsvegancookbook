@@ -72,8 +72,7 @@ env:
   # should not hold a credential that can rewrite production artifacts.
   #
   # The repo already exists: projects/gen-lang-client-0491022701/locations/
-  # us-central1/repositories/vegangenius, created 2026-08-25. KAN-249's
-  # cloudbuild.staging.yaml targets this same path.
+  # us-central1/repositories/vegangenius, created 2026-08-25.
   IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
   REGION: us-central1
 
