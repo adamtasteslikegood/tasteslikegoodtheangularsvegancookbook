@@ -288,6 +288,23 @@ export class AuthService {
   }
 
   /**
+   * KAN-241: remove a recipe from localStorage by ID without soft-deleting it.
+   *
+   * Used to undo the optimistic write when the server says the recipe is a
+   * duplicate. `deleteRecipe` is wrong here — it moves the ghost to the
+   * recycle bin, where `restoreRecipe` would re-POST it and get another 409.
+   */
+  removeRecipeById(recipeId: string) {
+    const user = this.currentUser();
+    if (!user) return;
+    if (!user.savedRecipes.some((r) => r.id === recipeId)) return;
+    this.updateUserRecord({
+      ...user,
+      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
+    });
+  }
+
+  /**
    * Update a single field on a saved recipe in localStorage only.
    * Used after image generation to set ai_image_url without
    * overwriting the full recipe via the API (which would lose ai_image_data).

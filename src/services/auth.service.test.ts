@@ -229,4 +229,52 @@ describe('AuthService auth-check startup behavior', () => {
       cachedUser
     );
   });
+
+  // KAN-241: removeRecipeById undoes the optimistic write without soft-deleting.
+  describe('removeRecipeById (KAN-241)', () => {
+    it('removes a recipe from savedRecipes by ID', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      // ok: false preserves the cached authenticated user (server-error path).
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(1);
+
+      authService.removeRecipeById('recipe-1');
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(0);
+    });
+
+    it('does not move the removed recipe to the recycle bin', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('recipe-1');
+
+      expect(authService.currentUser()?.deletedRecipes).toHaveLength(0);
+    });
+
+    it('is a no-op when the recipe ID does not exist', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('nonexistent-id');
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(1);
+    });
+  });
 });
