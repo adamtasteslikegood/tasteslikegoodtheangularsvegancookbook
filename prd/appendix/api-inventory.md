@@ -149,7 +149,7 @@ Valkey supplies distributed counters across Cloud Run instances; development or 
 | Recipe image bytes      | 24 hours           | Global key after authorization; invalidated on regeneration |
 | Legacy file recipe list | 60 seconds default | Compatibility path only                                     |
 
-Recipe, stats, and collection response caching is **not wired**. `utils/cache_utils.py` defines owner-scoped key builders for them plus five- and ten-minute TTL constants, but no blueprint imports those builders, so the keys are never written; `recipes_api_bp.py` and `collections_api_bp.py` perform no cache reads or writes. Recipe and image mutation paths do call their invalidation helpers (`invalidate_recipe`, `invalidate_recipe_image`); `invalidate_collection` is never called. Disposition is **[TBC]** — see the conformance gaps in the main PRD.
+Recipe, stats, and collection response caching is **not wired**. `utils/cache_utils.py` defines owner-scoped key builders for them plus five- and ten-minute TTL constants, but no blueprint imports those builders, so the keys are never written; `recipes_api_bp.py` and `collections_api_bp.py` perform no cache reads or writes. The background recipe and image workers call `invalidate_recipe` and `invalidate_recipe_image` after successful generation, but ordinary recipe CRUD does not call `invalidate_recipe`; `invalidate_collection` is never called. Disposition is **[TBC]** — see the conformance gaps in the main PRD.
 
 Cache failures fall through to the database or object store and do not fail the product request.
 
