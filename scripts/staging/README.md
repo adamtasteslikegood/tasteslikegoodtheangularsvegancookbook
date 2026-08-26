@@ -1,15 +1,20 @@
 # Staging Environment
 
-Minimal viable staging for the VeganGenius Chef app. Reuses production
-container images on separate Cloud Run services so the staging code path
-is identical to production.
+Minimal viable staging for the VeganGenius Chef app. It supports two
+explicit deployment paths:
+
+- `.github/workflows/staging-deploy.yml` builds a selected ref and pushes the
+  images to the staging project's own Artifact Registry before updating the
+  staging Cloud Run services.
+- `scripts/staging/deploy-staging.sh` reuses production images when the goal
+  is to verify the exact artifacts production runs.
 
 Staging runs in its **own GCP project** — `gen-lang-client-0491022701`
 (display name `comdottasteslikegood-staging`), which lives in the org's
-`Staging` folder. Prod (`comdottasteslikegood`) is untouched: staging shares
-no IAM surface, secret namespace, or quota pool with it. The only
-cross-project edge is a read-only Artifact Registry grant so staging can pull
-the prod-built images (the deploy script wires it, idempotently).
+`Staging` folder. Prod (`comdottasteslikegood`) is untouched by the
+workflow path: staging-built images remain in the staging project. The manual
+production-image path has one cross-project edge, a read-only Artifact Registry
+grant that the deploy script wires idempotently.
 
 ## Services
 
@@ -25,8 +30,12 @@ Cloud Run's edge.
 
 ## What staging is NOT
 
-- **Not a build pipeline.** There is no separate `cloudbuild-staging.yaml`.
-  The deploy script pulls the same images that production runs.
+- **Not automatically tracking `dev`.** Promotion is explicit:
+  `staging-deploy.yml` runs on a `staging-v*` tag or `workflow_dispatch`.
+  Its WIF secrets and `flask-staging-migrate` Cloud Run Job must be provisioned
+  before the first run (tracked in KAN-254). The manual deploy script remains
+  available when staging should run the exact images already built for
+  production.
 - **Not a copy of production data.** No Cloud SQL, no real PII. The database
   is a Railway Postgres (Railway project `thriving-reverence`) seeded from
   the app's own Export Cookbook JSON — real recipe shapes, but every row is
