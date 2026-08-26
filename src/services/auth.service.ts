@@ -257,10 +257,17 @@ export class AuthService {
 
     const merged = [...mergedApi, ...localOnly];
 
-    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response
+    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response,
+    // then deduplicate by id so races between loadFromApi and createCookbook never
+    // produce ghost double-entries in the add-to-cookbook modal (KAN-242).
     const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
     const localOnlyCookbooks = user.cookbooks.filter((c) => !apiCookbookIds.has(c.id));
-    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks];
+    const seenIds = new Set<string>();
+    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks].filter((c) => {
+      if (seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+      return true;
+    });
 
     const updated = { ...user, savedRecipes: merged, cookbooks: mergedCookbooks };
     this.currentUser.set(updated);
@@ -285,6 +292,23 @@ export class AuthService {
       savedRecipes: [...user.savedRecipes, recipe],
     };
     this.updateUserRecord(updatedUser);
+  }
+
+  /**
+   * KAN-241: remove a recipe from localStorage by ID without soft-deleting it.
+   *
+   * Used to undo the optimistic write when the server says the recipe is a
+   * duplicate. `deleteRecipe` is wrong here — it moves the ghost to the
+   * recycle bin, where `restoreRecipe` would re-POST it and get another 409.
+   */
+  removeRecipeById(recipeId: string) {
+    const user = this.currentUser();
+    if (!user) return;
+    if (!user.savedRecipes.some((r) => r.id === recipeId)) return;
+    this.updateUserRecord({
+      ...user,
+      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
+    });
   }
 
   /**
