@@ -101,24 +101,36 @@ if $USE_STAGING_DB; then
   # KAN-248: the secret now holds a Cloud SQL Auth Proxy socket URL
   # (host=/cloudsql/PROJECT:REGION:INSTANCE). That directory is created by
   # Cloud Run's sidecar in production but does NOT exist on a dev machine.
-  # Warn early so Flask's cryptic SQLAlchemy connect error isn't the first
-  # signal something's wrong.
+  # Fail early so Flask's cryptic SQLAlchemy connect error isn't the first
+  # signal something's wrong. --staging-db is an explicit request for the
+  # staging DB, so an unreachable instance is an error, not a warning.
   if [[ "$DATABASE_URL" == *"host=/cloudsql/"* ]]; then
     SOCKET_DIR="$(printf '%s\n' "$DATABASE_URL" | sed -n 's/.*host=\([^&]*\).*/\1/p')"
+    INSTANCE_NAME="${SOCKET_DIR##*/}"
     if [[ ! -S "${SOCKET_DIR}/.s.PGSQL.5432" ]]; then
       cat >&2 <<EOF
 ERROR: DATABASE_URL_STAGING points at ${SOCKET_DIR}, but no Postgres
-socket exists there. Start the Cloud SQL Auth Proxy first, e.g.:
+socket exists there.
+
+That socket is created by Cloud Run's Auth Proxy sidecar. Reproducing it
+locally needs more than starting the proxy: ${INSTANCE_NAME}
+has a private IP and no public IP, and the Cloud SQL Auth Proxy
+authenticates and encrypts a connection — it does NOT create a network
+route. From a machine with no route into the VPC (VPN, Interconnect, or a
+bastion), there is no proxy invocation that reaches this instance.
+
+If this machine IS on the VPC, start the proxy with --private-ip (it
+targets the public IP by default, and this instance has none):
 
   sudo mkdir -p ${SOCKET_DIR%/*}
   sudo chown \$USER ${SOCKET_DIR%/*}
-  cloud-sql-proxy --unix-socket ${SOCKET_DIR%/*} \\
-    ${SOCKET_DIR##*/}
+  cloud-sql-proxy --private-ip --unix-socket ${SOCKET_DIR%/*} \\
+    ${INSTANCE_NAME}
 
-Or override with a TCP DATABASE_URL if you're running the proxy on a port:
-  cloud-sql-proxy --port 5432 ${SOCKET_DIR##*/}
-  DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \\
-    ./scripts/staging/local-generation.sh
+Otherwise, drop --staging-db and run against local sqlite — the Pub/Sub
+pipeline this script exercises does not depend on the staging database.
+To inspect or edit staging data without a VPC route, use Cloud SQL Studio
+in the console. See scripts/staging/README.md "Where seeding can run from".
 EOF
       exit 1
     fi

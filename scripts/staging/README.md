@@ -98,22 +98,37 @@ payload already matches `Backend/recipe_schema.json` (camelCase
 `prepTime`/`cookTime` are canonical inside `Recipe.data`); only column
 fields are lifted out (`sourceSlug` → `source_slug`).
 
+**Where seeding can run from.** `vegangenius-staging-db` has a private IP
+(10.62.0.3) and no public IP. The Cloud SQL Auth Proxy authenticates and
+encrypts a connection; it does **not** create a network route. So the proxy
+alone does not make the instance reachable from a laptop — without a VPC
+route (VPN, Interconnect, or a bastion in the VPC) there is no proxy
+invocation that works, and if you do have a route the proxy needs
+`--private-ip`, because it targets the public IP by default and this
+instance has none.
+
+That leaves two supported paths:
+
+1. **A VPC-connected Cloud Run Job** — the same mechanism the migrations
+   use, and the answer for any automated or repeatable seeding. Not yet
+   provisioned: the `flask-staging-migrate` Job only runs migrations, and
+   its image does not ship the seed script's argv wiring. Tracked as a
+   KAN-248 follow-up.
+2. **Cloud SQL Studio** (console → the instance → Cloud SQL Studio) for
+   inspection and ad-hoc SQL. Works from a browser with no VPC route, but
+   runs SQL only — it cannot execute `seed-data.py`.
+
+From a machine that **is** on the VPC, the script runs like this — note
+`--private-ip`:
+
 ```bash
-# Locally, via the Cloud SQL Auth Proxy (the private IP is not routable
-# from a dev machine, so the proxy is required). One-shot:
-cloud-sql-proxy --port 5432 \
+cloud-sql-proxy --private-ip --port 5432 \
   gen-lang-client-0491022701:us-central1:vegangenius-staging-db &
 cd Backend
 DATABASE_URL='postgresql://USER:PASS@localhost:5432/vegangenius' \
   uv run python ../scripts/staging/seed-data.py \
   --from-json ../<your-cookbook-export>.json
 ```
-
-To seed *from Cloud Run* instead, deploy `seed-data.py` as its own Job
-(the existing `flask-staging-migrate` Job runs `flask db upgrade` and its
-image doesn't ship the seed script's argv wiring). Track that in the
-KAN-248 follow-up if there's real demand — day-to-day seeding runs
-locally via the proxy.
 
 The script is idempotent: re-running skips existing users, recipes (by id
 and by slug), and cookbooks. **Never commit an export file** — the repo is
@@ -169,7 +184,7 @@ cloud infrastructure is touched.
 ```bash
 # Terminal 1 — emulator + Flask (:5000), Ctrl-C stops both:
 ./scripts/staging/local-generation.sh              # local sqlite
-./scripts/staging/local-generation.sh --staging-db # CloudSQL staging Postgres (needs Auth Proxy)
+./scripts/staging/local-generation.sh --staging-db # CloudSQL staging Postgres (VPC-only, see below)
 
 # Terminal 2 — the SPA as usual:
 npm run dev
