@@ -32,10 +32,10 @@ Cloud Run's edge.
 
 - **Not automatically tracking `dev`.** Promotion is explicit:
   `staging-deploy.yml` runs on a `staging-v*` tag or `workflow_dispatch`.
-  Its WIF secrets and `flask-staging-migrate` Cloud Run Job must be provisioned
-  before the first run (tracked in KAN-254). The manual deploy script remains
-  available when staging should run the exact images already built for
-  production.
+  Its WIF secrets and `flask-staging-migrate` Cloud Run Job are provisioned
+  out of band (tracked in KAN-254), and the workflow fails closed if required
+  infrastructure is missing. The manual deploy script remains available when
+  staging should run the exact images already built for production.
 - **Not a copy of production data.** No Cloud SQL, no real PII. The database
   is a Railway Postgres (Railway project `thriving-reverence`) seeded from
   the app's own Export Cookbook JSON — real recipe shapes, but every row is
