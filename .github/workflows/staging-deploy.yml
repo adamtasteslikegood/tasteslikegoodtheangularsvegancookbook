@@ -54,13 +54,24 @@ permissions:
 
 env:
   STAGING_PROJECT: gen-lang-client-0491022701
-  # Deliberately CROSS-PROJECT: images live in the production project's
-  # Artifact Registry, while the services run in the staging project. The
-  # staging Cloud Run service agent therefore needs artifactregistry.reader on
-  # comdottasteslikegood — without it the deploy succeeds and the revision then
-  # fails to pull, which surfaces as a healthy-looking deploy serving the old
-  # image. The preflight step below turns that into an explicit failure.
-  IMAGE_REGISTRY: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius
+  # Staging's OWN Artifact Registry, not production's.
+  #
+  # `deploy-staging.sh` legitimately pulls cross-project: its job is to run the
+  # image production runs, so it reads from comdottasteslikegood and the staging
+  # service agent holds artifactregistry.reader there. This workflow is the
+  # opposite case — it BUILDS from a dev tip, i.e. code production does not
+  # have, so "identical to production" cannot apply to the result and the
+  # artifact is staging's own.
+  #
+  # Pushing these to the production registry would mean granting the staging
+  # deployer WRITE on production's registry, which would let a staging deploy
+  # overwrite a released production tag (`flask-backend:d1c3fad`). Staging
+  # should not hold a credential that can rewrite production artifacts.
+  #
+  # The repo already exists: projects/gen-lang-client-0491022701/locations/
+  # us-central1/repositories/vegangenius, created 2026-08-25. KAN-249's
+  # cloudbuild.staging.yaml targets this same path.
+  IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
   REGION: us-central1
 
 jobs:
@@ -88,16 +99,16 @@ jobs:
         id: tag
         run: echo "tag=staging-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      # Cross-project pull preflight: fail here with a named cause rather than
-      # letting the Cloud Run revision fail to pull later, which reads as a
-      # green deploy still serving the previous image.
-      - name: Preflight — staging can read the production Artifact Registry
+      # Registry preflight: fail here with a named cause rather than letting the
+      # push fail with a bare 403, or the Cloud Run revision fail to pull later
+      # — the latter reads as a green deploy still serving the previous image.
+      - name: Preflight — staging Artifact Registry is reachable
         run: |
           if ! gcloud artifacts repositories describe vegangenius \
-            --location="$REGION" --project=comdottasteslikegood >/dev/null 2>&1; then
+            --location="$REGION" --project="$STAGING_PROJECT" >/dev/null 2>&1; then
             echo "::error::Cannot read Artifact Registry 'vegangenius' in" \
-                 "comdottasteslikegood. The staging Cloud Run service agent needs" \
-                 "roles/artifactregistry.reader on that project."
+                 "$STAGING_PROJECT. Create it, or grant the deployer service" \
+                 "account roles/artifactregistry.writer on it."
             exit 1
           fi
 
