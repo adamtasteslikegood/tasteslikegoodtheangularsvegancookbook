@@ -83,6 +83,35 @@ done, do not read this sprint's throughput as a rate.
 | RCP-67  | 2026-08-01 | 26      | Never committed         | **Commit — half-day timebox** |
 | KAN-176 | 2026-07-28 | 30      | Never committed         | **Commit — half-day timebox** |
 
+## Forecast check (D3) — run at charter time, 2026-08-27
+
+Throughput samples, one per sprint, Sprints 4–8: **[3, 3, 3, 3, 6]** — 18 items, mean 3.6.
+Sampling with replacement for 9 items:
+
+| Sprint boxes | P(all 9 delivered) |
+| ------------ | ------------------ |
+| 1            | 0%                 |
+| 2            | 36%                |
+| 3            | 100%               |
+
+**p50 = 3 boxes. p85 = 3 boxes.** To fit one box at p85, committed scope would be ~3 items.
+
+**Caveats.** Five samples is a thin history, the boxes were not equal length (Sprint 8
+closed early), and Sprint 8's own 6 was delivered by a rescue push rather than by flow —
+so the mean is flattered. Treat this as an order-of-magnitude read, not a probability.
+
+**What this changes: nothing about scope.** Scope is a tracking decision already ruled on
+(see "On the item count"). What it does change is where the attention goes — this is a
+~3-box scope in a 1-box container, so the load-shedding mechanisms are the sprint's real
+safety margin, not a formality:
+
+- The **half-day timeboxes on S5, S7, S8 must actually fire.** Under D6 a drop is a valid
+  outcome; a roll is not.
+- **Lane A (S2 + S4) is the only thing that cannot be shed** — everything else is
+  droppable, and S2 is the anchor.
+- Re-run this check at mid-sprint against actuals. If Lane A has not cleared the Backend
+  promotion by then, the forecast is not the problem — the critical path is.
+
 ## Charter (locked decisions)
 
 | #   | Branch             | Decision                                                                                                                                                                                                                                                                                                                                                                                                           |
