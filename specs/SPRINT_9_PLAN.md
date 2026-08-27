@@ -166,12 +166,12 @@ deviation from R-4**, which says one SI per bug. See "On the item count" above.
    pending/null/background-worker.
 2. **Image metadata re-syncs.** After nav-away and return, the client copy of the recipe
    carries the same image metadata the server row has.
-   `generator.component.ts:56-73` writes only `ai_image_url` via `updateRecipeField`; the
+   `generator.component.ts:57-74` writes only `ai_image_url` via `updateRecipeField`; the
    remaining image fields are written server-side by the Pub/Sub worker and never
    re-read. Exported JSON must match the API's row.
 3. **Generator resets on route entry.** Navigating _to_ the generator shows an empty
    form. `clearRecipe()` currently fires inside `onGenerate()` — on submit, not on entry
-   (`generator.component.ts:33`).
+   (`generator.component.ts:34`).
 4. Gate passes.
 
 ### S1b — Recipe-detail bounces to `/kitchen`; Back is broken (KAN-257)
