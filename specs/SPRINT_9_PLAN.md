@@ -107,8 +107,8 @@ safety margin, not a formality:
 
 - The **half-day timeboxes on S5, S7, S8 must actually fire.** Under D6 a drop is a valid
   outcome; a roll is not.
-- **Lane A (S2 + S4) is the only thing that cannot be shed** — everything else is
-  droppable, and S2 is the anchor.
+- **Lane A (S2 + S4) cannot be shed.** D6 pre-authorises drops only for S5, S7,
+  and S8; dropping S1a, S1b, S3, or S6 requires an explicit charter update.
 - Re-run this check at mid-sprint against actuals. If Lane A has not cleared the Backend
   promotion by then, the forecast is not the problem — the critical path is.
 
@@ -287,7 +287,9 @@ housekeeping. It is evidence-based closure and cleanup, not new work.
 - Close **RCP-58** on KAN-161's evidence — PR #3422 landed;
   `origin/dev:server/security.ts:1` imports `ipKeyGenerator` and all three limiters use
   `rateLimitKeyGenerator`.
-- Close **RCP-63** on KAN-215's evidence (#3432 + Backend #286).
+- Keep **RCP-63** open: Backend #286 implements KAN-215 on Backend `dev`, but #3432
+  does not ship it. Close only after the Backend promotion, cookbook pointer bump, and
+  deployment validation are linked.
 - Triage the ~21 agentic-workflow bot rows (**KAN-168**) — they corrupt every flow read.
 - Prune stale git worktrees (22 present; most are finished Sprint 4–8 lanes, each holding
   a full Backend clone).
