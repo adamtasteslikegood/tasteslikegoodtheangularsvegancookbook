@@ -85,7 +85,23 @@ export function isPageSubresource(req: Request): boolean {
   // way from a mount-style limiter as from a route-style one. For the page
   // limiter the two are identical (baseUrl is ''), so this is behaviour-
   // preserving here and correct if the predicate is ever reused under a mount.
-  const p = absoluteRequestPath(req);
+  return matchesSubresource(absoluteRequestPath(req));
+}
+
+/**
+ * The subresource test itself, over an already-composed absolute path.
+ *
+ * Split out so classifyRequest() can reuse the path it has already composed
+ * instead of paying for a second absoluteRequestPath() call. Deliberately NOT
+ * exported and deliberately not an optional second parameter on
+ * isPageSubresource: that predicate is re-exported through security.ts and
+ * called directly by route-manifest.test.ts and server.test.ts with synthetic
+ * `{ path } as Request` objects, and an optional path argument would let the
+ * path and the request disagree — a correctness hazard in a security
+ * predicate, in the change whose whole point is that classification is stated
+ * once. Both callers here compose the path the same way, so they cannot.
+ */
+function matchesSubresource(p: string): boolean {
   for (const prefix of SUBRESOURCE_PREFIXES) {
     if (p.startsWith(prefix)) return true;
   }
@@ -230,7 +246,7 @@ export function classifyRequest(req: Request): RequestClass {
   const path = absoluteRequestPath(req);
   if (RATE_LIMIT_EXEMPT.health.paths.includes(path)) return 'health';
   if (RATE_LIMIT_EXEMPT.imageServing.pattern.test(path)) return 'imageServing';
-  if (isPageSubresource(req)) return 'subresource';
+  if (matchesSubresource(path)) return 'subresource';
   const ua = req.headers?.['user-agent'];
   if (typeof ua === 'string' && CRAWLER_UA_RE.test(ua)) return 'crawler';
   return 'metered';
