@@ -50,8 +50,25 @@
 #   ./scripts/gcloud/kan170_path_b.sh nat      [--apply]   # router + NAT
 #   ./scripts/gcloud/kan170_path_b.sh egress   [--apply]   # Express → all-traffic
 #   ./scripts/gcloud/kan170_path_b.sh ingress  [--apply]   # Flask → internal
+#   ./scripts/gcloud/kan170_path_b.sh postcheck            # verify the cutover (read-only)
 #   ./scripts/gcloud/kan170_path_b.sh rollback-egress  [--apply]
 #   ./scripts/gcloud/kan170_path_b.sh rollback-ingress [--apply]
+#
+# Full ordered checklist (Adam, 2026-08-27 — NAT cost approved, KAN-176):
+#   1. nat --apply          — Router + NAT
+#   2. egress               — the guard confirms NAT readiness before flipping
+#   3. egress --apply       — Express → all-traffic
+#   4. (automatic)          — proxied app traffic + non-Google egress verified
+#   5. ingress --apply      — Flask → internal
+#   6. postcheck            — off-network Flask network-refused, Express→Flask,
+#                             NAT translating, then ONE controlled generation
+#                             with no DLQ increase
+#   7. REQUIRED_FLASK_GUARDS=2 in .github/workflows/security-posture-check.yml
+#   8. Pin ingress/egress in cloudbuild.yaml; record 24h health + 7-day NAT cost
+#
+# This cutover does NOT ship alongside an application deploy. A combined change
+# is one opaque event with two independent failure modes, and the NAT half is
+# the one that fails quietly.
 
 set -euo pipefail
 
