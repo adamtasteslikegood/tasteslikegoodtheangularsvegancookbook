@@ -184,7 +184,8 @@ def cmd_reset_truth(jira, args):
     bots = [b for b in args.bot_actor]
     changed, skipped = [], []
     for key in CHARTER_ISSUES + list(args.extra):
-        data = jira.issue(key, fields="status", expand="changelog")
+        data = jira.issue(key, fields="status")
+        data["changelog"] = {"histories": jira.issue_changelog(key)}
         current = data["fields"]["status"]["name"]
         target, why = truth_status(data, bots)
         if not target:
