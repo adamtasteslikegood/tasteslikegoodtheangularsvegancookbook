@@ -89,7 +89,17 @@ export class RecipeDetailComponent extends RecipeViewBase {
       const id = params.get('id');
       if (!id) return;
       this.currentId = id;
-      if (this.recipe()?.id === id && this.loadState() === 'ready') return;
+      // If the RecipeStateService singleton already holds this recipe — from
+      // a prior view within this SPA session — render what we have and skip
+      // the fetch. A fresh component instance starts with loadState='loading'
+      // (so the template gates on the full-page spinner by default); without
+      // promoting to 'ready' here, every re-navigation to a cold-deep-linked
+      // recipe would flash a spinner and issue a redundant GET even though
+      // the singleton already carries the exact same recipe object.
+      if (this.recipe()?.id === id) {
+        this.loadState.set('ready');
+        return;
+      }
       void this.load(id);
     });
   }
@@ -243,6 +253,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
    * 202, and the service polls until the URL appears.
    */
   private joinPendingImage(recipeId: string) {
+    // RecipeStateService is a root singleton, so an image request tracked by
+    // a previous visit to this recipe is still live. Firing generateImage()
+    // again would double-POST /api/generate_image and spawn a second 2s poll
+    // interval; the refcount would clear correctly, but the extra request is
+    // pure waste. Because we just called viewRecipe(recipeId) above, the
+    // singleton's currentRecipe is recipeId, so isImageGenerating() reflects
+    // exactly whether we're already tracking this id.
+    if (this.recipeState.isImageGenerating()) return;
     const pending = this.geminiService.generateImage(recipeId, false);
     this.recipeState.trackImageGeneration(recipeId, pending);
     pending
