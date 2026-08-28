@@ -24,12 +24,18 @@ The train spans this repo and `adamtasteslikegood/tasteslikegood.com`
 
 1. **Cross-repo write.** Actions' `GITHUB_TOKEN` is scoped to this repository.
    Opening the Backend back-sync PR needs credentials for the other one.
-2. **`required_linear_history` on `dev`.** Both repos carry it (ruleset
-   `rule222`, targeting `~DEFAULT_BRANCH`, which is `dev`). A merge-commit merge
-   into `dev` therefore only lands for an actor with ruleset bypass — today,
-   repo admins on a PR merge. The back-sync **must** be a merge commit: squashing
-   rewrites the commits, ancestry never converges, and the drift count never
-   returns to zero.
+2. **The back-sync must be a merge commit.** Squashing rewrites the commits,
+   ancestry never converges, and the drift count never returns to zero. On the
+   cookbook, `dev` no longer permits squash at all (see the table below), so the
+   merge-commit requirement is now enforced by the ruleset rather than only by
+   convention. Backend `dev` still permits squash — do not use it for a back-sync.
+
+   > Until 2026-08-25 this section claimed `required_linear_history` was set on
+   > `dev` in both repos. **It was not, and is not, set on any ruleset in either
+   > repo** — the claim contradicted this file's own merge-methods row two
+   > paragraphs down, and it caused an agent to squash-merge three PRs during a
+   > history reconciliation on the v0.4.12 cut. Verify with:
+   > `gh api repos/<owner>/<repo>/rulesets/<id> --jq '[.rules[].type]'`
 
 Reading is unconstrained: both repos are public, so the workflow can inspect
 Backend refs with the default token.
@@ -60,15 +66,16 @@ could not actually check is how a broken gate ships green.
 
 Pulled from the live rulesets, not from memory:
 
-|                      | cookbook                                                              | Backend                                |
-| -------------------- | --------------------------------------------------------------------- | -------------------------------------- |
-| default branch       | `dev`                                                                 | `dev`                                  |
-| `main` merge methods | `merge`, `rebase` (**squash blocked**)                                | `merge`, `rebase` (**squash blocked**) |
-| `main` rules         | deletion, non-fast-forward, PR required, code scanning, code quality  | + required status checks               |
-| `dev` merge methods  | `merge`, `squash`, `rebase`                                           | same                                   |
-| `dev` extra rule     | **`required_linear_history`**                                         | **`required_linear_history`**          |
-| approvals required   | 0                                                                     | 0                                      |
-| bypass               | repo admin (`RepositoryRole/5`) on PR merge, plus several GitHub Apps | same                                   |
+|                           | cookbook                                                              | Backend                                |
+| ------------------------- | --------------------------------------------------------------------- | -------------------------------------- |
+| default branch            | `dev`                                                                 | `dev`                                  |
+| `main` merge methods      | `merge`, `rebase` (**squash blocked**)                                | `merge`, `rebase` (**squash blocked**) |
+| `main` rules              | deletion, non-fast-forward, PR required, code scanning, code quality  | + required status checks               |
+| `dev` merge methods       | `merge`, `rebase` (**squash blocked since 2026-08-25**)               | `merge`, `squash`, `rebase`            |
+| `required_linear_history` | **not set** (never has been)                                          | **not set**                            |
+| PR thread resolution      | **required** — unresolved review threads block the merge              | not required on `dev`                  |
+| approvals required        | 0                                                                     | 0                                      |
+| bypass                    | repo admin (`RepositoryRole/5`) on PR merge, plus several GitHub Apps | same                                   |
 
 ## The `action_required` gate — resolved
 

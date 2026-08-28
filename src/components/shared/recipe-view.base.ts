@@ -55,6 +55,10 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
       // Known-incomplete on KAN-155: the repair is not built, so do not promise
       // that retrying works. Say what is true and stop.
       return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
+    case 'duplicate':
+      // KAN-241: structurally unreachable from togglePublic (you cannot publish a
+      // saved copy — the 403 guard fires first), but the type system includes it.
+      return 'You already have this recipe saved.';
     case 'ownership':
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
@@ -95,7 +99,13 @@ export abstract class RecipeViewBase {
   readonly generatedImageUrl = this.recipeState.generatedImageUrl;
   readonly isSaved = this.recipeState.isSaved;
 
-  isImageLoading = signal(false);
+  /**
+   * KAN-243: image loading state is now derived from RecipeStateService's
+   * pending-generation tracking. Before this it was a per-component-instance
+   * writable signal — navigating away destroyed the signal while the async
+   * generation continued, so recipe-detail showed neither image nor spinner.
+   */
+  readonly isImageLoading = this.recipeState.isImageGenerating;
   servingsMultiplier = signal(1);
   isEditingNotes = signal(false);
   editedNotes = signal('');
@@ -149,19 +159,31 @@ export abstract class RecipeViewBase {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
     const targetId = currentRecipe.id;
-    this.isImageLoading.set(true);
+    const imagePromise = this.geminiService.generateImage(targetId, true);
+    this.recipeState.trackImageGeneration(targetId, imagePromise);
     try {
-      const imageUrl = await this.geminiService.generateImage(targetId, true);
+      const imageUrl = await imagePromise;
+      // Cache-bust: re-generate returns the same canonical URL, so a bare
+      // signal.set() is a no-op and the browser serves stale bytes. The
+      // marker is recorded on RecipeStateService and applied only when
+      // building a display URL, so it survives nav-away (the service is a
+      // root singleton) without ever entering persisted state.
+      this.recipeState.markImageRegenerated(targetId);
       if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
+        this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(targetId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       }
+      // Persist the CANONICAL url. Writing the busted one here put a
+      // client-only `?_t=` marker into savedRecipes, and saveNotes POSTs the
+      // whole recipe — so it came back as the canonical ai_image_url.
       this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
     } catch (err) {
       console.error('Image regeneration failed', err);
-    } finally {
+      // The 5-min timeout in gemini.service now rejects rather than hanging.
+      // Without a toast the spinner just vanishes and the user is left with
+      // an "Image not available" placeholder and no explanation.
       if (this.recipe()?.id === targetId) {
-        this.isImageLoading.set(false);
+        this.toastService.show("Couldn't regenerate the image. Please try again.");
       }
     }
   }
