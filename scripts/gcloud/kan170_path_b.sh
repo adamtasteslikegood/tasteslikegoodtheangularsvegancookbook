@@ -191,6 +191,12 @@ print(sum(int(point["value"].get("int64Value", 0))
 }
 
 check_nat_egress() {
+  # Mirror check_site: a dry run has applied nothing, so the gateway has
+  # translated nothing, so this would poll Monitoring for four minutes and then
+  # exit 1 by construction. That reads as a guard failure and is not one — it
+  # would send whoever ran the rehearsal off debugging healthy code, or worse,
+  # teach them to ignore this check on the real run.
+  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would verify NAT '$NAT_NAME' sent_bytes_count > 0"; return 0; }
   local attempt total
   # Cloud NAT metrics are sampled every 60 seconds and can take up to 180
   # seconds to become visible. Poll for five minutes instead of declaring a
