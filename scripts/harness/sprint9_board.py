@@ -221,7 +221,7 @@ def github_merge_times(keys, timeout=30):
     keys = list(keys)
     if not keys:
         return {}
-    search = " ".join(keys) + " in:title"
+    search = " OR ".join(keys) + " in:title"
     cmd = [
         "gh", "pr", "list",
         "-R", AUTO_TRANSITION_REPO,
@@ -323,8 +323,8 @@ def cmd_reset_truth(jira, args):
     all_keys = CHARTER_ISSUES + list(args.extra)
     # One batched gh call for the whole set, not one per key — the per-key
     # loop turned a formerly ~1s reset into ~30s of serial subprocess spawns.
-    merge_index = ({} if args.no_github_correlate
-                   else github_merge_times(all_keys))
+    merge_index = (github_merge_times(all_keys)
+                   if args.github_correlate else {})
     for key in all_keys:
         data = jira.issue(key, fields="status")
         data["changelog"] = {"histories": jira.issue_changelog(key)}
@@ -426,8 +426,8 @@ def main():
                    help="display-name substrings treated as non-human authors "
                         "(default: %s)" % ", ".join(BOT_ACTORS))
     r.add_argument("--extra", nargs="*", default=[], help="additional issue keys")
-    r.add_argument("--no-github-correlate", action="store_true",
-                   help="skip the GitHub merge-time correlation that identifies "
+    r.add_argument("--github-correlate", action="store_true",
+                   help="enable the GitHub merge-time correlation that identifies "
                         "jira-auto-transition.yml's moves (it authors as a human, "
                         "so author matching alone cannot see them)")
     r.add_argument("--dry-run", action="store_true")
