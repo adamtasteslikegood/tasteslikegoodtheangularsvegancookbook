@@ -4,12 +4,17 @@
 import sys
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _jira_client import Jira  # noqa: E402
-from sprint9_board import _parse_ts, truth_status  # noqa: E402
+from sprint9_board import (  # noqa: E402
+    AUTO_TRANSITION_REPO,
+    _parse_ts,
+    github_merge_times,
+    truth_status,
+)
 
 
 def issue_with_transitions(*transitions):
@@ -82,6 +87,22 @@ class TruthStatusTests(unittest.TestCase):
         self.assertEqual(target, "To Do")
         self.assertIn("original status", why)
 
+
+class MergeLookupTests(unittest.TestCase):
+    @patch("sprint9_board.subprocess.run")
+    def test_only_queries_repository_that_owns_workflow(self, run):
+        run.return_value = Mock(
+            returncode=0,
+            stdout='[{"mergedAt": "2026-08-28T06:12:16Z"}]',
+        )
+
+        self.assertEqual(
+            github_merge_times("KAN-258"),
+            [_parse_ts("2026-08-28T06:12:16Z")],
+        )
+        cmd = run.call_args.args[0]
+        self.assertEqual(cmd[cmd.index("-R") + 1], AUTO_TRANSITION_REPO)
+        self.assertNotIn("adamtasteslikegood/tasteslikegood.com", cmd)
 
 class MergeCorrelationTests(unittest.TestCase):
     """The jira-auto-transition workflow authenticates with Adam's personal
