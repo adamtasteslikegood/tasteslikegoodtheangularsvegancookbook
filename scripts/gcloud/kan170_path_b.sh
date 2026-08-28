@@ -143,32 +143,59 @@ check_site() {
 # traverses the NAT gateway, so a green /sitemap.xml says nothing about whether
 # non-Google egress survived the cutover — the exact traffic the NAT exists for.
 # Prove it separately, from the gateway's own counters.
+read_nat_sent_bytes() {
+  local token start end response
+  token="$(gcloud auth print-access-token 2>/dev/null)" || return 1
+  read -r start end < <(python3 -c '
+import datetime
+end = datetime.datetime.now(datetime.timezone.utc)
+start = end - datetime.timedelta(minutes=10)
+fmt = "%Y-%m-%dT%H:%M:%SZ"
+print(start.strftime(fmt), end.strftime(fmt))
+')
+  response="$(curl -fsS --get \
+    -H "Authorization: Bearer $token" \
+    --data-urlencode 'filter=metric.type="router.googleapis.com/nat/sent_bytes_count" AND metric.labels.nat_gateway_name="'"$NAT_NAME"'"' \
+    --data-urlencode "interval.startTime=$start" \
+    --data-urlencode "interval.endTime=$end" \
+    --data-urlencode "view=FULL" \
+    --data-urlencode "pageSize=1000" \
+    "https://monitoring.googleapis.com/v3/projects/$PROJECT_ID/timeSeries")" || return 1
+  printf '%s' "$response" | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+print(sum(int(point["value"].get("int64Value", 0))
+          for series in data.get("timeSeries", [])
+          for point in series.get("points", [])))
+'
+}
+
 check_nat_egress() {
-  local series
-  series="$(gcloud monitoring time-series list \
-    --project="$PROJECT_ID" \
-    --filter='metric.type="router.googleapis.com/nat/sent_bytes_count" AND resource.labels.gateway_name="'"$NAT_NAME"'"' \
-    --format='value(points[0].value.int64Value)' 2>/dev/null || true)"
+  local attempt total
+  # Cloud NAT metrics are sampled every 60 seconds and can take up to 180
+  # seconds to become visible. Poll for five minutes instead of declaring a
+  # healthy, newly-created gateway broken on the first empty read.
+  for attempt in 1 2 3 4 5; do
+    if ! total="$(read_nat_sent_bytes)"; then
+      warn "NAT egress UNPROVEN — could not query router.googleapis.com/nat/sent_bytes_count."
+      warn "This is NOT a pass. Confirm the Monitoring API is enabled and the active"
+      warn "identity has monitoring.timeSeries.list, or use fresh Datadog telemetry"
+      warn "from the NEW $EXPRESS_SERVICE revision as the direct non-Google probe."
+      return 1
+    fi
+    if [[ "$total" -gt 0 ]]; then
+      log "NAT '$NAT_NAME' has translated $total bytes — non-Google egress confirmed live."
+      return 0
+    fi
+    if [[ "$attempt" -lt 5 ]]; then
+      warn "NAT metrics are still empty (attempt $attempt/5); waiting for ingestion..."
+      sleep 60
+    fi
+  done
 
-  if [[ -z "$series" ]]; then
-    warn "NAT egress UNPROVEN — could not read router.googleapis.com/nat/sent_bytes_count."
-    warn "This is NOT a pass. Confirm non-Google egress by hand before treating this step as done:"
-    warn "  - Cloud NAT metrics for gateway '$NAT_NAME' show translated bytes, OR"
-    warn "  - fresh Datadog telemetry arrives from the NEW $EXPRESS_SERVICE revision."
-    warn "Datadog is the sharper probe here: the agent ships to a non-Google endpoint,"
-    warn "so telemetry from the new revision is direct evidence NAT is translating."
-    return 1
-  fi
-
-  local total=0 v
-  for v in $series; do total=$((total + v)); done
-  if [[ "$total" -gt 0 ]]; then
-    log "NAT '$NAT_NAME' has translated $total bytes — non-Google egress confirmed live."
-  else
-    warn "NAT '$NAT_NAME' exists but has translated 0 bytes. Non-Google egress is UNPROVEN."
-    warn "Give it a minute of real traffic and re-run, or check Datadog for the new revision."
-    return 1
-  fi
+  warn "NAT '$NAT_NAME' has translated 0 bytes after five minutes. Non-Google egress is UNPROVEN."
+  warn "Check fresh Datadog telemetry from the new revision or roll back egress."
+  return 1
 }
 
 case "$COMMAND" in
