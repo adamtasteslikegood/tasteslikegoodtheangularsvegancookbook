@@ -111,26 +111,47 @@ export async function createValkeyClient(): Promise<Redis | null> {
     const options: Record<string, unknown> = {
       host: config.host,
       port: config.port,
-      // ioredis 6 defaults to RESP3. Reply shapes are NOT the concern — its
-      // `replyMapping: "legacy"` default keeps those identical to RESP2, and the
-      // only replies we consume are rate-limit-redis' EVAL array and AUTH's
-      // simple string.
+      // ── RESP2 pin: PERMANENT until a staging Memorystore exists (KAN-209) ──
+      //
+      // ioredis 6 defaults to RESP3 (`protocol: 3` in built/redis/RedisOptions.js).
+      // Reply shapes are NOT the concern — its `replyMapping: "legacy"` default
+      // keeps those identical to RESP2, and the only replies we consume are
+      // rate-limit-redis' EVAL array and AUTH's simple string.
       //
       // The concern is the handshake. Under RESP3 ioredis authenticates via
       // HELLO, and with a password-only credential it injects a username:
-      // `HELLO 3 AUTH default <password>` (ioredis/built/redis/event_handler.js).
-      // That is exactly what refreshTokenInPlace() below deliberately avoids for
-      // Memorystore IAM auth, where the IAM access token is the password and the
-      // username is not `default`. Worse, a rejected AUTH is not a protocol
-      // negotiation error, so ioredis' automatic RESP2 fallback (which only
-      // catches NOPROTO / unknown-command) would not rescue it — the client
-      // would simply fail to connect, and getValkeyClient() would degrade every
-      // replica to in-memory rate limiting.
+      // `HELLO 3 AUTH default <password>`. That is exactly what
+      // refreshTokenInPlace() below deliberately avoids for Memorystore IAM auth,
+      // where the IAM access token is the password and the principal is NOT
+      // `default`. Worse, a rejected AUTH is not a protocol negotiation error, so
+      // ioredis' automatic RESP2 fallback (isProtocolNegotiationError, which only
+      // matches NOPROTO / unknown-command) cannot rescue it — the client simply
+      // fails to connect and getValkeyClient() degrades every replica to
+      // in-memory rate limiting.
       //
-      // With no staging environment (KAN-182) that failure would first appear in
-      // production, on the limiter metering paid Gemini and Imagen calls.
-      // Pinning RESP2 keeps this bump to the library change alone.
-      // Revisit once RESP3 can be exercised against a real Valkey (KAN-209).
+      // KAN-209 verified all three claims empirically against ioredis 6.0.0 and a
+      // real Valkey 8, outside production (traces in the PR):
+      //   1. Wire capture, password-only. protocol 3 emits
+      //      `HELLO 3 AUTH default <token>` (5-element array); protocol 2 emits
+      //      `AUTH <token>` (2-element) — no username. The injection is real.
+      //   2. Against a stock Valkey, RESP3 and RESP2 return an IDENTICAL EVAL
+      //      reply (`[1,"two","ok"]`). Confirms reply shape is not the risk.
+      //   3. RESP3 with an AUTH the server rejects fails hard ("Connection is
+      //      closed") — no RESP2 fallback. The failure mode is unrescued.
+      //
+      // Why this pin is permanent rather than "revisit later": the specific
+      // failure needs a server where `AUTH <token>` succeeds and
+      // `AUTH default <token>` does not. That behaviour is Memorystore IAM auth
+      // specifically; a stock Valkey treats single-arg AUTH as the default user,
+      // so no local or containerised Valkey can reproduce it. Staging runs no
+      // Memorystore instance (KAN-182), so there is no non-production surface on
+      // which unpinning could be validated. Unpinning would therefore first be
+      // exercised in production, on the limiter metering paid Gemini and Imagen
+      // calls.
+      //
+      // What would change this decision: a staging Memorystore instance with IAM
+      // auth. At that point run the same three checks against it and, if
+      // `HELLO 3 AUTH default <token>` authenticates, remove this pin.
       protocol: 2,
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
