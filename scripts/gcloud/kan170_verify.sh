@@ -243,6 +243,41 @@ if [[ -z "$ROUTERS" ]]; then
   info "none — express-frontend would lose ALL public egress under --vpc-egress=all-traffic"
 else
   echo "$ROUTERS" | sed 's/^/    /'
+  # A Router performs no translation by itself. Listing Routers and stopping
+  # there reports "prerequisite present" for a Router that has no NAT gateway,
+  # no assigned address, or a gateway covering the wrong subnet ranges — any of
+  # which severs Express's public egress the moment it moves to all-traffic.
+  # Inspect the gateway itself.
+  while read -r _rname _rregion; do
+    [[ -z "$_rname" ]] && continue
+    NATS="$(gcloud compute routers nats list --project="$PROJECT_ID" \
+      --router="$_rname" --router-region="$_rregion" \
+      --format='value(name)' 2>/dev/null)"
+    if [[ -z "$NATS" ]]; then
+      info "  router $_rname has NO NAT gateway — it translates nothing"
+      continue
+    fi
+    while read -r _nat; do
+      [[ -z "$_nat" ]] && continue
+      gcloud compute routers nats describe "$_nat" --project="$PROJECT_ID" \
+        --router="$_rname" --router-region="$_rregion" --format=json 2>/dev/null \
+        | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("    NAT (unreadable)"); raise SystemExit
+scope = d.get("sourceSubnetworkIpRangesToNat", "?")
+mode = d.get("natIpAllocateOption", "?")
+ips = d.get("natIps") or []
+ok = "ok" if scope == "ALL_SUBNETWORKS_ALL_IP_RANGES" else "PARTIAL COVERAGE"
+print("    NAT %s: scope=%s [%s] ip_mode=%s assigned=%d"
+      % (d.get("name", "?"), scope, ok, mode, len(ips)))
+if mode != "AUTO_ONLY" and not ips:
+    print("      WARNING: MANUAL_ONLY with no address assigned — translates nothing")
+'
+    done <<<"$NATS"
+  done <<<"$ROUTERS"
 fi
 
 # ── 5. Token preconditions ──────────────────────────────────────────────────

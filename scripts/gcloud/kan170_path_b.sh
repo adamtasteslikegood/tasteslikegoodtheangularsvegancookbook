@@ -66,6 +66,27 @@ PUBLIC_URL="${PUBLIC_URL:-https://www.tasteslikegood.org}"
 ROUTER_NAME="${ROUTER_NAME:-tlg-nat-router}"
 NAT_NAME="${NAT_NAME:-tlg-nat}"
 
+# The ingress target is a DELIBERATE choice, not a default to inherit.
+#
+# flask-backend was created with ingress=internal and was opened to `all` on
+# 2026-03-09T10:20:31Z. `internal` is therefore both the least-privilege setting
+# and the actual restoration — it admits VPC traffic only, which is exactly the
+# path Express uses once it is on all-traffic egress.
+#
+# `internal-and-cloud-load-balancing` additionally admits traffic from Google
+# Cloud load balancers. Choose it ONLY if Flask is intentionally attached to an
+# external HTTP(S) load balancer. It is not today: Express is the single entry
+# point and reaches Flask over the VPC. Widening to it "just in case" re-opens a
+# slice of the surface this whole exercise exists to close.
+FLASK_INGRESS="${FLASK_INGRESS:-internal}"
+case "$FLASK_INGRESS" in
+  internal|internal-and-cloud-load-balancing) ;;
+  *)
+    echo "ERROR: FLASK_INGRESS must be 'internal' or 'internal-and-cloud-load-balancing', got '$FLASK_INGRESS'." >&2
+    exit 1
+    ;;
+esac
+
 APPLY=0
 COMMAND="${1:-}"
 shift || true
@@ -118,6 +139,38 @@ check_site() {
   fi
 }
 
+# check_site proves Express→Flask. That hop is Google-internal and NEVER
+# traverses the NAT gateway, so a green /sitemap.xml says nothing about whether
+# non-Google egress survived the cutover — the exact traffic the NAT exists for.
+# Prove it separately, from the gateway's own counters.
+check_nat_egress() {
+  local series
+  series="$(gcloud monitoring time-series list \
+    --project="$PROJECT_ID" \
+    --filter='metric.type="router.googleapis.com/nat/sent_bytes_count" AND resource.labels.gateway_name="'"$NAT_NAME"'"' \
+    --format='value(points[0].value.int64Value)' 2>/dev/null || true)"
+
+  if [[ -z "$series" ]]; then
+    warn "NAT egress UNPROVEN — could not read router.googleapis.com/nat/sent_bytes_count."
+    warn "This is NOT a pass. Confirm non-Google egress by hand before treating this step as done:"
+    warn "  - Cloud NAT metrics for gateway '$NAT_NAME' show translated bytes, OR"
+    warn "  - fresh Datadog telemetry arrives from the NEW $EXPRESS_SERVICE revision."
+    warn "Datadog is the sharper probe here: the agent ships to a non-Google endpoint,"
+    warn "so telemetry from the new revision is direct evidence NAT is translating."
+    return 1
+  fi
+
+  local total=0 v
+  for v in $series; do total=$((total + v)); done
+  if [[ "$total" -gt 0 ]]; then
+    log "NAT '$NAT_NAME' has translated $total bytes — non-Google egress confirmed live."
+  else
+    warn "NAT '$NAT_NAME' exists but has translated 0 bytes. Non-Google egress is UNPROVEN."
+    warn "Give it a minute of real traffic and re-run, or check Datadog for the new revision."
+    return 1
+  fi
+}
+
 case "$COMMAND" in
   nat)
     # Idempotent: describe before create, matching the house convention.
@@ -144,14 +197,49 @@ case "$COMMAND" in
     # THE risky step. Without a working NAT this severs every public
     # destination Express uses, and it is the step that must be verified
     # immediately rather than batched with the ingress change.
+    # The guard must prove the NAT GATEWAY is usable, not merely that a Router
+    # object exists. A Router with no NAT — or a NAT covering only some subnet
+    # ranges — satisfies `routers describe` while still leaving Express with no
+    # path to any public destination the moment egress flips to all-traffic.
+    # That is the whole failure this step is ordered to avoid, so check it.
     if ! gcloud compute routers describe "$ROUTER_NAME" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
       echo "ERROR: no Cloud Router '$ROUTER_NAME'. Run '$0 nat --apply' first, or Express loses all public egress." >&2
       exit 1
     fi
+    NAT_JSON="$(gcloud compute routers nats describe "$NAT_NAME" --project="$PROJECT_ID" \
+      --router="$ROUTER_NAME" --router-region="$REGION" --format=json 2>/dev/null || true)"
+    if [[ -z "$NAT_JSON" ]]; then
+      echo "ERROR: Cloud Router '$ROUTER_NAME' exists but has no NAT gateway '$NAT_NAME'." >&2
+      echo "       A Router alone performs no translation. Run '$0 nat --apply' first." >&2
+      exit 1
+    fi
+    NAT_SCOPE="$(printf '%s' "$NAT_JSON" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("sourceSubnetworkIpRangesToNat",""))')"
+    if [[ "$NAT_SCOPE" != "ALL_SUBNETWORKS_ALL_IP_RANGES" ]]; then
+      echo "ERROR: NAT '$NAT_NAME' covers '$NAT_SCOPE', not ALL_SUBNETWORKS_ALL_IP_RANGES." >&2
+      echo "       The connector's subnet may be uncovered, which severs Express's public egress." >&2
+      echo "       Recreate with --nat-all-subnet-ip-ranges, or widen the existing gateway." >&2
+      exit 1
+    fi
+    NAT_IPS="$(printf '%s' "$NAT_JSON" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d.get("natIps") or []), d.get("natIpAllocateOption",""))')"
+    read -r NAT_IP_COUNT NAT_IP_MODE <<<"$NAT_IPS"
+    if [[ "$NAT_IP_MODE" != "AUTO_ONLY" && "$NAT_IP_COUNT" -eq 0 ]]; then
+      echo "ERROR: NAT '$NAT_NAME' is MANUAL_ONLY with no external address assigned." >&2
+      echo "       It would translate nothing. Assign an address or switch to --auto-allocate-nat-external-ips." >&2
+      exit 1
+    fi
+    log "NAT '$NAT_NAME' verified: scope=$NAT_SCOPE, ip_mode=$NAT_IP_MODE, assigned=$NAT_IP_COUNT"
     run gcloud run services update "$EXPRESS_SERVICE" \
       --project="$PROJECT_ID" --region="$REGION" \
       --vpc-egress=all-traffic --quiet
     check_site || { warn "Roll back with: $0 rollback-egress --apply"; exit 1; }
+    # Both must hold. check_site proves the Google-internal hop; check_nat_egress
+    # proves the hop that actually depends on the gateway. Passing only the first
+    # is how you discover at 3am that every outbound integration is dark.
+    check_nat_egress || {
+      warn "Express→Flask is healthy but NAT-dependent egress is unproven."
+      warn "Do NOT proceed to '$0 ingress' until it is. Roll back with: $0 rollback-egress --apply"
+      exit 1
+    }
     ;;
 
   ingress)
@@ -170,11 +258,19 @@ case "$COMMAND" in
       echo "       Closing Flask's ingress now would refuse Express's calls as EXTERNAL and take the site down." >&2
       exit 1
     fi
+    log "Closing $FLASK_SERVICE ingress to '$FLASK_INGRESS' (override with FLASK_INGRESS=...)."
     run gcloud run services update "$FLASK_SERVICE" \
       --project="$PROJECT_ID" --region="$REGION" \
-      --ingress=internal-and-cloud-load-balancing --quiet
+      --ingress="$FLASK_INGRESS" --quiet
     check_site || { warn "Roll back with: $0 rollback-ingress --apply"; exit 1; }
     log "Run ./scripts/gcloud/kan170_verify.sh — anonymous GET / on Flask should now fail."
+    log ""
+    log "STEP 6 — make this the DECLARED steady state, and only now:"
+    log "  cloudbuild.yaml does not currently reassert Express's all-traffic egress or"
+    log "  Flask's restricted ingress, so both are console state that the next deploy can"
+    log "  silently revert. Add them to the deploy steps AFTER this cutover is verified."
+    log "  Adding them BEFORE the NAT exists is actively dangerous: the next deploy would"
+    log "  move Express to all-traffic with nothing to translate its egress."
     ;;
 
   rollback-egress)
