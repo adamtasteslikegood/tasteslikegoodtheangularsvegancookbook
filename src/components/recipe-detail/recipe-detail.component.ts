@@ -205,11 +205,21 @@ export class RecipeDetailComponent extends RecipeViewBase {
         continue;
       }
 
+      // A 200 carrying a literal `null` body parses cleanly — only an empty
+      // body throws into the catch above — so `row` can still be null here.
+      // Treat it as a load failure rather than casting the null away: this is
+      // the same "keep the route, let the user retry" path as !resp.ok, which
+      // is the whole point of KAN-257.
+      if (!row) {
+        this.loadState.set('load-error');
+        return;
+      }
+
       // GET /api/recipes/:id returns the row shape, not the Recipe blob —
       // rendering it raw left ingredients/instructions undefined and blanked
       // the page on refresh (#3263). Same column-over-blob merge as
       // PersistenceService.loadFromApi.
-      const recipe = recipeFromRow(row as RecipeRow);
+      const recipe = recipeFromRow(row);
       // Not in the user's cookbook (cold deep link) — keep Save enabled (#3210).
       this.recipeState.viewRecipe(recipe, false);
       this.loadState.set('ready');
