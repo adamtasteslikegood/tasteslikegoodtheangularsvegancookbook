@@ -59,4 +59,15 @@ jobs:
         env:
           PROJECT_ID: ${{ vars.GCP_PROJECT_ID || secrets.GCP_PROJECT_ID }}
           REGION: ${{ vars.GCP_REGION || 'us-central1' }}
+          # Two guards, required, since the KAN-176 cutover on 2026-08-28:
+          # invoker IAM enforced AND ingress restricted. Until that day only one
+          # existed, and the check asked for one — asking for two earlier would
+          # have made this job permanently red, and a job that is always red is
+          # a job nobody reads.
+          #
+          # Now that both are real, one guard is a REGRESSION and must fail. The
+          # single-guard state is exactly what KAN-170 was: reachable from the
+          # internet, refused only by IAM, and one `--invoker-iam-check` removal
+          # away from being open again.
+          REQUIRED_FLASK_GUARDS: '2'
         run: bash scripts/gcloud/kan170_verify.sh

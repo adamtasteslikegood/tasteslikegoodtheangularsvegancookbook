@@ -40,6 +40,16 @@ PROJECT_ID="${PROJECT_ID:-comdottasteslikegood}"
 REGION="${REGION:-us-central1}"
 FLASK_SERVICE="${FLASK_SERVICE:-flask-backend}"
 EXPRESS_SERVICE="${EXPRESS_SERVICE:-express-frontend}"
+
+# How many flask-backend guards the DECLARED steady state requires. 1 until the
+# KAN-176 Path B cutover lands; set to 2 as the cutover's final step to demand
+# invoker IAM AND restricted ingress. See assert_posture() for why this is a
+# declared value rather than a constant.
+REQUIRED_FLASK_GUARDS="${REQUIRED_FLASK_GUARDS:-1}"
+case "$REQUIRED_FLASK_GUARDS" in
+  1|2) ;;
+  *) echo "ERROR: REQUIRED_FLASK_GUARDS must be 1 or 2, got '$REQUIRED_FLASK_GUARDS'." >&2; exit 1 ;;
+esac
 PUBLIC_URL="${PUBLIC_URL:-https://www.tasteslikegood.org}"
 
 FAILURES=0
@@ -60,19 +70,25 @@ assert_posture() {
   local iam_off="$1" ingress="$2" express_ingress="$3"
 
   # flask-backend has two possible guards — invoker IAM enforcement (Path A,
-  # shipped v0.4.7) and closed ingress (Path B, never executed; KAN-176). The
-  # assertion is that AT LEAST ONE holds.
+  # shipped v0.4.7) and closed ingress (Path B; KAN-176). How many are REQUIRED
+  # is a declared value, not a constant, because the right answer changes at the
+  # cutover:
   #
-  # Demanding both would be stricter but wrong, and wrong in the specific way
-  # this check exists to prevent. KAN-170 closed on Path A with Path B recorded
-  # as not-needed, so a both-guards assertion fails every single run against the
-  # posture the board actually agreed to. A check that is permanently red is not
-  # a stricter check; it is an ignored one, and the drift it exists to catch
-  # then hides in its own noise. Encode the agreed posture, and track the gap
-  # between agreed and ideal on a ticket (KAN-176) rather than in a failing job.
+  #   REQUIRED_FLASK_GUARDS=1  — before Path B. Both-guards would fail every run
+  #                              against the posture actually in production. A
+  #                              permanently-red check is not a stricter check;
+  #                              it is an ignored one, and the drift it exists to
+  #                              catch then hides in its own noise.
+  #   REQUIRED_FLASK_GUARDS=2  — after Path B lands. This is the tightened
+  #                              steady-state assertion: IAM *and* restricted
+  #                              ingress, both required.
+  #
+  # Flipping it is the LAST step of the cutover, once the ingress restriction is
+  # verified — see kan170_path_b.sh. Set it in the workflow so the tightening is
+  # a one-line reviewable change rather than a code edit under time pressure.
   #
   # Both guards gone simultaneously IS the KAN-170 exposure, reproduced exactly:
-  # that is what fails here, within 24h of the flip.
+  # that fails here at either setting, within 24h of the flip.
   local flask_guards=0
 
   # The annotation is the landmine: absent means the invoker IAM check is ON.
@@ -98,6 +114,8 @@ assert_posture() {
 
   if [[ "$flask_guards" -eq 0 ]]; then
     bad "$FLASK_SERVICE has NO guard left — invoker IAM disabled AND ingress open/unknown. This is KAN-170."
+  elif [[ "$flask_guards" -lt "$REQUIRED_FLASK_GUARDS" ]]; then
+    bad "$FLASK_SERVICE has $flask_guards guard(s); the declared steady state requires $REQUIRED_FLASK_GUARDS (IAM AND restricted ingress)."
   fi
 
   # express-frontend carries the SAME invoker-iam-disabled=true annotation and
@@ -243,6 +261,41 @@ if [[ -z "$ROUTERS" ]]; then
   info "none — express-frontend would lose ALL public egress under --vpc-egress=all-traffic"
 else
   echo "$ROUTERS" | sed 's/^/    /'
+  # A Router performs no translation by itself. Listing Routers and stopping
+  # there reports "prerequisite present" for a Router that has no NAT gateway,
+  # no assigned address, or a gateway covering the wrong subnet ranges — any of
+  # which severs Express's public egress the moment it moves to all-traffic.
+  # Inspect the gateway itself.
+  while read -r _rname _rregion; do
+    [[ -z "$_rname" ]] && continue
+    NATS="$(gcloud compute routers nats list --project="$PROJECT_ID" \
+      --router="$_rname" --router-region="$_rregion" \
+      --format='value(name)' 2>/dev/null)"
+    if [[ -z "$NATS" ]]; then
+      info "  router $_rname has NO NAT gateway — it translates nothing"
+      continue
+    fi
+    while read -r _nat; do
+      [[ -z "$_nat" ]] && continue
+      gcloud compute routers nats describe "$_nat" --project="$PROJECT_ID" \
+        --router="$_rname" --router-region="$_rregion" --format=json 2>/dev/null \
+        | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("    NAT (unreadable)"); raise SystemExit
+scope = d.get("sourceSubnetworkIpRangesToNat", "?")
+mode = d.get("natIpAllocateOption", "?")
+ips = d.get("natIps") or []
+ok = "ok" if scope == "ALL_SUBNETWORKS_ALL_IP_RANGES" else "PARTIAL COVERAGE"
+print("    NAT %s: scope=%s [%s] ip_mode=%s assigned=%d"
+      % (d.get("name", "?"), scope, ok, mode, len(ips)))
+if mode != "AUTO_ONLY" and not ips:
+    print("      WARNING: MANUAL_ONLY with no address assigned — translates nothing")
+'
+    done <<<"$NATS"
+  done <<<"$ROUTERS"
 fi
 
 # ── 5. Token preconditions ──────────────────────────────────────────────────

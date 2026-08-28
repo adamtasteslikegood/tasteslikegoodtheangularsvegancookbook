@@ -1,4 +1,11 @@
-# Cloud Build pipeline for building and deploying to Cloud Run.
+# Cloud Build pipeline for building and deploying to Cloud Run — PRODUCTION ONLY.
+#
+# KAN-249: every environment value below is hardcoded prod (project id, GCS
+# bucket, canonical URL, Valkey VPC IP, Cloud SQL instance, service names), so
+# `gcloud builds submit --config=cloudbuild.yaml` deploys PRODUCTION from any
+# directory. The folder you stand in does not decide the target; this file does.
+# For staging use cloudbuild.staging.yaml.
+#
 #
 # Substitutions:
 #   _REGION          — GCP region (default: us-central1)
@@ -130,7 +137,7 @@ steps:
       - --memory=1Gi
       - --parallelism=1
       - --tasks=1
-      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       # VALKEY_CA_CERT: without it the app factory's Valkey client fails TLS
       # verification (CERTIFICATE_VERIFY_FAILED) on every Job run and falls
       # back to SimpleCache — harmless for a migration, but it spams error
@@ -167,9 +174,10 @@ steps:
   # it; a Cloud Scheduler trigger (created once, out of band) runs it daily.
   # It detects recipes with no image bytes (canonical first, then published)
   # and enqueues regeneration through the same Pub/Sub path as the SPA's
-  # regenerate button; the flask-backend worker does the Imagen work, so the
-  # Job needs no Gemini credentials. Env/secrets mirror the migrate Job
-  # (same create_app boot) plus IMAGE_REPAIR_LIMIT.
+  # regenerate button; the flask-backend worker does the Gemini image
+  # generation (GEMINI_IMAGE_MODEL, currently gemini-3-pro-image), so the
+  # Job itself needs no Gemini credentials. Env/secrets mirror the migrate
+  # Job (same create_app boot) plus IMAGE_REPAIR_LIMIT.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Image Repair Job'
     waitFor: ['Push Flask Backend Image']
@@ -189,7 +197,7 @@ steps:
       - --memory=1Gi
       - --parallelism=1
       - --tasks=1
-      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,IMAGE_REPAIR_LIMIT=10,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,IMAGE_REPAIR_LIMIT=10,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
       - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
       - --network=default
@@ -227,7 +235,7 @@ steps:
       # of the SA Pub/Sub uses to OIDC-sign push requests; created by
       # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
       # fails closed with 503.
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       # VALKEY_CA_CERT: Memorystore's Google-managed CA, trusted by the Flask
       # IAM Valkey client (Backend/utils/valkey_auth.py) so the response cache
       # (Flask-Caching) uses shared Valkey instead of silently degrading to a
@@ -260,6 +268,28 @@ steps:
       - --network=default
       - --subnet=default
       - --vpc-egress=private-ranges-only
+      # KAN-176 guard 2 of 2 — the NETWORK guard, cut over 2026-08-28.
+      #
+      # --invoker-iam-check above is guard 1: it makes Cloud Run ADMIT the
+      # request and then have IAM refuse it (403). This line stops the request
+      # being admitted at all (404). Off-network callers cannot tell the service
+      # exists, and the credential-scanning traffic that was reaching the
+      # application no longer arrives — 299 requests to /api/.env* in the seven
+      # days before the cutover, ~43/day, counted rather than estimated.
+      #
+      # This is a RESTORATION: the service was created ingress=internal and was
+      # opened to `all` on 2026-03-09T10:20:31Z.
+      #
+      # Requires express-frontend on --vpc-egress=all-traffic (pinned below).
+      # Reverting only that line takes the whole site down, because Express's
+      # calls would then arrive as EXTERNAL and be refused. The two pins are one
+      # change; move them together or not at all.
+      #
+      # Safe for Pub/Sub push: Cloud Run classifies same-project push
+      # subscriptions on the default run.app URL as internal, and both
+      # subscriptions use that form. Verified live after the cutover —
+      # POST 200 /api/worker/recipe, DLQ did not grow.
+      - --ingress=internal
 
   # 5. Deploy Express Frontend — waits on Flask deploy (KAN-30)
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -280,6 +310,28 @@ steps:
       - --labels=service=express-frontend,dd_sls_mcp_tool=true
       - --allow-unauthenticated
       - --quiet
+      # KAN-176 — the half of the cutover that makes Flask's internal ingress
+      # survivable. all-traffic sends every outbound packet through the VPC, so
+      # the call to flask-backend arrives INTERNAL via Private Google Access
+      # (PGA is enabled on default/us-central1) instead of from the internet.
+      #
+      # These were console state until 2026-08-28: absent from this file, so a
+      # deploy preserved them only by not mentioning them. That is not a pin,
+      # it is an accident that kept working.
+      #
+      # all-traffic also severs public egress unless a Cloud NAT exists on this
+      # network — Cloud NAT never carries Google-API traffic, so it is not what
+      # reaches Flask; it is what keeps the Datadog intake alive. Router
+      # tlg-nat-router + gateway tlg-nat (us-central1, ALL_SUBNETWORKS_ALL_IP_RANGES,
+      # auto-allocated IPs) serve that. DELETING THE NAT SILENTLY BLACKHOLES
+      # every non-Google destination while the site stays green.
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=all-traffic
+      # Express is reached through the external ALB, never on its run.app URL —
+      # which is why 'Verify Valkey Health' below probes the canonical host.
+      # Asserted here so that stays true by configuration rather than by memory.
+      - --ingress=internal-and-cloud-load-balancing
 
   # ── Post-deploy Valkey healthcheck (KAN-160) ──────────────────────────────
   # Fail-fast: verify Express is using Valkey for rate limiting, not the

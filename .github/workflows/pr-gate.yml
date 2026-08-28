@@ -167,6 +167,17 @@ jobs:
       - uses: actions/checkout@v7
       - run: docker build -f Dockerfile .
 
+  # ── Cloud Build config ────────────────────────────────────────────────────
+  # YAML parsing alone does not validate shell embedded in block scalars.
+
+  cloudbuild-config:
+    name: Cloud Build — config syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate YAML and embedded bash
+        run: ruby scripts/gcloud/validate_cloudbuild_shell.rb cloudbuild.yaml cloudbuild.staging.yaml
+
   # ── Changelog ─────────────────────────────────────────────────────────────
 
   changelog-check:
@@ -317,6 +328,7 @@ jobs:
       - alembic-heads
       - submodule-sync
       - docker-build
+      - cloudbuild-config
       - changelog-check
       - canonical-recipes
       - posture-check-self-test
