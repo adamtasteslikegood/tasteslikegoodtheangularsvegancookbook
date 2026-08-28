@@ -7,8 +7,8 @@ Three-tier architecture: **Angular 22 SPA → Express reverse-proxy → Flask AP
 
 Users can:
 
-- Generate vegan recipes from a natural-language prompt (Gemini — default model `gemini-3.1-pro-preview`, chosen server-side in Flask)
-- Have AI-generated food photos created for each recipe (Imagen `imagen-4.0-generate-001`)
+- Generate vegan recipes from a natural-language prompt (Gemini — production model `gemini-3.7-flash`, chosen server-side in Flask)
+- Have AI-generated food photos created for each recipe (Gemini `gemini-3-pro-image` in production)
 - Save recipes, organize them into named cookbooks, and scale ingredient portions
 - Enter recipes manually and import/export recipes as JSON
 - Publish recipes to the public SSR site (`is_public` + title-derived `slug`, served at `/r/<slug>` — see "Public Recipe Site" below)
@@ -71,7 +71,7 @@ Backend/                     # Flask backend (Python) — GIT SUBMODULE, pinned 
                              # auth) + public_bp.py SSR pages (/r/<slug>, /browse, sitemap)
   models/                    # SQLAlchemy models (Recipe carries is_public + slug)
   repositories/              # Data access layer
-  services/                  # Business logic (Gemini, Imagen, stock images)
+  services/                  # Business logic (Gemini text + image, stock images)
   templates/, static/        # Jinja templates + CSS for the public SSR pages
   migrations/                # Alembic/Flask-Migrate schema migrations
   Dockerfile                 # Flask production container
@@ -85,23 +85,23 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 
 ## Tech Stack
 
-| Layer              | Technology                                                                     | Version  |
-| ------------------ | ------------------------------------------------------------------------------ | -------- |
-| Frontend framework | Angular (standalone components, signals API)                                   | 22       |
-| Language           | TypeScript — pinned EXACTLY (no `^`); moves in lockstep with Angular majors    | 6.0.3    |
-| Styling            | Tailwind CSS                                                                   | 3        |
-| Frontend build     | Angular CLI (`@angular/build` application builder, esbuild/Vite-based)         | 22       |
-| Reverse proxy      | Node.js + Express                                                              | 26 / 5.x |
-| Backend API        | Python + Flask                                                                 | 3.x      |
-| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate                          | —        |
-| AI — text          | Google Gemini in Flask (`google-genai` SDK) — default `gemini-3.1-pro-preview` | —        |
-| AI — images        | Google Imagen in Flask — `imagen-4.0-generate-001`                             | —        |
-| Auth               | Google OAuth (Flask sessions) + localStorage guests                            | —        |
-| Deployment         | Google Cloud Run (2 services + 1 migrate Job) + Cloud Build                    | —        |
-| Linting            | ESLint (flat config) + Prettier                                                | 10 / 3   |
-| Testing            | Vitest (server + src unit tests)                                               | 4        |
+| Layer              | Technology                                                                  | Version  |
+| ------------------ | --------------------------------------------------------------------------- | -------- |
+| Frontend framework | Angular (standalone components, signals API)                                | 22       |
+| Language           | TypeScript — pinned EXACTLY (no `^`); moves in lockstep with Angular majors | 6.0.3    |
+| Styling            | Tailwind CSS                                                                | 3        |
+| Frontend build     | Angular CLI (`@angular/build` application builder, esbuild/Vite-based)      | 22       |
+| Reverse proxy      | Node.js + Express                                                           | 26 / 5.x |
+| Backend API        | Python + Flask                                                              | 3.x      |
+| Database           | Cloud SQL (PostgreSQL) via SQLAlchemy + Flask-Migrate                       | —        |
+| AI — text          | Google Gemini in Flask (`google-genai` SDK) — production `gemini-3.7-flash` | —        |
+| AI — images        | Google Gemini in Flask — production `gemini-3-pro-image`                    | —        |
+| Auth               | Google OAuth (Flask sessions) + localStorage guests                         | —        |
+| Deployment         | Google Cloud Run (2 services + 1 migrate Job) + Cloud Build                 | —        |
+| Linting            | ESLint (flat config) + Prettier                                             | 10 / 3   |
+| Testing            | Vitest (server + src unit tests)                                            | 4        |
 
-All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side: `DEFAULT_MODEL` in `Backend/config.py` and the generation paths use bare IDs (`gemini-3.1-pro-preview`), while entries from `GET /api/models` carry the `models/` prefix (e.g. `models/gemini-3.1-pro-preview`) — both forms are in active use.
+All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side and settled: **`gemini-3.7-flash` for text, `gemini-3-pro-image` (Nano Banana Pro) for images**. Both are GA, verified present on the live API surface, and live-tested. Production gets them from the `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` pins in `cloudbuild.yaml`. **Do not remove those pins** unless you have confirmed that the currently-pinned `Backend/config.py` already defaults to the same pair — Backend PR #298 moves both defaults there; until that lands and the submodule pointer is bumped, an unset env var still falls back to the older pair. Do not reintroduce `gemini-3.1-pro-preview` as a default — it is a _preview_ model, which is the retirement exposure that took production down when Imagen 4.0 was withdrawn. Generation paths use bare IDs, while entries from `GET /api/models` carry the `models/` prefix — both forms are in active use.
 
 ---
 
@@ -243,7 +243,7 @@ Since v0.2, recipes can be published to a public server-rendered site (SEO-focus
 ### Flask Backend (API + AI + Auth + DB)
 
 - Google OAuth via Flask sessions (server-side, not JWT).
-- Gemini recipe generation and Imagen image generation via the `google-genai` Python SDK. Default text model: `DEFAULT_MODEL = "gemini-3.1-pro-preview"` in `Backend/config.py`; images use `imagen-4.0-generate-001` (`Backend/services/image_service.py`).
+- Gemini recipe and image generation via the `google-genai` Python SDK. `gemini-3.7-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) are pinned via `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` in `cloudbuild.yaml`. The goal is for the `Backend/config.py` defaults to name the same pair so an unset env var cannot silently yield an older model; Backend PR #298 does that. Until it lands and the pointer is bumped, the `cloudbuild.yaml` pins are the only thing holding production on the settled models.
 - `/api/generate` and `/api/generate_image` live in `blueprints/generation_api_bp.py` (`generation_bp.py` is legacy HTML-form helpers, not the JSON API).
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
 - Modular architecture: blueprints, repositories, services, models. `Backend/CLAUDE.md` is the authoritative Backend reference.
