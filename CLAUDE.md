@@ -41,7 +41,17 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 
 `dev` and `main` are protected: **direct pushes are rejected**. All changes reach them via PR only. If you try `git push` to `dev` you will get `push declined due to repository rule violations`. This is not a bug — create a branch, push it, and open a PR.
 
-Required status checks before merge: `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`.
+**Merge method (cookbook):** `dev` and `main` both allow **`merge` or `rebase` only — squash is blocked**. Use `gh pr merge <n> --merge`. Backend `dev` still allows squash; Backend `main` does not. `required_linear_history` is **not** set on any branch in either repo — if a doc tells you otherwise it is stale, and squashing to satisfy it destroys the ancestry that history reconciliation depends on.
+
+**Unresolved review threads block the merge** (`required_review_thread_resolution`). Answer and resolve every thread, or the PR sits at `BLOCKED` with all checks green.
+
+Required status checks are the **union of legacy branch protection and the rulesets** — both are enforced:
+
+- branch protection (`dev` + `main`): `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`
+- ruleset `protect-main` (`main`): `Gate — all checks passed`, `Frontend — lint + format`, `Frontend / main repo checks`, `GitGuardian Security Checks`, `SEO — canonical recipes`
+- ruleset `rule222` (`dev`): the above plus `CodeQL`, `Dependency Review`, `Independent Claude review`
+
+Read the live state rather than trusting this list: `gh api repos/{owner}/{repo}/rulesets`.
 
 ### Run checks locally before pushing
 
@@ -148,7 +158,7 @@ In production all secrets come from Google Secret Manager, injected at Cloud Run
 
 ## Branching strategy
 
-Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18: required checks `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`.
+Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18; for the current required checks and merge methods see **Branch protection — what it means for you** above (rulesets were last changed 2026-08-25 — read them live, do not trust a copied list).
 
 To ship a Backend change:
 

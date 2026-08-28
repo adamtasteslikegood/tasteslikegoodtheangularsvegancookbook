@@ -97,13 +97,29 @@ export class SsrEntryService {
       }
       const recipeData = await response.json();
       const recipe: Recipe = buildSavedRecipeFromPublic(recipeData);
-      const synced = await this.persistence.saveRecipe(recipe);
-      this.toast.show(
-        synced
-          ? 'Saved to your cookbook.'
-          : "Saved on this device — we'll sync it when you're back online.",
-        recipe
-      );
+      const outcome = await this.persistence.saveRecipeDetailed(recipe);
+
+      if (outcome.alreadySaved) {
+        // KAN-241: the server already has this recipe — the ghost was cleaned
+        // up by saveRecipeDetailed. Re-read auth state to find the existing
+        // copy (it carries the server-assigned ID, not the fresh UUID).
+        const existing =
+          (this.auth.currentUser()?.savedRecipes ?? []).find(
+            (r: Recipe) => r.sourceSlug === normalizedSlug
+          ) ??
+          (this.auth.currentUser()?.savedRecipes ?? []).find(
+            (r: Recipe) => r.slug === normalizedSlug
+          );
+        // Pass null when the existing copy isn't in local state yet (KAN-241):
+        // the ghost was just removed, so `recipe` points at a dead object whose
+        // View button would navigate to a recipe no longer in savedRecipes.
+        // The real copy surfaces on the next hydrate/sync cycle.
+        this.toast.show('Good news — you already have this recipe.', existing ?? null);
+      } else if (outcome.ok) {
+        this.toast.show('Saved to your cookbook.', recipe);
+      } else {
+        this.toast.show("Saved on this device — we'll sync it when you're back online.", recipe);
+      }
     } catch (err) {
       console.error('Failed to save recipe from SSR CTA:', err);
       if (err instanceof DOMException && err.name === 'AbortError') {

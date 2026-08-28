@@ -178,16 +178,47 @@ never redeployed anything.
 ```
 
 Must be a **merge commit**. Squashing rewrites the commits, ancestry never
-converges, and the drift count never returns to zero. `dev` carries
-`required_linear_history` in both repos, so this only lands for an actor with
-ruleset bypass — a repo admin merging a PR. That is why this step is local and not
-in CI.
+converges, and the drift count never returns to zero. This step is local and not
+in CI because it needs credentials for both repos (Actions' `GITHUB_TOKEN` is
+scoped to one).
+
+> **Correction (2026-08-25).** This paragraph used to say `dev` carries
+> `required_linear_history` in both repos. That was never true — no ruleset in
+> either repo sets it. The cookbook's `dev` now allows only `merge` and `rebase`
+> (squash blocked), so a merge commit is the normal path, not a bypass.
 
 ### 9. Verify against production — by content
 
 ```bash
 ./scripts/release/train-run.sh --verify-only     # or the manual form below
 ```
+
+`--verify-only` runs a **staging health gate first**: it checks that the staging
+Cloud Run pair returns 200 and that `/api/health` reports `environment=staging`
+(guarding against `STAGING_URL` accidentally pointing at production). The default
+URL is hardcoded to the known staging service; override with `STAGING_URL` if the
+service is redeployed to a new URL.
+
+> **PRECONDITION — promote to staging before you read staging as evidence.**
+> The gate proves staging is **up**. It does not prove staging is **current**.
+> Those were nearly the same claim while `staging-deploy.yml` fired on every
+> push to `dev`; since 2026-08-26 it does not, so deploying to staging is an
+> explicit act and staging can be arbitrarily stale while both HTTP checks
+> still pass. A release verified against two-week-old staging exercised
+> nothing this release changed.
+>
+> Before step 9, promote the release ref and wait for it to go green:
+>
+> ```bash
+> git tag staging-vX.Y.Z && git push origin staging-vX.Y.Z   # or:
+> gh workflow run staging-deploy.yml --ref dev
+> gh run watch "$(gh run list --workflow=staging-deploy.yml --limit 1 \
+>   --json databaseId --jq '.[0].databaseId')"
+> ```
+>
+> Then apply the same by-content check below to the staging URL, not just to
+> production — a marker string absent from staging means staging is not
+> running this build, whatever `/api/health` says.
 
 > **TRAP — verify the code, not the bundle name, and not `main-*.js` alone.**
 > On v0.4.8 the deploy was live while a poller grepping only `main-*.js` reported
