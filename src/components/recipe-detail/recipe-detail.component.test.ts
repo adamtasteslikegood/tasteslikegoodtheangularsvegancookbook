@@ -125,6 +125,24 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     expect(routerNavigate).not.toHaveBeenCalled();
   });
 
+  it('treats a literal null 200 body as a retryable load-error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => null,
+      })
+    );
+
+    const { component } = createComponent();
+    emitId('null-row-id');
+    await vi.waitFor(() => expect(component.loadState()).toBe('load-error'));
+
+    expect(component.isLoadError()).toBe(true);
+    expect(routerNavigate).not.toHaveBeenCalled();
+  });
+
   it('keeps the route on a network failure so a tab-resume blip is recoverable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
