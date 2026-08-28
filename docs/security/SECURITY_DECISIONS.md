@@ -92,6 +92,50 @@ the export is load-bearing.
 
 ---
 
+## D-3 — Cloud NAT is funded so `flask-backend` can run on two guards
+
+**Status:** Approved, not yet executed · **Recorded:** 2026-08-27 · **Ticket:** KAN-176
+
+`flask-backend` runs on a single guard: invoker IAM enforcement (Path A, shipped
+v0.4.7). Its ingress is `all`, so an anonymous request still reaches Cloud Run
+and is turned away by IAM rather than refused by the network. That is one
+annotation away from KAN-170 again — `invoker-iam-disabled=true` silently voids
+`--no-allow-unauthenticated`, which is exactly how the original exposure worked.
+
+Path B closes it by restricting Flask's ingress. It was blocked on cost, not on
+design: closing Flask's ingress requires Express to reach it over the VPC, which
+requires `--vpc-egress=all-traffic`, which severs Express's public egress unless
+a Cloud NAT exists. No Cloud Router existed (verified 2026-08-27), so Path B
+meant standing up billable, always-on infrastructure.
+
+**The decision: that cost is approved.** Roughly $3.60/month for one NAT external
+IPv4 address, plus gateway hourly usage, $0.045/GiB processed, and normal
+outbound transfer — on the order of $5–10/month at this volume. That figure is an
+estimate to be **measured over the first seven days**, not assumed; it rises with
+NAT assignments, instance scaling and traffic.
+
+Two constraints ride with the approval:
+
+- **The networking cutover stays isolated from application deploys.** It does not
+  ship alongside a version rollout. A combined change is one opaque event with
+  two independent failure modes, and the NAT half is the one that fails quietly.
+- **Flask's target ingress is `internal`, not `internal-and-cloud-load-balancing`.**
+  Flask was created `internal` and was opened to `all` on 2026-03-09; `internal`
+  is both the restoration and the least-privilege setting. The load-balancer
+  variant is a deliberate opt-in for a service behind an external LB, which Flask
+  is not — Express is the single entry point and reaches it over the VPC.
+
+**What would change this decision:** measured NAT cost materially above the
+estimate, or Flask genuinely being placed behind an external load balancer.
+
+Until the cutover completes, the daily posture check requires **one** guard
+(`REQUIRED_FLASK_GUARDS=1`). Demanding two before Path B lands would make the job
+permanently red, and a permanently-red check is an ignored one. Flipping it to
+`2` is the final step of the cutover, and is what makes the two-guard posture the
+declared steady state rather than a hope.
+
+---
+
 ## Related
 
 - `docs/security/KAN-170_PUBLIC_EGRESS_REMEDIATION.md` — the remediation runbook

@@ -65,6 +65,9 @@ PUBLIC_URL="${PUBLIC_URL:-https://www.tasteslikegood.org}"
 
 ROUTER_NAME="${ROUTER_NAME:-tlg-nat-router}"
 NAT_NAME="${NAT_NAME:-tlg-nat}"
+# Matches scripts/gcloud/setup_pubsub.sh — the async generation path's dead
+# letter queue, which is how an ingress change silently breaks Pub/Sub push.
+DLQ_SUB="${DLQ_SUB:-generation-dlq-sub}"
 
 # The ingress target is a DELIBERATE choice, not a default to inherit.
 #
@@ -202,10 +205,23 @@ case "$COMMAND" in
     # ranges — satisfies `routers describe` while still leaving Express with no
     # path to any public destination the moment egress flips to all-traffic.
     # That is the whole failure this step is ordered to avoid, so check it.
-    if ! gcloud compute routers describe "$ROUTER_NAME" --project="$PROJECT_ID" --region="$REGION" >/dev/null 2>&1; then
-      echo "ERROR: no Cloud Router '$ROUTER_NAME'. Run '$0 nat --apply' first, or Express loses all public egress." >&2
+    ROUTER_JSON="$(gcloud compute routers describe "$ROUTER_NAME" --project="$PROJECT_ID" \
+      --region="$REGION" --format=json 2>/dev/null || true)"
+    if [[ -z "$ROUTER_JSON" ]]; then
+      echo "ERROR: no Cloud Router '$ROUTER_NAME' in region '$REGION'. Run '$0 nat --apply' first, or Express loses all public egress." >&2
       exit 1
     fi
+    # Region and network must match too. A Router of the right NAME in the wrong
+    # region, or attached to a different VPC, translates nothing for this
+    # connector — and `describe --region` already scopes the region, so the
+    # network is the one that can still silently mismatch.
+    ROUTER_NET="$(printf '%s' "$ROUTER_JSON" | python3 -c 'import json,sys; print((json.load(sys.stdin).get("network") or "").rsplit("/",1)[-1])')"
+    if [[ "$ROUTER_NET" != "$NETWORK" ]]; then
+      echo "ERROR: router '$ROUTER_NAME' is on network '$ROUTER_NET', not '$NETWORK'." >&2
+      echo "       A NAT on the wrong VPC translates nothing for this connector." >&2
+      exit 1
+    fi
+    log "router '$ROUTER_NAME' verified: region=$REGION network=$ROUTER_NET"
     NAT_JSON="$(gcloud compute routers nats describe "$NAT_NAME" --project="$PROJECT_ID" \
       --router="$ROUTER_NAME" --router-region="$REGION" --format=json 2>/dev/null || true)"
     if [[ -z "$NAT_JSON" ]]; then
@@ -263,14 +279,90 @@ case "$COMMAND" in
       --project="$PROJECT_ID" --region="$REGION" \
       --ingress="$FLASK_INGRESS" --quiet
     check_site || { warn "Roll back with: $0 rollback-ingress --apply"; exit 1; }
-    log "Run ./scripts/gcloud/kan170_verify.sh — anonymous GET / on Flask should now fail."
     log ""
-    log "STEP 6 — make this the DECLARED steady state, and only now:"
-    log "  cloudbuild.yaml does not currently reassert Express's all-traffic egress or"
-    log "  Flask's restricted ingress, so both are console state that the next deploy can"
-    log "  silently revert. Add them to the deploy steps AFTER this cutover is verified."
-    log "  Adding them BEFORE the NAT exists is actively dangerous: the next deploy would"
-    log "  move Express to all-traffic with nothing to translate its egress."
+    log "NEXT — run './scripts/gcloud/kan170_path_b.sh postcheck' before declaring anything."
+    log "  It checks that off-network Flask is NETWORK-refused (404/000, NOT 403 — a 403"
+    log "  means the request was admitted and only IAM stopped it), that Express->Flask"
+    log "  still works, that NAT is still translating, and it walks you through one"
+    log "  controlled generation with a DLQ check. Pub/Sub push arrives from Google's"
+    log "  infrastructure rather than from Express, so async generation can dead-letter"
+    log "  while the site looks perfectly healthy."
+    log ""
+    log "STEP 6 — make this the DECLARED steady state, and only after postcheck passes:"
+    log "  a) Set REQUIRED_FLASK_GUARDS=2 in .github/workflows/security-posture-check.yml."
+    log "     Until then the daily check requires one guard; flipping it early makes the"
+    log "     job permanently red, and a permanently-red check is an ignored one."
+    log "  b) Pin the ingress/egress values in cloudbuild.yaml, which reasserts NEITHER"
+    log "     today — so both are console state the next deploy can silently revert."
+    log "     Pinning them BEFORE the NAT exists is actively dangerous: the next deploy"
+    log "     would move Express to all-traffic with nothing to translate its egress."
+    log "  c) Record 24-hour health and the first seven days of NAT cost. The ~5-10/mo"
+    log "     estimate is to be MEASURED, not assumed — cost rises with NAT assignments,"
+    log "     instance scaling and traffic."
+    ;;
+
+  postcheck)
+    # The tail of the cutover checklist. These run AFTER the ingress
+    # restriction, and each one proves a different thing — none substitutes for
+    # another. Read-only: this command changes nothing.
+    PC_FAIL=0
+
+    # 1. Off-network Flask access must be NETWORK-refused, not auth-refused.
+    #    This is the distinction the whole exercise turns on. A 403 means the
+    #    request REACHED Cloud Run and IAM turned it away — one guard. Ingress
+    #    refusal happens before that, so a closed service returns 404 (Cloud Run
+    #    does not admit that the service exists) or the connection fails.
+    #    Reading a 403 as success here would declare Path B done while the
+    #    network guard was never actually applied.
+    FLASK_URL="$(gcloud run services describe "$FLASK_SERVICE" --project="$PROJECT_ID" \
+      --region="$REGION" --format='value(status.url)' 2>/dev/null || true)"
+    if [[ -z "$FLASK_URL" ]]; then
+      warn "could not resolve $FLASK_SERVICE URL — off-network check SKIPPED (not a pass)"
+      PC_FAIL=1
+    else
+      FCODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$FLASK_URL/" || echo 000)"
+      case "$FCODE" in
+        404|000)
+          log "off-network GET $FLASK_URL/ → $FCODE — NETWORK-refused (ingress guard active)" ;;
+        403)
+          warn "off-network GET → 403. That is IAM refusing an ADMITTED request — the ingress"
+          warn "guard is NOT in effect. Path B is not complete; do not tighten the posture check."
+          PC_FAIL=1 ;;
+        *)
+          warn "off-network GET → $FCODE — unexpected; Flask may still be internet-reachable."
+          PC_FAIL=1 ;;
+      esac
+    fi
+
+    # 2. Express→Flask must still work through the proxy.
+    check_site || PC_FAIL=1
+
+    # 3. Non-Google egress must still be translating.
+    check_nat_egress || PC_FAIL=1
+
+    # 4. One controlled generation, and the DLQ must not grow. Ingress changes
+    #    break the Pub/Sub PUSH path independently of the browser path: pushes
+    #    arrive from Google's infrastructure, not from Express, so the site can
+    #    look perfectly healthy while every async generation dead-letters.
+    DLQ_BEFORE="$(gcloud pubsub subscriptions describe "$DLQ_SUB" --project="$PROJECT_ID" \
+      --format='value(name)' 2>/dev/null || true)"
+    if [[ -z "$DLQ_BEFORE" ]]; then
+      warn "DLQ subscription '$DLQ_SUB' not found — generation check SKIPPED (not a pass)"
+      PC_FAIL=1
+    else
+      log "MANUAL STEP — run ONE generation through the app now, then confirm the DLQ did not grow:"
+      log "  gcloud pubsub subscriptions pull $DLQ_SUB --project=$PROJECT_ID --limit=10 --format='value(message.publishTime)'"
+      log "  (pull without --auto-ack; any NEW message with a publishTime after the cutover is a failure)"
+      log "Also watch: gcloud run services logs read $FLASK_SERVICE --region=$REGION --limit=50"
+      log "A push that is ingress-refused shows as a 404 in the subscription's delivery attempts."
+    fi
+
+    if [[ "$PC_FAIL" -ne 0 ]]; then
+      warn "POSTCHECK FAILED — do NOT tighten the posture check, and consider rolling back:"
+      warn "  $0 rollback-ingress --apply   (then rollback-egress if needed)"
+      exit 1
+    fi
+    log "Automated postchecks passed. Complete the manual generation check above before step 6."
     ;;
 
   rollback-egress)
@@ -287,7 +379,7 @@ case "$COMMAND" in
     ;;
 
   *)
-    echo "Usage: $0 {nat|egress|ingress|rollback-egress|rollback-ingress} [--apply]" >&2
+    echo "Usage: $0 {nat|egress|ingress|postcheck|rollback-egress|rollback-ingress} [--apply]" >&2
     exit 1
     ;;
 esac
