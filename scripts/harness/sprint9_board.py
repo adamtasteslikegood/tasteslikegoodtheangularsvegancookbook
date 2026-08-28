@@ -180,29 +180,40 @@ def _parse_ts(value):
         return None
 
 
+AUTO_TRANSITION_REPO = (
+    "adamtasteslikegood/tasteslikegoodtheangularsvegancookbook"
+)
+
+
 def github_merge_times(key, timeout=30):
-    """When PRs whose TITLE carries this key were merged.
+    """When matching PRs in the workflow-owning repository were merged.
 
-    The jira-auto-transition workflow scrapes the PR **title**, so title-matched
-    merged PRs are exactly the population that can have fired it. Returns [] on
-    any failure — a missing correlation must never silently reclassify a human
-    transition as automated.
+    jira-auto-transition.yml exists only in AUTO_TRANSITION_REPO.
+    A title-matched merge in another repository cannot fire this workflow and
+    must not be used to reclassify a human Jira transition as automated.
+    Returns [] on failure — a missing correlation must never silently
+    reclassify a human transition as automated.
     """
-    out = []
-    for repo_args in ([], ["-R", "adamtasteslikegood/tasteslikegood.com"]):
-        cmd = ["gh", "pr", "list", "--search", "%s in:title" % key, "--state", "merged",
-               "--json", "mergedAt", "--limit", "20"] + repo_args
-        try:
-            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
-            if r.returncode == 0 and r.stdout.strip():
-                for pr in json.loads(r.stdout):
-                    ts = _parse_ts(pr.get("mergedAt"))
-                    if ts:
-                        out.append(ts)
-        except (subprocess.SubprocessError, ValueError, OSError):
-            continue
-    return out
-
+    cmd = [
+        "gh", "pr", "list",
+        "-R", AUTO_TRANSITION_REPO,
+        "--search", "%s in:title" % key,
+        "--state", "merged",
+        "--json", "mergedAt",
+        "--limit", "20",
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0 or not r.stdout.strip():
+            return []
+        out = []
+        for pr in json.loads(r.stdout):
+            ts = _parse_ts(pr.get("mergedAt"))
+            if ts:
+                out.append(ts)
+        return out
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return []
 
 # The auto-transition workflow runs within seconds of the merge; a minute of
 # slack covers a slow runner without reaching far enough to swallow a human who
