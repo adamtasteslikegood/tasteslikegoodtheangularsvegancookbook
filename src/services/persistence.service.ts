@@ -212,6 +212,50 @@ export class PersistenceService {
     return outcome;
   }
 
+  /**
+   * KAN-255 — re-read ONE recipe's authoritative row and merge it into local state.
+   *
+   * The image pipeline finishes server-side. The Pub/Sub worker writes
+   * `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+   * `ai_metadata.image_request.status` / `ai_metadata.image_enqueue.status` from
+   * `pending` to `complete` (Backend `worker_api_bp._image_generation_metadata`).
+   * The client only ever wrote `ai_image_url` back, so navigating away during
+   * image generation and returning left the in-memory copy AND localStorage
+   * still claiming the image was pending — visible the moment a single recipe
+   * was exported as JSON.
+   *
+   * Contract, deliberately narrow:
+   *  - Never rejects. This runs as a background reconcile after an image
+   *    settles; a failed reconcile must not take the caller down. Resolves to
+   *    the merged recipe, or `null` when the row could not be read.
+   *  - Local write only. The row came FROM the server, so POSTing it back is a
+   *    pointless round trip that can also lose a race with the worker.
+   *  - Never ADDS a row. A cold deep-linked recipe (recipe-detail, saved=false)
+   *    is not in the user's cookbook, and a background image reconcile must not
+   *    be the thing that saves it for them.
+   *  - The server row wins wholesale, the same authority `loadFromApi` already
+   *    exercises via `auth.hydrate` — Cloud SQL is authoritative.
+   */
+  async refreshRecipeFromApi(recipeId: string): Promise<Recipe | null> {
+    if (!this.auth.currentUser()) return null;
+    try {
+      const res = await this._fetch(`/api/recipes/${encodeURIComponent(recipeId)}`);
+      if (!res.ok) return null;
+      // Column-over-blob merge (KAN-139) — same contract as loadFromApi and
+      // recipe-detail's cold deep-link fetch. See utils/recipe-row.ts.
+      const fresh = recipeFromRow(await res.json());
+      if (!fresh?.id) return null;
+      const current = this.auth.currentUser();
+      if (current?.savedRecipes.some((r) => r.id === fresh.id)) {
+        this.auth.saveRecipe(fresh);
+      }
+      return fresh;
+    } catch (err) {
+      console.warn('[PersistenceService] refreshRecipeFromApi failed:', err);
+      return null;
+    }
+  }
+
   async deleteRecipe(recipeId: string): Promise<void> {
     const user = this.auth.currentUser();
     if (!user) return;

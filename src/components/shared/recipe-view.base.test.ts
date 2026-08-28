@@ -33,6 +33,8 @@ describe('RecipeViewBase', () => {
       isGuest?: boolean;
       publishStateSync?: string;
       generateImage?: (id: string, force: boolean) => Promise<string>;
+      refreshRecipeFromApi?: (id: string) => Promise<unknown>;
+      savedRecipes?: unknown[];
     } = {}
   ) => {
     const recipeState = runInInjectionContext(
@@ -44,7 +46,13 @@ describe('RecipeViewBase', () => {
     // both — it is the SaveOutcome the detailed caller reads, and truthy for the
     // boolean one.
     const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
-    const authUser = { isGuest: opts.isGuest ?? false, savedRecipes: [] as unknown[] };
+    // KAN-255: the post-image reconcile. Default null = "the row could not be
+    // read", the branch that must leave the optimistic local write standing.
+    const refreshRecipeFromApi = vi.fn(opts.refreshRecipeFromApi ?? (async () => null));
+    const authUser = {
+      isGuest: opts.isGuest ?? false,
+      savedRecipes: (opts.savedRecipes ?? []) as unknown[],
+    };
 
     const injector = Injector.create({
       providers: [
@@ -61,6 +69,7 @@ describe('RecipeViewBase', () => {
           useValue: {
             saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
+            refreshRecipeFromApi,
             publishStateSync: () => opts.publishStateSync ?? 'synced',
           },
         },
@@ -82,7 +91,7 @@ describe('RecipeViewBase', () => {
 
     const host = runInInjectionContext(injector, () => new Host());
     const authService = injector.get(AuthService);
-    return { host, persistenceSaveRecipe, recipeState, authService };
+    return { host, persistenceSaveRecipe, refreshRecipeFromApi, recipeState, authService };
   };
 
   it('calls the onPublishDenied hook instead of saving when the user cannot publish', async () => {
@@ -307,6 +316,137 @@ describe('RecipeViewBase', () => {
       const payload = persistenceSaveRecipe.mock.calls.at(-1)?.[0] as { ai_image_url?: string };
       expect(payload.ai_image_url).toBe(CANONICAL);
       expect(payload.ai_image_url).not.toContain('_t=');
+    });
+  });
+
+  // KAN-255: the image pipeline finishes SERVER-side. The worker writes
+  // `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+  // `ai_metadata.image_request.status` / `image_enqueue.status` from `pending`
+  // to `complete`. The client wrote back only `ai_image_url`, so the copy it
+  // held — and exported as JSON — still read `pending` with no GCS URI.
+  describe('server image metadata reconcile (KAN-255)', () => {
+    const CANONICAL = '/api/recipes/r1/image';
+    // The row the worker leaves behind, as GET /api/recipes/:id returns it.
+    const SERVER_ROW = {
+      id: 'r1',
+      data: {
+        id: 'r1',
+        name: 'Vegan Cornbread',
+        origin: 'generated',
+        ai_image_url: CANONICAL,
+        ai_image_gcs: 'gs://tasteslikegood-recipe-images/r1/claim-abc.png',
+        ai_metadata: {
+          image_generation: { success: true, user_display_name: 'Background Worker' },
+          image_enqueue: { status: 'complete' },
+          image_request: { id: 'req-1', status: 'complete', force_regenerate: false },
+        },
+      },
+      is_canonical: false,
+      is_public: false,
+      slug: null,
+      source_slug: null,
+      origin: 'generated',
+    };
+
+    const pendingRecipe = () =>
+      ({
+        id: 'r1',
+        name: 'Vegan Cornbread',
+        origin: 'generated',
+        ai_metadata: {
+          image_enqueue: { status: 'pending' },
+          image_request: { id: 'req-1', status: 'pending', force_regenerate: false },
+        },
+      }) as never;
+
+    it('re-reads the row and adopts the worker-written fields', async () => {
+      const { host, refreshRecipeFromApi } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => SERVER_ROW.data,
+      });
+      host.recipe.set(pendingRecipe());
+
+      await host.regenerateImage();
+
+      expect(refreshRecipeFromApi).toHaveBeenCalledWith('r1');
+      const adopted = host.recipe() as unknown as typeof SERVER_ROW.data;
+      // The exact fields that read pending/null before the fix.
+      expect(adopted.ai_image_gcs).toBe(SERVER_ROW.data.ai_image_gcs);
+      expect(adopted.ai_metadata.image_request.status).toBe('complete');
+      expect(adopted.ai_metadata.image_enqueue.status).toBe('complete');
+      expect(adopted.ai_metadata.image_generation).toBeDefined();
+    });
+
+    it('exports JSON that matches the API row after the reconcile', async () => {
+      const { host } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => SERVER_ROW.data,
+      });
+      host.recipe.set(pendingRecipe());
+
+      await host.regenerateImage();
+
+      // exportRecipe stringifies the viewed recipe verbatim; comparing the
+      // serialized form is the same comparison the AC's repro makes by hand.
+      expect(JSON.parse(JSON.stringify(host.recipe()))).toEqual(SERVER_ROW.data);
+    });
+
+    it('leaves the optimistic local write standing when the row cannot be read', async () => {
+      const { host, authService } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => null,
+      });
+      host.recipe.set(pendingRecipe());
+
+      await host.regenerateImage();
+
+      expect(authService.updateRecipeField).toHaveBeenCalledWith('r1', 'ai_image_url', CANONICAL);
+      expect((host.recipe() as { ai_image_url?: string }).ai_image_url).toBe(CANONICAL);
+    });
+
+    it('does not overwrite the viewed recipe when the user has navigated to another one', async () => {
+      const { host } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => SERVER_ROW.data,
+      });
+      host.recipe.set(pendingRecipe());
+
+      const inFlight = host.regenerateImage();
+      // Nav to a different recipe while the generation is still detached.
+      host.recipe.set({ id: 'r2', name: 'Chili' } as never);
+      await inFlight;
+
+      expect(host.recipe()?.id).toBe('r2');
+    });
+
+    it('reconciles even after the recipe is no longer the one being viewed', async () => {
+      // The nav-away repro: the component is gone, the promise is not. The
+      // local write and the API re-read must BOTH still happen — that is what
+      // makes the cookbook row correct on return.
+      const { host, refreshRecipeFromApi, authService } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => SERVER_ROW.data,
+      });
+      host.recipe.set(pendingRecipe());
+
+      const inFlight = host.regenerateImage();
+      host.recipe.set(null);
+      await inFlight;
+
+      expect(authService.updateRecipeField).toHaveBeenCalledWith('r1', 'ai_image_url', CANONICAL);
+      expect(refreshRecipeFromApi).toHaveBeenCalledWith('r1');
+    });
+
+    it('does not reconcile when generation fails', async () => {
+      const { host, refreshRecipeFromApi } = createHost({
+        generateImage: vi.fn().mockRejectedValue(new Error('timed out')),
+      });
+      host.recipe.set(pendingRecipe());
+
+      await host.regenerateImage();
+
+      expect(refreshRecipeFromApi).not.toHaveBeenCalled();
+      expect(toastShow).toHaveBeenCalledWith("Couldn't regenerate the image. Please try again.");
     });
   });
 });
