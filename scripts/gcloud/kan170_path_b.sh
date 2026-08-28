@@ -117,6 +117,21 @@ for arg in "$@"; do
   esac
 done
 
+# Whether the verification probes actually run.
+#
+# They cannot key off APPLY alone. `postcheck` is documented read-only and is
+# therefore never invoked with --apply, so an APPLY-gated probe silently no-ops
+# in the one command whose entire purpose is probing — and postcheck then
+# reports success having proved nothing. A verification step that cannot fail is
+# worse than no verification step, because it is reported as evidence.
+#
+# Mutating commands probe because they just changed something. postcheck probes
+# because probing is what it is.
+LIVE_CHECKS=0
+if [[ "$APPLY" == "1" || "$COMMAND" == "postcheck" ]]; then
+  LIVE_CHECKS=1
+fi
+
 log() { printf '\033[36m[kan170-path-b]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[kan170-path-b] WARN:\033[0m %s\n' "$*" >&2; }
 
@@ -145,7 +160,7 @@ run() {
 # /api/health is Express-local too and equally blind. /sitemap.xml is proxied
 # (server/index.ts), so it actually exercises Express→Flask.
 check_site() {
-  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/sitemap.xml"; return 0; }
+  [[ "$LIVE_CHECKS" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/sitemap.xml"; return 0; }
   log "Waiting 15s for the new revision to take traffic..."
   sleep 15
   local code
@@ -196,7 +211,7 @@ check_nat_egress() {
   # exit 1 by construction. That reads as a guard failure and is not one — it
   # would send whoever ran the rehearsal off debugging healthy code, or worse,
   # teach them to ignore this check on the real run.
-  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would verify NAT '$NAT_NAME' sent_bytes_count > 0"; return 0; }
+  [[ "$LIVE_CHECKS" == "1" ]] || { log "DRY RUN: would verify NAT '$NAT_NAME' sent_bytes_count > 0"; return 0; }
   local attempt total
   # Cloud NAT metrics are sampled every 60 seconds and can take up to 180
   # seconds to become visible. Poll for five minutes instead of declaring a
