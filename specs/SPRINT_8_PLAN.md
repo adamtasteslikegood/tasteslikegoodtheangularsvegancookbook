@@ -52,14 +52,14 @@ at close-out.
 
 ## Aging table (standing artifact — retro action from Sprint 6)
 
-| Item    | Filed      | Age at close | Sprint history                 | Committed as                        | Final disposition                                                   |
-| ------- | ---------- | ------------ | ------------------------------ | ----------------------------------- | ------------------------------------------------------------------- |
-| KAN-241 | 2026-08-17 | 9            | New                            | **Anchor — commit**                 | **Shipped** — #3421 (`2ce8a2e`). Residual KAN-252 filed.            |
-| KAN-242 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped** — #3419. Zero review debt throughout.                   |
-| KAN-243 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped in v0.4.12** — #3433 (`a1fbd20`), verified in production. |
-| KAN-244 | 2026-08-17 | 9            | New (follow-up to KAN-182)     | **Commit — retro action**           | **Shipped** — #3423 (`0bcc41b`) + #3442. KAN-254 closed.            |
-| KAN-161 | 2026-07-25 | **32**       | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** | **Shipped** — #3422. **Not dropped** (see D3 note).                 |
-| KAN-215 | 2026-08-08 | 18           | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           | **Shipped** — #3432 + Backend #286. KAN-251/253 filed.              |
+| Item    | Filed      | Age at close | Sprint history                 | Committed as                        | Final disposition                                                             |
+| ------- | ---------- | ------------ | ------------------------------ | ----------------------------------- | ----------------------------------------------------------------------------- |
+| KAN-241 | 2026-08-17 | 9            | New                            | **Anchor — commit**                 | **Shipped** — #3421 (`2ce8a2e`). Residual KAN-252 filed.                      |
+| KAN-242 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped** — #3419. Zero review debt throughout.                             |
+| KAN-243 | 2026-08-17 | 9            | New                            | **Commit**                          | **Shipped in v0.4.12** — #3433 (`a1fbd20`), verified in production.           |
+| KAN-244 | 2026-08-17 | 9            | New (follow-up to KAN-182)     | **Commit — retro action**           | **Shipped** — #3423 (`0bcc41b`) + #3442. KAN-254 closed.                      |
+| KAN-161 | 2026-07-25 | **32**       | Rolled S4→S5→S6→S7→S8          | **Pulled — retro action, half-day** | **Shipped** — #3422. **Not dropped** (see D3 note).                           |
+| KAN-215 | 2026-08-08 | 18           | Rolled S7→S8 (was uncommitted) | **Commit — retro action**           | **Merged** — Backend #286 (cookbook pointer bump pending). KAN-251/253 filed. |
 
 Age is measured from filing to 2026-08-26, the close date. Every item cleared the
 board; none rolled to Sprint 9. Note that the two oldest items — the ones the
@@ -207,9 +207,12 @@ committed items merged and epic **RCP-80 Done**.
 
 ### What shipped
 
-All six. One (S3/KAN-243) shipped mid-sprint in **v0.4.12** on 2026-08-24 as a P1
-fast-track forced by the Imagen 4.0 retirement. The other five merged to `dev` on
-2026-08-26 in a single extended close-out.
+All six merged. One (S3/KAN-243) shipped to production mid-sprint in **v0.4.12**
+on 2026-08-24 as a P1 fast-track forced by the Imagen 4.0 retirement. The other
+five merged on 2026-08-26 in a single extended close-out — four to cookbook
+`dev` (S1/KAN-241 #3421, S2/KAN-242 #3419, S4/KAN-244 #3423+#3442, S5/KAN-161
+#3422) and one to Backend `dev` (S6/KAN-215 #286, reaches production on the
+next cookbook pointer bump).
 
 That distinction matters more than the six-for-six count: **the scope was rescued
 by an unusual final-day push, not carried by normal sprint flow.** Read the
@@ -241,9 +244,10 @@ Nothing from the committed scope. Deliberately carried into Sprint 9:
 
 **D3 did not fire.** The charter pre-authorised dropping KAN-161 after a half-day
 timebox with the rationale "no AAAA DNS, latent risk accepted — not rolled again."
-It was neither closed in half a day nor dropped; it rolled a fifth time and then
-landed in the close-out as #3422. A pre-made decision that does not execute is a
-process finding, not an engineering one — carried into the retro as such.
+It was neither closed in half a day nor dropped; it rolled a fourth time
+(S4→S5→S6→S7→S8, its fifth sprint) and then landed in the close-out as #3422.
+A pre-made decision that does not execute is a process finding, not an
+engineering one — carried into the retro as such.
 
 ### Retrospective
 
