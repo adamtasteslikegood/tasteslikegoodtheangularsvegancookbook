@@ -201,20 +201,29 @@ service is redeployed to a new URL.
 
 > **PRECONDITION — promote to staging before you read staging as evidence.**
 > The gate proves staging is **up**. It does not prove staging is **current**.
-> Those were nearly the same claim while `staging-deploy.yml` fired on every
+> Those were nearly the same claim while the staging build fired on every
 > push to `dev`; since 2026-08-26 it does not, so deploying to staging is an
 > explicit act and staging can be arbitrarily stale while both HTTP checks
 > still pass. A release verified against two-week-old staging exercised
 > nothing this release changed.
 >
-> Before step 9, promote the release ref and wait for it to go green:
+> Before step 9, promote the release ref and wait for it to go green. Since
+> KAN-250 the promotion is a **tag push into a GCP-side Cloud Build trigger**
+> (`^staging-v.*` → `cloudbuild.staging.yaml`), symmetric with the production
+> tag trigger — there is no GitHub Actions workflow to dispatch any more:
 >
 > ```bash
-> git tag staging-vX.Y.Z && git push origin staging-vX.Y.Z   # or:
-> gh workflow run staging-deploy.yml --ref dev
-> gh run watch "$(gh run list --workflow=staging-deploy.yml --limit 1 \
->   --json databaseId --jq '.[0].databaseId')"
+> git tag staging-vX.Y.Z && git push origin staging-vX.Y.Z
+> gcloud builds list --project=gen-lang-client-0491022701 --region=us-central1 --limit=5
+> gcloud builds log <BUILD_ID> --project=gen-lang-client-0491022701 \
+>   --region=us-central1 --stream
 > ```
+>
+> `--region` is mandatory on both commands; a global list shows nothing. The
+> trigger's configuration is recorded in
+> `scripts/gcloud/setup_staging_build_trigger.sh` and
+> `docs/deployment/STAGING_CLOUD_BUILD_TRIGGER.md`; `--verify` on that script
+> fails if the live trigger has drifted or been disabled.
 >
 > Then apply the same by-content check below to the staging URL, not just to
 > production — a marker string absent from staging means staging is not

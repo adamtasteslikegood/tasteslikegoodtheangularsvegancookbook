@@ -3,9 +3,14 @@
 Minimal viable staging for the VeganGenius Chef app. It supports two
 explicit deployment paths:
 
-- `.github/workflows/staging-deploy.yml` builds a selected ref and pushes the
-  images to the staging project's own Artifact Registry before updating the
-  staging Cloud Run services.
+- A **GCP-side Cloud Build trigger** on `^staging-v.*` runs
+  `cloudbuild.staging.yaml`: it builds from the tagged ref and pushes the images
+  to the staging project's own Artifact Registry, runs the migrate Job, then
+  updates the staging Cloud Run services. This replaced
+  `.github/workflows/staging-deploy.yml` in KAN-250, making staging symmetric
+  with production, which has always deployed from a tag trigger. The trigger's
+  configuration is recorded in `scripts/gcloud/setup_staging_build_trigger.sh`
+  and `docs/deployment/STAGING_CLOUD_BUILD_TRIGGER.md`.
 - `scripts/staging/deploy-staging.sh` reuses production images when the goal
   is to verify the exact artifacts production runs.
 
@@ -30,12 +35,11 @@ Cloud Run's edge.
 
 ## What staging is NOT
 
-- **Not automatically tracking `dev`.** Promotion is explicit:
-  `staging-deploy.yml` runs on a `staging-v*` tag or `workflow_dispatch`,
-  never on a push to `dev`. Landing on `dev` is not the same event as
-  deploying to staging. Pick the path by intent — the workflow builds an
-  arbitrary ref (unreleased code), the script redeploys the exact image
-  production runs.
+- **Not automatically tracking `dev`.** Promotion is explicit: the Cloud Build
+  trigger fires on a `staging-v*` tag, never on a push to `dev`. Landing on
+  `dev` is not the same event as deploying to staging. Pick the path by intent
+  — the trigger builds an arbitrary tagged ref (unreleased code), the script
+  redeploys the exact image production runs.
 - **Not a copy of production data.** No real PII. The database is a CloudSQL
   Postgres (db-f1-micro, `vegangenius-staging-db` in the staging project),
   seeded from the app's own Export Cookbook JSON — real recipe shapes, but
