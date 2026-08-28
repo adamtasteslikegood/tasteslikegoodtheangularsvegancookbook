@@ -34,6 +34,21 @@
 # Overridable via env: PROJECT_ID, REGION, TRIGGER_NAME, TAG_PATTERN,
 # BUILD_CONFIG, REPO_OWNER, REPO_NAME, TRIGGER_SERVICE_ACCOUNT,
 # REPO_RESOURCE (2nd-gen Cloud Build repositories resource path).
+#
+# REQUIREMENTS
+#
+#   bash >= 4.3  — build_args() uses a nameref (`local -n`), added in 4.3.
+#                  macOS ships bash 3.2 as /bin/bash and will stay there for
+#                  licensing reasons, so `/bin/bash setup_staging_build_trigger.sh`
+#                  on a Mac fails with `local: -n: invalid option` on the first
+#                  build_args call — which both --dry-run and the default apply
+#                  mode reach. Run it under Homebrew bash (`brew install bash`,
+#                  then /opt/homebrew/bin/bash) or from Linux/Cloud Shell.
+#                  --verify and --preflight do not call build_args and work
+#                  under 3.2.
+#   gcloud       — all modes.
+#   jq           — --verify and apply (apply calls verify at the end). Not
+#                  needed for --dry-run or --preflight.
 
 set -uo pipefail
 
@@ -69,9 +84,13 @@ case "${1:-}" in
   --dry-run) MODE="dry-run" ;;
   --preflight) MODE="preflight" ;;
   --help | -h)
-    # Range ends at the last header-comment line (line 36). Widening it prints
-    # `set -uo pipefail` and internal section dividers as if they were help text.
-    sed -n '2,36p' "$0"
+    # Print the header block: every line from 2 up to the first line that is
+    # not a comment. Derived rather than a hardcoded range — the previous
+    # `sed -n '2,36p'` had to be corrected once when the header grew, and then
+    # silently truncated the REQUIREMENTS block the next time it grew again.
+    # A range that must be re-tuned whenever the file above it changes is a
+    # latent bug, not a constant.
+    awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"
     exit 0
     ;;
   "") ;;

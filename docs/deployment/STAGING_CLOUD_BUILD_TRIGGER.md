@@ -228,10 +228,10 @@ So:
    > match production's anchored digits-only pattern.
 
 6. `./scripts/staging/verify-staging.sh` exits 0 against the **resulting**
-   revision. Confirm it is the resulting one: the build's `Verify Staging
-Identity` step must have passed in the log from step 5. A passing
-   `verify-staging.sh` against a revision deployed by something else is not
-   evidence.
+   revision. Confirm it is the resulting one: the build's
+   `Verify Staging Identity` step must have passed in the log from step 5.
+   A passing `verify-staging.sh` against a revision deployed by something else
+   is not evidence.
 7. Only then merge the workflow deletion.
 
 **Do not read a green build as a deploy.** The runbook already records the
