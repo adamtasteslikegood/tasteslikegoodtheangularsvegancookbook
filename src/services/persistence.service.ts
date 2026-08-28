@@ -244,14 +244,14 @@ export class PersistenceService {
       // Column-over-blob merge (KAN-139) — same contract as loadFromApi and
       // recipe-detail's cold deep-link fetch. See utils/recipe-row.ts.
       const fresh = recipeFromRow(await res.json());
-      if (!fresh?.id) return null;
+      if (!fresh?.id || fresh.id !== recipeId) return null;
       const current = this.auth.currentUser();
       if (current?.savedRecipes.some((r) => r.id === fresh.id)) {
         this.auth.saveRecipe(fresh);
       }
       return fresh;
     } catch (err) {
-      console.warn('[PersistenceService] refreshRecipeFromApi failed:', err);
+      console.warn(`[PersistenceService] refreshRecipeFromApi failed for ${recipeId}:`, err);
       return null;
     }
   }
