@@ -89,6 +89,12 @@ class Jira:
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode()[:600]
             raise RuntimeError("%s %s -> %s: %s" % (method, path, exc.code, detail)) from None
+        except urllib.error.URLError as exc:
+            # Network-layer failures (DNS, refused, timeout) must funnel through
+            # RuntimeError so callers' `except RuntimeError` blocks catch them
+            # and produce the documented exit-2 "API error" path instead of a
+            # raw traceback that looks like a real gate failure.
+            raise RuntimeError("%s %s -> network error: %s" % (method, path, exc.reason)) from None
 
     # --- reads -----------------------------------------------------------
     def issue(self, key, fields="summary,status,issuetype,parent,resolution", expand=None):
@@ -96,6 +102,19 @@ class Jira:
         if expand:
             path += "&expand=%s" % expand
         return self.call("GET", path)
+
+    def issue_changelog(self, key):
+        """Return every changelog history for an issue, oldest-page first."""
+        out, start = [], 0
+        while True:
+            page = self.call(
+                "GET", "/rest/api/3/issue/%s/changelog?startAt=%d&maxResults=100"
+                % (key, start))
+            values = page.get("values", [])
+            out.extend(values)
+            if not values or len(out) >= page.get("total", 0):
+                return out
+            start += len(values)
 
     def sprints(self, board_id):
         out, start = [], 0
@@ -146,15 +165,17 @@ class Jira:
         current = self.issue(key)["fields"]["status"]["name"]
         if current.strip().lower() == status_name.strip().lower():
             return None
-        for t in self.transitions(key):
-            if t["to"]["name"].strip().lower() == status_name.strip().lower():
+        target = status_name.strip().lower()
+        available = self.transitions(key)
+        for t in available:
+            if t["to"]["name"].strip().lower() == target:
                 self.call("POST", "/rest/api/3/issue/%s/transitions" % key,
                           {"transition": {"id": t["id"]}})
                 return t
         raise RuntimeError(
             "no transition from %r to %r on %s (available: %s)"
             % (current, status_name, key,
-               ", ".join(t["to"]["name"] for t in self.transitions(key))))
+               ", ".join(t["to"]["name"] for t in available)))
 
     def comment(self, key, text):
         return self.call("POST", "/rest/api/3/issue/%s/comment" % key, {

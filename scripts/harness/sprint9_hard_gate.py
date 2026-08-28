@@ -54,6 +54,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _jira_client import Jira  # noqa: E402
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pm"))
+from _atlassian_guard import AtlassianGuardError  # noqa: E402
+
 RCP_SCRUM_BOARD = 168
 SPRINT_NAME = "Sprint 9"
 
@@ -99,7 +102,10 @@ def main():
 
     try:
         jira = Jira()
-    except SystemExit as exc:
+    except (SystemExit, AtlassianGuardError) as exc:
+        # SystemExit covers missing creds; AtlassianGuardError covers a
+        # disallowed ATLASSIAN_URL (e.g. the -dev service site). Both are
+        # configuration errors and must funnel to exit-2, per the docstring.
         print("CONFIG ERROR: %s" % exc, file=sys.stderr)
         return 2
 
