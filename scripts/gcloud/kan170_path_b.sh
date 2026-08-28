@@ -117,6 +117,21 @@ for arg in "$@"; do
   esac
 done
 
+# Whether the verification probes actually run.
+#
+# They cannot key off APPLY alone. `postcheck` is documented read-only and is
+# therefore never invoked with --apply, so an APPLY-gated probe silently no-ops
+# in the one command whose entire purpose is probing — and postcheck then
+# reports success having proved nothing. A verification step that cannot fail is
+# worse than no verification step, because it is reported as evidence.
+#
+# Mutating commands probe because they just changed something. postcheck probes
+# because probing is what it is.
+LIVE_CHECKS=0
+if [[ "$APPLY" == "1" || "$COMMAND" == "postcheck" ]]; then
+  LIVE_CHECKS=1
+fi
+
 log() { printf '\033[36m[kan170-path-b]\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[kan170-path-b] WARN:\033[0m %s\n' "$*" >&2; }
 
@@ -145,7 +160,7 @@ run() {
 # /api/health is Express-local too and equally blind. /sitemap.xml is proxied
 # (server/index.ts), so it actually exercises Express→Flask.
 check_site() {
-  [[ "$APPLY" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/sitemap.xml"; return 0; }
+  [[ "$LIVE_CHECKS" == "1" ]] || { log "DRY RUN: would probe $PUBLIC_URL/sitemap.xml"; return 0; }
   log "Waiting 15s for the new revision to take traffic..."
   sleep 15
   local code
@@ -175,7 +190,7 @@ print(start.strftime(fmt), end.strftime(fmt))
 ')
   response="$(curl -fsS --get \
     -H "Authorization: Bearer $token" \
-    --data-urlencode 'filter=metric.type="router.googleapis.com/nat/sent_bytes_count" AND metric.labels.nat_gateway_name="'"$NAT_NAME"'"' \
+    --data-urlencode 'filter=metric.type="router.googleapis.com/nat/sent_bytes_count" AND resource.labels.gateway_name="'"$NAT_NAME"'" AND resource.labels.region="'"$REGION"'"' \
     --data-urlencode "interval.startTime=$start" \
     --data-urlencode "interval.endTime=$end" \
     --data-urlencode "view=FULL" \
@@ -191,6 +206,12 @@ print(sum(int(point["value"].get("int64Value", 0))
 }
 
 check_nat_egress() {
+  # Mirror check_site: a dry run has applied nothing, so the gateway has
+  # translated nothing, so this would poll Monitoring for four minutes and then
+  # exit 1 by construction. That reads as a guard failure and is not one — it
+  # would send whoever ran the rehearsal off debugging healthy code, or worse,
+  # teach them to ignore this check on the real run.
+  [[ "$LIVE_CHECKS" == "1" ]] || { log "DRY RUN: would verify NAT '$NAT_NAME' sent_bytes_count > 0"; return 0; }
   local attempt total
   # Cloud NAT metrics are sampled every 60 seconds and can take up to 180
   # seconds to become visible. Poll for five minutes instead of declaring a
@@ -428,7 +449,14 @@ case "$COMMAND" in
     ;;
 esac
 
-if [[ "$APPLY" != "1" ]]; then
+# postcheck mutates nothing but its probes are real, and its output is what gets
+# pasted into a ticket as evidence. Printing "nothing was changed. Re-run with
+# --apply" underneath a live 404/200/NAT result invites exactly the misreading
+# the LIVE_CHECKS split exists to prevent — that the probes were skipped.
+if [[ "$COMMAND" == "postcheck" ]]; then
+  echo
+  log "mode: READ-ONLY — probes ran for real; nothing was changed."
+elif [[ "$APPLY" != "1" ]]; then
   echo
   log "mode: DRY RUN — nothing was changed. Re-run with --apply to execute."
 fi
