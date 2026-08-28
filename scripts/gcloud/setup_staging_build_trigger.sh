@@ -115,6 +115,34 @@ preflight() {
 
   log "Project: ${PROJECT_ID}   Region: ${REGION}"
 
+  # 0. BUILD_CONFIG must exist somewhere the tag build will find it. gcloud
+  #    accepts any string here; the file's existence is checked at build time by
+  #    Cloud Build, which reports "config file not found" from deep inside a
+  #    build log. Catch the obvious form (BUILD_CONFIG missing from the current
+  #    tree) here — this is not authoritative (the build reads the TAG, not
+  #    HEAD), but a BUILD_CONFIG that has never been committed to any branch is
+  #    almost certainly a rename typo or a merge-order mistake (KAN-249 landing
+  #    after this PR), and both fail the same way.
+  local repo_root config_path
+  repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  if [[ -n "$repo_root" ]]; then
+    config_path="${repo_root}/${BUILD_CONFIG}"
+    if [[ -f "$config_path" ]]; then
+      ok "BUILD_CONFIG '${BUILD_CONFIG}' present in the current tree"
+    elif git -C "$repo_root" cat-file -e "HEAD:${BUILD_CONFIG}" 2>/dev/null; then
+      ok "BUILD_CONFIG '${BUILD_CONFIG}' present in HEAD (not working tree)"
+    else
+      fail "BUILD_CONFIG '${BUILD_CONFIG}' not found in ${repo_root} or HEAD."
+      echo "      The trigger will be created, but the first staging-v* tag push" >&2
+      echo "      will fail with 'config file not found' in the Cloud Build log." >&2
+      echo "      If this depends on KAN-249 landing first, merge that PR before" >&2
+      echo "      pushing an acceptance tag." >&2
+      problems=$((problems + 1))
+    fi
+  else
+    warn "not a git checkout; skipped BUILD_CONFIG existence check."
+  fi
+
   # 1. Cloud Build API enabled.
   if gcloud services list --enabled --project="$PROJECT_ID" \
     --filter='config.name:cloudbuild.googleapis.com' --format='value(config.name)' \
@@ -195,23 +223,29 @@ preflight() {
   # 6. Build identity IAM. Roles are reported, never granted: project-level IAM
   #    in the staging project is Adam's call, and a script that silently widens
   #    a service account is exactly the kind of change nobody reviews.
-  local sa
+  local sa=""
   if [[ -n "$TRIGGER_SERVICE_ACCOUNT" ]]; then
     sa="${TRIGGER_SERVICE_ACCOUNT##*/}"
   else
     local pnum
     pnum="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)' 2>/dev/null || true)"
-    sa="${pnum:-UNKNOWN}-compute@developer.gserviceaccount.com"
+    if [[ -n "$pnum" ]]; then
+      sa="${pnum}-compute@developer.gserviceaccount.com"
+    fi
   fi
-  log "Build identity: ${sa}"
-  local held
-  held="$(gcloud projects get-iam-policy "$PROJECT_ID" --flatten='bindings[].members' \
-    --filter="bindings.members:serviceAccount:${sa}" --format='value(bindings.role)' \
-    2>/dev/null | sort -u | tr '\n' ' ' || true)"
-  if [[ -n "$held" ]]; then
-    log "  project-level roles: ${held}"
+  if [[ -n "$sa" ]]; then
+    log "Build identity: ${sa}"
+    local held
+    held="$(gcloud projects get-iam-policy "$PROJECT_ID" --flatten='bindings[].members' \
+      --filter="bindings.members:serviceAccount:${sa}" --format='value(bindings.role)' \
+      2>/dev/null | sort -u | tr '\n' ' ' || true)"
+    if [[ -n "$held" ]]; then
+      log "  project-level roles: ${held}"
+    else
+      warn "  could not read the IAM policy (needs resourcemanager.projects.getIamPolicy)."
+    fi
   else
-    warn "  could not read the IAM policy (needs resourcemanager.projects.getIamPolicy)."
+    warn "Build identity: could not resolve (projects describe failed — needs resourcemanager.projects.get)."
   fi
   log "  Required for this build: see docs/deployment/STAGING_CLOUD_BUILD_TRIGGER.md"
   log "  § 'Build identity'. This script never grants roles."
@@ -241,10 +275,21 @@ verify() {
 
   local drift=0
   local live_pattern live_config live_disabled live_sa
-  live_pattern="$(jq -r '.github.push.tag // .sourceToBuild.ref // "MISSING"' <<<"$live")"
+  # 1st-gen GitHub App triggers store the pattern under .github.push.tag; 2nd-gen
+  # Cloud Build repository triggers store it under .repositoryEventConfig.push.tag.
+  # `.sourceToBuild.ref` is for MANUAL triggers, not tag pushes — the fallback is
+  # here only so an unrecognised shape shows the raw field name rather than "MISSING"
+  # and gives the operator a hint about which path to grep.
+  live_pattern="$(jq -r '.github.push.tag // .repositoryEventConfig.push.tag // .sourceToBuild.ref // "MISSING"' <<<"$live")"
   live_config="$(jq -r '.filename // "MISSING"' <<<"$live")"
   live_disabled="$(jq -r '.disabled // false' <<<"$live")"
   live_sa="$(jq -r '.serviceAccount // ""' <<<"$live")"
+
+  # The expected SA has the same shape gcloud returns from the API — a fully-
+  # qualified `projects/*/serviceAccounts/<email>` path when set, empty when the
+  # trigger uses the legacy default compute SA. Normalise the expectation so the
+  # comparison is apples-to-apples rather than "email vs resource path".
+  local expected_sa="$TRIGGER_SERVICE_ACCOUNT"
 
   echo "=== Live trigger: ${TRIGGER_NAME} (${PROJECT_ID}/${REGION}) ==="
   printf '  tag pattern : %s\n' "$live_pattern"
@@ -259,6 +304,12 @@ verify() {
     { fail "build config drift: live='${live_config}' expected='${BUILD_CONFIG}'"; drift=1; }
   [[ "$live_disabled" == "false" ]] ||
     { fail "trigger is DISABLED — a staging-v* tag will silently deploy nothing"; drift=1; }
+  # SA drift check. Silently accepting a widened build identity would defeat the
+  # whole security posture the docs argue for — the whole point of § "Build
+  # identity" is that this SA is narrower than the default compute SA, so an
+  # unnoticed reversion is exactly what --verify must catch.
+  [[ "$live_sa" == "$expected_sa" ]] ||
+    { fail "service account drift: live='${live_sa:-<default compute SA>}' expected='${expected_sa:-<default compute SA>}' (set TRIGGER_SERVICE_ACCOUNT to match, or update the live trigger)"; drift=1; }
 
   if [[ "$drift" -eq 0 ]]; then
     ok "Live trigger matches the record in this file."
@@ -329,7 +380,10 @@ esac
 
 preflight || warn "Preflight reported $? problem(s); continuing so the create call names the real failure."
 
-if read_live >/dev/null 2>&1 && [[ -n "$(read_live)" ]]; then
+# One read_live call, not two — a describe against a missing trigger is cheap
+# but not free (a round trip and an error log), and calling twice risks the two
+# reads seeing different states.
+if [[ -n "$(read_live)" ]]; then
   log "Trigger '${TRIGGER_NAME}' exists — updating to match this file."
   verb=update
 else
