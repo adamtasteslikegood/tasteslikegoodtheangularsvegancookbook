@@ -34,6 +34,7 @@ whole life, the status it was originally created in.
 import argparse
 import datetime
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -165,19 +166,90 @@ def _status_transitions(data):
     return out
 
 
-def truth_status(data, bot_actors):
+def _parse_ts(value):
+    """Jira ('...+0000') and GitHub ('...Z') timestamps to aware datetimes."""
+    if not value:
+        return None
+    v = value.strip().replace("Z", "+00:00")
+    # Jira sends +0000; fromisoformat wants +00:00.
+    if len(v) >= 5 and (v[-5] in "+-") and ":" not in v[-5:]:
+        v = v[:-2] + ":" + v[-2:]
+    try:
+        return datetime.datetime.fromisoformat(v)
+    except ValueError:
+        return None
+
+
+def github_merge_times(key, timeout=30):
+    """When PRs whose TITLE carries this key were merged.
+
+    The jira-auto-transition workflow scrapes the PR **title**, so title-matched
+    merged PRs are exactly the population that can have fired it. Returns [] on
+    any failure — a missing correlation must never silently reclassify a human
+    transition as automated.
+    """
+    out = []
+    for repo_args in ([], ["-R", "adamtasteslikegood/tasteslikegood.com"]):
+        cmd = ["gh", "pr", "list", "--search", "%s in:title" % key, "--state", "merged",
+               "--json", "mergedAt", "--limit", "20"] + repo_args
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+            if r.returncode == 0 and r.stdout.strip():
+                for pr in json.loads(r.stdout):
+                    ts = _parse_ts(pr.get("mergedAt"))
+                    if ts:
+                        out.append(ts)
+        except (subprocess.SubprocessError, ValueError, OSError):
+            continue
+    return out
+
+
+# The auto-transition workflow runs within seconds of the merge; a minute of
+# slack covers a slow runner without reaching far enough to swallow a human who
+# merged and then clicked Done themselves.
+MERGE_CORRELATION_WINDOW_S = 120
+
+
+def truth_status(data, bot_actors, merge_times=None):
     """The status this issue would hold if no bot had ever touched it.
 
     Returns ``(target, why)``; ``target`` is None when there is nothing to
     repair — either the issue has no history, or its most recent status change
     was made by a human and is therefore already the truth.
+
+    Author name alone is NOT sufficient to identify automation here.
+    ``.github/workflows/jira-auto-transition.yml`` authenticates with
+    ``secrets.ATLASSIAN_API_TOKEN`` — Adam's personal token — so Jira attributes
+    its transitions to "Adam Schoen", identical to a human edit, and it posts no
+    comment to distinguish itself. It moved KAN-249 and KAN-258 to Done seconds
+    after their PRs merged on 2026-08-28 and read as human until the workflow
+    runs were checked.
+
+    So a transition is treated as automated when EITHER the author is a known
+    bot, OR it lands on "Done" within ``MERGE_CORRELATION_WINDOW_S`` of a merge
+    of a PR whose title carries this issue's key — the workflow's exact
+    signature. ``merge_times`` of None or [] disables the correlation half and
+    falls back to author matching alone.
     """
     trans = _status_transitions(data)
     if not trans:
         return None, "no status transitions on record"
 
+    merge_times = merge_times or []
+
     def is_bot(t):
-        return any(b.strip().lower() in t["author"].lower() for b in bot_actors if b.strip())
+        if any(b.strip().lower() in t["author"].lower() for b in bot_actors if b.strip()):
+            return True
+        # The auto-transition workflow only ever moves TO Done, and only on a
+        # merge. Requiring both keeps a human who merged and then deliberately
+        # closed the row hours later out of this branch.
+        if (t["to"] or "").strip().lower() != "done":
+            return False
+        at = _parse_ts(t["at"])
+        if not at:
+            return False
+        return any(0 <= (at - m).total_seconds() <= MERGE_CORRELATION_WINDOW_S
+                   for m in merge_times)
 
     idx = len(trans) - 1
     while idx >= 0 and is_bot(trans[idx]):
@@ -198,7 +270,8 @@ def cmd_reset_truth(jira, args):
         data = jira.issue(key, fields="status")
         data["changelog"] = {"histories": jira.issue_changelog(key)}
         current = data["fields"]["status"]["name"]
-        target, why = truth_status(data, bots)
+        merges = [] if args.no_github_correlate else github_merge_times(key)
+        target, why = truth_status(data, bots, merges)
         if not target:
             skipped.append((key, current, why))
             continue
@@ -294,6 +367,10 @@ def main():
                    help="display-name substrings treated as non-human authors "
                         "(default: %s)" % ", ".join(BOT_ACTORS))
     r.add_argument("--extra", nargs="*", default=[], help="additional issue keys")
+    r.add_argument("--no-github-correlate", action="store_true",
+                   help="skip the GitHub merge-time correlation that identifies "
+                        "jira-auto-transition.yml's moves (it authors as a human, "
+                        "so author matching alone cannot see them)")
     r.add_argument("--dry-run", action="store_true")
 
     t = sub.add_parser("transition", help="move a row, with mandatory evidence")

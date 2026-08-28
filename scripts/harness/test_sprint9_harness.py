@@ -9,7 +9,7 @@ from unittest.mock import Mock
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _jira_client import Jira  # noqa: E402
-from sprint9_board import truth_status  # noqa: E402
+from sprint9_board import _parse_ts, truth_status  # noqa: E402
 
 
 def issue_with_transitions(*transitions):
@@ -81,6 +81,52 @@ class TruthStatusTests(unittest.TestCase):
 
         self.assertEqual(target, "To Do")
         self.assertIn("original status", why)
+
+
+class MergeCorrelationTests(unittest.TestCase):
+    """The jira-auto-transition workflow authenticates with Adam's personal
+    Atlassian token, so Jira records its moves under his display name and it
+    posts no comment. Author matching alone therefore cannot see it. This is the
+    KAN-249 / KAN-258 case from 2026-08-28, which read as human until the
+    workflow runs were checked.
+    """
+
+    # Real shape: Adam starts the row, merges the PR, the workflow closes it
+    # ~5s later wearing his name.
+    HISTORY = issue_with_transitions(
+        ("2026-08-27T23:03:25.000+0000", "Adam Schoen", "To Do", "In Progress"),
+        ("2026-08-28T06:12:21.000+0000", "Adam Schoen", "In Progress", "Done"),
+    )
+    MERGED_AT = [_parse_ts("2026-08-28T06:12:16Z")]
+
+    def test_author_matching_alone_is_fooled(self):
+        target, why = truth_status(self.HISTORY, ("Automation for Jira",))
+        self.assertIsNone(target, "without correlation the workflow's move looks human")
+        self.assertIn("human-authored", why)
+
+    def test_merge_correlation_identifies_the_workflow(self):
+        target, why = truth_status(
+            self.HISTORY, ("Automation for Jira",), self.MERGED_AT)
+        self.assertEqual(target, "In Progress")
+        self.assertIn("last human transition", why)
+
+    def test_a_human_closing_hours_after_the_merge_is_left_alone(self):
+        history = issue_with_transitions(
+            ("2026-08-27T23:03:25.000+0000", "Adam Schoen", "To Do", "In Progress"),
+            ("2026-08-28T09:00:00.000+0000", "Adam Schoen", "In Progress", "Done"),
+        )
+        target, _ = truth_status(history, ("Automation for Jira",), self.MERGED_AT)
+        self.assertIsNone(target, "outside the window this is a real decision")
+
+    def test_non_done_transitions_are_never_merge_correlated(self):
+        # The workflow only ever moves TO Done. A move to In Review beside a
+        # merge is somebody working, not the workflow.
+        history = issue_with_transitions(
+            ("2026-08-27T23:03:25.000+0000", "Adam Schoen", "To Do", "In Progress"),
+            ("2026-08-28T06:12:21.000+0000", "Adam Schoen", "In Progress", "In Review"),
+        )
+        target, _ = truth_status(history, ("Automation for Jira",), self.MERGED_AT)
+        self.assertIsNone(target)
 
 
 if __name__ == "__main__":

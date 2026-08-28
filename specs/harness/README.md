@@ -95,6 +95,35 @@ global rules were disabled on 2026-08-27; the surviving one moves
 _before_ moving the row, so D4's "no acceptance row moves without its named
 evidence linked" holds by construction rather than by discipline.
 
+### Automation that wears a human's name
+
+`.github/workflows/jira-auto-transition.yml` (KAN-97/RCP-39) moves KAN rows to
+Done when a PR whose **title** carries their key merges into `dev` or `main`. It
+authenticates with `secrets.ATLASSIAN_API_TOKEN` — Adam's personal token — so
+Jira attributes every one of its transitions to **"Adam Schoen"**, and it posts
+no comment. There is no Jira-side fingerprint distinguishing it from a person.
+
+It closed KAN-249 and KAN-258 seconds after their PRs merged on 2026-08-28, and
+both read as deliberate human decisions until the workflow runs were checked.
+
+`reset-truth` therefore does not rely on the author name alone: it also asks
+GitHub when PRs carrying each key were merged, and treats a move to **Done**
+landing within `MERGE_CORRELATION_WINDOW_S` (120s) of such a merge as automated.
+That is the workflow's exact signature — it only ever moves to Done, and only on
+a merge — so a human who merges and then closes the row hours later is untouched.
+`--no-github-correlate` disables it.
+
+Two standing consequences worth knowing:
+
+- **This workflow does what retro action 8 forbids.** "No row moves on a merge
+  alone" (D4) and an automation that closes rows on merge alone are in direct
+  tension. The workflow was added in Sprint 6 to fix six consecutively-missed
+  board updates, so both rules exist for good reasons; the conflict is real and
+  unresolved.
+- **It assumes one PR per ticket.** A ticket spanning several PRs closes on the
+  first one. KAN-258 covers the model tail _and_ the v0.4.13 release cut, so
+  merging #3439 closed it with the release half untouched.
+
 ### KAN-248 is not the S4 ticket
 
 The charter's S4 cites `KAN-248`, and PRs #3439 and Backend #298 carry it in
