@@ -133,20 +133,30 @@ estimate, or Flask genuinely being placed behind an external load balancer.
 Executed in the mandated order, each step verified before the next began. No
 application deploy rode along.
 
-| Step                                            | Result                                                                                    |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Router `tlg-nat-router` + NAT `tlg-nat`         | `us-central1`, network `default`, `ALL_SUBNETWORKS_ALL_IP_RANGES`, auto-allocated IPs     |
-| `express-frontend` → `--vpc-egress=all-traffic` | revision `00054-xn6` → `00055-gfc`                                                        |
-| Non-Google egress                               | NAT translated 81 KB → 186 KB → 488 KB across the run; `dropped_sent_packets_count` **0** |
-| `flask-backend` → `--ingress=internal`          | both `run.app` hostnames and `/api/health` → **404**                                      |
-| Express → Flask                                 | `/sitemap.xml`, `/`, `/browse` → **200** throughout                                       |
-| Pub/Sub push                                    | one controlled probe → `POST 200 /api/worker/recipe`; DLQ empty, 0 undelivered            |
+| Step                                            | Result                                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Router `tlg-nat-router` + NAT `tlg-nat`         | `us-central1`, network `default`, `ALL_SUBNETWORKS_ALL_IP_RANGES`, auto-allocated IPs                                                                                        |
+| `express-frontend` → `--vpc-egress=all-traffic` | revision `00054-xn6` → `00055-gfc`                                                                                                                                           |
+| Non-Google egress                               | NAT translated 81 KB → 186 KB → 488 KB across the run; `dropped_sent_packets_count` **0**                                                                                    |
+| `flask-backend` → `--ingress=internal`          | both `run.app` hostnames and `/api/health` → **404**                                                                                                                         |
+| Express → Flask                                 | `/sitemap.xml`, `/`, `/browse` → **200** throughout                                                                                                                          |
+| Pub/Sub push                                    | one controlled probe → `POST 200 /api/worker/recipe`; DLQ empty, 0 undelivered                                                                                               |
+| Real end-to-end generation                      | guest generate → login → publish → unpublish → republish, verified by Adam on `/r/full-stack-7-layer-nutty-amaretto-tiramisu-cake` (200, SSR title and `og:image` resolving) |
+
+Two caveats on that Pub/Sub row. The worker returned **200 to a deliberately
+malformed probe payload**, so it ack-and-drops unparseable messages — which makes
+"the DLQ did not grow" weak evidence about _application_ failures in general. It
+remains decisive for the question actually asked here, because an ingress-refused
+push dies at Cloud Run with a 404 and never reaches the worker at all. Do not
+later read DLQ silence as proof the generation pipeline is healthy. The real
+end-to-end generation above is the stronger evidence, and it exercises the async
+image path the synthetic probe did not.
 
 **The 403 → 404 transition is the whole point.** Before: an anonymous request was
 _admitted_ and refused by IAM. After: it is refused by the network and never
-reaches the service. Flask's logs show the difference — roughly 800/day of
-credential-scanning traffic to `/api/.env/...` reached the application before the
-cutover and does not now.
+reaches the service. Flask's logs show the difference — **299 requests to
+`/api/.env*` in the seven days before the cutover (~43/day)** reached the
+application and do not now. That figure is counted, not estimated.
 
 Both guards are live: `invoker-iam-disabled` is absent (IAM enforced) and
 `roles/run.invoker` is held by exactly two service accounts — Express's runtime

@@ -449,7 +449,14 @@ case "$COMMAND" in
     ;;
 esac
 
-if [[ "$APPLY" != "1" ]]; then
+# postcheck mutates nothing but its probes are real, and its output is what gets
+# pasted into a ticket as evidence. Printing "nothing was changed. Re-run with
+# --apply" underneath a live 404/200/NAT result invites exactly the misreading
+# the LIVE_CHECKS split exists to prevent — that the probes were skipped.
+if [[ "$COMMAND" == "postcheck" ]]; then
+  echo
+  log "mode: READ-ONLY — probes ran for real; nothing was changed."
+elif [[ "$APPLY" != "1" ]]; then
   echo
   log "mode: DRY RUN — nothing was changed. Re-run with --apply to execute."
 fi

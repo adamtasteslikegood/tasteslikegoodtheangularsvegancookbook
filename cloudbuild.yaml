@@ -231,7 +231,7 @@ steps:
       #   - OAUTHLIB_INSECURE_TRANSPORT guard (CRITICAL-2)
       #   - FLASK_SECRET_KEY fail-fast at startup (CRITICAL-4)
       # GCP_PROJECT_ID + PUBSUB_INVOKER_SA wire the Pub/Sub push handlers
-      # (Backend/blueprints/worker_api_bp.py). PUBSUB_INVOKER_SA is the email
+       # (Backend/blueprints/worker_api_bp.py). PUBSUB_INVOKER_SA is the email
       # of the SA Pub/Sub uses to OIDC-sign push requests; created by
       # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
       # fails closed with 503.
@@ -273,8 +273,9 @@ steps:
       # --invoker-iam-check above is guard 1: it makes Cloud Run ADMIT the
       # request and then have IAM refuse it (403). This line stops the request
       # being admitted at all (404). Off-network callers cannot tell the service
-      # exists, and the ~800/day credential-scanning traffic that reached
-      # /api/.env/... in the logs no longer arrives.
+      # exists, and the credential-scanning traffic that was reaching the
+      # application no longer arrives — 299 requests to /api/.env* in the seven
+      # days before the cutover, ~43/day, counted rather than estimated.
       #
       # This is a RESTORATION: the service was created ingress=internal and was
       # opened to `all` on 2026-03-09T10:20:31Z.
