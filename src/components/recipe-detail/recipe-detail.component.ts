@@ -248,6 +248,10 @@ export class RecipeDetailComponent extends RecipeViewBase {
     pending
       .then((imageUrl) => {
         if (this.recipe()?.id !== recipeId) return;
+        // A joined request may be a regeneration. Its canonical URL is stable,
+        // so apply the display-only marker before the browser can reuse old bytes.
+        // Marking a first generation too is harmless: there are no prior bytes.
+        this.recipeState.markImageRegenerated(recipeId);
         this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       })
