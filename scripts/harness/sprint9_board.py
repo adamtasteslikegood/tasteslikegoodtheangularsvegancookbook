@@ -148,7 +148,13 @@ def _status_transitions(data):
     for h in data["changelog"]["histories"]:
         for it in h["items"]:
             if it["field"] == "status":
-                out.append({"at": h["created"], "author": h["author"]["displayName"],
+                # Some Jira events (deleted-app integrations, cross-tenant
+                # automation) serialise author as null or omit displayName.
+                # Fall back to an empty string so is_bot() treats them as
+                # human — a non-matching author cannot be a known bot actor.
+                author = h.get("author") or {}
+                out.append({"at": h["created"],
+                            "author": author.get("displayName") or "",
                             "from": it["fromString"], "to": it["toString"]})
     out.sort(key=lambda t: t["at"])
     return out
@@ -181,8 +187,8 @@ def truth_status(data, bot_actors):
 
 def cmd_reset_truth(jira, args):
     """Restore each issue's last human-authored status from its own changelog."""
-    bots = [b for b in args.bot_actor]
-    changed, skipped = [], []
+    bots = list(args.bot_actor)
+    changed, skipped, failed = [], [], []
     for key in CHARTER_ISSUES + list(args.extra):
         data = jira.issue(key, fields="status")
         data["changelog"] = {"histories": jira.issue_changelog(key)}
@@ -197,7 +203,14 @@ def cmd_reset_truth(jira, args):
         if args.dry_run:
             changed.append((key, current, target, "DRY-RUN — %s" % why))
             continue
-        jira.transition_to(key, target)
+        # One workflow-blocked transition must not swallow the rest of the
+        # batch. Record the failure and press on so the operator sees the
+        # whole picture rather than a half-applied reset with no summary.
+        try:
+            jira.transition_to(key, target)
+        except RuntimeError as exc:
+            failed.append((key, current, target, str(exc)[:200]))
+            continue
         after = jira.issue(key, fields="status,resolution")["fields"]
         changed.append((key, current, after["status"]["name"],
                         "resolution=%s" % ((after.get("resolution") or {}).get("name"))))
@@ -205,7 +218,10 @@ def cmd_reset_truth(jira, args):
         print("%-9s %s -> %s  (%s)" % (key, was, now, note))
     for key, cur, why in skipped:
         print("%-9s %-12s SKIP: %s" % (key, cur, why))
-    return 0
+    for key, was, target, why in failed:
+        print("%-9s %s -> %s  FAILED: %s" % (key, was, target, why),
+              file=sys.stderr)
+    return 1 if failed else 0
 
 
 def cmd_transition(jira, args):
