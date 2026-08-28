@@ -1,0 +1,107 @@
+# Upload manifest for manual `gcloud builds submit --config=cloudbuild.staging.yaml`.
+#
+# Identical to .gcloudignore except that Backend/ is NOT excluded.
+# .gcloudignore excludes both `.git` and `Backend/`, so a tarball submit
+# carries neither the submodule contents nor the git metadata needed to
+# fetch them — the Flask build then dies at `COPY pyproject.toml uv.lock ./`
+# with 'stat uv.lock: file does not exist' (builds 0628cc07 / 64116d9f,
+# 2026-08-24). Keeping Backend/ is cheaper than shipping .git.
+#
+# Usage:
+#   gcloud builds submit --config=cloudbuild.staging.yaml \
+#     --ignore-file=.gcloudignore.staging \
+#     --substitutions=SHORT_SHA="$(git rev-parse --short HEAD)" \
+#     --project=gen-lang-client-0491022701
+
+.git
+.gitignore
+node_modules/
+dist/
+build/
+coverage/
+.angular/
+.agent-work/
+.terraform/
+*.tfstate
+*.tfstate.*
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Submodules and non-frontend code
+# Backend/  <- deliberately NOT excluded here; see header
+backend/
+alirez-claude-skills/
+gemstack/
+
+# Root Python tooling (not used by the Express image). Leading slashes keep
+# Backend/pyproject.toml and Backend/uv.lock in the upload for its Docker build.
+.venv
+.venv_sync
+/uv.lock
+
+# CI/CD, agent, and tooling config
+.github/
+.claude/
+.codex/
+.gemini/
+.junie/
+.clawhub/
+.aiignore
+/pyproject.toml
+qodana-global-configurations.yaml
+qodana.yaml
+mkdocs.yml
+setup_mcp_secrets.sh
+
+# Planning, docs, and PM artifacts
+docs/
+documentation/
+scripts/
+sample_html/
+sample_sessiondata.json
+Designs/
+Google Cloud App Designs/
+tasteslikegood-org-design0_2_0-files/
+claude-code-tresor/
+skills/
+plan.md
+roadmap.md
+planning_notes.md
+design-plan.md
+BRANCHING_STRATEGY.md
+CONVENTIONS.md
+DEV_QUICKSTART_ANTIRECIPE020.md
+QUICK_REFERENCE.md
+COPILOT.md
+GEMINI.md
+START_HERE.md
+README.md
+CONTRIBUTING.md
+AGENTS.md
+CLAUDE.md
+
+# PM / Atlassian / Jira data dumps
+auto_pm_mcp.json
+confluence_data.json
+confluence_spaces.json
+jira_data.json
+jira_issues.txt
+fetch_atlassian.py
+update_jira.py
+
+# Misc artifacts
+adamtasteslikegood-2026-github-skyline.stl
+export
+fastagent.jsonl
+model_discovery_output.txt
+commit-phase-1.sh
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store

@@ -1,4 +1,11 @@
-# Cloud Build pipeline for building and deploying to Cloud Run.
+# Cloud Build pipeline for building and deploying to Cloud Run — PRODUCTION ONLY.
+#
+# KAN-249: every environment value below is hardcoded prod (project id, GCS
+# bucket, canonical URL, Valkey VPC IP, Cloud SQL instance, service names), so
+# `gcloud builds submit --config=cloudbuild.yaml` deploys PRODUCTION from any
+# directory. The folder you stand in does not decide the target; this file does.
+# For staging use cloudbuild.staging.yaml.
+#
 #
 # Substitutions:
 #   _REGION          — GCP region (default: us-central1)
