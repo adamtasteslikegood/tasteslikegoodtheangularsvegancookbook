@@ -34,6 +34,7 @@ whole life, the status it was originally created in.
 import argparse
 import datetime
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -185,35 +186,77 @@ AUTO_TRANSITION_REPO = (
 )
 
 
-def github_merge_times(key, timeout=30):
-    """When matching PRs in the workflow-owning repository were merged.
+def _key_pattern(key):
+    """Word-boundary regex matching the workflow's own key extractor.
+
+    jira-auto-transition.yml uses ``grep -oE '\\b(KAN|RCP)-[0-9]+\\b'`` — so a
+    correlator that wants to see the same PRs the workflow sees must match on
+    the same word boundary. GitHub search's ``in:title`` is token-based and
+    would accept ``KAN-2580`` as a hit for ``KAN-258``, silently reclassifying
+    a real human ``Done`` on the wrong ticket as automated.
+    """
+    return re.compile(r"\b" + re.escape(key) + r"\b")
+
+
+def github_merge_times(keys, timeout=30):
+    """{key: [datetime, ...]} for merged PRs matching each key in title.
 
     jira-auto-transition.yml exists only in AUTO_TRANSITION_REPO.
     A title-matched merge in another repository cannot fire this workflow and
     must not be used to reclassify a human Jira transition as automated.
-    Returns [] on failure — a missing correlation must never silently
-    reclassify a human transition as automated.
+
+    One ``gh`` invocation per ``reset-truth`` regardless of key count — the
+    former per-key spawn turned an ~1s reset into ~30s of serial network calls.
+    Titles are fetched and matched locally with the same word-boundary regex
+    the workflow itself uses, so token-based collisions on GitHub search
+    (``KAN-258`` matching ``KAN-2580``) cannot leak in.
+
+    Accepts a single key (str) for backward-compat, or an iterable of keys;
+    returns [] / {} respectively on failure — a missing correlation must
+    never silently reclassify a human transition as automated.
     """
+    if isinstance(keys, str):
+        result = github_merge_times([keys], timeout=timeout)
+        return result.get(keys, [])
+    keys = list(keys)
+    if not keys:
+        return {}
+    search = " ".join(keys) + " in:title"
     cmd = [
         "gh", "pr", "list",
         "-R", AUTO_TRANSITION_REPO,
-        "--search", "%s in:title" % key,
+        "--search", search,
         "--state", "merged",
-        "--json", "mergedAt",
-        "--limit", "20",
+        "--json", "mergedAt,title",
+        # 20 candidate PRs per key is enough for any real ticket while capping
+        # the response size on a wide reset-truth batch.
+        "--limit", str(20 * len(keys)),
     ]
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if r.returncode != 0 or not r.stdout.strip():
-            return []
-        out = []
-        for pr in json.loads(r.stdout):
+            return {k: [] for k in keys}
+        data = json.loads(r.stdout)
+        # `gh` returns [] on no matches and always an array on success, but a
+        # defensive isinstance guard costs nothing and keeps the "returns []
+        # on failure" contract intact if the tool ever emits null/object.
+        if not isinstance(data, list):
+            return {k: [] for k in keys}
+        patterns = [(k, _key_pattern(k)) for k in keys]
+        out = {k: [] for k in keys}
+        for pr in data:
+            if not isinstance(pr, dict):
+                continue
+            title = pr.get("title") or ""
             ts = _parse_ts(pr.get("mergedAt"))
-            if ts:
-                out.append(ts)
+            if not ts:
+                continue
+            for k, pat in patterns:
+                if pat.search(title):
+                    out[k].append(ts)
         return out
     except (subprocess.SubprocessError, ValueError, OSError):
-        return []
+        return {k: [] for k in keys}
 
 # The auto-transition workflow runs within seconds of the merge; a minute of
 # slack covers a slow runner without reaching far enough to swallow a human who
@@ -277,11 +320,16 @@ def cmd_reset_truth(jira, args):
     """Restore each issue's last human-authored status from its own changelog."""
     bots = list(args.bot_actor)
     changed, skipped, failed = [], [], []
-    for key in CHARTER_ISSUES + list(args.extra):
+    all_keys = CHARTER_ISSUES + list(args.extra)
+    # One batched gh call for the whole set, not one per key — the per-key
+    # loop turned a formerly ~1s reset into ~30s of serial subprocess spawns.
+    merge_index = ({} if args.no_github_correlate
+                   else github_merge_times(all_keys))
+    for key in all_keys:
         data = jira.issue(key, fields="status")
         data["changelog"] = {"histories": jira.issue_changelog(key)}
         current = data["fields"]["status"]["name"]
-        merges = [] if args.no_github_correlate else github_merge_times(key)
+        merges = merge_index.get(key, [])
         target, why = truth_status(data, bots, merges)
         if not target:
             skipped.append((key, current, why))

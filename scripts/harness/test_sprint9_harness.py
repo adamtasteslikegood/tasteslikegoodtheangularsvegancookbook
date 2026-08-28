@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Focused regression tests for Sprint 9 board-truth handling."""
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -90,10 +91,10 @@ class TruthStatusTests(unittest.TestCase):
 
 class MergeLookupTests(unittest.TestCase):
     @patch("sprint9_board.subprocess.run")
-    def test_only_queries_repository_that_owns_workflow(self, run):
+    def test_scalar_key_call_returns_a_list_for_backward_compat(self, run):
         run.return_value = Mock(
             returncode=0,
-            stdout='[{"mergedAt": "2026-08-28T06:12:16Z"}]',
+            stdout='[{"title": "chore [KAN-258]", "mergedAt": "2026-08-28T06:12:16Z"}]',
         )
 
         self.assertEqual(
@@ -103,6 +104,64 @@ class MergeLookupTests(unittest.TestCase):
         cmd = run.call_args.args[0]
         self.assertEqual(cmd[cmd.index("-R") + 1], AUTO_TRANSITION_REPO)
         self.assertNotIn("adamtasteslikegood/tasteslikegood.com", cmd)
+
+    @patch("sprint9_board.subprocess.run")
+    def test_bulk_lookup_is_a_single_subprocess_call(self, run):
+        run.return_value = Mock(
+            returncode=0,
+            stdout=(
+                '[{"title": "release: KAN-249 pointer bump",'
+                ' "mergedAt": "2026-08-28T06:12:16Z"},'
+                ' {"title": "chore(models): tail [KAN-258]",'
+                ' "mergedAt": "2026-08-28T05:00:00Z"}]'
+            ),
+        )
+
+        out = github_merge_times(["KAN-249", "KAN-258"])
+
+        self.assertEqual(run.call_count, 1, "bulk lookup must batch, not spawn per key")
+        self.assertEqual(out["KAN-249"], [_parse_ts("2026-08-28T06:12:16Z")])
+        self.assertEqual(out["KAN-258"], [_parse_ts("2026-08-28T05:00:00Z")])
+
+    @patch("sprint9_board.subprocess.run")
+    def test_word_boundary_matching_rejects_superset_keys(self, run):
+        # The workflow uses `grep -oE '\b(KAN|RCP)-[0-9]+\b'`; a KAN-258 search
+        # must not accept a KAN-2580 title as a KAN-258 correlation.
+        run.return_value = Mock(
+            returncode=0,
+            stdout=(
+                '[{"title": "chore: fix KAN-2580 regression",'
+                ' "mergedAt": "2026-08-28T06:12:16Z"}]'
+            ),
+        )
+
+        self.assertEqual(github_merge_times(["KAN-258"]), {"KAN-258": []})
+
+    @patch("sprint9_board.subprocess.run")
+    def test_non_zero_returncode_yields_empty_correlation(self, run):
+        run.return_value = Mock(returncode=1, stdout="")
+        self.assertEqual(
+            github_merge_times(["KAN-258"]), {"KAN-258": []},
+            "author matching alone must remain the fallback, not a crash")
+
+    @patch("sprint9_board.subprocess.run")
+    def test_non_list_json_yields_empty_correlation(self, run):
+        # `gh` should always emit a list on success, but a defensive isinstance
+        # guard keeps the "returns [] on failure" contract intact if it ever
+        # writes `null` or an object on a rare error path.
+        run.return_value = Mock(returncode=0, stdout="null")
+        self.assertEqual(github_merge_times(["KAN-258"]), {"KAN-258": []})
+
+    @patch("sprint9_board.subprocess.run")
+    def test_timeout_yields_empty_correlation(self, run):
+        run.side_effect = subprocess.TimeoutExpired(cmd=[], timeout=1)
+        self.assertEqual(github_merge_times(["KAN-258"]), {"KAN-258": []})
+
+    @patch("sprint9_board.subprocess.run")
+    def test_empty_key_list_is_a_noop(self, run):
+        self.assertEqual(github_merge_times([]), {})
+        run.assert_not_called()
+
 
 class MergeCorrelationTests(unittest.TestCase):
     """The jira-auto-transition workflow authenticates with Adam's personal
