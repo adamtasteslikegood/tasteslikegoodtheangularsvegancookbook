@@ -111,7 +111,7 @@ GitHub when PRs carrying each key were merged, and treats a move to **Done**
 landing within `MERGE_CORRELATION_WINDOW_S` (120s) of such a merge as automated.
 That is the workflow's exact signature — it only ever moves to Done, and only on
 a merge — so a human who merges and then closes the row hours later is untouched.
-`--no-github-correlate` disables it.
+`--github-correlate` enables this heuristic explicitly. Without that flag, `reset-truth` preserves human-attributed transitions and uses author matching only.
 
 Two standing consequences worth knowing:
 
