@@ -296,7 +296,7 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image" \
   --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${GEMINI_SECRET}${OAUTH_SECRETS}" \
   --set-cloudsql-instances="${PROJECT_ID}:${REGION}:vegangenius-staging-db" \
   --network=default \

@@ -1,4 +1,11 @@
-# Cloud Build pipeline for building and deploying to Cloud Run.
+# Cloud Build pipeline for building and deploying to Cloud Run — PRODUCTION ONLY.
+#
+# KAN-249: every environment value below is hardcoded prod (project id, GCS
+# bucket, canonical URL, Valkey VPC IP, Cloud SQL instance, service names), so
+# `gcloud builds submit --config=cloudbuild.yaml` deploys PRODUCTION from any
+# directory. The folder you stand in does not decide the target; this file does.
+# For staging use cloudbuild.staging.yaml.
+#
 #
 # Substitutions:
 #   _REGION          — GCP region (default: us-central1)
@@ -130,7 +137,7 @@ steps:
       - --memory=1Gi
       - --parallelism=1
       - --tasks=1
-      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       # VALKEY_CA_CERT: without it the app factory's Valkey client fails TLS
       # verification (CERTIFICATE_VERIFY_FAILED) on every Job run and falls
       # back to SimpleCache — harmless for a migration, but it spams error
@@ -167,9 +174,10 @@ steps:
   # it; a Cloud Scheduler trigger (created once, out of band) runs it daily.
   # It detects recipes with no image bytes (canonical first, then published)
   # and enqueues regeneration through the same Pub/Sub path as the SPA's
-  # regenerate button; the flask-backend worker does the Imagen work, so the
-  # Job needs no Gemini credentials. Env/secrets mirror the migrate Job
-  # (same create_app boot) plus IMAGE_REPAIR_LIMIT.
+  # regenerate button; the flask-backend worker does the Gemini image
+  # generation (GEMINI_IMAGE_MODEL, currently gemini-3-pro-image), so the
+  # Job itself needs no Gemini credentials. Env/secrets mirror the migrate
+  # Job (same create_app boot) plus IMAGE_REPAIR_LIMIT.
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
     id: 'Deploy Image Repair Job'
     waitFor: ['Push Flask Backend Image']
@@ -189,7 +197,7 @@ steps:
       - --memory=1Gi
       - --parallelism=1
       - --tasks=1
-      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,IMAGE_REPAIR_LIMIT=10,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,IMAGE_REPAIR_LIMIT=10,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
       - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
       - --network=default
@@ -227,7 +235,7 @@ steps:
       # of the SA Pub/Sub uses to OIDC-sign push requests; created by
       # scripts/gcloud/setup_pubsub.sh. Both must be set or worker_api_bp
       # fails closed with 503.
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
       # VALKEY_CA_CERT: Memorystore's Google-managed CA, trusted by the Flask
       # IAM Valkey client (Backend/utils/valkey_auth.py) so the response cache
       # (Flask-Caching) uses shared Valkey instead of silently degrading to a
