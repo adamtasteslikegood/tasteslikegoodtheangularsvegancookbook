@@ -1,0 +1,315 @@
+# Cloud Build pipeline for building and deploying to the STAGING project.
+#
+# KAN-249. This file exists because `cloudbuild.yaml` is hardcoded production:
+# project id, GCS bucket, canonical URL, Valkey VPC IP, Cloud SQL instance and
+# service names are all baked in. That meant `gcloud builds submit --config=
+# cloudbuild.yaml` deployed PRODUCTION from any directory, and there was no
+# config in the repo that meant "staging" — the folder you stand in does not
+# decide the target, the config does.
+#
+# Every environment-specific value here is a substitution with a staging
+# default, so this file cannot silently point at production and a reviewer can
+# see the whole target surface in one block.
+#
+# Usage:
+#   gcloud builds submit --config=cloudbuild.staging.yaml \
+#     --ignore-file=.gcloudignore.staging \
+#     --substitutions=SHORT_SHA="$(git rev-parse --short HEAD)" \
+#     --project=gen-lang-client-0491022701
+#
+# Substitutions:
+#   _REGION          — GCP region
+#   _PROJECT_ID      — staging GCP project
+#   _EXPRESS_SERVICE — Cloud Run service name for the Express frontend
+#   _FLASK_SERVICE   — Cloud Run service name for the Flask backend
+#   _MIGRATE_JOB     — Cloud Run Job name for `flask db upgrade`
+#   _IMAGE_REGISTRY  — Artifact Registry base path (staging project, KAN-250)
+#   _CLOUDSQL        — Cloud SQL connection name
+#   _GCS_BUCKET      — recipe image bucket
+#   _PUBSUB_SA       — SA Pub/Sub uses to OIDC-sign push requests
+#   _TEXT_MODEL      — Gemini model for recipe text
+#   _IMAGE_MODEL     — Gemini model for recipe images
+#   _VERSION         — image tag alongside $SHORT_SHA
+#
+# Differences from production, and why:
+#
+#   * No Valkey. Staging has no Memorystore instance — `/api/health` reports
+#     `rateLimitStore: "memory"`, and prod's VALKEY_HOST is a prod-VPC IP that
+#     is unreachable from here. The VALKEY_* vars, the VALKEY_CA_CERT secret
+#     and prod's "Verify Valkey Health" step are all omitted rather than
+#     pointed at something that would fail closed.
+#   * No Datadog. The staging project has no DD_API_KEY secret, so DD_API_KEY
+#     is not mounted; serverless-init runs without it.
+#   * No FLASK_ENV. Deliberate, and it matches the live staging service. Only
+#     the literal value `production` activates Backend's production guards
+#     (OAUTHLIB_INSECURE_TRANSPORT, FLASK_SECRET_KEY fail-fast), so any other
+#     value is equivalent to unset. Revisit if staging should exercise those
+#     guards — see KAN-250.
+#   * No image-repair Job. That is a prod-only scheduled Job (KAN-141) driven
+#     by Cloud Scheduler; staging has no schedule and no need to repair.
+#   * Secrets carry the *_STAGING suffix — they are separate secrets in the
+#     staging project, not the prod ones.
+
+substitutions:
+  _REGION: us-central1
+  _PROJECT_ID: gen-lang-client-0491022701
+  _EXPRESS_SERVICE: express-frontend-staging
+  _FLASK_SERVICE: flask-backend-staging
+  _MIGRATE_JOB: flask-backend-staging-migrate
+  _IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
+  _CLOUDSQL: gen-lang-client-0491022701:us-central1:vegangenius-staging-db
+  _GCS_BUCKET: tasteslikegood-recipe-images-staging
+  _PUBSUB_SA: pubsub-pusher@gen-lang-client-0491022701.iam.gserviceaccount.com
+  # Adam's model selection (KAN-248). Staging trials these ahead of prod;
+  # PR #3439 adds the same pair to cloudbuild.yaml. If both land, keep the two
+  # files in step — a silent divergence here is exactly the class of drift
+  # that made the imagen-4.0 retirement invisible until production broke.
+  _TEXT_MODEL: gemini-3.7-flash
+  _IMAGE_MODEL: gemini-3-pro-image
+  _VERSION: staging
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+steps:
+  # ── Submodule init ──────────────────────────────────────────────────────────
+  # Cloud Build does not initialize git submodules automatically. This step is
+  # also why a tarball submit fails: `gcloud builds submit` uploads the working
+  # tree with no .git, so `submodule update` cannot populate Backend/ and the
+  # Flask build then dies at `COPY pyproject.toml uv.lock ./` with
+  # "stat uv.lock: file does not exist" (observed on builds 0628cc07 /
+  # 64116d9f, 2026-08-24). Submit from a trigger, or ensure Backend/ is
+  # populated in the upload context. Tracked in KAN-250.
+  - name: gcr.io/cloud-builders/git
+    id: 'Init Submodules'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        if [ -e .git ]; then
+          git submodule update --init --recursive
+        else
+          echo "No .git in the build context — skipping submodule init."
+          echo "(Expected for a tarball submit; Backend/ must already be present.)"
+        fi
+        if [ ! -f Backend/uv.lock ]; then
+          echo "FAIL: Backend/ is empty. A tarball submit needs --ignore-file=.gcloudignore.staging," >&2
+          echo "      because .gcloudignore excludes both Backend/ and .git." >&2
+          exit 1
+        fi
+        echo "Backend/ populated."
+
+  # ── Build ───────────────────────────────────────────────────────────────────
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Build Express Frontend'
+    waitFor: ['Init Submodules']
+    args:
+      - build
+      - -t
+      - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+      - .
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Build Flask Backend'
+    waitFor: ['Init Submodules']
+    dir: 'Backend'
+    args:
+      - build
+      - -t
+      - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - .
+
+  # ── Push ────────────────────────────────────────────────────────────────────
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Express Frontend Image'
+    waitFor: ['Build Express Frontend']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA']
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Flask Backend Image'
+    waitFor: ['Build Flask Backend']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA']
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Tag Express Frontend Version'
+    waitFor: ['Push Express Frontend Image']
+    args:
+      - tag
+      - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+      - $_IMAGE_REGISTRY/express-frontend:$_VERSION
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Tag Flask Backend Version'
+    waitFor: ['Push Flask Backend Image']
+    args:
+      - tag
+      - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - $_IMAGE_REGISTRY/flask-backend:$_VERSION
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Express Frontend Version Tag'
+    waitFor: ['Tag Express Frontend Version']
+    args: [push, '$_IMAGE_REGISTRY/express-frontend:$_VERSION']
+
+  - name: gcr.io/cloud-builders/docker
+    id: 'Push Flask Backend Version Tag'
+    waitFor: ['Tag Flask Backend Version']
+    args: [push, '$_IMAGE_REGISTRY/flask-backend:$_VERSION']
+
+  # ── Migrate ─────────────────────────────────────────────────────────────────
+  # Kept deliberately. The migrate gate is the single most valuable thing
+  # staging can catch before production: v0.3.0 died in this Job in prod, and
+  # a failure here aborts the build while the old revision keeps serving.
+  #
+  # The Job's env + secrets MUST mirror the Flask service so config.py and
+  # create_app() resolve identically, otherwise a missing DATABASE_URL surfaces
+  # here rather than in service logs.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Migrate Job'
+    waitFor: ['Push Flask Backend Image']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - $_MIGRATE_JOB
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --project=$_PROJECT_ID
+      # Overrides the image's Datadog ENTRYPOINT for this one-shot migration.
+      - --command=flask
+      - --args=db,upgrade
+      - --max-retries=1
+      - --task-timeout=600
+      - --cpu=1
+      - --memory=1Gi
+      - --parallelism=1
+      - --tasks=1
+      - --set-env-vars=FLASK_APP=app.py,GCS_BUCKET_NAME=$_GCS_BUCKET,GCP_PROJECT_ID=$_PROJECT_ID,PUBSUB_INVOKER_SA=$_PUBSUB_SA
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest
+      # DATABASE_URL_STAGING is a Cloud SQL Unix-socket URL
+      # (postgresql://...?host=/cloudsql/<instance>). Without this flag the
+      # socket path does not exist in the Job container and SQLAlchemy falls
+      # back to localhost:5432.
+      - --set-cloudsql-instances=$_CLOUDSQL
+      - --quiet
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Execute Migrate Job'
+    waitFor: ['Deploy Migrate Job']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - execute
+      - $_MIGRATE_JOB
+      - --region=$_REGION
+      - --project=$_PROJECT_ID
+      - --wait
+      - --quiet
+
+  # ── Deploy ──────────────────────────────────────────────────────────────────
+
+  # Flask first (KAN-30): Express proxies to it, so deploying Express first
+  # would point a new frontend at an old backend for the gap between steps.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Flask Backend'
+    waitFor: ['Push Flask Backend Version Tag', 'Execute Migrate Job']
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - $_FLASK_SERVICE
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --project=$_PROJECT_ID
+      - --port=8080
+      # Matches the live staging service: single instance, 512Mi. Prod runs
+      # 1Gi because idle RSS sat at ~84% of 512Mi under load; staging serves
+      # far less traffic, but raise this if the Job or service OOMs.
+      - --min-instances=0
+      - --max-instances=1
+      - --memory=512Mi
+      - --set-env-vars=GCS_BUCKET_NAME=$_GCS_BUCKET,GCP_PROJECT_ID=$_PROJECT_ID,PUBSUB_INVOKER_SA=$_PUBSUB_SA,GEMINI_DEFAULT_MODEL=$_TEXT_MODEL,GEMINI_IMAGE_MODEL=$_IMAGE_MODEL
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest
+      - --set-cloudsql-instances=$_CLOUDSQL
+      - --labels=service=flask-backend-staging,environment=staging
+      # Same posture as prod (KAN-170): --invoker-iam-check is the flag that
+      # actually enforces the invoker check by clearing the
+      # run.googleapis.com/invoker-iam-disabled annotation.
+      # --no-allow-unauthenticated stays only because removing it would re-add
+      # allUsers on the next deploy. The live staging service already refuses
+      # direct requests with 403; only the compute SA and pubsub-pusher hold
+      # roles/run.invoker.
+      - --invoker-iam-check
+      - --no-allow-unauthenticated
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
+      - --quiet
+
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Express Frontend'
+    waitFor: ['Push Express Frontend Version Tag', 'Deploy Flask Backend']
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        # Resolve the Flask URL at deploy time rather than hardcoding a
+        # generated run.app hostname, which changes if the service is
+        # recreated.
+        FLASK_URL="$$(gcloud run services describe "$_FLASK_SERVICE" \
+          --region="$_REGION" --project="$_PROJECT_ID" --format='value(status.url)')"
+        echo "Express will proxy to: $${FLASK_URL}"
+        gcloud run deploy "$_EXPRESS_SERVICE" \
+          --image="$_IMAGE_REGISTRY/express-frontend:$SHORT_SHA" \
+          --region="$_REGION" \
+          --project="$_PROJECT_ID" \
+          --min-instances=0 \
+          --max-instances=2 \
+          --memory=512Mi \
+          --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=$${FLASK_URL}" \
+          --set-secrets=GEMINI_API_KEY=GOOGLE_API_KEY_STAGING:latest \
+          --labels=service=express-frontend-staging,environment=staging \
+          --allow-unauthenticated \
+          --quiet
+
+  # ── Post-deploy staging assertion ───────────────────────────────────────────
+  # The staging analogue of prod's Valkey healthcheck. NODE_ENV=staging is
+  # load-bearing: it drives the X-Robots-Tag noindex middleware and the
+  # deny-all robots.txt, and the release train's `train-run.sh --verify-only`
+  # gate greps `environment=staging` to prove STAGING_URL is not pointing at
+  # production. If this deploy ever came up as `production`, staging would be
+  # indexable and the release gate would silently pass against prod.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Verify Staging Identity'
+    waitFor: ['Deploy Express Frontend']
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -euo pipefail
+        URL="$$(gcloud run services describe "$_EXPRESS_SERVICE" \
+          --region="$_REGION" --project="$_PROJECT_ID" --format='value(status.url)')"
+        echo "Probing $${URL}/api/health"
+        BODY="$$(curl -fsS --max-time 30 "$${URL}/api/health")"
+        echo "$${BODY}"
+        echo "$${BODY}" | grep -q '"environment":"staging"' || {
+          echo "FAIL: /api/health did not report environment=staging" >&2
+          exit 1
+        }
+        curl -fsSI --max-time 30 "$${URL}/" | grep -qi '^x-robots-tag:.*noindex' || {
+          echo "FAIL: X-Robots-Tag noindex missing — staging would be indexable" >&2
+          exit 1
+        }
+        echo "OK: staging identity verified"
+
+images:
+  - $_IMAGE_REGISTRY/express-frontend:$SHORT_SHA
+  - $_IMAGE_REGISTRY/express-frontend:$_VERSION
+  - $_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+  - $_IMAGE_REGISTRY/flask-backend:$_VERSION
