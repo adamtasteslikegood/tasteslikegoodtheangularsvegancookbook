@@ -244,6 +244,50 @@ describe('createExpensiveOperationLimiter', () => {
   });
 });
 
+// KAN-161: IPv6 rate-limit bypass — rateLimitKeyGenerator must mask IPv6
+// addresses to /56 subnets via ipKeyGenerator so rotating addresses within
+// the same allocation cannot bypass per-IP rate limits.
+describe('rateLimitKeyGenerator (IPv6 masking)', () => {
+  it('passes IPv4 addresses through unchanged', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = { ip: '192.168.1.42', socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('192.168.1.42');
+  });
+
+  it('masks two IPv6 addresses in the same /56 to the same key', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req1 = { ip: '2001:db8:abcd:1200::1', socket: {} } as unknown as Request;
+    const req2 = { ip: '2001:db8:abcd:12ff::9999', socket: {} } as unknown as Request;
+    const key1 = rateLimitKeyGenerator(req1);
+    const key2 = rateLimitKeyGenerator(req2);
+    expect(key1).toBe(key2);
+    // The key must differ from the raw input (it was masked)
+    expect(key1).not.toBe('2001:db8:abcd:1200::1');
+  });
+
+  it('produces different keys for IPv6 addresses in different /56 subnets', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req1 = { ip: '2001:db8:abcd:1200::1', socket: {} } as unknown as Request;
+    const req2 = { ip: '2001:db8:abcd:1300::1', socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req1)).not.toBe(rateLimitKeyGenerator(req2));
+  });
+
+  it('falls back to req.socket.remoteAddress when req.ip is undefined', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = {
+      ip: undefined,
+      socket: { remoteAddress: '10.0.0.1' },
+    } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('10.0.0.1');
+  });
+
+  it("returns 'unknown' when no IP is available", async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = { ip: undefined, socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('unknown');
+  });
+});
+
 describe('createRequestLogger', () => {
   it('should return a middleware function', async () => {
     const { createRequestLogger } = await import('./security.js');

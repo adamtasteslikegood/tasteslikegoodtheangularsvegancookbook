@@ -50,6 +50,17 @@ describe('interpretSaveResponse (KAN-155)', () => {
     }
   });
 
+  it('recognises RECIPE_ALREADY_SAVED as a duplicate, not an ownership refusal', async () => {
+    // KAN-241: before this fix, RECIPE_ALREADY_SAVED fell through to the generic
+    // 'ownership' bucket, which toasted the wrong message and left a ghost in
+    // localStorage. The code must map to 'duplicate' so the caller can clean up.
+    const outcome = await interpretSaveResponse(
+      res(409, { error: 'You already have this recipe saved.', code: 'RECIPE_ALREADY_SAVED' })
+    );
+
+    expect(outcome).toEqual({ ok: false, refusal: 'duplicate' });
+  });
+
   it('degrades a 409 with no code to a generic ownership refusal', async () => {
     // A Backend older than the three-code split still answers a bare 409. It is
     // still a refusal — the absence of a code must never read as success.
