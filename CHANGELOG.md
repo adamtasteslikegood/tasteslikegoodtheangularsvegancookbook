@@ -6,6 +6,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Model selection pinned in deploy config** — `GEMINI_DEFAULT_MODEL=gemini-3.7-flash`
+  (text) and `GEMINI_IMAGE_MODEL=gemini-3-pro-image` (Nano Banana Pro) are now set on
+  all three flask deploy steps in `cloudbuild.yaml`, rather than relying on the code
+  defaults. Both were verified live against the API before landing.
+
+  The text model moves off `gemini-3.1-pro-preview` because it is a **preview** model —
+  the same retirement class that removed `imagen-4.0` and caused the KAN-243 outage.
+  `gemini-3.7-flash` is GA. Note there is no GA Gemini 3.x _Pro_ text model, so this
+  trades Pro tier for retirement safety.
+
+  The image model was already GA (`gemini-3.1-flash-image`), so that half is a quality
+  choice: Nano Banana Pro costs roughly 7 s more per image (16.8 s vs 9.8 s) at
+  effectively identical output size (~1.05 MB). `GENAI_HTTP_TIMEOUT_MS` is 540 000 and
+  the Pub/Sub ack deadline is 600 s, so neither bound is threatened, and generation is
+  async so the extra time is spinner time.
+
+  These were applied to the running production service on 2026-08-25 via
+  `gcloud run services update`; setting them here is what makes them survive the next
+  tagged deploy, since the deploy steps use `--set-env-vars`, which replaces the whole
+  environment — KAN-248.
+
+---
+
 ## [0.4.12] - 2026-08-24
 
 Backend submodule pointer: `197e72f` → **`6becf93`** — Backend `main`'s own tip, the
