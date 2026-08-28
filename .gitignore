@@ -149,5 +149,6 @@ findings.csv
 # Cookbook JSON exports used to seed staging (KAN-182) carry real recipe
 # content from a personal account. The repo is public — never commit them.
 *COOKBOOK_EXPORT*.json
+.env*
 .envrc
 openai-codex-desktop
