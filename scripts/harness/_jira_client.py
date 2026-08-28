@@ -97,6 +97,19 @@ class Jira:
             path += "&expand=%s" % expand
         return self.call("GET", path)
 
+    def issue_changelog(self, key):
+        """Return every changelog history for an issue, oldest-page first."""
+        out, start = [], 0
+        while True:
+            page = self.call(
+                "GET", "/rest/api/3/issue/%s/changelog?startAt=%d&maxResults=100"
+                % (key, start))
+            values = page.get("values", [])
+            out.extend(values)
+            if not values or len(out) >= page.get("total", 0):
+                return out
+            start += len(values)
+
     def sprints(self, board_id):
         out, start = [], 0
         while True:
