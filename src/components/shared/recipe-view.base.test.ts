@@ -8,6 +8,7 @@ import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ModalService } from '../../services/modal.service';
+import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 
 // KAN-126 (#3209): the shared seam between GeneratorComponent and
 // RecipeDetailComponent. The component test files cover the behaviour through
@@ -362,7 +363,7 @@ describe('RecipeViewBase', () => {
     it('re-reads the row and adopts the worker-written fields', async () => {
       const { host, refreshRecipeFromApi } = createHost({
         generateImage: vi.fn().mockResolvedValue(CANONICAL),
-        refreshRecipeFromApi: async () => SERVER_ROW.data,
+        refreshRecipeFromApi: async () => recipeFromRow(SERVER_ROW as unknown as RecipeRow),
       });
       host.recipe.set(pendingRecipe());
 
@@ -380,7 +381,7 @@ describe('RecipeViewBase', () => {
     it('exports JSON that matches the API row after the reconcile', async () => {
       const { host } = createHost({
         generateImage: vi.fn().mockResolvedValue(CANONICAL),
-        refreshRecipeFromApi: async () => SERVER_ROW.data,
+        refreshRecipeFromApi: async () => recipeFromRow(SERVER_ROW as unknown as RecipeRow),
       });
       host.recipe.set(pendingRecipe());
 
@@ -389,6 +390,27 @@ describe('RecipeViewBase', () => {
       // exportRecipe stringifies the viewed recipe verbatim; comparing the
       // serialized form is the same comparison the AC's repro makes by hand.
       expect(JSON.parse(JSON.stringify(host.recipe()))).toEqual(SERVER_ROW.data);
+    });
+
+    // The reconcile GET reads a row that predates anything the user changed
+    // during the 30-60s image window. Adopting it wholesale reverted that edit
+    // on screen and in localStorage; only the pipeline fields may be adopted.
+    it('keeps a notes edit made while the image was still generating', async () => {
+      const { host } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () => recipeFromRow(SERVER_ROW as unknown as RecipeRow),
+      });
+      host.recipe.set({
+        ...(pendingRecipe() as unknown as Record<string, unknown>),
+        personalNotes: 'typed during generation',
+      } as never);
+
+      await host.regenerateImage();
+
+      const adopted = host.recipe() as unknown as Record<string, unknown>;
+      expect(adopted['personalNotes']).toBe('typed during generation');
+      // ...while the worker-written fields still land.
+      expect(adopted['ai_image_gcs']).toBe(SERVER_ROW.data.ai_image_gcs);
     });
 
     it('leaves the optimistic local write standing when the row cannot be read', async () => {
@@ -407,7 +429,7 @@ describe('RecipeViewBase', () => {
     it('does not overwrite the viewed recipe when the user has navigated to another one', async () => {
       const { host } = createHost({
         generateImage: vi.fn().mockResolvedValue(CANONICAL),
-        refreshRecipeFromApi: async () => SERVER_ROW.data,
+        refreshRecipeFromApi: async () => recipeFromRow(SERVER_ROW as unknown as RecipeRow),
       });
       host.recipe.set(pendingRecipe());
 
@@ -425,7 +447,7 @@ describe('RecipeViewBase', () => {
       // makes the cookbook row correct on return.
       const { host, refreshRecipeFromApi, authService } = createHost({
         generateImage: vi.fn().mockResolvedValue(CANONICAL),
-        refreshRecipeFromApi: async () => SERVER_ROW.data,
+        refreshRecipeFromApi: async () => recipeFromRow(SERVER_ROW as unknown as RecipeRow),
       });
       host.recipe.set(pendingRecipe());
 

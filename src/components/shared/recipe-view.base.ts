@@ -12,6 +12,7 @@ import {
   publishToggleKind,
 } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
+import { adoptImagePipelineFields } from '../../utils/recipe-row';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
 /** Carries the server's refusal reason through the existing throw/catch in
@@ -234,11 +235,18 @@ export abstract class RecipeViewBase {
    *
    * A failed reconcile is not an error the user needs to see: the image itself
    * already rendered, and the next `loadFromApi` will pick the row up.
+   *
+   * Only the pipeline-owned fields are adopted — see `adoptImagePipelineFields`.
+   * The row read here predates any edit the user made during the image window.
    */
   private async syncImageMetadata(recipeId: string) {
     const fresh = await this.persistenceService.refreshRecipeFromApi(recipeId);
-    if (!fresh || this.recipe()?.id !== recipeId) return;
-    this.recipe.set(fresh);
+    const current = this.recipe();
+    if (!fresh || current?.id !== recipeId) return;
+    // Adopt the pipeline's fields onto what is on screen rather than replacing
+    // it. The user may have edited notes or hit publish while the image was
+    // generating, and the row this GET read predates that write.
+    this.recipe.set(adoptImagePipelineFields(current, fresh));
     // Rebuild rather than copy: `fresh.ai_image_url` is canonical (it must
     // stay that way — see above), and the `_t` display marker lives on the
     // service, keyed by id.

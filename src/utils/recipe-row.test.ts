@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recipeFromRow, type RecipeRow } from './recipe-row';
+import { adoptImagePipelineFields, recipeFromRow, type RecipeRow } from './recipe-row';
 import type { Recipe } from '../recipe.types';
 
 const blob = (over: Partial<Recipe> = {}): Recipe =>
@@ -79,5 +79,79 @@ describe('recipeFromRow', () => {
   it('passes a bare Recipe blob through untouched', () => {
     const bare = blob();
     expect(recipeFromRow(bare)).toBe(bare);
+  });
+});
+
+/**
+ * KAN-255 — the reconcile that reads worker-written image metadata back must
+ * not carry the rest of the server row with it. The GET fires 30-60s after the
+ * user asked for an image, which is long enough for them to edit notes or hit
+ * publish; the row it reads predates that write.
+ */
+describe('adoptImagePipelineFields (KAN-255)', () => {
+  const local = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      personalNotes: 'edited while the image was generating',
+      is_public: true,
+      slug: 'vegan-cornbread',
+      ai_image_url: '/api/recipes/r1/image?_t=1',
+      ai_metadata: { image_request: { status: 'pending' } },
+      ...over,
+    }) as unknown as Recipe;
+
+  const server = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      personalNotes: '',
+      is_public: false,
+      slug: null,
+      ai_image_url: '/api/recipes/r1/image',
+      ai_image_gcs: 'gs://bucket/r1/claim.png',
+      ai_metadata: { image_request: { status: 'complete' }, image_generation: { success: true } },
+      ...over,
+    }) as unknown as Recipe;
+
+  it('adopts the three pipeline-owned fields from the server row', () => {
+    const merged = adoptImagePipelineFields(local(), server()) as unknown as Record<string, never>;
+    expect(merged['ai_image_url']).toBe('/api/recipes/r1/image');
+    expect(merged['ai_image_gcs']).toBe('gs://bucket/r1/claim.png');
+    expect(merged['ai_metadata']).toEqual({
+      image_request: { status: 'complete' },
+      image_generation: { success: true },
+    });
+  });
+
+  // The regression this function exists to prevent: a wholesale adopt reverted
+  // the edit on screen AND in localStorage, and because saveNotes POSTs the
+  // whole recipe, the next save wrote the stale copy back to the server.
+  it('keeps a concurrent local edit that the server row predates', () => {
+    const merged = adoptImagePipelineFields(local(), server());
+    expect(merged.personalNotes).toBe('edited while the image was generating');
+  });
+
+  it('keeps an optimistic publish that the server row predates', () => {
+    const merged = adoptImagePipelineFields(local(), server());
+    expect(merged.is_public).toBe(true);
+    expect(merged.slug).toBe('vegan-cornbread');
+  });
+
+  it('leaves the local value alone when the server row omits the field', () => {
+    const partial = server();
+    delete (partial as unknown as Record<string, unknown>)['ai_image_url'];
+    const merged = adoptImagePipelineFields(local(), partial) as unknown as Record<string, never>;
+    // A row that comes back without an image url must not blank the image the
+    // user is currently looking at.
+    expect(merged['ai_image_url']).toBe('/api/recipes/r1/image?_t=1');
+  });
+
+  it('does not mutate either input', () => {
+    const l = local();
+    const s = server();
+    adoptImagePipelineFields(l, s);
+    expect((l as unknown as Record<string, never>)['ai_image_gcs']).toBeUndefined();
+    expect(s.personalNotes).toBe('');
   });
 });

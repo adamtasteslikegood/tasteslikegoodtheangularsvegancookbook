@@ -2,7 +2,7 @@ import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook } from '../auth.types';
-import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
+import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
  * Why a save did not land (KAN-155).
@@ -233,8 +233,11 @@ export class PersistenceService {
    *  - Never ADDS a row. A cold deep-linked recipe (recipe-detail, saved=false)
    *    is not in the user's cookbook, and a background image reconcile must not
    *    be the thing that saves it for them.
-   *  - The server row wins wholesale, the same authority `loadFromApi` already
-   *    exercises via `auth.hydrate` — Cloud SQL is authoritative.
+   *  - The server wins for the image-pipeline fields ONLY
+   *    (`adoptImagePipelineFields`), not wholesale. Adopting the whole row here
+   *    reverted a concurrent notes edit or publish made during the 30-60s image
+   *    window, and — because `saveNotes` POSTs the whole recipe — the next save
+   *    after that clobber wrote the stale copy back to the server for good.
    */
   async refreshRecipeFromApi(recipeId: string): Promise<Recipe | null> {
     if (!this.auth.currentUser()) return null;
@@ -246,10 +249,13 @@ export class PersistenceService {
       const fresh = recipeFromRow(await res.json());
       if (!fresh?.id || fresh.id !== recipeId) return null;
       const current = this.auth.currentUser();
-      if (current?.savedRecipes.some((r) => r.id === fresh.id)) {
-        this.auth.saveRecipe(fresh);
-      }
-      return fresh;
+      const local = current?.savedRecipes.find((r) => r.id === fresh.id);
+      if (!local) return fresh;
+      // Merge onto the SAVED row, not onto `fresh`: anything the user changed
+      // locally while the image was generating lives here and must survive.
+      const merged = adoptImagePipelineFields(local, fresh);
+      this.auth.saveRecipe(merged);
+      return merged;
     } catch (err) {
       console.warn(`[PersistenceService] refreshRecipeFromApi failed for ${recipeId}:`, err);
       return null;
