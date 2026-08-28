@@ -1,0 +1,413 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Drive Sprint 9 to close: every committed SI in specs/SPRINT_9_PLAN.md is Done on the board, or in PR undergoing review, or escalated to Adam and then intentionally dropped under D6. Hard gate: no committed Sprint 9 item sits in To Do.",
+  "domain": "project-management",
+  "compiled_at": "2026-08-27",
+  "authored_by": "hand-authored against specs/SPRINT_9_PLAN.md, not goal_compiler.py — the compiler emits one generic 'apply skill X toward goal' task per matched skill, which cannot carry per-SI acceptance criteria or the charter's lane boundaries",
+  "charter": "specs/SPRINT_9_PLAN.md",
+  "jira": {
+    "epic": "RCP-88",
+    "sprint": "Sprint 9",
+    "sprint_id": 52,
+    "board": 168,
+    "board_name": "RCP Scrum Board"
+  },
+  "hard_gate": {
+    "cmd": "python3 scripts/harness/sprint9_hard_gate.py",
+    "rule": "no committed Sprint 9 item may sit in the To Do status category",
+    "observed_failing": "2026-08-27 — 11 violations at baseline, i.e. seen to fail for the reason it exists (Sprint 8 retro action 4)",
+    "note": "A surviving Jira global rule moves a ticket To Do -> In Progress on branch creation, so status alone is weak evidence. Every SI task therefore carries an artifact check and a named-evidence requirement on top of this gate."
+  },
+  "lanes": {
+    "A": { "owns": "S2 + S4 (the release chain)", "must_not_touch": ["src/", "server/valkey.ts"] },
+    "B": { "owns": "S1a + S1b + S6", "must_not_touch": ["cloudbuild*", ".github/workflows/"] },
+    "C": { "owns": "S3", "must_not_touch": ["src/", "Backend/blueprints/"] },
+    "D": { "owns": "S5 + S7 + S8 (timeboxed)", "must_not_touch": ["the release chain"] }
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "si": "board",
+      "jira": ["RCP-88"],
+      "lane": "PM",
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Wire Sprint 9 onto the RCP scrum board and make the board honest before any SI runs. Create and start Sprint 9 (board 168, Sprint 8's originBoardId), add every committed item, and repair the two bulk automation sweeps of 2026-08-27 (11:28:16Z To Do->In Progress and 16:58:34Z ->Done) by restoring each issue's last human-authored status. Move RCP-88 to In Progress as the sprint's own start evidence.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint9_board.py status",
+        "python3 scripts/harness/sprint9_board.py create --days 14",
+        "python3 scripts/harness/sprint9_board.py add",
+        "python3 scripts/harness/sprint9_board.py reset-truth --dry-run"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --json | python3 -c \"import json,sys; r=json.load(sys.stdin); s=r.get('sprint') or {}; assert s.get('state')=='active', 'Sprint 9 not active: %r' % s; assert r.get('member_count',0)>=12, 'sprint has %r members, expected >=12' % r.get('member_count'); print('sprint %s active with %d members' % (s['id'], r['member_count']))\"",
+          "expect_exit": 0,
+          "kind": "board-wiring"
+        },
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues RCP-88",
+          "expect_exit": 0,
+          "kind": "epic-started"
+        }
+      ],
+      "done_when": "Sprint 9 is active on board 168, carries every committed item, and no status on it was set by a bot without a human decision behind it",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T1",
+      "si": "S2",
+      "jira": ["KAN-151"],
+      "lane": "A",
+      "anchor": true,
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "ANCHOR — Valkey response cache restore. Backend PR #299 (fix/kan-151-restore-response-cache) is written and DRAFT-HELD. Un-draft it, review the architecture of the read-path re-wiring against Backend/blueprints, answer every review thread, and get it merged to Backend dev. The cache has populated exactly one key since merge 07123c2 (2026-04-12); 4d55694 restored infrastructure only and closed GH #143 on a partial fix, so four of five read endpoints still hit Postgres on every call. LANE A — do not touch src/ or server/valkey.ts (that is T2's file). Read pulls/299/reviews BODIES in full, including any <details>Suppressed comments</details> block, before claiming review-debt zero. Do NOT invalidate collection caches on recipe delete.",
+      "suggested_tools": [
+        "gh pr view 299 -R adamtasteslikegood/tasteslikegood.com --json isDraft,state,reviewDecision",
+        "gh api repos/adamtasteslikegood/tasteslikegood.com/pulls/299/reviews",
+        "gh api repos/adamtasteslikegood/tasteslikegood.com/pulls/299/comments",
+        "scripts/git/ahead-behind.sh --base dev . Backend"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-151",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr view 299 -R adamtasteslikegood/tasteslikegood.com --json isDraft --jq .isDraft)\" = \"false\"",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: link the Backend #299 review bodies you read IN FULL (pulls/299/reviews, incl. any suppressed-comments block) and state the staging functional proof — hit/miss on all four read endpoints, the full invalidation map, and the guest->user merge edge via invalidate_identity(). AC 5-8 (v0.4.13 live, /api/health reporting a Valkey-backed cache, measured latency delta, Adam's ack on the read-above-repo ordering divergence) are gated on T6; if not yet reachable, name them as outstanding rather than claiming them.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Backend #299 is un-drafted, review-debt zero, and merged to Backend dev; production ACs recorded as outstanding until T6 lands v0.4.13",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T2",
+      "si": "S5",
+      "jira": ["KAN-209"],
+      "lane": "D",
+      "droppable": true,
+      "timebox": "half-day",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "Rate-limit middleware cluster, item 1 of 3. Revisit the RESP2 pin at server/valkey.ts:134. Either exercise RESP3 against a real Valkey outside production, or document the pin as permanent with the handshake rationale. LANE D — do not touch the release chain. HALF-DAY TIMEBOX with a pre-authorised drop: if unresolved, drop with the rationale 'RESP3 not exercisable outside prod; pin retained deliberately'. Sprint 8 pre-authorised dropping KAN-161 and it rolled a fifth time instead — that must not repeat. Dropped is a valid outcome; rolled is not.",
+      "suggested_tools": [
+        "grep -n RESP server/valkey.ts",
+        "gh pr list --state all --search 'KAN-209 in:title' --json number,state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-209",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-209 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: state which branch was taken — RESP3 exercised (name the Valkey instance and the handshake observed) or the pin documented as permanent (link the rationale). If the timebox expired, say so plainly and escalate the drop to Adam rather than rolling to Sprint 10.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RESP3 exercised or the pin documented as permanent — or dropped with a written rationale under the half-day timebox",
+      "max_attempts": 2,
+      "status": "pending"
+    },
+    {
+      "id": "T3",
+      "si": "S7",
+      "jira": ["RCP-67"],
+      "lane": "D",
+      "droppable": true,
+      "timebox": "half-day",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "Rate-limit middleware cluster, item 2 of 3. Express route and request classification once, as a general contract, rather than as the per-incident patches it is today. This is the general form of the IP/middleware rate-limiting work: server/security.ts already carries load-bearing keyGenerator wrappers ((req) => getClientIp(req)) that suppress express-rate-limit's source-text IPv6 scan — DO NOT accept the recurring 'simplify' suggestion to unwrap them. LANE D — do not touch the release chain. HALF-DAY TIMEBOX with a pre-authorised drop: if it overruns, drop with a rationale and file the design note.",
+      "suggested_tools": [
+        "grep -n 'keyGenerator\\|rateLimitKeyGenerator\\|getClientIp' server/security.ts",
+        "gh pr list --state all --search 'RCP-67 in:title' --json number,state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues RCP-67",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'RCP-67 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: link the classification contract (code or design note) and state explicitly that the keyGenerator wrappers in server/security.ts were left intact. If dropped, name the rationale and link the filed design note.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "classification expressed once as a contract — or dropped with a rationale and a filed design note",
+      "max_attempts": 2,
+      "status": "pending"
+    },
+    {
+      "id": "T4",
+      "si": "S8",
+      "jira": ["KAN-176"],
+      "lane": "D",
+      "droppable": true,
+      "timebox": "half-day",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "Rate-limit middleware cluster, item 3 of 3 — defence in depth. flask-backend currently runs on ONE guard (invoker IAM). Ingress is the differentiator, not IAM: invoker-iam-disabled=true silently voids --no-allow-unauthenticated, and an unauthenticated POST /api/generate bills Gemini past every Express limiter. Add a second guard. R2 APPLIES: GCP-side config with no repo record passes vacuously — the trigger/ingress configuration must be captured in a repo doc or script. LANE D. HALF-DAY TIMEBOX with a pre-authorised drop: rationale 'single guard accepted, ingress restriction deferred'.",
+      "suggested_tools": [
+        "gcloud run services describe flask-backend --region=us-central1 --format='value(spec.template.metadata.annotations)'",
+        "gh pr list --state all --search 'KAN-176 in:title' --json number,state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-176",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-176 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: paste the ingress setting observed on flask-backend and link the repo doc or script that records it — a GCP console change with no repo record is an R2 vacuous pass. If dropped, name the rationale.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "a second guard beyond invoker IAM is live AND recorded in the repo — or dropped with a written rationale",
+      "max_attempts": 2,
+      "status": "pending"
+    },
+    {
+      "id": "T5",
+      "si": "S3",
+      "jira": ["KAN-249", "KAN-250"],
+      "lane": "C",
+      "skill": "plan-devex-review",
+      "skill_path": "~/.claude/skills/plan-devex-review",
+      "objective": "DevEx — move the staging build to a GCP-side Cloud Build trigger, symmetric with production. Two overlapping staging build paths are live: .github/workflows/staging-deploy.yml and the unmerged cloudbuild.staging.yaml on PR #3441 (BEHIND, needs rebase). Land #3441, stand up a ^staging-v.* trigger, capture its configuration in the repo, watch ONE staging-v* tag deploy end to end, then delete staging-deploy.yml (-287 lines). LANE C — do not touch src/ or Backend/blueprints/. R2: the trigger is config with no repo record and will otherwise pass vacuously.",
+      "suggested_tools": [
+        "gh pr view 3441 --json state,mergeStateStatus,statusCheckRollup",
+        "gh pr checks 3441",
+        "bash scripts/deploy/verify-staging.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-249 KAN-250",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr view 3441 --json state --jq .state)\" != \"CLOSED\"",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: name the staging-v* tag you WATCHED deploy end to end (build, push, migrate Job, deploy, verify) and link the repo doc or script capturing the trigger configuration. 'The merge went green' is not evidence a build is live. State whether staging-deploy.yml has been deleted.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "#3441 landed, a ^staging-v.* trigger exists and is recorded in-repo, one tag observed deploying end to end, staging-deploy.yml deleted, verify-staging.sh exits 0",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T6",
+      "si": "S4",
+      "jira": ["KAN-258"],
+      "lane": "A",
+      "gates": ["T1"],
+      "skill": "plan-devex-review",
+      "skill_path": "~/.claude/skills/plan-devex-review",
+      "objective": "DevEx / release train — model-selection tail plus the v0.4.13 cut. This task GATES T1: S2 cannot be Done until v0.4.13 is live, because staging has no Valkey. Land cookbook #3439 (rebase first, it is BEHIND) and Backend #298, promote Backend dev -> main, back-sync, then pin Backend MAIN's OWN SHA (git -C Backend checkout origin/main — never 'submodule update --remote', which resolves to dev and blocks train-verify Station 3). Bump package.json and BOTH package-lock.json self-references, write the CHANGELOG section naming the pinned SHA, open the release PR dev -> main. PICK THE VERIFY-BY-CONTENT MARKER BEFORE MERGING — the absence half is unverifiable afterwards. Follow scripts/release/RUNBOOK.md; release PRs are dev->main only.",
+      "suggested_tools": [
+        "./scripts/release/train-verify.sh",
+        "./scripts/release/train-run.sh --bump 0.4.13",
+        "gh pr view 3439 --json state,mergeStateStatus",
+        "gh pr view 298 -R adamtasteslikegood/tasteslikegood.com --json state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-258",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr view 3439 --json state --jq .state)\" != \"CLOSED\"",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: state the marker string chosen BEFORE the merge and confirmed absent from v0.4.12; then, once deployed, paste the grep hit across EVERY served asset (main-*, chunk-*, polyfills-*), not main-*.js alone. Confirm production serves gemini-3.7-flash and gemini-3-pro-image. If the release has not been cut yet, say so — a spent version deploys nothing and reports success.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "#3439 and Backend #298 merged, Backend promoted and back-synced, pointer pins main's own SHA, train-verify --for-release exits 0, v0.4.13 tagged and verified by content",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T7",
+      "si": "S1a",
+      "jira": ["KAN-255", "KAN-256"],
+      "lane": "B",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "companion_skill": "plan-design-review",
+      "objective": "UI/UX + eng — generator and recipe lifecycle state across navigation. Two symptoms, one root cause: component-scoped state plus detached async surviving component destruction. v0.4.12 (KAN-243) moved the image-generation SPINNER into RecipeStateService but not the DATA, so the client copy still holds pending/null image metadata after nav-away — visible on single-recipe JSON export. generator.component.ts:57-74 writes only ai_image_url via updateRecipeField; the remaining image fields are written server-side by the Pub/Sub worker and never re-read. Separately, clearRecipe() fires inside onGenerate() (generator.component.ts:34) — on submit, not on route entry — so navigating TO the generator shows the previous recipe. Run the eng review on the state architecture; run the design review on what the user sees during and after nav-away. LANE B — do not touch cloudbuild* or .github/workflows/. Coordinate with T9: it shares this repro.",
+      "suggested_tools": [
+        "sed -n '20,90p' src/app/components/generator/generator.component.ts",
+        "gh pr list --state all --search 'KAN-255 in:title' --json number,state",
+        "npm test"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-255 KAN-256",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-255 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: paste the day-1 staging repro — generate, navigate away during image generation, return, export the single recipe as JSON — naming the exact fields that read pending/null/background-worker, and then the same export after the fix showing it matches the API row. Confirm the generator renders an empty form on route entry.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "exported JSON matches the API row after nav-away, generator resets on route entry, gate passes on the PR",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T8",
+      "si": "S1b",
+      "jira": ["KAN-257"],
+      "lane": "B",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "companion_skill": "plan-design-review",
+      "objective": "UI/UX + eng — recipe-detail bounces to /kitchen on any fetch failure, and Back is broken. A recipe still in `generating` state must land ON the recipe with a spinner, not silently on /kitchen. Where a redirect is genuinely correct (a true 404), Back must still work — replaceUrl: true at recipe-detail.component.ts:49,61 erases the history entry. A transient network error on tab-resume must not discard the route. Run the eng review on the routing/error-handling design and the design review on the failure-state UX. LANE B — do not touch cloudbuild* or .github/workflows/.",
+      "suggested_tools": [
+        "sed -n '30,80p' src/app/components/recipe-detail/recipe-detail.component.ts",
+        "gh pr list --state all --search 'KAN-257 in:title' --json number,state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-257",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-257 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: describe the three observed behaviours after the fix — deep-link to a generating recipe lands on the recipe with a spinner; Back works after a true-404 redirect; a transient tab-resume network error does not discard the route.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "all three routing behaviours observed correct and the gate passes on the PR",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T9",
+      "si": "S6",
+      "jira": ["KAN-195"],
+      "lane": "B",
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "A regenerated recipe image does not reach the public SSR page for 24 hours, blocked by a stale Cache-Control. Make a regenerated image reach the public page without the wait. Shares T7's repro — coordinate through Lane B so this does not become a duplicate fix (R3; Sprint 8 produced three). Note the cache scope: the Valkey layer caches recipe IMAGE BYTES only (vgc:img:<id>, 24h, read-through over GCS), so check both that TTL and the HTTP Cache-Control on the SSR response. LANE B — do not touch cloudbuild* or .github/workflows/.",
+      "suggested_tools": [
+        "curl -sI https://www.tasteslikegood.org/r/<slug> | grep -i cache-control",
+        "gh pr list --state all --search 'KAN-195 in:title' --json number,state"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py --issues KAN-195",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-195 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: show a regenerated image reaching the public SSR page without the 24-hour wait — the before/after Cache-Control header and the observed image swap. Confirm with Lane B that this did not duplicate T7's fix.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "a regenerated image is observed on the public page without waiting out the TTL, and the gate passes on the PR",
+      "max_attempts": 5,
+      "status": "pending"
+    },
+    {
+      "id": "T10",
+      "si": "close",
+      "jira": ["RCP-88"],
+      "lane": "PM",
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Sprint 9 close-out. Run the hard gate over the whole sprint. Update the aging table in specs/SPRINT_9_PLAN.md with final dispositions, transition every Jira row with its named evidence linked (no row moves on a merge alone), and create the retrospective page on Confluence under parent 50298881 titled 'Sprint 9 Retrospective — <YYYY-MM-DD>' from the template at page 50495489. The Actions for Next Sprint table is the point — it exists nowhere in the repo. Closing a sprint is not done until the retro page exists.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint9_hard_gate.py --json",
+        "python3 scripts/harness/sprint9_board.py status",
+        "npm run pm:status"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint9_hard_gate.py",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "MANUAL: link the Sprint 9 retrospective page under Confluence parent 50298881 and confirm its Actions for Next Sprint table is filled. State every dropped item with its written rationale, and confirm the aging table in specs/SPRINT_9_PLAN.md carries final dispositions.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the hard gate exits 0 over the full sprint AND the retrospective page exists with its actions table",
+      "max_attempts": 3,
+      "status": "pending"
+    }
+  ],
+  "loop": {
+    "order": "sequential",
+    "sequencing_note": "T0 first. Then T1 (Lane A anchor) alone — the charter's execution order runs Lane A on day 1 before any other lane, and Adam's direction is to focus KAN-151 and the IP/middleware rate-limiting cluster first. T2-T4 are that cluster (Lane D). T5 (Lane C) and T7-T9 (Lane B) may run in parallel once T1's Backend promotion PR exists. T6 gates T1's production acceptance criteria.",
+    "max_loop_iterations": 48,
+    "max_iterations_reason": "11 tasks x (execute + verify) is 22 iterations before a single retry; the droppables get 2 attempts and the uncapped SIs 5, so the default 12 would hit the global cap mid-sprint and escalate on arithmetic rather than on evidence. 48 leaves headroom for the retries D6 explicitly declines to cap.",
+    "escalate_on": ["attempts_exhausted", "no_verification_available", "timebox_expired"]
+  },
+  "close": {
+    "requires": "every task verified, or explicitly waived by Adam with a reason. Under D6 only S5/S7/S8 (T2/T3/T4) carry a pre-authorised drop; waiving any other task requires a charter update.",
+    "definition_of_done": "Every Sprint 9 item is Done on the board, or In Progress and in PR undergoing review, or escalated to Adam and then intentionally dropped. HARD GATE: no Sprint 9 item sits in To Do.",
+    "handoff": "python3 scripts/harness/sprint9_hard_gate.py --json, plus the controller's evidence log"
+  }
+}
