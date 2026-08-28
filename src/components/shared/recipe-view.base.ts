@@ -55,6 +55,10 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
       // Known-incomplete on KAN-155: the repair is not built, so do not promise
       // that retrying works. Say what is true and stop.
       return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
+    case 'duplicate':
+      // KAN-241: structurally unreachable from togglePublic (you cannot publish a
+      // saved copy — the 403 guard fires first), but the type system includes it.
+      return 'You already have this recipe saved.';
     case 'ownership':
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
