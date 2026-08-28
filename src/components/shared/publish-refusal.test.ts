@@ -109,8 +109,16 @@ describe('publish refusal messaging (KAN-155)', () => {
   });
 
   it('gives every refusal a distinct message', () => {
-    const all = [...OWNERSHIP, 'sync' as SaveRefusal].map((r) => publishFailureMessage(r, true));
+    const all = [...OWNERSHIP, 'duplicate' as SaveRefusal, 'sync' as SaveRefusal].map((r) =>
+      publishFailureMessage(r, true)
+    );
     expect(new Set(all).size).toBe(all.length);
+  });
+
+  it('does not blame the connection for a duplicate refusal (KAN-241)', () => {
+    const msg = publishFailureMessage('duplicate', true);
+    expect(msg.toLowerCase()).not.toContain('connection');
+    expect(msg.toLowerCase()).toContain('already');
   });
 
   it('falls back to the sync message for an unrecognised refusal', () => {

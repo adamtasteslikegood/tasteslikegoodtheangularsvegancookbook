@@ -22,7 +22,7 @@ jobs:
 
       - name: Run advisory Junie review
         continue-on-error: true
-        uses: JetBrains/junie-github-action@81d054ade8e54522e6610ecf0437ab5619ed811a # v1.7.0
+        uses: JetBrains/junie-github-action@c2ae82fc9fbe0eb81942ceb3d9bd3f89a6b17b95 # v1.7.4
         with:
           # KNOWN-BROKEN UPSTREAM (2026-07-20, TAS-2900): every run dies at
           # "Failed to build 'issue.md.junie_standalone'". Reproduced across Junie

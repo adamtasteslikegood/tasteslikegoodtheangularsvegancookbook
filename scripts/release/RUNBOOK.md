@@ -193,6 +193,33 @@ scoped to one).
 ./scripts/release/train-run.sh --verify-only     # or the manual form below
 ```
 
+`--verify-only` runs a **staging health gate first**: it checks that the staging
+Cloud Run pair returns 200 and that `/api/health` reports `environment=staging`
+(guarding against `STAGING_URL` accidentally pointing at production). The default
+URL is hardcoded to the known staging service; override with `STAGING_URL` if the
+service is redeployed to a new URL.
+
+> **PRECONDITION — promote to staging before you read staging as evidence.**
+> The gate proves staging is **up**. It does not prove staging is **current**.
+> Those were nearly the same claim while `staging-deploy.yml` fired on every
+> push to `dev`; since 2026-08-26 it does not, so deploying to staging is an
+> explicit act and staging can be arbitrarily stale while both HTTP checks
+> still pass. A release verified against two-week-old staging exercised
+> nothing this release changed.
+>
+> Before step 9, promote the release ref and wait for it to go green:
+>
+> ```bash
+> git tag staging-vX.Y.Z && git push origin staging-vX.Y.Z   # or:
+> gh workflow run staging-deploy.yml --ref dev
+> gh run watch "$(gh run list --workflow=staging-deploy.yml --limit 1 \
+>   --json databaseId --jq '.[0].databaseId')"
+> ```
+>
+> Then apply the same by-content check below to the staging URL, not just to
+> production — a marker string absent from staging means staging is not
+> running this build, whatever `/api/health` says.
+
 > **TRAP — verify the code, not the bundle name, and not `main-*.js` alone.**
 > On v0.4.8 the deploy was live while a poller grepping only `main-*.js` reported
 > "not deployed" for twenty minutes. The app is code-split: `publishFailureMessage`
