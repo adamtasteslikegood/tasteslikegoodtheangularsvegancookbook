@@ -292,6 +292,10 @@ read_live() {
   # mode (expired token between the auth check and now, region typo, quota,
   # transient network error). Swallowing stderr wholesale would let the caller
   # conclude "create it" and then get a misleading ALREADY_EXISTS or auth error.
+  # Anchor the match on gcloud's structured `ERROR: ... NOT_FOUND` code so
+  # compound messages like "Project X was not found or the user lacks permission"
+  # (wrong PROJECT_ID or API disabled) don't collapse into "trigger absent" and
+  # trip the create path under a misleading "creating..." log line.
   local err_file out rc
   err_file="$(mktemp)"
   out="$(gcloud builds triggers describe "$TRIGGER_NAME" \
@@ -302,7 +306,7 @@ read_live() {
     printf '%s' "$out"
     return 0
   fi
-  if grep -qE 'NOT_FOUND|not found|does not exist' "$err_file"; then
+  if grep -qE '^ERROR:.*NOT_FOUND' "$err_file"; then
     rm -f "$err_file"
     return 0
   fi
