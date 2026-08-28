@@ -39,6 +39,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _jira_client import Jira  # noqa: E402
+# One-way read of the gate's droppable set, so the two can never disagree about
+# which items D6 pre-authorises. The dependency only points this way: the gate
+# imports nothing from here, and stays the file that is never edited to make a
+# run pass.
+from sprint9_hard_gate import DROPPABLE  # noqa: E402
 
 RCP_SCRUM_BOARD = 168          # Sprint 8's originBoardId — sprints must match
 SPRINT_NAME = "Sprint 9"
@@ -226,6 +231,33 @@ def cmd_transition(jira, args):
     return 0
 
 
+def cmd_drop(jira, args):
+    """Fire a D6 pre-authorised drop: record the rationale, then remove the row
+    from the sprint.
+
+    Removal from the sprint IS the drop — it is the board-visible act, and it is
+    what exempts the row from the hard gate. Only S5/S7/S8 carry a pre-authorised
+    drop; anything else needs a charter update, so this refuses to touch a
+    required item. The charter is emphatic that the drop must actually fire:
+    Sprint 8 pre-authorised one and it rolled a fifth time instead. Dropped is a
+    valid outcome; rolled is not.
+    """
+    if args.key not in DROPPABLE:
+        print("%s is not a D6 pre-authorised drop (droppable: %s) — dropping it "
+              "needs a charter update, not this command"
+              % (args.key, ", ".join(sorted(DROPPABLE))), file=sys.stderr)
+        return 1
+    sprint = find_sprint(jira)
+    if not sprint:
+        print("Sprint 9 does not exist", file=sys.stderr)
+        return 1
+    jira.comment(args.key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
+                           "Rationale: %s" % args.rationale)
+    jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": [args.key]})
+    print("%s dropped from Sprint 9 (rationale recorded)" % args.key)
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -254,12 +286,17 @@ def main():
                    help="what justifies the move — PR link, observed behaviour, "
                         "command output. Posted as a comment before the transition.")
 
+    d = sub.add_parser("drop", help="fire a D6 pre-authorised drop (S5/S7/S8 only)")
+    d.add_argument("key")
+    d.add_argument("--rationale", required=True,
+                   help="the written rationale — a drop without one is a silent roll")
+
     args = p.parse_args()
     jira = Jira()
     return {
         "status": cmd_status, "create": cmd_create,
         "add": cmd_add, "reset-truth": cmd_reset_truth,
-        "transition": cmd_transition,
+        "transition": cmd_transition, "drop": cmd_drop,
     }[args.cmd](jira, args)
 
 
