@@ -43,33 +43,38 @@ function buildRedisStore(valkeyClient: Redis | null, prefix: string): Store | un
   });
 }
 
-// Regex for image-serving paths: /recipes/<uuid>/image
-const IMAGE_SERVING_RE = /^\/recipes\/[^/]+\/image$/;
+// RCP-67: route AND request classification now live in route-manifest.ts as one
+// contract. security.ts used to carry three hand-rolled predicates — an
+// image-serving regex, a /health string compare, and a crawler UA test — each
+// added by a separate incident (KAN-154, KAN-218) and each expressed in its own
+// shape. The limiters below now ask the manifest a single question instead:
+// "does this limiter exempt this request?"
+//
+// The helpers are re-exported because they are the documented unit-test surface
+// and existing tests import them from here.
+import { CRAWLER_UA_RE, classifyRoute, isExemptFrom } from './route-manifest.js';
+export { classifyRequest, isExemptFrom, isPageSubresource } from './route-manifest.js';
 
 /**
- * Returns true for paths that should be exempt from general API rate limiting.
+ * Returns true for requests exempt from the general API limiter.
+ *
+ * Now a thin derivation of the manifest contract. Note this reads the ABSOLUTE
+ * path: under `app.use('/api', limiter)` Express hands the middleware
+ * `baseUrl='/api'` and a relative `path`, so a caller constructing a fake
+ * request must supply both halves the way Express does.
+ *
  * Exported for unit testing.
  */
 export function shouldSkipRateLimiting(req: Request): boolean {
-  return req.path === '/health' || IMAGE_SERVING_RE.test(req.path);
+  return isExemptFrom('api', req);
 }
 
-// KAN-160: isPageSubresource and its regex patterns moved to route-manifest.ts.
-// Imported for local use (createPageLimiter skip function) and re-exported so
-// existing consumers (tests importing from security.ts) don't break.
-import { isPageSubresource } from './route-manifest.js';
-export { isPageSubresource };
-
-// KAN-218: known search-engine and social-media crawlers. User-agent detection
-// is sufficient here — this exempts rate limiting, not authentication. Crawlers
-// self-throttle via robots.txt; rate-limiting them costs SEO while protecting
-// nothing (the AI endpoints have their own limiter on /api).
-const CRAWLER_UA_RE =
-  /\b(Googlebot|Bingbot|Applebot|DuckDuckBot|YandexBot|Slurp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterestbot|AdsBot-Google)\b/i;
-
 /**
- * Returns true for requests from known crawlers that should be exempt from the
- * page rate limiter. Exported for unit testing.
+ * Returns true for requests from known crawlers (KAN-218). Retained as a named
+ * predicate because it is the one classification input that is not path-based;
+ * the pattern itself lives in the manifest.
+ *
+ * Exported for unit testing.
  */
 export function isKnownCrawler(req: Request): boolean {
   const ua = req.headers['user-agent'];
@@ -88,8 +93,8 @@ export const createApiLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
-    // When mounted on /api, req.path is relative: /health, /recipes/…/image
-    skip: shouldSkipRateLimiting,
+    // RCP-67: the exemption policy is declared in route-manifest.ts, not here.
+    skip: (req) => isExemptFrom('api', req),
     keyGenerator: rateLimitKeyGenerator,
     store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.api),
   });
@@ -116,7 +121,9 @@ export const createPageLimiter = (
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: 'Too many requests, please try again later.' },
-    skip: (req) => isPageSubresource(req) || isKnownCrawler(req),
+    // RCP-67: was `isPageSubresource(req) || isKnownCrawler(req)`. Same policy,
+    // now stated once in route-manifest.ts as LIMITER_EXEMPTIONS.page.
+    skip: (req) => isExemptFrom('page', req),
     keyGenerator: rateLimitKeyGenerator,
     store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.page),
   });
@@ -196,7 +203,15 @@ export const applySecurityMiddleware = (app: Express) => {
   const isProduction = process.env.NODE_ENV === 'production';
   if (isProduction) {
     app.use((req: Request, res: Response, next: NextFunction) => {
-      if (req.accepts('html') && !req.path.startsWith('/api/')) {
+      // RCP-67: was `!req.path.startsWith('/api/')` — a fourth hand-rolled
+      // route test, and the last one outside the manifest. classifyRoute is
+      // the same question asked once.
+      //
+      // Behaviour delta, deliberate and small: the bare path `/api` did not
+      // match `startsWith('/api/')` and so received `X-Robots-Tag: index,
+      // follow`. It classifies as 'api' and no longer does. Advertising an API
+      // root as indexable was never intended.
+      if (req.accepts('html') && classifyRoute(req.path) !== 'api') {
         res.setHeader('X-Robots-Tag', 'index, follow');
       }
       next();
