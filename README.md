@@ -22,8 +22,8 @@ Vegangenius Chef is a full-stack vegan recipe app with three tiers:
 Browser → Angular 22 SPA → Express reverse-proxy (:8080) → Flask API (:5000) → Cloud SQL
 ```
 
-- **Generate** vegan recipes via Google Gemini (`gemini-2.5-flash`)
-- **AI food photos** via Google Imagen (`imagen-4.0-generate-001`)
+- **Generate** vegan recipes via Google Gemini (`gemini-3.7-flash` in production)
+- **AI food photos** via Google Gemini (`gemini-3-pro-image` in production)
 - **Save & organize** recipes into named cookbooks
 - **Publish** recipes as SSR pages at `/r/<slug>` for SEO & sharing
 - **Auth** via Google OAuth or guest mode (localStorage)
