@@ -266,6 +266,59 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     }
   });
 
+  // KAN-257 regression: the constructor fast-path (`recipe.id === id` already
+  // in state) used to return without cancelling an in-flight `load(otherId)`
+  // from a previous nav. That load's late `viewRecipe(otherId)` then wrote
+  // the wrong recipe under the URL the user was actually on. Repro: land on
+  // A → nav to B (starts fetch(B)) → nav back to A before B resolves → B's
+  // fetch resolves and the page shows B on URL /recipe/A.
+  it('does not let an in-flight load clobber the fast-path adopted recipe', async () => {
+    let releaseFetchB: (value: Response) => void = () => {};
+    const readyRow = (name: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: name,
+        status: 'ready',
+        is_canonical: false,
+        data: { id: name, name, ingredients: {}, instructions: [] },
+      }),
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/A')) return Promise.resolve(readyRow('A'));
+      if (url.includes('/B'))
+        return new Promise<Response>((resolve) => {
+          releaseFetchB = resolve;
+        });
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { component, recipeState } = createComponent();
+
+    // 1. Land on A, wait for it to render.
+    emitId('A');
+    await vi.waitFor(() => expect(component.recipe()?.id).toBe('A'));
+
+    // 2. Nav to B — fetch(B) is pending (never resolved yet).
+    emitId('B');
+    await Promise.resolve();
+
+    // 3. Nav back to A while B is still loading. Fast path adopts A from state.
+    emitId('A');
+    await Promise.resolve();
+    expect(component.recipe()?.id).toBe('A');
+
+    // 4. B's fetch finally resolves. Without the fix, this write clobbers A.
+    releaseFetchB(readyRow('B') as unknown as Response);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.recipe()?.id).toBe('A');
+    // The route the user is on still points at A — the singleton must match.
+    expect(recipeState.currentRecipe()?.id).toBe('A');
+  });
+
   it('surfaces a failed generation instead of an empty recipe page', async () => {
     vi.stubGlobal(
       'fetch',

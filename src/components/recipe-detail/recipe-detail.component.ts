@@ -97,6 +97,13 @@ export class RecipeDetailComponent extends RecipeViewBase {
       // recipe would flash a spinner and issue a redundant GET even though
       // the singleton already carries the exact same recipe object.
       if (this.recipe()?.id === id) {
+        // Cancel any in-flight load from a prior nav. Otherwise a late
+        // `viewRecipe(otherId)` from that load will clobber the recipe we
+        // just adopted from state — e.g. /recipe/A → click /recipe/B
+        // (starts load(B)) → Back to /recipe/A before B resolves. Without
+        // this bump load(B) still has seq === requestSeq, its fetch
+        // resolves, and the user sees B on URL /recipe/A.
+        this.requestSeq++;
         this.loadState.set('ready');
         return;
       }
