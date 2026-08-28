@@ -35,10 +35,11 @@ backend/
 alirez-claude-skills/
 gemstack/
 
-# Python tooling (not used by the Express image)
+# Root Python tooling (not used by the Express image). Leading slashes keep
+# Backend/pyproject.toml and Backend/uv.lock in the upload for its Docker build.
 .venv
 .venv_sync
-uv.lock
+/uv.lock
 
 # CI/CD, agent, and tooling config
 .github/
@@ -48,7 +49,7 @@ uv.lock
 .junie/
 .clawhub/
 .aiignore
-pyproject.toml
+/pyproject.toml
 qodana-global-configurations.yaml
 qodana.yaml
 mkdocs.yml
