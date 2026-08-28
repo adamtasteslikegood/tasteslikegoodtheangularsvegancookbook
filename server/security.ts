@@ -52,7 +52,12 @@ function buildRedisStore(valkeyClient: Redis | null, prefix: string): Store | un
 //
 // The helpers are re-exported because they are the documented unit-test surface
 // and existing tests import them from here.
-import { CRAWLER_UA_RE, classifyRoute, isExemptFrom } from './route-manifest.js';
+import {
+  CRAWLER_UA_RE,
+  absoluteRequestPath,
+  classifyRoute,
+  isExemptFrom,
+} from './route-manifest.js';
 export { classifyRequest, isExemptFrom, isPageSubresource } from './route-manifest.js';
 
 /**
@@ -211,7 +216,15 @@ export const applySecurityMiddleware = (app: Express) => {
       // match `startsWith('/api/')` and so received `X-Robots-Tag: index,
       // follow`. It classifies as 'api' and no longer does. Advertising an API
       // root as indexable was never intended.
-      if (req.accepts('html') && classifyRoute(req.path) !== 'api') {
+      //
+      // Normalized through absoluteRequestPath() rather than raw req.path so
+      // every manifest question in this file is asked about the same composed,
+      // trailing-slash-stripped path. No behaviour change today: this middleware
+      // is app-level (baseUrl is ''), and stripping a trailing slash can never
+      // move a path in or out of the 'api' class ('/api/' classifies 'api' both
+      // ways). It matters if this is ever mounted under a baseUrl, where raw
+      // req.path would silently drop the mount prefix.
+      if (req.accepts('html') && classifyRoute(absoluteRequestPath(req)) !== 'api') {
         res.setHeader('X-Robots-Tag', 'index, follow');
       }
       next();

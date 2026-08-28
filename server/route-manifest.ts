@@ -237,10 +237,20 @@ export type LimiterName = keyof typeof LIMITER_EXEMPTIONS;
 /**
  * Classify a request into exactly one metering class.
  *
- * Order is deliberate: the path-based classes are decided before the
- * user-agent one, so a crawler fetching an image is reported as 'imageServing'
- * rather than 'crawler'. Both are exempt from the limiter that meters them, so
- * the ordering is not load-bearing for behaviour — only for legibility.
+ * Order is deliberate and IS load-bearing for behaviour — do not reorder.
+ *
+ * The path-based classes are decided before the user-agent one, so a crawler
+ * fetching an image is reported as 'imageServing' rather than 'crawler'. That
+ * matters because `LIMITER_EXEMPTIONS.api` exempts 'imageServing' but
+ * deliberately does NOT exempt 'crawler'. Googlebot fetching
+ * `/api/recipes/<id>/image` (image indexing on the public recipe pages) is the
+ * concrete case: path-first it is exempt and served; user-agent-first it would
+ * be metered against the 300/15min/IP budget and eventually 429 — the same
+ * budget-exhaustion failure as KAN-154, landing on exactly the crawler traffic
+ * the SEO surface depends on.
+ *
+ * Pinned by two tests in route-manifest.test.ts: 'prefers the path-based class
+ * over the user-agent one' and 'the api limiter does NOT exempt crawlers'.
  */
 export function classifyRequest(req: Request): RequestClass {
   const path = absoluteRequestPath(req);
