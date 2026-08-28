@@ -94,7 +94,7 @@ the export is load-bearing.
 
 ## D-3 — Cloud NAT is funded so `flask-backend` can run on two guards
 
-**Status:** Approved, not yet executed · **Recorded:** 2026-08-27 · **Ticket:** KAN-176
+**Status:** Executed and verified · **Recorded:** 2026-08-27 · **Cut over:** 2026-08-28 · **Ticket:** KAN-176
 
 `flask-backend` runs on a single guard: invoker IAM enforcement (Path A, shipped
 v0.4.7). Its ingress is `all`, so an anonymous request still reaches Cloud Run
@@ -128,11 +128,71 @@ Two constraints ride with the approval:
 **What would change this decision:** measured NAT cost materially above the
 estimate, or Flask genuinely being placed behind an external load balancer.
 
-Until the cutover completes, the daily posture check requires **one** guard
-(`REQUIRED_FLASK_GUARDS=1`). Demanding two before Path B lands would make the job
-permanently red, and a permanently-red check is an ignored one. Flipping it to
-`2` is the final step of the cutover, and is what makes the two-guard posture the
-declared steady state rather than a hope.
+### Outcome — cut over 2026-08-28
+
+Executed in the mandated order, each step verified before the next began. No
+application deploy rode along.
+
+| Step                                            | Result                                                                                                                                                                       |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Router `tlg-nat-router` + NAT `tlg-nat`         | `us-central1`, network `default`, `ALL_SUBNETWORKS_ALL_IP_RANGES`, auto-allocated IPs                                                                                        |
+| `express-frontend` → `--vpc-egress=all-traffic` | revision `00054-xn6` → `00055-gfc`                                                                                                                                           |
+| Non-Google egress                               | NAT translated 81 KB → 186 KB → 488 KB across the run; `dropped_sent_packets_count` **0**                                                                                    |
+| `flask-backend` → `--ingress=internal`          | both `run.app` hostnames and `/api/health` → **404**                                                                                                                         |
+| Express → Flask                                 | `/sitemap.xml`, `/`, `/browse` → **200** throughout                                                                                                                          |
+| Pub/Sub push                                    | one controlled probe → `POST 200 /api/worker/recipe`; DLQ empty, 0 undelivered                                                                                               |
+| Real end-to-end generation                      | guest generate → login → publish → unpublish → republish, verified by Adam on `/r/full-stack-7-layer-nutty-amaretto-tiramisu-cake` (200, SSR title and `og:image` resolving) |
+
+Two caveats on that Pub/Sub row. The worker returned **200 to a deliberately
+malformed probe payload**, so it ack-and-drops unparseable messages — which makes
+"the DLQ did not grow" weak evidence about _application_ failures in general. It
+remains decisive for the question actually asked here, because an ingress-refused
+push dies at Cloud Run with a 404 and never reaches the worker at all. Do not
+later read DLQ silence as proof the generation pipeline is healthy. The real
+end-to-end generation above is the stronger evidence, and it exercises the async
+image path the synthetic probe did not.
+
+**The 403 → 404 transition is the whole point.** Before: an anonymous request was
+_admitted_ and refused by IAM. After: it is refused by the network and never
+reaches the service. Flask's logs show the difference — **299 requests to
+`/api/.env*` in the seven days before the cutover (~43/day)** reached the
+application and do not now. That figure is counted, not estimated.
+
+Both guards are live: `invoker-iam-disabled` is absent (IAM enforced) and
+`roles/run.invoker` is held by exactly two service accounts — Express's runtime
+SA and `pubsub-pusher` — with no `allUsers`.
+
+Pub/Sub push survives because Cloud Run classifies same-project push
+subscriptions on the default `run.app` URL as internal traffic, and both
+subscriptions use that form. This is load-bearing and fragile: repointing either
+push endpoint at the custom domain fails **100%** of deliveries, and it fails
+silently behind a healthy-looking site, because pushes arrive from Google's
+infrastructure rather than through Express.
+
+The posture check now requires **two** guards (`REQUIRED_FLASK_GUARDS=2`). Before
+the cutover it required one, deliberately — demanding two while only one existed
+would have made the job permanently red, and a permanently-red check is an
+ignored one. Verified in both directions: the verifier exited 0 at `1` and failed
+at `2` before the cutover, and exits 0 at `2` after it.
+
+Both services' ingress, and Express's egress, are now pinned in `cloudbuild.yaml`.
+They were console state until this change — preserved across deploys only because
+no flag mentioned them, which is an accident that kept working rather than a pin.
+
+**Two standing hazards created by this change:**
+
+- **Deleting the NAT blackholes every non-Google destination** while `/sitemap.xml`
+  stays green. Express→Flask rides Private Google Access and never touches the
+  gateway, so the site is not a signal for NAT health. Watch
+  `router.googleapis.com/nat/sent_bytes_count`, filtered on
+  `resource.labels.gateway_name` — **not** `metric.labels.nat_gateway_name`, which
+  does not exist and returns a 404 that reads exactly like a dead gateway.
+- **Reverting Express's `all-traffic` alone takes the site down.** Its calls would
+  then arrive EXTERNAL at an internal-ingress Flask and be refused. The two pins
+  in `cloudbuild.yaml` are one change; move them together or not at all.
+
+**Still owed:** measured NAT cost over the first seven days, against the $5–10/month
+estimate, and 24-hour health confirmation.
 
 ---
 
