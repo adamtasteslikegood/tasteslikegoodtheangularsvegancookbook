@@ -34,6 +34,8 @@ whole life, the status it was originally created in.
 import argparse
 import datetime
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -165,19 +167,143 @@ def _status_transitions(data):
     return out
 
 
-def truth_status(data, bot_actors):
+def _parse_ts(value):
+    """Jira ('...+0000') and GitHub ('...Z') timestamps to aware datetimes."""
+    if not value:
+        return None
+    v = value.strip().replace("Z", "+00:00")
+    # Jira sends +0000; fromisoformat wants +00:00.
+    if len(v) >= 5 and (v[-5] in "+-") and ":" not in v[-5:]:
+        v = v[:-2] + ":" + v[-2:]
+    try:
+        return datetime.datetime.fromisoformat(v)
+    except ValueError:
+        return None
+
+
+AUTO_TRANSITION_REPO = (
+    "adamtasteslikegood/tasteslikegoodtheangularsvegancookbook"
+)
+
+
+def _key_pattern(key):
+    """Word-boundary regex matching the workflow's own key extractor.
+
+    jira-auto-transition.yml uses ``grep -oE '\\b(KAN|RCP)-[0-9]+\\b'`` — so a
+    correlator that wants to see the same PRs the workflow sees must match on
+    the same word boundary. GitHub search's ``in:title`` is token-based and
+    would accept ``KAN-2580`` as a hit for ``KAN-258``, silently reclassifying
+    a real human ``Done`` on the wrong ticket as automated.
+    """
+    return re.compile(r"\b" + re.escape(key) + r"\b")
+
+
+def github_merge_times(keys, timeout=30):
+    """{key: [datetime, ...]} for merged PRs matching each key in title.
+
+    jira-auto-transition.yml exists only in AUTO_TRANSITION_REPO.
+    A title-matched merge in another repository cannot fire this workflow and
+    must not be used to reclassify a human Jira transition as automated.
+
+    One ``gh`` invocation per ``reset-truth`` regardless of key count — the
+    former per-key spawn turned an ~1s reset into ~30s of serial network calls.
+    Titles are fetched and matched locally with the same word-boundary regex
+    the workflow itself uses, so token-based collisions on GitHub search
+    (``KAN-258`` matching ``KAN-2580``) cannot leak in.
+
+    Accepts a single key (str) for backward-compat, or an iterable of keys;
+    returns [] / {} respectively on failure — a missing correlation must
+    never silently reclassify a human transition as automated.
+    """
+    if isinstance(keys, str):
+        result = github_merge_times([keys], timeout=timeout)
+        return result.get(keys, [])
+    keys = list(keys)
+    if not keys:
+        return {}
+    search = " OR ".join(keys) + " in:title"
+    cmd = [
+        "gh", "pr", "list",
+        "-R", AUTO_TRANSITION_REPO,
+        "--search", search,
+        "--state", "merged",
+        "--json", "mergedAt,title",
+        # 20 candidate PRs per key is enough for any real ticket while capping
+        # the response size on a wide reset-truth batch.
+        "--limit", str(20 * len(keys)),
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0 or not r.stdout.strip():
+            return {k: [] for k in keys}
+        data = json.loads(r.stdout)
+        # `gh` returns [] on no matches and always an array on success, but a
+        # defensive isinstance guard costs nothing and keeps the "returns []
+        # on failure" contract intact if the tool ever emits null/object.
+        if not isinstance(data, list):
+            return {k: [] for k in keys}
+        patterns = [(k, _key_pattern(k)) for k in keys]
+        out = {k: [] for k in keys}
+        for pr in data:
+            if not isinstance(pr, dict):
+                continue
+            title = pr.get("title") or ""
+            ts = _parse_ts(pr.get("mergedAt"))
+            if not ts:
+                continue
+            for k, pat in patterns:
+                if pat.search(title):
+                    out[k].append(ts)
+        return out
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return {k: [] for k in keys}
+
+# The auto-transition workflow runs within seconds of the merge; a minute of
+# slack covers a slow runner without reaching far enough to swallow a human who
+# merged and then clicked Done themselves.
+MERGE_CORRELATION_WINDOW_S = 120
+
+
+def truth_status(data, bot_actors, merge_times=None):
     """The status this issue would hold if no bot had ever touched it.
 
     Returns ``(target, why)``; ``target`` is None when there is nothing to
     repair — either the issue has no history, or its most recent status change
     was made by a human and is therefore already the truth.
+
+    Author name alone is NOT sufficient to identify automation here.
+    ``.github/workflows/jira-auto-transition.yml`` authenticates with
+    ``secrets.ATLASSIAN_API_TOKEN`` — Adam's personal token — so Jira attributes
+    its transitions to "Adam Schoen", identical to a human edit, and it posts no
+    comment to distinguish itself. It moved KAN-249 and KAN-258 to Done seconds
+    after their PRs merged on 2026-08-28 and read as human until the workflow
+    runs were checked.
+
+    So a transition is treated as automated when EITHER the author is a known
+    bot, OR it lands on "Done" within ``MERGE_CORRELATION_WINDOW_S`` of a merge
+    of a PR whose title carries this issue's key — the workflow's exact
+    signature. ``merge_times`` of None or [] disables the correlation half and
+    falls back to author matching alone.
     """
     trans = _status_transitions(data)
     if not trans:
         return None, "no status transitions on record"
 
+    merge_times = merge_times or []
+
     def is_bot(t):
-        return any(b.strip().lower() in t["author"].lower() for b in bot_actors if b.strip())
+        if any(b.strip().lower() in t["author"].lower() for b in bot_actors if b.strip()):
+            return True
+        # The auto-transition workflow only ever moves TO Done, and only on a
+        # merge. Requiring both keeps a human who merged and then deliberately
+        # closed the row hours later out of this branch.
+        if (t["to"] or "").strip().lower() != "done":
+            return False
+        at = _parse_ts(t["at"])
+        if not at:
+            return False
+        return any(0 <= (at - m).total_seconds() <= MERGE_CORRELATION_WINDOW_S
+                   for m in merge_times)
 
     idx = len(trans) - 1
     while idx >= 0 and is_bot(trans[idx]):
@@ -194,11 +320,17 @@ def cmd_reset_truth(jira, args):
     """Restore each issue's last human-authored status from its own changelog."""
     bots = list(args.bot_actor)
     changed, skipped, failed = [], [], []
-    for key in CHARTER_ISSUES + list(args.extra):
+    all_keys = CHARTER_ISSUES + list(args.extra)
+    # One batched gh call for the whole set, not one per key — the per-key
+    # loop turned a formerly ~1s reset into ~30s of serial subprocess spawns.
+    merge_index = (github_merge_times(all_keys)
+                   if args.github_correlate else {})
+    for key in all_keys:
         data = jira.issue(key, fields="status")
         data["changelog"] = {"histories": jira.issue_changelog(key)}
         current = data["fields"]["status"]["name"]
-        target, why = truth_status(data, bots)
+        merges = merge_index.get(key, [])
+        target, why = truth_status(data, bots, merges)
         if not target:
             skipped.append((key, current, why))
             continue
@@ -294,6 +426,10 @@ def main():
                    help="display-name substrings treated as non-human authors "
                         "(default: %s)" % ", ".join(BOT_ACTORS))
     r.add_argument("--extra", nargs="*", default=[], help="additional issue keys")
+    r.add_argument("--github-correlate", action="store_true",
+                   help="enable the GitHub merge-time correlation that identifies "
+                        "jira-auto-transition.yml's moves (it authors as a human, "
+                        "so author matching alone cannot see them)")
     r.add_argument("--dry-run", action="store_true")
 
     t = sub.add_parser("transition", help="move a row, with mandatory evidence")
