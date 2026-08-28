@@ -69,7 +69,9 @@ case "${1:-}" in
   --dry-run) MODE="dry-run" ;;
   --preflight) MODE="preflight" ;;
   --help | -h)
-    sed -n '2,40p' "$0"
+    # Range ends at the last header-comment line (line 36). Widening it prints
+    # `set -uo pipefail` and internal section dividers as if they were help text.
+    sed -n '2,36p' "$0"
     exit 0
     ;;
   "") ;;
@@ -102,6 +104,16 @@ if [[ "$MODE" != "dry-run" ]]; then
     echo "      Run: gcloud auth login" >&2
     echo "      (--dry-run works without credentials.)" >&2
     exit 1
+  fi
+
+  # jq is used by verify (and apply, which calls verify at the end). Fail early
+  # here rather than after a successful create — a green create followed by a
+  # jq-missing verify would exit 1 and read as a failed run.
+  if [[ "$MODE" == "verify" || "$MODE" == "apply" ]]; then
+    command -v jq >/dev/null 2>&1 || {
+      fail "jq not found in PATH (required to parse the trigger JSON)."
+      exit 1
+    }
   fi
 fi
 
@@ -256,8 +268,28 @@ preflight() {
 # ── Read the live trigger ───────────────────────────────────────────────────
 
 read_live() {
-  gcloud builds triggers describe "$TRIGGER_NAME" \
-    --region="$REGION" --project="$PROJECT_ID" --format=json 2>/dev/null
+  # Capture stdout and stderr separately so we can tell "trigger absent"
+  # (gcloud NOT_FOUND, expected on first apply) apart from every other failure
+  # mode (expired token between the auth check and now, region typo, quota,
+  # transient network error). Swallowing stderr wholesale would let the caller
+  # conclude "create it" and then get a misleading ALREADY_EXISTS or auth error.
+  local err_file out rc
+  err_file="$(mktemp)"
+  out="$(gcloud builds triggers describe "$TRIGGER_NAME" \
+    --region="$REGION" --project="$PROJECT_ID" --format=json 2>"$err_file")"
+  rc=$?
+  if [[ $rc -eq 0 ]]; then
+    rm -f "$err_file"
+    printf '%s' "$out"
+    return 0
+  fi
+  if grep -qE 'NOT_FOUND|not found|does not exist' "$err_file"; then
+    rm -f "$err_file"
+    return 0
+  fi
+  cat "$err_file" >&2
+  rm -f "$err_file"
+  return "$rc"
 }
 
 verify() {
@@ -266,7 +298,10 @@ verify() {
     return 1
   }
   local live
-  live="$(read_live)"
+  if ! live="$(read_live)"; then
+    fail "Could not read trigger '${TRIGGER_NAME}' — see gcloud error above."
+    return 1
+  fi
   if [[ -z "$live" ]]; then
     fail "Trigger '${TRIGGER_NAME}' does not exist in ${PROJECT_ID}/${REGION}."
     echo "      Run this script with no arguments to create it." >&2
@@ -285,11 +320,14 @@ verify() {
   live_disabled="$(jq -r '.disabled // false' <<<"$live")"
   live_sa="$(jq -r '.serviceAccount // ""' <<<"$live")"
 
-  # The expected SA has the same shape gcloud returns from the API — a fully-
-  # qualified `projects/*/serviceAccounts/<email>` path when set, empty when the
-  # trigger uses the legacy default compute SA. Normalise the expectation so the
-  # comparison is apples-to-apples rather than "email vs resource path".
-  local expected_sa="$TRIGGER_SERVICE_ACCOUNT"
+  # Compare on the bare email — gcloud's API returns the full resource path
+  # (`projects/*/serviceAccounts/<email>`) even when the operator set the env
+  # var to a bare email (gcloud's usual convention). Both forms are legal input
+  # to `--service-account=`; normalising both sides here keeps the drift check
+  # from tripping on a purely cosmetic shape difference.
+  local expected_sa live_sa_email
+  expected_sa="${TRIGGER_SERVICE_ACCOUNT##*/}"
+  live_sa_email="${live_sa##*/}"
 
   echo "=== Live trigger: ${TRIGGER_NAME} (${PROJECT_ID}/${REGION}) ==="
   printf '  tag pattern : %s\n' "$live_pattern"
@@ -308,8 +346,8 @@ verify() {
   # whole security posture the docs argue for — the whole point of § "Build
   # identity" is that this SA is narrower than the default compute SA, so an
   # unnoticed reversion is exactly what --verify must catch.
-  [[ "$live_sa" == "$expected_sa" ]] ||
-    { fail "service account drift: live='${live_sa:-<default compute SA>}' expected='${expected_sa:-<default compute SA>}' (set TRIGGER_SERVICE_ACCOUNT to match, or update the live trigger)"; drift=1; }
+  [[ "$live_sa_email" == "$expected_sa" ]] ||
+    { fail "service account drift: live='${live_sa:-<default compute SA>}' expected='${TRIGGER_SERVICE_ACCOUNT:-<default compute SA>}' (set TRIGGER_SERVICE_ACCOUNT to match, or update the live trigger)"; drift=1; }
 
   if [[ "$drift" -eq 0 ]]; then
     ok "Live trigger matches the record in this file."
@@ -382,8 +420,14 @@ preflight || warn "Preflight reported $? problem(s); continuing so the create ca
 
 # One read_live call, not two — a describe against a missing trigger is cheap
 # but not free (a round trip and an error log), and calling twice risks the two
-# reads seeing different states.
-if [[ -n "$(read_live)" ]]; then
+# reads seeing different states. Distinguish "trigger absent" (empty stdout,
+# exit 0) from any other gcloud failure so we don't misdiagnose an auth or
+# region error as "create it".
+if ! LIVE_JSON="$(read_live)"; then
+  fail "Could not query trigger '${TRIGGER_NAME}' — see gcloud error above."
+  exit 1
+fi
+if [[ -n "$LIVE_JSON" ]]; then
   log "Trigger '${TRIGGER_NAME}' exists — updating to match this file."
   verb=update
 else
