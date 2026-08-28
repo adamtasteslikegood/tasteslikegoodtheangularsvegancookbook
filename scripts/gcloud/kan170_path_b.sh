@@ -190,7 +190,7 @@ print(start.strftime(fmt), end.strftime(fmt))
 ')
   response="$(curl -fsS --get \
     -H "Authorization: Bearer $token" \
-    --data-urlencode 'filter=metric.type="router.googleapis.com/nat/sent_bytes_count" AND resource.labels.gateway_name="'"$NAT_NAME"'"' \
+    --data-urlencode 'filter=metric.type="router.googleapis.com/nat/sent_bytes_count" AND resource.labels.gateway_name="'"$NAT_NAME"'" AND resource.labels.region="'"$REGION"'"' \
     --data-urlencode "interval.startTime=$start" \
     --data-urlencode "interval.endTime=$end" \
     --data-urlencode "view=FULL" \
