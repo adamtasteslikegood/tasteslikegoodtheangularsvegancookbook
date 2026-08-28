@@ -104,6 +104,7 @@ class MergeLookupTests(unittest.TestCase):
         cmd = run.call_args.args[0]
         self.assertEqual(cmd[cmd.index("-R") + 1], AUTO_TRANSITION_REPO)
         self.assertNotIn("adamtasteslikegood/tasteslikegood.com", cmd)
+        self.assertEqual(cmd[cmd.index("--search") + 1], "KAN-258 in:title")
 
     @patch("sprint9_board.subprocess.run")
     def test_bulk_lookup_is_a_single_subprocess_call(self, run):
@@ -120,6 +121,12 @@ class MergeLookupTests(unittest.TestCase):
         out = github_merge_times(["KAN-249", "KAN-258"])
 
         self.assertEqual(run.call_count, 1, "bulk lookup must batch, not spawn per key")
+        cmd = run.call_args.args[0]
+        self.assertEqual(
+            cmd[cmd.index("--search") + 1],
+            "KAN-249 OR KAN-258 in:title",
+            "GitHub search ANDs bare terms; batched keys must be joined with OR",
+        )
         self.assertEqual(out["KAN-249"], [_parse_ts("2026-08-28T06:12:16Z")])
         self.assertEqual(out["KAN-258"], [_parse_ts("2026-08-28T05:00:00Z")])
 
