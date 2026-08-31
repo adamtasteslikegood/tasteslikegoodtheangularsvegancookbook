@@ -392,6 +392,22 @@ describe('RecipeViewBase', () => {
       expect(JSON.parse(JSON.stringify(host.recipe()))).toEqual(SERVER_ROW.data);
     });
 
+    it('keeps the display URL when the refreshed row omits ai_image_url', async () => {
+      const partialRow = structuredClone(SERVER_ROW);
+      delete (partialRow.data as Record<string, unknown>)['ai_image_url'];
+      const { host } = createHost({
+        generateImage: vi.fn().mockResolvedValue(CANONICAL),
+        refreshRecipeFromApi: async () =>
+          recipeFromRow(partialRow as unknown as RecipeRow),
+      });
+      host.recipe.set(pendingRecipe());
+
+      await host.regenerateImage();
+
+      expect((host.recipe() as { ai_image_url?: string }).ai_image_url).toBe(CANONICAL);
+      expect(host.generatedImageUrl()).toMatch(/^\/api\/recipes\/r1\/image\?_t=\d+$/);
+    });
+
     // The reconcile GET reads a row that predates anything the user changed
     // during the 30-60s image window. Adopting it wholesale reverted that edit
     // on screen and in localStorage; only the pipeline fields may be adopted.
