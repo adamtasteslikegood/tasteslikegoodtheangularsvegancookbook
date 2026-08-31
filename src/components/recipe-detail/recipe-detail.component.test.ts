@@ -55,6 +55,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
           useValue: {
             currentUser: () => authUser,
             saveRecipe: vi.fn(),
+            updateRecipeField: vi.fn(),
             // KAN-257: the route waits for the startup auth check before it
             // will believe a 404 — the row is session-scoped server-side.
             ready: opts.authReady ?? Promise.resolve(),
@@ -79,7 +80,8 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
     const geminiService = injector.get(GeminiService);
-    return { component, persistenceSaveRecipe, authUser, recipeState, geminiService };
+    const authService = injector.get(AuthService);
+    return { component, persistenceSaveRecipe, authUser, recipeState, geminiService, authService };
   };
 
   const emitId = (id: string) => {
@@ -347,7 +349,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
   // placeholder while the worker was still running.
   it('renders a generating_image recipe and joins the in-flight image request', async () => {
     let settleImage: (url: string) => void = () => {};
-    const { component, recipeState, geminiService } = (() => {
+    const { component, recipeState, geminiService, authService } = (() => {
       vi.stubGlobal(
         'fetch',
         vi.fn().mockResolvedValue({
@@ -382,6 +384,11 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     settleImage('/api/recipes/r-1/image');
     await vi.waitFor(() => expect(recipeState.isImageGenerating()).toBe(false));
     expect((component.recipe() as { ai_image_url?: string }).ai_image_url).toBe(
+      '/api/recipes/r-1/image'
+    );
+    expect(authService.updateRecipeField).toHaveBeenCalledWith(
+      'r-1',
+      'ai_image_url',
       '/api/recipes/r-1/image'
     );
   });
