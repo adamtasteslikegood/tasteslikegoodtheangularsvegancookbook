@@ -150,5 +150,8 @@ findings.csv
 # content from a personal account. The repo is public — never commit them.
 *COOKBOOK_EXPORT*.json
 .env*
+# Keep the setup template tracked — .env* would otherwise silently exclude any
+# new .env.example / .env.sample / .env.template variants a contributor adds.
+!.env.example
 .envrc
 openai-codex-desktop
