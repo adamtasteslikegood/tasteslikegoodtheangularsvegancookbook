@@ -105,6 +105,13 @@ ok() { printf '\033[32m[staging-trigger] OK:\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[staging-trigger] WARN:\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[31m[staging-trigger] FAIL:\033[0m %s\n' "$*" >&2; }
 
+# Tempfile tracker cleaned up on any exit path (including SIGINT/SIGTERM
+# between mktemp and any rm -f branch). read_live() writes its mktemp path
+# here on entry and clears it after its own rm -f; the trap makes an
+# interrupt-during-describe not orphan /tmp/tmp.XXXXXX files.
+_STAGING_TRIGGER_TMPFILE=""
+trap '[[ -n "$_STAGING_TRIGGER_TMPFILE" ]] && rm -f -- "$_STAGING_TRIGGER_TMPFILE"' EXIT INT TERM
+
 # --dry-run is deliberately credential-free: reading the exact command this
 # script would run is the cheapest way to review the trigger config, and it must
 # work in CI, in a review, and on a laptop with no gcloud login.
@@ -298,20 +305,28 @@ read_live() {
   # trip the create path under a misleading "creating..." log line.
   local err_file out rc
   err_file="$(mktemp)"
+  _STAGING_TRIGGER_TMPFILE="$err_file"
   out="$(gcloud builds triggers describe "$TRIGGER_NAME" \
     --region="$REGION" --project="$PROJECT_ID" --format=json 2>"$err_file")"
   rc=$?
   if [[ $rc -eq 0 ]]; then
     rm -f "$err_file"
+    _STAGING_TRIGGER_TMPFILE=""
     printf '%s' "$out"
     return 0
   fi
-  if grep -qE '^ERROR:.*NOT_FOUND' "$err_file"; then
+  # Match the trigger-specific `NOT_FOUND: Requested entity was not found`
+  # phrasing, not just any `^ERROR:.*NOT_FOUND` — a bad PROJECT_ID surfaces as
+  # `NOT_FOUND: Resource 'projects/...' was not found`, which we want to
+  # propagate as a real failure rather than misclassify as "trigger absent".
+  if grep -qE '^ERROR:.*NOT_FOUND: Requested entity' "$err_file"; then
     rm -f "$err_file"
+    _STAGING_TRIGGER_TMPFILE=""
     return 0
   fi
   cat "$err_file" >&2
   rm -f "$err_file"
+  _STAGING_TRIGGER_TMPFILE=""
   return "$rc"
 }
 
@@ -335,10 +350,12 @@ verify() {
   local live_pattern live_config live_disabled live_sa
   # 1st-gen GitHub App triggers store the pattern under .github.push.tag; 2nd-gen
   # Cloud Build repository triggers store it under .repositoryEventConfig.push.tag.
-  # `.sourceToBuild.ref` is for MANUAL triggers, not tag pushes — the fallback is
-  # here only so an unrecognised shape shows the raw field name rather than "MISSING"
-  # and gives the operator a hint about which path to grep.
-  live_pattern="$(jq -r '.github.push.tag // .repositoryEventConfig.push.tag // .sourceToBuild.ref // "MISSING"' <<<"$live")"
+  # `.sourceToBuild.ref` is for MANUAL triggers, not tag pushes — the fallback
+  # emits the live trigger's top-level keys so an unrecognised shape names the
+  # actual event config (e.g. `github.pullRequest`, `pubsubConfig`, `webhookConfig`)
+  # instead of the opaque literal "MISSING", pointing the operator at which jq
+  # path to add or which trigger-shape mistake to undo.
+  live_pattern="$(jq -r '.github.push.tag // .repositoryEventConfig.push.tag // .sourceToBuild.ref // ("MISSING (unrecognised event shape; top-level keys: " + ([keys[] | select(. != "createTime" and . != "id" and . != "name" and . != "resourceName" and . != "description" and . != "filename" and . != "disabled" and . != "serviceAccount" and . != "tags" and . != "substitutions")] | join(",")) + ")")' <<<"$live")"
   live_config="$(jq -r '.filename // "MISSING"' <<<"$live")"
   live_disabled="$(jq -r '.disabled // false' <<<"$live")"
   live_sa="$(jq -r '.serviceAccount // ""' <<<"$live")"
@@ -348,9 +365,25 @@ verify() {
   # var to a bare email (gcloud's usual convention). Both forms are legal input
   # to `--service-account=`; normalising both sides here keeps the drift check
   # from tripping on a purely cosmetic shape difference.
-  local expected_sa live_sa_email
+  #
+  # Additionally: an empty TRIGGER_SERVICE_ACCOUNT and an empty live
+  # `.serviceAccount` both mean "Cloud Build's legacy default compute SA"; a
+  # console-created trigger that explicitly picked that SA stores its email,
+  # while a CLI create that omits `--service-account` leaves the field unset.
+  # Both are the same identity, so resolve the compute SA email once and
+  # substitute it on either side that is empty — otherwise verify() would
+  # false-positive drift against a semantically identical trigger. Mirror
+  # the preflight resolution above.
+  local expected_sa live_sa_email default_sa=""
+  if [[ -z "$TRIGGER_SERVICE_ACCOUNT" || -z "$live_sa" ]]; then
+    local pnum
+    pnum="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)' 2>/dev/null || true)"
+    [[ -n "$pnum" ]] && default_sa="${pnum}-compute@developer.gserviceaccount.com"
+  fi
   expected_sa="${TRIGGER_SERVICE_ACCOUNT##*/}"
+  [[ -z "$expected_sa" ]] && expected_sa="$default_sa"
   live_sa_email="${live_sa##*/}"
+  [[ -z "$live_sa_email" ]] && live_sa_email="$default_sa"
 
   echo "=== Live trigger: ${TRIGGER_NAME} (${PROJECT_ID}/${REGION}) ==="
   printf '  tag pattern : %s\n' "$live_pattern"
