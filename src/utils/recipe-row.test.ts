@@ -155,6 +155,25 @@ describe('adoptImagePipelineFields (KAN-255)', () => {
     expect(merged['ai_image_url']).toBe('/api/recipes/r1/image?_t=1');
   });
 
+  // Same intent as the explicit-`undefined` case above: the reconcile GET can
+  // lose the race with the worker's ai_image_url write (or read a briefly-null
+  // column). If null were adopted, the just-rendered image would blank on
+  // screen AND in localStorage — and because saveNotes POSTs the whole recipe,
+  // the next save would clobber the canonical URL back to null server-side.
+  it('leaves the local value alone when the server field is explicitly null', () => {
+    const merged = adoptImagePipelineFields(
+      local(),
+      server({ ai_image_url: null, ai_image_gcs: null, ai_metadata: null })
+    ) as unknown as Record<string, unknown>;
+    expect(merged['ai_image_url']).toBe('/api/recipes/r1/image?_t=1');
+    // ai_image_gcs is not on local, so preserving "local" means it stays absent
+    // rather than being adopted as null.
+    expect(merged['ai_image_gcs']).toBeUndefined();
+    // ai_metadata on local carried the pending request — the null server value
+    // must not wipe it either.
+    expect(merged['ai_metadata']).toEqual({ image_request: { status: 'pending' } });
+  });
+
   it('does not mutate either input', () => {
     const l = local();
     const s = server();
