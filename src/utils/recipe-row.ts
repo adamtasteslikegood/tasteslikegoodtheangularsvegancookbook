@@ -90,7 +90,7 @@ export function adoptImagePipelineFields(local: Recipe, fresh: Recipe): Recipe {
   const merged = { ...local } as Record<string, unknown>;
   const source = fresh as unknown as Record<string, unknown>;
   for (const field of IMAGE_PIPELINE_FIELDS) {
-    if (field in source) merged[field] = source[field];
+    if (source[field] !== undefined) merged[field] = source[field];
   }
   return merged as unknown as Recipe;
 }
