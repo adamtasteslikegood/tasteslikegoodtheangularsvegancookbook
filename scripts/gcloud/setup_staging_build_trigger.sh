@@ -358,9 +358,9 @@ verify() {
   # Cloud Build repository triggers store it under .repositoryEventConfig.push.tag.
   # `.sourceToBuild.ref` is for MANUAL triggers, not tag pushes — the fallback
   # emits the live trigger's top-level keys so an unrecognised shape names the
-  # actual event config (e.g. `github.pullRequest`, `pubsubConfig`, `webhookConfig`)
+  # event-config family (e.g. `github`, `pubsubConfig`, `webhookConfig`)
   # instead of the opaque literal "MISSING", pointing the operator at which jq
-  # path to add or which trigger-shape mistake to undo.
+  # path to inspect or which trigger-shape mistake to undo.
   live_pattern="$(jq -r '.github.push.tag // .repositoryEventConfig.push.tag // .sourceToBuild.ref // ("MISSING (unrecognised event shape; top-level keys: " + ([keys[] | select(. != "createTime" and . != "id" and . != "name" and . != "resourceName" and . != "description" and . != "filename" and . != "disabled" and . != "serviceAccount" and . != "tags" and . != "substitutions")] | join(",")) + ")")' <<<"$live")"
   live_config="$(jq -r '.filename // "MISSING"' <<<"$live")"
   live_disabled="$(jq -r '.disabled // false' <<<"$live")"
