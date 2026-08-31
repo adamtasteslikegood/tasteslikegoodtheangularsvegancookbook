@@ -241,7 +241,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
       this.recipeState.viewRecipe(recipe, false);
       this.loadState.set('ready');
 
-      if (status === 'generating_image') this.joinPendingImage(id);
+      if (status === 'generating_image') this.joinPendingImage(id, recipe.ai_image_url);
       return;
     }
   }
@@ -259,7 +259,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
    * queueing another (`db_recipe_repository.queue_image_generation`), returns
    * 202, and the service polls until the URL appears.
    */
-  private joinPendingImage(recipeId: string) {
+  private joinPendingImage(recipeId: string, priorImageUrl: string | null | undefined) {
     // RecipeStateService is a root singleton, so an image request tracked by
     // a previous visit to this recipe is still live. Firing generateImage()
     // again would double-POST /api/generate_image and spawn a second 2s poll
@@ -272,11 +272,13 @@ export class RecipeDetailComponent extends RecipeViewBase {
     this.recipeState.trackImageGeneration(recipeId, pending);
     pending
       .then((imageUrl) => {
-        // A joined request may be a regeneration. Its canonical URL is stable,
-        // so record the display-only marker even if navigation has already
-        // changed the displayed recipe; the singleton survives for re-entry.
-        // Marking a first generation too is harmless: there are no prior bytes.
-        this.recipeState.markImageRegenerated(recipeId);
+        // Only bust the cache when this joined request replaces prior bytes.
+        // Public recipes are served with `public, max-age=86400`, so a `?_t`
+        // marker on a first-time generation forks the CDN cache key from the
+        // canonical URL that other viewers / crawlers / OG scrapers hit.
+        // The regenerated-at marker still survives navigation for the true
+        // regeneration case: the singleton outlives the component.
+        if (priorImageUrl) this.recipeState.markImageRegenerated(recipeId);
         // No-op when the recipe is not saved; crucial if it was saved while
         // this joined generation was still in flight.
         this.authService.updateRecipeField(recipeId, 'ai_image_url', imageUrl);
@@ -284,10 +286,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
         this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       })
-      .catch(() => {
-        // The placeholder is the fallback and the spinner clears either way.
-        // No toast: the user did not ask for this image, they just opened a
-        // page while someone else's request was mid-flight.
+      .catch((err) => {
+        // The placeholder is the fallback and the spinner clears either way,
+        // and there is intentionally no toast: the user did not ask for this
+        // image, they just opened a page while someone else's request was
+        // mid-flight. Log for telemetry so a broken join path (e.g. a 500
+        // from /api/generate_image, an unexpected response shape) is not
+        // undetectable in the field.
+        console.warn('[recipe-detail] joined image generation failed', err);
       });
   }
 }

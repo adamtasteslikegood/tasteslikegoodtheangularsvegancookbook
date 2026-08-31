@@ -391,6 +391,15 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       'ai_image_url',
       '/api/recipes/r-1/image'
     );
+    // Public recipes are served `public, max-age=86400`. A `?_t=<epoch>` marker
+    // on a first-time joined generation would fork the CDN cache key from the
+    // canonical URL every other viewer / crawler / OG scraper hits — for bytes
+    // nothing had cached in the first place. The display URL stays canonical
+    // when there was no prior image; the regenerated-at marker is reserved for
+    // true regenerations (which have prior bytes to invalidate).
+    expect(recipeState.imageDisplayUrl('r-1', '/api/recipes/r-1/image')).toBe(
+      '/api/recipes/r-1/image'
+    );
   });
 
   // GH #3263 (KAN-149): GET /api/recipes/:id returns the row shape
