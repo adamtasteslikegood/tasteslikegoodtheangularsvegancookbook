@@ -147,6 +147,14 @@ describe('adoptImagePipelineFields (KAN-255)', () => {
     expect(merged['ai_image_url']).toBe('/api/recipes/r1/image?_t=1');
   });
 
+  it('leaves the local value alone when the server field is explicitly undefined', () => {
+    const merged = adoptImagePipelineFields(
+      local(),
+      server({ ai_image_url: undefined })
+    ) as unknown as Record<string, never>;
+    expect(merged['ai_image_url']).toBe('/api/recipes/r1/image?_t=1');
+  });
+
   it('does not mutate either input', () => {
     const l = local();
     const s = server();
