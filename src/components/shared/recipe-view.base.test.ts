@@ -397,8 +397,7 @@ describe('RecipeViewBase', () => {
       delete (partialRow.data as Record<string, unknown>)['ai_image_url'];
       const { host } = createHost({
         generateImage: vi.fn().mockResolvedValue(CANONICAL),
-        refreshRecipeFromApi: async () =>
-          recipeFromRow(partialRow as unknown as RecipeRow),
+        refreshRecipeFromApi: async () => recipeFromRow(partialRow as unknown as RecipeRow),
       });
       host.recipe.set(pendingRecipe());
 
