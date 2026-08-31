@@ -105,12 +105,18 @@ ok() { printf '\033[32m[staging-trigger] OK:\033[0m %s\n' "$*"; }
 warn() { printf '\033[33m[staging-trigger] WARN:\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[31m[staging-trigger] FAIL:\033[0m %s\n' "$*" >&2; }
 
-# Tempfile tracker cleaned up on any exit path (including SIGINT/SIGTERM
-# between mktemp and any rm -f branch). read_live() writes its mktemp path
-# here on entry and clears it after its own rm -f; the trap makes an
-# interrupt-during-describe not orphan /tmp/tmp.XXXXXX files.
+# Tempfile tracker cleaned up on every exit path, including an interrupt
+# between mktemp and read_live()'s normal rm -f branches. Signal handlers must
+# also terminate: a cleanup-only INT/TERM trap overrides Bash's default action
+# and would let an interrupted apply resume after gcloud returns.
 _STAGING_TRIGGER_TMPFILE=""
-trap '[[ -n "$_STAGING_TRIGGER_TMPFILE" ]] && rm -f -- "$_STAGING_TRIGGER_TMPFILE"' EXIT INT TERM
+cleanup_staging_trigger_tmpfile() {
+  [[ -n "$_STAGING_TRIGGER_TMPFILE" ]] && rm -f -- "$_STAGING_TRIGGER_TMPFILE"
+  _STAGING_TRIGGER_TMPFILE=""
+}
+trap cleanup_staging_trigger_tmpfile EXIT
+trap 'cleanup_staging_trigger_tmpfile; exit 130' INT
+trap 'cleanup_staging_trigger_tmpfile; exit 143' TERM
 
 # --dry-run is deliberately credential-free: reading the exact command this
 # script would run is the cheapest way to review the trigger config, and it must
