@@ -246,11 +246,12 @@ export abstract class RecipeViewBase {
     // Adopt the pipeline's fields onto what is on screen rather than replacing
     // it. The user may have edited notes or hit publish while the image was
     // generating, and the row this GET read predates that write.
-    this.recipe.set(adoptImagePipelineFields(current, fresh));
-    // Rebuild rather than copy: `fresh.ai_image_url` is canonical (it must
-    // stay that way — see above), and the `_t` display marker lives on the
-    // service, keyed by id.
-    this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, fresh.ai_image_url));
+    const merged = adoptImagePipelineFields(current, fresh);
+    this.recipe.set(merged);
+    // Rebuild from the merged URL: a partial server row must not blank the
+    // optimistic canonical URL already stored locally. The `_t` display
+    // marker lives on the service, keyed by id.
+    this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, merged.ai_image_url));
   }
 
   async regenerateImage() {
