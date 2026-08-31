@@ -277,6 +277,9 @@ export class RecipeDetailComponent extends RecipeViewBase {
         // changed the displayed recipe; the singleton survives for re-entry.
         // Marking a first generation too is harmless: there are no prior bytes.
         this.recipeState.markImageRegenerated(recipeId);
+        // No-op when the recipe is not saved; crucial if it was saved while
+        // this joined generation was still in flight.
+        this.authService.updateRecipeField(recipeId, 'ai_image_url', imageUrl);
         if (this.recipe()?.id !== recipeId) return;
         this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
