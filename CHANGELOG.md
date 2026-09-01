@@ -50,7 +50,8 @@ unmoved from 0.4.12's content; `main` and `dev` differ only by a back-sync merge
   RESP3 works only because ioredis injects exactly that literal. KAN-260, KAN-209.
 
   Because the failure mode is silent, verify after deploy that `express-frontend` logs
-  `✅ Valkey connected for rate limiting` — the absence of an error is not evidence.
+  a line beginning with `✅ Valkey connected for rate limiting at ` — the absence of an
+  error is not evidence.
 
 - **Production egress hardened to a two-guard steady state** — the KAN-170 Path B cutover
   (Cloud NAT + router, anonymous traffic now 404ing before it reaches the backend service,
