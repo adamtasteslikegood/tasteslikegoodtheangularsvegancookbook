@@ -86,10 +86,13 @@ done, do not read this sprint's throughput as a rate.
 ## Mid-sprint reconcile — 2026-09-01
 
 Harness run over `specs/harness/SPRINT_9_HARNESS_PLAN.json` from a checkout synced to
-`origin/dev`. **Hard gate passes**: 12 items on sprint 52, none in To Do. Statuses below
-are the board after two evidenced corrections made during this run.
+`origin/dev`. The **membership-only** hard gate reports green: the sprint endpoint
+returns 12 issues and none is in To Do. That does **not** establish board honesty.
+Board 168 filters to `project = RCP`, so its sprint endpoint renders only RCP-67 and
+hides all ten KAN issues. The table below records artifact-backed work status; it is
+not a list of rows visible on board 168.
 
-| Item                    | Board       | Where the work actually is                                            |
+| Item                    | Jira status | Where the work actually is                                            |
 | ----------------------- | ----------- | --------------------------------------------------------------------- |
 | KAN-151 (S2)            | In Review   | Merged. Backend #299 → promoted #301 → pinned `f64174d`               |
 | KAN-195 (S6)            | In Review   | Merged. Backend #300 → promoted #301 → pinned `f64174d`               |
@@ -104,6 +107,32 @@ are the board after two evidenced corrections made during this run.
 
 Nothing was dropped under D6 — S5, S7 and S8 all produced work rather than exercising
 their pre-authorised drop.
+
+### Board-visibility defect — the hard gate currently passes vacuously
+
+Sprint 52 contains **12 issues: 2 RCP and 10 KAN**. The table above has 10 rows covering
+the 11 execution tickets (KAN-255 and KAN-256 share one row); the twelfth issue is the
+delivery epic RCP-88. Board 168 is filtered to `project = RCP ORDER BY Rank ASC`, so the
+Agile API accepts the KAN sprint memberships while the board cannot render those rows.
+The two reads therefore disagree:
+
+```
+GET /rest/agile/1.0/sprint/52/issue             -> 12 issues
+GET /rest/agile/1.0/board/168/sprint/52/issue   -> 1 issue (RCP-67)
+```
+
+The current `sprint9_hard_gate.py` checks only the first endpoint. Its green result means
+only “no assigned issue is in To Do”; it does not prove that committed work is visible
+on the board. Sprint 8 used the intended model: one epic plus six board-visible RCP
+acceptance stories paired to the KAN execution tickets. Sprint 9 created RCP-88 but no
+acceptance stories and assigned the KAN tickets directly.
+
+Two follow-ups remain open and are intentionally not invented by this docs-only reconcile:
+
+1. Create the missing Sprint 9 acceptance rows, or record an explicit decision to change
+   the acceptance-story model.
+2. Extend `sprint9_hard_gate.py` to compare the board-scoped and sprint-scoped issue
+   sets and fail when committed rows are hidden by the board filter.
 
 The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope table.
 That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
