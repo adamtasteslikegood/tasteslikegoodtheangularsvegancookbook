@@ -221,11 +221,10 @@ export class PersistenceService {
 
     // Whether this id was ALREADY a saved row before the optimistic write
     // below. Must be sampled first: auth.saveRecipe dedups by id, so after it
-    // runs a ghost and a pre-existing row are indistinguishable.
-    // `?? false` — with no current user there is no saved row, so this is not a
-    // pre-existing one. removeRecipeById is a no-op without a user anyway.
-    const wasAlreadySaved =
-      this.auth.currentUser()?.savedRecipes.some((r) => r.id === recipe.id) ?? false;
+    // runs a ghost and a pre-existing row are indistinguishable. Reads the
+    // `user` captured above rather than re-calling currentUser(), so the sample
+    // is a true snapshot of the same state the guard above validated.
+    const wasAlreadySaved = user.savedRecipes.some((r) => r.id === recipe.id);
 
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
@@ -247,7 +246,15 @@ export class PersistenceService {
     // diverged from the server's (which is precisely the state this cleanup
     // leaves behind until the next hydrate). Without the guard, the user's real
     // recipe is deleted from localStorage while saveNotes closes the editor and
-    // reports success. Bulk import (kitchen.component.ts) has the same shape.
+    // reports success.
+    //
+    // Bulk import (kitchen.component.ts) is protected by the same guard but for
+    // a different reason: importRecipes() pre-inserts every id BEFORE the save
+    // loop, so wasAlreadySaved is always true there and the undo never fires.
+    // That is the right outcome — those are real imported rows, not ghosts —
+    // but it does not fix that caller's success count, which ignores the return
+    // value entirely and reports collisions as imported. Tracked separately in
+    // KAN-262; it is a pre-existing reporting bug, not data loss.
     if (shouldUndoOptimisticSave(outcome.refusal, wasAlreadySaved)) {
       this.auth.removeRecipeById(recipe.id);
       return { ok: true, alreadySaved: true };
