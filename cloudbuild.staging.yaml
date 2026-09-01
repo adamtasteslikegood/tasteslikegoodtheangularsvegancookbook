@@ -311,11 +311,25 @@ steps:
         echo "Probing $${URL}/api/health"
         BODY="$$(curl -fsS --max-time 30 "$${URL}/api/health")"
         echo "$${BODY}"
-        echo "$${BODY}" | grep -q '"environment":"staging"' || {
+        # Whitespace-tolerant on purpose. A bare '"environment":"staging"'
+        # assumes compact JSON; `app.set('json spaces', 2)`, a pretty-printing
+        # middleware, or an Express default change all insert a space after the
+        # colon and would fail this gate on every staging deploy. This gate is
+        # the release train's only guarantee that STAGING_URL is not aimed at
+        # production, so it must not be brittle about formatting.
+        echo "$${BODY}" | grep -qE '"environment"[[:space:]]*:[[:space:]]*"staging"' || {
           echo "FAIL: /api/health did not report environment=staging" >&2
           exit 1
         }
-        curl -fsSI --max-time 30 "$${URL}/" | grep -qi '^x-robots-tag:.*noindex' || {
+        # Fetch first, then match. With `set -o pipefail`, piping curl straight
+        # into grep collapses "the header is missing" and "the request failed"
+        # into one message, so an ingress or 5xx problem gets reported as an
+        # indexability problem.
+        HEADERS="$$(curl -fsSI --max-time 30 "$${URL}/")" || {
+          echo "FAIL: could not fetch $${URL}/ to check X-Robots-Tag" >&2
+          exit 1
+        }
+        echo "$${HEADERS}" | grep -qi '^x-robots-tag:.*noindex' || {
           echo "FAIL: X-Robots-Tag noindex missing — staging would be indexable" >&2
           exit 1
         }

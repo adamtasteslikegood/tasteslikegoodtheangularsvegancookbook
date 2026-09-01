@@ -276,6 +276,29 @@ describe('AuthService auth-check startup behavior', () => {
 
       expect(authService.currentUser()?.savedRecipes).toHaveLength(1);
     });
+
+    // deleteRecipe strips the id from every cookbook; removeRecipeById did not.
+    // Dropping the row while leaving the cookbook entry behind leaves a
+    // dangling reference that renders as a missing entry in that cookbook.
+    it('also strips the id from every cookbook, as deleteRecipe does', async () => {
+      const cachedUser = createAuthenticatedUser();
+      cachedUser.cookbooks = [
+        { id: 'cb-1', name: 'Weeknights', recipeIds: ['recipe-1', 'recipe-2'] },
+        { id: 'cb-2', name: 'Empty', recipeIds: [] },
+      ] as User['cookbooks'];
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('recipe-1');
+
+      const cookbooks = authService.currentUser()?.cookbooks ?? [];
+      expect(cookbooks[0].recipeIds).toEqual(['recipe-2']);
+      expect(cookbooks[1].recipeIds).toEqual([]);
+    });
   });
 });
 
