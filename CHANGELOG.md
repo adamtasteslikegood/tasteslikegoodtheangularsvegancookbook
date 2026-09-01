@@ -10,8 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.13] - 2026-08-31
 
-Backend pointer pinned at `f64174d0fa9c`, moving from v0.4.12's `6becf9316907` — a
-**31-commit Backend delta** covering the Valkey response-cache restore, published-copy
+Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy
 image correctness, and the model-default alignment. See the Backend section below.
 
 A caching, rate-limiting and save-correctness release.
