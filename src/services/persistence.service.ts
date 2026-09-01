@@ -22,11 +22,24 @@ import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
  *                                  or a code this build predates.
  *   duplicate                      a 409 with code RECIPE_ALREADY_SAVED — the
  *                                  server already has this recipe for this user.
- *                                  A refusal at this layer (interpretSaveResponse
- *                                  returns ok:false); saveRecipeDetailed then
- *                                  translates it to ok:true + alreadySaved so
- *                                  callers can surface "you already have this"
- *                                  instead of an error (KAN-241).
+ *                                  Always a refusal at this layer
+ *                                  (interpretSaveResponse returns ok:false).
+ *                                  saveRecipeDetailed then translates it to
+ *                                  ok:true + alreadySaved ONLY when this save
+ *                                  created the row it is undoing — the
+ *                                  SsrEntryService ghost. There "you already
+ *                                  have this" IS the successful outcome: the
+ *                                  user asked to save a public recipe and they
+ *                                  have it, so there was nothing left to do.
+ *                                  When the id was ALREADY a saved row the
+ *                                  refusal stands as ok:false + duplicate. That
+ *                                  caller asked to persist a CHANGE to an
+ *                                  existing recipe — edited notes, a publish
+ *                                  toggle — and the server refused it, so the
+ *                                  change is not stored and reporting success
+ *                                  would be a lie of exactly the kind KAN-155
+ *                                  was filed about. Callers can still tell it
+ *                                  apart from 'sync' (KAN-241).
  *   sync                           transport or non-409 server failure.
  */
 export type SaveRefusal =
