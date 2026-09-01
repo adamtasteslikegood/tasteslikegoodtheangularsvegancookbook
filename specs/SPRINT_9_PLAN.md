@@ -110,7 +110,7 @@ work status; it is not a list of rows visible on board 168.
 Nothing was dropped under D6 — S5, S7 and S8 all produced work rather than exercising
 their pre-authorised drop.
 
-### Board-visibility defect — the hard gate currently passes vacuously
+### Board-visibility defect — the hard gate previously passed vacuously
 
 Sprint 52 contains **12 issues: 2 RCP and 10 KAN**. The table above has 10 rows covering
 the 11 execution tickets (KAN-255 and KAN-256 share one row); the twelfth issue is the
