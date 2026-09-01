@@ -167,6 +167,6 @@ The failure mode this pin guarded against is **silent**. Removing it therefore n
 check after the release ships — absence of an error is not evidence:
 
 - `[Valkey] VALKEY_HOST not set — using in-memory rate limiting` or
-  `[Valkey] Connection failed, falling back to in-memory rate limiting` in the
+  `[Valkey] Connection failed, falling back to in-memory rate limiting:` in the
   `express-frontend` logs means the handshake broke and the limiter is per-instance.
 - `✅ Valkey connected for rate limiting at <host>:<port>` is the detector that it did not.
