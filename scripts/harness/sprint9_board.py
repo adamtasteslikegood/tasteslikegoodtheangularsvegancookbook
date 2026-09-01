@@ -81,6 +81,8 @@ CHARTER_ISSUES = [
 # gate imports nothing from this file.
 ACCEPTANCE_ISSUES = sorted({v for v in ACCEPTANCE.values() if v})
 
+# Acceptance rows are first-class charter members: add/status/reset-truth must keep
+# the board-visible RCP half of every SI alongside its execution tickets.
 CHARTER_ISSUES = CHARTER_ISSUES + [k for k in ACCEPTANCE_ISSUES
                                    if k not in CHARTER_ISSUES]
 
