@@ -169,6 +169,7 @@ def main():
         return 2
 
     report = {"gate": "sprint9-no-todo", "checks": [], "violations": [], "passed": False}
+    status_descriptions = dict(COMMITTED)
 
     try:
         if args.issues:
@@ -201,6 +202,7 @@ def main():
                         jira.board_sprint_issues(RCP_SCRUM_BOARD, sprint["id"])}
             report["board_rendered"] = sorted(rendered)
             report["acceptance"] = {}
+            active_acceptance = {}
             for si in sorted(SI_EXECUTION):
                 dropped = not any(k in members for k in SI_EXECUTION[si])
                 row = ACCEPTANCE.get(si)
@@ -233,8 +235,14 @@ def main():
                         "%s's acceptance row %s is not rendered by board %d for "
                         "this sprint — add it to the sprint, or the item is "
                         "invisible on the board" % (si, row, RCP_SCRUM_BOARD))
+                else:
+                    active_acceptance[row] = "%s — board-visible acceptance" % si
 
-            scope = [k for k in COMMITTED if k in members]
+            # Acceptance rows are first-class committed sprint artifacts too;
+            # rule 3 must reject one left in To Do just like its execution row.
+            status_descriptions.update(active_acceptance)
+            scope = ({k for k in COMMITTED if k in members}
+                     | {k for k in active_acceptance if k in members})
 
         for key in sorted(scope):
             f = jira.issue(key, fields="summary,status")["fields"]
@@ -247,7 +255,8 @@ def main():
             if todo:
                 report["violations"].append(
                     "%s is in To Do (%s) — %s"
-                    % (key, f["status"]["name"], COMMITTED.get(key, "scoped check")))
+                    % (key, f["status"]["name"],
+                       status_descriptions.get(key, "scoped check")))
     except RuntimeError as exc:
         print("API ERROR: %s" % exc, file=sys.stderr)
         return 2
