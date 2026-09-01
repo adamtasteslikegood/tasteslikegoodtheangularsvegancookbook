@@ -314,7 +314,29 @@ class DropSIAsAUnitTests(unittest.TestCase):
         jira = Mock()
         jira.sprints.return_value = [
             {"id": 52, "name": "Sprint 9", "state": "active"}]
-        jira.comment.side_effect = [None, RuntimeError("comment API failed")]
+        jira.comment.side_effect = [None, RuntimeError("comment API failed"), None]
+
+        with self.assertRaisesRegex(RuntimeError, "comment API failed"):
+            cmd_drop(jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
+
+        jira.call.assert_not_called()
+        # A DROPPED rationale that landed before the failure must be rescinded,
+        # else the audit trail says the row was dropped while it is still in
+        # the sprint. Third comment fires on KAN-209, retracting the first.
+        self.assertEqual(jira.comment.call_count, 3)
+        self.assertEqual(jira.comment.call_args_list[0].args[0], "KAN-209")
+        self.assertEqual(jira.comment.call_args_list[2].args[0], "KAN-209")
+        self.assertIn("did NOT take effect", jira.comment.call_args_list[2].args[1])
+
+    def test_rescind_failure_does_not_mask_the_original_error(self):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+        jira.comment.side_effect = [
+            None,
+            RuntimeError("comment API failed"),
+            RuntimeError("rescind also failed"),
+        ]
 
         with self.assertRaisesRegex(RuntimeError, "comment API failed"):
             cmd_drop(jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
@@ -406,6 +428,19 @@ class HardGateDropIntegrityTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("RCP-89 is in To Do", output)
         self.assertIn("S1a — board-visible acceptance", output)
+
+    def test_dual_role_key_keeps_its_specific_committed_description(self):
+        # RCP-67 is both S7's execution row AND its acceptance row. The generic
+        # "board-visible acceptance" merge must not overwrite the specific
+        # charter/timebox context COMMITTED carries for it.
+        members = self._members()
+
+        rc, output = self._run_gate(members, todo_keys={"RCP-67"})
+
+        self.assertEqual(rc, 1)
+        self.assertIn("RCP-67 is in To Do", output)
+        self.assertIn(hard_gate.COMMITTED["RCP-67"], output)
+        self.assertNotIn("S7 — board-visible acceptance", output)
 
 
 if __name__ == "__main__":

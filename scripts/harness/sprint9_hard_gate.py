@@ -240,7 +240,12 @@ def main():
 
             # Acceptance rows are first-class committed sprint artifacts too;
             # rule 3 must reject one left in To Do just like its execution row.
-            status_descriptions.update(active_acceptance)
+            # setdefault, not update: S7's RCP-67 is BOTH its execution row and
+            # its acceptance row, so the generic "board-visible acceptance"
+            # message must not overwrite the specific charter/timebox context
+            # carried by COMMITTED.
+            for k, v in active_acceptance.items():
+                status_descriptions.setdefault(k, v)
             scope = ({k for k in COMMITTED if k in members}
                      | {k for k in active_acceptance if k in members})
 

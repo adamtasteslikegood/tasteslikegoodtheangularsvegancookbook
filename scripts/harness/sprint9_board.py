@@ -445,14 +445,32 @@ def cmd_drop(jira, args):
     # Rationale on every row first, then ONE removal call for the pair. Two separate
     # removals could half-apply on an API failure and leave exactly the stranded row
     # this is fixing; the Agile backlog endpoint takes a list, so it does not have to.
-    for key in targets:
-        jira.comment(key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
-                          "Rationale: %s%s" % (
-                              args.rationale,
-                              "" if key == args.key else
-                              "\n\nDropped as part of %s alongside %s — an SI drops "
-                              "as a unit, execution row and acceptance row together."
-                              % (si, args.key)))
+    #
+    # If a comment fails partway through, any DROPPED rationale that already
+    # landed becomes a lie — the row it claims to have removed is still in the
+    # sprint. Rescind those on the way out so the audit trail matches reality.
+    posted = []
+    try:
+        for key in targets:
+            jira.comment(key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
+                              "Rationale: %s%s" % (
+                                  args.rationale,
+                                  "" if key == args.key else
+                                  "\n\nDropped as part of %s alongside %s — an SI drops "
+                                  "as a unit, execution row and acceptance row together."
+                                  % (si, args.key)))
+            posted.append(key)
+    except Exception:
+        for key in posted:
+            try:
+                jira.comment(key,
+                             "[harness] The DROPPED rationale above did NOT take effect: "
+                             "posting rationale on a sibling row failed, so the atomic "
+                             "removal was aborted and this row is still in Sprint 9. "
+                             "Re-run the drop when the transient condition clears.")
+            except Exception:
+                pass
+        raise
     jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": targets})
     print("%s dropped from Sprint 9 (rationale recorded)"
           % " + ".join(targets))
