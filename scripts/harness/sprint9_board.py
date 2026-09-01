@@ -427,9 +427,17 @@ def cmd_drop(jira, args):
         print("Sprint 9 does not exist", file=sys.stderr)
         return 1
     si = next((s for s, keys in SI_EXECUTION.items() if args.key in keys), None)
+    if not si:
+        print("%s is droppable but has no SI execution mapping — refusing a "
+              "partial drop" % args.key, file=sys.stderr)
+        return 1
+    acceptance = ACCEPTANCE.get(si)
+    if not acceptance:
+        print("%s (%s) has no acceptance-row mapping — refusing a partial drop"
+              % (args.key, si), file=sys.stderr)
+        return 1
     targets = [args.key]
-    acceptance = ACCEPTANCE.get(si) if si else None
-    if acceptance and acceptance not in targets:
+    if acceptance not in targets:
         targets.append(acceptance)
 
     # Rationale on every row first, then ONE removal call for the pair. Two separate
