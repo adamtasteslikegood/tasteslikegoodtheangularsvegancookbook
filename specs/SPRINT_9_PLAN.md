@@ -129,12 +129,40 @@ on the board. Sprint 8 used the intended model: one epic plus six board-visible 
 acceptance stories paired to the KAN execution tickets. Sprint 9 created RCP-88 but no
 acceptance stories and assigned the KAN tickets directly.
 
-Two follow-ups remain open and are intentionally not invented by this docs-only reconcile:
+Two follow-ups were left open by that docs-only reconcile. **Both are now closed** —
+2026-09-01, later the same day.
 
-1. Create the missing Sprint 9 acceptance rows, or record an explicit decision to change
-   the acceptance-story model.
-2. Extend `sprint9_hard_gate.py` to compare the board-scoped and sprint-scoped issue
-   sets and fail when committed rows are hidden by the board filter.
+1. **Acceptance rows filed.** The Sprint 8 model was kept, not changed. Nine SIs now
+   have a board-visible RCP row: `RCP-89` (S1a) · `RCP-90` (S1b) · `RCP-92` (S2) ·
+   `RCP-93` (S3) · `RCP-94` (S4) · `RCP-95` (S5) · `RCP-96` (S6) · `RCP-67` (S7,
+   already an RCP row) · `RCP-91` (S8). Each is parented to `RCP-88`,
+   `Relates`-linked to its execution ticket(s), labelled `acceptance` + `sprint-9`,
+   and carries its evidence as a comment posted **before** the status moved (D4).
+   **Board 168 now renders 9 rows for Sprint 9, up from 1.**
+
+2. **Gate extended — but deliberately NOT as specified here.** This entry proposed
+   comparing the board-scoped and sprint-scoped sets and failing on hidden rows. That
+   rule is wrong, and would be **red on Sprint 8** — the one sprint that got this
+   right. Sprint 8 is 13 members and 6 rendered: its KAN execution rows are _supposed_
+   to be sprint members (the gate's own rule 2 requires it) and structurally can never
+   render, and the epic renders in the epic panel rather than a column. A delta rule
+   would also reward deleting KAN rows from the sprint to go green, breaking rule 2.
+
+   Rule 4 instead asserts what Sprint 8 actually did: **every committed SI has a named
+   RCP acceptance row present in the board-scoped result.** Epics are never required
+   there; a D6-dropped SI is exempt exactly as under rule 3.
+
+**A third defect, not previously recorded, was the reason nobody was told for four
+days.** `scripts/pm/check_sprint_lane.sh` — wired into `pr-gate.yml` and in
+`gate.needs` since Sprint 5 S8 — is the gate that exists precisely to catch a
+collapsed KAN/RCP lane. It passed on every Sprint 9 PR because **zero issues carried
+`sprint-9`**, so its label discovery fell back to the newest label it could see,
+`sprint-8`, whose rows are all Done and filtered out. Vacuous twice: nothing to check,
+and the wrong sprint checked. It now resolves the label from board 168's **active
+sprint** and fails when nothing carries it. All 20 sprint-52 members are now labelled.
+
+Both gates were run red before the fix and green after — `check_sprint_lane.sh`
+exit 1 → 0, `sprint9_hard_gate.py` exit 1 (8 violations) → 0.
 
 The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope table.
 That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
