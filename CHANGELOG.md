@@ -11,7 +11,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 ## [0.4.13] - 2026-08-31
 
 Backend pointer pinned at `f64174d0fa9c`, moving from v0.4.12's `6becf9316907` — a
-**21-commit Backend delta** covering the Valkey response-cache restore, published-copy
+**31-commit Backend delta** covering the Valkey response-cache restore, published-copy
 image correctness, and the model-default alignment. See the Backend section below.
 
 A caching, rate-limiting and save-correctness release.
@@ -80,7 +80,7 @@ A caching, rate-limiting and save-correctness release.
   tagged deploy, since the deploy steps use `--set-env-vars`, which replaces the whole
   environment — KAN-248.
 
-### Backend (`6becf93` → `f64174d`, 21 commits)
+### Backend (`6becf93` → `f64174d`, 31 commits)
 
 - **The Valkey response cache is actually wired up again** — the recipe, stats and
   collection read paths were restored to read through Valkey, and the generation and
