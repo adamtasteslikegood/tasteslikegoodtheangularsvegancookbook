@@ -39,6 +39,27 @@ def issue_with_transitions(*transitions):
 
 
 class JiraClientTests(unittest.TestCase):
+    def test_board_sprint_issues_reads_every_page(self):
+        jira = Jira.__new__(Jira)
+        jira.call = Mock(side_effect=[
+            {"total": 3, "issues": [{"key": "RCP-89"}, {"key": "RCP-90"}]},
+            {"total": 3, "issues": [{"key": "RCP-91"}]},
+        ])
+
+        self.assertEqual(
+            jira.board_sprint_issues(168, 52),
+            [{"key": "RCP-89"}, {"key": "RCP-90"}, {"key": "RCP-91"}],
+        )
+        self.assertEqual(
+            [call.args[1] for call in jira.call.call_args_list],
+            [
+                "/rest/agile/1.0/board/168/sprint/52/issue?startAt=0"
+                "&maxResults=50&fields=summary,status,issuetype",
+                "/rest/agile/1.0/board/168/sprint/52/issue?startAt=2"
+                "&maxResults=50&fields=summary,status,issuetype",
+            ],
+        )
+
     def test_issue_changelog_reads_every_page(self):
         jira = Jira.__new__(Jira)
         jira.call = Mock(side_effect=[
