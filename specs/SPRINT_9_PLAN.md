@@ -2,7 +2,9 @@
 
 _Chartered:_ 2026-08-27 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-88** (delivery/acceptance)
+_Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8)
 _Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-248 · KAN-209 · KAN-195 · RCP-67 · KAN-176**
+(KAN = execution, RCP = scope/acceptance)
 _Jira sprint:_ **Sprint 9** — id **52** on board **168**, active.
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-27.** All six branches locked by Adam.

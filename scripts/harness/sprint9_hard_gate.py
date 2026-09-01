@@ -118,15 +118,15 @@ SI_EXECUTION = {
 # S7 is RCP-67 itself: already an RCP Story, already rendered, so it needs no
 # separate acceptance row.
 ACCEPTANCE = {
-    "S1a": None,
-    "S1b": None,
-    "S2": None,
-    "S3": None,
-    "S4": None,
-    "S5": None,
-    "S6": None,
+    "S1a": "RCP-89",
+    "S1b": "RCP-90",
+    "S2": "RCP-92",
+    "S3": "RCP-93",
+    "S4": "RCP-94",
+    "S5": "RCP-95",
+    "S6": "RCP-96",
     "S7": "RCP-67",
-    "S8": None,
+    "S8": "RCP-91",
 }
 
 # SIs whose D6 half-day timebox pre-authorises a drop.
@@ -259,7 +259,8 @@ def finish(report, args):
             for v in report["violations"]:
                 print("  - %s" % v)
         else:
-            print("\nHARD GATE PASSED — no committed Sprint 9 item is in To Do.")
+            print("\nHARD GATE PASSED — every committed Sprint 9 item is out of To "
+                  "Do AND has an acceptance row the board renders.")
     return 0 if report["passed"] else 1
 
 

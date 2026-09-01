@@ -45,7 +45,7 @@ from _jira_client import Jira  # noqa: E402
 # which items D6 pre-authorises. The dependency only points this way: the gate
 # imports nothing from here, and stays the file that is never edited to make a
 # run pass.
-from sprint9_hard_gate import DROPPABLE  # noqa: E402
+from sprint9_hard_gate import ACCEPTANCE, DROPPABLE  # noqa: E402
 
 RCP_SCRUM_BOARD = 168          # Sprint 8's originBoardId — sprints must match
 SPRINT_NAME = "Sprint 9"
@@ -67,6 +67,22 @@ CHARTER_ISSUES = [
     "RCP-67",                       # S7  (droppable)
     "KAN-176",                      # S8  (droppable)
 ]
+
+# The RCP acceptance rows — the ONLY half of the sprint board 168 can render.
+#
+# Board 168 filters `project = RCP ORDER BY Rank ASC`, so every KAN key above is a
+# sprint member that no column shows. Sprint 8 handled this with one RCP
+# `S<N> acceptance:` Story per SI (RCP-81..RCP-86) alongside its KAN execution rows;
+# Sprint 9 opened with the epic and none of them, and the board displayed a single
+# row for four days. Filed 2026-09-01 as RCP-89..RCP-96 (KAN-260).
+#
+# Read from the gate rather than restated here, so `add`/`status` and the gate can
+# never disagree about which row belongs to which SI. Dependency stays one-way: the
+# gate imports nothing from this file.
+ACCEPTANCE_ISSUES = sorted({v for v in ACCEPTANCE.values() if v})
+
+CHARTER_ISSUES = CHARTER_ISSUES + [k for k in ACCEPTANCE_ISSUES
+                                   if k not in CHARTER_ISSUES]
 
 # Display-name substrings whose status transitions carry no human intent. A row
 # driven only by these is, for board-truth purposes, untouched.
