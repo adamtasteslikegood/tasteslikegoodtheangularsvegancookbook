@@ -203,10 +203,24 @@ def main():
             report["acceptance"] = {}
             for si in sorted(SI_EXECUTION):
                 dropped = not any(k in members for k in SI_EXECUTION[si])
-                if dropped and si in DROPPABLE_SIS:
-                    report["acceptance"][si] = "dropped"
-                    continue
                 row = ACCEPTANCE.get(si)
+                if dropped and si in DROPPABLE_SIS:
+                    if not row:
+                        report["acceptance"][si] = "dropped — MISSING MAPPING"
+                        report["violations"].append(
+                            "%s is treated as dropped but has no acceptance-row "
+                            "mapping, so the gate cannot prove the SI was removed "
+                            "as a unit" % si)
+                    elif row in members or row in rendered:
+                        report["acceptance"][si] = "STRANDED — %s" % row
+                        report["violations"].append(
+                            "%s is treated as dropped because execution row(s) %s "
+                            "left Sprint 9, but acceptance row %s remains in the "
+                            "sprint/board — remove the SI as a unit"
+                            % (si, "/".join(SI_EXECUTION[si]), row))
+                    else:
+                        report["acceptance"][si] = "dropped"
+                    continue
                 report["acceptance"][si] = row
                 if not row:
                     report["violations"].append(
