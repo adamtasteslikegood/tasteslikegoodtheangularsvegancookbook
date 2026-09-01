@@ -141,9 +141,9 @@ def active_sprint():
         return None, None
     if len(active) != 1:
         names = ", ".join(repr(s.get("name", "")) for s in active)
-        print(f"FAIL(1): board {RCP_SCRUM_BOARD} has {len(active)} active sprints "
+        print(f"FAIL(2): board {RCP_SCRUM_BOARD} has {len(active)} active sprints "
               f"({names}); the sprint-lane label is ambiguous.", file=sys.stderr)
-        sys.exit(1)
+        sys.exit(2)
     sprint = active[0]
     m = re.match(r"\s*sprint\s*[-_ ]?(\d+)\s*$", sprint.get("name", ""), re.I)
     if m:
@@ -152,10 +152,10 @@ def active_sprint():
         print(f"active sprint: {sprint.get('name', '')!r} (id {sprint['id']}) "
               f"uses explicit label override {label}")
         return label, sprint
-    print(f"FAIL(1): active sprint {sprint.get('name', '')!r} (id {sprint['id']}) "
+    print(f"FAIL(2): active sprint {sprint.get('name', '')!r} (id {sprint['id']}) "
           "does not match `Sprint N`; pass its sprint-N label explicitly instead "
           "of falling back to an older sprint.", file=sys.stderr)
-    sys.exit(1)
+    sys.exit(2)
 
 
 expected_label, sprint = active_sprint()
