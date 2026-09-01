@@ -20,6 +20,29 @@ Exit 0 only when ALL of these hold:
    category.** Done, In Progress and In Review all pass — matching the sprint's
    definition of done: every item is delivered, in review, or consciously
    dropped.
+4. **Every committed SI has an RCP acceptance row the BOARD ACTUALLY RENDERS.**
+   Added 2026-09-01 (KAN-260) after this gate reported PASS for four days on a
+   sprint the RCP board displayed as a single row.
+
+Rule 4, and why it is not a member/rendered delta
+-------------------------------------------------
+Board 168's filter is ``project = RCP ORDER BY Rank ASC``. KAN is a separate,
+team-managed project, so **a KAN key added to this sprint is a member that no
+column can ever show.** ``/rest/agile/1.0/sprint/{id}/issue`` returns membership
+and ignores the filter; ``/rest/agile/1.0/board/{b}/sprint/{id}/issue`` returns
+what is rendered. Rules 2 and 3 read the first endpoint only, so they were blind
+to a board with nothing on it.
+
+The obvious repair — diff the two endpoints, fail on the delta — is **wrong, and
+would be red on the one sprint that got this right.** Sprint 8 is 13 members and
+6 rendered: its KAN execution rows are *supposed* to be members (rule 2 demands
+it) and structurally cannot render, and its epic renders in the epic panel
+rather than a column. A delta rule would also reward deleting KAN rows from the
+sprint, which breaks rule 2.
+
+So rule 4 asserts what Sprint 8 actually did: **one RCP ``S<N> acceptance:``
+Story per SI, present in the board-scoped result.** The epic is never required
+there. A D6-dropped SI is exempt, exactly as it is under rule 3.
 
 Droppable items
 ---------------
@@ -72,6 +95,42 @@ REQUIRED = {
     "KAN-258": "S4  — model-selection tail + v0.4.13 release cut",
     "KAN-195": "S6  — regenerated image blocked 24h by stale Cache-Control",
 }
+
+# Sprint items -> the execution rows that carry them. An SI whose execution rows
+# are all absent from the sprint has been dropped (see DROPPABLE_SIS).
+SI_EXECUTION = {
+    "S1a": ["KAN-255", "KAN-256"],
+    "S1b": ["KAN-257"],
+    "S2": ["KAN-151"],
+    "S3": ["KAN-249", "KAN-250"],
+    "S4": ["KAN-258"],
+    "S5": ["KAN-209"],
+    "S6": ["KAN-195"],
+    "S7": ["RCP-67"],
+    "S8": ["KAN-176"],
+}
+
+# Sprint items -> the RCP acceptance Story the BOARD renders for them, mirroring
+# Sprint 8's RCP-81..RCP-86. ``None`` means the row was never filed — a violation,
+# not a skip: an SI with no board-visible row is invisible to anyone reading the
+# sprint, which is the entire defect KAN-260 exists to correct.
+#
+# S7 is RCP-67 itself: already an RCP Story, already rendered, so it needs no
+# separate acceptance row.
+ACCEPTANCE = {
+    "S1a": None,
+    "S1b": None,
+    "S2": None,
+    "S3": None,
+    "S4": None,
+    "S5": None,
+    "S6": None,
+    "S7": "RCP-67",
+    "S8": None,
+}
+
+# SIs whose D6 half-day timebox pre-authorises a drop.
+DROPPABLE_SIS = {"S5", "S7", "S8"}
 
 # D6 pre-authorised drops. Absent from the sprint == dropped == exempt.
 DROPPABLE = {
@@ -134,6 +193,33 @@ def main():
                         "%s is not in Sprint 9 (%s) — required items cannot be "
                         "dropped without a charter update" % (key, what))
             report["dropped"] = sorted(k for k in DROPPABLE if k not in members)
+
+            # Rule 4 — board visibility. Read what the BOARD renders, not what the
+            # sprint contains; the module docstring explains why this is not a
+            # member/rendered delta.
+            rendered = {i["key"] for i in
+                        jira.board_sprint_issues(RCP_SCRUM_BOARD, sprint["id"])}
+            report["board_rendered"] = sorted(rendered)
+            report["acceptance"] = {}
+            for si in sorted(SI_EXECUTION):
+                dropped = not any(k in members for k in SI_EXECUTION[si])
+                if dropped and si in DROPPABLE_SIS:
+                    report["acceptance"][si] = "dropped"
+                    continue
+                row = ACCEPTANCE.get(si)
+                report["acceptance"][si] = row
+                if not row:
+                    report["violations"].append(
+                        "%s has no RCP acceptance row — board %d filters "
+                        "`project = RCP`, so its execution row(s) %s are sprint "
+                        "members that no column renders"
+                        % (si, RCP_SCRUM_BOARD, "/".join(SI_EXECUTION[si])))
+                elif row not in rendered:
+                    report["violations"].append(
+                        "%s's acceptance row %s is not rendered by board %d for "
+                        "this sprint — add it to the sprint, or the item is "
+                        "invisible on the board" % (si, row, RCP_SCRUM_BOARD))
+
             scope = [k for k in COMMITTED if k in members]
 
         for key in sorted(scope):
@@ -162,6 +248,9 @@ def finish(report, args):
     else:
         for c in report["checks"]:
             print("%-9s %-14s %s" % (c["key"], c["status"], "TO DO" if c["todo"] else "ok"))
+        for si, row in sorted(report.get("acceptance", {}).items()):
+            print("%-9s %-14s %s" % (si, "acceptance",
+                                     row if row else "MISSING — no RCP row"))
         for d in report.get("dropped", []):
             print("%-9s %-14s dropped from sprint (D6 timebox) — exempt"
                   % (d, "-"))

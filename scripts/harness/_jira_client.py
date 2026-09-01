@@ -128,6 +128,26 @@ class Jira:
                 return out
             start += len(values)
 
+    def board_sprint_issues(self, board_id, sprint_id):
+        """Only what the BOARD RENDERS for a sprint — its filter applies here.
+
+        This is NOT ``sprint_issues`` with an extra argument. ``sprint_issues``
+        returns sprint MEMBERSHIP and ignores the board filter entirely; board
+        168 filters ``project = RCP``, so a KAN key is a member that no column
+        can ever show. Reading only the membership endpoint is what let Sprint 9
+        report a green gate over a board displaying one row."""
+        out, start = [], 0
+        while True:
+            page = self.call(
+                "GET", "/rest/agile/1.0/board/%d/sprint/%d/issue?startAt=%d"
+                       "&maxResults=50&fields=summary,status,issuetype"
+                       % (board_id, sprint_id, start))
+            issues = page.get("issues", [])
+            out.extend(issues)
+            if not issues or len(out) >= page.get("total", 0):
+                return out
+            start += len(issues)
+
     def sprint_issues(self, sprint_id):
         out, start = [], 0
         while True:
