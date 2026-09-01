@@ -150,19 +150,54 @@ if not label and expected_label:
     label = expected_label
     print(f"active sprint: {sprint['name']!r} (id {sprint['id']}) -> label {label}")
 
-# THE MISSING-LANE ASSERTION. A running sprint whose label nothing carries is not a
-# clean lane, it is an unasserted one — the whole failure this gate exists to catch.
+def sprint_members(sprint_id):
+    """Every issue in the sprint, keyed by issue key.
+
+    Sprint MEMBERSHIP, deliberately — not the board-scoped read. Board 168 filters
+    `project = RCP`, so a board-scoped read cannot see the KAN execution rows whose
+    labels this assertion exists to check."""
+    out, start = {}, 0
+    while True:
+        page = agile(f"sprint/{sprint_id}/issue?startAt={start}&maxResults=50"
+                     "&fields=labels,status")
+        issues = page.get("issues", [])
+        for i in issues:
+            out[i["key"]] = i["fields"]
+        if not issues or len(out) >= page.get("total", 0):
+            return out
+        start += len(issues)
+
+
+# THE MISSING-LANE ASSERTION. A running sprint whose label its members do not carry
+# is not a clean lane, it is an unasserted one — the failure this gate exists to catch.
+#
+# This checks EVERY MEMBER, not "does anyone carry the label". The first cut asked
+# only `if not tagged` over `project in (KAN, RCP)`, which relocated the same vacuous
+# pass one level down: if every RCP acceptance row kept `sprint-9` while the KAN
+# execution rows lost it, `tagged` stayed non-empty, the guard passed, and the orphan
+# query below then found no labelled KAN rows and printed PASS. Caught in review on
+# #3471 by two reviewers independently (a partial-label case and a lone-epic case —
+# the same gap from two directions). Membership-vs-labels closes both, and every
+# other partial-labelling shape with them.
 if expected_label and label == expected_label:
-    tagged = jql(f'project in (KAN, RCP) AND labels = "{label}"', "summary")
-    if not tagged:
+    members = sprint_members(sprint["id"])
+    if not members:
         print(f"\nFAIL(1): sprint {sprint['name']!r} (id {sprint['id']}) is ACTIVE on "
-              f"board {RCP_SCRUM_BOARD}, but ZERO issues carry the label {label!r}.")
-        print("A lane nobody labelled cannot be asserted, and this gate would otherwise")
-        print("report PASS over an empty set — the vacuous pass that hid Sprint 9's board")
-        print("for four days. Label the sprint's KAN execution rows and their RCP")
-        print("acceptance rows, then re-run.")
+              f"board {RCP_SCRUM_BOARD} but contains NO issues. An empty active sprint "
+              f"is not a clean lane; this gate refuses to pass over an empty set.")
         sys.exit(1)
-    print(f"lane census: {len(tagged)} issue(s) carry {label}")
+    unlabelled = sorted(k for k, f in members.items()
+                        if label not in (f.get("labels") or []))
+    if unlabelled:
+        print(f"\nFAIL(1): {len(unlabelled)} of {len(members)} issue(s) in sprint "
+              f"{sprint['name']!r} do not carry {label!r}:")
+        for k in unlabelled:
+            print(f"  UNLABELLED {k}")
+        print(f"\n`{label}` is what this gate grades. A sprint member without it is")
+        print("invisible to the assertion — which is how Sprint 9 ran four days with a")
+        print("dark board and two green gates. Label every member, then re-run.")
+        sys.exit(1)
+    print(f"lane census: all {len(members)} sprint member(s) carry {label}")
 
 # NOTE: Jira's `labels` field does NOT support wildcard matching — `labels ~ "sprint-*"`
 # silently returns zero rows, which made an earlier version of this script report PASS

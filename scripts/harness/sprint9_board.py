@@ -45,7 +45,7 @@ from _jira_client import Jira  # noqa: E402
 # which items D6 pre-authorises. The dependency only points this way: the gate
 # imports nothing from here, and stays the file that is never edited to make a
 # run pass.
-from sprint9_hard_gate import ACCEPTANCE, DROPPABLE  # noqa: E402
+from sprint9_hard_gate import ACCEPTANCE, DROPPABLE, SI_EXECUTION  # noqa: E402
 
 RCP_SCRUM_BOARD = 168          # Sprint 8's originBoardId — sprints must match
 SPRINT_NAME = "Sprint 9"
@@ -406,6 +406,16 @@ def cmd_drop(jira, args):
     required item. The charter is emphatic that the drop must actually fire:
     Sprint 8 pre-authorised one and it rolled a fifth time instead. Dropped is a
     valid outcome; rolled is not.
+
+    An SI drops as a UNIT — execution row AND acceptance row. Dropping only the
+    execution key was a real defect introduced alongside the acceptance rows and
+    caught in review on #3471: the hard gate's rule 4 exempts an SI from needing a
+    rendered acceptance row the moment its execution key leaves the sprint, so
+    dropping KAN-209 alone would strand RCP-95 on board 168 — an unexplained row
+    for a supposedly dropped item, with both gates green over it.
+
+    S7 is the degenerate case: RCP-67 is both its own execution and acceptance row,
+    so the pair deduplicates to one key rather than being commented on twice.
     """
     if args.key not in DROPPABLE:
         print("%s is not a D6 pre-authorised drop (droppable: %s) — dropping it "
@@ -416,10 +426,26 @@ def cmd_drop(jira, args):
     if not sprint:
         print("Sprint 9 does not exist", file=sys.stderr)
         return 1
-    jira.comment(args.key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
-                           "Rationale: %s" % args.rationale)
-    jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": [args.key]})
-    print("%s dropped from Sprint 9 (rationale recorded)" % args.key)
+    si = next((s for s, keys in SI_EXECUTION.items() if args.key in keys), None)
+    targets = [args.key]
+    acceptance = ACCEPTANCE.get(si) if si else None
+    if acceptance and acceptance not in targets:
+        targets.append(acceptance)
+
+    # Rationale on every row first, then ONE removal call for the pair. Two separate
+    # removals could half-apply on an API failure and leave exactly the stranded row
+    # this is fixing; the Agile backlog endpoint takes a list, so it does not have to.
+    for key in targets:
+        jira.comment(key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
+                          "Rationale: %s%s" % (
+                              args.rationale,
+                              "" if key == args.key else
+                              "\n\nDropped as part of %s alongside %s — an SI drops "
+                              "as a unit, execution row and acceptance row together."
+                              % (si, args.key)))
+    jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": targets})
+    print("%s dropped from Sprint 9 (rationale recorded)"
+          % " + ".join(targets))
     return 0
 
 

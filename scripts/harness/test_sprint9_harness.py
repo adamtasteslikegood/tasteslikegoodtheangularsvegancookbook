@@ -13,9 +13,11 @@ from _jira_client import Jira  # noqa: E402
 from sprint9_board import (  # noqa: E402
     AUTO_TRANSITION_REPO,
     _parse_ts,
+    cmd_drop,
     github_merge_times,
     truth_status,
 )
+from sprint9_hard_gate import ACCEPTANCE, DROPPABLE, SI_EXECUTION  # noqa: E402
 
 
 def issue_with_transitions(*transitions):
@@ -214,6 +216,71 @@ class MergeCorrelationTests(unittest.TestCase):
         )
         target, _ = truth_status(history, ("Automation for Jira",), self.MERGED_AT)
         self.assertIsNone(target)
+
+
+
+class DropSIAsAUnitTests(unittest.TestCase):
+    """An SI drops as a unit — execution row AND acceptance row.
+
+    Regression cover for the #3471 review finding: dropping only the execution key
+    strands the acceptance row on board 168, because the hard gate's rule 4 exempts
+    an SI as soon as its execution key leaves the sprint. Both gates then read green
+    over an unexplained row for a supposedly dropped item.
+    """
+
+    def _drop(self, key):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+        args = Mock(key=key, rationale="timeboxed out under D6")
+        rc = cmd_drop(jira, args)
+        removed = [c for c in jira.call.call_args_list
+                   if c.args[1] == "/rest/agile/1.0/backlog/issue"]
+        return rc, jira, removed
+
+    def test_drops_both_rows_for_every_droppable_si(self):
+        # S5 -> KAN-209 + RCP-95, S8 -> KAN-176 + RCP-91.
+        for exec_key in ("KAN-209", "KAN-176"):
+            with self.subTest(key=exec_key):
+                si = next(s for s, keys in SI_EXECUTION.items() if exec_key in keys)
+                acceptance = ACCEPTANCE[si]
+                rc, jira, removed = self._drop(exec_key)
+                self.assertEqual(rc, 0)
+                self.assertEqual(len(removed), 1, "removal must be ONE atomic call")
+                self.assertEqual(sorted(removed[0].args[2]["issues"]),
+                                 sorted([exec_key, acceptance]))
+                commented = [c.args[0] for c in jira.comment.call_args_list]
+                self.assertIn(exec_key, commented)
+                self.assertIn(acceptance, commented,
+                              "acceptance row must carry the drop rationale too")
+
+    def test_s7_deduplicates_execution_and_acceptance(self):
+        # RCP-67 is both its own execution row and its own acceptance row.
+        self.assertEqual(SI_EXECUTION["S7"], ["RCP-67"])
+        self.assertEqual(ACCEPTANCE["S7"], "RCP-67")
+        rc, jira, removed = self._drop("RCP-67")
+        self.assertEqual(rc, 0)
+        self.assertEqual(removed[0].args[2]["issues"], ["RCP-67"],
+                         "must not remove the same row twice")
+        self.assertEqual(jira.comment.call_count, 1,
+                         "must not comment on the same row twice")
+
+    def test_required_item_is_still_refused(self):
+        jira = Mock()
+        rc = cmd_drop(jira, Mock(key="KAN-151", rationale="nope"))
+        self.assertEqual(rc, 1)
+        jira.comment.assert_not_called()
+        jira.call.assert_not_called()
+
+    def test_every_droppable_maps_to_an_si_with_an_acceptance_row(self):
+        # Guards the lookup cmd_drop relies on: a DROPPABLE key with no SI mapping
+        # would silently fall back to dropping the execution row alone.
+        for key in DROPPABLE:
+            si = next((s for s, keys in SI_EXECUTION.items() if key in keys), None)
+            self.assertIsNotNone(si, "%s has no SI mapping" % key)
+            self.assertTrue(ACCEPTANCE.get(si), "%s (%s) has no acceptance row"
+                            % (key, si))
+
 
 
 if __name__ == "__main__":
