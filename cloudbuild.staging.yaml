@@ -55,7 +55,11 @@ substitutions:
   _PROJECT_ID: gen-lang-client-0491022701
   _EXPRESS_SERVICE: express-frontend-staging
   _FLASK_SERVICE: flask-backend-staging
-  _MIGRATE_JOB: flask-backend-staging-migrate
+  # Must match the provisioned Cloud Run Job exactly. `gcloud run jobs deploy`
+  # CREATES a job when the name does not exist, so a mismatch does not fail
+  # loudly — it silently provisions a second, parallel migrate job and leaves
+  # the real one un-migrated.
+  _MIGRATE_JOB: flask-staging-migrate
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
   _CLOUDSQL: gen-lang-client-0491022701:us-central1:vegangenius-staging-db
   _GCS_BUCKET: tasteslikegood-recipe-images-staging
@@ -195,6 +199,15 @@ steps:
       # socket path does not exist in the Job container and SQLAlchemy falls
       # back to localhost:5432.
       - --set-cloudsql-instances=$_CLOUDSQL
+      # Direct VPC egress. The staging instance is private-IP only, so the
+      # Cloud SQL Auth Proxy sidecar cannot reach it without a route into the
+      # VPC — the socket would exist and every connect would still time out.
+      # `gcloud run jobs deploy` REPLACES the job's config, so omitting these
+      # silently strips them from the live job on the next staging build.
+      # Mirrors what the provisioned flask-staging-migrate job already carries.
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
       - --quiet
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk

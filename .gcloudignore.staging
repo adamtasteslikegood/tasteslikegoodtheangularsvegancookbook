@@ -30,8 +30,10 @@ coverage/
 .envrc
 
 # Submodules and non-frontend code
-# Backend/  <- deliberately NOT excluded here; see header
-backend/
+# Backend/ is deliberately NOT excluded here; see header. Do not add a
+# lowercase `backend/` line as a "harmless" catch-all — .gcloudignore is
+# matched case-insensitively by some gcloud/packaging paths, so it can swallow
+# Backend/ and silently ship an upload with no Flask source in it.
 alirez-claude-skills/
 gemstack/
 

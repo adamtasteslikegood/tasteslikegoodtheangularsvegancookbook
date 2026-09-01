@@ -5,6 +5,22 @@ import { ToastService } from './toast.service';
 import { buildSavedRecipeFromPublic } from './public-recipe.mapper';
 import type { Recipe } from '../recipe.types';
 
+/**
+ * Predicate matching a saved recipe's `sourceSlug` or `slug` against an
+ * already-normalized slug, normalizing the stored side too.
+ *
+ * Exported for unit testing.
+ */
+export function matchesSlug(
+  normalizedSlug: string,
+  field: 'sourceSlug' | 'slug'
+): (recipe: Recipe) => boolean {
+  return (recipe: Recipe) => {
+    const value = recipe[field];
+    return typeof value === 'string' && value.trim().toLowerCase() === normalizedSlug;
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class SsrEntryService {
   private readonly auth = inject(AuthService);
@@ -76,9 +92,18 @@ export class SsrEntryService {
     // The KAN-156 "one entry, one toast" guarantee is unaffected: overlapping
     // saves of the same entry are collapsed upstream by inFlightSaves and never
     // reach here twice, and the guard redirects off ?save= so no entry re-fires.
+    //
+    // Both lookups normalize the STORED value too. `normalizedSlug` is
+    // lowercased at the top of save(), but persisted sourceSlug/slug come from
+    // localStorage and the API, not from that guard. Comparing them raw means a
+    // mixed-case stored value misses, and the miss is silent: the user is told
+    // they already have the recipe while the View button loses its target.
+    // Backend slug generation lowercases (utils/slug_utils.py), so this is
+    // defensive against legacy or hand-edited local rows rather than a path
+    // reachable from today's server — but it costs nothing to be exact.
     const alreadySaved =
-      saved.find((r: Recipe) => r.sourceSlug === normalizedSlug) ??
-      saved.find((r: Recipe) => r.slug === normalizedSlug);
+      saved.find(matchesSlug(normalizedSlug, 'sourceSlug')) ??
+      saved.find(matchesSlug(normalizedSlug, 'slug'));
     if (alreadySaved) {
       this.toast.show('Good news — you already have this recipe.', alreadySaved);
       return;
@@ -105,11 +130,9 @@ export class SsrEntryService {
         // copy (it carries the server-assigned ID, not the fresh UUID).
         const existing =
           (this.auth.currentUser()?.savedRecipes ?? []).find(
-            (r: Recipe) => r.sourceSlug === normalizedSlug
+            matchesSlug(normalizedSlug, 'sourceSlug')
           ) ??
-          (this.auth.currentUser()?.savedRecipes ?? []).find(
-            (r: Recipe) => r.slug === normalizedSlug
-          );
+          (this.auth.currentUser()?.savedRecipes ?? []).find(matchesSlug(normalizedSlug, 'slug'));
         // Pass null when the existing copy isn't in local state yet (KAN-241):
         // the ghost was just removed, so `recipe` points at a dead object whose
         // View button would navigate to a recipe no longer in savedRecipes.
