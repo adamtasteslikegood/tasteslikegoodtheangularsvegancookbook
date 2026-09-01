@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Focused regression tests for Sprint 9 board-truth handling."""
 
+import contextlib
+import io
 import subprocess
 import sys
 import unittest
@@ -10,6 +12,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _jira_client import Jira  # noqa: E402
+import sprint9_hard_gate as hard_gate  # noqa: E402
 from sprint9_board import (  # noqa: E402
     AUTO_TRANSITION_REPO,
     _parse_ts,
@@ -281,6 +284,32 @@ class DropSIAsAUnitTests(unittest.TestCase):
             self.assertTrue(ACCEPTANCE.get(si), "%s (%s) has no acceptance row"
                             % (key, si))
 
+    def test_missing_si_mapping_fails_closed(self):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+
+        with patch.dict("sprint9_board.SI_EXECUTION", {"S5": []}, clear=True):
+            rc = cmd_drop(
+                jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
+
+        self.assertEqual(rc, 1)
+        jira.comment.assert_not_called()
+        jira.call.assert_not_called()
+
+    def test_missing_acceptance_mapping_fails_closed(self):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+
+        with patch.dict("sprint9_board.ACCEPTANCE", {"S5": None}, clear=False):
+            rc = cmd_drop(
+                jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
+
+        self.assertEqual(rc, 1)
+        jira.comment.assert_not_called()
+        jira.call.assert_not_called()
+
     def test_partial_comment_failure_does_not_remove_either_row(self):
         jira = Mock()
         jira.sprints.return_value = [
@@ -304,6 +333,66 @@ class DropSIAsAUnitTests(unittest.TestCase):
         self.assertEqual(jira.call.call_count, 1)
         self.assertEqual(
             jira.call.call_args.args[2]["issues"], ["KAN-176", "RCP-91"])
+
+
+class HardGateDropIntegrityTests(unittest.TestCase):
+    def _members(self):
+        return (
+            set(hard_gate.REQUIRED)
+            | set(hard_gate.DROPPABLE)
+            | {row for row in hard_gate.ACCEPTANCE.values() if row}
+        )
+
+    def _run_gate(self, members):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+        jira.sprint_issues.return_value = [
+            {"key": key} for key in sorted(members)]
+        jira.board_sprint_issues.return_value = [
+            {"key": row} for row in sorted(
+                set(hard_gate.ACCEPTANCE.values()) & set(members))]
+        jira.issue.return_value = {
+            "fields": {
+                "summary": "test",
+                "status": {
+                    "name": "In Progress",
+                    "statusCategory": {
+                        "key": "indeterminate",
+                        "name": "In Progress",
+                    },
+                },
+            },
+        }
+
+        output = io.StringIO()
+        with (
+            patch("sprint9_hard_gate.Jira", return_value=jira),
+            patch.object(sys, "argv", ["sprint9_hard_gate.py"]),
+            contextlib.redirect_stdout(output),
+        ):
+            rc = hard_gate.main()
+        return rc, output.getvalue()
+
+    def test_stranded_acceptance_row_fails_the_gate(self):
+        members = self._members()
+        members.remove("KAN-209")
+
+        rc, output = self._run_gate(members)
+
+        self.assertEqual(rc, 1)
+        self.assertIn("RCP-95 remains in the sprint/board", output)
+
+    def test_fully_removed_droppable_si_passes_drop_integrity(self):
+        members = self._members()
+        members.remove("KAN-209")
+        members.remove("RCP-95")
+
+        rc, output = self._run_gate(members)
+
+        self.assertEqual(rc, 0, output)
+        self.assertIn("S5", output)
+        self.assertIn("dropped", output)
 
 
 if __name__ == "__main__":
