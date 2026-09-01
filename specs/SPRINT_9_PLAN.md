@@ -88,9 +88,9 @@ done, do not read this sprint's throughput as a rate.
 Harness run over `specs/harness/SPRINT_9_HARNESS_PLAN.json` from a checkout synced to
 `origin/dev`. The **membership-only** hard gate reports green: the sprint endpoint
 returns 12 issues and none is in To Do. That does **not** establish board honesty.
-Board 168 filters to `project = RCP`, so its sprint endpoint renders only RCP-67 and
-hides all ten KAN issues. The table below records artifact-backed work status; it is
-not a list of rows visible on board 168.
+Board 168 filters to `project = RCP`, yet its sprint endpoint renders only RCP-67,
+omitting RCP-88 as well as all ten KAN issues. The table below records artifact-backed
+work status; it is not a list of rows visible on board 168.
 
 | Item                    | Jira status | Where the work actually is                                            |
 | ----------------------- | ----------- | --------------------------------------------------------------------- |
