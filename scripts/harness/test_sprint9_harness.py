@@ -343,7 +343,7 @@ class HardGateDropIntegrityTests(unittest.TestCase):
             | {row for row in hard_gate.ACCEPTANCE.values() if row}
         )
 
-    def _run_gate(self, members):
+    def _run_gate(self, members, todo_keys=()):
         jira = Mock()
         jira.sprints.return_value = [
             {"id": 52, "name": "Sprint 9", "state": "active"}]
@@ -352,18 +352,22 @@ class HardGateDropIntegrityTests(unittest.TestCase):
         jira.board_sprint_issues.return_value = [
             {"key": row} for row in sorted(
                 set(hard_gate.ACCEPTANCE.values()) & set(members))]
-        jira.issue.return_value = {
-            "fields": {
-                "summary": "test",
-                "status": {
-                    "name": "In Progress",
-                    "statusCategory": {
-                        "key": "indeterminate",
-                        "name": "In Progress",
+        def issue(key, fields):
+            todo = key in todo_keys
+            return {
+                "fields": {
+                    "summary": "test",
+                    "status": {
+                        "name": "To Do" if todo else "In Progress",
+                        "statusCategory": {
+                            "key": "new" if todo else "indeterminate",
+                            "name": "To Do" if todo else "In Progress",
+                        },
                     },
                 },
-            },
-        }
+            }
+
+        jira.issue.side_effect = issue
 
         output = io.StringIO()
         with (
@@ -393,6 +397,15 @@ class HardGateDropIntegrityTests(unittest.TestCase):
         self.assertEqual(rc, 0, output)
         self.assertIn("S5", output)
         self.assertIn("dropped", output)
+
+    def test_board_visible_acceptance_row_in_todo_fails_rule_three(self):
+        members = self._members()
+
+        rc, output = self._run_gate(members, todo_keys={"RCP-89"})
+
+        self.assertEqual(rc, 1)
+        self.assertIn("RCP-89 is in To Do", output)
+        self.assertIn("S1a — board-visible acceptance", output)
 
 
 if __name__ == "__main__":
