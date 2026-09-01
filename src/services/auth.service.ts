@@ -308,6 +308,13 @@ export class AuthService {
     this.updateUserRecord({
       ...user,
       savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
+      // Strip the id from every cookbook too, as deleteRecipe does. Dropping
+      // the row while leaving a cookbook.recipeIds entry behind leaves a
+      // dangling reference that renders as a missing entry in that cookbook.
+      cookbooks: user.cookbooks.map((cb) => ({
+        ...cb,
+        recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
+      })),
     });
   }
 
