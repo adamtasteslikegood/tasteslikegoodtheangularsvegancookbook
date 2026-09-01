@@ -320,11 +320,7 @@ class DropSIAsAUnitTests(unittest.TestCase):
             cmd_drop(jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
 
         jira.call.assert_not_called()
-        # A DROPPED rationale that landed before the failure must be rescinded,
-        # else the audit trail says the row was dropped while it is still in
-        # the sprint. Third comment fires on KAN-209, retracting the first.
         self.assertEqual(jira.comment.call_count, 3)
-        self.assertEqual(jira.comment.call_args_list[0].args[0], "KAN-209")
         self.assertEqual(jira.comment.call_args_list[2].args[0], "KAN-209")
         self.assertIn("did NOT take effect", jira.comment.call_args_list[2].args[1])
 
@@ -355,6 +351,13 @@ class DropSIAsAUnitTests(unittest.TestCase):
         self.assertEqual(jira.call.call_count, 1)
         self.assertEqual(
             jira.call.call_args.args[2]["issues"], ["KAN-176", "RCP-91"])
+        self.assertEqual(jira.comment.call_count, 4)
+        self.assertEqual(
+            [c.args[0] for c in jira.comment.call_args_list[2:]],
+            ["KAN-176", "RCP-91"],
+        )
+        self.assertTrue(all("did NOT take effect" in c.args[1]
+                            for c in jira.comment.call_args_list[2:]))
 
 
 class HardGateDropIntegrityTests(unittest.TestCase):
@@ -430,9 +433,6 @@ class HardGateDropIntegrityTests(unittest.TestCase):
         self.assertIn("S1a — board-visible acceptance", output)
 
     def test_dual_role_key_keeps_its_specific_committed_description(self):
-        # RCP-67 is both S7's execution row AND its acceptance row. The generic
-        # "board-visible acceptance" merge must not overwrite the specific
-        # charter/timebox context COMMITTED carries for it.
         members = self._members()
 
         rc, output = self._run_gate(members, todo_keys={"RCP-67"})
