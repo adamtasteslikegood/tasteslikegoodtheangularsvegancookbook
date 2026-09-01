@@ -81,8 +81,6 @@ CHARTER_ISSUES = [
 # gate imports nothing from this file.
 ACCEPTANCE_ISSUES = sorted({v for v in ACCEPTANCE.values() if v})
 
-# Acceptance rows are first-class charter members: add/status/reset-truth must keep
-# the board-visible RCP half of every SI alongside its execution tickets.
 CHARTER_ISSUES = CHARTER_ISSUES + [k for k in ACCEPTANCE_ISSUES
                                    if k not in CHARTER_ISSUES]
 
@@ -445,10 +443,9 @@ def cmd_drop(jira, args):
     # Rationale on every row first, then ONE removal call for the pair. Two separate
     # removals could half-apply on an API failure and leave exactly the stranded row
     # this is fixing; the Agile backlog endpoint takes a list, so it does not have to.
-    #
-    # If a comment fails partway through, any DROPPED rationale that already
-    # landed becomes a lie — the row it claims to have removed is still in the
-    # sprint. Rescind those on the way out so the audit trail matches reality.
+    # If comment posting or the removal fails, retract every rationale that
+    # already landed so Jira never claims a row was dropped while it remains
+    # in the sprint. Retraction failures must not mask the original error.
     posted = []
     try:
         for key in targets:
@@ -460,18 +457,18 @@ def cmd_drop(jira, args):
                                   "as a unit, execution row and acceptance row together."
                                   % (si, args.key)))
             posted.append(key)
+        jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": targets})
     except Exception:
         for key in posted:
             try:
-                jira.comment(key,
-                             "[harness] The DROPPED rationale above did NOT take effect: "
-                             "posting rationale on a sibling row failed, so the atomic "
-                             "removal was aborted and this row is still in Sprint 9. "
-                             "Re-run the drop when the transient condition clears.")
+                jira.comment(
+                    key,
+                    "[harness] The DROPPED rationale above did NOT take effect: "
+                    "the atomic removal was aborted and this row is still in "
+                    "Sprint 9. Re-run the drop when the transient condition clears.")
             except Exception:
                 pass
         raise
-    jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": targets})
     print("%s dropped from Sprint 9 (rationale recorded)"
           % " + ".join(targets))
     return 0
