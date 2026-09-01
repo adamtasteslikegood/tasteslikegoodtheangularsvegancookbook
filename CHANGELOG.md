@@ -8,7 +8,54 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.13] - 2026-08-31
+
+Backend pointer pinned at `f64174d0fa9c`.
+
+A rate-limiting and save-correctness release. No Backend code changes — the pointer is
+unmoved from 0.4.12's content; `main` and `dev` differ only by a back-sync merge commit.
+
+### Fixed
+
+- **IPv6 clients could bypass rate limiting entirely** — the limiter keyed on the raw
+  address, so anyone with an IPv6 allocation could rotate through addresses in their own
+  /56 and get a fresh budget each time. `rateLimitKeyGenerator` now masks IPv6 to its /56
+  subnet via express-rate-limit's `ipKeyGenerator()`; IPv4 passes through unchanged.
+  KAN-161.
+
+- **Saving a recipe you already had reported the wrong reason** — a duplicate save (409)
+  was classified as an ownership refusal, so the UI blamed permissions for something that
+  was just "you already have this". Duplicate is now its own case. The duplicate toast's
+  "View" link also pointed at a ghost recipe that 404'd; it now resolves to the copy you
+  actually hold. KAN-241.
+
+- **Cookbooks could appear twice in the list** — hydrate did not deduplicate by id, so a
+  cookbook present in both the local and server payloads rendered as two entries.
+  KAN-242.
+
 ### Changed
+
+- **The Valkey rate limiter now negotiates RESP3** — `server/valkey.ts` no longer pins
+  `protocol: 2`. The pin was conservative rather than proven necessary: under RESP3
+  ioredis authenticates via `HELLO 3 AUTH default <token>`, which sends a username, and
+  Google documents Memorystore IAM auth as password-only. A refused handshake would not
+  fall back to RESP2, so every replica would have degraded silently to in-memory rate
+  limiting.
+
+  Settled empirically against a copy of the production instance (Valkey 8.0.6, IAM_AUTH,
+  TLS): the handshake authenticates, password-only `AUTH` still works on a RESP3
+  connection, and ioredis 6.0.0 + rate-limit-redis 6.0.1 behave identically on both
+  protocols. Controls confirm the instance genuinely enforces auth. One caveat is now
+  recorded in the code: `default` is the **only** username the IAM module accepts, so
+  RESP3 works only because ioredis injects exactly that literal. KAN-260, KAN-209.
+
+  Because the failure mode is silent, verify after deploy that `express-frontend` logs
+  `✅ Valkey connected for rate limiting` — the absence of an error is not evidence.
+
+- **Production egress hardened to a two-guard steady state** — the KAN-170 Path B cutover
+  (Cloud NAT + router, anonymous traffic now 404ing before it reaches the backend service,
+  with the Express token/IAM factor still guarding as Path A) was applied to the live
+  project and is now reflected in the repo's gcloud scripts and posture checks. KAN-176.
 
 - **Model selection pinned in deploy config** — `GEMINI_DEFAULT_MODEL=gemini-3.7-flash`
   (text) and `GEMINI_IMAGE_MODEL=gemini-3-pro-image` (Nano Banana Pro) are now set on
