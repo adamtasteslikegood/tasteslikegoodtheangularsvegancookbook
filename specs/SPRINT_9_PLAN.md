@@ -3,7 +3,7 @@
 _Chartered:_ 2026-08-27 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-88** (delivery/acceptance)
 _Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-248 · KAN-209 · KAN-195 · RCP-67 · KAN-176**
-_Jira sprint:_ **Sprint 9** — not yet created.
+_Jira sprint:_ **Sprint 9** — id **52** on board **168**, active.
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-27.** All six branches locked by Adam.
 
@@ -82,6 +82,79 @@ done, do not read this sprint's throughput as a rate.
 | KAN-195 | 2026-07-31 | 27      | Never committed         | **Commit**                    |
 | RCP-67  | 2026-08-01 | 26      | Never committed         | **Commit — half-day timebox** |
 | KAN-176 | 2026-07-28 | 30      | Never committed         | **Commit — half-day timebox** |
+
+## Mid-sprint reconcile — 2026-09-01
+
+Harness run over `specs/harness/SPRINT_9_HARNESS_PLAN.json` from a checkout synced to
+`origin/dev`. **Hard gate passes**: 12 items on sprint 52, none in To Do. Statuses below
+are the board after two evidenced corrections made during this run.
+
+| Item                    | Board       | Where the work actually is                                            |
+| ----------------------- | ----------- | --------------------------------------------------------------------- |
+| KAN-151 (S2)            | In Review   | Merged. Backend #299 → promoted #301 → pinned `f64174d`               |
+| KAN-195 (S6)            | In Review   | Merged. Backend #300 → promoted #301 → pinned `f64174d`               |
+| KAN-209 (S5)            | In Review   | Merged. Pin removed `67e503c` / #3465                                 |
+| KAN-249 (S3)            | Done        | Merged. `cloudbuild.staging.yaml` split out, #3441                    |
+| KAN-176 (S8)            | Done        | Cutover applied to the live project; repo record in v0.4.13 CHANGELOG |
+| KAN-258 (S4)            | In Review   | **Half done.** Model tail merged (#3439); the v0.4.13 cut is not made |
+| KAN-250 (S3)            | In Progress | Unmerged PR #3449 (`BEHIND`)                                          |
+| KAN-255 / KAN-256 (S1a) | In Progress | Unmerged PR #3450 (`BEHIND`)                                          |
+| KAN-257 (S1b)           | In Progress | Unmerged PR #3452 (`BEHIND`)                                          |
+| RCP-67 (S7)             | In Progress | Unmerged PR #3451 (`BEHIND`)                                          |
+
+Nothing was dropped under D6 — S5, S7 and S8 all produced work rather than exercising
+their pre-authorised drop.
+
+The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope table.
+That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
+from Railway Postgres to CloudSQL"_, a subtask of KAN-244 that genuinely completed on
+2026-08-24. The model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed
+2026-08-27. See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. The charter
+rows and the two PR titles still carry the old key and want re-keying — left alone here
+so this reconcile stays a status update rather than a scope edit.
+
+### Board corrections made, with evidence
+
+Both went through `sprint9_board.py transition`, which posts the evidence as a comment
+before moving the row (D4).
+
+- **KAN-195 `In Progress` → `In Review`.** The row understated the work: Backend #300 is
+  merged, promoted and pinned. The prior status was set by `Automation for Jira` on branch
+  creation, not by a human decision.
+- **KAN-258 `Done` → `In Review`.** The row overstated the work. Its acceptance covers the
+  model tail **and** the v0.4.13 cut; only the first landed. The `Done` was written
+  `2026-08-28T06:12:21Z`, **8 seconds** after #3439 merged at `06:12:13Z` — the
+  `jira-auto-transition.yml` signature described in `specs/harness/README.md`, which
+  authenticates with Adam's personal token and so reads as "Adam Schoen".
+
+### `reset-truth` was run as a dry run and deliberately **not** applied
+
+`reset-truth --dry-run --github-correlate` proposed pushing KAN-255, KAN-257, KAN-250,
+KAN-195 and RCP-67 back to **To Do**, by restoring the human statuses of
+`2026-08-27T18:30`. That repair is correct only against the corruption it was written for.
+Four days of genuine work have landed since, so applying it now would erase real progress
+and break the hard gate it exists to serve. **`reset-truth` is a snapshot tool — check the
+age of the sweep before applying it.**
+
+### Blocking the close
+
+1. **v0.4.13 is not tagged.** Release PR #3468 (`dev` → `main`) is open and `CLEAN`;
+   `train-verify.sh --for-release` exits 0. Merging it pushes the tag, and the tag is the
+   deploy. Reserved to a human by the runbook.
+2. **S2's production acceptance is gated on that deploy** — staging has no Valkey, so the
+   cache restore cannot be proved anywhere but production.
+3. **Four SIs sit in unmerged PRs, all `BEHIND`.** Merging any of them into `dev` while
+   #3468 is open ships them silently inside v0.4.13: a `dev` → `main` PR merges the live
+   tip of `dev`. Hold until after the tag and back-sync.
+4. **The retrospective page does not exist yet** under Confluence parent `50298881`.
+
+### Harness plan defect — T9's artifact check cannot pass
+
+T9 verifies KAN-195 with `gh pr list --state all --search 'KAN-195 in:title'`, which
+searches **this** repo. KAN-195 shipped entirely in the Backend repo (#300, #301), so the
+check returns 0 and fails regardless of the work. T1 gets this right by passing
+`-R adamtasteslikegood/tasteslikegood.com`; T9 does not. Left unedited — a check is not
+repaired by the run it blocks.
 
 ## Forecast check (D3) — run at charter time, 2026-08-27
 
