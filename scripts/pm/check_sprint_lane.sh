@@ -132,13 +132,30 @@ def active_sprint():
     """(label, sprint) for the sprint running on board 168, or (None, None).
 
     Named `Sprint 9` -> label `sprint-9`. A sprint whose name does not carry a
-    number cannot imply a label, so it is treated as "no active sprint" rather
-    than guessed at."""
-    for s in agile(f"board/{RCP_SCRUM_BOARD}/sprint?state=active").get("values", []):
-        m = re.match(r"\s*sprint\s*[-_ ]?(\d+)\s*$", s.get("name", ""), re.I)
-        if m:
-            return f"sprint-{m.group(1)}", s
-    return None, None
+    number cannot imply a label. It must fail closed unless the caller supplied
+    an explicit label; treating it as "no active sprint" would grade the newest
+    historical label instead of the sprint that is actually running."""
+    active = agile(
+        f"board/{RCP_SCRUM_BOARD}/sprint?state=active").get("values", [])
+    if not active:
+        return None, None
+    if len(active) != 1:
+        names = ", ".join(repr(s.get("name", "")) for s in active)
+        print(f"FAIL(1): board {RCP_SCRUM_BOARD} has {len(active)} active sprints "
+              f"({names}); the sprint-lane label is ambiguous.", file=sys.stderr)
+        sys.exit(1)
+    sprint = active[0]
+    m = re.match(r"\s*sprint\s*[-_ ]?(\d+)\s*$", sprint.get("name", ""), re.I)
+    if m:
+        return f"sprint-{m.group(1)}", sprint
+    if label:
+        print(f"active sprint: {sprint.get('name', '')!r} (id {sprint['id']}) "
+              f"uses explicit label override {label}")
+        return label, sprint
+    print(f"FAIL(1): active sprint {sprint.get('name', '')!r} (id {sprint['id']}) "
+          "does not match `Sprint N`; pass its sprint-N label explicitly instead "
+          "of falling back to an older sprint.", file=sys.stderr)
+    sys.exit(1)
 
 
 expected_label, sprint = active_sprint()
