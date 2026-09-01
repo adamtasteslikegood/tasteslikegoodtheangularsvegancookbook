@@ -281,6 +281,29 @@ class DropSIAsAUnitTests(unittest.TestCase):
             self.assertTrue(ACCEPTANCE.get(si), "%s (%s) has no acceptance row"
                             % (key, si))
 
+    def test_partial_comment_failure_does_not_remove_either_row(self):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+        jira.comment.side_effect = [None, RuntimeError("comment API failed")]
+
+        with self.assertRaisesRegex(RuntimeError, "comment API failed"):
+            cmd_drop(jira, Mock(key="KAN-209", rationale="timeboxed out under D6"))
+
+        jira.call.assert_not_called()
+
+    def test_backlog_failure_is_one_failed_batch_not_two_removals(self):
+        jira = Mock()
+        jira.sprints.return_value = [
+            {"id": 52, "name": "Sprint 9", "state": "active"}]
+        jira.call.side_effect = RuntimeError("backlog API failed")
+
+        with self.assertRaisesRegex(RuntimeError, "backlog API failed"):
+            cmd_drop(jira, Mock(key="KAN-176", rationale="timeboxed out under D6"))
+
+        self.assertEqual(jira.call.call_count, 1)
+        self.assertEqual(
+            jira.call.call_args.args[2]["issues"], ["KAN-176", "RCP-91"])
 
 
 if __name__ == "__main__":
