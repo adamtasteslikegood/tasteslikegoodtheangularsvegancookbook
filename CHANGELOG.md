@@ -10,10 +10,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.4.13] - 2026-08-31
 
-Backend pointer pinned at `f64174d0fa9c`.
+Backend pointer pinned at `f64174d0fa9c`, moving from v0.4.12's `6becf9316907` — a
+**21-commit Backend delta** covering the Valkey response-cache restore, published-copy
+image correctness, and the model-default alignment. See the Backend section below.
 
-A rate-limiting and save-correctness release. No Backend code changes — the pointer is
-unmoved from 0.4.12's content; `main` and `dev` differ only by a back-sync merge commit.
+A caching, rate-limiting and save-correctness release.
 
 ### Fixed
 
@@ -78,6 +79,34 @@ unmoved from 0.4.12's content; `main` and `dev` differ only by a back-sync merge
   `gcloud run services update`; setting them here is what makes them survive the next
   tagged deploy, since the deploy steps use `--set-env-vars`, which replaces the whole
   environment — KAN-248.
+
+### Backend (`6becf93` → `f64174d`, 21 commits)
+
+- **The Valkey response cache is actually wired up again** — the recipe, stats and
+  collection read paths were restored to read through Valkey, and the generation and
+  worker writers were added to the invalidation map so a freshly generated or
+  worker-updated recipe no longer serves a stale cached body. The cache infrastructure
+  had been restored earlier without any blueprint using it, which is why GH #143 was
+  closed on a partial fix. Tests now pin the restored read paths against silent removal.
+  KAN-151.
+
+- **Published copies no longer inherit the source recipe's stock photo** — saving a copy
+  of a published recipe persisted the source's stock image onto the copy, so unrelated
+  recipes shared a photo. The inherited image is now stripped on every write path, the
+  source-image fallback is gated on `is_public`, and the slug fallback is guarded against
+  reused slugs. KAN-215.
+
+- **A regenerated photo is no longer cached out of the public page** — public image URLs
+  are versioned, so replacing a recipe's image invalidates the CDN/browser copy instead of
+  serving the old one indefinitely. KAN-195.
+
+- **`config.py` model defaults now match the deploy pins** — defaults moved to
+  `gemini-3.7-flash` (text) and `gemini-3-pro-image` (image), and preview-model examples
+  were dropped from `.env.example`. Until this landed, the `cloudbuild.yaml` env pins were
+  the only thing keeping production off a preview model; they are now belt-and-braces
+  rather than load-bearing. KAN-248.
+
+- Dependency bumps: the `python-production` group (4 updates) and CI action versions.
 
 ---
 
