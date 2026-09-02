@@ -94,6 +94,15 @@ REQUIRED = {
     "KAN-250": "S3  — staging deploy moves to a GCP-side Cloud Build trigger",
     "KAN-258": "S4  — model-selection tail + v0.4.13 release cut",
     "KAN-195": "S6  — regenerated image blocked 24h by stale Cache-Control",
+    # Added mid-sprint 2026-09-02 on Adam's instruction. This makes the gate
+    # STRICTER, not looser: it is one more item that must be a sprint member and
+    # must leave To Do. KAN-265 enters at To Do and is not started (it needs
+    # Adam's live repro), so this gate goes RED on exactly this line until the
+    # work happens. That red is the honest reading — KAN-265 blocks the v0.4.13
+    # release and the Sprint 9 close by its own description, and a gate that
+    # cannot see a committed release blocker is the KAN-260 defect all over again.
+    # Do NOT resolve the red by transitioning the ticket or deleting this line.
+    "KAN-265": "S9  — recipes duplicate on guest-session merge, unpublishable",
 }
 
 # Sprint items -> the execution rows that carry them. An SI whose execution rows
@@ -108,6 +117,7 @@ SI_EXECUTION = {
     "S6": ["KAN-195"],
     "S7": ["RCP-67"],
     "S8": ["KAN-176"],
+    "S9": ["KAN-265"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them, mirroring
@@ -127,6 +137,7 @@ ACCEPTANCE = {
     "S6": "RCP-96",
     "S7": "RCP-67",
     "S8": "RCP-91",
+    "S9": "RCP-97",
 }
 
 # SIs whose D6 half-day timebox pre-authorises a drop.
