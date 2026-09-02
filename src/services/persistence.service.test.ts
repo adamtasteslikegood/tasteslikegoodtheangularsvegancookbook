@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { interpretSaveResponse, shouldUndoOptimisticSave } from './persistence.service';
+import {
+  interpretSaveResponse,
+  recipeWithServerIdentity,
+  shouldUndoOptimisticSave,
+} from './persistence.service';
 
 /**
  * KAN-155 — a 409 from POST /api/recipes is a REFUSAL, not a success.
@@ -112,6 +116,47 @@ describe('interpretSaveResponse (KAN-155)', () => {
     // Short-circuiting a 201 here would silently break the View link.
     expect(await interpretSaveResponse(res(201, { id: 'r1', slug: 'vegan-cornbread' }))).toBeNull();
     expect(await interpretSaveResponse(res(200, { id: 'r1' }))).toBeNull();
+  });
+});
+
+describe('recipeWithServerIdentity (KAN-265)', () => {
+  const recipe = {
+    id: 'guest-copy',
+    name: 'Cornbread',
+    description: '',
+    prepTime: 10,
+    cookTime: 20,
+    servings: 4,
+    ingredients: {},
+    instructions: [],
+    slug: 'old-slug',
+  };
+
+  it('mirrors the server slug and stable source id', () => {
+    expect(
+      recipeWithServerIdentity(recipe, {
+        slug: 'server-slug',
+        source_recipe_id: 'source-uuid-1',
+      })
+    ).toMatchObject({
+      slug: 'server-slug',
+      sourceRecipeId: 'source-uuid-1',
+    });
+  });
+
+  it('clears a stale source id when the server returns null', () => {
+    expect(
+      recipeWithServerIdentity(
+        { ...recipe, sourceRecipeId: 'deleted-source' },
+        { source_recipe_id: null }
+      ).sourceRecipeId
+    ).toBeUndefined();
+  });
+
+  it('ignores malformed response identity fields', () => {
+    expect(
+      recipeWithServerIdentity(recipe, { slug: 42, source_recipe_id: { bad: true } })
+    ).toBe(recipe);
   });
 });
 
