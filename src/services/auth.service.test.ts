@@ -448,6 +448,59 @@ describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
     expect(result.savedRecipes[0].id).toBe('owned-uuid-4');
   });
 
+  it('deduplicates renamed sources by stable sourceRecipeId and preserves the local image (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const guestCopy = {
+      id: 'guest-renamed-source',
+      name: 'Cornbread',
+      sourceRecipeId: 'source-uuid-1',
+      sourceSlug: 'old-cornbread',
+      ai_image_url: 'https://img.example/cornbread.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    const ownedRecipe = {
+      id: 'owned-renamed-source',
+      name: 'Cornbread',
+      sourceRecipeId: 'source-uuid-1',
+      sourceSlug: 'new-cornbread',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0]).toMatchObject({
+      id: 'owned-renamed-source',
+      sourceSlug: 'new-cornbread',
+      ai_image_url: 'https://img.example/cornbread.png',
+    });
+  });
+
   it('ignores malformed localStorage slug fields during hydration (KAN-265)', async () => {
     vi.stubGlobal(
       'fetch',
