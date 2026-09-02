@@ -154,6 +154,32 @@ export function shouldUndoOptimisticSave(
 }
 
 /**
+ * Mirrors the server-owned identity fields returned by POST /api/recipes into
+ * the local cache. The stable source id is required for hydrate-time dedup
+ * after a public source recipe has been re-slugged (KAN-265).
+ */
+export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe {
+  if (typeof body !== 'object' || body === null) return recipe;
+  const row = body as Record<string, unknown>;
+  const serverSlug =
+    typeof row['slug'] === 'string' && row['slug'] ? (row['slug'] as string) : undefined;
+
+  let serverSourceRecipeId = recipe.sourceRecipeId;
+  if ('source_recipe_id' in row) {
+    const value = row['source_recipe_id'];
+    if (value === null) serverSourceRecipeId = undefined;
+    else if (typeof value === 'string' && value) serverSourceRecipeId = value;
+  }
+
+  if (serverSlug === recipe.slug && serverSourceRecipeId === recipe.sourceRecipeId) return recipe;
+  return {
+    ...recipe,
+    ...(serverSlug ? { slug: serverSlug } : {}),
+    sourceRecipeId: serverSourceRecipeId,
+  };
+}
+
+/**
  * PersistenceService — hybrid persistence layer for Phase IV.
  *
  * Strategy:
@@ -511,12 +537,10 @@ export class PersistenceService {
       // this recipe must re-read it from auth state after the sync resolves.
       try {
         const body = await res.json();
-        const serverSlug = body?.slug;
-        if (typeof serverSlug === 'string' && serverSlug && serverSlug !== recipe.slug) {
-          this.auth.saveRecipe({ ...recipe, slug: serverSlug });
-        }
+        const syncedRecipe = recipeWithServerIdentity(recipe, body);
+        if (syncedRecipe !== recipe) this.auth.saveRecipe(syncedRecipe);
       } catch {
-        // Body missing or not JSON — keep the optimistic local value.
+        // Body missing or not JSON — keep the optimistic local identity.
       }
       return { ok: true };
     } catch (err) {
