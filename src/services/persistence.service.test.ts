@@ -154,9 +154,9 @@ describe('recipeWithServerIdentity (KAN-265)', () => {
   });
 
   it('ignores malformed response identity fields', () => {
-    expect(
-      recipeWithServerIdentity(recipe, { slug: 42, source_recipe_id: { bad: true } })
-    ).toBe(recipe);
+    expect(recipeWithServerIdentity(recipe, { slug: 42, source_recipe_id: { bad: true } })).toBe(
+      recipe
+    );
   });
 });
 
