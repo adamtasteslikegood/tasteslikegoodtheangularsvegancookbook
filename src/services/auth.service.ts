@@ -284,13 +284,19 @@ export class AuthService {
     const localById = new Map(user.savedRecipes.map((r) => [r.id, r]));
     const localBySourceRecipeId = new Map<string, Recipe>();
     const localBySlug = new Map<string, Recipe>();
+    const rememberImageCandidate = (map: Map<string, Recipe>, key: string, recipe: Recipe) => {
+      const existing = map.get(key);
+      if (!existing || (!existing.ai_image_url && recipe.ai_image_url)) {
+        map.set(key, recipe);
+      }
+    };
     for (const r of user.savedRecipes) {
       const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
       const src = normalizeSlug(r.sourceSlug);
       const slg = normalizeSlug(r.slug);
-      if (sourceRecipeId) localBySourceRecipeId.set(sourceRecipeId, r);
-      if (src) localBySlug.set(src, r);
-      if (slg) localBySlug.set(slg, r);
+      if (sourceRecipeId) rememberImageCandidate(localBySourceRecipeId, sourceRecipeId, r);
+      if (src) rememberImageCandidate(localBySlug, src, r);
+      if (slg) rememberImageCandidate(localBySlug, slg, r);
     }
     const findLocalForApi = (apiRecipe: Recipe): Recipe | undefined => {
       const byId = localById.get(apiRecipe.id);
