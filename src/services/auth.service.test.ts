@@ -448,6 +448,53 @@ describe('AuthService.hydrate cookbook deduplication (KAN-242)', () => {
     expect(result.savedRecipes[0].id).toBe('owned-uuid-4');
   });
 
+  it('ignores malformed localStorage slug fields during hydration (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const malformedLocalRecipe = {
+      id: 'local-malformed-5',
+      name: 'Legacy Draft',
+      sourceSlug: 42 as unknown as string,
+      slug: { legacy: true } as unknown as string,
+      description: '',
+      prepTime: 10,
+      cookTime: 10,
+      servings: 1,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [malformedLocalRecipe] });
+
+    const apiRecipe = {
+      id: 'api-recipe-6',
+      name: 'API Recipe',
+      slug: 'api-recipe',
+      description: '',
+      prepTime: 5,
+      cookTime: 5,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+
+    expect(() => authService.hydrate([apiRecipe], [])).not.toThrow();
+    expect(authService.currentUser()!.savedRecipes.map((r) => r.id)).toEqual([
+      'api-recipe-6',
+      'local-malformed-5',
+    ]);
+  });
+
   it('keeps genuinely local-only recipes that do not match any API identity (KAN-265)', async () => {
     vi.stubGlobal(
       'fetch',
