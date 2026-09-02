@@ -354,6 +354,133 @@ describe('AuthService.hydrate cookbook deduplication (KAN-242)', () => {
     expect(result.cookbooks.map((c) => c.id)).toEqual(['cb-A', 'cb-X']);
   });
 
+  it('drops localStorage recipes whose sourceSlug matches an API recipe (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    // Simulate: guest saved a public recipe (fresh UUID, sourceSlug set).
+    // On login, the server-side merge deleted the guest copy (already owned).
+    // But localStorage still has it with the guest-assigned id.
+    const guestCopy = {
+      id: 'guest-uuid-1',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    // API returns the user's own recipe with the same sourceSlug but a different id.
+    const ownedRecipe = {
+      id: 'owned-uuid-2',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-2');
+  });
+
+  it('drops localStorage recipes whose slug matches an API recipe slug (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const guestCopy = {
+      id: 'guest-uuid-3',
+      name: 'My Pasta',
+      slug: 'my-pasta',
+      description: '',
+      prepTime: 5,
+      cookTime: 15,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    const ownedRecipe = {
+      id: 'owned-uuid-4',
+      name: 'My Pasta',
+      slug: 'my-pasta',
+      description: '',
+      prepTime: 5,
+      cookTime: 15,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-4');
+  });
+
+  it('keeps genuinely local-only recipes that do not match any API identity (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const localRecipe = {
+      id: 'local-only-5',
+      name: 'Offline Draft',
+      description: '',
+      prepTime: 10,
+      cookTime: 10,
+      servings: 1,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [localRecipe] });
+
+    authService.hydrate([], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('local-only-5');
+  });
+
   it('prefers the API cookbook over a local duplicate with the same id', async () => {
     vi.stubGlobal(
       'fetch',

@@ -239,9 +239,24 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return;
 
-    // Merge recipes: keep any localStorage recipes NOT already in the API response
+    // Merge recipes: keep any localStorage recipes NOT already in the API response.
+    // KAN-265: also match by sourceSlug/slug so that a guest-saved copy whose
+    // server-side duplicate was deleted during merge doesn't survive as a zombie
+    // in localStorage under a different id.
     const apiIds = new Set(recipes.map((r) => r.id));
-    const localOnly = user.savedRecipes.filter((r) => !apiIds.has(r.id));
+    const apiSlugs = new Set<string>();
+    for (const r of recipes) {
+      if (r.sourceSlug) apiSlugs.add(r.sourceSlug.trim().toLowerCase());
+      if (r.slug) apiSlugs.add(r.slug.trim().toLowerCase());
+    }
+    const localOnly = user.savedRecipes.filter((r) => {
+      if (apiIds.has(r.id)) return false;
+      const srcSlug = r.sourceSlug?.trim().toLowerCase();
+      const slug = r.slug?.trim().toLowerCase();
+      if (srcSlug && apiSlugs.has(srcSlug)) return false;
+      if (slug && apiSlugs.has(slug)) return false;
+      return true;
+    });
 
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
