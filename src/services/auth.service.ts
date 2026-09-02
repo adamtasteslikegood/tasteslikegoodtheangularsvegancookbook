@@ -243,17 +243,25 @@ export class AuthService {
     // KAN-265: also match by sourceSlug/slug so that a guest-saved copy whose
     // server-side duplicate was deleted during merge doesn't survive as a zombie
     // in localStorage under a different id.
+    const normalizeSlug = (value: unknown): string | undefined => {
+      if (typeof value !== 'string') return undefined;
+      const normalized = value.trim().toLowerCase();
+      return normalized || undefined;
+    };
+
     const apiIds = new Set(recipes.map((r) => r.id));
     const apiSlugs = new Set<string>();
     for (const r of recipes) {
-      if (r.sourceSlug) apiSlugs.add(r.sourceSlug.trim().toLowerCase());
-      if (r.slug) apiSlugs.add(r.slug.trim().toLowerCase());
+      const sourceSlug = normalizeSlug(r.sourceSlug);
+      const slug = normalizeSlug(r.slug);
+      if (sourceSlug) apiSlugs.add(sourceSlug);
+      if (slug) apiSlugs.add(slug);
     }
     const localOnly = user.savedRecipes.filter((r) => {
       if (apiIds.has(r.id)) return false;
-      const srcSlug = r.sourceSlug?.trim().toLowerCase();
-      const slug = r.slug?.trim().toLowerCase();
-      if (srcSlug && apiSlugs.has(srcSlug)) return false;
+      const sourceSlug = normalizeSlug(r.sourceSlug);
+      const slug = normalizeSlug(r.slug);
+      if (sourceSlug && apiSlugs.has(sourceSlug)) return false;
       if (slug && apiSlugs.has(slug)) return false;
       return true;
     });
