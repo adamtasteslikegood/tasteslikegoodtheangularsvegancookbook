@@ -599,6 +599,58 @@ describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
     expect(result.savedRecipes[0].ai_image_url).toBe('https://img.example/generated.png');
   });
 
+  it('prefers an image-bearing local duplicate when several recipes share a slug (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+    const localWithImage = {
+      id: 'guest-image-copy',
+      name: 'Cookies',
+      sourceSlug: 'cookies',
+      ai_image_url: 'https://img.example/cookies.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    const laterDuplicateWithoutImage = {
+      ...localWithImage,
+      id: 'guest-copy-without-image',
+      ai_image_url: undefined,
+    };
+    authService['currentUser'].set({
+      ...guest,
+      savedRecipes: [localWithImage, laterDuplicateWithoutImage],
+    });
+
+    authService.hydrate(
+      [
+        {
+          ...localWithImage,
+          id: 'owned-copy',
+          ai_image_url: undefined,
+        },
+      ],
+      []
+    );
+
+    expect(authService.currentUser()!.savedRecipes).toHaveLength(1);
+    expect(authService.currentUser()!.savedRecipes[0].ai_image_url).toBe(
+      'https://img.example/cookies.png'
+    );
+  });
+
   it('keeps genuinely local-only recipes that do not match any API identity (KAN-265)', async () => {
     vi.stubGlobal(
       'fetch',
