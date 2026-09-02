@@ -52,7 +52,10 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
     is_public: payload.is_public,
     is_canonical: payload.is_canonical,
     sourceSlug: payload.data.sourceSlug ?? payload.source_slug ?? undefined,
-    sourceRecipeId: payload.source_recipe_id ?? payload.data.sourceRecipeId,
+    sourceRecipeId:
+      'source_recipe_id' in payload
+        ? (payload.source_recipe_id ?? undefined)
+        : payload.data.sourceRecipeId,
     origin: payload.origin ?? payload.data.origin,
   };
 }
