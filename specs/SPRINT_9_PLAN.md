@@ -66,9 +66,11 @@ loop. The defect is that the duplicate row is created at all.
 
 **S9 is a release blocker and is not droppable** — it carries no D6 timebox. It enters
 the sprint in **To Do** and needs Adam's live repro before it can be worked, so
-`sprint9_hard_gate.py` now fails on exactly that line. **That red is correct and
-deliberate:** the gate is stricter, not broken. Do not transition the ticket or delete
-the gate entry to green it.
+`sprint9_hard_gate.py` now fails with **two violations — KAN-265 and its acceptance row
+RCP-97** (the acceptance-row To Do rule landed concurrently). Those are one fact
+reported twice, not two problems: S9 is unstarted. **That red is correct and
+deliberate:** the gate is stricter, not broken. Do not transition either row or delete
+the gate entry to green it — they move when the work and its named evidence exist.
 
 ### On the item count — read this before citing it as velocity
 

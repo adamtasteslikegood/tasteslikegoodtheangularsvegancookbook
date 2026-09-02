@@ -97,11 +97,16 @@ REQUIRED = {
     # Added mid-sprint 2026-09-02 on Adam's instruction. This makes the gate
     # STRICTER, not looser: it is one more item that must be a sprint member and
     # must leave To Do. KAN-265 enters at To Do and is not started (it needs
-    # Adam's live repro), so this gate goes RED on exactly this line until the
-    # work happens. That red is the honest reading — KAN-265 blocks the v0.4.13
-    # release and the Sprint 9 close by its own description, and a gate that
-    # cannot see a committed release blocker is the KAN-260 defect all over again.
-    # Do NOT resolve the red by transitioning the ticket or deleting this line.
+    # Adam's live repro), so this gate goes RED until the work happens. That red
+    # is the honest reading — KAN-265 blocks the v0.4.13 release and the Sprint 9
+    # close by its own description, and a gate that cannot see a committed
+    # release blocker is the KAN-260 defect all over again.
+    #
+    # Expect TWO violations for S9, not one: KAN-265 here, and its acceptance row
+    # RCP-97 under the acceptance-row To Do rule that landed alongside this. They
+    # are one fact reported twice — S9 is unstarted — not two separate problems.
+    # Do NOT resolve either by transitioning a ticket or deleting a line; the rows
+    # move when the work and its named evidence exist.
     "KAN-265": "S9  — recipes duplicate on guest-session merge, unpublishable",
 }
 
