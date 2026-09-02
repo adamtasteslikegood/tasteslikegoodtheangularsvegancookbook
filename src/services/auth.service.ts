@@ -240,7 +240,7 @@ export class AuthService {
     if (!user) return;
 
     // Merge recipes: keep any localStorage recipes NOT already in the API response.
-    // KAN-265: also match by sourceSlug/slug so that a guest-saved copy whose
+    // KAN-265: also match by sourceRecipeId/sourceSlug/slug so that a guest-saved copy whose
     // server-side duplicate was deleted during merge doesn't survive as a zombie
     // in localStorage under a different id.
     const normalizeSlug = (value: unknown): string | undefined => {
@@ -250,6 +250,9 @@ export class AuthService {
     };
 
     const apiIds = new Set(recipes.map((r) => r.id));
+    const apiSourceRecipeIds = new Set(
+      recipes.map((r) => normalizeSlug(r.sourceRecipeId)).filter((id): id is string => !!id)
+    );
     const apiSlugs = new Set<string>();
     for (const r of recipes) {
       const sourceSlug = normalizeSlug(r.sourceSlug);
@@ -259,6 +262,8 @@ export class AuthService {
     }
     const localOnly = user.savedRecipes.filter((r) => {
       if (apiIds.has(r.id)) return false;
+      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
+      if (sourceRecipeId && apiSourceRecipeIds.has(sourceRecipeId)) return false;
       const sourceSlug = normalizeSlug(r.sourceSlug);
       const slug = normalizeSlug(r.slug);
       if (sourceSlug && apiSlugs.has(sourceSlug)) return false;
@@ -277,16 +282,24 @@ export class AuthService {
     // generated ai_image_url cached on the guest copy is silently lost when
     // the API record (a different id) doesn't have it yet.
     const localById = new Map(user.savedRecipes.map((r) => [r.id, r]));
+    const localBySourceRecipeId = new Map<string, Recipe>();
     const localBySlug = new Map<string, Recipe>();
     for (const r of user.savedRecipes) {
+      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
       const src = normalizeSlug(r.sourceSlug);
       const slg = normalizeSlug(r.slug);
+      if (sourceRecipeId) localBySourceRecipeId.set(sourceRecipeId, r);
       if (src) localBySlug.set(src, r);
       if (slg) localBySlug.set(slg, r);
     }
     const findLocalForApi = (apiRecipe: Recipe): Recipe | undefined => {
       const byId = localById.get(apiRecipe.id);
       if (byId) return byId;
+      const sourceRecipeId = normalizeSlug(apiRecipe.sourceRecipeId);
+      if (sourceRecipeId) {
+        const bySourceRecipeId = localBySourceRecipeId.get(sourceRecipeId);
+        if (bySourceRecipeId) return bySourceRecipeId;
+      }
       const src = normalizeSlug(apiRecipe.sourceSlug);
       if (src) {
         const bySrc = localBySlug.get(src);
