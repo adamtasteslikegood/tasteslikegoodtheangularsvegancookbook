@@ -52,7 +52,8 @@ SPRINT_NAME = "Sprint 9"
 SPRINT_GOAL = ("Nav-away lifecycle fixes, Valkey response-cache restore (KAN-151), "
                "staging->GCP Cloud Build cutover, v0.4.13.")
 
-# The nine committed SIs from specs/SPRINT_9_PLAN.md, plus the delivery epic.
+# The committed SIs from specs/SPRINT_9_PLAN.md, plus the delivery epic. Chartered
+# as nine; S9 was added mid-sprint on 2026-09-02, so this is ten.
 CHARTER_ISSUES = [
     "RCP-88",                       # epic
     "KAN-255", "KAN-256",           # S1a
@@ -66,6 +67,9 @@ CHARTER_ISSUES = [
     "KAN-195",                      # S6
     "RCP-67",                       # S7  (droppable)
     "KAN-176",                      # S8  (droppable)
+    "KAN-265",                      # S9  (added mid-sprint 2026-09-02; release
+                                    #      blocker on v0.4.13, not droppable —
+                                    #      it carries no D6 timebox)
 ]
 
 # The RCP acceptance rows — the ONLY half of the sprint board 168 can render.

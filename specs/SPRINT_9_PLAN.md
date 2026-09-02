@@ -31,7 +31,7 @@ overlapping staging build paths are live — `staging-deploy.yml` and the unmerg
 `cloudbuild.staging.yaml` on #3441. The Sprint 8 retro flagged the overlap and it has
 not been reconciled.
 
-## Committed scope — 9 items
+## Committed scope — 10 items (9 chartered + S9 added 2026-09-02)
 
 | SI      | Ticket            | Summary                                                                    |
 | ------- | ----------------- | -------------------------------------------------------------------------- |
@@ -44,8 +44,31 @@ not been reconciled.
 | **S6**  | KAN-195           | Regenerated image blocked 24h by stale `Cache-Control`                     |
 | **S7**  | RCP-67            | Route/request classification as one general contract                       |
 | **S8**  | KAN-176           | flask-backend defence-in-depth — second guard beyond invoker IAM           |
+| **S9**  | KAN-265           | Recipes duplicate on guest-session merge; duplicate is unpublishable       |
 
 **No stretch items.**
+
+### S9 was added mid-sprint — 2026-09-02
+
+Added on Adam's instruction, not by the charter. Acceptance row **RCP-97**, epic
+**RCP-88**, both labelled `sprint-9`; KAN-265 labelled `sprint-9` and linked to RCP-97.
+
+**It is a different bug from KAN-186, not a regression of it** — Adam, 2026-09-02:
+
+> the duplicated recipe only happens on guest merge sessions and DOESN'T allow
+> re-publishing. also the schema is a different version and so is the codebase so a
+> new ticket is acceptable.
+
+So this is a new defect on a new surface. Do not close it by reopening KAN-186, and do
+**not** loosen the publish refusal to make the symptom go away — that refusal is correct
+INV-1..INV-6 behaviour (KAN-155, KAN-181) and it is the only thing currently killing the
+loop. The defect is that the duplicate row is created at all.
+
+**S9 is a release blocker and is not droppable** — it carries no D6 timebox. It enters
+the sprint in **To Do** and needs Adam's live repro before it can be worked, so
+`sprint9_hard_gate.py` now fails on exactly that line. **That red is correct and
+deliberate:** the gate is stricter, not broken. Do not transition the ticket or delete
+the gate entry to green it.
 
 ### On the item count — read this before citing it as velocity
 
@@ -206,6 +229,9 @@ age of the sweep before applying it.**
    #3468 is open ships them silently inside v0.4.13: a `dev` → `main` PR merges the live
    tip of `dev`. Hold until after the tag and back-sync.
 4. **The retrospective page does not exist yet** under Confluence parent `50298881`.
+5. **S9 (KAN-265) is unstarted.** Added 2026-09-02; a release blocker on v0.4.13 and on
+   this close, per Adam, and it needs his live repro before it can be worked. It is the
+   one item `sprint9_hard_gate.py` currently fails on.
 
 ### Harness plan defect — T9's artifact check cannot pass
 
@@ -386,6 +412,18 @@ git tag v0.5.0         && git push  ->  GCP trigger ^v[0-9]+\.[0-9]+\.[0-9]+$   
    not IAM — `invoker-iam-disabled=true` silently voids `--no-allow-unauthenticated`.
 2. **Drop fallback:** if it exceeds half a day, drop with rationale "single guard
    accepted, ingress restriction deferred". Do not roll.
+
+### S9 — Recipes duplicate on guest-session merge (KAN-265) · release blocker
+
+1. A guest → login merge creates **no duplicate recipe row** on the current schema: the
+   INV-1 duplicate-recipe check holds on the live merge path.
+2. The **publish refusal on a duplicate is preserved untouched** (KAN-155 INV-1..INV-6,
+   KAN-181). The defect is the row being created, not the refusal blocking it. A fix that
+   makes the toast go away by loosening the refusal fails this criterion.
+3. Adam's **live repro** of the current behaviour is recorded on KAN-265 as named
+   evidence before the row moves. The KAN-186 sequence is the starting hypothesis, not a
+   confirmed repro of this occurrence.
+4. **No drop fallback** — this blocks v0.4.13 (PR #3468) and the Sprint 9 close.
 
 ## Sprint 8 retro actions — row-by-row disposition
 
