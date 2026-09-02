@@ -161,8 +161,10 @@ export function shouldUndoOptimisticSave(
 export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe {
   if (typeof body !== 'object' || body === null) return recipe;
   const row = body as Record<string, unknown>;
-  const serverSlug =
-    typeof row['slug'] === 'string' && row['slug'] ? (row['slug'] as string) : undefined;
+  let serverSlug = recipe.slug;
+  if (typeof row['slug'] === 'string' && row['slug']) {
+    serverSlug = row['slug'];
+  }
 
   let serverSourceRecipeId = recipe.sourceRecipeId;
   if ('source_recipe_id' in row) {
