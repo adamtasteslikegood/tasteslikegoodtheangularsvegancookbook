@@ -495,6 +495,57 @@ describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
     ]);
   });
 
+  it('preserves ai_image_url from a slug-matched local zombie onto the API record (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    // The guest copy carries the freshly-generated image URL locally (Pub/Sub
+    // completed against the guest id). The server-merged owned record has a
+    // different id and no image URL yet — without the slug-aware lookup the
+    // dedup filter would drop the zombie and the URL would be lost.
+    const guestZombie = {
+      id: 'guest-uuid-7',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      ai_image_url: 'https://img.example/generated.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestZombie] });
+
+    const ownedRecipe = {
+      id: 'owned-uuid-8',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-8');
+    expect(result.savedRecipes[0].ai_image_url).toBe('https://img.example/generated.png');
+  });
+
   it('keeps genuinely local-only recipes that do not match any API identity (KAN-265)', async () => {
     vi.stubGlobal(
       'fetch',

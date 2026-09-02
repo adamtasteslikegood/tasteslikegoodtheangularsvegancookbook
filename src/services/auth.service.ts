@@ -269,9 +269,35 @@ export class AuthService {
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
     // localStorage has it from the optimistic update in triggerImageGeneration.
-    const localMap = new Map(user.savedRecipes.map((r) => [r.id, r]));
+    //
+    // KAN-265: the localOnly filter above may now drop a local recipe whose
+    // id doesn't match the API record but whose sourceSlug/slug does (the
+    // "zombie after server-side merge" scenario). Look the local record up
+    // by id first, then fall back to sourceSlug/slug — otherwise a freshly
+    // generated ai_image_url cached on the guest copy is silently lost when
+    // the API record (a different id) doesn't have it yet.
+    const localById = new Map(user.savedRecipes.map((r) => [r.id, r]));
+    const localBySlug = new Map<string, Recipe>();
+    for (const r of user.savedRecipes) {
+      const src = normalizeSlug(r.sourceSlug);
+      const slg = normalizeSlug(r.slug);
+      if (src) localBySlug.set(src, r);
+      if (slg) localBySlug.set(slg, r);
+    }
+    const findLocalForApi = (apiRecipe: Recipe): Recipe | undefined => {
+      const byId = localById.get(apiRecipe.id);
+      if (byId) return byId;
+      const src = normalizeSlug(apiRecipe.sourceSlug);
+      if (src) {
+        const bySrc = localBySlug.get(src);
+        if (bySrc) return bySrc;
+      }
+      const slg = normalizeSlug(apiRecipe.slug);
+      if (slg) return localBySlug.get(slg);
+      return undefined;
+    };
     const mergedApi = recipes.map((apiRecipe) => {
-      const local = localMap.get(apiRecipe.id);
+      const local = findLocalForApi(apiRecipe);
       if (local?.ai_image_url && !apiRecipe.ai_image_url) {
         return { ...apiRecipe, ai_image_url: local.ai_image_url };
       }
