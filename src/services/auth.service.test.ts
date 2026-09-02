@@ -302,7 +302,7 @@ describe('AuthService auth-check startup behavior', () => {
   });
 });
 
-describe('AuthService.hydrate cookbook deduplication (KAN-242)', () => {
+describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
   const localStorageMock = createLocalStorageMock();
 
   const cbA = { id: 'cb-A', name: 'Favorites', description: '', recipeIds: ['r1'] };
