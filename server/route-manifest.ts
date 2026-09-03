@@ -81,7 +81,27 @@ export const ROUTE_MANIFEST = {
  * Exported for unit testing (security.ts and route-manifest.test.ts).
  */
 export function isPageSubresource(req: Request): boolean {
-  const p = req.path;
+  // absoluteRequestPath (below) rather than req.path, so this reads the same
+  // way from a mount-style limiter as from a route-style one. For the page
+  // limiter the two are identical (baseUrl is ''), so this is behaviour-
+  // preserving here and correct if the predicate is ever reused under a mount.
+  return matchesSubresource(absoluteRequestPath(req));
+}
+
+/**
+ * The subresource test itself, over an already-composed absolute path.
+ *
+ * Split out so classifyRequest() can reuse the path it has already composed
+ * instead of paying for a second absoluteRequestPath() call. Deliberately NOT
+ * exported and deliberately not an optional second parameter on
+ * isPageSubresource: that predicate is re-exported through security.ts and
+ * called directly by route-manifest.test.ts and server.test.ts with synthetic
+ * `{ path } as Request` objects, and an optional path argument would let the
+ * path and the request disagree — a correctness hazard in a security
+ * predicate, in the change whose whole point is that classification is stated
+ * once. Both callers here compose the path the same way, so they cannot.
+ */
+function matchesSubresource(p: string): boolean {
   for (const prefix of SUBRESOURCE_PREFIXES) {
     if (p.startsWith(prefix)) return true;
   }
@@ -135,4 +155,118 @@ export function classifyRoute(path: string): RouteClass {
   if ((spa.paths as readonly string[]).includes(path)) return 'spa';
   if (spa.prefixes.some((prefix) => path.startsWith(prefix))) return 'spa';
   return 'unknown';
+}
+
+// ── Request classification (RCP-67) ──────────────────────────────────────
+//
+// Route classification above answers "what surface is this PATH?". This half
+// answers "how should this REQUEST be metered?" — and until RCP-67 it was not
+// a contract at all, just predicates accreted in security.ts one incident at a
+// time: shouldSkipRateLimiting (/health + image serving), isPageSubresource
+// (KAN-154), isKnownCrawler (KAN-218). Each was correct; together they were
+// three unrelated shapes with no shared vocabulary, so "which requests are
+// exempt from which limiter" could only be answered by reading all of them.
+//
+// Expressed once here: classify the request into exactly one class, then let
+// each limiter declare which classes it exempts.
+
+/**
+ * Absolute request path, independent of where the middleware is mounted.
+ *
+ * THE landmine this exists to remove. Express gives mount-style middleware a
+ * path relative to its mount point: under `app.use('/api', limiter)` a request
+ * for /api/health arrives as `baseUrl='/api'`, `path='/health'`, while
+ * route-style middleware (`app.get('/browse', limiter, …)`) gets `baseUrl=''`
+ * and the full path. So `req.path` alone means different things in the two
+ * limiters, and the old /health and /recipes/<id>/image patterns were written
+ * in the relative form — correct where they sat, but impossible to state in
+ * the same manifest as classifyRoute(), which is absolute.
+ *
+ * Composing baseUrl + path yields the absolute path under both mount styles
+ * (verified against Express directly, not assumed). The trailing slash is
+ * trimmed because a bare mount hit (`GET /api`) composes to '/api/'.
+ */
+export function absoluteRequestPath(req: Pick<Request, 'baseUrl' | 'path'>): string {
+  const composed = `${req.baseUrl || ''}${req.path || ''}`;
+  if (composed.length > 1 && composed.endsWith('/')) return composed.slice(0, -1);
+  return composed || '/';
+}
+
+/**
+ * Patterns for requests that must not be metered, in ABSOLUTE terms.
+ *
+ * health       — the Express-local health endpoint. Monitoring must not be
+ *                able to exhaust a budget, and must not be refused when it has.
+ * imageServing — recipe image bytes, read-through cached from GCS. Cheap, and
+ *                a recipe page fires one per card.
+ */
+export const RATE_LIMIT_EXEMPT = {
+  health: { paths: ['/api/health'] as readonly string[] },
+  imageServing: { pattern: /^\/api\/recipes\/[^/]+\/image$/ },
+} as const;
+
+/**
+ * Known search-engine and social-media crawlers (KAN-218).
+ *
+ * User-agent detection is sufficient here — this exempts rate limiting, not
+ * authentication. Crawlers self-throttle via robots.txt; metering them costs
+ * SEO while protecting nothing, because the expensive endpoints live behind
+ * the /api limiter, which never exempts this class (see LIMITER_EXEMPTIONS).
+ */
+export const CRAWLER_UA_RE =
+  /\b(Googlebot|Bingbot|Applebot|DuckDuckBot|YandexBot|Slurp|facebookexternalhit|Twitterbot|LinkedInBot|Pinterestbot|AdsBot-Google)\b/i;
+
+/** How a request is metered. Exactly one class per request. */
+export type RequestClass = 'health' | 'imageServing' | 'subresource' | 'crawler' | 'metered';
+
+/**
+ * Which request classes each limiter exempts. This is the whole policy.
+ *
+ * Note what `api` does NOT exempt: 'crawler' and 'subresource'. A crawler
+ * hitting /api/generate is still metered — the UA exemption buys SEO on the
+ * HTML surface and must never reach the endpoints that bill Gemini/Imagen.
+ */
+export const LIMITER_EXEMPTIONS = {
+  api: ['health', 'imageServing'],
+  page: ['subresource', 'crawler'],
+  expensive: [],
+} as const satisfies Record<string, readonly RequestClass[]>;
+
+export type LimiterName = keyof typeof LIMITER_EXEMPTIONS;
+
+/**
+ * Classify a request into exactly one metering class.
+ *
+ * Order is deliberate and IS load-bearing for behaviour — do not reorder.
+ *
+ * The path-based classes are decided before the user-agent one, so a crawler
+ * fetching an image is reported as 'imageServing' rather than 'crawler'. That
+ * matters because `LIMITER_EXEMPTIONS.api` exempts 'imageServing' but
+ * deliberately does NOT exempt 'crawler'. Googlebot fetching
+ * `/api/recipes/<id>/image` (image indexing on the public recipe pages) is the
+ * concrete case: path-first it is exempt and served; user-agent-first it would
+ * be metered against the 300/15min/IP budget and eventually 429 — the same
+ * budget-exhaustion failure as KAN-154, landing on exactly the crawler traffic
+ * the SEO surface depends on.
+ *
+ * Pinned by two tests in route-manifest.test.ts: 'prefers the path-based class
+ * over the user-agent one' and 'the api limiter does NOT exempt crawlers'.
+ */
+export function classifyRequest(req: Request): RequestClass {
+  const path = absoluteRequestPath(req);
+  if (RATE_LIMIT_EXEMPT.health.paths.includes(path)) return 'health';
+  if (RATE_LIMIT_EXEMPT.imageServing.pattern.test(path)) return 'imageServing';
+  if (matchesSubresource(path)) return 'subresource';
+  const ua = req.headers?.['user-agent'];
+  if (typeof ua === 'string' && CRAWLER_UA_RE.test(ua)) return 'crawler';
+  return 'metered';
+}
+
+/**
+ * Does `limiter` exempt this request? The single question every limiter's
+ * `skip` asks, replacing three bespoke predicates.
+ */
+export function isExemptFrom(limiter: LimiterName, req: Request): boolean {
+  const exempt = LIMITER_EXEMPTIONS[limiter] as readonly RequestClass[];
+  return exempt.includes(classifyRequest(req));
 }

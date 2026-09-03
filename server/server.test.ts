@@ -66,40 +66,66 @@ describe('createApiLimiter', () => {
   });
 });
 
+// RCP-67: these requests are built with `baseUrl: '/api'` because that is what
+// Express actually hands a limiter mounted via `app.use('/api', limiter)` — the
+// path arrives RELATIVE to the mount. The predicate now reads the absolute path
+// (baseUrl + path) so it can be stated in the same manifest as classifyRoute();
+// a fixture carrying only the relative half no longer describes a real request.
+// The mount composition itself is covered by the integration test below.
+const apiReq = (path: string) => ({ baseUrl: '/api', path }) as Request;
+
 describe('shouldSkipRateLimiting', () => {
-  it('skips /health', async () => {
+  it('skips /api/health', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/health' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(shouldSkipRateLimiting(apiReq('/health'))).toBe(true);
   });
 
   it('skips /recipes/<uuid>/image', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/image' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(
+      shouldSkipRateLimiting(apiReq('/recipes/550e8400-e29b-41d4-a716-446655440000/image'))
+    ).toBe(true);
   });
 
   it('skips /recipes/<short-id>/image', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/abc123/image' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(shouldSkipRateLimiting(apiReq('/recipes/abc123/image'))).toBe(true);
   });
 
   it('does not skip /recipes (list endpoint)', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(false);
+    expect(shouldSkipRateLimiting(apiReq('/recipes'))).toBe(false);
   });
 
   it('does not skip /generate', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/generate' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(false);
+    expect(shouldSkipRateLimiting(apiReq('/generate'))).toBe(false);
   });
 
   it('does not skip /recipes/<uuid>/data (non-image sub-paths)', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/data' } as Request;
+    expect(
+      shouldSkipRateLimiting(apiReq('/recipes/550e8400-e29b-41d4-a716-446655440000/data'))
+    ).toBe(false);
+  });
+
+  // A bare /health outside the /api mount is NOT the health endpoint and must
+  // stay metered. Pinning this stops a future edit from re-widening the
+  // exemption back to any path ending /health.
+  it('does not skip a bare /health outside the /api mount', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    expect(shouldSkipRateLimiting({ baseUrl: '', path: '/health' } as Request)).toBe(false);
+  });
+
+  // The /api limiter must never exempt a crawler: that class exists to protect
+  // SEO on the HTML surface, and the endpoints behind /api bill Gemini/Imagen.
+  it('does not skip a crawler hitting /api/generate', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = {
+      baseUrl: '/api',
+      path: '/generate',
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
+    } as unknown as Request;
     expect(shouldSkipRateLimiting(req)).toBe(false);
   });
 });
