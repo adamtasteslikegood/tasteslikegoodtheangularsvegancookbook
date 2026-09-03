@@ -67,6 +67,45 @@ cd Backend && uv run pytest  # Backend tests (if Backend touched)
 
 For docs-only or config-only changes, `npm run format:check` is sufficient — the other checks won't fail on non-code files. When in doubt, run the full set; it takes ~60 seconds locally vs waiting for CI.
 
+### Every sprint item needs an RCP acceptance row, or the board shows nothing
+
+**Applies to: chartering any sprint, and any time work is added to a running one.**
+
+`KAN` is execution, `RCP` is delivery planning — and **board 168 filters
+`project = RCP ORDER BY Rank ASC`.** KAN is a separate, team-managed project, so
+**a KAN key added to a sprint is a member that no column can ever render.** The
+Agile API accepts the add and reports the issue as a sprint member; the board
+displays nothing. Both facts are true at once, and that gap is the trap.
+
+So the sprint is tracked by **RCP rows, one per SI**, exactly as Sprint 8 did it:
+
+| Artifact           | Project | Shape                                                     |
+| ------------------ | ------- | --------------------------------------------------------- |
+| Delivery epic      | `RCP`   | one per sprint (`RCP-80` S8, `RCP-88` S9)                 |
+| **Acceptance row** | `RCP`   | **one Story per SI**, `S<N> acceptance: <what> (KAN-###)` |
+| Execution ticket   | `KAN`   | the actual work; stays in the sprint too                  |
+
+Each acceptance row: labelled `acceptance` + `sprint-N`, `Relates`-linked to its
+KAN execution row(s), added to the sprint, and moved only with its evidence named
+on the ticket. **Label the KAN execution rows `sprint-N` as well** — that label is
+what `scripts/pm/check_sprint_lane.sh` grades, and it is the current sprint's
+label the CI `sprint-lane` job resolves from board 168's active sprint.
+
+**This is not optional polish, and it has silently regressed before.** Sprint 9
+opened with epic `RCP-88` and _zero_ acceptance rows; ten bare KAN keys went into
+the sprint and the board rendered **one row for four days** while two separate
+gates reported green — each passing vacuously on its own documented limit
+(KAN-260). Both gates are now tightened, but the convention is the fix and the
+gates are only the backstop:
+
+```bash
+bash scripts/pm/check_sprint_lane.sh            # active sprint labelled + no orphans
+python3 scripts/harness/sprint9_hard_gate.py    # every SI has a board-rendered row
+```
+
+Never "fix" a board-visibility failure by removing KAN rows from the sprint. They
+belong there; the missing half is the RCP row.
+
 ### Planning a sprint? Read the Confluence retro FIRST (not the repo close-out)
 
 **Applies to: chartering or planning any sprint, `/cs:grill-pm`, and any charter or plan document.**

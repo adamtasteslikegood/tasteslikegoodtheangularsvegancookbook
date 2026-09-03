@@ -63,6 +63,21 @@ describe('recipeFromRow', () => {
     expect(recipeFromRow(row({ source_slug: 'col-slug' })).sourceSlug).toBe('col-slug');
   });
 
+  it('maps the stable server-owned source recipe id', () => {
+    expect(recipeFromRow(row({ source_recipe_id: 'source-uuid-1' })).sourceRecipeId).toBe(
+      'source-uuid-1'
+    );
+    expect(recipeFromRow(row({ source_recipe_id: null })).sourceRecipeId).toBeUndefined();
+  });
+
+  it('lets a null source id column clear a stale blob value', () => {
+    expect(
+      recipeFromRow(
+        row({ source_recipe_id: null, data: blob({ sourceRecipeId: 'stale-source-id' }) })
+      ).sourceRecipeId
+    ).toBeUndefined();
+  });
+
   it('falls back to the blob origin when the column is null', () => {
     expect(recipeFromRow(row({ origin: null, data: blob({ origin: 'manual' }) })).origin).toBe(
       'manual'

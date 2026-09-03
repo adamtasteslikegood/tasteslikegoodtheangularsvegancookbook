@@ -55,7 +55,11 @@ substitutions:
   _PROJECT_ID: gen-lang-client-0491022701
   _EXPRESS_SERVICE: express-frontend-staging
   _FLASK_SERVICE: flask-backend-staging
-  _MIGRATE_JOB: flask-backend-staging-migrate
+  # Must match the provisioned Cloud Run Job exactly. `gcloud run jobs deploy`
+  # CREATES a job when the name does not exist, so a mismatch does not fail
+  # loudly — it silently provisions a second, parallel migrate job and leaves
+  # the real one un-migrated.
+  _MIGRATE_JOB: flask-staging-migrate
   _IMAGE_REGISTRY: us-central1-docker.pkg.dev/gen-lang-client-0491022701/vegangenius
   _CLOUDSQL: gen-lang-client-0491022701:us-central1:vegangenius-staging-db
   _GCS_BUCKET: tasteslikegood-recipe-images-staging
@@ -195,6 +199,15 @@ steps:
       # socket path does not exist in the Job container and SQLAlchemy falls
       # back to localhost:5432.
       - --set-cloudsql-instances=$_CLOUDSQL
+      # Direct VPC egress. The staging instance is private-IP only, so the
+      # Cloud SQL Auth Proxy sidecar cannot reach it without a route into the
+      # VPC — the socket would exist and every connect would still time out.
+      # `gcloud run jobs deploy` REPLACES the job's config, so omitting these
+      # silently strips them from the live job on the next staging build.
+      # Mirrors what the provisioned flask-staging-migrate job already carries.
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
       - --quiet
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -298,11 +311,25 @@ steps:
         echo "Probing $${URL}/api/health"
         BODY="$$(curl -fsS --max-time 30 "$${URL}/api/health")"
         echo "$${BODY}"
-        echo "$${BODY}" | grep -q '"environment":"staging"' || {
+        # Whitespace-tolerant on purpose. A bare '"environment":"staging"'
+        # assumes compact JSON; `app.set('json spaces', 2)`, a pretty-printing
+        # middleware, or an Express default change all insert a space after the
+        # colon and would fail this gate on every staging deploy. This gate is
+        # the release train's only guarantee that STAGING_URL is not aimed at
+        # production, so it must not be brittle about formatting.
+        echo "$${BODY}" | grep -qE '"environment"[[:space:]]*:[[:space:]]*"staging"' || {
           echo "FAIL: /api/health did not report environment=staging" >&2
           exit 1
         }
-        curl -fsSI --max-time 30 "$${URL}/" | grep -qi '^x-robots-tag:.*noindex' || {
+        # Fetch first, then match. With `set -o pipefail`, piping curl straight
+        # into grep collapses "the header is missing" and "the request failed"
+        # into one message, so an ingress or 5xx problem gets reported as an
+        # indexability problem.
+        HEADERS="$$(curl -fsSI --max-time 30 "$${URL}/")" || {
+          echo "FAIL: could not fetch $${URL}/ to check X-Robots-Tag" >&2
+          exit 1
+        }
+        echo "$${HEADERS}" | grep -qi '^x-robots-tag:.*noindex' || {
           echo "FAIL: X-Robots-Tag noindex missing — staging would be indexable" >&2
           exit 1
         }
