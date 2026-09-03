@@ -49,6 +49,12 @@ export interface Recipe {
    */
   sourceSlug?: string;
   /**
+   * KAN-265 — stable server-owned identity of the public source recipe.
+   * Unlike sourceSlug, this survives source slug renames and lets hydration
+   * mirror the Backend's guest→login deduplication decision.
+   */
+  sourceRecipeId?: string;
+  /**
    * KAN-139 — server-owned lock for the canonical recipes curated in
    * specs/canonical-recipes.json. Read-only in the SPA: the API strips it on
    * create and pins it on update, and rejects unpublish/re-slug/delete of a
