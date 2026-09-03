@@ -111,53 +111,39 @@ export async function createValkeyClient(): Promise<Redis | null> {
     const options: Record<string, unknown> = {
       host: config.host,
       port: config.port,
-      // ── RESP2 pin: CONSERVATIVE, retained deliberately (KAN-209) ──
+      // ── RESP3 (ioredis 6's default) — the old RESP2 pin is gone (KAN-260) ──
       //
-      // ioredis 6 defaults to RESP3 (`protocol: 3` in built/redis/RedisOptions.js).
-      // Reply shapes are NOT the concern — its `replyMapping: "legacy"` default
-      // keeps those identical to RESP2, and the only replies we consume are
-      // rate-limit-redis' EVAL array and AUTH's simple string.
+      // Under RESP3 ioredis authenticates via HELLO, and with a password-only
+      // credential it injects the username `default`:
+      // `HELLO 3 AUTH default <password>` (built/redis/event_handler.js:22).
+      // That deviates from the form Google documents for Memorystore IAM auth —
+      // "don't use either a username or service account name ... the
+      // authentication uses the access token directly", CLI example
+      // `valkey-cli -h HOST -p PORT -a ACCESS_TOKEN`, no `--user`. The pin
+      // existed because a refused handshake would NOT fall back to RESP2
+      // (ioredis' isProtocolNegotiationError only matches NOPROTO /
+      // unknown-command), so every replica would have silently degraded to
+      // in-memory rate limiting — on the limiter metering paid Gemini/Imagen.
       //
-      // The concern is the handshake. Under RESP3 ioredis authenticates via
-      // HELLO, and with a password-only credential it injects a username:
-      // `HELLO 3 AUTH default <password>`. refreshTokenInPlace() below sends
-      // password-only `AUTH <token>` instead, which is the form Google documents
-      // for Memorystore IAM auth: "When connecting with IAM authentication, don't
-      // use either a username or service account name to connect to the endpoint.
-      // Instead, the authentication uses the access token directly" — and the CLI
-      // example is `valkey-cli -h HOST -p PORT -a ACCESS_TOKEN` with no `--user`.
-      // So RESP3's HELLO deviates from the documented form. Note what that does
-      // and does not establish: it is a deviation from documented guidance, NOT
-      // evidence that Memorystore rejects the RESP3 shape. Google documents no
-      // required username; it documents sending none.
+      // KAN-260 settled it on 2026-08-31 against `veganchef-valkeymem-test`, a
+      // copy of the production instance (Valkey 8.0.6, IAM_AUTH,
+      // SERVER_AUTHENTICATION TLS) one maintenance version ahead of prod:
+      //   - `HELLO 3 AUTH default <iam-token>` returns the RESP3 map (proto 3).
+      //     Memorystore accepts `default` + an IAM access token.
+      //   - Password-only `AUTH <token>` returns OK on a connection that already
+      //     negotiated RESP3, so refreshTokenInPlace() below needs no change.
+      //   - ioredis 6.0.0 + rate-limit-redis 6.0.1 against that instance behave
+      //     identically on protocol 2 and 3: same EVAL reply shape, CLIENT INFO
+      //     reports `resp=3 user=default`, increments survive a token refresh.
+      // Controls proving the test discriminates: a wrong password returns
+      // WRONGPASS, no auth returns NOAUTH.
       //
-      // KAN-209 verified these three claims empirically against ioredis 6.0.0 and
-      // a real Valkey 8, outside production (traces in the PR):
-      //   1. Wire capture, password-only. protocol 3 emits
-      //      `HELLO 3 AUTH default <token>` (5-element array); protocol 2 emits
-      //      `AUTH <token>` (2-element) — no username. The injection is real.
-      //   2. Against a stock Valkey, RESP3 and RESP2 return an IDENTICAL EVAL
-      //      reply (`[1,"two","ok"]`). Confirms reply shape is not the risk.
-      //   3. RESP3 with an AUTH the server rejects fails hard ("Connection is
-      //      closed") — no RESP2 fallback, because ioredis'
-      //      isProtocolNegotiationError only matches NOPROTO / unknown-command.
-      //      So IF the handshake were refused, the failure would be unrescued and
-      //      getValkeyClient() would degrade every replica to in-memory limiting.
-      //
-      // What is untested is the antecedent of (3): whether Memorystore IAM auth
-      // actually refuses `AUTH default <token>`. A stock Valkey treats single-arg
-      // AUTH as the default user, so no local or containerised Valkey can settle
-      // it either way, and staging runs no Memorystore instance (KAN-182). The
-      // first execution of an unpinned handshake would therefore land in
-      // production, on the limiter metering paid Gemini and Imagen calls.
-      //
-      // The pin is that asymmetry, not a proven incompatibility: an unmeasured
-      // downside on the production limiter versus no measured upside (see (2)).
-      //
-      // What would change this decision: an IAM-enabled Memorystore instance
-      // outside production. Run the same three checks against it; if
-      // `HELLO 3 AUTH default <token>` authenticates, remove this pin.
-      protocol: 2,
+      // LOAD-BEARING: `default` is the ONLY username Memorystore's IAM module
+      // accepts — `HELLO 3 AUTH someotheruser <token>` returns
+      // `ERR (ERR_IAM_OTHER) Memorystore IAM authentication backend error`. It
+      // works only because ioredis happens to inject exactly that literal. If a
+      // future ioredis changes the injected username, or this code starts
+      // passing an explicit `username`, the handshake breaks with no fallback.
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
       retryStrategy: (times: number) => Math.min(times * 200, 5000),
