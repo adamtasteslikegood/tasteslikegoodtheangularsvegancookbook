@@ -46,6 +46,26 @@ longer contains a required item fails. Only S5/S7/S8 (`KAN-209`, `RCP-67`,
 `KAN-176`) may be removed — that is D6's pre-authorised drop, and removal from
 the sprint is the board-visible act of dropping.
 
+> **This paragraph was false on one axis until 2026-09-01 (KAN-260), and the gate
+> was green the whole time it was false.** Rules 2 and 3 read
+> `/rest/agile/1.0/sprint/{id}/issue`, which returns sprint MEMBERSHIP and ignores
+> the board filter. Board 168 filters `project = RCP`, so the ten KAN keys in
+> sprint 52 were members no column could render. The gate reported "12 items, none
+> in To Do" for four days while the board displayed **one row**. That is precisely
+> a vacuous pass, on the axis this paragraph names.
+>
+> **Rule 4** now asserts board visibility: every committed SI has an RCP
+> `S<N> acceptance:` Story present in the BOARD-SCOPED result
+> (`/rest/agile/1.0/board/168/sprint/{id}/issue`). It is deliberately **not** a
+> member-vs-rendered delta — that rule would be red on Sprint 8, the one sprint
+> that got this right (13 members, 6 rendered), because KAN execution rows are
+> _supposed_ to be members and structurally cannot render.
+>
+> `scripts/pm/check_sprint_lane.sh` had the matching hole and was fixed in the same
+> commit: it passed over an empty set because **zero** rows carried `sprint-9`, so
+> label discovery fell back to `sprint-8`, whose rows are all Done. It now keys off
+> board 168's ACTIVE sprint and fails when nothing carries that sprint's label.
+
 Observed failing at baseline on 2026-08-27 with 11 violations, which is the bar
 Sprint 8 retro action 4 sets: a check nobody has watched fail is not a gate.
 
