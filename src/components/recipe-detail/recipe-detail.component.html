@@ -4,6 +4,75 @@
       class="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"
     ></div>
   </div>
+} @else if (isPending()) {
+  <!-- KAN-257: the recipe exists, the worker is still writing it. This used to
+       render the pending row raw — a page titled "Generating..." with an empty
+       ingredient list — or, when the read raced the auth check, bounce to
+       /kitchen. Staying on the URL means a refresh, a share, and Back all keep
+       working while the user waits. -->
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <div
+      class="w-12 h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin"
+    ></div>
+    <h1 class="mt-6 text-2xl font-bold text-stone-800">Still cooking</h1>
+    <p class="mt-2 max-w-sm text-stone-500">
+      We're writing this recipe now. It usually takes a few seconds — this page will fill in on its
+      own.
+    </p>
+  </div>
+} @else if (isGenerationFailed()) {
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <h1 class="text-2xl font-bold text-stone-800">This recipe didn't finish</h1>
+    <p class="mt-2 max-w-sm text-stone-500">
+      Something went wrong while it was being written, so there's nothing here to show. Generating
+      it again is the fastest fix.
+    </p>
+    <button
+      (click)="goBack()"
+      class="mt-6 px-5 py-2.5 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors"
+    >
+      Back to Kitchen
+    </button>
+  </div>
+} @else if (isNotFound()) {
+  <!-- A real 404. The page says so and offers a way out, but the URL stays put
+       so Back is still the user's own history, not a redirect we injected. -->
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <h1 class="text-2xl font-bold text-stone-800">Recipe not found</h1>
+    <p class="mt-2 max-w-sm text-stone-500">
+      This recipe isn't in your cookbook. It may have been deleted, or saved in a different account.
+    </p>
+    <button
+      (click)="goBack()"
+      class="mt-6 px-5 py-2.5 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors"
+    >
+      Back to Kitchen
+    </button>
+  </div>
+} @else if (isLoadError()) {
+  <!-- KAN-257: a transient failure used to discard the route, which threw away
+       the only thing needed to retry. The URL is the retry. -->
+  <div class="flex flex-col items-center justify-center py-24 text-center">
+    <h1 class="text-2xl font-bold text-stone-800">Couldn't load this recipe</h1>
+    <p class="mt-2 max-w-sm text-stone-500">
+      We couldn't reach the kitchen just now. Your recipe is still there — check your connection and
+      try again.
+    </p>
+    <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+      <button
+        (click)="retryLoad()"
+        class="px-5 py-2.5 rounded-lg font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors"
+      >
+        Try again
+      </button>
+      <button
+        (click)="goBack()"
+        class="px-5 py-2.5 rounded-lg font-medium bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
+      >
+        Back to Kitchen
+      </button>
+    </div>
+  </div>
 } @else if (recipe(); as r) {
   <article class="animate-[fadeIn_0.5s_ease-out]" itemscope itemtype="https://schema.org/Recipe">
     <!-- Back Navigation -->
