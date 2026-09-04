@@ -125,7 +125,8 @@ A caching, rate-limiting, save-correctness and recipe-lifecycle release.
   that was previously true only by accident. RCP-67.
 
 - Dependency bumps: Angular 22 group (14 updates), express-rate-limit 8.6.2 → 8.7.0,
-  linting group (2 updates), fast-uri, GitHub Actions group (5 updates).
+  dd-trace 6.12.0 → 6.13.0, @types/node 26.3.0 → 26.4.0, linting group (2 updates),
+  fast-uri, npm_and_yarn group (3 updates), GitHub Actions group (5 updates).
 
 ### Backend (`6becf93` → `f64174d`, 31 commits)
 
