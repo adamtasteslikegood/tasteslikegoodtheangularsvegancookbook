@@ -6,6 +6,158 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+## [0.4.13] - 2026-08-31
+
+Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy
+image correctness, and the model-default alignment. See the Backend section below.
+
+A caching, rate-limiting, save-correctness and recipe-lifecycle release.
+
+### Fixed
+
+- **IPv6 clients could bypass rate limiting entirely** — the limiter keyed on the raw
+  address, so anyone with an IPv6 allocation could rotate through addresses in their own
+  /56 and get a fresh budget each time. `rateLimitKeyGenerator` now masks IPv6 to its /56
+  subnet via express-rate-limit's `ipKeyGenerator()`; IPv4 passes through unchanged.
+  KAN-161.
+
+- **Saving a recipe you already had reported the wrong reason** — a duplicate save (409)
+  was classified as an ownership refusal, so the UI blamed permissions for something that
+  was just "you already have this". Duplicate is now its own case. The duplicate toast's
+  "View" link also pointed at a ghost recipe that 404'd; it now resolves to the copy you
+  actually hold. KAN-241.
+
+- **Cookbooks could appear twice in the list** — hydrate did not deduplicate by id, so a
+  cookbook present in both the local and server payloads rendered as two entries.
+  KAN-242.
+
+- **Guest-to-login hydrate produced a ghost duplicate** — saving a public recipe as
+  a guest then logging in left a zombie copy in localStorage. The server's merge
+  correctly deleted the guest row, but `hydrate()` only compared recipe `id`s, so
+  the stale copy (with a guest-assigned UUID) survived and re-merged on every sync
+  cycle. The identity check now matches `sourceSlug`/`slug` in addition to `id`,
+  mirroring the server's deduplication logic. KAN-265.
+
+- **Recipe detail redirected to /kitchen on any load failure** — a transient error,
+  auth race, or genuine 404 all triggered
+  `router.navigate(['/kitchen'], { replaceUrl: true })`, erasing the history entry
+  so Back did nothing or bounced forever. The route now renders the outcome in place
+  (spinner → recipe, or an actionable message with a retry/back affordance) and
+  waits for `authService.ready` before treating a miss as a real 404.
+  Still-generating recipes show a "still cooking" state instead of a blank page.
+  KAN-257.
+
+- **Worker-written image metadata was never re-read after navigating away** — the
+  Pub/Sub worker writes `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+  status fields from `pending` to `complete`, but the client only wrote back
+  `ai_image_url`. Exporting a single recipe after generating an image showed stale
+  pending statuses and missing fields. `refreshRecipeFromApi()` now re-reads the
+  full row after the image settles. KAN-255.
+
+- **Generator did not reset on route entry** — navigating back to `/` re-rendered
+  the previous result under an empty prompt box because `clearRecipe()` fired at
+  submit-time, not entry-time. Moved to the constructor so route entry starts clean
+  without cancelling in-flight image generation. KAN-256.
+
+- **Duplicate-409 cleanup could delete real recipes** — the save handler removed the
+  local row on any 409, but only `SsrEntryService` creates a throwaway UUID; every
+  other caller passes an `id` that references a real local row. Gated the cleanup to
+  SSR entry saves only. KAN-241.
+
+- **Case-sensitive slug comparison missed duplicates** — stored `sourceSlug`/`slug`
+  values could differ in casing from the incoming slug, bypassing the pre-save dedup
+  and handing a `null` View target to the 409 toast. Both lookups now normalise
+  through a shared `matchesSlug()` predicate. KAN-241, KAN-250.
+
+### Changed
+
+- **The Valkey rate limiter now negotiates RESP3** — `server/valkey.ts` no longer pins
+  `protocol: 2`. The pin was conservative rather than proven necessary: under RESP3
+  ioredis authenticates via `HELLO 3 AUTH default <token>`, which sends a username, and
+  Google documents Memorystore IAM auth as password-only. A refused handshake would not
+  fall back to RESP2, so every replica would have degraded silently to in-memory rate
+  limiting.
+
+  Settled empirically against a copy of the production instance (Valkey 8.0.6, IAM_AUTH,
+  TLS): the handshake authenticates, password-only `AUTH` still works on a RESP3
+  connection, and ioredis 6.0.0 + rate-limit-redis 6.0.1 behave identically on both
+  protocols. Controls confirm the instance genuinely enforces auth. One caveat is now
+  recorded in the code: `default` is the **only** username the IAM module accepts, so
+  RESP3 works only because ioredis injects exactly that literal. KAN-260, KAN-209.
+
+  Because the failure mode is silent, verify after deploy that `express-frontend` logs
+  a line beginning with `✅ Valkey connected for rate limiting at ` — the absence of an
+  error is not evidence.
+
+- **Production egress hardened to a two-guard steady state** — the KAN-170 Path B cutover
+  (Cloud NAT + router, anonymous traffic now 404ing before it reaches the backend service,
+  with the Express token/IAM factor still guarding as Path A) was applied to the live
+  project and is now reflected in the repo's gcloud scripts and posture checks. KAN-176.
+
+- **Model selection pinned in deploy config** — `GEMINI_DEFAULT_MODEL=gemini-3.7-flash`
+  (text) and `GEMINI_IMAGE_MODEL=gemini-3-pro-image` (Nano Banana Pro) are now set on
+  all three flask deploy steps in `cloudbuild.yaml`, rather than relying on the code
+  defaults. Both were verified live against the API before landing.
+
+  The text model moves off `gemini-3.1-pro-preview` because it is a **preview** model —
+  the same retirement class that removed `imagen-4.0` and caused the KAN-243 outage.
+  `gemini-3.7-flash` is GA. Note there is no GA Gemini 3.x _Pro_ text model, so this
+  trades Pro tier for retirement safety.
+
+  The image model was already GA (`gemini-3.1-flash-image`), so that half is a quality
+  choice: Nano Banana Pro costs roughly 7 s more per image (16.8 s vs 9.8 s) at
+  effectively identical output size (~1.05 MB). `GENAI_HTTP_TIMEOUT_MS` is 540 000 and
+  the Pub/Sub ack deadline is 600 s, so neither bound is threatened, and generation is
+  async so the extra time is spinner time.
+
+  These were applied to the running production service on 2026-08-25 via
+  `gcloud run services update`; setting them here is what makes them survive the next
+  tagged deploy, since the deploy steps use `--set-env-vars`, which replaces the whole
+  environment — KAN-248.
+
+- **Request classification consolidated into one contract** — four unrelated
+  predicates (`shouldSkipRateLimiting`, `isPageSubresource`, `isKnownCrawler`, and
+  an inline API-path check) are now one `classifyRequest()` call with a
+  `LIMITER_EXEMPTIONS` table declaring which request classes each limiter exempts.
+  Notably, crawlers are explicitly _not_ exempted from the API limiter, a property
+  that was previously true only by accident. RCP-67.
+
+- Dependency bumps: Angular 22 group (14 updates), express-rate-limit 8.6.2 → 8.7.0,
+  dd-trace 6.12.0 → 6.13.0, @types/node 26.3.0 → 26.4.0, linting group (2 updates),
+  fast-uri, npm_and_yarn group (3 updates), GitHub Actions group (5 updates).
+
+### Backend (`6becf93` → `f64174d`, 31 commits)
+
+- **The Valkey response cache is actually wired up again** — the recipe, stats and
+  collection read paths were restored to read through Valkey, and the generation and
+  worker writers were added to the invalidation map so a freshly generated or
+  worker-updated recipe no longer serves a stale cached body. The cache infrastructure
+  had been restored earlier without any blueprint using it, which is why GH #143 was
+  closed on a partial fix. Tests now pin the restored read paths against silent removal.
+  KAN-151.
+
+- **Published copies no longer inherit the source recipe's stock photo** — saving a copy
+  of a published recipe persisted the source's stock image onto the copy, so unrelated
+  recipes shared a photo. The inherited image is now stripped on every write path, the
+  source-image fallback is gated on `is_public`, and the slug fallback is guarded against
+  reused slugs. KAN-215.
+
+- **A regenerated photo is no longer cached out of the public page** — public image URLs
+  are versioned, so replacing a recipe's image invalidates the CDN/browser copy instead of
+  serving the old one indefinitely. KAN-195.
+
+- **`config.py` model defaults now match the deploy pins** — defaults moved to
+  `gemini-3.7-flash` (text) and `gemini-3-pro-image` (image), and preview-model examples
+  were dropped from `.env.example`. Until this landed, the `cloudbuild.yaml` env pins were
+  the only thing keeping production off a preview model; they are now belt-and-braces
+  rather than load-bearing. KAN-248.
+
+- Dependency bumps: the `python-production` group (4 updates) and CI action versions.
+
+---
+
 ## [0.4.12] - 2026-08-24
 
 Backend submodule pointer: `197e72f` → **`6becf93`** — Backend `main`'s own tip, the

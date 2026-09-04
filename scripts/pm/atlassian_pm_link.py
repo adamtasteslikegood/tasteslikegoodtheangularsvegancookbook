@@ -713,6 +713,13 @@ def build_markdown(config: Config, issues: list[dict[str, Any]], pages: list[dic
             "",
             "- Jira KAN is the authoritative source for active execution ownership and branch-level work tracking.",
             "- Jira RCP is the authoritative source for delivery planning: epics, sprints, scope, and acceptance criteria.",
+            "- **A sprint item is only tracked once it has an RCP acceptance row.** Board 168 filters "
+            "`project = RCP`, so a KAN key added to a sprint is a member NO COLUMN CAN RENDER. Every SI "
+            "needs an RCP Story `S<N> acceptance: <what> (KAN-###)`, labelled `acceptance` + `sprint-N`, "
+            "`Relates`-linked to its KAN row, in the sprint. The KAN execution rows stay in the sprint too "
+            "and must ALSO carry `sprint-N`. Verify with `bash scripts/pm/check_sprint_lane.sh`; see "
+            "CLAUDE.md for the full rule. Sprint 9 shipped ten bare KAN keys and the board showed one row "
+            "for four days (KAN-260).",
             "- Confluence is the authoritative historical context and planning narrative source, updated non-destructively.",
             "- Local markdown files are working copies that feed Confluence; they should be synced after planning changes.",
             "",

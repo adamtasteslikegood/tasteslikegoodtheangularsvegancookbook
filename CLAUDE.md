@@ -67,6 +67,45 @@ cd Backend && uv run pytest  # Backend tests (if Backend touched)
 
 For docs-only or config-only changes, `npm run format:check` is sufficient — the other checks won't fail on non-code files. When in doubt, run the full set; it takes ~60 seconds locally vs waiting for CI.
 
+### Every sprint item needs an RCP acceptance row, or the board shows nothing
+
+**Applies to: chartering any sprint, and any time work is added to a running one.**
+
+`KAN` is execution, `RCP` is delivery planning — and **board 168 filters
+`project = RCP ORDER BY Rank ASC`.** KAN is a separate, team-managed project, so
+**a KAN key added to a sprint is a member that no column can ever render.** The
+Agile API accepts the add and reports the issue as a sprint member; the board
+displays nothing. Both facts are true at once, and that gap is the trap.
+
+So the sprint is tracked by **RCP rows, one per SI**, exactly as Sprint 8 did it:
+
+| Artifact           | Project | Shape                                                     |
+| ------------------ | ------- | --------------------------------------------------------- |
+| Delivery epic      | `RCP`   | one per sprint (`RCP-80` S8, `RCP-88` S9)                 |
+| **Acceptance row** | `RCP`   | **one Story per SI**, `S<N> acceptance: <what> (KAN-###)` |
+| Execution ticket   | `KAN`   | the actual work; stays in the sprint too                  |
+
+Each acceptance row: labelled `acceptance` + `sprint-N`, `Relates`-linked to its
+KAN execution row(s), added to the sprint, and moved only with its evidence named
+on the ticket. **Label the KAN execution rows `sprint-N` as well** — that label is
+what `scripts/pm/check_sprint_lane.sh` grades, and it is the current sprint's
+label the CI `sprint-lane` job resolves from board 168's active sprint.
+
+**This is not optional polish, and it has silently regressed before.** Sprint 9
+opened with epic `RCP-88` and _zero_ acceptance rows; ten bare KAN keys went into
+the sprint and the board rendered **one row for four days** while two separate
+gates reported green — each passing vacuously on its own documented limit
+(KAN-260). Both gates are now tightened, but the convention is the fix and the
+gates are only the backstop:
+
+```bash
+bash scripts/pm/check_sprint_lane.sh            # active sprint labelled + no orphans
+python3 scripts/harness/sprint9_hard_gate.py    # every SI has a board-rendered row
+```
+
+Never "fix" a board-visibility failure by removing KAN rows from the sprint. They
+belong there; the missing half is the RCP row.
+
 ### Planning a sprint? Read the Confluence retro FIRST (not the repo close-out)
 
 **Applies to: chartering or planning any sprint, `/cs:grill-pm`, and any charter or plan document.**
@@ -90,7 +129,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 ## Project
 
-**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini, get AI food photos via Imagen, and manage cookbooks. Auth via Google OAuth or guest (localStorage).
+**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.7-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field (currently v0.4.2)
@@ -236,7 +275,7 @@ npm run pm:daemon:status     # check if daemon is alive
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state. GH #163/#162 are FIXED (2026-04-15). Live concerns are Flask-side: IAM token-refresh (Backend #247) and response-cache lost in merge `07123c2` (KAN-151).
-- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use.
+- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use. The model choice itself is **settled**: `gemini-3.7-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) — both GA, both verified on the live API surface, and pinned in `cloudbuild.yaml`. The `Backend/config.py` defaults are being moved onto the same pair by Backend PR #298; until that lands and the submodule pointer is bumped, those pins are load-bearing and must not be removed. There is no GA Gemini 3.x _Pro_ text model, so `gemini-3.1-pro-preview` is not an alternative: it is a preview model, and preview-model retirement is what took production down when Imagen 4.0 was withdrawn. Do not propose reverting either.
 - **Backend submodule** — remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`. Always check for open Backend PRs and unsynced commits before backend work or releases.
 - **gbrain and Backend** — Backend indexed as separate source `gstack-code-backend`; queries need `--source gstack-code-backend` or they silently miss. Never run `/sync-gbrain` from inside `Backend/`.
 - **TypeScript pinned exactly** (`6.0.3`) — Angular 22 needs TS >=6.0 <6.1. Bump TS + all `@angular/*` + `@angular-eslint/*` together.

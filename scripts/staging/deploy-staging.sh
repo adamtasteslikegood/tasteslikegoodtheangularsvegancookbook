@@ -14,12 +14,12 @@
 #                              prod flask-backend — Express authenticates with
 #                              a Google-signed ID token, see server/flask-auth.ts)
 #
-# Storage: Railway Postgres (Railway project "thriving-reverence"), reached
-# over Railway's public TCP proxy. The connection string lives in Secret
-# Manager as DATABASE_URL_STAGING in the staging project — never in this
-# script or the repo. Seed it with scripts/staging/seed-data.py --from-json
-# (see scripts/staging/README.md). Decision recorded in KAN-182 (2026-08-10,
-# supersedes discussion #3394's seeded-image vs Cloud SQL axis).
+# Storage: CloudSQL Postgres (db-f1-micro in the staging project), reached
+# via Cloud SQL Auth Proxy (--set-cloudsql-instances). The connection string
+# lives in Secret Manager as DATABASE_URL_STAGING in the staging project —
+# never in this script or the repo. Seed it with scripts/staging/seed-data.py
+# --from-json (see scripts/staging/README.md). Decision recorded in KAN-248
+# (2026-08-24, supersedes Railway decision from KAN-182 / discussion #3394).
 #
 # Dry run is the DEFAULT. Nothing mutates without --apply.
 #
@@ -128,19 +128,34 @@ run_cmd gcloud secrets add-iam-policy-binding FLASK_SECRET_KEY_STAGING \
   --member="serviceAccount:${COMPUTE_SA}" \
   --role=roles/secretmanager.secretAccessor
 
-# The staging database URL (Railway Postgres) must exist in the staging
+# The staging database URL (CloudSQL Postgres) must exist in the staging
 # project. Unlike FLASK_SECRET_KEY_STAGING it cannot be generated here —
-# the value is Railway's DATABASE_PUBLIC_URL (project thriving-reverence →
-# Postgres → Variables) with sslmode=require appended.
+# the value is a Unix-socket connection string for the Cloud SQL Auth Proxy:
+#   postgresql://USER:PASS@/vegangenius?host=/cloudsql/PROJECT:REGION:INSTANCE
 if ! gcloud secrets describe DATABASE_URL_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  CREATE_DB_SECRET_CMD="printf '%s' \"\${DATABASE_PUBLIC_URL}?sslmode=require\" | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
+  CREATE_DB_SECRET_CMD="printf '%s' 'postgresql://USER:PASS@/vegangenius?host=/cloudsql/${PROJECT_ID}:${REGION}:vegangenius-staging-db' | gcloud secrets create DATABASE_URL_STAGING --data-file=- --project=${PROJECT_ID}"
+  # The USER:PASS warning belongs to the printed COMMAND, not to the error
+  # path, so both branches emit it. Dry run is the default invocation, so
+  # the dry-run text is the copy-paste source a first-time deployer actually
+  # sees; warning only in the --apply branch warns the people least likely
+  # to need it.
+  db_secret_warning() {
+    echo "IMPORTANT: replace USER:PASS with the real CloudSQL user and password" >&"$1"
+    echo "before running the command above. printf will NOT substitute them, and" >&"$1"
+    echo "Flask will silently fail to connect on every revision until you add a" >&"$1"
+    echo "new secret version. URL-encode @ : / ? # [ ] in the password if present." >&"$1"
+  }
   if $DRY_RUN; then
     echo "[DRY RUN] Secret DATABASE_URL_STAGING missing in ${PROJECT_ID}; create it first:"
     echo "          ${CREATE_DB_SECRET_CMD}"
+    echo ""
+    db_secret_warning 1
   else
     echo "ERROR: secret DATABASE_URL_STAGING does not exist in ${PROJECT_ID}." >&2
-    echo "Copy DATABASE_PUBLIC_URL from the Railway dashboard, then re-run:" >&2
+    echo "Create it with the CloudSQL connection string, then re-run:" >&2
     echo "  ${CREATE_DB_SECRET_CMD}" >&2
+    echo "" >&2
+    db_secret_warning 2
     exit 1
   fi
 fi
@@ -178,6 +193,22 @@ else
   echo "OAuth login: disabled (GOOGLE_CLIENT_ID_STAGING / GOOGLE_CLIENT_SECRET_STAGING not in ${PROJECT_ID})"
 fi
 
+# Gemini/Imagen API key is OPTIONAL — without it, recipe and image
+# generation endpoints return errors (no AI costs incurred). With it,
+# staging mirrors the full prod generation pipeline end-to-end.
+GEMINI_SECRET=""
+if gcloud secrets describe GOOGLE_API_KEY_STAGING --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  GEMINI_SECRET=",GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest"
+  run_cmd gcloud secrets add-iam-policy-binding GOOGLE_API_KEY_STAGING \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${COMPUTE_SA}" \
+    --role=roles/secretmanager.secretAccessor
+  echo "Gemini/Imagen: enabled (GOOGLE_API_KEY_STAGING found)"
+else
+  echo "Gemini/Imagen: disabled (GOOGLE_API_KEY_STAGING not in ${PROJECT_ID})"
+  echo "  To enable: printf '%s' '<key>' | gcloud secrets create GOOGLE_API_KEY_STAGING --data-file=- --project=${PROJECT_ID}"
+fi
+
 # Cross-project image pull: the staging project's Cloud Run service agent
 # needs read access to the prod Artifact Registry repo.
 run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
@@ -185,22 +216,61 @@ run_cmd gcloud artifacts repositories add-iam-policy-binding vegangenius \
   --member="serviceAccount:${RUN_SERVICE_AGENT}" \
   --role=roles/artifactregistry.reader
 
+# The Auth Proxy sidecar mounted by --set-cloudsql-instances authenticates to
+# the Cloud SQL Admin API as the compute SA, so it needs roles/cloudsql.client.
+# This was a documented manual step, which made it the one prerequisite in this
+# script granted by prose rather than by code — every other role above is bound
+# idempotently right here. Missing it does not fail the deploy: the revision
+# comes up and every query then fails at connect with an error that reads like
+# the Cloud SQL Admin API is disabled.
+run_cmd gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${COMPUTE_SA}" \
+  --role=roles/cloudsql.client \
+  --condition=None
+
+# PUBSUB_INVOKER_SA is wired into the Flask env below unconditionally, and
+# Cloud Run does not validate env-var values — so if setup_pubsub.sh has never
+# run in this project, the deploy still succeeds and the worker push endpoint
+# then fails OIDC verification with no signal at deploy time. Surface it here
+# instead, where the fix is one command away.
+# The Flask deploy below pins --network=default --subnet=default to reach the
+# CloudSQL private IP. A project provisioned under
+# constraints/compute.skipDefaultNetworkCreation has no `default` network, and
+# the deploy then fails with "Network default not found" — which reads like a
+# typo in this script rather than a missing prerequisite. Name it here instead.
+if ! gcloud compute networks describe default \
+  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "WARNING: VPC network 'default' not found in ${PROJECT_ID}." >&2
+  echo "  The Flask deploy pins --network=default --subnet=default to reach" >&2
+  echo "  the CloudSQL private IP, so it will fail with 'Network default not" >&2
+  echo "  found'. Create the default VPC and the CloudSQL peering (the KAN-248" >&2
+  echo "  setup), or repoint the --network/--subnet flags at the real network." >&2
+fi
+
+PUBSUB_PUSHER_SA="pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com"
+if ! gcloud iam service-accounts describe "${PUBSUB_PUSHER_SA}" \
+  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  echo "WARNING: ${PUBSUB_PUSHER_SA} does not exist." >&2
+  echo "  Async generation will deploy but fail at OIDC verification." >&2
+  echo "  Create the Pub/Sub topics, subscriptions and pusher SA with:" >&2
+  echo "    PROJECT_ID=${PROJECT_ID} FLASK_SERVICE=${FLASK_SERVICE} \\" >&2
+  echo "      scripts/gcloud/setup_pubsub.sh" >&2
+fi
+
 echo ""
 
 # ── Step 1: Deploy Flask backend (staging) ────────────────────────────
-# Staging Flask uses the Railway Postgres via the DATABASE_URL_STAGING
-# secret; no Gemini/Imagen keys, no Valkey, no Pub/Sub, no Datadog.
-# Google OAuth login is wired in only when the staging OAuth secrets exist
-# (see step 0). FLASK_ENV=staging activates staging-specific behaviour.
+# Staging Flask mirrors prod architecture: CloudSQL (Auth Proxy), Pub/Sub
+# (push subscriptions with OIDC), GCS (recipe images), and optionally
+# Gemini/Imagen (GOOGLE_API_KEY_STAGING) and Google OAuth. No Valkey
+# (rate limiting falls back to in-memory SimpleCache), no Datadog.
 #
 # Posture mirrors prod flask-backend (KAN-170): the invoker IAM check stays
 # ON (--no-allow-unauthenticated), and Express authenticates with a
-# Google-signed ID token (server/flask-auth.ts). PUBSUB_AUTH_OPTIONAL is NOT
-# set: with PUBSUB_INVOKER_SA empty the worker push endpoints fail closed
-# with 503, which is correct — staging has no Pub/Sub.
+# Google-signed ID token (server/flask-auth.ts).
 #
-# max-instances=1: no longer forced by storage (Postgres is external now),
-# kept as a cost ceiling — staging never needs more than one instance.
+# max-instances=1: kept as a cost ceiling — staging never needs more than
+# one instance.
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
 
@@ -226,8 +296,12 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=,GCP_PROJECT_ID=,PUBSUB_INVOKER_SA=" \
-  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${OAUTH_SECRETS}" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.7-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image" \
+  --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${GEMINI_SECRET}${OAUTH_SECRETS}" \
+  --set-cloudsql-instances="${PROJECT_ID}:${REGION}:vegangenius-staging-db" \
+  --network=default \
+  --subnet=default \
+  --vpc-egress=private-ranges-only \
   --no-allow-unauthenticated \
   --quiet
 
@@ -262,9 +336,9 @@ echo ""
 # NODE_ENV=staging activates:
 #   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
-#   - No Gemini API key (generation endpoints disabled)
 #   - No Valkey (rate limiting falls back to in-memory)
 #   - No Datadog
+# Express is purely a proxy — Gemini, Pub/Sub, GCS are all Flask-side.
 
 echo "--- Step 3: Deploy ${EXPRESS_SERVICE} ---"
 run_cmd gcloud run deploy "${EXPRESS_SERVICE}" \

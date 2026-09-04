@@ -18,13 +18,25 @@
 # script run on demand — the same distinction that made the Alembic head-check look
 # like a gate for weeks while only running on release-train dispatch.
 #
-# THREE LIMITS THAT REMAIN, all deliberate and none fixed by the wiring:
-#   1. It passes VACUOUSLY when no row carries the label — "every open sprint-N row
-#      is linked" is trivially true over an empty set. It detects lane DRIFT, not a
-#      missing sprint. Pair it with a membership census if you need the latter.
-#   2. Called with no argument (as CI does) it checks only the NEWEST sprint-N label.
-#      An orphan on an older, superseded label does not fail CI.
-#   3. The CI job is skipped for fork PRs AND for Dependabot PRs, and `gate` counts
+# LIMIT 1 IS NOW CLOSED — and closing it is why this file changed (KAN-260).
+# It used to read: "passes VACUOUSLY when no row carries the label; it detects lane
+# DRIFT, not a missing sprint." Sprint 9 walked straight through that hole. Sprint 9
+# ran with ZERO `sprint-9` labels anywhere, so label discovery fell back to the newest
+# label it could see — `sprint-8`, whose rows are all Done and filtered out — and the
+# script printed PASS on every Sprint 9 PR for four days while the RCP board showed one
+# row. Vacuous twice over: no rows to check, and the wrong sprint being checked.
+#
+# The fix does not simply make "zero labelled rows" fatal; between sprints that would
+# block every PR, including release PRs. It keys off board 168's ACTIVE sprint:
+#   active sprint exists AND zero issues carry its `sprint-N` label  -> FAIL(1)
+#   no active sprint                                                 -> pass, as before
+# So the gate now detects a MISSING lane, not only a drifting one.
+#
+# TWO LIMITS THAT REMAIN, both deliberate:
+#   1. Called with no argument (as CI does) it checks the ACTIVE sprint's label, or
+#      falls back to the NEWEST sprint-N label when no sprint is running. An orphan on
+#      an older, superseded label does not fail CI.
+#   2. The CI job is skipped for fork PRs AND for Dependabot PRs, and `gate` counts
 #      skipped as passing. These are two different cases, not one: a Dependabot PR is
 #      NOT a fork — it is a same-repo `dependabot/...` branch that is merely denied
 #      secrets — so it needs its own actor test in the workflow. Without it the job
@@ -64,7 +76,7 @@ export ATLASSIAN_SITE="$SITE"
 export SPRINT_LANE_LABEL="${1:-}"
 
 python3 <<'PY'
-import base64, json, os, sys, urllib.error, urllib.parse, urllib.request
+import base64, json, os, re, sys, urllib.error, urllib.parse, urllib.request
 
 site = os.environ["ATLASSIAN_SITE"]
 label = os.environ.get("SPRINT_LANE_LABEL", "")
@@ -98,7 +110,112 @@ def jql(q, fields):
             return out
 
 
-# Discover the newest sprint-N label in KAN unless one was named.
+RCP_SCRUM_BOARD = 168
+
+
+def agile(path):
+    """GET on the Agile API. Boards and sprints are unreachable through the platform
+    API, and the Atlassian MCP tools wrap only that one — hence the hand-roll."""
+    url = f"{site}/rest/agile/1.0/{path}"
+    try:
+        req = urllib.request.Request(url, headers=hdr)
+        return json.load(urllib.request.urlopen(req, timeout=30))
+    except urllib.error.HTTPError as e:
+        print(f"FAIL(2): Jira Agile API {e.code} on {path!r}", file=sys.stderr)
+        sys.exit(2)
+    except (urllib.error.URLError, TimeoutError) as e:
+        print(f"FAIL(2): Jira Agile API unreachable ({e}) on {path!r}", file=sys.stderr)
+        sys.exit(2)
+
+
+def active_sprint():
+    """(label, sprint) for the sprint running on board 168, or (None, None).
+
+    Named `Sprint 9` -> label `sprint-9`. A sprint whose name does not carry a
+    number cannot imply a label. It must fail closed unless the caller supplied
+    an explicit label; treating it as "no active sprint" would grade the newest
+    historical label instead of the sprint that is actually running."""
+    active = agile(
+        f"board/{RCP_SCRUM_BOARD}/sprint?state=active").get("values", [])
+    if not active:
+        return None, None
+    if len(active) != 1:
+        names = ", ".join(repr(s.get("name", "")) for s in active)
+        print(f"FAIL(2): board {RCP_SCRUM_BOARD} has {len(active)} active sprints "
+              f"({names}); the sprint-lane label is ambiguous.", file=sys.stderr)
+        sys.exit(2)
+    sprint = active[0]
+    m = re.match(r"\s*sprint\s*[-_ ]?(\d+)\s*$", sprint.get("name", ""), re.I)
+    if m:
+        return f"sprint-{m.group(1)}", sprint
+    if label:
+        print(f"active sprint: {sprint.get('name', '')!r} (id {sprint['id']}) "
+              f"uses explicit label override {label}")
+        return label, sprint
+    print(f"FAIL(2): active sprint {sprint.get('name', '')!r} (id {sprint['id']}) "
+          "does not match `Sprint N`; pass its sprint-N label explicitly instead "
+          "of falling back to an older sprint.", file=sys.stderr)
+    sys.exit(2)
+
+
+expected_label, sprint = active_sprint()
+
+# Discover the label unless one was named. The ACTIVE sprint wins: deriving the label
+# from the newest one that happens to exist is what let Sprint 9 be graded against
+# Sprint 8's finished rows.
+if not label and expected_label:
+    label = expected_label
+    print(f"active sprint: {sprint['name']!r} (id {sprint['id']}) -> label {label}")
+
+def sprint_members(sprint_id):
+    """Every issue in the sprint, keyed by issue key.
+
+    Sprint MEMBERSHIP, deliberately — not the board-scoped read. Board 168 filters
+    `project = RCP`, so a board-scoped read cannot see the KAN execution rows whose
+    labels this assertion exists to check."""
+    out, start = {}, 0
+    while True:
+        page = agile(f"sprint/{sprint_id}/issue?startAt={start}&maxResults=50"
+                     "&fields=labels,status")
+        issues = page.get("issues", [])
+        for i in issues:
+            out[i["key"]] = i["fields"]
+        if not issues or len(out) >= page.get("total", 0):
+            return out
+        start += len(issues)
+
+
+# THE MISSING-LANE ASSERTION. A running sprint whose label its members do not carry
+# is not a clean lane, it is an unasserted one — the failure this gate exists to catch.
+#
+# This checks EVERY MEMBER, not "does anyone carry the label". The first cut asked
+# only `if not tagged` over `project in (KAN, RCP)`, which relocated the same vacuous
+# pass one level down: if every RCP acceptance row kept `sprint-9` while the KAN
+# execution rows lost it, `tagged` stayed non-empty, the guard passed, and the orphan
+# query below then found no labelled KAN rows and printed PASS. Caught in review on
+# #3471 by two reviewers independently (a partial-label case and a lone-epic case —
+# the same gap from two directions). Membership-vs-labels closes both, and every
+# other partial-labelling shape with them.
+if expected_label and label == expected_label:
+    members = sprint_members(sprint["id"])
+    if not members:
+        print(f"\nFAIL(1): sprint {sprint['name']!r} (id {sprint['id']}) is ACTIVE on "
+              f"board {RCP_SCRUM_BOARD} but contains NO issues. An empty active sprint "
+              f"is not a clean lane; this gate refuses to pass over an empty set.")
+        sys.exit(1)
+    unlabelled = sorted(k for k, f in members.items()
+                        if label not in (f.get("labels") or []))
+    if unlabelled:
+        print(f"\nFAIL(1): {len(unlabelled)} of {len(members)} issue(s) in sprint "
+              f"{sprint['name']!r} do not carry {label!r}:")
+        for k in unlabelled:
+            print(f"  UNLABELLED {k}")
+        print(f"\n`{label}` is what this gate grades. A sprint member without it is")
+        print("invisible to the assertion — which is how Sprint 9 ran four days with a")
+        print("dark board and two green gates. Label every member, then re-run.")
+        sys.exit(1)
+    print(f"lane census: all {len(members)} sprint member(s) carry {label}")
+
 # NOTE: Jira's `labels` field does NOT support wildcard matching — `labels ~ "sprint-*"`
 # silently returns zero rows, which made an earlier version of this script report PASS
 # while three sprint-4 rows sat right there. Enumerate labelled rows and filter here.

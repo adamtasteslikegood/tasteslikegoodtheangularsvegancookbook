@@ -229,4 +229,483 @@ describe('AuthService auth-check startup behavior', () => {
       cachedUser
     );
   });
+
+  // KAN-241: removeRecipeById undoes the optimistic write without soft-deleting.
+  describe('removeRecipeById (KAN-241)', () => {
+    it('removes a recipe from savedRecipes by ID', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      // ok: false preserves the cached authenticated user (server-error path).
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(1);
+
+      authService.removeRecipeById('recipe-1');
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(0);
+    });
+
+    it('does not move the removed recipe to the recycle bin', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('recipe-1');
+
+      expect(authService.currentUser()?.deletedRecipes).toHaveLength(0);
+    });
+
+    it('is a no-op when the recipe ID does not exist', async () => {
+      const cachedUser = createAuthenticatedUser();
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('nonexistent-id');
+
+      expect(authService.currentUser()?.savedRecipes).toHaveLength(1);
+    });
+
+    // deleteRecipe strips the id from every cookbook; removeRecipeById did not.
+    // Dropping the row while leaving the cookbook entry behind leaves a
+    // dangling reference that renders as a missing entry in that cookbook.
+    it('also strips the id from every cookbook, as deleteRecipe does', async () => {
+      const cachedUser = createAuthenticatedUser();
+      cachedUser.cookbooks = [
+        { id: 'cb-1', name: 'Weeknights', recipeIds: ['recipe-1', 'recipe-2'] },
+        { id: 'cb-2', name: 'Empty', recipeIds: [] },
+      ] as User['cookbooks'];
+      localStorage.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(cachedUser));
+
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+
+      const authService = new AuthService();
+      await waitForAuthInit(authService);
+
+      authService.removeRecipeById('recipe-1');
+
+      const cookbooks = authService.currentUser()?.cookbooks ?? [];
+      expect(cookbooks[0].recipeIds).toEqual(['recipe-2']);
+      expect(cookbooks[1].recipeIds).toEqual([]);
+    });
+  });
+});
+
+describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
+  const localStorageMock = createLocalStorageMock();
+
+  const cbA = { id: 'cb-A', name: 'Favorites', description: '', recipeIds: ['r1'] };
+  const cbX = { id: 'cb-X', name: 'Session Recipes', description: '', recipeIds: ['r2'] };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('localStorage', localStorageMock);
+    vi.stubGlobal('window', {
+      location: { href: 'http://localhost/', search: '', hash: '', pathname: '/' },
+      history: { replaceState: vi.fn() },
+    });
+    vi.stubGlobal('document', { title: 'Vegangenius Chef' });
+    localStorageMock.clear();
+  });
+
+  afterEach(() => {
+    localStorageMock.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it('removes duplicate cookbook ids when the cookbooks parameter contains repeats', async () => {
+    const user = createAuthenticatedUser();
+    user.cookbooks = [cbA, cbX];
+    localStorageMock.setItem(AuthService.SESSION_STORAGE_KEY, JSON.stringify(user));
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    // Seed the user so hydrate has someone to update
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+    // Give the guest the two cookbooks
+    authService['currentUser'].set({ ...guest, cookbooks: [cbA, cbX] });
+
+    // Hydrate with duplicates in the incoming cookbooks array — simulates the
+    // race between loadFromApi and createCookbook (KAN-242).
+    authService.hydrate([], [cbA, cbX, cbX]);
+
+    const result = authService.currentUser()!;
+    expect(result.cookbooks).toHaveLength(2);
+    expect(result.cookbooks.map((c) => c.id)).toEqual(['cb-A', 'cb-X']);
+  });
+
+  it('drops localStorage recipes whose sourceSlug matches an API recipe (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    // Simulate: guest saved a public recipe (fresh UUID, sourceSlug set).
+    // On login, the server-side merge deleted the guest copy (already owned).
+    // But localStorage still has it with the guest-assigned id.
+    const guestCopy = {
+      id: 'guest-uuid-1',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    // API returns the user's own recipe with the same sourceSlug but a different id.
+    const ownedRecipe = {
+      id: 'owned-uuid-2',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-2');
+  });
+
+  it('drops localStorage recipes whose slug matches an API recipe slug (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const guestCopy = {
+      id: 'guest-uuid-3',
+      name: 'My Pasta',
+      slug: 'my-pasta',
+      description: '',
+      prepTime: 5,
+      cookTime: 15,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    const ownedRecipe = {
+      id: 'owned-uuid-4',
+      name: 'My Pasta',
+      slug: 'my-pasta',
+      description: '',
+      prepTime: 5,
+      cookTime: 15,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-4');
+  });
+
+  it('deduplicates renamed sources by stable sourceRecipeId and preserves the local image (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const guestCopy = {
+      id: 'guest-renamed-source',
+      name: 'Cornbread',
+      sourceRecipeId: 'source-uuid-1',
+      sourceSlug: 'old-cornbread',
+      ai_image_url: 'https://img.example/cornbread.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestCopy] });
+
+    const ownedRecipe = {
+      id: 'owned-renamed-source',
+      name: 'Cornbread',
+      sourceRecipeId: 'source-uuid-1',
+      sourceSlug: 'new-cornbread',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0]).toMatchObject({
+      id: 'owned-renamed-source',
+      sourceSlug: 'new-cornbread',
+      ai_image_url: 'https://img.example/cornbread.png',
+    });
+  });
+
+  it('ignores malformed localStorage slug fields during hydration (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const malformedLocalRecipe = {
+      id: 'local-malformed-5',
+      name: 'Legacy Draft',
+      sourceSlug: 42 as unknown as string,
+      slug: { legacy: true } as unknown as string,
+      description: '',
+      prepTime: 10,
+      cookTime: 10,
+      servings: 1,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [malformedLocalRecipe] });
+
+    const apiRecipe = {
+      id: 'api-recipe-6',
+      name: 'API Recipe',
+      slug: 'api-recipe',
+      description: '',
+      prepTime: 5,
+      cookTime: 5,
+      servings: 2,
+      ingredients: {},
+      instructions: [],
+    };
+
+    expect(() => authService.hydrate([apiRecipe], [])).not.toThrow();
+    expect(authService.currentUser()!.savedRecipes.map((r) => r.id)).toEqual([
+      'api-recipe-6',
+      'local-malformed-5',
+    ]);
+  });
+
+  it('preserves ai_image_url from a slug-matched local zombie onto the API record (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    // The guest copy carries the freshly-generated image URL locally (Pub/Sub
+    // completed against the guest id). The server-merged owned record has a
+    // different id and no image URL yet — without the slug-aware lookup the
+    // dedup filter would drop the zombie and the URL would be lost.
+    const guestZombie = {
+      id: 'guest-uuid-7',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      ai_image_url: 'https://img.example/generated.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [guestZombie] });
+
+    const ownedRecipe = {
+      id: 'owned-uuid-8',
+      name: 'Delicious Cookies',
+      sourceSlug: 'delicious-cookies',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    authService.hydrate([ownedRecipe], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('owned-uuid-8');
+    expect(result.savedRecipes[0].ai_image_url).toBe('https://img.example/generated.png');
+  });
+
+  it('prefers an image-bearing local duplicate when several recipes share a slug (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+    const localWithImage = {
+      id: 'guest-image-copy',
+      name: 'Cookies',
+      sourceSlug: 'cookies',
+      ai_image_url: 'https://img.example/cookies.png',
+      description: '',
+      prepTime: 10,
+      cookTime: 20,
+      servings: 4,
+      ingredients: {},
+      instructions: [],
+    };
+    const laterDuplicateWithoutImage = {
+      ...localWithImage,
+      id: 'guest-copy-without-image',
+      ai_image_url: undefined,
+    };
+    authService['currentUser'].set({
+      ...guest,
+      savedRecipes: [localWithImage, laterDuplicateWithoutImage],
+    });
+
+    authService.hydrate(
+      [
+        {
+          ...localWithImage,
+          id: 'owned-copy',
+          ai_image_url: undefined,
+        },
+      ],
+      []
+    );
+
+    expect(authService.currentUser()!.savedRecipes).toHaveLength(1);
+    expect(authService.currentUser()!.savedRecipes[0].ai_image_url).toBe(
+      'https://img.example/cookies.png'
+    );
+  });
+
+  it('keeps genuinely local-only recipes that do not match any API identity (KAN-265)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const localRecipe = {
+      id: 'local-only-5',
+      name: 'Offline Draft',
+      description: '',
+      prepTime: 10,
+      cookTime: 10,
+      servings: 1,
+      ingredients: {},
+      instructions: [],
+    };
+    authService['currentUser'].set({ ...guest, savedRecipes: [localRecipe] });
+
+    authService.hydrate([], []);
+
+    const result = authService.currentUser()!;
+    expect(result.savedRecipes).toHaveLength(1);
+    expect(result.savedRecipes[0].id).toBe('local-only-5');
+  });
+
+  it('prefers the API cookbook over a local duplicate with the same id', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ authenticated: false }),
+      })
+    );
+
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.ensureGuestSession();
+    const guest = authService.currentUser()!;
+
+    const localCopy = { ...cbA, name: 'Old Local Name' };
+    authService['currentUser'].set({ ...guest, cookbooks: [localCopy] });
+
+    const apiCopy = { ...cbA, name: 'Server Name' };
+    authService.hydrate([], [apiCopy]);
+
+    const result = authService.currentUser()!;
+    expect(result.cookbooks).toHaveLength(1);
+    expect(result.cookbooks[0].name).toBe('Server Name');
+  });
 });

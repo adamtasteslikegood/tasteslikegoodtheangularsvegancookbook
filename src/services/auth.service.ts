@@ -239,16 +239,85 @@ export class AuthService {
     const user = this.currentUser();
     if (!user) return;
 
-    // Merge recipes: keep any localStorage recipes NOT already in the API response
+    // Merge recipes: keep any localStorage recipes NOT already in the API response.
+    // KAN-265: also match by sourceRecipeId/sourceSlug/slug so that a guest-saved copy whose
+    // server-side duplicate was deleted during merge doesn't survive as a zombie
+    // in localStorage under a different id.
+    const normalizeSlug = (value: unknown): string | undefined => {
+      if (typeof value !== 'string') return undefined;
+      const normalized = value.trim().toLowerCase();
+      return normalized || undefined;
+    };
+
     const apiIds = new Set(recipes.map((r) => r.id));
-    const localOnly = user.savedRecipes.filter((r) => !apiIds.has(r.id));
+    const apiSourceRecipeIds = new Set(
+      recipes.map((r) => normalizeSlug(r.sourceRecipeId)).filter((id): id is string => !!id)
+    );
+    const apiSlugs = new Set<string>();
+    for (const r of recipes) {
+      const sourceSlug = normalizeSlug(r.sourceSlug);
+      const slug = normalizeSlug(r.slug);
+      if (sourceSlug) apiSlugs.add(sourceSlug);
+      if (slug) apiSlugs.add(slug);
+    }
+    const localOnly = user.savedRecipes.filter((r) => {
+      if (apiIds.has(r.id)) return false;
+      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
+      if (sourceRecipeId && apiSourceRecipeIds.has(sourceRecipeId)) return false;
+      const sourceSlug = normalizeSlug(r.sourceSlug);
+      const slug = normalizeSlug(r.slug);
+      if (sourceSlug && apiSlugs.has(sourceSlug)) return false;
+      if (slug && apiSlugs.has(slug)) return false;
+      return true;
+    });
 
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
-    // localStorage has it from the optimistic update in triggerImageGeneration.
-    const localMap = new Map(user.savedRecipes.map((r) => [r.id, r]));
+    // localStorage has it from the optimistic update in
+    // RecipeViewBase.runImageGeneration (was triggerImageGeneration, KAN-255).
+    //
+    // KAN-265: the localOnly filter above may now drop a local recipe whose
+    // id doesn't match the API record but whose sourceSlug/slug does (the
+    // "zombie after server-side merge" scenario). Look the local record up
+    // by id first, then fall back to sourceSlug/slug — otherwise a freshly
+    // generated ai_image_url cached on the guest copy is silently lost when
+    // the API record (a different id) doesn't have it yet.
+    const localById = new Map(user.savedRecipes.map((r) => [r.id, r]));
+    const localBySourceRecipeId = new Map<string, Recipe>();
+    const localBySlug = new Map<string, Recipe>();
+    const rememberImageCandidate = (map: Map<string, Recipe>, key: string, recipe: Recipe) => {
+      const existing = map.get(key);
+      if (!existing || (!existing.ai_image_url && recipe.ai_image_url)) {
+        map.set(key, recipe);
+      }
+    };
+    for (const r of user.savedRecipes) {
+      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
+      const src = normalizeSlug(r.sourceSlug);
+      const slg = normalizeSlug(r.slug);
+      if (sourceRecipeId) rememberImageCandidate(localBySourceRecipeId, sourceRecipeId, r);
+      if (src) rememberImageCandidate(localBySlug, src, r);
+      if (slg) rememberImageCandidate(localBySlug, slg, r);
+    }
+    const findLocalForApi = (apiRecipe: Recipe): Recipe | undefined => {
+      const byId = localById.get(apiRecipe.id);
+      if (byId) return byId;
+      const sourceRecipeId = normalizeSlug(apiRecipe.sourceRecipeId);
+      if (sourceRecipeId) {
+        const bySourceRecipeId = localBySourceRecipeId.get(sourceRecipeId);
+        if (bySourceRecipeId) return bySourceRecipeId;
+      }
+      const src = normalizeSlug(apiRecipe.sourceSlug);
+      if (src) {
+        const bySrc = localBySlug.get(src);
+        if (bySrc) return bySrc;
+      }
+      const slg = normalizeSlug(apiRecipe.slug);
+      if (slg) return localBySlug.get(slg);
+      return undefined;
+    };
     const mergedApi = recipes.map((apiRecipe) => {
-      const local = localMap.get(apiRecipe.id);
+      const local = findLocalForApi(apiRecipe);
       if (local?.ai_image_url && !apiRecipe.ai_image_url) {
         return { ...apiRecipe, ai_image_url: local.ai_image_url };
       }
@@ -257,10 +326,17 @@ export class AuthService {
 
     const merged = [...mergedApi, ...localOnly];
 
-    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response
+    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response,
+    // then deduplicate by id so races between loadFromApi and createCookbook never
+    // produce ghost double-entries in the add-to-cookbook modal (KAN-242).
     const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
     const localOnlyCookbooks = user.cookbooks.filter((c) => !apiCookbookIds.has(c.id));
-    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks];
+    const seenIds = new Set<string>();
+    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks].filter((c) => {
+      if (seenIds.has(c.id)) return false;
+      seenIds.add(c.id);
+      return true;
+    });
 
     const updated = { ...user, savedRecipes: merged, cookbooks: mergedCookbooks };
     this.currentUser.set(updated);
@@ -285,6 +361,30 @@ export class AuthService {
       savedRecipes: [...user.savedRecipes, recipe],
     };
     this.updateUserRecord(updatedUser);
+  }
+
+  /**
+   * KAN-241: remove a recipe from localStorage by ID without soft-deleting it.
+   *
+   * Used to undo the optimistic write when the server says the recipe is a
+   * duplicate. `deleteRecipe` is wrong here — it moves the ghost to the
+   * recycle bin, where `restoreRecipe` would re-POST it and get another 409.
+   */
+  removeRecipeById(recipeId: string) {
+    const user = this.currentUser();
+    if (!user) return;
+    if (!user.savedRecipes.some((r) => r.id === recipeId)) return;
+    this.updateUserRecord({
+      ...user,
+      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
+      // Strip the id from every cookbook too, as deleteRecipe does. Dropping
+      // the row while leaving a cookbook.recipeIds entry behind leaves a
+      // dangling reference that renders as a missing entry in that cookbook.
+      cookbooks: user.cookbooks.map((cb) => ({
+        ...cb,
+        recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
+      })),
+    });
   }
 
   /**

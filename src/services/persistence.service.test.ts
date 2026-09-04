@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { interpretSaveResponse } from './persistence.service';
+import {
+  interpretSaveResponse,
+  recipeWithServerIdentity,
+  shouldUndoOptimisticSave,
+} from './persistence.service';
 
 /**
  * KAN-155 — a 409 from POST /api/recipes is a REFUSAL, not a success.
@@ -48,6 +52,17 @@ describe('interpretSaveResponse (KAN-155)', () => {
       const outcome = await interpretSaveResponse(res(409, { code }));
       expect(outcome?.refusal, code).toBe(code);
     }
+  });
+
+  it('recognises RECIPE_ALREADY_SAVED as a duplicate, not an ownership refusal', async () => {
+    // KAN-241: before this fix, RECIPE_ALREADY_SAVED fell through to the generic
+    // 'ownership' bucket, which toasted the wrong message and left a ghost in
+    // localStorage. The code must map to 'duplicate' so the caller can clean up.
+    const outcome = await interpretSaveResponse(
+      res(409, { error: 'You already have this recipe saved.', code: 'RECIPE_ALREADY_SAVED' })
+    );
+
+    expect(outcome).toEqual({ ok: false, refusal: 'duplicate' });
   });
 
   it('degrades a 409 with no code to a generic ownership refusal', async () => {
@@ -101,5 +116,89 @@ describe('interpretSaveResponse (KAN-155)', () => {
     // Short-circuiting a 201 here would silently break the View link.
     expect(await interpretSaveResponse(res(201, { id: 'r1', slug: 'vegan-cornbread' }))).toBeNull();
     expect(await interpretSaveResponse(res(200, { id: 'r1' }))).toBeNull();
+  });
+});
+
+describe('recipeWithServerIdentity (KAN-265)', () => {
+  const recipe = {
+    id: 'guest-copy',
+    name: 'Cornbread',
+    description: '',
+    prepTime: 10,
+    cookTime: 20,
+    servings: 4,
+    ingredients: {},
+    instructions: [],
+    slug: 'old-slug',
+  };
+
+  it('mirrors the server slug and stable source id', () => {
+    expect(
+      recipeWithServerIdentity(recipe, {
+        slug: 'server-slug',
+        source_recipe_id: 'source-uuid-1',
+      })
+    ).toMatchObject({
+      slug: 'server-slug',
+      sourceRecipeId: 'source-uuid-1',
+    });
+  });
+
+  it('clears a stale source id when the server returns null', () => {
+    expect(
+      recipeWithServerIdentity(
+        { ...recipe, sourceRecipeId: 'deleted-source' },
+        { source_recipe_id: null }
+      ).sourceRecipeId
+    ).toBeUndefined();
+  });
+
+  it('ignores malformed response identity fields', () => {
+    expect(recipeWithServerIdentity(recipe, { slug: 42, source_recipe_id: { bad: true } })).toBe(
+      recipe
+    );
+  });
+});
+
+/**
+ * The ghost-cleanup undo must fire ONLY for a ghost.
+ *
+ * saveRecipeDetailed removes the local row when the server answers 409
+ * duplicate. That is correct for SsrEntryService, the one caller that mints a
+ * fresh UUID before saving. Every other caller passes an id that is already a
+ * real local row, and for those the same line deletes the user's recipe.
+ *
+ * saveNotes() (recipe-view.base.ts) is the reachable case: it re-saves an
+ * existing recipe, ignores the return value, closes the editor and reports
+ * success. A duplicate 409 there is reachable whenever the local id has
+ * diverged from the server's — which is exactly the state this cleanup leaves
+ * behind until the next hydrate. The failure is therefore self-perpetuating:
+ * the cleanup creates the divergence that makes the next notes edit destructive.
+ */
+describe('shouldUndoOptimisticSave (KAN-241)', () => {
+  it('undoes the write for a ghost — a duplicate on an id that was not already saved', () => {
+    // The SsrEntryService path: buildSavedRecipeFromPublic minted a fresh UUID,
+    // the optimistic write added a row nothing else references, and the server
+    // refused it as a duplicate. That row must go.
+    expect(shouldUndoOptimisticSave('duplicate', false)).toBe(true);
+  });
+
+  it('does NOT undo when the id was already a saved row', () => {
+    // The saveNotes() path, and the one that makes this a data-loss bug rather
+    // than a tidiness question: the row is the user's real recipe, and the only
+    // thing that happened is that the server refused a duplicate write.
+    // Removing it deletes their recipe while saveNotes closes the editor and
+    // reports success.
+    expect(shouldUndoOptimisticSave('duplicate', true)).toBe(false);
+  });
+
+  it('never undoes for a non-duplicate refusal, saved or not', () => {
+    // Ownership refusals are KAN-155 territory with their own lifecycle, and a
+    // sync failure must leave the offline-first local row alone — that row is
+    // the whole point of writing localStorage first.
+    for (const refusal of ['ownership', 'sync', undefined] as const) {
+      expect(shouldUndoOptimisticSave(refusal, false), `${refusal}/new`).toBe(false);
+      expect(shouldUndoOptimisticSave(refusal, true), `${refusal}/existing`).toBe(false);
+    }
   });
 });

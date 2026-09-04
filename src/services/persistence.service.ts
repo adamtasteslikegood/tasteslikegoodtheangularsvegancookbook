@@ -2,7 +2,7 @@ import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook } from '../auth.types';
-import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
+import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
  * Why a save did not land (KAN-155).
@@ -20,6 +20,26 @@ import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
  *                                  ownership-repair policy on KAN-155.
  *   ownership                      a 409 with no/unknown code — an older Backend,
  *                                  or a code this build predates.
+ *   duplicate                      a 409 with code RECIPE_ALREADY_SAVED — the
+ *                                  server already has this recipe for this user.
+ *                                  Always a refusal at this layer
+ *                                  (interpretSaveResponse returns ok:false).
+ *                                  saveRecipeDetailed then translates it to
+ *                                  ok:true + alreadySaved ONLY when this save
+ *                                  created the row it is undoing — the
+ *                                  SsrEntryService ghost. There "you already
+ *                                  have this" IS the successful outcome: the
+ *                                  user asked to save a public recipe and they
+ *                                  have it, so there was nothing left to do.
+ *                                  When the id was ALREADY a saved row the
+ *                                  refusal stands as ok:false + duplicate. That
+ *                                  caller asked to persist a CHANGE to an
+ *                                  existing recipe — edited notes, a publish
+ *                                  toggle — and the server refused it, so the
+ *                                  change is not stored and reporting success
+ *                                  would be a lie of exactly the kind KAN-155
+ *                                  was filed about. Callers can still tell it
+ *                                  apart from 'sync' (KAN-241).
  *   sync                           transport or non-409 server failure.
  */
 export type SaveRefusal =
@@ -27,11 +47,16 @@ export type SaveRefusal =
   | 'OWNERSHIP_OTHER_GUEST_SESSION'
   | 'OWNERSHIP_ORPHANED_GUEST_ROW'
   | 'ownership'
+  | 'duplicate'
   | 'sync';
 
 export interface SaveOutcome {
   ok: boolean;
   refusal?: SaveRefusal;
+  /** True when the server already has this recipe — the save is a no-op, not
+   *  a failure. Callers should surface "you already have this" rather than
+   *  "saved to your cookbook" or an error. */
+  alreadySaved?: boolean;
 }
 
 /** Minimal shape of what `interpretSaveResponse` needs from a `Response`. */
@@ -53,15 +78,13 @@ interface SaveResponseLike {
  * worth testing; the DI ceremony to reach it is not.
  */
 export async function interpretSaveResponse(res: SaveResponseLike): Promise<SaveOutcome | null> {
-  // KAN-155: 409 means exactly one thing here — the row exists and is owned by
-  // someone else, so the write was REFUSED and nothing was stored. This used to
-  // fall through to success, back when the endpoint only ever upserted and the
-  // comment read "the current API never returns 409". That stopped being true
-  // when the ownership refusal moved from 500 to 409 (Backend #256), and the
-  // stale branch then reported a rejected write as a successful one — leaving
-  // the optimistic `is_public: true` on screen over a row the server rejected.
+  // KAN-155/KAN-241: a 409 carries TWO distinct refusals — ownership (KAN-155)
+  // and duplicate (KAN-213). The body is read once and classified here; both
+  // are refusals (ok: false), but the caller handles them differently:
+  // ownership → revert optimistic state and toast an explanation; duplicate →
+  // undo the ghost localStorage entry and tell the user they already have it.
   if (res.status === 409) {
-    return { ok: false, refusal: await ownershipRefusalOf(res) };
+    return { ok: false, refusal: await classifyRefusal409(res) };
   }
   if (!res.ok) {
     return { ok: false, refusal: 'sync' };
@@ -70,19 +93,27 @@ export async function interpretSaveResponse(res: SaveResponseLike): Promise<Save
 }
 
 /**
- * Narrow a 409 to which ownership refusal fired, from the server's `code`.
+ * Classify a 409 into one of two families: duplicate or ownership.
  *
- * Falls back to the generic `'ownership'` when `code` is absent or unknown — a
- * Backend older than the three-code split still answers a bare 409, and a code
- * newer than this build must degrade to "refused" rather than to "succeeded".
+ * KAN-241: the Backend now returns 409 for TWO situations — `RecipeDuplicateError`
+ * (code `RECIPE_ALREADY_SAVED`, KAN-213) and `RecipeOwnershipError` (three codes,
+ * KAN-155). Before this fix `interpretSaveResponse` treated every 409 as ownership,
+ * so a duplicate refusal surfaced as a generic ownership toast and left a ghost
+ * recipe in localStorage that could never sync.
+ *
+ * Falls back to `'ownership'` when `code` is absent or unknown — a Backend older
+ * than the three-code split still answers a bare 409, and a code newer than this
+ * build must degrade to "refused" rather than to "succeeded".
  * Never throws: a 409 is a refusal regardless of what its body contains.
  */
-async function ownershipRefusalOf(res: SaveResponseLike): Promise<SaveRefusal> {
+async function classifyRefusal409(res: SaveResponseLike): Promise<SaveRefusal> {
   try {
-    // `unknown`, not `SaveRefusal`: this is unvalidated JSON off the wire. Typing
-    // it as the validated type would assert the very thing the comparisons below
-    // exist to check, and would silently admit any future server string.
     const body = (await res.json()) as { code?: unknown } | null;
+    // Duplicate: the server already has this recipe for this owner.
+    if (body?.code === 'RECIPE_ALREADY_SAVED') {
+      return 'duplicate';
+    }
+    // Ownership: the row is owned by someone else.
     if (
       body?.code === 'OWNERSHIP_OTHER_ACCOUNT' ||
       body?.code === 'OWNERSHIP_OTHER_GUEST_SESSION' ||
@@ -94,6 +125,60 @@ async function ownershipRefusalOf(res: SaveResponseLike): Promise<SaveRefusal> {
     // Body missing or not JSON — still a refusal, just an unspecific one.
   }
   return 'ownership';
+}
+
+/**
+ * Should the optimistic localStorage write be undone after a refusal?
+ *
+ * Only for a GHOST: a row this save itself created. `SsrEntryService` is the
+ * one caller that mints a fresh UUID before saving, so its duplicate-409 leaves
+ * a row nothing else references. Every other caller passes an id that is
+ * already a real local row — removing that deletes the user's recipe.
+ *
+ * `saveNotes()` (recipe-view.base.ts) is the reachable case: it re-saves an
+ * existing recipe, ignores the return value, closes the editor and reports
+ * success. A duplicate 409 there is reachable whenever the local id has
+ * diverged from the server's, which is exactly the state this undo leaves
+ * behind until the next hydrate — so without the guard the cleanup creates the
+ * divergence that makes the next notes edit destructive. Bulk import
+ * (kitchen.component.ts) has the same shape and over-reports its count.
+ *
+ * Pure and exported for the same reason as `interpretSaveResponse` above: the
+ * decision is worth testing, the DI ceremony to reach it is not.
+ */
+export function shouldUndoOptimisticSave(
+  refusal: SaveRefusal | undefined,
+  wasAlreadySaved: boolean
+): boolean {
+  return refusal === 'duplicate' && !wasAlreadySaved;
+}
+
+/**
+ * Mirrors the server-owned identity fields returned by POST /api/recipes into
+ * the local cache. The stable source id is required for hydrate-time dedup
+ * after a public source recipe has been re-slugged (KAN-265).
+ */
+export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe {
+  if (typeof body !== 'object' || body === null) return recipe;
+  const row = body as Record<string, unknown>;
+  let serverSlug = recipe.slug;
+  if (typeof row['slug'] === 'string' && row['slug']) {
+    serverSlug = row['slug'];
+  }
+
+  let serverSourceRecipeId = recipe.sourceRecipeId;
+  if ('source_recipe_id' in row) {
+    const value = row['source_recipe_id'];
+    if (value === null) serverSourceRecipeId = undefined;
+    else if (typeof value === 'string' && value) serverSourceRecipeId = value;
+  }
+
+  if (serverSlug === recipe.slug && serverSourceRecipeId === recipe.sourceRecipeId) return recipe;
+  return {
+    ...recipe,
+    ...(serverSlug ? { slug: serverSlug } : {}),
+    sourceRecipeId: serverSourceRecipeId,
+  };
 }
 
 /**
@@ -175,10 +260,98 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: true };
 
+    // Whether this id was ALREADY a saved row before the optimistic write
+    // below. Must be sampled first: auth.saveRecipe dedups by id, so after it
+    // runs a ghost and a pre-existing row are indistinguishable. Reads the
+    // `user` captured above rather than re-calling currentUser(), so the sample
+    // is a true snapshot of the same state the guard above validated.
+    const wasAlreadySaved = user.savedRecipes.some((r) => r.id === recipe.id);
+
     // Always update localStorage first for instant UI feedback.
     this.auth.saveRecipe(recipe);
 
-    return await this._apiSaveRecipe(recipe);
+    const outcome = await this._apiSaveRecipe(recipe);
+
+    // KAN-241: the server said "you already have this recipe" — the optimistic
+    // localStorage write above added a ghost (fresh UUID, so auth.saveRecipe's
+    // ID dedup did not catch it). Remove the ghost; the original is already on
+    // the server and will appear on the next hydrate. Scope the undo to the
+    // duplicate case only — ownership refusals are KAN-155 territory and have
+    // their own lifecycle.
+    //
+    // The `!wasAlreadySaved` guard is load-bearing, not belt-and-braces. This
+    // is a generic layer and only SsrEntryService mints a ghost; every other
+    // caller passes an id that is already a real local row. saveNotes()
+    // (recipe-view.base.ts) is the dangerous one — it re-saves an existing
+    // recipe, and a duplicate 409 there is reachable whenever the local id has
+    // diverged from the server's (which is precisely the state this cleanup
+    // leaves behind until the next hydrate). Without the guard, the user's real
+    // recipe is deleted from localStorage while saveNotes closes the editor and
+    // reports success.
+    //
+    // Bulk import (kitchen.component.ts) is protected by the same guard but for
+    // a different reason: importRecipes() pre-inserts every id BEFORE the save
+    // loop, so wasAlreadySaved is always true there and the undo never fires.
+    // That is the right outcome — those are real imported rows, not ghosts —
+    // but it does not fix that caller's success count, which ignores the return
+    // value entirely and reports collisions as imported. Tracked separately in
+    // KAN-262; it is a pre-existing reporting bug, not data loss.
+    if (shouldUndoOptimisticSave(outcome.refusal, wasAlreadySaved)) {
+      this.auth.removeRecipeById(recipe.id);
+      return { ok: true, alreadySaved: true };
+    }
+
+    return outcome;
+  }
+
+  /**
+   * KAN-255 — re-read ONE recipe's authoritative row and merge it into local state.
+   *
+   * The image pipeline finishes server-side. The Pub/Sub worker writes
+   * `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+   * `ai_metadata.image_request.status` / `ai_metadata.image_enqueue.status` from
+   * `pending` to `complete` (Backend `worker_api_bp._image_generation_metadata`).
+   * The client only ever wrote `ai_image_url` back, so navigating away during
+   * image generation and returning left the in-memory copy AND localStorage
+   * still claiming the image was pending — visible the moment a single recipe
+   * was exported as JSON.
+   *
+   * Contract, deliberately narrow:
+   *  - Never rejects. This runs as a background reconcile after an image
+   *    settles; a failed reconcile must not take the caller down. Resolves to
+   *    the merged recipe, or `null` when the row could not be read.
+   *  - Local write only. The row came FROM the server, so POSTing it back is a
+   *    pointless round trip that can also lose a race with the worker.
+   *  - Never ADDS a row. A cold deep-linked recipe (recipe-detail, saved=false)
+   *    is not in the user's cookbook, and a background image reconcile must not
+   *    be the thing that saves it for them.
+   *  - The server wins for the image-pipeline fields ONLY
+   *    (`adoptImagePipelineFields`), not wholesale. Adopting the whole row here
+   *    reverted a concurrent notes edit or publish made during the 30-60s image
+   *    window, and — because `saveNotes` POSTs the whole recipe — the next save
+   *    after that clobber wrote the stale copy back to the server for good.
+   */
+  async refreshRecipeFromApi(recipeId: string): Promise<Recipe | null> {
+    if (!this.auth.currentUser()) return null;
+    try {
+      const res = await this._fetch(`/api/recipes/${encodeURIComponent(recipeId)}`);
+      if (!res.ok) return null;
+      // Column-over-blob merge (KAN-139) — same contract as loadFromApi and
+      // recipe-detail's cold deep-link fetch. See utils/recipe-row.ts.
+      const fresh = recipeFromRow(await res.json());
+      if (!fresh?.id || fresh.id !== recipeId) return null;
+      const current = this.auth.currentUser();
+      const local = current?.savedRecipes.find((r) => r.id === fresh.id);
+      if (!local) return fresh;
+      // Merge onto the SAVED row, not onto `fresh`: anything the user changed
+      // locally while the image was generating lives here and must survive.
+      const merged = adoptImagePipelineFields(local, fresh);
+      this.auth.saveRecipe(merged);
+      return merged;
+    } catch (err) {
+      console.warn(`[PersistenceService] refreshRecipeFromApi failed for ${recipeId}:`, err);
+      return null;
+    }
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {
@@ -279,9 +452,10 @@ export class PersistenceService {
     }
 
     const data = await res.json();
-    // Sync the server-assigned cookbook into local state
+    // Sync the server-assigned cookbook into local state — guard against duplicates
+    // the same way the 409 path does, in case loadFromApi already hydrated it (KAN-242).
     const current = this.auth.currentUser();
-    if (current) {
+    if (current && !current.cookbooks.some((c) => c.id === data?.id)) {
       this.auth.hydrate(current.savedRecipes, [...current.cookbooks, this._toCookbook(data)]);
     }
     return data?.id ?? null;
@@ -415,12 +589,10 @@ export class PersistenceService {
       // this recipe must re-read it from auth state after the sync resolves.
       try {
         const body = await res.json();
-        const serverSlug = body?.slug;
-        if (typeof serverSlug === 'string' && serverSlug && serverSlug !== recipe.slug) {
-          this.auth.saveRecipe({ ...recipe, slug: serverSlug });
-        }
+        const syncedRecipe = recipeWithServerIdentity(recipe, body);
+        if (syncedRecipe !== recipe) this.auth.saveRecipe(syncedRecipe);
       } catch {
-        // Body missing or not JSON — keep the optimistic local value.
+        // Body missing or not JSON — keep the optimistic local identity.
       }
       return { ok: true };
     } catch (err) {

@@ -12,6 +12,7 @@ import {
   publishToggleKind,
 } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
+import { adoptImagePipelineFields } from '../../utils/recipe-row';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
 
 /** Carries the server's refusal reason through the existing throw/catch in
@@ -55,6 +56,10 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
       // Known-incomplete on KAN-155: the repair is not built, so do not promise
       // that retrying works. Say what is true and stop.
       return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
+    case 'duplicate':
+      // KAN-241: structurally unreachable from togglePublic (you cannot publish a
+      // saved copy — the 403 guard fires first), but the type system includes it.
+      return 'You already have this recipe saved.';
     case 'ownership':
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
@@ -151,37 +156,108 @@ export abstract class RecipeViewBase {
    */
   protected onPublishDenied(): void {}
 
-  async regenerateImage() {
-    const currentRecipe = this.recipe();
-    if (!currentRecipe) return;
-    const targetId = currentRecipe.id;
-    const imagePromise = this.geminiService.generateImage(targetId, true);
-    this.recipeState.trackImageGeneration(targetId, imagePromise);
+  /**
+   * KAN-255 — the ONE image-generation path.
+   *
+   * This was two near-identical copies: `GeneratorComponent.triggerImageGeneration`
+   * for the first render and `regenerateImage` here for a redo. They differed
+   * only in the `force_regenerate` flag and one toast string, so every fix had
+   * to land twice — and the server-metadata reconcile below is exactly the
+   * class of fix that gets applied to one copy and silently missed on the other.
+   *
+   *   generator onGenerate ─┐                          ┌─ generator "Regenerate"
+   *                         ├──> runImageGeneration ───┤
+   *   (first render)        │           │              └─ recipe-detail "Regenerate"
+   *                         ┘           │
+   *      recipeState.trackImageGeneration(id, promise)   spinner survives
+   *                                     │                component destruction
+   *                          await promise  (DETACHED — by the time this
+   *                                     │    resolves the component that
+   *                            ┌────────┴────────┐   started it may be gone)
+   *                        resolved           rejected
+   *                            │                 │
+   *          markImageRegenerated (redo only)  toast, only while still
+   *          local write: ai_image_url         viewing this recipe
+   *          API re-read: the fields only
+   *          the worker writes  ── KAN-255
+   *
+   * Everything after the `await` is deliberately safe to run against a
+   * destroyed component: `authService` / `persistenceService` / `recipeState`
+   * are root singletons, and every write to the *viewed* recipe is gated on
+   * `this.recipe()?.id === recipeId`.
+   */
+  protected async runImageGeneration(recipeId: string, opts: { regenerate: boolean }) {
+    const imagePromise = this.geminiService.generateImage(recipeId, opts.regenerate);
+    this.recipeState.trackImageGeneration(recipeId, imagePromise);
     try {
       const imageUrl = await imagePromise;
       // Cache-bust: re-generate returns the same canonical URL, so a bare
       // signal.set() is a no-op and the browser serves stale bytes. The
       // marker is recorded on RecipeStateService and applied only when
       // building a display URL, so it survives nav-away (the service is a
-      // root singleton) without ever entering persisted state.
-      this.recipeState.markImageRegenerated(targetId);
-      if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(targetId, imageUrl));
+      // root singleton) without ever entering persisted state. First-time
+      // generation needs no marker — there are no stale bytes to beat.
+      if (opts.regenerate) this.recipeState.markImageRegenerated(recipeId);
+      if (this.recipe()?.id === recipeId) {
+        this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, imageUrl));
         this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
       }
       // Persist the CANONICAL url. Writing the busted one here put a
       // client-only `?_t=` marker into savedRecipes, and saveNotes POSTs the
       // whole recipe — so it came back as the canonical ai_image_url.
-      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
+      this.authService.updateRecipeField(recipeId, 'ai_image_url', imageUrl);
+      // ...then reconcile with the row the worker actually wrote (KAN-255).
+      await this.syncImageMetadata(recipeId);
     } catch (err) {
-      console.error('Image regeneration failed', err);
+      console.error(opts.regenerate ? 'Image regeneration failed' : 'Image generation failed', err);
       // The 5-min timeout in gemini.service now rejects rather than hanging.
       // Without a toast the spinner just vanishes and the user is left with
       // an "Image not available" placeholder and no explanation.
-      if (this.recipe()?.id === targetId) {
-        this.toastService.show("Couldn't regenerate the image. Please try again.");
+      if (this.recipe()?.id === recipeId) {
+        this.toastService.show(
+          opts.regenerate
+            ? "Couldn't regenerate the image. Please try again."
+            : "Couldn't generate the image. You can retry from the recipe page."
+        );
       }
     }
+  }
+
+  /**
+   * KAN-255 — adopt the server row once the image lands.
+   *
+   * `updateRecipeField(id, 'ai_image_url', url)` above covers exactly one of
+   * the fields the image pipeline produces. The rest (`ai_image_gcs`,
+   * `ai_metadata.image_generation`, and the `pending` -> `complete` flip on
+   * `ai_metadata.image_request` / `image_enqueue`) are written by the Pub/Sub
+   * worker and were never read back, so an export of the client's copy
+   * disagreed with the API's row for the lifetime of the session.
+   *
+   * A failed reconcile is not an error the user needs to see: the image itself
+   * already rendered, and the next `loadFromApi` will pick the row up.
+   *
+   * Only the pipeline-owned fields are adopted — see `adoptImagePipelineFields`.
+   * The row read here predates any edit the user made during the image window.
+   */
+  private async syncImageMetadata(recipeId: string) {
+    const fresh = await this.persistenceService.refreshRecipeFromApi(recipeId);
+    const current = this.recipe();
+    if (!fresh || current?.id !== recipeId) return;
+    // Adopt the pipeline's fields onto what is on screen rather than replacing
+    // it. The user may have edited notes or hit publish while the image was
+    // generating, and the row this GET read predates that write.
+    const merged = adoptImagePipelineFields(current, fresh);
+    this.recipe.set(merged);
+    // Rebuild from the merged URL: a partial server row must not blank the
+    // optimistic canonical URL already stored locally. The `_t` display
+    // marker lives on the service, keyed by id.
+    this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(recipeId, merged.ai_image_url));
+  }
+
+  async regenerateImage() {
+    const currentRecipe = this.recipe();
+    if (!currentRecipe) return;
+    await this.runImageGeneration(currentRecipe.id, { regenerate: true });
   }
 
   /**

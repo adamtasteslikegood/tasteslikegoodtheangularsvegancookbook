@@ -66,40 +66,66 @@ describe('createApiLimiter', () => {
   });
 });
 
+// RCP-67: these requests are built with `baseUrl: '/api'` because that is what
+// Express actually hands a limiter mounted via `app.use('/api', limiter)` — the
+// path arrives RELATIVE to the mount. The predicate now reads the absolute path
+// (baseUrl + path) so it can be stated in the same manifest as classifyRoute();
+// a fixture carrying only the relative half no longer describes a real request.
+// The mount composition itself is covered by the integration test below.
+const apiReq = (path: string) => ({ baseUrl: '/api', path }) as Request;
+
 describe('shouldSkipRateLimiting', () => {
-  it('skips /health', async () => {
+  it('skips /api/health', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/health' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(shouldSkipRateLimiting(apiReq('/health'))).toBe(true);
   });
 
   it('skips /recipes/<uuid>/image', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/image' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(
+      shouldSkipRateLimiting(apiReq('/recipes/550e8400-e29b-41d4-a716-446655440000/image'))
+    ).toBe(true);
   });
 
   it('skips /recipes/<short-id>/image', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/abc123/image' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(true);
+    expect(shouldSkipRateLimiting(apiReq('/recipes/abc123/image'))).toBe(true);
   });
 
   it('does not skip /recipes (list endpoint)', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(false);
+    expect(shouldSkipRateLimiting(apiReq('/recipes'))).toBe(false);
   });
 
   it('does not skip /generate', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/generate' } as Request;
-    expect(shouldSkipRateLimiting(req)).toBe(false);
+    expect(shouldSkipRateLimiting(apiReq('/generate'))).toBe(false);
   });
 
   it('does not skip /recipes/<uuid>/data (non-image sub-paths)', async () => {
     const { shouldSkipRateLimiting } = await import('./security.js');
-    const req = { path: '/recipes/550e8400-e29b-41d4-a716-446655440000/data' } as Request;
+    expect(
+      shouldSkipRateLimiting(apiReq('/recipes/550e8400-e29b-41d4-a716-446655440000/data'))
+    ).toBe(false);
+  });
+
+  // A bare /health outside the /api mount is NOT the health endpoint and must
+  // stay metered. Pinning this stops a future edit from re-widening the
+  // exemption back to any path ending /health.
+  it('does not skip a bare /health outside the /api mount', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    expect(shouldSkipRateLimiting({ baseUrl: '', path: '/health' } as Request)).toBe(false);
+  });
+
+  // The /api limiter must never exempt a crawler: that class exists to protect
+  // SEO on the HTML surface, and the endpoints behind /api bill Gemini/Imagen.
+  it('does not skip a crawler hitting /api/generate', async () => {
+    const { shouldSkipRateLimiting } = await import('./security.js');
+    const req = {
+      baseUrl: '/api',
+      path: '/generate',
+      headers: { 'user-agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
+    } as unknown as Request;
     expect(shouldSkipRateLimiting(req)).toBe(false);
   });
 });
@@ -241,6 +267,50 @@ describe('createExpensiveOperationLimiter', () => {
     const { createExpensiveOperationLimiter } = await import('./security.js');
     const limiter = createExpensiveOperationLimiter();
     expect(typeof limiter).toBe('function');
+  });
+});
+
+// KAN-161: IPv6 rate-limit bypass — rateLimitKeyGenerator must mask IPv6
+// addresses to /56 subnets via ipKeyGenerator so rotating addresses within
+// the same allocation cannot bypass per-IP rate limits.
+describe('rateLimitKeyGenerator (IPv6 masking)', () => {
+  it('passes IPv4 addresses through unchanged', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = { ip: '192.168.1.42', socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('192.168.1.42');
+  });
+
+  it('masks two IPv6 addresses in the same /56 to the same key', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req1 = { ip: '2001:db8:abcd:1200::1', socket: {} } as unknown as Request;
+    const req2 = { ip: '2001:db8:abcd:12ff::9999', socket: {} } as unknown as Request;
+    const key1 = rateLimitKeyGenerator(req1);
+    const key2 = rateLimitKeyGenerator(req2);
+    expect(key1).toBe(key2);
+    // The key must differ from the raw input (it was masked)
+    expect(key1).not.toBe('2001:db8:abcd:1200::1');
+  });
+
+  it('produces different keys for IPv6 addresses in different /56 subnets', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req1 = { ip: '2001:db8:abcd:1200::1', socket: {} } as unknown as Request;
+    const req2 = { ip: '2001:db8:abcd:1300::1', socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req1)).not.toBe(rateLimitKeyGenerator(req2));
+  });
+
+  it('falls back to req.socket.remoteAddress when req.ip is undefined', async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = {
+      ip: undefined,
+      socket: { remoteAddress: '10.0.0.1' },
+    } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('10.0.0.1');
+  });
+
+  it("returns 'unknown' when no IP is available", async () => {
+    const { rateLimitKeyGenerator } = await import('./security.js');
+    const req = { ip: undefined, socket: {} } as unknown as Request;
+    expect(rateLimitKeyGenerator(req)).toBe('unknown');
   });
 });
 

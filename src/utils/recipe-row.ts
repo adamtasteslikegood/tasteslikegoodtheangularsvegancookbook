@@ -24,6 +24,7 @@ export interface RecipeRow {
   is_public?: boolean;
   is_canonical?: boolean;
   source_slug?: string | null;
+  source_recipe_id?: string | null;
   origin?: Recipe['origin'] | null;
 }
 
@@ -51,6 +52,56 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
     is_public: payload.is_public,
     is_canonical: payload.is_canonical,
     sourceSlug: payload.data.sourceSlug ?? payload.source_slug ?? undefined,
+    sourceRecipeId:
+      'source_recipe_id' in payload
+        ? (payload.source_recipe_id ?? undefined)
+        : payload.data.sourceRecipeId,
     origin: payload.origin ?? payload.data.origin,
   };
+}
+
+/**
+ * Fields the image pipeline owns end-to-end.
+ *
+ * `ai_image_url` is written by the client (the canonical url, right after
+ * generation) and then re-confirmed by the server. The other two are written
+ * ONLY by the Pub/Sub worker — the SPA reads `ai_metadata` (gemini.service
+ * checks `image_generation.success`) and never writes it.
+ */
+const IMAGE_PIPELINE_FIELDS = ['ai_image_url', 'ai_image_gcs', 'ai_metadata'] as const;
+
+/**
+ * KAN-255 — adopt the image-pipeline fields from a freshly-read server row,
+ * keeping every other field from the local copy.
+ *
+ * Why not adopt the row wholesale: the reconcile GET fires when an image
+ * settles, which is 30–60s after the user asked for it. That window is wide
+ * enough for the user to edit personal notes or hit publish, and for that
+ * write's POST to reach the server AFTER this reconcile's GET has already read
+ * the pre-edit row. A wholesale `set`/`save` of the returned row then reverts
+ * the edit on screen and in localStorage.
+ *
+ * The localStorage half is the damaging one and does not self-heal: `saveNotes`
+ * POSTs the whole recipe, so the next save after a clobber writes the stale
+ * copy back to the server and the edit is gone for good.
+ *
+ * Adopting only these three fields serves the ticket in full — they are exactly
+ * the fields the reconcile exists to read back — while leaving every
+ * user-editable field alone. A field absent OR null on the server row leaves
+ * the local value untouched rather than clearing it: a row that comes back
+ * without `ai_image_url` — whether the key is missing, explicitly `undefined`,
+ * or `null` — must not blank the image the user is looking at. The reconcile
+ * GET can lose the race with the worker's ai_image_url write (or read a
+ * briefly-null column), and a null-adopting merge would then push that null
+ * through the on-screen signal AND into localStorage, from where the next
+ * saveNotes POST would clobber the canonical URL back to null server-side.
+ */
+export function adoptImagePipelineFields(local: Recipe, fresh: Recipe): Recipe {
+  const merged = { ...local } as Record<string, unknown>;
+  const source = fresh as unknown as Record<string, unknown>;
+  for (const field of IMAGE_PIPELINE_FIELDS) {
+    // `!= null` (loose) catches both null and undefined in one check.
+    if (source[field] != null) merged[field] = source[field];
+  }
+  return merged as unknown as Recipe;
 }

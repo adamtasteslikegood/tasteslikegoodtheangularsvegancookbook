@@ -23,8 +23,12 @@ describe('SsrEntryService', () => {
     synced?: boolean;
     fetchResponse?: { ok: boolean; json: () => Promise<unknown> };
     firstSyncSettled?: Promise<void>;
+    alreadySaved?: boolean;
   }) => {
-    const saveRecipe = vi.fn().mockResolvedValue(opts.synced ?? true);
+    const saveOutcome =
+      opts.alreadySaved === true ? { ok: true, alreadySaved: true } : { ok: opts.synced ?? true };
+    const saveRecipeDetailed = vi.fn().mockResolvedValue(saveOutcome);
+    const saveRecipe = vi.fn().mockResolvedValue(saveOutcome.ok);
     const injector = Injector.create({
       providers: [
         {
@@ -40,7 +44,11 @@ describe('SsrEntryService', () => {
         },
         {
           provide: PersistenceService,
-          useValue: { saveRecipe, firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve() },
+          useValue: {
+            saveRecipe,
+            saveRecipeDetailed,
+            firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve(),
+          },
         },
         { provide: ToastService, useValue: { show: toastShow } },
       ],
@@ -49,7 +57,7 @@ describe('SsrEntryService', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue(opts.fetchResponse));
     }
     const service = runInInjectionContext(injector, () => new SsrEntryService());
-    return { service, saveRecipe };
+    return { service, saveRecipe: saveRecipeDetailed };
   };
 
   // TAS-3056/RCP-79 (supersedes RCP-74 AC3): a copy already saved from this
@@ -68,6 +76,82 @@ describe('SsrEntryService', () => {
     expect(toastShow).toHaveBeenCalledWith(
       expect.stringMatching(/already have this recipe/i),
       expect.objectContaining({ id: 'r1' })
+    );
+  });
+
+  // The incoming slug is lowercased by handleSave, but persisted sourceSlug/slug
+  // come from localStorage and the API, which that guard never touched. Comparing
+  // them raw made a mixed-case stored value miss the dedup — and the miss is
+  // silent, because the 409 path then tells the user they already have the recipe
+  // while the View button loses its target. Both lookups now normalize the stored
+  // side too.
+  it('dedups a stored sourceSlug that differs only in casing', async () => {
+    const { service, saveRecipe } = createService({
+      savedRecipes: [
+        { id: 'legacy-1', name: 'Thai Peanut Noodles', sourceSlug: 'Thai-Peanut-Noodles' },
+      ],
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'legacy-1' })
+    );
+  });
+
+  it('dedups a stored slug that differs only in casing', async () => {
+    const { service, saveRecipe } = createService({
+      savedRecipes: [{ id: 'legacy-2', name: 'Thai Peanut Noodles', slug: 'THAI-PEANUT-NOODLES' }],
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'legacy-2' })
+    );
+  });
+
+  // The 409 recovery branch has the same defect independently: even once the
+  // server refuses the duplicate, a mixed-case stored value means `existing`
+  // resolves to undefined and the toast is handed null — the "you already have
+  // it" message with nowhere to go. Pinned as a distinct case because it is a
+  // second call site, not a second symptom of the one above.
+  it('finds the existing copy on the 409 path when stored casing differs', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'ghost-id' });
+
+    // savedRecipes must be EMPTY at pre-save dedup time, or that branch returns
+    // early and this test silently re-tests the case above instead of the 409
+    // recovery branch. The copy appears only once the save has run — which is
+    // what actually happens: saveRecipeDetailed cleans up the ghost and the
+    // server row lands in local state.
+    const savedRecipes: unknown[] = [];
+    const { service, saveRecipe } = createService({
+      savedRecipes,
+      alreadySaved: true,
+      fetchResponse: {
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      },
+    });
+    saveRecipe.mockImplementation(async () => {
+      savedRecipes.push({
+        id: 'server-copy',
+        name: 'Thai Peanut Noodles',
+        sourceSlug: 'Thai-Peanut-Noodles',
+      });
+      return { ok: true, alreadySaved: true };
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).toHaveBeenCalledTimes(1);
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'server-copy' })
     );
   });
 
@@ -176,6 +260,40 @@ describe('SsrEntryService', () => {
     expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
   });
 
+  // KAN-241: the server returns 409 RECIPE_ALREADY_SAVED — the client-side dedup
+  // missed it (e.g. the copy has a different sourceSlug casing, or the first sync
+  // hadn't settled yet) but the server caught the duplicate. The ghost must be
+  // cleaned up and the user told they already have it.
+  it('shows the already-saved toast when the server returns a duplicate 409', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'ghost-id' });
+
+    const { service, saveRecipe } = createService({
+      savedRecipes: [],
+      alreadySaved: true,
+      fetchResponse: {
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      },
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).toHaveBeenCalledTimes(1);
+    // Asserted as exactly `null`, not `expect.any(Object)`: `typeof null ===
+    // 'object'`, so the looser matcher accepted null by accident and could not
+    // tell "toast got the existing copy" from "toast got nothing". The service
+    // deliberately passes null here — the ghost was just removed and the real
+    // copy has not hydrated — so pin that contract rather than a matcher that
+    // holds either way.
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      null
+    );
+    // Must NOT show "saved to your cookbook" or "on this device"
+    expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
+    expect(toastShow.mock.calls[0][0]).not.toMatch(/on this device/i);
+  });
+
   it('rejects invalid slugs without making API calls', async () => {
     const { service, saveRecipe } = createService({});
 
@@ -258,9 +376,9 @@ describe('SsrEntryService', () => {
     // handleSave can never observe the row the save just wrote, and the
     // duplicate toast this guards against becomes unreproducible.
     const createPersistingService = (savedRecipes: unknown[]) => {
-      const saveRecipe = vi.fn().mockImplementation(async (recipe: unknown) => {
+      const saveRecipeDetailed = vi.fn().mockImplementation(async (recipe: unknown) => {
         savedRecipes.push(recipe);
-        return true;
+        return { ok: true };
       });
       const injector = Injector.create({
         providers: [
@@ -274,7 +392,7 @@ describe('SsrEntryService', () => {
           },
           {
             provide: PersistenceService,
-            useValue: { saveRecipe, firstSyncSettled: Promise.resolve() },
+            useValue: { saveRecipeDetailed, firstSyncSettled: Promise.resolve() },
           },
           { provide: ToastService, useValue: { show: toastShow } },
         ],
@@ -287,7 +405,7 @@ describe('SsrEntryService', () => {
         })
       );
       const service = runInInjectionContext(injector, () => new SsrEntryService());
-      return { service, saveRecipe };
+      return { service, saveRecipe: saveRecipeDetailed };
     };
 
     it('emits exactly one toast on the ordinary single-invocation path', async () => {
