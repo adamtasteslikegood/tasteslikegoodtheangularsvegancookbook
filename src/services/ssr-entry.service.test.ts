@@ -79,6 +79,82 @@ describe('SsrEntryService', () => {
     );
   });
 
+  // The incoming slug is lowercased by handleSave, but persisted sourceSlug/slug
+  // come from localStorage and the API, which that guard never touched. Comparing
+  // them raw made a mixed-case stored value miss the dedup — and the miss is
+  // silent, because the 409 path then tells the user they already have the recipe
+  // while the View button loses its target. Both lookups now normalize the stored
+  // side too.
+  it('dedups a stored sourceSlug that differs only in casing', async () => {
+    const { service, saveRecipe } = createService({
+      savedRecipes: [
+        { id: 'legacy-1', name: 'Thai Peanut Noodles', sourceSlug: 'Thai-Peanut-Noodles' },
+      ],
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'legacy-1' })
+    );
+  });
+
+  it('dedups a stored slug that differs only in casing', async () => {
+    const { service, saveRecipe } = createService({
+      savedRecipes: [{ id: 'legacy-2', name: 'Thai Peanut Noodles', slug: 'THAI-PEANUT-NOODLES' }],
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).not.toHaveBeenCalled();
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'legacy-2' })
+    );
+  });
+
+  // The 409 recovery branch has the same defect independently: even once the
+  // server refuses the duplicate, a mixed-case stored value means `existing`
+  // resolves to undefined and the toast is handed null — the "you already have
+  // it" message with nowhere to go. Pinned as a distinct case because it is a
+  // second call site, not a second symptom of the one above.
+  it('finds the existing copy on the 409 path when stored casing differs', async () => {
+    vi.stubGlobal('crypto', { randomUUID: () => 'ghost-id' });
+
+    // savedRecipes must be EMPTY at pre-save dedup time, or that branch returns
+    // early and this test silently re-tests the case above instead of the 409
+    // recovery branch. The copy appears only once the save has run — which is
+    // what actually happens: saveRecipeDetailed cleans up the ghost and the
+    // server row lands in local state.
+    const savedRecipes: unknown[] = [];
+    const { service, saveRecipe } = createService({
+      savedRecipes,
+      alreadySaved: true,
+      fetchResponse: {
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      },
+    });
+    saveRecipe.mockImplementation(async () => {
+      savedRecipes.push({
+        id: 'server-copy',
+        name: 'Thai Peanut Noodles',
+        sourceSlug: 'Thai-Peanut-Noodles',
+      });
+      return { ok: true, alreadySaved: true };
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(saveRecipe).toHaveBeenCalledTimes(1);
+    expect(toastShow).toHaveBeenCalledWith(
+      expect.stringMatching(/already have this recipe/i),
+      expect.objectContaining({ id: 'server-copy' })
+    );
+  });
+
   it('waits for the first server sync so server-only copies are deduped (KAN-139)', async () => {
     // savedRecipes is empty until the sync settles — the matching copy only
     // exists server-side (another device, or a stale local blob).

@@ -11,7 +11,7 @@ import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ModalService } from '../../services/modal.service';
 
-describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
+describe('RecipeDetailComponent route load states (KAN-257)', () => {
   let toastShow: ReturnType<typeof vi.fn>;
   let routerNavigate: ReturnType<typeof vi.fn>;
   let paramSubject: Subject<Map<string, string>>;
@@ -27,7 +27,13 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
     vi.restoreAllMocks();
   });
 
-  const createComponent = (opts: { isGuest?: boolean } = {}) => {
+  const createComponent = (
+    opts: {
+      isGuest?: boolean;
+      authReady?: Promise<void>;
+      generateImage?: () => Promise<string>;
+    } = {}
+  ) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
@@ -49,6 +55,10 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
           useValue: {
             currentUser: () => authUser,
             saveRecipe: vi.fn(),
+            updateRecipeField: vi.fn(),
+            // KAN-257: the route waits for the startup auth check before it
+            // will believe a 404 — the row is session-scoped server-side.
+            ready: opts.authReady ?? Promise.resolve(),
           },
         },
         {
@@ -59,14 +69,19 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
             publishStateSync: () => 'synced',
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: { generateImage: vi.fn(opts.generateImage ?? (async () => '')) },
+        },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
         { provide: ModalService, useValue: { openAuth: vi.fn() } },
       ],
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
-    return { component, persistenceSaveRecipe, authUser };
+    const geminiService = injector.get(GeminiService);
+    const authService = injector.get(AuthService);
+    return { component, persistenceSaveRecipe, authUser, recipeState, geminiService, authService };
   };
 
   const emitId = (id: string) => {
@@ -80,37 +95,311 @@ describe('RecipeDetailComponent.fetchRecipeFromApi error handling', () => {
     paramSubject.next(paramMap as unknown as Map<string, string>);
   };
 
-  it('shows "Recipe not found" toast on 404', async () => {
+  // KAN-257: every one of these used to end in
+  // `router.navigate(['/kitchen'], { replaceUrl: true })`. That erased the
+  // `/recipe/:id` history entry (Back stopped meaning what the user pressed it
+  // for) AND discarded the only thing needed to retry a transient failure.
+  // Dropping `replaceUrl` alone is not the fix either: history becomes
+  // [/kitchen, /recipe/bad, /kitchen] and Back re-enters the bad route,
+  // re-fails, redirects again — an infinite bounce. So: no navigation at all.
+  // The route renders the outcome in place.
+  //
+  // These assertions are poison pills. Any reintroduced redirect fails them.
+  it('shows a not-found state in place on 404, without navigating', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
 
-    createComponent();
+    const { component } = createComponent();
     emitId('missing-id');
-    await vi.waitFor(() => expect(toastShow).toHaveBeenCalled());
+    await vi.waitFor(() => expect(component.loadState()).toBe('not-found'));
 
-    expect(toastShow).toHaveBeenCalledWith('Recipe not found');
-    expect(routerNavigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+    expect(component.isNotFound()).toBe(true);
+    expect(routerNavigate).not.toHaveBeenCalled();
   });
 
-  it('shows server error toast on 500', async () => {
+  it('shows a retryable load-error state on 500, without navigating', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
 
-    createComponent();
+    const { component } = createComponent();
     emitId('broken-id');
-    await vi.waitFor(() => expect(toastShow).toHaveBeenCalled());
+    await vi.waitFor(() => expect(component.loadState()).toBe('load-error'));
 
-    expect(toastShow).toHaveBeenCalledWith('Failed to load recipe. Please try again.');
-    expect(routerNavigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+    expect(component.isLoadError()).toBe(true);
+    expect(routerNavigate).not.toHaveBeenCalled();
   });
 
-  it('shows connection error toast on network failure', async () => {
+  it('treats a literal null 200 body as a retryable load-error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => null,
+      })
+    );
+
+    const { component } = createComponent();
+    emitId('null-row-id');
+    await vi.waitFor(() => expect(component.loadState()).toBe('load-error'));
+
+    expect(component.isLoadError()).toBe(true);
+    expect(routerNavigate).not.toHaveBeenCalled();
+  });
+
+  it('keeps the route on a network failure so a tab-resume blip is recoverable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
-    createComponent();
+    const { component } = createComponent();
     emitId('unreachable-id');
-    await vi.waitFor(() => expect(toastShow).toHaveBeenCalled());
+    await vi.waitFor(() => expect(component.loadState()).toBe('load-error'));
 
-    expect(toastShow).toHaveBeenCalledWith('Connection error. Check your network and try again.');
-    expect(routerNavigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+    expect(routerNavigate).not.toHaveBeenCalled();
+  });
+
+  it('recovers the recipe when Retry is pressed after a transient failure', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'r-1',
+          status: 'ready',
+          is_canonical: false,
+          data: { id: 'r-1', name: 'Vegan Cornbread', ingredients: {}, instructions: [] },
+        }),
+      });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { component } = createComponent();
+    emitId('r-1');
+    await vi.waitFor(() => expect(component.loadState()).toBe('load-error'));
+
+    component.retryLoad();
+    await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+    expect(component.recipe()?.id).toBe('r-1');
+    expect(routerNavigate).not.toHaveBeenCalled();
+  });
+
+  // KAN-257: the row is scoped server-side to the session's user/guest id, so a
+  // read issued before the startup auth check resolves 404s for a recipe the
+  // user genuinely owns. That false 404 is what bounced cold deep links.
+  it('waits for the auth check before treating a miss as not-found', async () => {
+    let releaseAuth: () => void = () => {};
+    const authReady = new Promise<void>((resolve) => {
+      releaseAuth = resolve;
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: 'r-1',
+        status: 'ready',
+        is_canonical: false,
+        data: { id: 'r-1', name: 'Vegan Cornbread', ingredients: {}, instructions: [] },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { component } = createComponent({ authReady });
+    emitId('r-1');
+    await Promise.resolve();
+
+    // Nothing has been asked of the API yet — the session is not established.
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(component.loadState()).toBe('loading');
+
+    releaseAuth();
+    await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  // KAN-257 AC1: a recipe whose TEXT is still being written. The row comes back
+  // 200 with `{"name": "Generating...", ...}` and no ingredients
+  // (generation_api_bp:78), so rendering it raw produced a blank page under a
+  // placeholder title. It now shows a spinner on its own URL and fills in.
+  it('shows a pending state for a still-generating recipe, then fills in', async () => {
+    vi.useFakeTimers();
+    try {
+      const pendingRow = {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'r-1',
+          status: 'generating',
+          is_canonical: false,
+          data: { id: 'r-1', name: 'Generating...' },
+        }),
+      };
+      const readyRow = {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'r-1',
+          status: 'ready',
+          is_canonical: false,
+          data: { id: 'r-1', name: 'Vegan Cornbread', ingredients: {}, instructions: ['bake'] },
+        }),
+      };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(pendingRow)
+        .mockResolvedValueOnce(pendingRow)
+        .mockResolvedValue(readyRow);
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+
+      // Flush the awaits in the load path (auth.ready, fetch, json) without
+      // moving the clock — the poll delay must still be pending here.
+      await vi.advanceTimersByTimeAsync(0);
+      expect(component.loadState()).toBe('pending');
+      expect(routerNavigate).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(2000);
+
+      expect(component.loadState()).toBe('ready');
+      expect(component.recipe()?.name).toBe('Vegan Cornbread');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // KAN-257 regression: the constructor fast-path (`recipe.id === id` already
+  // in state) used to return without cancelling an in-flight `load(otherId)`
+  // from a previous nav. That load's late `viewRecipe(otherId)` then wrote
+  // the wrong recipe under the URL the user was actually on. Repro: land on
+  // A → nav to B (starts fetch(B)) → nav back to A before B resolves → B's
+  // fetch resolves and the page shows B on URL /recipe/A.
+  it('does not let an in-flight load clobber the fast-path adopted recipe', async () => {
+    let releaseFetchB: (value: Response) => void = () => {};
+    const readyRow = (name: string) => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        id: name,
+        status: 'ready',
+        is_canonical: false,
+        data: { id: name, name, ingredients: {}, instructions: [] },
+      }),
+    });
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/A')) return Promise.resolve(readyRow('A'));
+      if (url.includes('/B'))
+        return new Promise<Response>((resolve) => {
+          releaseFetchB = resolve;
+        });
+      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const { component, recipeState } = createComponent();
+
+    // 1. Land on A, wait for it to render.
+    emitId('A');
+    await vi.waitFor(() => expect(component.recipe()?.id).toBe('A'));
+
+    // 2. Nav to B — fetch(B) is pending (never resolved yet).
+    emitId('B');
+    await Promise.resolve();
+
+    // 3. Nav back to A while B is still loading. Fast path adopts A from state.
+    emitId('A');
+    await Promise.resolve();
+    expect(component.recipe()?.id).toBe('A');
+
+    // 4. B's fetch finally resolves. Without the fix, this write clobbers A.
+    releaseFetchB(readyRow('B') as unknown as Response);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(component.recipe()?.id).toBe('A');
+    // The route the user is on still points at A — the singleton must match.
+    expect(recipeState.currentRecipe()?.id).toBe('A');
+  });
+
+  it('surfaces a failed generation instead of an empty recipe page', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          id: 'r-1',
+          status: 'error',
+          is_canonical: false,
+          data: { id: 'r-1', name: 'Generating...' },
+        }),
+      })
+    );
+
+    const { component } = createComponent();
+    emitId('r-1');
+    await vi.waitFor(() => expect(component.loadState()).toBe('generation-failed'));
+
+    expect(routerNavigate).not.toHaveBeenCalled();
+  });
+
+  // KAN-243 tracks in-flight image generation, but only for requests THIS
+  // session issued. Landing on a `generating_image` row from a deep link or a
+  // refresh left nothing tracking it, so the page showed the "no image"
+  // placeholder while the worker was still running.
+  it('renders a generating_image recipe and joins the in-flight image request', async () => {
+    let settleImage: (url: string) => void = () => {};
+    const { component, recipeState, geminiService, authService } = (() => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'r-1',
+            status: 'generating_image',
+            is_canonical: false,
+            data: { id: 'r-1', name: 'Vegan Cornbread', ingredients: {}, instructions: ['bake'] },
+          }),
+        })
+      );
+      return createComponent({
+        generateImage: () =>
+          new Promise<string>((resolve) => {
+            settleImage = resolve;
+          }),
+      });
+    })();
+
+    emitId('r-1');
+    await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+    // The recipe text renders...
+    expect(component.recipe()?.name).toBe('Vegan Cornbread');
+    // ...and the photo slot spins rather than showing the empty placeholder.
+    expect(recipeState.isImageGenerating()).toBe(true);
+    // Joined, not re-queued: force_regenerate must be false.
+    expect(geminiService.generateImage).toHaveBeenCalledWith('r-1', false);
+
+    settleImage('/api/recipes/r-1/image');
+    await vi.waitFor(() => expect(recipeState.isImageGenerating()).toBe(false));
+    expect((component.recipe() as { ai_image_url?: string }).ai_image_url).toBe(
+      '/api/recipes/r-1/image'
+    );
+    expect(authService.updateRecipeField).toHaveBeenCalledWith(
+      'r-1',
+      'ai_image_url',
+      '/api/recipes/r-1/image'
+    );
+    // Public recipes are served `public, max-age=86400`. A `?_t=<epoch>` marker
+    // on a first-time joined generation would fork the CDN cache key from the
+    // canonical URL every other viewer / crawler / OG scraper hits — for bytes
+    // nothing had cached in the first place. The display URL stays canonical
+    // when there was no prior image; the regenerated-at marker is reserved for
+    // true regenerations (which have prior bytes to invalidate).
+    expect(recipeState.imageDisplayUrl('r-1', '/api/recipes/r-1/image')).toBe(
+      '/api/recipes/r-1/image'
+    );
   });
 
   // GH #3263 (KAN-149): GET /api/recipes/:id returns the row shape

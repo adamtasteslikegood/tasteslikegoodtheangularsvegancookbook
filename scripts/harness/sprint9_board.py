@@ -45,14 +45,15 @@ from _jira_client import Jira  # noqa: E402
 # which items D6 pre-authorises. The dependency only points this way: the gate
 # imports nothing from here, and stays the file that is never edited to make a
 # run pass.
-from sprint9_hard_gate import DROPPABLE  # noqa: E402
+from sprint9_hard_gate import ACCEPTANCE, DROPPABLE, SI_EXECUTION  # noqa: E402
 
 RCP_SCRUM_BOARD = 168          # Sprint 8's originBoardId — sprints must match
 SPRINT_NAME = "Sprint 9"
 SPRINT_GOAL = ("Nav-away lifecycle fixes, Valkey response-cache restore (KAN-151), "
                "staging->GCP Cloud Build cutover, v0.4.13.")
 
-# The nine committed SIs from specs/SPRINT_9_PLAN.md, plus the delivery epic.
+# The committed SIs from specs/SPRINT_9_PLAN.md, plus the delivery epic. Chartered
+# as nine; S9 was added mid-sprint on 2026-09-02, so this is ten.
 CHARTER_ISSUES = [
     "RCP-88",                       # epic
     "KAN-255", "KAN-256",           # S1a
@@ -66,7 +67,26 @@ CHARTER_ISSUES = [
     "KAN-195",                      # S6
     "RCP-67",                       # S7  (droppable)
     "KAN-176",                      # S8  (droppable)
+    "KAN-265",                      # S9  (added mid-sprint 2026-09-02; release
+                                    #      blocker on v0.4.13, not droppable —
+                                    #      it carries no D6 timebox)
 ]
+
+# The RCP acceptance rows — the ONLY half of the sprint board 168 can render.
+#
+# Board 168 filters `project = RCP ORDER BY Rank ASC`, so every KAN key above is a
+# sprint member that no column shows. Sprint 8 handled this with one RCP
+# `S<N> acceptance:` Story per SI (RCP-81..RCP-86) alongside its KAN execution rows;
+# Sprint 9 opened with the epic and none of them, and the board displayed a single
+# row for four days. Filed 2026-09-01 as RCP-89..RCP-96 (KAN-260).
+#
+# Read from the gate rather than restated here, so `add`/`status` and the gate can
+# never disagree about which row belongs to which SI. Dependency stays one-way: the
+# gate imports nothing from this file.
+ACCEPTANCE_ISSUES = sorted({v for v in ACCEPTANCE.values() if v})
+
+CHARTER_ISSUES = CHARTER_ISSUES + [k for k in ACCEPTANCE_ISSUES
+                                   if k not in CHARTER_ISSUES]
 
 # Display-name substrings whose status transitions carry no human intent. A row
 # driven only by these is, for board-truth purposes, untouched.
@@ -390,6 +410,16 @@ def cmd_drop(jira, args):
     required item. The charter is emphatic that the drop must actually fire:
     Sprint 8 pre-authorised one and it rolled a fifth time instead. Dropped is a
     valid outcome; rolled is not.
+
+    An SI drops as a UNIT — execution row AND acceptance row. Dropping only the
+    execution key was a real defect introduced alongside the acceptance rows and
+    caught in review on #3471: the hard gate's rule 4 exempts an SI from needing a
+    rendered acceptance row the moment its execution key leaves the sprint, so
+    dropping KAN-209 alone would strand RCP-95 on board 168 — an unexplained row
+    for a supposedly dropped item, with both gates green over it.
+
+    S7 is the degenerate case: RCP-67 is both its own execution and acceptance row,
+    so the pair deduplicates to one key rather than being commented on twice.
     """
     if args.key not in DROPPABLE:
         print("%s is not a D6 pre-authorised drop (droppable: %s) — dropping it "
@@ -400,10 +430,51 @@ def cmd_drop(jira, args):
     if not sprint:
         print("Sprint 9 does not exist", file=sys.stderr)
         return 1
-    jira.comment(args.key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
-                           "Rationale: %s" % args.rationale)
-    jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": [args.key]})
-    print("%s dropped from Sprint 9 (rationale recorded)" % args.key)
+    si = next((s for s, keys in SI_EXECUTION.items() if args.key in keys), None)
+    if not si:
+        print("%s is droppable but has no SI execution mapping — refusing a "
+              "partial drop" % args.key, file=sys.stderr)
+        return 1
+    acceptance = ACCEPTANCE.get(si)
+    if not acceptance:
+        print("%s (%s) has no acceptance-row mapping — refusing a partial drop"
+              % (args.key, si), file=sys.stderr)
+        return 1
+    targets = [args.key]
+    if acceptance not in targets:
+        targets.append(acceptance)
+
+    # Rationale on every row first, then ONE removal call for the pair. Two separate
+    # removals could half-apply on an API failure and leave exactly the stranded row
+    # this is fixing; the Agile backlog endpoint takes a list, so it does not have to.
+    # If comment posting or the removal fails, retract every rationale that
+    # already landed so Jira never claims a row was dropped while it remains
+    # in the sprint. Retraction failures must not mask the original error.
+    posted = []
+    try:
+        for key in targets:
+            jira.comment(key, "[harness] DROPPED from Sprint 9 under charter D6.\n\n"
+                              "Rationale: %s%s" % (
+                                  args.rationale,
+                                  "" if key == args.key else
+                                  "\n\nDropped as part of %s alongside %s — an SI drops "
+                                  "as a unit, execution row and acceptance row together."
+                                  % (si, args.key)))
+            posted.append(key)
+        jira.call("POST", "/rest/agile/1.0/backlog/issue", {"issues": targets})
+    except Exception:
+        for key in posted:
+            try:
+                jira.comment(
+                    key,
+                    "[harness] The DROPPED rationale above did NOT take effect: "
+                    "the atomic removal was aborted and this row is still in "
+                    "Sprint 9. Re-run the drop when the transient condition clears.")
+            except Exception:
+                pass
+        raise
+    print("%s dropped from Sprint 9 (rationale recorded)"
+          % " + ".join(targets))
     return 0
 
 

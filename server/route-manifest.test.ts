@@ -14,7 +14,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Request } from 'express';
 import {
+  absoluteRequestPath,
+  classifyRequest,
   classifyRoute,
+  isExemptFrom,
   isPageSubresource,
   looksLikeStaticAsset,
   SUBRESOURCE_PREFIXES,
@@ -234,5 +237,107 @@ describe('classifyRoute', () => {
     expect(classifyRoute('/evil.js')).toBe('asset');
     expect(classifyRoute('/some/unknown/page')).not.toBe('asset');
     expect(classifyRoute('/kitchen')).not.toBe('asset');
+  });
+});
+
+// ── Request classification (RCP-67) ──────────────────────────────────────
+
+describe('absoluteRequestPath', () => {
+  it('composes baseUrl + path for mount-style middleware', () => {
+    expect(absoluteRequestPath({ baseUrl: '/api', path: '/health' })).toBe('/api/health');
+  });
+
+  it('passes through route-style middleware, where baseUrl is empty', () => {
+    expect(absoluteRequestPath({ baseUrl: '', path: '/browse' })).toBe('/browse');
+  });
+
+  it('trims the trailing slash a bare mount hit produces', () => {
+    // GET /api under `app.use('/api', …)` arrives as baseUrl='/api', path='/'.
+    expect(absoluteRequestPath({ baseUrl: '/api', path: '/' })).toBe('/api');
+  });
+
+  it('keeps the root path intact', () => {
+    expect(absoluteRequestPath({ baseUrl: '', path: '/' })).toBe('/');
+  });
+});
+
+describe('classifyRequest', () => {
+  const req = (over: Record<string, unknown>) =>
+    ({ baseUrl: '', path: '/', headers: {}, ...over }) as unknown as Request;
+
+  it('classifies the health endpoint', () => {
+    expect(classifyRequest(req({ baseUrl: '/api', path: '/health' }))).toBe('health');
+  });
+
+  it('classifies recipe image serving', () => {
+    expect(classifyRequest(req({ baseUrl: '/api', path: '/recipes/abc123/image' }))).toBe(
+      'imageServing'
+    );
+  });
+
+  it('classifies a page subresource', () => {
+    expect(classifyRequest(req({ path: '/static/css/tokens.css' }))).toBe('subresource');
+  });
+
+  it('classifies a crawler on the HTML surface', () => {
+    expect(
+      classifyRequest(
+        req({ path: '/browse', headers: { 'user-agent': 'compatible; Googlebot/2.1' } })
+      )
+    ).toBe('crawler');
+  });
+
+  it('classifies an ordinary navigation as metered', () => {
+    expect(classifyRequest(req({ path: '/browse' }))).toBe('metered');
+  });
+
+  it('prefers the path-based class over the user-agent one', () => {
+    // A crawler fetching an image is reported by what it fetched, not who it is.
+    expect(
+      classifyRequest(
+        req({
+          baseUrl: '/api',
+          path: '/recipes/abc/image',
+          headers: { 'user-agent': 'Googlebot/2.1' },
+        })
+      )
+    ).toBe('imageServing');
+  });
+});
+
+describe('isExemptFrom — the whole rate-limit exemption policy', () => {
+  const req = (over: Record<string, unknown>) =>
+    ({ baseUrl: '', path: '/', headers: {}, ...over }) as unknown as Request;
+
+  it('the api limiter exempts health and image serving', () => {
+    expect(isExemptFrom('api', req({ baseUrl: '/api', path: '/health' }))).toBe(true);
+    expect(isExemptFrom('api', req({ baseUrl: '/api', path: '/recipes/x/image' }))).toBe(true);
+  });
+
+  // The load-bearing negative: the crawler exemption must never reach the
+  // endpoints that bill Gemini/Imagen.
+  it('the api limiter does NOT exempt crawlers', () => {
+    const crawler = req({
+      baseUrl: '/api',
+      path: '/generate',
+      headers: { 'user-agent': 'Googlebot/2.1' },
+    });
+    expect(isExemptFrom('api', crawler)).toBe(false);
+  });
+
+  it('the page limiter exempts subresources and crawlers', () => {
+    expect(isExemptFrom('page', req({ path: '/static/css/tokens.css' }))).toBe(true);
+    expect(
+      isExemptFrom('page', req({ path: '/browse', headers: { 'user-agent': 'Bingbot/2.0' } }))
+    ).toBe(true);
+  });
+
+  it('the page limiter still meters real navigations', () => {
+    expect(isExemptFrom('page', req({ path: '/browse' }))).toBe(false);
+    expect(isExemptFrom('page', req({ path: '/r/some-recipe' }))).toBe(false);
+  });
+
+  it('the expensive limiter exempts nothing', () => {
+    expect(isExemptFrom('expensive', req({ baseUrl: '/api', path: '/health' }))).toBe(false);
   });
 });
