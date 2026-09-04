@@ -85,12 +85,14 @@ case "${1:-}" in
   --preflight) MODE="preflight" ;;
   --help | -h)
     # Print the header block: every line from 2 up to the first line that is
-    # not a comment. Derived rather than a hardcoded range — the previous
-    # `sed -n '2,36p'` had to be corrected once when the header grew, and then
-    # silently truncated the REQUIREMENTS block the next time it grew again.
-    # A range that must be re-tuned whenever the file above it changes is a
-    # latent bug, not a constant.
-    awk 'NR == 1 { next } /^#/ { print; next } { exit }' "$0"
+    # neither a comment nor a blank separator. Derived rather than a hardcoded
+    # range — the previous `sed -n '2,36p'` had to be corrected once when the
+    # header grew, and then silently truncated the REQUIREMENTS block the next
+    # time it grew again. Blank lines are accepted so that a maintainer who
+    # inserts an empty separator inside the header for readability does not
+    # silently truncate --help — same failure class the range comment was
+    # written to avoid.
+    awk 'NR == 1 { next } /^#/ || /^$/ { print; next } { exit }' "$0"
     exit 0
     ;;
   "") ;;

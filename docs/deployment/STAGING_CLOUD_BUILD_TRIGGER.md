@@ -186,12 +186,12 @@ lose them.
   reference posture recommended above.
 - **Migrate Job naming.** The workflow drove `flask-staging-migrate`, created in
   the console on 2026-08-24. `cloudbuild.staging.yaml` defaults `_MIGRATE_JOB` to
-  **`flask-backend-staging-migrate`** and uses `gcloud run jobs deploy`, which
-  creates the Job if absent. So the first trigger-driven build does **not** fail
-  — it creates a _second_ migrate Job and leaves the original orphaned. Decide
-  one way before cutover: either set `_MIGRATE_JOB: flask-staging-migrate` to
-  adopt the existing Job, or accept the new name and delete the old Job. Leaving
-  both is drift with a fuse on it.
+  **`flask-staging-migrate`** (fixed in `77fa424`, previously
+  `flask-backend-staging-migrate`), so the first trigger-driven build adopts the
+  existing Job rather than provisioning an orphaned second one. `gcloud run jobs
+  deploy` creates the Job if absent, so a rename of that substitution is silent
+  drift with a fuse on it — if you change `_MIGRATE_JOB`, also delete or rename
+  the old Job in the same change.
 - **`staging-v*` was already the workflow's trigger pattern.** Deleting the
   workflow and creating the trigger are therefore the _same_ cutover, not two
   independent steps — see below.
