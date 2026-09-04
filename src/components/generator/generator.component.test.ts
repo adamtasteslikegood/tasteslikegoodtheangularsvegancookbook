@@ -52,6 +52,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
           useValue: {
             saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
+            // KAN-255 post-image reconcile; null = row unreadable, the
+            // branch that leaves the optimistic local write standing.
+            refreshRecipeFromApi: vi.fn().mockResolvedValue(null),
             publishStateSync: () => 'synced',
           },
         },
@@ -62,7 +65,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       ],
     });
     const component = runInInjectionContext(injector, () => new GeneratorComponent());
-    return { component, persistenceSaveRecipe, authUser };
+    return { component, persistenceSaveRecipe, authUser, recipeState, injector };
   };
 
   const draftRecipe = () =>
@@ -217,5 +220,54 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(component.formatAmount(0.5)).toBe('1/2');
     expect(component.formatAmount(2)).toBe('2');
     expect(component.formatAmount([1, 2])).toBe('1 - 2');
+  });
+
+  // KAN-256: `clearRecipe()` fired inside onGenerate() — submit-time, not
+  // entry-time. The recipe lives on RecipeStateService (a root singleton) so
+  // it outlived the component, and navigating back to the generator re-showed
+  // the previous result under an empty prompt box. Route entry recreates the
+  // component, so constructing a second one IS the repro.
+  describe('route entry reset (KAN-256)', () => {
+    it('shows an empty form when the generator is entered again', () => {
+      const { component, recipeState, injector } = createComponent({ isGuest: false });
+      recipeState.viewRecipe(draftRecipe());
+      expect(component.recipe()).not.toBeNull();
+
+      const reEntered = runInInjectionContext(injector, () => new GeneratorComponent());
+
+      expect(reEntered.recipe()).toBeNull();
+      expect(reEntered.prompt()).toBe('');
+      expect(reEntered.error()).toBeNull();
+      expect(reEntered.isSaved()).toBe(false);
+    });
+
+    it('does not cancel an in-flight image generation for the previous recipe', async () => {
+      // The spinner and the KAN-255 reconcile are tracked by recipe id on the
+      // service, so leaving the generator must not discard them — recipe-detail
+      // still has to show the spinner for that recipe.
+      const { recipeState, injector } = createComponent({ isGuest: false });
+      let settle: (url: string) => void = () => {};
+      recipeState.trackImageGeneration(
+        'gen-1',
+        new Promise<string>((resolve) => {
+          settle = resolve;
+        })
+      );
+      recipeState.viewRecipe(draftRecipe());
+      expect(recipeState.isImageGenerating()).toBe(true);
+
+      runInInjectionContext(injector, () => new GeneratorComponent());
+
+      // Cleared here (nothing is being viewed)...
+      expect(recipeState.currentRecipe()).toBeNull();
+      // ...but still tracked, so the recipe's own page still spins.
+      recipeState.viewRecipe(draftRecipe());
+      expect(recipeState.isImageGenerating()).toBe(true);
+
+      settle('/api/recipes/gen-1/image');
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(recipeState.isImageGenerating()).toBe(false);
+    });
   });
 });
