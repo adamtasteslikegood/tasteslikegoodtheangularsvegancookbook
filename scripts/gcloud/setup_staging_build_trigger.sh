@@ -95,7 +95,7 @@ case "${1:-}" in
     ;;
   "") ;;
   *)
-    echo "ERROR: unknown argument '$1' (expected --verify, --dry-run, --preflight)" >&2
+    echo "ERROR: unknown argument '$1' (expected --verify, --dry-run, --preflight, --help)" >&2
     exit 2
     ;;
 esac
