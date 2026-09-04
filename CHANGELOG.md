@@ -13,7 +13,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy
 image correctness, and the model-default alignment. See the Backend section below.
 
-A caching, rate-limiting and save-correctness release.
+A caching, rate-limiting, save-correctness and recipe-lifecycle release.
 
 ### Fixed
 
@@ -32,6 +32,44 @@ A caching, rate-limiting and save-correctness release.
 - **Cookbooks could appear twice in the list** — hydrate did not deduplicate by id, so a
   cookbook present in both the local and server payloads rendered as two entries.
   KAN-242.
+
+- **Guest-to-login hydrate produced a ghost duplicate** — saving a public recipe as
+  a guest then logging in left a zombie copy in localStorage. The server's merge
+  correctly deleted the guest row, but `hydrate()` only compared recipe `id`s, so
+  the stale copy (with a guest-assigned UUID) survived and re-merged on every sync
+  cycle. The identity check now matches `sourceSlug`/`slug` in addition to `id`,
+  mirroring the server's deduplication logic. KAN-265.
+
+- **Recipe detail redirected to /kitchen on any load failure** — a transient error,
+  auth race, or genuine 404 all triggered
+  `router.navigate(['/kitchen'], { replaceUrl: true })`, erasing the history entry
+  so Back did nothing or bounced forever. The route now renders the outcome in place
+  (spinner → recipe, or an actionable message with a retry/back affordance) and
+  waits for `authService.ready` before treating a miss as a real 404.
+  Still-generating recipes show a "still cooking" state instead of a blank page.
+  KAN-257.
+
+- **Worker-written image metadata was never re-read after navigating away** — the
+  Pub/Sub worker writes `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+  status fields from `pending` to `complete`, but the client only wrote back
+  `ai_image_url`. Exporting a single recipe after generating an image showed stale
+  pending statuses and missing fields. `refreshRecipeFromApi()` now re-reads the
+  full row after the image settles. KAN-255.
+
+- **Generator did not reset on route entry** — navigating back to `/` re-rendered
+  the previous result under an empty prompt box because `clearRecipe()` fired at
+  submit-time, not entry-time. Moved to the constructor so route entry starts clean
+  without cancelling in-flight image generation. KAN-256.
+
+- **Duplicate-409 cleanup could delete real recipes** — the save handler removed the
+  local row on any 409, but only `SsrEntryService` creates a throwaway UUID; every
+  other caller passes an `id` that references a real local row. Gated the cleanup to
+  SSR entry saves only. KAN-241.
+
+- **Case-sensitive slug comparison missed duplicates** — stored `sourceSlug`/`slug`
+  values could differ in casing from the incoming slug, bypassing the pre-save dedup
+  and handing a `null` View target to the 409 toast. Both lookups now normalise
+  through a shared `matchesSlug()` predicate. KAN-241, KAN-250.
 
 ### Changed
 
@@ -78,6 +116,17 @@ A caching, rate-limiting and save-correctness release.
   `gcloud run services update`; setting them here is what makes them survive the next
   tagged deploy, since the deploy steps use `--set-env-vars`, which replaces the whole
   environment — KAN-248.
+
+- **Request classification consolidated into one contract** — four unrelated
+  predicates (`shouldSkipRateLimiting`, `isPageSubresource`, `isKnownCrawler`, and
+  an inline API-path check) are now one `classifyRequest()` call with a
+  `LIMITER_EXEMPTIONS` table declaring which request classes each limiter exempts.
+  Notably, crawlers are explicitly _not_ exempted from the API limiter, a property
+  that was previously true only by accident. RCP-67.
+
+- Dependency bumps: Angular 22 group (14 updates), express-rate-limit 8.6.2 → 8.7.0,
+  dd-trace 6.12.0 → 6.13.0, @types/node 26.3.0 → 26.4.0, linting group (2 updates),
+  fast-uri, npm_and_yarn group (3 updates), GitHub Actions group (5 updates).
 
 ### Backend (`6becf93` → `f64174d`, 31 commits)
 
