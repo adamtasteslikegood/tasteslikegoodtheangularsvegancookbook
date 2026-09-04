@@ -2,7 +2,7 @@ import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook } from '../auth.types';
-import { recipeFromRow, RecipeRow } from '../utils/recipe-row';
+import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
  * Why a save did not land (KAN-155).
@@ -302,6 +302,56 @@ export class PersistenceService {
     }
 
     return outcome;
+  }
+
+  /**
+   * KAN-255 — re-read ONE recipe's authoritative row and merge it into local state.
+   *
+   * The image pipeline finishes server-side. The Pub/Sub worker writes
+   * `ai_image_gcs`, `ai_metadata.image_generation`, and flips
+   * `ai_metadata.image_request.status` / `ai_metadata.image_enqueue.status` from
+   * `pending` to `complete` (Backend `worker_api_bp._image_generation_metadata`).
+   * The client only ever wrote `ai_image_url` back, so navigating away during
+   * image generation and returning left the in-memory copy AND localStorage
+   * still claiming the image was pending — visible the moment a single recipe
+   * was exported as JSON.
+   *
+   * Contract, deliberately narrow:
+   *  - Never rejects. This runs as a background reconcile after an image
+   *    settles; a failed reconcile must not take the caller down. Resolves to
+   *    the merged recipe, or `null` when the row could not be read.
+   *  - Local write only. The row came FROM the server, so POSTing it back is a
+   *    pointless round trip that can also lose a race with the worker.
+   *  - Never ADDS a row. A cold deep-linked recipe (recipe-detail, saved=false)
+   *    is not in the user's cookbook, and a background image reconcile must not
+   *    be the thing that saves it for them.
+   *  - The server wins for the image-pipeline fields ONLY
+   *    (`adoptImagePipelineFields`), not wholesale. Adopting the whole row here
+   *    reverted a concurrent notes edit or publish made during the 30-60s image
+   *    window, and — because `saveNotes` POSTs the whole recipe — the next save
+   *    after that clobber wrote the stale copy back to the server for good.
+   */
+  async refreshRecipeFromApi(recipeId: string): Promise<Recipe | null> {
+    if (!this.auth.currentUser()) return null;
+    try {
+      const res = await this._fetch(`/api/recipes/${encodeURIComponent(recipeId)}`);
+      if (!res.ok) return null;
+      // Column-over-blob merge (KAN-139) — same contract as loadFromApi and
+      // recipe-detail's cold deep-link fetch. See utils/recipe-row.ts.
+      const fresh = recipeFromRow(await res.json());
+      if (!fresh?.id || fresh.id !== recipeId) return null;
+      const current = this.auth.currentUser();
+      const local = current?.savedRecipes.find((r) => r.id === fresh.id);
+      if (!local) return fresh;
+      // Merge onto the SAVED row, not onto `fresh`: anything the user changed
+      // locally while the image was generating lives here and must survive.
+      const merged = adoptImagePipelineFields(local, fresh);
+      this.auth.saveRecipe(merged);
+      return merged;
+    } catch (err) {
+      console.warn(`[PersistenceService] refreshRecipeFromApi failed for ${recipeId}:`, err);
+      return null;
+    }
   }
 
   async deleteRecipe(recipeId: string): Promise<void> {

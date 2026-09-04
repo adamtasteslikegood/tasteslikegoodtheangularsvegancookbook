@@ -16,6 +16,30 @@ export class GeneratorComponent extends RecipeViewBase {
   error = signal<string | null>(null);
 
   /**
+   * KAN-256 — the generator resets on ROUTE ENTRY, not on submit.
+   *
+   * `clearRecipe()` used to fire only inside `onGenerate()`, which is
+   * submit-time. The generated recipe lives on `RecipeStateService`, a
+   * root-scoped singleton that outlives this component, so navigating away and
+   * back re-rendered the *previous* recipe under an empty prompt box — the
+   * "why is my old recipe still here" report.
+   *
+   * The constructor is the right hook because route entry is exactly when
+   * Angular creates this component: navigating to `/` from another route
+   * destroys and recreates it, while staying on `/` reuses the instance and so
+   * does not clear a result the user is still reading.
+   *
+   * This deliberately does NOT cancel an in-flight image generation. That is
+   * tracked on the service by recipe id, so the spinner keeps running on
+   * recipe-detail and the KAN-255 metadata reconcile still lands — the
+   * generator just is not the surface showing it any more.
+   */
+  constructor() {
+    super();
+    this.recipeState.clearRecipe();
+  }
+
+  /**
    * A guest activating the publish toggle gets the sign-in modal here, where
    * recipe-detail stays silent (its template renders a dedicated "Sign in to
    * publish" button instead — #3211).
@@ -44,32 +68,15 @@ export class GeneratorComponent extends RecipeViewBase {
       this.recipe.set(generatedRecipe);
       this.isSaved.set(true);
       await this.persistenceService.saveRecipe(generatedRecipe);
-      this.triggerImageGeneration(generatedRecipe);
+      // Fire-and-forget: the image takes far longer than the recipe text, and
+      // the user must be able to read (and leave) the recipe while it renders.
+      void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
       this.error.set(message);
     } finally {
       this.isRecipeLoading.set(false);
-    }
-  }
-
-  async triggerImageGeneration(recipe: Recipe) {
-    const targetId = recipe.id;
-    const imagePromise = this.geminiService.generateImage(targetId);
-    this.recipeState.trackImageGeneration(targetId, imagePromise);
-    try {
-      const imageUrl = await imagePromise;
-      if (this.recipe()?.id === targetId) {
-        this.generatedImageUrl.set(imageUrl);
-        this.recipe.update((r) => (r ? { ...r, ai_image_url: imageUrl } : null));
-      }
-      this.authService.updateRecipeField(targetId, 'ai_image_url', imageUrl);
-    } catch (err) {
-      console.error('Image generation failed', err);
-      if (this.recipe()?.id === targetId) {
-        this.toastService.show("Couldn't generate the image. You can retry from the recipe page.");
-      }
     }
   }
 
