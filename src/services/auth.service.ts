@@ -273,7 +273,8 @@ export class AuthService {
 
     // Merge ai_image_url from localStorage into API recipes. The API may
     // not have the URL yet if Pub/Sub image generation hasn't completed;
-    // localStorage has it from the optimistic update in triggerImageGeneration.
+    // localStorage has it from the optimistic update in
+    // RecipeViewBase.runImageGeneration (was triggerImageGeneration, KAN-255).
     //
     // KAN-265: the localOnly filter above may now drop a local recipe whose
     // id doesn't match the API record but whose sourceSlug/slug does (the
