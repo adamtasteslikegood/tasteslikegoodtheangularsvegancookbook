@@ -41,12 +41,13 @@ A caching, rate-limiting, save-correctness and recipe-lifecycle release.
   mirroring the server's deduplication logic. KAN-265.
 
 - **Recipe detail redirected to /kitchen on any load failure** — a transient error,
-  auth race, or genuine 404 all triggered `router.navigate(['/kitchen'], {
-replaceUrl: true })`, erasing the history entry so Back did nothing or bounced
-  forever. The route now renders the outcome in place (spinner → recipe, or an
-  actionable message with a retry/back affordance) and waits for `authService.ready`
-  before treating a miss as a real 404. Still-generating recipes show a "still
-  cooking" state instead of a blank page. KAN-257.
+  auth race, or genuine 404 all triggered
+  `router.navigate(['/kitchen'], { replaceUrl: true })`, erasing the history entry
+  so Back did nothing or bounced forever. The route now renders the outcome in place
+  (spinner → recipe, or an actionable message with a retry/back affordance) and
+  waits for `authService.ready` before treating a miss as a real 404.
+  Still-generating recipes show a "still cooking" state instead of a blank page.
+  KAN-257.
 
 - **Worker-written image metadata was never re-read after navigating away** — the
   Pub/Sub worker writes `ai_image_gcs`, `ai_metadata.image_generation`, and flips
