@@ -96,19 +96,20 @@ done, do not read this sprint's throughput as a rate.
 
 ## Aging table (standing artifact — Sprint 6 retro action)
 
-| Item    | Filed      | Age (d) | Sprint history          | Disposition                   |
-| ------- | ---------- | ------- | ----------------------- | ----------------------------- |
-| KAN-255 | 2026-08-27 | 0       | New                     | **Commit — S1a**              |
-| KAN-256 | 2026-08-27 | 0       | New                     | **Commit — S1a**              |
-| KAN-257 | 2026-08-27 | 0       | New                     | **Commit — S1b**              |
-| KAN-151 | 2026-07-24 | 34      | Rolled S7→S8→S9         | **Commit — ANCHOR**           |
-| KAN-249 | 2026-08-25 | 2       | New (Sprint 8 residual) | **Commit**                    |
-| KAN-250 | 2026-08-25 | 2       | New (Sprint 8 residual) | **Commit**                    |
-| KAN-248 | 2026-08-24 | 3       | Rolled S8→S9            | **Commit**                    |
-| KAN-209 | 2026-08-07 | 20      | Never committed         | **Commit — half-day timebox** |
-| KAN-195 | 2026-07-31 | 27      | Never committed         | **Commit**                    |
-| RCP-67  | 2026-08-01 | 26      | Never committed         | **Commit — half-day timebox** |
-| KAN-176 | 2026-07-28 | 30      | Never committed         | **Commit — half-day timebox** |
+| Item    | Filed      | Age (d) | Sprint history          | Disposition                                        |
+| ------- | ---------- | ------- | ----------------------- | -------------------------------------------------- |
+| KAN-255 | 2026-08-27 | 9       | New                     | **Done** — PR #3450, shipped v0.4.13               |
+| KAN-256 | 2026-08-27 | 9       | New                     | **Done** — PR #3450, shipped v0.4.13               |
+| KAN-257 | 2026-08-27 | 9       | New                     | **Done** — PR #3452, shipped v0.4.13               |
+| KAN-151 | 2026-07-24 | 43      | Rolled S7→S8→S9         | **Done** — Backend #299/#301, shipped v0.4.13      |
+| KAN-249 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Done** — PR #3441, shipped v0.4.13               |
+| KAN-250 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Deferred** — PR #3449 closed, rethinking for S10 |
+| KAN-258 | 2026-08-27 | 9       | New (replaces KAN-248)  | **Done** — PR #3483, shipped v0.4.13               |
+| KAN-209 | 2026-08-07 | 29      | Never committed         | **Done** — PR #3465, shipped v0.4.13               |
+| KAN-195 | 2026-07-31 | 36      | Never committed         | **Done** — Backend #300/#301, shipped v0.4.13      |
+| RCP-67  | 2026-08-01 | 35      | Never committed         | **Done** — PR #3451, shipped v0.4.13               |
+| KAN-176 | 2026-07-28 | 39      | Never committed         | **Done** — cutover applied, shipped v0.4.13        |
+| KAN-265 | 2026-09-02 | 3       | Added mid-sprint (S9)   | **Done** — PR #3472, shipped v0.4.13               |
 
 ## Mid-sprint reconcile — 2026-09-01
 
@@ -482,3 +483,42 @@ Sprint 9 is closed when:
 5. Jira tickets transitioned with evidence linked — no row moves on a merge alone.
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
+
+### Close-out — 2026-09-05
+
+**v0.4.13 deployed and verified in production 2026-09-04.** Marker string
+`refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
+
+**Final tally: 9 of 10 items Done, 1 deferred.**
+
+| SI      | Ticket            | Outcome                                                           |
+| ------- | ----------------- | ----------------------------------------------------------------- |
+| **S1a** | KAN-255 + KAN-256 | **Done** — PR #3450. Adam verified on staging                     |
+| **S1b** | KAN-257           | **Done** — PR #3452. Adam verified on staging                     |
+| **S2**  | KAN-151           | **Done** — Backend #299/#301, pinned `f64174d`. Prod-verified     |
+| **S3**  | KAN-249 / KAN-250 | **Split.** KAN-249 Done (#3441). KAN-250 **deferred** — PR #3449 closed, rethinking approach (Cloud Deploy) for Sprint 10 |
+| **S4**  | KAN-258           | **Done** — PR #3483 (release). Tag `v0.4.13` pushed, Cloud Build triggered |
+| **S5**  | KAN-209           | **Done** — PR #3465. RESP2 pin removed; RESP3 exercised against `veganchef-valkeymem-test` (Valkey 8.0.6, IAM_AUTH) |
+| **S6**  | KAN-195           | **Done** — Backend #300/#301. Versioned public image URLs         |
+| **S7**  | RCP-67            | **Done** — PR #3451. Route manifest + IPv6 masking                |
+| **S8**  | KAN-176           | **Done** — Path B cutover applied 2026-08-28, two guards live     |
+| **S9**  | KAN-265           | **Done** — PR #3472. Guest→login dedup by sourceRecipeId/sourceSlug/slug |
+
+**D6 drops:** None exercised. All three timeboxed items (S5, S7, S8) completed
+within their half-day budget.
+
+**Close-out checklist:**
+
+- [x] All SIs pass acceptance or are deferred with rationale
+- [x] Gate passes on all merged PRs; Copilot findings addressed
+- [x] v0.4.13 live in production, verified by content (`refreshRecipeFromApi`)
+- [x] Aging table updated with final dispositions
+- [x] Jira tickets transitioned with evidence comments (D4)
+- [x] Sprint 52 closed via Agile API (`completeDate: 2026-09-06`)
+- [x] RCP-88 epic → Done
+- [x] Retrospective page created on Confluence under parent `50298881`
+
+**KAN-151 history note.** This ticket rolled from Sprint 7 → Sprint 8 → Sprint 9.
+Forty-three days from filing to close. The response cache has been non-functional
+since merge `07123c2` on 2026-04-12 — nearly five months. It is now live on Valkey
+in production.
