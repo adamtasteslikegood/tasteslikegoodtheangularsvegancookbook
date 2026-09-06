@@ -5,8 +5,8 @@ Run with `/cs:grill-product` against Adam's plan: "get back to improving the fro
 **Structure gate:** `specs/discovery/sprint10/ost.json` passes `ost_linter.py` (8 opportunities, 0 violations, exit 0). Re-run:
 
 ```bash
-OST_LINTER=/path/to/product-skills/scripts/ost_linter.py \
-  python3 "$OST_LINTER" --input specs/discovery/sprint10/ost.json --output human
+: "${OST_LINTER:?Set OST_LINTER to the installed product-skills ost_linter.py}"
+python3 "$OST_LINTER" --input specs/discovery/sprint10/ost.json --output human
 ```
 
 ## Locked decisions
