@@ -3,9 +3,9 @@
 _Chartered:_ 2026-08-27 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-88** (delivery/acceptance)
 _Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8) · **RCP-97** (S9, added 2026-09-02)
-_Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-258 · KAN-209 · KAN-195 · RCP-67 · KAN-176 · KAN-265**
+_Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249 · KAN-250 · KAN-258 · KAN-209 · KAN-195 · RCP-67 · KAN-176 · KAN-265**
 (KAN = execution, RCP = scope/acceptance)
-_Jira sprint:_ **Sprint 9** — id **52** on board **168**, active.
+_Jira sprint:_ **Sprint 9** — id **52** on board **168**, closed 2026-09-05 America/Los_Angeles (`completeDate` 2026-09-06 UTC).
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
 _Status:_ **Chartered via `/cs:grill-pm`, 2026-08-27.** All six branches locked by Adam.
 
@@ -194,9 +194,9 @@ The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope t
 That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
 from Railway Postgres to CloudSQL"_, a subtask of KAN-244 that genuinely completed on
 2026-08-24. The model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed
-2026-08-27. See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. The charter
-rows and the two PR titles still carry the old key and want re-keying — left alone here
-so this reconcile stays a status update rather than a scope edit.
+2026-08-27. See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. At the time of this mid-sprint reconcile, the committed-scope S4 row/heading and the
+two PR titles still carried the old key and wanted re-keying; they were left alone here
+so the reconcile stayed a status update rather than a scope edit.
 
 ### Board corrections made, with evidence
 
