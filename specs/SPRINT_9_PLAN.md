@@ -488,7 +488,7 @@ Sprint 9 is closed when:
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
 
-### Close-out result — 2026-09-05 (America/Los_Angeles)
+### Administrative close-out result — 2026-09-05 (America/Los_Angeles)
 
 **v0.4.13 deployed and verified in production 2026-09-04.** Marker string
 `refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
@@ -511,7 +511,7 @@ Sprint 9 is closed when:
 **D6 drops:** None exercised. All three timeboxed items (S5, S7, S8) completed
 within their half-day budget.
 
-**Close-out checklist:**
+**Close-out checklist (administratively closed; charter close pending):**
 
 - [ ] Every committed SI passes or is dropped under D6; pending an explicit S3/KAN-250 charter amendment
 - [x] Gate passes on all merged PRs; Copilot findings addressed
