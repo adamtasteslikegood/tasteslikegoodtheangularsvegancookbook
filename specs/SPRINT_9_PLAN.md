@@ -484,7 +484,7 @@ Sprint 9 is closed when:
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
 
-### Close-out — 2026-09-05
+### Close-out — 2026-09-05 (America/Los_Angeles)
 
 **v0.4.13 deployed and verified in production 2026-09-04.** Marker string
 `refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
@@ -514,7 +514,7 @@ within their half-day budget.
 - [x] v0.4.13 live in production, verified by content (`refreshRecipeFromApi`)
 - [x] Aging table updated with final dispositions
 - [x] Jira tickets transitioned with evidence comments (D4)
-- [x] Sprint 52 closed via Agile API (`completeDate: 2026-09-06`)
+- [x] Sprint 52 closed via Agile API (`completeDate` falls on 2026-09-06 UTC)
 - [x] RCP-88 epic → Done
 - [x] Retrospective page created on Confluence under parent `50298881`
 
