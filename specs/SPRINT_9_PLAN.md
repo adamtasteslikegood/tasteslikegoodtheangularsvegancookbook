@@ -2,8 +2,8 @@
 
 _Chartered:_ 2026-08-27 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-88** (delivery/acceptance)
-_Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8)
-_Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-248 · KAN-209 · KAN-195 · RCP-67 · KAN-176**
+_Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8) · **RCP-97** (S9, added 2026-09-02)
+_Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-258 · KAN-209 · KAN-195 · RCP-67 · KAN-176 · KAN-265**
 (KAN = execution, RCP = scope/acceptance)
 _Jira sprint:_ **Sprint 9** — id **52** on board **168**, active.
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
@@ -491,18 +491,18 @@ Sprint 9 is closed when:
 
 **Final tally: 9 of 10 SIs fully Done; S3 split — KAN-249 Done, KAN-250 deferred.**
 
-| SI      | Ticket            | Outcome                                                           |
-| ------- | ----------------- | ----------------------------------------------------------------- |
-| **S1a** | KAN-255 + KAN-256 | **Done** — PR #3450. Adam verified on staging                     |
-| **S1b** | KAN-257           | **Done** — PR #3452. Adam verified on staging                     |
-| **S2**  | KAN-151           | **Done** — Backend #299/#301, pinned `f64174d`. Prod-verified     |
+| SI      | Ticket            | Outcome                                                                                                                   |
+| ------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **S1a** | KAN-255 + KAN-256 | **Done** — PR #3450. Adam verified on staging                                                                             |
+| **S1b** | KAN-257           | **Done** — PR #3452. Adam verified on staging                                                                             |
+| **S2**  | KAN-151           | **Done** — Backend #299/#301, pinned `f64174d`. Prod-verified                                                             |
 | **S3**  | KAN-249 / KAN-250 | **Split.** KAN-249 Done (#3441). KAN-250 **deferred** — PR #3449 closed, rethinking approach (Cloud Deploy) for Sprint 10 |
-| **S4**  | KAN-258           | **Done** — PR #3483 (release). Tag `v0.4.13` pushed, Cloud Build triggered |
-| **S5**  | KAN-209           | **Done** — PR #3465. RESP2 pin removed; RESP3 exercised against `veganchef-valkeymem-test` (Valkey 8.0.6, IAM_AUTH) |
-| **S6**  | KAN-195           | **Done** — Backend #300/#301. Versioned public image URLs         |
-| **S7**  | RCP-67            | **Done** — PR #3451. Route manifest + IPv6 masking                |
-| **S8**  | KAN-176           | **Done** — Path B cutover applied 2026-08-28, two guards live     |
-| **S9**  | KAN-265           | **Done** — PR #3472. Guest→login dedup by sourceRecipeId/sourceSlug/slug |
+| **S4**  | KAN-258           | **Done** — PR #3483 (release). Tag `v0.4.13` pushed, Cloud Build triggered                                                |
+| **S5**  | KAN-209           | **Done** — PR #3465. RESP2 pin removed; RESP3 exercised against `veganchef-valkeymem-test` (Valkey 8.0.6, IAM_AUTH)       |
+| **S6**  | KAN-195           | **Done** — Backend #300/#301. Versioned public image URLs                                                                 |
+| **S7**  | RCP-67            | **Done** — PR #3451. Route manifest + IPv6 masking                                                                        |
+| **S8**  | KAN-176           | **Done** — Path B cutover applied 2026-08-28, two guards live                                                             |
+| **S9**  | KAN-265           | **Done** — PR #3472. Guest→login dedup by sourceRecipeId/sourceSlug/slug                                                  |
 
 **D6 drops:** None exercised. All three timeboxed items (S5, S7, S8) completed
 within their half-day budget.
