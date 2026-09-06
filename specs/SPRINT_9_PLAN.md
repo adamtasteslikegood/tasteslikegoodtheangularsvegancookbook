@@ -489,7 +489,7 @@ Sprint 9 is closed when:
 **v0.4.13 deployed and verified in production 2026-09-04.** Marker string
 `refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
 
-**Final tally: 9 of 10 items Done, 1 deferred.**
+**Final tally: 9 of 10 SIs fully Done; S3 split — KAN-249 Done, KAN-250 deferred.**
 
 | SI      | Ticket            | Outcome                                                           |
 | ------- | ----------------- | ----------------------------------------------------------------- |
