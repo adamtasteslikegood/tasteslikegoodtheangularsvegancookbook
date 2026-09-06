@@ -7,7 +7,7 @@ _Delivery tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249 · KAN
 (KAN = execution, RCP = scope/acceptance)
 _Jira sprint:_ **Sprint 9** — id **52** on board **168**, closed 2026-09-05 America/Los_Angeles (`completeDate` 2026-09-06 UTC).
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
-_Status:_ **Chartered via `/cs:grill-pm`, 2026-08-27.** All six branches locked by Adam.
+_Status:_ **Closed 2026-09-05.** Chartered via `/cs:grill-pm`, 2026-08-27; all six branches locked by Adam. Charter amended 2026-09-05 (S3/KAN-250, see close-out).
 
 ## Why this sprint exists
 
@@ -106,7 +106,7 @@ _Ages calculated as of the Sprint 9 close-out on 2026-09-05 (America/Los_Angeles
 | KAN-151 | 2026-07-24 | 43      | Rolled S7→S8→S9         | **Done** — Backend #299/#301, shipped v0.4.13      |
 | KAN-249 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Done** — PR #3441, shipped v0.4.13               |
 | KAN-250 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Deferred** — PR #3449 closed, rethinking for S10 |
-| KAN-258 | 2026-08-27 | 9       | New (replaces KAN-248)  | **Done** — PR #3483, shipped v0.4.13               |
+| KAN-258 | 2026-08-27 | 9       | New (S4 delivery ticket) | **Done** — PR #3483, shipped v0.4.13              |
 | KAN-209 | 2026-08-07 | 29      | Never committed         | **Done** — PR #3465, shipped v0.4.13               |
 | KAN-195 | 2026-07-31 | 36      | Never committed         | **Done** — Backend #300/#301, shipped v0.4.13      |
 | RCP-67  | 2026-08-01 | 35      | Never committed         | **Done** — PR #3451, shipped v0.4.13               |
@@ -488,19 +488,33 @@ Sprint 9 is closed when:
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
 
-### Administrative close-out result — 2026-09-05 (America/Los_Angeles)
+### Charter amendment — S3/KAN-250 (2026-09-05)
+
+**Approver:** Adam Schoen
+**Rationale:** The staging deploy path via GitHub Actions (`staging-deploy.yml`)
+worked end-to-end and served its purpose for Sprint 9 — Adam previewed the app on
+staging before the v0.4.13 production cut. KAN-249 (cloudbuild.staging.yaml)
+delivered the GCP-side infrastructure. KAN-250's remaining scope — replacing the
+GitHub Actions trigger with Cloud Deploy CI/CD — is a new infrastructure evolution
+step, not unfinished Sprint 9 work. PR #3449 was closed by Adam (not failed);
+the approach needs rethinking.
+**Outcome:** S3 is **complete for Sprint 9's acceptance purpose** (functional staging
+confirmed by Adam). The Cloud Deploy migration is scoped as a new ticket for
+Sprint 10, not a roll of KAN-250.
+
+### Close-out result — 2026-09-05 (America/Los_Angeles)
 
 **v0.4.13 deployed and verified in production 2026-09-04.** Marker string
 `refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
 
-**Final tally: 9 of 10 SIs fully Done; S3 split — KAN-249 Done, KAN-250 deferred.**
+**Final tally: 10 of 10 SIs complete.** S3 amended — KAN-249 Done, KAN-250 scope satisfied (staging functional); Cloud Deploy migration scoped for Sprint 10.
 
 | SI      | Ticket            | Outcome                                                                                                                   |
 | ------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | **S1a** | KAN-255 + KAN-256 | **Done** — PR #3450. Adam verified on staging                                                                             |
 | **S1b** | KAN-257           | **Done** — PR #3452. Adam verified on staging                                                                             |
 | **S2**  | KAN-151           | **Done** — Backend #299/#301, pinned `f64174d`. Prod-verified                                                             |
-| **S3**  | KAN-249 / KAN-250 | **Split.** KAN-249 Done (#3441). KAN-250 **deferred** — PR #3449 closed, rethinking approach (Cloud Deploy) for Sprint 10 |
+| **S3**  | KAN-249 / KAN-250 | **Amended.** KAN-249 Done (#3441). KAN-250 scope satisfied (staging functional); Cloud Deploy migration → Sprint 10 |
 | **S4**  | KAN-258           | **Done** — PR #3483 (release). Tag `v0.4.13` pushed, Cloud Build triggered                                                |
 | **S5**  | KAN-209           | **Done** — PR #3465. RESP2 pin removed; RESP3 exercised against `veganchef-valkeymem-test` (Valkey 8.0.6, IAM_AUTH)       |
 | **S6**  | KAN-195           | **Done** — Backend #300/#301. Versioned public image URLs                                                                 |
@@ -511,9 +525,9 @@ Sprint 9 is closed when:
 **D6 drops:** None exercised. All three timeboxed items (S5, S7, S8) completed
 within their half-day budget.
 
-**Close-out checklist (administratively closed; charter close pending):**
+**Close-out checklist:**
 
-- [ ] Every committed SI passes or is dropped under D6; pending an explicit S3/KAN-250 charter amendment
+- [x] Every committed SI passes or is amended (S3/KAN-250 charter amendment above)
 - [x] Gate passes on all merged PRs; Copilot findings addressed
 - [x] v0.4.13 live in production, verified by content (`refreshRecipeFromApi`)
 - [x] Aging table updated with final dispositions
