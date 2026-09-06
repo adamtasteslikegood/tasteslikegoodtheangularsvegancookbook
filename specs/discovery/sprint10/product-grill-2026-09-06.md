@@ -5,8 +5,8 @@ Run with `/cs:grill-product` against Adam's plan: "get back to improving the fro
 **Structure gate:** `specs/discovery/sprint10/ost.json` passes `ost_linter.py` (8 opportunities, 0 violations, exit 0). Re-run:
 
 ```bash
-python3 ~/.claude/plugins/cache/claude-code-skills/product-skills/2.11.1/skills/product-skills/scripts/ost_linter.py \
-  --input specs/discovery/sprint10/ost.json --output human
+OST_LINTER=/path/to/product-skills/scripts/ost_linter.py \
+  python3 "$OST_LINTER" --input specs/discovery/sprint10/ost.json --output human
 ```
 
 ## Locked decisions
@@ -46,7 +46,7 @@ Google bands: good ≤ 2.5 s, poor > 4.0 s. Images are one full-resolution PNG/J
 
 | Date             | Participant                        | Type             | Task / finding                                                                                            |
 | ---------------- | ---------------------------------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
-| 2026-09 (pre-06) | Non-author, phone (Adam's partner) | usability task   | "Go to the public recipes": failed; needed the link next to Publish or the footer pointed out.            |
+| 2026-09 (pre-06) | Non-author participant, phone      | usability task   | "Go to the public recipes": failed; needed the link next to Publish or the footer pointed out.            |
 | 2026-09-06       | Agent walkthrough (gstack)         | heuristic walk   | Reproduced the same dead end from home and from the Kitchen; save flow from `/r/<slug>` works as a guest. |
 | continuous       | Adam (author)                      | self-observation | Every use; mobile on a throttled connection: one recipe at a time, slow images.                           |
 
