@@ -1,7 +1,7 @@
 assumption,category,risk,certainty,ost_ref,evidence_today
 Mobile visitors who land on /r/<slug> will save a recipe at a measurable rate once nav/images/layout are fixed (the outcome itself),desirability,0.80,0.30,outcome,pre-launch: 0 field data; 1 non-author participant + author self-observation
 Recipes kept per week is the right North Star (a saved recipe is the value moment),viability,0.60,0.50,outcome.metric,PRD KPIs are all TBC; chosen by reasoning not data
-Users who arrive will accept the RUM consent toggle at a rate that leaves usable data,desirability,0.50,0.30,opp5.sol1,no consent data anywhere; privacy policy already promises opt-out
+Enough users opt into RUM for the five inputs to have usable data,desirability,0.50,0.30,opp5.sol1,no consent or opt-in volume data; privacy policy already promises opt-out
 At least one non-author user uses the settings tab within 4 weeks of first users,desirability,0.70,0.20,opp7.sol1,n=1 hypothesis (author); PRD listed model selection as a non-goal
 A first-time visitor finds public recipes unprompted within 30 s when Browse is in the header,usability,0.60,0.70,opp1.sol1,1 observed task failure (non-author phone) + agent walkthrough reproduced the dead end
 Guests who land in an empty Kitchen reach /browse without scrolling once a CTA exists,usability,0.40,0.70,opp1.sol2,agent walkthrough: empty state offers only Go to Generator
