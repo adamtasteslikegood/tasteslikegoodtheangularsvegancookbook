@@ -213,6 +213,7 @@ before moving the row (D4).
   authenticates with Adam's personal token and so reads as "Adam Schoen".
 
 ### `reset-truth` was run as a dry run and deliberately **not** applied
+
 `reset-truth --dry-run --github-correlate` proposed pushing KAN-255, KAN-257, KAN-250,
 KAN-195 and RCP-67 back to **To Do**, by restoring the human statuses of
 `2026-08-27T18:30`. That repair is correct only against the corruption it was written for.
