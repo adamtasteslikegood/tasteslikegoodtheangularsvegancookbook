@@ -14,7 +14,7 @@ LQIP placeholder paints before 1 s with CLS 0 inside the fixed 4:3 container,usa
 Express-side sharp resize proxy over existing PNGs keeps p95 < 300 ms and Cloud Run memory under 1 Gi,feasibility,0.50,0.50,opp3.sol3,express-frontend memory unmeasured for sharp; interim only
 Expiry-aware token refresh + refresh-and-retry-once on AuthenticationError gets redis.command error rate < 1% and image p95 < 2 s,feasibility,0.50,0.70,opp3.child.sol1,root cause evidenced in Cloud Logging + Datadog (KAN-268)
 Dropping the Valkey read-through on the image path alone gets image p95 < 2 s,feasibility,0.40,0.50,opp3.child.sol2,untested alternative; GCS fetch cost unmeasured
-"Find the dessert recipes" completes in <= 30 s in a 134-recipe Kitchen with client-side filter/sort,usability,0.40,0.60,opp4.sol1,inspection: no search/sort today; task not yet run
+"""Find the dessert recipes"" completes in <= 30 s in a 134-recipe Kitchen with client-side filter/sort",usability,0.40,0.60,opp4.sol1,inspection: no search/sort today; task not yet run
 Filtered/sorted /browse pages return 200 cached and do not create duplicate-content indexing (canonical or noindex),viability,0.60,0.50,opp4.sol2,SEO canonical gate exists; filtered views not designed
 Datadog RUM exposes all five North Star inputs within one week of release and consent-decline stops all RUM traffic,feasibility,0.40,0.60,opp5.sol1,Datadog is the incumbent vendor; 0 RUM apps today
 A pushed PR yields a staging preview URL within 10 minutes on the Cloud Deploy path,feasibility,0.50,0.50,opp6.sol1,KAN-250 approach decided by Adam; PR #3449 was closed once as the wrong approach
