@@ -105,7 +105,7 @@ _Ages calculated as of the Sprint 9 close-out on 2026-09-05 (America/Los_Angeles
 | KAN-257 | 2026-08-27 | 9       | New                     | **Done** — PR #3452, shipped v0.4.13               |
 | KAN-151 | 2026-07-24 | 43      | Rolled S7→S8→S9         | **Done** — Backend #299/#301, shipped v0.4.13      |
 | KAN-249 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Done** — PR #3441, shipped v0.4.13               |
-| KAN-250 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Deferred** — PR #3449 closed, rethinking for S10 |
+| KAN-250 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Amended** — scope satisfied; see close-out       |
 | KAN-258 | 2026-08-27 | 9       | New (S4 delivery ticket) | **Done** — PR #3483, shipped v0.4.13              |
 | KAN-209 | 2026-08-07 | 29      | Never committed         | **Done** — PR #3465, shipped v0.4.13               |
 | KAN-195 | 2026-07-31 | 36      | Never committed         | **Done** — Backend #300/#301, shipped v0.4.13      |
