@@ -213,11 +213,11 @@
       "target": false,
       "solutions": [
         {
-          "statement": "Settings tab: default servings, metric/imperial, image generation on/off, model picker bound to GA models from GET /api/models; eval spec (12-prompt golden set, schema-valid >= 98%, p95 <= 20 s, fallback to default) written into the PRD first",
+          "statement": "Settings tab: default servings, metric/imperial, image generation on/off, model picker bound to an explicit server-owned GA allowlist from GET /api/models; KAN-269 must add release-channel filtering before the picker because the current endpoint only filters capabilities. Preview, experimental, and moving latest aliases are excluded. Eval spec (12-prompt golden set, 12/12 schema-valid on first attempt, p95 <= 20 s, fallback to default) written into the PRD first",
           "tests": [
             {
-              "assumption": "Every offered model passes the golden set at >= 98% schema-valid on first attempt",
-              "type": "pytest against recorded fixtures in CI + manual live dispatch"
+              "assumption": "Every offered model is on the explicit GA allowlist and passes all 12 golden-set prompts schema-valid on the first attempt",
+              "type": "Backend pytest for the endpoint allowlist + recorded-fixture eval in CI + manual live dispatch"
             },
             {
               "assumption": "The settings tab is used by at least one non-author user within 4 weeks of first users",
