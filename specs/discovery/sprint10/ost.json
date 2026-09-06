@@ -44,7 +44,7 @@
     },
     {
       "statement": "On a phone a visitor sees at most one recipe at a time; browse is 13,122 px tall for 20 cards and the SPA home shows no recipe at all above the fold",
-      "evidence": "Screenshots /tmp/tlg-739bcad2/mobile-browse.png, mobile-home.png (390x844): 0 complete cards above the fold; Kitchen grid is 1 column under sm",
+      "evidence": "gstack browse at 390x844 on /browse and / (2026-09-06; reproducible with the viewport + screenshot commands in product-grill-2026-09-06.md, Evidence baseline): 0 complete cards above the fold on /browse, the one visible image still blank at 5 s, 0 recipes on /; Kitchen grid is 1 column under the sm breakpoint",
       "target": true,
       "solutions": [
         {
