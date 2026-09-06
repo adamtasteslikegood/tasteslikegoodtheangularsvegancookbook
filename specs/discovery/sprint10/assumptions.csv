@@ -1,0 +1,22 @@
+assumption,category,risk,certainty,ost_ref,evidence_today
+Mobile visitors who land on /r/<slug> will save a recipe at a measurable rate once nav/images/layout are fixed (the outcome itself),desirability,0.80,0.30,outcome,pre-launch: 0 field data; 1 non-author participant + author self-observation
+Recipes kept per week is the right North Star (a saved recipe is the value moment),viability,0.60,0.50,outcome.metric,PRD KPIs are all TBC; chosen by reasoning not data
+Users who arrive will accept the RUM consent toggle at a rate that leaves usable data,desirability,0.50,0.30,opp5.sol1,no consent data anywhere; privacy policy already promises opt-out
+At least one non-author user uses the settings tab within 4 weeks of first users,desirability,0.70,0.20,opp7.sol1,n=1 hypothesis (author); PRD listed model selection as a non-goal
+A first-time visitor finds public recipes unprompted within 30 s when Browse is in the header,usability,0.60,0.70,opp1.sol1,1 observed task failure (non-author phone) + agent walkthrough reproduced the dead end
+Guests who land in an empty Kitchen reach /browse without scrolling once a CTA exists,usability,0.40,0.70,opp1.sol2,agent walkthrough: empty state offers only Go to Generator
+Footer links identical across / /kitchen /browse /r/<slug> makes the bottom of any page a way out,usability,0.20,0.80,opp1.sol3,cosmetic; snapshot diff is deterministic
+>= 4 recipe cards fully visible above the fold at 390x844 with compact 2-up cards (browse and a 134-recipe Kitchen),usability,0.30,0.80,opp2.sol1,screenshots: 0 cards above fold today; layout math
+FCP on / <= 2.0 s at slow-4G via route-level code split + deferred modals + no render-blocking font import,feasibility,0.60,0.40,opp2.sol2,Lighthouse FCP 6.0 s; SPA shell ~1 MB; unknown how much is removable
+Resized WebP variants + width/height + srcset + fetchpriority=high on hero land LCP <= 2.5 s on /r/<slug> and /browse,feasibility,0.70,0.50,opp3.sol1,LCP 7.6/7.7 s driven by 0.9-1.8 MB images; hero at 390 px needs ~100 KB
+Variants stay correctly cache-busted by the existing ?v= hash and 24 h Cache-Control,feasibility,0.40,0.60,opp3.sol1,existing ?v= server-side + _t= client-side busting; not exercised for variants
+LQIP placeholder paints before 1 s with CLS 0 inside the fixed 4:3 container,usability,0.30,0.70,opp3.sol2,CLS is already 0 via fixed containers
+Express-side sharp resize proxy over existing PNGs keeps p95 < 300 ms and Cloud Run memory under 1 Gi,feasibility,0.50,0.50,opp3.sol3,express-frontend memory unmeasured for sharp; interim only
+Expiry-aware token refresh + refresh-and-retry-once on AuthenticationError gets redis.command error rate < 1% and image p95 < 2 s,feasibility,0.50,0.70,opp3.child.sol1,root cause evidenced in Cloud Logging + Datadog (KAN-268)
+Dropping the Valkey read-through on the image path alone gets image p95 < 2 s,feasibility,0.40,0.50,opp3.child.sol2,untested alternative; GCS fetch cost unmeasured
+"Find the dessert recipes" completes in <= 30 s in a 134-recipe Kitchen with client-side filter/sort,usability,0.40,0.60,opp4.sol1,inspection: no search/sort today; task not yet run
+Filtered/sorted /browse pages return 200 cached and do not create duplicate-content indexing (canonical or noindex),viability,0.60,0.50,opp4.sol2,SEO canonical gate exists; filtered views not designed
+Datadog RUM exposes all five North Star inputs within one week of release and consent-decline stops all RUM traffic,feasibility,0.40,0.60,opp5.sol1,Datadog is the incumbent vendor; 0 RUM apps today
+A pushed PR yields a staging preview URL within 10 minutes on the Cloud Deploy path,feasibility,0.50,0.50,opp6.sol1,KAN-250 approach decided by Adam; PR #3449 was closed once as the wrong approach
+Every model offered by the picker passes the 12-prompt golden set at >= 98% schema-valid on first attempt,feasibility,0.50,0.50,opp7.sol1,no golden set exists yet; GET /api/models curated list exists
+Real-anchor header navigation is crawlable and lifts public-recipe discovery via search,viability,0.30,0.70,opp1.sol1,header is <button>s today; dead schema.org SearchAction on /

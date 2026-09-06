@@ -1,0 +1,27 @@
+{
+  "outcome": "More mobile visitors who land on a public recipe page keep a recipe (save into a Kitchen); Sprint 10 exit: mobile LCP <= 2.5 s on /r/<slug>, /browse, / from 7.6 / 7.7 / 6.1 s",
+  "interviews": [
+    {
+      "date": "2026-09 (exact date not recorded; reported 2026-09-06)",
+      "participant": "P1 — non-author, phone (Adam's partner)",
+      "outcome_linked": true,
+      "assumptions_tested": [
+        "A first-time visitor finds public recipes unprompted within 30 s when Browse is in the header"
+      ],
+      "note": "Task 'go to the public recipes' failed; needed the link next to Publish or the footer pointed out. Date unrecorded, so the cadence tracker drops it."
+    }
+  ],
+  "non_interview_observations": [
+    {
+      "date": "2026-09-06",
+      "actor": "agent walkthrough (gstack browse, first-time guest, 390x844)",
+      "finding": "Reproduced the same dead end from home and from the empty Kitchen; guest save from /r/<slug> works; back-to-browse only via footer at y=875 in an 844 px viewport"
+    },
+    {
+      "date": "continuous",
+      "actor": "Adam (author) self-observation",
+      "finding": "Mobile on throttled connection: one recipe at a time, slow images"
+    }
+  ],
+  "assumption_tests": []
+}
