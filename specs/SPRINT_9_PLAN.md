@@ -192,13 +192,15 @@ sprint** and fails when nothing carries it. All 20 sprint-52 members are now lab
 Both gates were run red before the fix and green after — `check_sprint_lane.sh`
 exit 1 → 0, `sprint9_hard_gate.py` exit 1 (8 violations) → 0.
 
-The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope table.
-That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
-from Railway Postgres to CloudSQL"_, a subtask of KAN-244 that genuinely completed on
-2026-08-24. The model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed
-2026-08-27. See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. At the time of this mid-sprint reconcile, the committed-scope S4 row/heading and the
-two PR titles still carried the old key and wanted re-keying; they were left alone here
-so the reconcile stayed a status update rather than a scope edit.
+The delivery summary, aging table, and close-out records key S4 to **KAN-258**, while
+the locked committed-scope table and acceptance heading retain the historical
+**KAN-248** key. This is deliberate: `KAN-248` is _"Migrate staging DB from Railway
+Postgres to CloudSQL"_, a subtask of KAN-244 that completed on 2026-08-24. The
+model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed 2026-08-27.
+See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. At close-out, the
+committed-scope S4 row/heading and the two PR titles still carry the old key; they
+remain unchanged to preserve the historical charter, while current delivery records
+use KAN-258.
 
 ### Board corrections made, with evidence
 
@@ -486,7 +488,7 @@ Sprint 9 is closed when:
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
 
-### Close-out — 2026-09-05 (America/Los_Angeles)
+### Close-out result — 2026-09-05 (America/Los_Angeles)
 
 **v0.4.13 deployed and verified in production 2026-09-04.** Marker string
 `refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
@@ -511,7 +513,7 @@ within their half-day budget.
 
 **Close-out checklist:**
 
-- [x] All SIs pass acceptance or are deferred with rationale
+- [ ] Every committed SI passes or is dropped under D6; pending an explicit S3/KAN-250 charter amendment
 - [x] Gate passes on all merged PRs; Copilot findings addressed
 - [x] v0.4.13 live in production, verified by content (`refreshRecipeFromApi`)
 - [x] Aging table updated with final dispositions
