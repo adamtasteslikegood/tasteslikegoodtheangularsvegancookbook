@@ -6,7 +6,7 @@
   "opportunities": [
     {
       "statement": "First-time visitors cannot find the public recipes from the app's main screens: the header offers Generator / My Kitchen / Sign In, the only route is a footer link, and the empty Kitchen points only at the generator",
-      "evidence": "Observed task failure (Adam's girlfriend, phone, 'go to the public recipes'); Claude walkthrough 2026-09-06 steps 1, 2, 6 (footer link at y=875 in an 844 px viewport)",
+      "evidence": "Observed task failure (non-author participant, phone, 'go to the public recipes'); Claude walkthrough 2026-09-06 steps 1, 2, 6 (footer link at y=875 in an 844 px viewport)",
       "target": true,
       "solutions": [
         {
