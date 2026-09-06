@@ -74,7 +74,7 @@ The repository contains no approved product KPI targets. Baselines, owners, and 
 - Commerce, subscriptions, payments, or advertising.
 - Publishing manually entered recipes.
 - Republishing a copy saved from another public recipe.
-- Consumer-facing model selection.
+- Consumer-facing model selection beyond the curated GA list served by `GET /api/models`. The Sprint 10 picker (KAN-269) is gated by the eval spec in `specs/discovery/sprint10/ost.json` (golden set, schema-valid ≥ 98% per model, fallback to the default model); preview models are never offered.
 - Full recipe editing beyond manual creation and private notes.
 - Durable cross-device recycle bin.
 

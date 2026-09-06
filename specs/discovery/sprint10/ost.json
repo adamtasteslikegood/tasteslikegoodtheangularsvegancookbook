@@ -1,0 +1,232 @@
+{
+  "outcome": {
+    "statement": "More mobile visitors who land on a public recipe page keep a recipe (save it into a Kitchen). Sprint 10 exit number: mobile LCP <= 2.5 s at Lighthouse slow-4G on /r/<slug>, /browse and /, from 7.6 / 7.7 / 6.1 s (2026-09-06 baseline). North Star: recipes kept per week, baseline captured in Sprint 10.",
+    "metric": "recipes kept per week (North Star; inputs: recipe-page reach, view->save, generation+image completion, returning Kitchen use, publication); Sprint 10 gate: mobile LCP <= 2.5 s on the three public surfaces"
+  },
+  "opportunities": [
+    {
+      "statement": "First-time visitors cannot find the public recipes from the app's main screens: the header offers Generator / My Kitchen / Sign In, the only route is a footer link, and the empty Kitchen points only at the generator",
+      "evidence": "Observed task failure (Adam's girlfriend, phone, 'go to the public recipes'); Claude walkthrough 2026-09-06 steps 1, 2, 6 (footer link at y=875 in an 844 px viewport)",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Persistent top navigation with real links (Generator, My Kitchen, Browse) on SPA and SSR, mobile-collapsible, replacing the button-only header",
+          "tests": [
+            {
+              "assumption": "A first-time visitor finds public recipes unprompted within 30 s when Browse is in the header (2 of 3 phone walkthroughs, before/after)",
+              "type": "usability task test"
+            },
+            {
+              "assumption": "Real anchors are crawlable and open-in-new-tab works",
+              "type": "gstack snapshot: header items are <a href>, not <button>"
+            }
+          ]
+        },
+        {
+          "statement": "Empty-Kitchen state and post-save state offer a 'Browse public recipes' call to action next to 'Go to Generator'",
+          "tests": [
+            {
+              "assumption": "Guests who land in an empty Kitchen reach /browse without scrolling",
+              "type": "gstack walkthrough: CTA visible above the fold at 390x844"
+            }
+          ]
+        },
+        {
+          "statement": "Symmetrical footer carrying the same primary links on SPA and SSR, so the bottom of any page is also a way out",
+          "tests": [
+            {
+              "assumption": "Footer links are identical across / , /kitchen, /browse, /r/<slug>",
+              "type": "snapshot diff across the four surfaces"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "On a phone a visitor sees at most one recipe at a time; browse is 13,122 px tall for 20 cards and the SPA home shows no recipe at all above the fold",
+      "evidence": "Screenshots /tmp/tlg-739bcad2/mobile-browse.png, mobile-home.png (390x844): 0 complete cards above the fold; Kitchen grid is 1 column under sm",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Compact 2-up cards with small thumbnails on /browse and the Kitchen below the sm breakpoint",
+          "tests": [
+            {
+              "assumption": ">= 4 recipe cards fully visible above the fold at 390x844 on /browse and in a Kitchen with 134 recipes",
+              "type": "gstack count of cards with bounding box inside viewport"
+            }
+          ]
+        },
+        {
+          "statement": "Shorter SPA shell time-to-first-paint on / (route-level code split, deferred modals, no render-blocking font import) so the first screen is content, not a 6 s blank",
+          "tests": [
+            {
+              "assumption": "FCP on / <= 2.0 s at slow-4G (from 6.0 s)",
+              "type": "Lighthouse mobile, local + staging preview"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "Recipe images take 5+ seconds to appear on a throttled connection and pages look broken while they load; every image is a 0.9-1.8 MB full-resolution PNG/JPEG with no variants, no dimensions, and the SSR hero (the LCP element) is lazy-loaded",
+      "evidence": "Lighthouse 2026-09-06: LCP 7.6 s /r/<slug>, 7.7 s /browse; curl Content-Length on 7 images; recipe.html:38 loading=lazy on hero",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Resized image variants (thumb/card/hero, WebP) generated at upload or on first request and served with width/height, srcset/sizes, fetchpriority=high on the hero, lazy only below the fold",
+          "tests": [
+            {
+              "assumption": "LCP <= 2.5 s on /r/<slug> and /browse at slow-4G; above-the-fold image bytes <= 150 KB",
+              "type": "Lighthouse + network-requests audit"
+            },
+            {
+              "assumption": "Variants are cache-busted correctly by the existing ?v= hash and the 24 h Cache-Control",
+              "type": "curl headers before/after regenerate"
+            }
+          ]
+        },
+        {
+          "statement": "Low-quality placeholder (blurred tiny variant or dominant-colour box) painted in the fixed 4:3 container until the real image arrives",
+          "tests": [
+            {
+              "assumption": "CLS stays 0 and the placeholder paints before 1 s at slow-4G",
+              "type": "Lighthouse CLS + filmstrip"
+            }
+          ]
+        },
+        {
+          "statement": "Interim: Express-side resizing proxy over the existing PNGs (sharp), so the LCP number lands before the full variant pipeline",
+          "tests": [
+            {
+              "assumption": "Proxy resize p95 < 300 ms and Cloud Run memory stays under the 1 Gi limit",
+              "type": "Datadog express-frontend latency + Cloud Run memory metric"
+            }
+          ]
+        }
+      ],
+      "children": [
+        {
+          "statement": "The origin itself adds up to 9 s to an image request whenever the Flask Valkey client's IAM token has expired (33-37 min tokens, fixed 45 min refresh)",
+          "evidence": "KAN-268 / RCP-98: Datadog 51% redis.command errors, image endpoint p95 9.6-11 s; Cloud Logging timeline",
+          "target": true,
+          "solutions": [
+            {
+              "statement": "Expiry-aware token refresh plus refresh-and-retry-once on AuthenticationError, and no redis-py retry on a dead credential (KAN-268)",
+              "tests": [
+                {
+                  "assumption": "redis.command error rate < 1% and PING p50 < 50 ms over 24 h in prod; image endpoint p95 < 2 s",
+                  "type": "Datadog APM aggregate, production"
+                }
+              ]
+            },
+            {
+              "statement": "Alternative: drop the Valkey read-through on the image path and rely on Cloud CDN / Cache-Control alone",
+              "tests": [
+                {
+                  "assumption": "Image p95 < 2 s without the cache layer",
+                  "type": "Datadog APM aggregate after a flag flip on staging preview"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "With 95 public and 134 personal recipes across dozens of cookbooks, there is no way to narrow or order a list: the SPA has no search/sort, /browse takes only ?page, and the home page advertises a schema.org SearchAction that nothing implements",
+      "evidence": "Inspection: kitchen.component.ts filters by cookbook membership only; public_bp.py:492 reads ?page only; index.html:101-106 dead SearchAction",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Client-side filter and sort in the Kitchen (text, tag, cookbook, prep+cook time; newest / A-Z / quickest) over the already-loaded list",
+          "tests": [
+            {
+              "assumption": "'Find the dessert recipes' completes in <= 30 s in a 134-recipe Kitchen on a phone",
+              "type": "usability task test (Adam + 2)"
+            }
+          ]
+        },
+        {
+          "statement": "Server-side query parameters on /browse (q, tag, sort) rendered by SSR with canonical/robots handling, making the SearchAction true",
+          "tests": [
+            {
+              "assumption": "Filtered/sorted browse pages return 200, are cached, and do not create duplicate-content indexing (canonical or noindex on filtered views)",
+              "type": "curl + SEO canonical gate script"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "Nothing measures whether any of this changes user behaviour: no analytics, no RUM, and a privacy policy that promises usage analytics and an opt-out that do not exist",
+      "evidence": "Datadog: 0 RUM apps; grep: no analytics in src/ server/ Backend/; privacy-policy.html:212,385",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Datadog RUM in the SPA and SSR pages at 100% sampling with custom actions for the five North Star inputs, behind a consent toggle wired to trackingConsent",
+          "tests": [
+            {
+              "assumption": "All five inputs (recipe-page reach, view->save, generation+image completion, returning Kitchen use, publication) are queryable in Datadog within one week of release, and declining consent stops all RUM traffic",
+              "type": "Datadog RUM query + network tab with consent declined"
+            }
+          ]
+        },
+        {
+          "statement": "First-party event endpoint (POST /api/events) writing to Cloud SQL, no third-party script",
+          "tests": [
+            {
+              "assumption": "Same five inputs queryable via SQL; endpoint rate-limited and schema-validated",
+              "type": "pytest + Datadog logs"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "A UI change cannot be seen on a real phone over a real connection until it reaches production; staging deploys are a manual workflow run of one branch",
+      "evidence": "staging-deploy.yml workflow_dispatch; last run 2026-09-04; Sprint 9 retro action 2 (Cloud Deploy, approach decided by Adam)",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Per-PR preview URLs on staging via Cloud Run revision tags (--tag pr-N --no-traffic) on the Cloud Deploy path (KAN-250 remaining scope, KAN-227)",
+          "tests": [
+            {
+              "assumption": "A pushed PR yields a staging preview URL within 10 minutes and gstack/Lighthouse can target it",
+              "type": "workflow run + curl of the tagged revision URL"
+            }
+          ]
+        },
+        {
+          "statement": "Keep the manual dispatch and add a branch input so any branch can be deployed to the single staging pair",
+          "tests": [
+            {
+              "assumption": "Manual dispatch with a branch input deploys and reports the URL",
+              "type": "workflow run"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "Power users want control over generation defaults (servings, units, image generation, model), currently fixed server-side",
+      "evidence": "Hypothesis, n=1 (Adam). Plumbing exists: server/validation.ts optional model field, generation_api_bp.py data.get('model'), GET /api/models curated list",
+      "target": false,
+      "solutions": [
+        {
+          "statement": "Settings tab: default servings, metric/imperial, image generation on/off, model picker bound to GA models from GET /api/models; eval spec (12-prompt golden set, schema-valid >= 98%, p95 <= 20 s, fallback to default) written into the PRD first",
+          "tests": [
+            {
+              "assumption": "Every offered model passes the golden set at >= 98% schema-valid on first attempt",
+              "type": "pytest against recorded fixtures in CI + manual live dispatch"
+            },
+            {
+              "assumption": "The settings tab is used by at least one non-author user within 4 weeks of first users",
+              "type": "Datadog RUM custom action"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "solutions": []
+}
