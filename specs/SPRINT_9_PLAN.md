@@ -96,6 +96,8 @@ done, do not read this sprint's throughput as a rate.
 
 ## Aging table (standing artifact — Sprint 6 retro action)
 
+_Ages calculated as of the Sprint 9 close-out on 2026-09-05 (America/Los_Angeles)._
+
 | Item    | Filed      | Age (d) | Sprint history          | Disposition                                        |
 | ------- | ---------- | ------- | ----------------------- | -------------------------------------------------- |
 | KAN-255 | 2026-08-27 | 9       | New                     | **Done** — PR #3450, shipped v0.4.13               |
