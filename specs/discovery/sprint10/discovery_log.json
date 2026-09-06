@@ -3,7 +3,7 @@
   "interviews": [
     {
       "date": "2026-09 (exact date not recorded; reported 2026-09-06)",
-      "participant": "P1 — non-author, phone (Adam's partner)",
+      "participant": "P1 — non-author participant, phone",
       "outcome_linked": true,
       "assumptions_tested": [
         "A first-time visitor finds public recipes unprompted within 30 s when Browse is in the header"
