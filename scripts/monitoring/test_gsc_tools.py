@@ -220,6 +220,25 @@ class FlagsTest(unittest.TestCase):
         flags = g.weekly_flags(self.cmp(), sms, 98, [{}])
         self.assertTrue(any("0 submitted URLs" in f for f in flags))
 
+    def test_multiple_sitemaps_only_compare_the_configured_live_sitemap(self):
+        sms = [
+            {"path": "https://www.tasteslikegood.org/sitemap.xml", "contents": [{"submitted": 98}]},
+            {"path": "https://www.tasteslikegood.org/news-sitemap.xml", "contents": [{"submitted": 40}]},
+        ]
+        flags = g.weekly_flags(
+            self.cmp(),
+            sms,
+            98,
+            [{}],
+            live_sitemap_url="https://www.tasteslikegood.org/sitemap.xml",
+        )
+        self.assertFalse(any("count mismatch" in f for f in flags))
+
+    def test_incomplete_striking_sample_does_not_claim_no_queries_exist(self):
+        flags = g.weekly_flags(self.cmp(), [], None, [], striking_complete=False)
+        self.assertFalse(any("No striking-distance queries yet" in f for f in flags))
+        self.assertTrue(any("absence is inconclusive" in f for f in flags))
+
 
 class FakeResponse:
     def __init__(self, status, payload):
