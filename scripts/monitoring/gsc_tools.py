@@ -335,7 +335,7 @@ def weekly_flags(
     """⚠️ lines for the weekly report. Pure so the thresholds are testable."""
     flags: list[str] = []
     if comparison["impressions"] == 0:
-        flags.append("⚠️ Zero impressions in the window — check the property is verified and the sitemap is read.")
+        flags.append("⚠️ Zero impressions in the window — check the property is verified and the sitemap is available to Google.")
     if comparison["clicks_pct"] is not None and comparison["clicks_pct"] <= -30:
         flags.append(f"⚠️ Clicks down {abs(comparison['clicks_pct']):.0f}% vs the previous window.")
     if comparison["impressions_pct"] is not None and comparison["impressions_pct"] <= -30:
@@ -707,9 +707,9 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
     @mcp.tool()
     def gsc_sitemaps() -> str:
-        """Sitemaps submitted for the property: last submitted / last read,
-        errors, warnings, URL counts — cross-checked against the live
-        sitemap.xml so a stale read shows up."""
+        """Sitemaps submitted for the property: last submitted / downloaded,
+        errors, warnings, and submitted URL counts — cross-checked against the
+        live sitemap.xml so count drift and fetch failures show up."""
 
         def run() -> str:
             sms = gsc.sitemaps()
@@ -722,12 +722,12 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             )
             lines = [f"Sitemaps in Search Console — {site_url}", f"Live {public_base}/sitemap.xml: {live_status}"]
             if not sms:
-                lines.append("  (none submitted — submit https://www.tasteslikegood.org/sitemap.xml with the full www URL; KAN-115 recorded that the bare path 301s and fails)")
+                lines.append(f"  (none submitted — submit {public_base.rstrip('/')}/sitemap.xml for the configured public origin)")
                 return "\n".join(lines)
             for sm in sms:
                 submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
                 lines.append(
-                    f"- {sm.get('path')}: submitted {(sm.get('lastSubmitted') or '—')[:10]}, last read {(sm.get('lastDownloaded') or '—')[:10]}, "
+                    f"- {sm.get('path')}: submitted {(sm.get('lastSubmitted') or '—')[:10]}, last downloaded {(sm.get('lastDownloaded') or '—')[:10]}, "
                     f"errors {sm.get('errors', 0)}, warnings {sm.get('warnings', 0)}, pending {sm.get('isPending', False)}, submitted URLs {submitted}"
                 )
             flags = weekly_flags(
@@ -838,7 +838,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             for sm in sms:
                 submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
                 sm_lines.append(
-                    f"  {sm.get('path')}: last read {(sm.get('lastDownloaded') or '—')[:10]}, errors {sm.get('errors', 0)}, "
+                    f"  {sm.get('path')}: last downloaded {(sm.get('lastDownloaded') or '—')[:10]}, errors {sm.get('errors', 0)}, "
                     f"warnings {sm.get('warnings', 0)}, submitted URLs {submitted} "
                     f"(live sitemap: {live_count if live_count is not None else 'unavailable'})"
                 )
