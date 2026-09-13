@@ -13,8 +13,9 @@ Check" routine against live infrastructure:
 
 Authentication: a read-only service account key referenced by
 GOOGLE_APPLICATION_CREDENTIALS. `roles/monitoring.viewer` is sufficient for
-every tool in this server — Pub/Sub metrics are read through the Monitoring
-API, not the Pub/Sub admin API.
+every Cloud Monitoring tool in this server — Pub/Sub metrics are read through
+the Monitoring API, not the Pub/Sub admin API. The Search Console tools also
+require the property-level grant described below.
 
 Search Console (KAN-270): gsc_tools.py registers gsc_sites, gsc_search_performance,
 gsc_compare_periods, gsc_striking_distance, gsc_sitemaps, gsc_inspect_url,
