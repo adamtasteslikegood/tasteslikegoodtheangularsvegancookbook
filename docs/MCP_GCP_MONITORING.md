@@ -406,8 +406,9 @@ live sitemap for cross-checks).
   with `dataState=all`; the last two days are labelled preliminary.
 - Early on, clicks will be single digits. The signals that matter first are
   impressions and average position on **non-brand** queries — the report
-  splits those out — and whether the sitemap's "URLs read" keeps pace with
-  the live catalog.
+  splits those out — and whether Search Console's submitted URL count keeps
+  pace with the live catalog. `lastDownloaded` indicates fetch recency; the
+  URL Inspection coverage sample checks actual index state.
 - Local ad-hoc run without MCP:
   `scripts/monitoring/.venv/bin/python scripts/monitoring/gsc_tools.py 28`
   prints `gsc_sites` and the weekly report using the repo-root `.env`.
