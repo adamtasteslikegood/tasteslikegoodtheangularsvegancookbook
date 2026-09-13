@@ -98,7 +98,7 @@ gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --source "$SOURCE_DIR" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars "MCP_TRANSPORT=http,GCP_PROJECT_ID=$PROJECT_ID,GSC_SITE_URL=${GSC_SITE_URL:-sc-domain:tasteslikegood.org}" \
+  --set-env-vars "MCP_TRANSPORT=http,GCP_PROJECT_ID=$PROJECT_ID,GSC_SITE_URL=${GSC_SITE_URL:-sc-domain:tasteslikegood.org},GSC_PRINCIPAL_EMAIL=$SA_EMAIL" \
   --set-secrets "MCP_AUTH_TOKEN=${SECRET_NAME}:latest" \
   --allow-unauthenticated \
   --min-instances 0 \
