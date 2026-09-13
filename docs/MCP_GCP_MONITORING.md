@@ -206,8 +206,8 @@ Two hard constraints from how Claude's connector authenticates drove this design
    connector" dialog takes only a URL (no header field —
    [anthropics/claude-ai-mcp#112], closed as not-planned), and it reads any
    `401 + WWW-Authenticate` as "this server needs OAuth", launching a sign-in
-   flow the server doesn't implement (→ *"Couldn't register … sign-in service …
-   add an OAuth Client ID"*). A `?key=` query string also isn't reliably carried
+   flow the server doesn't implement (→ _"Couldn't register … sign-in service …
+   add an OAuth Client ID"_). A `?key=` query string also isn't reliably carried
    on the discovery probe.
 
 So the MCP endpoint is served at **`/<token>/mcp`** with no auth gate: the
@@ -352,6 +352,66 @@ Trigger it with: **Run System Health Check**.
   deployment.
 - `query_metric(metric_type, minutes_back, aligner, group_by, extra_filter)` —
   ad-hoc query for any metric the curated probes don't cover.
+
+## 6.5. Search Console tools (`gsc_*`) — KAN-270
+
+The same server also exposes Google Search Console, so the connector that
+already answers "is production healthy?" can answer "is anyone finding the
+site?". The site ships no client-side analytics by design (privacy policy
+§ 10.3; Sprint 10 opt-in telemetry decision), so Search Console is the only
+instrument for organic search. The tools live in
+`scripts/monitoring/gsc_tools.py` and register on the existing `FastMCP`
+instance; nothing new to add in `.mcp.json` or in the connector settings.
+
+| Tool                        | What it returns                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `gsc_sites`                 | Properties the credential can read. **Run first after deploy** — empty means the user step below is missing.  |
+| `gsc_search_performance`    | Clicks / impressions / CTR / position by `query`, `page`, `country`, `device`, `date`, `searchAppearance`.    |
+| `gsc_compare_periods`       | Last _N_ days vs the _N_ before, plus top query gainers and losers.                                           |
+| `gsc_striking_distance`     | Queries ranking 5–30 with real impressions, and the page Google shows — the cheapest wins.                    |
+| `gsc_sitemaps`              | Sitemap status in Search Console cross-checked against the live `sitemap.xml` URL count.                      |
+| `gsc_inspect_url`           | URL Inspection for one page: verdict, coverage state, last crawl, Google canonical, rich results.             |
+| `gsc_index_coverage_sample` | Inspects the newest (or oldest) ≤ 25 sitemap URLs and summarizes coverage. Bounded: 2,000 inspections/day.    |
+| `gsc_weekly_report`         | The routine in one call: totals vs previous window, brand split, top queries/pages, striking distance, flags. |
+
+Drive them with `/seo-weekly-check` (`.claude/skills/seo-weekly-check/SKILL.md`),
+the Search Console counterpart of `/system-health-check`.
+
+### Access — one step, and it is not IAM
+
+Search Console access is granted **per property, per user, inside Search
+Console**. No GCP role grants it. After `deploy_mcp_cloud_run.sh` (which now
+also enables `searchconsole.googleapis.com` and prints this notice):
+
+1. Search Console → property `tasteslikegood.org` (the Domain property KAN-115
+   verified the sitemap against) → **Settings → Users and permissions → Add
+   user**.
+2. Email: the service account the server runs as — `gcp-monitor-mcp@<project>.iam.gserviceaccount.com`
+   on Cloud Run, or whatever key `GOOGLE_APPLICATION_CREDENTIALS` /
+   `GOOGLE_APPLICATION_CREDENTIALS_B64` names for the local and Railway
+   instances. Permission **Restricted** is enough (scope is
+   `webmasters.readonly`).
+3. Call `gsc_sites`. It must list `sc-domain:tasteslikegood.org`.
+
+Until then every `gsc_*` tool returns that instruction, naming the exact email,
+instead of a stack trace. Configuration: `GSC_SITE_URL` (default
+`sc-domain:tasteslikegood.org` — domain properties use the `sc-domain:` form,
+URL-prefix properties the full origin with a trailing slash) and
+`GSC_PUBLIC_BASE` (default `https://www.tasteslikegood.org`, used to fetch the
+live sitemap for cross-checks).
+
+### Reading the numbers
+
+- Search Analytics lags about two days. Windows end yesterday and are queried
+  with `dataState=all`; the last two days are labelled preliminary.
+- Early on, clicks will be single digits. The signals that matter first are
+  impressions and average position on **non-brand** queries — the report
+  splits those out — and whether the sitemap's "URLs read" keeps pace with
+  the live catalog.
+- Local ad-hoc run without MCP:
+  `scripts/monitoring/.venv/bin/python scripts/monitoring/gsc_tools.py 28`
+  prints `gsc_sites` and the weekly report using the repo-root `.env`.
+- Unit tests (no network): `python3 -m unittest scripts/monitoring/test_gsc_tools.py`.
 
 ## 7. Running the routine
 

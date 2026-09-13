@@ -21,3 +21,9 @@ google-cloud-monitoring>=2.21.0,<3.0.0
 # not depend on mcp's dependency graph keeping them around.
 starlette>=0.40.0,<2.0.0
 uvicorn>=0.30.0,<1.0.0
+# Search Console tools (gsc_tools.py, KAN-270) call the Webmasters / Search
+# Console REST APIs through google-auth's AuthorizedSession. Both packages are
+# already transitive dependencies of google-cloud-monitoring; they are pinned
+# here so the image cannot lose them if that dependency graph ever changes.
+google-auth>=2.22.0,<3.0.0
+requests>=2.31.0,<3.0.0

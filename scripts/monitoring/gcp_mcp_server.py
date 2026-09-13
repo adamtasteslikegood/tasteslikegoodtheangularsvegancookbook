@@ -16,6 +16,13 @@ GOOGLE_APPLICATION_CREDENTIALS. `roles/monitoring.viewer` is sufficient for
 every tool in this server — Pub/Sub metrics are read through the Monitoring
 API, not the Pub/Sub admin API.
 
+Search Console (KAN-270): gsc_tools.py registers gsc_sites, gsc_search_performance,
+gsc_compare_periods, gsc_striking_distance, gsc_sitemaps, gsc_inspect_url,
+gsc_index_coverage_sample and gsc_weekly_report on this same server. They use
+the same credential, which must additionally be added as a user on the Search
+Console property (see gsc_tools.py and docs/MCP_GCP_MONITORING.md § Search
+Console tools).
+
 Transports:
     stdio (default)     for local `.mcp.json` spawns and Claude Desktop.
     streamable-http     for a hosted remote MCP server registered as a Claude
@@ -178,6 +185,18 @@ def _label_scope(label: str, values: list[str], match: str = "eq") -> str:
 MAX_SERIES_PER_PROBE = 12
 
 mcp = FastMCP("GCP-Metrics-Monitor")
+
+# Search Console tools (KAN-270) ride on the same server and credential so they
+# reach the already-registered Claude connector on the next redeploy. The
+# module lives next to this file; the Dockerfile copies both. Registration is
+# best-effort — a missing/broken module must not take the monitoring tools down.
+try:
+    import gsc_tools as _gsc_tools
+except Exception as _gsc_exc:  # pragma: no cover - import-time defense only
+    _gsc_tools = None
+    print(f"WARNING: Search Console tools not loaded ({_gsc_exc})", file=sys.stderr)
+else:
+    _gsc_tools.register(mcp, sa_info=_SA_INFO)
 
 _client = None
 _client_lock = threading.Lock()
