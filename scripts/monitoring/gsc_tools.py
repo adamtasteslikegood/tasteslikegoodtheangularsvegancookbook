@@ -265,6 +265,22 @@ def select_sitemap_sample(
     return (dated + undated)[: max(1, int(limit))]
 
 
+def property_access_instruction(principal: str) -> str:
+    """Actionable Search Console property-grant guidance for known/unknown identities."""
+    if "@" in principal:
+        return (
+            f"Add {principal} as a user on the property: Search Console → Settings → "
+            "Users and permissions → Add user → permission 'Restricted'."
+        )
+    return (
+        "Grant the Google account or service-account email represented by that credential "
+        "access to the property: Search Console → Settings → Users and permissions → "
+        "Add user → permission 'Restricted'. For local ADC, identify the active account "
+        "with `gcloud auth list --filter=status:ACTIVE --format='value(account)'`, or set "
+        "GSC_PRINCIPAL_EMAIL so future diagnostics can name it."
+    )
+
+
 def classify_http_error(status: int, body: str, site_url: str, principal: str) -> str:
     """Turn an API error into the sentence the operator needs."""
     snippet = re.sub(r"\s+", " ", body or "")[:300]
@@ -295,10 +311,9 @@ def classify_http_error(status: int, body: str, site_url: str, principal: str) -
     if status == 403:
         return (
             f"Search Console refused access to {site_url} for {principal} (HTTP 403). "
-            "Add that email as a user on the property: Search Console → Settings → "
-            "Users and permissions → Add user → permission 'Restricted'. IAM roles "
-            "do not grant Search Console access. If the email IS listed, confirm the "
-            "Search Console API is enabled in the credential's project "
+            f"{property_access_instruction(principal)} IAM roles do not grant Search "
+            "Console access. If the correct identity IS listed, confirm the Search Console "
+            "API is enabled in the credential's project "
             f"(gcloud services enable searchconsole.googleapis.com). Detail: {snippet}"
         )
     if status == 401:
@@ -389,6 +404,7 @@ def weekly_flags(
     *,
     striking_complete: bool = True,
     live_sitemap_url: Optional[str] = None,
+    sitemaps_available: bool = True,
 ) -> list[str]:
     """⚠️ lines for the weekly report. Pure so the thresholds are testable."""
     flags: list[str] = []
@@ -434,7 +450,7 @@ def weekly_flags(
             )
     elif live_url_count is not None and live_sitemap_url and sitemaps:
         flags.append(f"⚠️ The configured live sitemap {live_sitemap_url} is not submitted for this property.")
-    if not sitemaps:
+    if sitemaps_available and not sitemaps:
         flags.append("⚠️ No sitemap is submitted for this property (KAN-115 submitted one on 2026-07-19 — re-check).")
     if not striking:
         if striking_complete:
@@ -520,7 +536,10 @@ class GscClient:
             return self._principal
         if self._sa_info and self._sa_info.get("client_email"):
             return str(self._sa_info["client_email"])
-        return "the server's credential (service account)"
+        # Authorized user ADC does not expose an email address. Do not imply
+        # that every unknown principal is a service account or that the tool
+        # can name an address it does not have.
+        return "the active Google credential"
 
     # -- transport ------------------------------------------------------
     def _request(self, method: str, url: str, **kwargs) -> dict:
@@ -738,14 +757,20 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             entries = gsc.sites()
             if not entries:
                 return (
-                    f"No Search Console properties are visible to {gsc.principal}. Add that email at "
-                    "Search Console → Settings → Users and permissions (permission 'Restricted'), "
-                    f"then retry. Expected property: {site_url}."
+                    f"No Search Console properties are visible to {gsc.principal}. "
+                    f"{property_access_instruction(gsc.principal)} Then retry. "
+                    f"Expected property: {site_url}."
                 )
             rows = [[e.get("siteUrl", "?"), e.get("permissionLevel", "?")] for e in entries]
             ok = any(e.get("siteUrl") == site_url for e in entries)
             head = f"Properties visible to {gsc.principal} (configured GSC_SITE_URL={site_url}: {'found' if ok else 'NOT FOUND'})"
-            return head + "\n" + format_table(["property", "permission"], rows)
+            guidance = ""
+            if not ok:
+                guidance = (
+                    f"\nVerify GSC_SITE_URL is correct. If it is, "
+                    f"{property_access_instruction(gsc.principal)}"
+                )
+            return head + "\n" + format_table(["property", "permission"], rows) + guidance
 
         return _guard(run)
 
@@ -953,8 +978,11 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             target = url.strip()
-            if target.startswith("/"):
-                target = public_base.rstrip("/") + target
+            parsed = urllib.parse.urlsplit(target)
+            if not parsed.scheme:
+                target = public_base.rstrip("/") + "/" + target.lstrip("/")
+            elif parsed.scheme.lower() not in ("http", "https"):
+                return "url must be an HTTP(S) URL or a path relative to GSC_PUBLIC_BASE"
             s = _summarize_inspection(target, gsc.inspect(target))
             return "\n".join(
                 [
@@ -1106,10 +1134,12 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             sd = striking_distance(sd_rows)[:10]
             sd_note = sample_note(len(sd_rows), sd_complete, "query/page rows")
             remaining = deadline - time.monotonic()
+            sitemaps_available = True
             if remaining <= 0.1:
                 analytics_errors.append(
                     "sitemaps: total report time budget exhausted"
                 )
+                sitemaps_available = False
                 sms = []
             else:
                 try:
@@ -1125,6 +1155,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     analytics_errors.append(
                         f"sitemaps: {type(exc).__name__}: {exc}"
                     )
+                    sitemaps_available = False
                     sms = []
             live = fetch_live_sitemap(public_base)
             live_count = len(live) if live is not None else None
@@ -1135,6 +1166,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 sd,
                 striking_complete=sd_complete,
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
+                sitemaps_available=sitemaps_available,
             )
             if analytics_errors:
                 flags.append(
@@ -1189,7 +1221,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 ),
                 "",
                 "Sitemaps:",
-                *(sm_lines or ["  (none submitted)"]),
+                *(
+                    sm_lines
+                    or [
+                        "  (none submitted)"
+                        if sitemaps_available
+                        else "  unavailable (see Flags)"
+                    ]
+                ),
                 "",
                 "Flags:",
                 *(["  " + f for f in flags] or ["  none"]),
