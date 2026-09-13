@@ -83,6 +83,9 @@ SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS = 12.0
 WEEKLY_REPORT_TOTAL_BUDGET_SECONDS = 240.0
 MAX_OUTPUT_ROWS = 100
 MAX_ROWS = 5000
+# Search Console retains roughly 16 months of Search Analytics data. Keep each
+# side of an adjacent current-vs-previous comparison within half that span.
+MAX_COMPARISON_WINDOW_DAYS = 240
 # Search Analytics returns rows click-ranked; a single page can drop low-click
 # rows that still qualify for striking distance or the brand split. Paginate
 # with startRow up to this many pages before declaring the sample truncated.
@@ -115,13 +118,24 @@ def period_windows(
     default) and the previous window is the same length immediately before it,
     so the two never overlap and always compare like for like.
     """
-    days = max(1, int(days))
+    days = max(1, min(int(days), MAX_COMPARISON_WINDOW_DAYS))
     today = today or dt.datetime.now(dt.timezone.utc).date()
     cur_end = today - dt.timedelta(days=lag_days)
     cur_start = cur_end - dt.timedelta(days=days - 1)
     prev_end = cur_start - dt.timedelta(days=1)
     prev_start = prev_end - dt.timedelta(days=days - 1)
     return cur_start.isoformat(), cur_end.isoformat(), prev_start.isoformat(), prev_end.isoformat()
+
+
+def decode_embedded_credentials(
+    encoded: Optional[str], credentials_path: Optional[str]
+) -> Optional[dict]:
+    """Decode a base64 key only when no usable credential file is configured."""
+    if not encoded or (credentials_path and os.path.isfile(credentials_path)):
+        return None
+    import base64
+
+    return json.loads(base64.b64decode(encoded))
 
 
 def clamp_output_limit(value: int) -> int:
@@ -416,6 +430,7 @@ def weekly_flags(
     striking: list[dict],
     *,
     striking_complete: bool = True,
+    striking_failed: bool = False,
     live_sitemap_url: Optional[str] = None,
     sitemaps_available: bool = True,
     analytics_available: bool = True,
@@ -468,17 +483,32 @@ def weekly_flags(
     if sitemaps_available and not sitemaps:
         flags.append("⚠️ No sitemap is submitted for this property (KAN-115 submitted one on 2026-07-19 — re-check).")
     if not striking:
-        if striking_complete:
+        if striking_failed:
+            flags.append(
+                "⚠️ The striking-distance request failed or timed out; absence is inconclusive."
+            )
+        elif striking_complete:
             flags.append("• No striking-distance queries yet (nothing ranking 5–30 with ≥10 impressions).")
         else:
             flags.append("⚠️ The striking-distance sample hit its row cap without a match; absence is inconclusive.")
     return flags
 
 
-def sample_note(row_count: int, complete: bool, what: str = "rows") -> str:
+def sample_note(
+    row_count: int,
+    complete: bool,
+    what: str = "rows",
+    *,
+    incomplete_due_to_error: bool = False,
+) -> str:
     """Disclosure line for paginated result sets; empty when complete."""
     if complete:
         return ""
+    if incomplete_due_to_error:
+        return (
+            f" Incomplete {what}: the Search Console request failed or timed out after "
+            f"{row_count:,} row(s); results may be partial."
+        )
     return f" Sample truncated at {row_count:,} click-ranked {what} — lower-click rows beyond that are not included."
 
 
@@ -756,7 +786,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             return f"Search Console tool failed: {type(exc).__name__}: {exc}"
 
     def _window_note(days: int) -> tuple[str, str, str, str, str]:
-        days = max(1, int(days))
+        days = max(1, min(int(days), MAX_COMPARISON_WINDOW_DAYS))
         cs, ce, ps, pe = period_windows(days)
         prelim_from = (dt.date.fromisoformat(ce) - dt.timedelta(days=PRELIMINARY_DAYS - 1)).isoformat()
         note = f"Window {cs} → {ce} ({days}d); rows from {prelim_from} onward are preliminary (Google finalizes ~2 days late)."
@@ -1144,7 +1174,12 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             pages_available = page_rows is not None
             pages = page_rows or []
             split = brand_split(queries)
-            split_note = sample_note(len(queries), queries_complete, "query rows")
+            split_note = sample_note(
+                len(queries),
+                queries_complete,
+                "query rows",
+                incomplete_due_to_error=bool(query_errors),
+            )
             sd_errors: list[str] = []
             sd_rows, sd_complete = gsc.query_all(
                 cs,
@@ -1157,7 +1192,12 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"striking distance: {error}" for error in sd_errors
             )
             sd = striking_distance(sd_rows)[:10]
-            sd_note = sample_note(len(sd_rows), sd_complete, "query/page rows")
+            sd_note = sample_note(
+                len(sd_rows),
+                sd_complete,
+                "query/page rows",
+                incomplete_due_to_error=bool(sd_errors),
+            )
             remaining = deadline - time.monotonic()
             sitemaps_available = True
             if remaining <= 0.1:
@@ -1190,6 +1230,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 live_count,
                 sd,
                 striking_complete=sd_complete,
+                striking_failed=bool(sd_errors),
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
                 sitemaps_available=sitemaps_available,
                 analytics_available=totals_available,
@@ -1318,12 +1359,9 @@ if __name__ == "__main__":
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(_root / _cp)
 
     _days = int(sys.argv[1]) if len(sys.argv) > 1 else 28
+    _cp = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     _b64 = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS_B64")
-    _info = None
-    if _b64:
-        import base64
-
-        _info = json.loads(base64.b64decode(_b64))
+    _info = decode_embedded_credentials(_b64, _cp)
     register(_Collector(), sa_info=_info)
     print(_tools["gsc_sites"]())
     print()
