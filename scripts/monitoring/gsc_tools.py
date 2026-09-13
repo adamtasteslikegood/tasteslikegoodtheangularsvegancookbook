@@ -937,11 +937,6 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 [{}],
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
             )
-            if analytics_errors:
-                flags.append(
-                    "⚠️ Partial Search Analytics data: "
-                    + "; ".join(analytics_errors)
-                )
             if live is None:
                 flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             lines.extend(flags)
@@ -1111,16 +1106,26 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             sd = striking_distance(sd_rows)[:10]
             sd_note = sample_note(len(sd_rows), sd_complete, "query/page rows")
             remaining = deadline - time.monotonic()
-            sms = (
-                gsc.sitemaps(
-                    timeout=min(
-                        SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
-                        remaining,
-                    )
+            if remaining <= 0.1:
+                analytics_errors.append(
+                    "sitemaps: total report time budget exhausted"
                 )
-                if remaining > 0.1
-                else []
-            )
+                sms = []
+            else:
+                try:
+                    sms = gsc.sitemaps(
+                        timeout=min(
+                            SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+                            remaining,
+                        )
+                    )
+                except GscAccessError:
+                    raise
+                except Exception as exc:
+                    analytics_errors.append(
+                        f"sitemaps: {type(exc).__name__}: {exc}"
+                    )
+                    sms = []
             live = fetch_live_sitemap(public_base)
             live_count = len(live) if live is not None else None
             flags = weekly_flags(
@@ -1131,6 +1136,10 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 striking_complete=sd_complete,
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
             )
+            if analytics_errors:
+                flags.append(
+                    "⚠️ Partial report data: " + "; ".join(analytics_errors)
+                )
             if live is None:
                 flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             top_q = sorted(queries, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
