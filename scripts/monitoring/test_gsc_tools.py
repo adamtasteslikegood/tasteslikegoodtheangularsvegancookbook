@@ -11,7 +11,8 @@ import os
 import sys
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -162,18 +163,32 @@ class SitemapAndErrorsTest(unittest.TestCase):
         self.assertFalse(g.is_sitemap_urlset("<urlset><url /></urlset>"))
 
     def test_refresh_error_returns_actionable_auth_guidance(self):
-        from google.auth.exceptions import RefreshError
+        class RefreshError(Exception):
+            pass
+
+        google = ModuleType("google")
+        google_auth = ModuleType("google.auth")
+        google_auth_exceptions = ModuleType("google.auth.exceptions")
+        google_auth_exceptions.RefreshError = RefreshError
+        google.auth = google_auth
+        google_auth.exceptions = google_auth_exceptions
 
         class RefreshingSession:
             def request(self, method, url, timeout=None, json=None):
                 raise RefreshError("expired credential")
 
-        client = g.GscClient(
-            "sc-domain:tasteslikegood.org",
-            session_factory=RefreshingSession,
-        )
-        with self.assertRaises(g.GscAccessError) as raised:
-            client.sites()
+        fake_google_modules = {
+            "google": google,
+            "google.auth": google_auth,
+            "google.auth.exceptions": google_auth_exceptions,
+        }
+        with mock.patch.dict(sys.modules, fake_google_modules):
+            client = g.GscClient(
+                "sc-domain:tasteslikegood.org",
+                session_factory=RefreshingSession,
+            )
+            with self.assertRaises(g.GscAccessError) as raised:
+                client.sites()
         self.assertIn("application-default login", str(raised.exception))
         self.assertIn("Cloud Run", str(raised.exception))
 
