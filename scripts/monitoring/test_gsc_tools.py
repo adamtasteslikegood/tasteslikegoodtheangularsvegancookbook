@@ -431,6 +431,28 @@ class ToolTextTest(unittest.TestCase):
             ["gsc_compare_periods", "gsc_index_coverage_sample", "gsc_inspect_url", "gsc_search_performance", "gsc_sitemaps", "gsc_sites", "gsc_striking_distance", "gsc_weekly_report"],
         )
 
+    def test_empty_success_response_is_a_protocol_failure(self):
+        response = FakeResponse(200, {})
+        response.text = ""
+        session = mock.Mock()
+        session.request.return_value = response
+        client = g.GscClient(
+            "sc-domain:tasteslikegood.org", session_factory=lambda: session
+        )
+        with self.assertRaisesRegex(g.GscProtocolError, "empty successful response"):
+            client.sites()
+
+    def test_non_json_success_response_is_a_protocol_failure(self):
+        response = FakeResponse(200, {})
+        response.text = "<html>upstream error</html>"
+        session = mock.Mock()
+        session.request.return_value = response
+        client = g.GscClient(
+            "sc-domain:tasteslikegood.org", session_factory=lambda: session
+        )
+        with self.assertRaisesRegex(g.GscProtocolError, "not valid JSON"):
+            client.sites()
+
     def test_sites_finds_configured_property(self):
         out = self.mcp.tools["gsc_sites"]()
         self.assertIn("found", out)
