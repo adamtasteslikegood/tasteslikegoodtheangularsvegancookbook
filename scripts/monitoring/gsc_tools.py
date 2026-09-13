@@ -196,8 +196,10 @@ def movers(cur_rows: list[dict], prev_rows: list[dict], limit: int = 10) -> dict
     # Sort by clicks delta, then impressions delta so zero-click sites still
     # get a meaningful movers list.
     ranked = sorted(deltas, key=lambda d: (d["clicks_delta"], d["impressions_delta"]))
-    losers = [d for d in ranked if d["clicks_delta"] < 0 or d["impressions_delta"] < 0][:limit]
-    gainers = [d for d in reversed(ranked) if d["clicks_delta"] > 0 or d["impressions_delta"] > 0][:limit]
+    # Tuple comparison keeps the buckets mutually exclusive: clicks decide
+    # direction first and impressions break an exact clicks tie.
+    losers = [d for d in ranked if (d["clicks_delta"], d["impressions_delta"]) < (0, 0)][:limit]
+    gainers = [d for d in reversed(ranked) if (d["clicks_delta"], d["impressions_delta"]) > (0, 0)][:limit]
     return {"gainers": gainers, "losers": losers}
 
 
@@ -352,8 +354,8 @@ def weekly_flags(
         submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
         if live_url_count is not None and submitted and abs(submitted - live_url_count) > 5:
             flags.append(
-                f"⚠️ Search Console last read {submitted} URLs from {sm.get('path')} but the live sitemap has "
-                f"{live_url_count} — Google has not re-read it since the catalog changed."
+                f"⚠️ Search Console reports {submitted} submitted URLs for {sm.get('path')} but the live sitemap has "
+                f"{live_url_count}. This count mismatch is a heuristic; lastDownloaded is the actual fetch timestamp."
             )
     if not sitemaps:
         flags.append("⚠️ No sitemap is submitted for this property (KAN-115 submitted one on 2026-07-19 — re-check).")
@@ -369,25 +371,33 @@ def weekly_flags(
 
 def build_credentials(sa_info: Optional[dict]):
     """Scoped credentials from the same sources the monitoring client uses."""
-    if sa_info is not None:
-        from google.oauth2 import service_account
+    try:
+        if sa_info is not None:
+            from google.oauth2 import service_account
 
-        return service_account.Credentials.from_service_account_info(sa_info, scopes=SCOPES)
-    creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if creds_path and not os.path.isfile(creds_path):
+            return service_account.Credentials.from_service_account_info(sa_info, scopes=SCOPES)
+        creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+        if creds_path and not os.path.isfile(creds_path):
+            raise GscAccessError(
+                f"GOOGLE_APPLICATION_CREDENTIALS points to '{creds_path}' but no such file exists. "
+                "Fix the path in .env (repo root) or supply GOOGLE_APPLICATION_CREDENTIALS_B64."
+            )
+        import google.auth
+
+        creds, _project = google.auth.default(scopes=SCOPES)
+        # Compute-engine / Cloud Run credentials mint scoped tokens on request.
+        if getattr(creds, "requires_scopes", False) and hasattr(creds, "with_scopes"):
+            creds = creds.with_scopes(SCOPES)
+        return creds
+    except GscAccessError:
+        raise
+    except Exception as exc:
         raise GscAccessError(
-            f"GOOGLE_APPLICATION_CREDENTIALS points to '{creds_path}' but no such file exists. "
-            "Fix the path in .env (repo root) or supply GOOGLE_APPLICATION_CREDENTIALS_B64."
-        )
-    import google.auth
-
-    creds, _project = google.auth.default(scopes=SCOPES)
-    # Compute-engine / Cloud Run credentials mint scoped tokens on request; the
-    # readonly Webmasters scope must be explicit or the metadata token carries
-    # only cloud-platform, which Search Console does not accept.
-    if getattr(creds, "requires_scopes", False) and hasattr(creds, "with_scopes"):
-        creds = creds.with_scopes(SCOPES)
-    return creds
+            "Could not initialize Google credentials. Configure "
+            "GOOGLE_APPLICATION_CREDENTIALS or GOOGLE_APPLICATION_CREDENTIALS_B64 "
+            "locally, or deploy with a Cloud Run service identity. "
+            f"Detail: {type(exc).__name__}: {exc}"
+        ) from exc
 
 
 class GscClient:
@@ -398,7 +408,7 @@ class GscClient:
         self._sa_info = sa_info
         self._session_factory = session_factory
         self._session = None
-        self._principal: Optional[str] = None
+        self._principal: Optional[str] = os.environ.get("GSC_PRINCIPAL_EMAIL", "").strip() or None
         self._lock = threading.Lock()
 
     # -- auth -----------------------------------------------------------
@@ -412,7 +422,9 @@ class GscClient:
 
                     creds = build_credentials(self._sa_info)
                     self._session = AuthorizedSession(creds)
-                    self._principal = getattr(creds, "service_account_email", None)
+                    credential_principal = getattr(creds, "service_account_email", None)
+                    if credential_principal and credential_principal != "default":
+                        self._principal = credential_principal
             return self._session
 
     @property
@@ -472,8 +484,8 @@ class GscClient:
         return self._request("POST", INSPECTION_API, json=body).get("inspectionResult", {}) or {}
 
 
-def fetch_live_sitemap(public_base: str) -> list[tuple[str, Optional[str]]]:
-    """Public fetch of the site's own sitemap.xml (no auth). Empty on failure."""
+def fetch_live_sitemap(public_base: str) -> Optional[list[tuple[str, Optional[str]]]]:
+    """Public fetch of sitemap.xml. None means unavailable; [] means valid but empty."""
     try:
         import requests
 
@@ -483,10 +495,13 @@ def fetch_live_sitemap(public_base: str) -> list[tuple[str, Optional[str]]]:
             headers={"User-Agent": "gcp-monitor-mcp/gsc-tools (+https://www.tasteslikegood.org)"},
         )
         if resp.status_code != 200:
-            return []
+            return None
+        # Preserve malformed XML as an unavailable state instead of silently
+        # turning it into a real-looking zero-URL sitemap.
+        ET.fromstring(resp.text)
         return parse_sitemap_urls(resp.text)
-    except Exception:  # network failure must not break a report
-        return []
+    except Exception:  # network or parse failure must not break a report
+        return None
 
 
 def _summarize_inspection(url: str, result: dict) -> dict[str, Any]:
@@ -537,6 +552,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             return f"Search Console tool failed: {type(exc).__name__}: {exc}"
 
     def _window_note(days: int) -> tuple[str, str, str, str, str]:
+        days = max(1, int(days))
         cs, ce, ps, pe = period_windows(days)
         prelim_from = (dt.date.fromisoformat(ce) - dt.timedelta(days=PRELIMINARY_DAYS - 1)).isoformat()
         note = f"Window {cs} → {ce} ({days}d); rows from {prelim_from} onward are preliminary (Google finalizes ~2 days late)."
@@ -581,22 +597,33 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             dim = dimension.strip()
             if dim not in DIMENSIONS:
                 return f"dimension must be one of {', '.join(DIMENSIONS)}"
+            key = sort_by.strip()
+            if key not in ("clicks", "impressions", "position"):
+                return "sort_by must be one of clicks, impressions, position"
             cs, ce, _ps, _pe, note = _window_note(days)
             filters = []
             if page_contains:
                 filters.append({"dimension": "page", "operator": "contains", "expression": page_contains})
             if query_contains:
                 filters.append({"dimension": "query", "operator": "contains", "expression": query_contains})
-            rows = gsc.query(cs, ce, [dim], row_limit=max(limit, 1000), filters=filters or None)
-            key = sort_by if sort_by in ("clicks", "impressions", "position") else "clicks"
+            requested = max(1, min(int(limit), MAX_ROWS))
+            # Search Analytics returns rows click-ranked. Fetch the largest
+            # bounded sample before applying an alternate local sort.
+            fetch_limit = requested if key == "clicks" else MAX_ROWS
+            rows = gsc.query(cs, ce, [dim], row_limit=fetch_limit, filters=filters or None)
             rows = sorted(
                 rows,
                 key=lambda r: float(r.get(key) or 0),
                 reverse=(key != "position"),
-            )[: max(1, min(int(limit), MAX_ROWS))]
+            )[:requested]
             totals = summarize_rows(rows)
+            sort_note = (
+                ""
+                if key == "clicks"
+                else f" {key.title()} ordering is within the first {MAX_ROWS:,} click-ranked API rows."
+            )
             head = (
-                f"Search performance by {dim} — {site_url}\n{note}\n"
+                f"Search performance by {dim} — {site_url}\n{note}{sort_note}\n"
                 f"Shown rows total: clicks {fmt_int(totals['clicks'])} · impressions {fmt_int(totals['impressions'])} · "
                 f"CTR {fmt_pct(totals['ctr'])} · avg position {totals['position']:.1f}"
             )
@@ -687,7 +714,13 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
         def run() -> str:
             sms = gsc.sitemaps()
             live = fetch_live_sitemap(public_base)
-            lines = [f"Sitemaps in Search Console — {site_url}", f"Live {public_base}/sitemap.xml: {len(live)} URLs" + (f", newest lastmod {live[0][1]}" if live and live[0][1] else "")]
+            live_count = len(live) if live is not None else None
+            live_status = (
+                f"{live_count} URLs" + (f", newest lastmod {live[0][1]}" if live and live[0][1] else "")
+                if live_count is not None
+                else "unavailable (fetch, HTTP, or XML parse failure)"
+            )
+            lines = [f"Sitemaps in Search Console — {site_url}", f"Live {public_base}/sitemap.xml: {live_status}"]
             if not sms:
                 lines.append("  (none submitted — submit https://www.tasteslikegood.org/sitemap.xml with the full www URL; KAN-115 recorded that the bare path 301s and fails)")
                 return "\n".join(lines)
@@ -695,14 +728,16 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
                 lines.append(
                     f"- {sm.get('path')}: submitted {(sm.get('lastSubmitted') or '—')[:10]}, last read {(sm.get('lastDownloaded') or '—')[:10]}, "
-                    f"errors {sm.get('errors', 0)}, warnings {sm.get('warnings', 0)}, pending {sm.get('isPending', False)}, URLs read {submitted}"
+                    f"errors {sm.get('errors', 0)}, warnings {sm.get('warnings', 0)}, pending {sm.get('isPending', False)}, submitted URLs {submitted}"
                 )
             flags = weekly_flags(
                 {"impressions": 1, "clicks_pct": None, "impressions_pct": None, "position_better": 0.0},
                 sms,
-                len(live) or None,
+                live_count,
                 [{}],
             )
+            if live is None:
+                flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             lines.extend(flags)
             return "\n".join(lines)
 
@@ -744,14 +779,19 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             n = max(1, min(int(max_urls), MAX_INSPECTIONS_PER_CALL))
+            selection = which.strip().lower()
+            if selection not in ("newest", "oldest"):
+                return "which must be one of newest, oldest"
             live = fetch_live_sitemap(public_base)
+            if live is None:
+                return f"Could not fetch or parse {public_base}/sitemap.xml to pick a sample."
             if not live:
-                return f"Could not fetch {public_base}/sitemap.xml to pick a sample."
-            picked = live[:n] if which != "oldest" else list(reversed(live))[:n]
+                return f"{public_base}/sitemap.xml is valid but contains no URLs."
+            picked = live[:n] if selection == "newest" else list(reversed(live))[:n]
             results = [_summarize_inspection(loc, gsc.inspect(loc)) for loc, _ in picked]
             indexed = [r for r in results if r["verdict"] == "PASS"]
             lines = [
-                f"Index coverage sample — {len(indexed)}/{len(results)} indexed ({which} {len(results)} sitemap URLs of {len(live)})",
+                f"Index coverage sample — {len(indexed)}/{len(results)} indexed ({selection} {len(results)} sitemap URLs of {len(live)})",
                 format_table(
                     ["page", "verdict", "coverage", "last crawl", "rich"],
                     [[r["url"].replace(public_base, ""), r["verdict"], r["coverage"], r["last_crawl"], r["rich_results"]] for r in results],
@@ -786,7 +826,10 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             sd = striking_distance(sd_rows)[:10]
             sms = gsc.sitemaps()
             live = fetch_live_sitemap(public_base)
-            flags = weekly_flags(cmp, sms, len(live) or None, sd)
+            live_count = len(live) if live is not None else None
+            flags = weekly_flags(cmp, sms, live_count, sd)
+            if live is None:
+                flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             top_q = sorted(queries, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
             top_p = sorted(pages, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
             for r in top_p:
@@ -796,7 +839,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
                 sm_lines.append(
                     f"  {sm.get('path')}: last read {(sm.get('lastDownloaded') or '—')[:10]}, errors {sm.get('errors', 0)}, "
-                    f"warnings {sm.get('warnings', 0)}, URLs read {submitted} (live sitemap: {len(live)})"
+                    f"warnings {sm.get('warnings', 0)}, submitted URLs {submitted} "
+                    f"(live sitemap: {live_count if live_count is not None else 'unavailable'})"
                 )
             lines = [
                 f"Search Console weekly report — {site_url}",
