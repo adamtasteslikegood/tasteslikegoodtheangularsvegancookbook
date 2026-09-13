@@ -486,6 +486,28 @@ class ToolTextTest(unittest.TestCase):
         out = self.mcp.tools["gsc_index_coverage_sample"](10, "oldset")
         self.assertIn("which must be one of", out)
 
+    def test_sitemaps_tool_handles_nonempty_result(self):
+        out = self.mcp.tools["gsc_sitemaps"]()
+        self.assertIn("submitted URLs 98", out)
+        self.assertNotIn("Search Console tool failed", out)
+
+    def test_weekly_report_surfaces_partial_analytics_and_sitemap_failures(self):
+        original = self.session.request
+
+        def flaky_request(method, url, timeout=None, json=None):
+            if url.endswith("/searchAnalytics/query") and (json.get("dimensions") or []) == ["page"]:
+                raise TimeoutError("pages timed out")
+            if url.endswith("/sitemaps"):
+                raise TimeoutError("sitemaps timed out")
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = flaky_request
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn("Search Console weekly report", out)
+        self.assertIn("Partial report data", out)
+        self.assertIn("pages: TimeoutError: pages timed out", out)
+        self.assertIn("sitemaps: TimeoutError: sitemaps timed out", out)
+
     def test_weekly_report_surfaces_live_sitemap_failure(self):
         g.fetch_live_sitemap = lambda base: None
         out = self.mcp.tools["gsc_weekly_report"](28)
