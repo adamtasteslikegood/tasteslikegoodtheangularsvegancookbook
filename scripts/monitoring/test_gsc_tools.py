@@ -497,6 +497,30 @@ class ToolTextTest(unittest.TestCase):
         self.assertTrue(bounded)
         self.assertLessEqual(max(bounded), g.SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS)
 
+    def test_compare_periods_end_to_end(self):
+        out = self.mcp.tools["gsc_compare_periods"](28, 2)
+        self.assertIn("Period comparison", out)
+        self.assertIn("clicks 12 ▲ +4 (+50%)", out)
+        self.assertIn("Previous window", out)
+        self.assertIn("Gainers:", out)
+        self.assertIn("Losers:", out)
+
+        calls = [
+            body
+            for method, url, body in self.session.calls
+            if method == "POST" and url.endswith("/searchAnalytics/query")
+        ]
+        current_start, _current_end, previous_start, _previous_end = g.period_windows(28)
+        self.assertEqual(
+            [body["startDate"] for body in calls],
+            [current_start, previous_start, current_start, previous_start],
+        )
+        self.assertEqual(
+            [body.get("dimensions") or [] for body in calls],
+            [[], [], ["query"], ["query"]],
+        )
+        self.assertEqual([body["rowLimit"] for body in calls], [1, 1, g.MAX_ROWS, g.MAX_ROWS])
+
     def test_search_performance_rejects_bad_dimension(self):
         self.assertIn("dimension must be one of", self.mcp.tools["gsc_search_performance"](28, "banana"))
 
