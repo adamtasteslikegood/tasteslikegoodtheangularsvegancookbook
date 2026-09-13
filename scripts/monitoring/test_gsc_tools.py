@@ -10,6 +10,7 @@ import json
 import os
 import sys
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -25,6 +26,14 @@ def row(keys, clicks, impressions, position):
         "ctr": (clicks / impressions) if impressions else 0,
         "position": position,
     }
+
+
+class LauncherBootstrapTest(unittest.TestCase):
+    def test_dependency_stamp_tracks_requirements_hash(self):
+        launcher = Path(__file__).with_name("run_gcp_monitor.sh").read_text(encoding="utf-8")
+        self.assertIn('requirements_hash="$(python3 - "$requirements"', launcher)
+        self.assertIn('"$installed_hash" != "$requirements_hash"', launcher)
+        self.assertIn('printf \'%s\\n\' "$requirements_hash" >"$deps_stamp"', launcher)
 
 
 class PeriodWindowsTest(unittest.TestCase):
