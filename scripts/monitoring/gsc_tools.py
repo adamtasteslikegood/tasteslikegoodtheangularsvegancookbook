@@ -54,6 +54,7 @@ import pathlib
 import re
 import sys
 import threading
+import time
 import urllib.parse
 import xml.etree.ElementTree as ET
 from typing import Any, Callable, Optional
@@ -69,6 +70,11 @@ DEFAULT_PUBLIC_BASE = "https://www.tasteslikegood.org"
 PRELIMINARY_DAYS = 2
 # URL Inspection quota is 2,000/day per property; keep one call bounded.
 MAX_INSPECTIONS_PER_CALL = 25
+# Cloud Run's default request window is 300 seconds. Cap each URL Inspection
+# request and the whole sample so the tool can return partial results instead
+# of being killed without a report when Google's endpoint is slow.
+INSPECTION_REQUEST_TIMEOUT_SECONDS = 8.0
+INSPECTION_TOTAL_BUDGET_SECONDS = 240.0
 MAX_ROWS = 5000
 # Search Analytics returns rows click-ranked; a single page can drop low-click
 # rows that still qualify for striking distance or the brand split. Paginate
@@ -225,6 +231,15 @@ def parse_sitemap_urls(xml_text: str) -> list[tuple[str, Optional[str]]]:
         if loc:
             out.append((loc, lastmod.strip() if lastmod else None))
     return sorted(out, key=lambda t: t[1] or "", reverse=True)
+
+
+def is_sitemap_urlset(xml_text: str) -> bool:
+    """Return True only for a sitemaps.org ``urlset`` document."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return False
+    return root.tag == "{http://www.sitemaps.org/schemas/sitemap/0.9}urlset"
 
 
 def select_sitemap_sample(
@@ -498,7 +513,25 @@ class GscClient:
 
     # -- transport ------------------------------------------------------
     def _request(self, method: str, url: str, **kwargs) -> dict:
-        resp = self.session().request(method, url, timeout=60, **kwargs)
+        timeout = kwargs.pop("timeout", 60)
+        try:
+            resp = self.session().request(method, url, timeout=timeout, **kwargs)
+        except Exception as exc:
+            # AuthorizedSession can fail while refreshing a credential before
+            # an HTTP 401 exists. Preserve the same actionable auth path.
+            try:
+                from google.auth.exceptions import RefreshError
+            except ImportError:
+                RefreshError = ()  # type: ignore[assignment]
+            if isinstance(exc, RefreshError):
+                raise GscAccessError(
+                    f"Google could not refresh the credential for {self.principal}. "
+                    "Locally, re-authenticate Application Default Credentials with "
+                    "`gcloud auth application-default login`; on Cloud Run, verify the "
+                    "configured service identity or key and redeploy. "
+                    f"Detail: {type(exc).__name__}: {exc}"
+                ) from exc
+            raise
         if resp.status_code >= 400:
             raise GscAccessError(classify_http_error(resp.status_code, resp.text, self.site_url, self.principal))
         try:
@@ -574,9 +607,9 @@ class GscClient:
     def sitemaps(self) -> list[dict]:
         return self._request("GET", f"{self._site_path}/sitemaps").get("sitemap", []) or []
 
-    def inspect(self, inspection_url: str) -> dict:
+    def inspect(self, inspection_url: str, timeout: float = INSPECTION_REQUEST_TIMEOUT_SECONDS) -> dict:
         body = {"inspectionUrl": inspection_url, "siteUrl": self.site_url, "languageCode": "en-US"}
-        return self._request("POST", INSPECTION_API, json=body).get("inspectionResult", {}) or {}
+        return self._request("POST", INSPECTION_API, json=body, timeout=timeout).get("inspectionResult", {}) or {}
 
 
 def fetch_live_sitemap(public_base: str) -> Optional[list[tuple[str, Optional[str]]]]:
@@ -591,9 +624,10 @@ def fetch_live_sitemap(public_base: str) -> Optional[list[tuple[str, Optional[st
         )
         if resp.status_code != 200:
             return None
-        # Preserve malformed XML as an unavailable state instead of silently
-        # turning it into a real-looking zero-URL sitemap.
-        ET.fromstring(resp.text)
+        # Preserve malformed XML and well-formed non-sitemap responses as an
+        # unavailable state instead of a real-looking zero-URL sitemap.
+        if not is_sitemap_urlset(resp.text):
+            return None
         return parse_sitemap_urls(resp.text)
     except Exception:  # network or parse failure must not break a report
         return None
@@ -890,10 +924,31 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             if not live:
                 return f"{public_base}/sitemap.xml is valid but contains no URLs."
             picked = select_sitemap_sample(live, selection, n)
-            results = [_summarize_inspection(loc, gsc.inspect(loc)) for loc, _ in picked]
+            results: list[dict[str, Any]] = []
+            failures: list[tuple[str, str]] = []
+            deadline = time.monotonic() + INSPECTION_TOTAL_BUDGET_SECONDS
+            for index, (loc, _lastmod) in enumerate(picked):
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    failures.extend(
+                        (pending_loc, "not attempted: total inspection time budget exhausted")
+                        for pending_loc, _ in picked[index:]
+                    )
+                    break
+                try:
+                    result = gsc.inspect(
+                        loc,
+                        timeout=min(INSPECTION_REQUEST_TIMEOUT_SECONDS, max(1.0, remaining)),
+                    )
+                    results.append(_summarize_inspection(loc, result))
+                except GscAccessError:
+                    raise
+                except Exception as exc:
+                    failures.append((loc, f"{type(exc).__name__}: {exc}"))
             indexed = [r for r in results if r["verdict"] == "PASS"]
             lines = [
-                f"Index coverage sample — {len(indexed)}/{len(results)} indexed ({selection} {len(results)} sitemap URLs of {len(live)})",
+                f"Index coverage sample — {len(indexed)}/{len(results)} processed URLs indexed "
+                f"({selection} sample; processed {len(results)}/{len(picked)} of {len(live)} sitemap URLs)",
                 format_table(
                     ["page", "verdict", "coverage", "last crawl", "rich"],
                     [[r["url"].replace(public_base, ""), r["verdict"], r["coverage"], r["last_crawl"], r["rich_results"]] for r in results],
@@ -905,6 +960,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 lines.append("Not indexed — coverage reasons:")
                 for r in not_indexed:
                     lines.append(f"  {r['url'].replace(public_base, '')}: {r['coverage']} (Google canonical: {r['google_canonical']})")
+            if failures:
+                lines.append("")
+                lines.append(
+                    f"Partial sample: {len(failures)} URL(s) failed or were not attempted "
+                    f"within the {INSPECTION_TOTAL_BUDGET_SECONDS:.0f}s total budget."
+                )
+                for failed_url, reason in failures:
+                    lines.append(f"  {failed_url.replace(public_base, '')}: {reason}")
             return "\n".join(lines)
 
         return _guard(run)
