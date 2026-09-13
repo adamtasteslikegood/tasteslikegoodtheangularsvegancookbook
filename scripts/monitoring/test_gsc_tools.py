@@ -109,6 +109,17 @@ class BrandAndMoversTest(unittest.TestCase):
         self.assertEqual(mv["losers"][0]["key"], "gone")
         self.assertNotIn("flat", [m["key"] for m in mv["gainers"] + mv["losers"]])
 
+    def test_movers_do_not_put_mixed_sign_rows_in_both_buckets(self):
+        cur = [row(["clicks-up"], 2, 10, 8.0), row(["clicks-down"], 1, 100, 8.0)]
+        prev = [row(["clicks-up"], 1, 100, 8.0), row(["clicks-down"], 2, 10, 8.0)]
+        mv = g.movers(cur, prev, limit=5)
+        gainers = {m["key"] for m in mv["gainers"]}
+        losers = {m["key"] for m in mv["losers"]}
+        self.assertIn("clicks-up", gainers)
+        self.assertNotIn("clicks-up", losers)
+        self.assertIn("clicks-down", losers)
+        self.assertNotIn("clicks-down", gainers)
+
 
 class SitemapAndErrorsTest(unittest.TestCase):
     SITEMAP = (
@@ -211,7 +222,11 @@ class FakeSession:
             dims = json.get("dimensions") or []
             start = json["startDate"]
             if not dims:
-                return FakeResponse(200, {"rows": [{"clicks": 12 if start >= "2026-08-01" else 8, "impressions": 1200 if start >= "2026-08-01" else 900, "ctr": 0.01, "position": 30.0}]})
+                # Compare against the same dynamic boundary the tool uses so
+                # this fixture remains valid after the original audit date.
+                current_start = g.period_windows(28)[0]
+                is_current = start >= current_start
+                return FakeResponse(200, {"rows": [{"clicks": 12 if is_current else 8, "impressions": 1200 if is_current else 900, "ctr": 0.01, "position": 30.0}]})
             if dims == ["query"]:
                 return FakeResponse(200, {"rows": [row(["vegan recipe generator"], 5, 400, 14.0), row(["tasteslikegood"], 6, 30, 1.1), row(["vegan corn dogs"], 1, 300, 22.0)]})
             if dims == ["page"]:
@@ -257,7 +272,7 @@ class ToolTextTest(unittest.TestCase):
 
     def test_weekly_report_shape(self):
         out = self.mcp.tools["gsc_weekly_report"](28)
-        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "URLs read 98 (live sitemap: 98)", "Flags:", "  none"]:
+        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
             self.assertIn(needle, out, needle)
 
     def test_search_performance_rejects_bad_dimension(self):
@@ -269,6 +284,23 @@ class ToolTextTest(unittest.TestCase):
         filters = body["dimensionFilterGroups"][0]["filters"]
         self.assertEqual({f["dimension"] for f in filters}, {"page", "query"})
         self.assertEqual(body["dataState"], "all")
+        # Google's current schema uses type; searchType is deprecated.
+        self.assertEqual(body["type"], "web")
+        self.assertNotIn("searchType", body)
+
+    def test_search_performance_rejects_bad_sort(self):
+        out = self.mcp.tools["gsc_search_performance"](28, "query", 10, "", "", "clickz")
+        self.assertIn("sort_by must be one of", out)
+
+    def test_search_performance_expands_and_discloses_non_click_sort(self):
+        out = self.mcp.tools["gsc_search_performance"](28, "query", 10, "", "", "impressions")
+        body = self.session.calls[-1][2]
+        self.assertEqual(body["rowLimit"], g.MAX_ROWS)
+        self.assertIn("within the first 5,000 click-ranked API rows", out)
+
+    def test_non_positive_days_note_matches_clamped_window(self):
+        out = self.mcp.tools["gsc_search_performance"](0)
+        self.assertIn("(1d)", out)
 
     def test_inspect_resolves_relative_path(self):
         out = self.mcp.tools["gsc_inspect_url"]("/r/vegan-cornbread")
@@ -279,6 +311,16 @@ class ToolTextTest(unittest.TestCase):
         self.mcp.tools["gsc_index_coverage_sample"](500)
         inspections = [c for c in self.session.calls if c[1] == g.INSPECTION_API]
         self.assertEqual(len(inspections), g.MAX_INSPECTIONS_PER_CALL)
+
+    def test_coverage_sample_rejects_bad_selection(self):
+        out = self.mcp.tools["gsc_index_coverage_sample"](10, "oldset")
+        self.assertIn("which must be one of", out)
+
+    def test_weekly_report_surfaces_live_sitemap_failure(self):
+        g.fetch_live_sitemap = lambda base: None
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn("live sitemap: unavailable", out)
+        self.assertIn("Live sitemap unavailable", out)
 
     def test_denied_access_returns_instruction_not_traceback(self):
         mcp = Collector()
