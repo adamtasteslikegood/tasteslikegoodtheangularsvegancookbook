@@ -104,6 +104,10 @@ class GscAccessError(RuntimeError):
     """Raised when the API refuses the credential; the message is user-facing."""
 
 
+class GscProtocolError(RuntimeError):
+    """Raised when a successful API response is not a usable JSON object."""
+
+
 # --------------------------------------------------------------------------
 # Pure helpers — no I/O, covered by test_gsc_tools.py
 # --------------------------------------------------------------------------
@@ -609,10 +613,19 @@ class GscClient:
             raise
         if resp.status_code >= 400:
             raise GscAccessError(classify_http_error(resp.status_code, resp.text, self.site_url, self.principal))
+        if not resp.text.strip():
+            raise GscProtocolError("Search Console returned an empty successful response.")
         try:
-            return resp.json() if resp.text else {}
-        except ValueError:
-            return {}
+            payload = resp.json()
+        except ValueError as exc:
+            raise GscProtocolError(
+                "Search Console returned a successful response that was not valid JSON."
+            ) from exc
+        if not isinstance(payload, dict):
+            raise GscProtocolError(
+                "Search Console returned a successful JSON response that was not an object."
+            )
+        return payload
 
     @property
     def _site_path(self) -> str:
