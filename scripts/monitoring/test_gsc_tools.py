@@ -147,6 +147,20 @@ class SitemapAndErrorsTest(unittest.TestCase):
     def test_parse_sitemap_garbage(self):
         self.assertEqual(g.parse_sitemap_urls("<not xml"), [])
 
+    def test_oldest_sample_prefers_dated_urls_before_unknown_age(self):
+        urls = g.parse_sitemap_urls(self.SITEMAP)
+        picked = g.select_sitemap_sample(urls, "oldest", 3)
+        self.assertEqual(
+            picked,
+            [
+                ("https://www.tasteslikegood.org/r/old", "2026-05-07"),
+                ("https://www.tasteslikegood.org/", "2026-09-12"),
+                ("https://www.tasteslikegood.org/r/new", "2026-09-13"),
+            ],
+        )
+        self.assertNotIn(("https://www.tasteslikegood.org/r/undated", None), picked)
+        self.assertEqual(g.select_sitemap_sample(urls, "oldest", 4)[-1], ("https://www.tasteslikegood.org/r/undated", None))
+
     def test_403_names_the_principal_and_the_fix(self):
         msg = g.classify_http_error(403, '{"error": {"message": "User does not have sufficient permission"}}', "sc-domain:tasteslikegood.org", "gcp-monitor-mcp@x.iam.gserviceaccount.com")
         self.assertIn("gcp-monitor-mcp@x.iam.gserviceaccount.com", msg)
