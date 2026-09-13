@@ -192,11 +192,11 @@ mcp = FastMCP("GCP-Metrics-Monitor")
 # best-effort — a missing/broken module must not take the monitoring tools down.
 try:
     import gsc_tools as _gsc_tools
-except Exception as _gsc_exc:  # pragma: no cover - import-time defense only
+
+    _gsc_tools.register(mcp, sa_info=_SA_INFO)
+except Exception as _gsc_exc:  # pragma: no cover - import/registration defense only
     _gsc_tools = None
     print(f"WARNING: Search Console tools not loaded ({_gsc_exc})", file=sys.stderr)
-else:
-    _gsc_tools.register(mcp, sa_info=_SA_INFO)
 
 _client = None
 _client_lock = threading.Lock()
