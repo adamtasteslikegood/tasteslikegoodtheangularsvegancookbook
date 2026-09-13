@@ -62,7 +62,7 @@ class SummaryAndComparisonTest(unittest.TestCase):
         cmp = g.compare_totals(cur, prev)
         self.assertEqual(cmp["clicks_delta"], 4)
         self.assertIsNone(cmp["clicks_pct"])
-        self.assertEqual(cmp["position_better"], 0.0)
+        self.assertIsNone(cmp["position_better"])
 
     def test_compare_totals_position_better_is_positive_when_improved(self):
         cur = g.summarize_rows([row(["a"], 4, 200, 12.0)])
@@ -70,6 +70,13 @@ class SummaryAndComparisonTest(unittest.TestCase):
         cmp = g.compare_totals(cur, prev)
         self.assertAlmostEqual(cmp["clicks_pct"], 100.0)
         self.assertAlmostEqual(cmp["position_better"], 8.0)
+
+    def test_empty_current_window_has_no_rank_delta(self):
+        cur = g.summarize_rows([])
+        prev = g.summarize_rows([row(["a"], 2, 100, 20.0)])
+        cmp = g.compare_totals(cur, prev)
+        self.assertIsNone(cmp["position_better"])
+        self.assertIn("comparison unavailable", g.fmt_position_comparison(cmp["position"], cmp["position_better"]))
 
 
 class StrikingDistanceTest(unittest.TestCase):
@@ -189,9 +196,15 @@ class FlagsTest(unittest.TestCase):
         self.assertIn("No striking-distance", joined)
 
     def test_zero_impressions_and_missing_sitemap(self):
-        flags = g.weekly_flags(self.cmp(impressions=0), [], None, [{}])
+        flags = g.weekly_flags(self.cmp(impressions=0, position_better=None), [], None, [{}])
         self.assertTrue(any("Zero impressions" in f for f in flags))
         self.assertTrue(any("No sitemap" in f for f in flags))
+        self.assertFalse(any("position worsened" in f for f in flags))
+
+    def test_zero_submitted_urls_is_compared_with_live_sitemap(self):
+        sms = [{"path": "sm", "contents": [{"submitted": 0}]}]
+        flags = g.weekly_flags(self.cmp(), sms, 98, [{}])
+        self.assertTrue(any("0 submitted URLs" in f for f in flags))
 
 
 class FakeResponse:
