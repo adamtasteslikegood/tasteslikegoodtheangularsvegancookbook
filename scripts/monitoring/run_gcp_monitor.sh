@@ -21,8 +21,11 @@ import sys
 
 # Validate every direct runtime dependency used by the stdio and HTTP startup
 # paths before accepting a cached environment.
+# "mcp.server.fastmcp", not "mcp": the top-level package still exists on the
+# unsupported mcp 2.x (KAN-207), where this module was removed — probing the
+# package would accept a cached venv that then crashes importing FastMCP.
 sys.exit(0 if all(u.find_spec(m) for m in (
-    "mcp",
+    "mcp.server.fastmcp",
     "google.cloud.monitoring_v3",
     "starlette",
     "uvicorn",

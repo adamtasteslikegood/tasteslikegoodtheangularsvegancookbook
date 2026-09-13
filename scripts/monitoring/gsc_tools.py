@@ -785,7 +785,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
         def run() -> str:
             cs, ce, _ps, _pe, note = _window_note(days)
             rows, complete = gsc.query_all(cs, ce, ["query", "page"])
-            sd = striking_distance(rows, int(min_impressions), float(position_min), float(position_max))[: max(1, int(limit))]
+            qualifying = striking_distance(rows, int(min_impressions), float(position_min), float(position_max))
+            sd = qualifying[: max(1, int(limit))]
             table = [
                 [
                     (r.get("keys") or ["?", "?"])[0],
@@ -798,7 +799,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             ]
             head = (
                 f"Striking distance (position {position_min:g}–{position_max:g}, ≥{min_impressions} impressions) — {site_url}\n{note}\n"
-                f"{len(sd)} of {len(rows)} query/page rows qualify.{sample_note(len(rows), complete, 'query/page rows')}"
+                f"{len(qualifying)} of {len(rows)} query/page rows qualify; showing {len(sd)}."
+                f"{sample_note(len(rows), complete, 'query/page rows')}"
             )
             return head + "\n" + format_table(["query", "page", "impr", "clicks", "pos"], table)
 

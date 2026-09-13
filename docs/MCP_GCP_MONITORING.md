@@ -109,7 +109,7 @@ Configure the environment on claude.ai → **Code** → environment settings:
      echo "pip attempt $attempt of 3 failed" >&2
      if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
-   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; modules=("mcp","google.cloud.monitoring_v3","starlette","uvicorn","google.auth","requests"); sys.exit(0 if all(u.find_spec(m) for m in modules) else 1)'
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; modules=("mcp.server.fastmcp","google.cloud.monitoring_v3","starlette","uvicorn","google.auth","requests"); sys.exit(0 if all(u.find_spec(m) for m in modules) else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
    ```
 

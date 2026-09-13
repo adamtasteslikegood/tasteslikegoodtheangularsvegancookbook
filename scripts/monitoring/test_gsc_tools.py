@@ -427,6 +427,10 @@ class ToolTextTest(unittest.TestCase):
         self.assertNotIn("Sample truncated", out)
         self.assertIn("rows scanned", out)
 
+    def test_striking_distance_counts_all_qualifying_rows_before_limit(self):
+        out = self.mcp.tools["gsc_striking_distance"](28, 10, 5.0, 30.0, 1)
+        self.assertIn("2 of 2 query/page rows qualify; showing 1.", out)
+
     def test_denied_access_returns_instruction_not_traceback(self):
         mcp = Collector()
         client = g.GscClient("sc-domain:tasteslikegood.org", sa_info={"client_email": "gcp-monitor-mcp@p.iam.gserviceaccount.com"}, session_factory=lambda: FakeSession(deny=True))
