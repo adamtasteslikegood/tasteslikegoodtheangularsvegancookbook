@@ -185,7 +185,7 @@ class FlagsTest(unittest.TestCase):
         self.assertIn("Clicks down 45%", joined)
         self.assertIn("worsened by 4.2", joined)
         self.assertIn("1 error(s)", joined)
-        self.assertIn("last read 59 URLs", joined)
+        self.assertIn("reports 59 submitted URLs", joined)
         self.assertIn("No striking-distance", joined)
 
     def test_zero_impressions_and_missing_sitemap(self):
@@ -291,6 +291,17 @@ class ToolTextTest(unittest.TestCase):
     def test_search_performance_rejects_bad_sort(self):
         out = self.mcp.tools["gsc_search_performance"](28, "query", 10, "", "", "clickz")
         self.assertIn("sort_by must be one of", out)
+
+    def test_weekly_totals_omit_dimensions_for_single_aggregate_row(self):
+        self.mcp.tools["gsc_weekly_report"](28)
+        aggregate_queries = [
+            body
+            for method, url, body in self.session.calls
+            if method == "POST"
+            and url.endswith("/searchAnalytics/query")
+            and "dimensions" not in body
+        ]
+        self.assertGreaterEqual(len(aggregate_queries), 2)
 
     def test_search_performance_expands_and_discloses_non_click_sort(self):
         out = self.mcp.tools["gsc_search_performance"](28, "query", 10, "", "", "impressions")
