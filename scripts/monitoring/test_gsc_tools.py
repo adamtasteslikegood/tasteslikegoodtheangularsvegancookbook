@@ -289,6 +289,16 @@ class FlagsTest(unittest.TestCase):
         self.assertFalse(any("No striking-distance queries yet" in f for f in flags))
         self.assertTrue(any("absence is inconclusive" in f for f in flags))
 
+    def test_unavailable_sitemap_api_does_not_claim_none_submitted(self):
+        flags = g.weekly_flags(
+            self.cmp(),
+            [],
+            98,
+            [{}],
+            sitemaps_available=False,
+        )
+        self.assertFalse(any("No sitemap is submitted" in f for f in flags))
+
 
 class FakeResponse:
     def __init__(self, status, payload):
@@ -386,6 +396,37 @@ class ToolTextTest(unittest.TestCase):
         self.assertIn("found", out)
         self.assertIn("siteRestrictedUser", out)
 
+    def test_sites_missing_configured_property_includes_grant_guidance(self):
+        original = self.session.request
+
+        def other_property(method, url, timeout=None, json=None):
+            if url.endswith("/sites"):
+                return FakeResponse(
+                    200,
+                    {
+                        "siteEntry": [
+                            {
+                                "siteUrl": "sc-domain:example.org",
+                                "permissionLevel": "siteRestrictedUser",
+                            }
+                        ]
+                    },
+                )
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = other_property
+        out = self.mcp.tools["gsc_sites"]()
+        self.assertIn("NOT FOUND", out)
+        self.assertIn("Users and permissions", out)
+        self.assertIn("Verify GSC_SITE_URL", out)
+
+    def test_unknown_adc_principal_does_not_claim_service_account(self):
+        client = g.GscClient("sc-domain:tasteslikegood.org")
+        self.assertEqual(client.principal, "the active Google credential")
+        guidance = g.property_access_instruction(client.principal)
+        self.assertIn("gcloud auth list", guidance)
+        self.assertNotIn("Add that email", guidance)
+
     def test_weekly_report_shape(self):
         out = self.mcp.tools["gsc_weekly_report"](28)
         for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "(over 3 query rows)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "rows scanned", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
@@ -439,6 +480,11 @@ class ToolTextTest(unittest.TestCase):
 
     def test_inspect_resolves_relative_path(self):
         out = self.mcp.tools["gsc_inspect_url"]("/r/vegan-cornbread")
+        self.assertIn("https://www.tasteslikegood.org/r/vegan-cornbread", out)
+        self.assertIn("Recipes", out)
+
+    def test_inspect_resolves_relative_path_without_leading_slash(self):
+        out = self.mcp.tools["gsc_inspect_url"]("r/vegan-cornbread")
         self.assertIn("https://www.tasteslikegood.org/r/vegan-cornbread", out)
         self.assertIn("Recipes", out)
 
@@ -507,6 +553,9 @@ class ToolTextTest(unittest.TestCase):
         self.assertIn("Partial report data", out)
         self.assertIn("pages: TimeoutError: pages timed out", out)
         self.assertIn("sitemaps: TimeoutError: sitemaps timed out", out)
+        self.assertIn("unavailable (see Flags)", out)
+        self.assertNotIn("(none submitted)", out)
+        self.assertNotIn("No sitemap is submitted", out)
 
     def test_weekly_report_surfaces_live_sitemap_failure(self):
         g.fetch_live_sitemap = lambda base: None
