@@ -142,6 +142,16 @@ class BrandAndMoversTest(unittest.TestCase):
         self.assertIn("clicks-down", losers)
         self.assertNotIn("clicks-down", gainers)
 
+    def test_movers_ties_have_stable_key_order(self):
+        tied = [
+            row(["zeta"], 1, 10, 8.0),
+            row(["alpha"], 1, 10, 8.0),
+        ]
+        gainers = g.movers(tied, [], limit=5)["gainers"]
+        losers = g.movers([], tied, limit=5)["losers"]
+        self.assertEqual([m["key"] for m in gainers], ["alpha", "zeta"])
+        self.assertEqual([m["key"] for m in losers], ["alpha", "zeta"])
+
 
 class SitemapAndErrorsTest(unittest.TestCase):
     SITEMAP = (
