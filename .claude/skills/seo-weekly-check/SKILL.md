@@ -40,8 +40,8 @@ this routine step by step without pausing for confirmation.
      and whether "vegan recipe generator"-family queries are appearing.
    - **Brand vs non-brand** — is anyone finding the site who was not
      already looking for it?
-   - **Indexing** — sitemap read date and URL count vs the live sitemap;
-     coverage sample result if run.
+   - **Indexing** — sitemap last-downloaded date and submitted URL count vs
+     the live sitemap; coverage sample result if run.
    - **Striking distance → actions** — at most five, each with the page and
      the change.
    - **Flags** — the ⚠️ lines and what was done about each.
