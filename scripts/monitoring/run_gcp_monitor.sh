@@ -27,15 +27,34 @@ installed_hash="$(cat "$deps_stamp" 2>/dev/null || true)"
 # in-repo bootstrap that races the MCP client's startup timeout.
 for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
   prebuilt_python="$prebuilt/bin/python"
-  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - <<'EOF' 2>/dev/null
+  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - "$requirements" <<'EOF' 2>/dev/null
 import importlib.util as u
+import pathlib
 import sys
+from importlib.metadata import PackageNotFoundError, version
+from pip._vendor.packaging.requirements import Requirement
+from pip._vendor.packaging.version import Version
 
-# Validate every direct runtime dependency used by the stdio and HTTP startup
-# paths before accepting a cached environment.
+# A prebuilt venv lives outside the checkout and cannot share the repo-local
+# hash stamp. Validate every declared requirement against its installed
+# distribution version before taking the fast path, then probe the exact
+# modules imported by both stdio and HTTP startup.
+for raw_line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    requirement = Requirement(line)
+    if requirement.marker and not requirement.marker.evaluate():
+        continue
+    try:
+        installed = Version(version(requirement.name))
+    except PackageNotFoundError:
+        sys.exit(1)
+    if requirement.specifier and installed not in requirement.specifier:
+        sys.exit(1)
+
 # "mcp.server.fastmcp", not "mcp": the top-level package still exists on the
-# unsupported mcp 2.x (KAN-207), where this module was removed — probing the
-# package would accept a cached venv that then crashes importing FastMCP.
+# unsupported mcp 2.x (KAN-207), where this module was removed.
 sys.exit(0 if all(u.find_spec(m) for m in (
     "mcp.server.fastmcp",
     "google.cloud.monitoring_v3",
