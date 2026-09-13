@@ -27,12 +27,14 @@ query live Cloud Monitoring telemetry for the production stack and run the
 - A service account with **`roles/monitoring.viewer`** on project
   `comdottasteslikegood`, and its JSON key downloaded somewhere **outside the
   repo** (e.g. `~/gcp-keys/monitoring-viewer.json`). Never commit the key.
-  `monitoring.viewer` is sufficient for everything this server does —
+  `monitoring.viewer` is sufficient for the server's Cloud Monitoring tools —
   Pub/Sub metrics are read through the Monitoring API, so `pubsub.viewer` is
-  not required.
+  not required. The `gsc_*` tools separately require the credential's Google
+  account or service-account email to be granted access on the Search Console
+  property; see § 6.5.
 - `python3` with venv support (`sudo apt install python3.12-venv` on
   Debian/Ubuntu). The launcher script creates its own venv on first run and
-  installs `mcp` + `google-cloud-monitoring`.
+  installs the bounded dependency set in `scripts/monitoring/requirements.txt`.
 
 ## 2. Configuration
 
@@ -397,8 +399,10 @@ also enables `searchconsole.googleapis.com` and prints this notice):
    `webmasters.readonly`).
 3. Call `gsc_sites`. It must list `sc-domain:tasteslikegood.org`.
 
-Until then every `gsc_*` tool returns that instruction, naming the exact email,
-instead of a stack trace. Configuration: `GSC_SITE_URL` (default
+Until then every `gsc_*` tool returns an actionable grant instruction instead
+of a stack trace. Service-account credentials name the exact email; user ADC
+diagnostics explain how to identify the active account or set
+`GSC_PRINCIPAL_EMAIL`. Configuration: `GSC_SITE_URL` (default
 `sc-domain:tasteslikegood.org` — domain properties use the `sc-domain:` form,
 URL-prefix properties the full origin with a trailing slash) and
 `GSC_PUBLIC_BASE` (default `https://www.tasteslikegood.org`, used to fetch the
