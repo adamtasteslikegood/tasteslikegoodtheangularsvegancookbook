@@ -360,6 +360,9 @@ def weekly_flags(
     sitemaps: list[dict],
     live_url_count: Optional[int],
     striking: list[dict],
+    *,
+    striking_complete: bool = True,
+    live_sitemap_url: Optional[str] = None,
 ) -> list[str]:
     """⚠️ lines for the weekly report. Pure so the thresholds are testable."""
     flags: list[str] = []
@@ -381,16 +384,37 @@ def weekly_flags(
             flags.append(f"⚠️ Sitemap {sm.get('path')} has {warnings} warning(s) in Search Console.")
         if sm.get("isPending"):
             flags.append(f"⚠️ Sitemap {sm.get('path')} is still pending processing.")
-        submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
-        if live_url_count is not None and abs(submitted - live_url_count) > 5:
+    comparison_sitemaps = sitemaps
+    if live_sitemap_url:
+        expected = live_sitemap_url.rstrip("/")
+        comparison_sitemaps = [
+            sm for sm in sitemaps if str(sm.get("path") or "").rstrip("/") == expected
+        ]
+    if live_url_count is not None and comparison_sitemaps:
+        submitted = sum(
+            int(c.get("submitted") or 0)
+            for sm in comparison_sitemaps
+            for c in sm.get("contents") or []
+        )
+        if abs(submitted - live_url_count) > 5:
+            label = (
+                comparison_sitemaps[0].get("path")
+                if len(comparison_sitemaps) == 1
+                else "the submitted sitemap set"
+            )
             flags.append(
-                f"⚠️ Search Console reports {submitted} submitted URLs for {sm.get('path')} but the live sitemap has "
+                f"⚠️ Search Console reports {submitted} submitted URLs for {label} but the live sitemap has "
                 f"{live_url_count}. This count mismatch is a heuristic; lastDownloaded is the actual fetch timestamp."
             )
+    elif live_url_count is not None and live_sitemap_url and sitemaps:
+        flags.append(f"⚠️ The configured live sitemap {live_sitemap_url} is not submitted for this property.")
     if not sitemaps:
         flags.append("⚠️ No sitemap is submitted for this property (KAN-115 submitted one on 2026-07-19 — re-check).")
     if not striking:
-        flags.append("• No striking-distance queries yet (nothing ranking 5–30 with ≥10 impressions).")
+        if striking_complete:
+            flags.append("• No striking-distance queries yet (nothing ranking 5–30 with ≥10 impressions).")
+        else:
+            flags.append("⚠️ The striking-distance sample hit its row cap without a match; absence is inconclusive.")
     return flags
 
 
@@ -810,6 +834,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 sms,
                 live_count,
                 [{}],
+                live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
             )
             if live is None:
                 flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
@@ -904,7 +929,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             sms = gsc.sitemaps()
             live = fetch_live_sitemap(public_base)
             live_count = len(live) if live is not None else None
-            flags = weekly_flags(cmp, sms, live_count, sd)
+            flags = weekly_flags(
+                cmp,
+                sms,
+                live_count,
+                sd,
+                striking_complete=sd_complete,
+                live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
+            )
             if live is None:
                 flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             top_q = sorted(queries, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
