@@ -713,7 +713,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             ]
             head = (
                 f"Striking distance (position {position_min:g}–{position_max:g}, ≥{min_impressions} impressions) — {site_url}\n{note}\n"
-                f"{len(sd)} of {len(rows)} query/page rows qualify."
+                f"{len(sd)} of {len(rows)} rows qualify in the first {len(rows):,} click-ranked "
+                f"query/page rows returned (request cap {MAX_ROWS:,}; API may omit rows)."
             )
             return head + "\n" + format_table(["query", "page", "impr", "clicks", "pos"], table)
 
@@ -866,7 +867,9 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"  impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"  CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
                 "  " + fmt_position_comparison(cmp["position"], cmp["position_better"]),
-                f"  brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
+                f"  brand/non-brand sample (first {len(queries):,} click-ranked query rows returned; "
+                "request cap 1,000; API may omit rows):",
+                f"    brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
                 f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr",
                 "",
                 "Top queries:",
@@ -875,7 +878,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 "Top pages:",
                 performance_rows_table(top_p, "page"),
                 "",
-                f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr):",
+                f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr; "
+                f"first {len(sd_rows):,} click-ranked rows returned, request cap {MAX_ROWS:,}; API may omit rows):",
                 format_table(
                     ["query", "page", "impr", "pos"],
                     [
