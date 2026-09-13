@@ -35,6 +35,9 @@ class LauncherBootstrapTest(unittest.TestCase):
         self.assertIn('requirements_hash="$(python3 - "$requirements"', launcher)
         self.assertIn('"$installed_hash" != "$requirements_hash"', launcher)
         self.assertIn('printf \'%s\\n\' "$requirements_hash" >"$deps_stamp"', launcher)
+        self.assertIn("requirement = Requirement(line)", launcher)
+        self.assertIn("Version(version(requirement.name))", launcher)
+        self.assertIn("installed not in requirement.specifier", launcher)
 
 
 class PeriodWindowsTest(unittest.TestCase):
@@ -104,6 +107,8 @@ class StrikingDistanceTest(unittest.TestCase):
     def test_custom_band(self):
         rows = [row(["q"], 0, 50, 3.0)]
         self.assertEqual(g.striking_distance(rows, position_min=1, position_max=4), rows)
+        self.assertEqual(g.clamp_output_limit(0), 1)
+        self.assertEqual(g.clamp_output_limit(g.MAX_OUTPUT_ROWS + 1), g.MAX_OUTPUT_ROWS)
 
 
 class BrandAndMoversTest(unittest.TestCase):
@@ -300,9 +305,11 @@ class FakeSession:
     def __init__(self, deny=False):
         self.deny = deny
         self.calls = []
+        self.timeouts = []
 
     def request(self, method, url, timeout=None, json=None):
         self.calls.append((method, url, json))
+        self.timeouts.append(timeout)
         if self.deny:
             return FakeResponse(403, {"error": {"message": "User does not have sufficient permission for site"}})
         if url.endswith("/sites"):
@@ -383,6 +390,9 @@ class ToolTextTest(unittest.TestCase):
         out = self.mcp.tools["gsc_weekly_report"](28)
         for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "(over 3 query rows)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "rows scanned", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
             self.assertIn(needle, out, needle)
+        bounded = [timeout for timeout in self.session.timeouts if timeout is not None]
+        self.assertTrue(bounded)
+        self.assertLessEqual(max(bounded), g.SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS)
 
     def test_search_performance_rejects_bad_dimension(self):
         self.assertIn("dimension must be one of", self.mcp.tools["gsc_search_performance"](28, "banana"))
@@ -500,6 +510,28 @@ class ToolTextTest(unittest.TestCase):
         self.assertFalse(complete)
         self.assertIn("Sample truncated at 5,000", g.sample_note(len(rows), complete, "query rows"))
         self.assertEqual(g.sample_note(3, True), "")
+
+    def test_query_all_returns_partial_rows_after_transport_failure(self):
+        session = PagingSession()
+        original = session.request
+
+        def fail_second_page(method, url, timeout=None, json=None):
+            if url.endswith("/searchAnalytics/query") and int(json.get("startRow", 0)) == g.MAX_ROWS:
+                raise TimeoutError("analytics page timed out")
+            return original(method, url, timeout=timeout, json=json)
+
+        session.request = fail_second_page
+        client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: session)
+        errors = []
+        rows, complete = client.query_all(
+            "2026-08-16",
+            "2026-09-12",
+            ["query"],
+            partial_errors=errors,
+        )
+        self.assertEqual(len(rows), g.MAX_ROWS)
+        self.assertFalse(complete)
+        self.assertEqual(errors, ["page 2: TimeoutError: analytics page timed out"])
 
     def test_weekly_report_discloses_row_population_for_brand_split(self):
         out = self.mcp.tools["gsc_weekly_report"](28)
