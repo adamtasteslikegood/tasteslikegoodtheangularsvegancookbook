@@ -118,7 +118,33 @@ jobs:
       - name: Run Search Console unit tests
         run: python3 -m unittest scripts/monitoring/test_gsc_tools.py
       - name: Build monitoring MCP image
-        run: docker build -f scripts/monitoring/Dockerfile scripts/monitoring
+        run: docker build -t gcp-monitor-mcp:test -f scripts/monitoring/Dockerfile scripts/monitoring
+      - name: Smoke-test registered monitoring MCP tools
+        run: |
+          docker run --rm -i --entrypoint python gcp-monitor-mcp:test - <<'PY'
+          import asyncio
+
+          import gcp_mcp_server as server
+
+          expected = {
+              "check_system_health",
+              "list_available_metrics",
+              "query_metric",
+              "gsc_sites",
+              "gsc_search_performance",
+              "gsc_compare_periods",
+              "gsc_striking_distance",
+              "gsc_sitemaps",
+              "gsc_inspect_url",
+              "gsc_index_coverage_sample",
+              "gsc_weekly_report",
+          }
+          registered = {tool.name for tool in asyncio.run(server.mcp.list_tools())}
+          missing = expected - registered
+          if missing:
+              raise SystemExit(f"Monitoring MCP tools failed to register: {sorted(missing)}")
+          print(f"Registered {len(expected)} expected monitoring MCP tools.")
+          PY
 
   # Branched Alembic heads make `flask db upgrade` refuse to run, which fails
   # the flask-backend-migrate Cloud Run Job and aborts the deploy mid-release.
