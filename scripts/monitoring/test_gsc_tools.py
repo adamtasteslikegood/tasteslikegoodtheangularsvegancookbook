@@ -5,6 +5,7 @@ No network, no credentials: the API layer is exercised through a fake session
 so the tool text can be asserted end to end.
 """
 
+import base64
 import datetime as dt
 import json
 import os
@@ -39,6 +40,16 @@ class LauncherBootstrapTest(unittest.TestCase):
         self.assertIn("Version(version(requirement.name))", launcher)
         self.assertIn("installed not in requirement.specifier", launcher)
 
+    def test_embedded_credentials_defer_to_usable_file(self):
+        encoded = base64.b64encode(json.dumps({"client_email": "b64@example.test"}).encode()).decode()
+        with mock.patch.object(g.os.path, "isfile", return_value=True):
+            self.assertIsNone(g.decode_embedded_credentials(encoded, "/tmp/key.json"))
+        with mock.patch.object(g.os.path, "isfile", return_value=False):
+            self.assertEqual(
+                g.decode_embedded_credentials(encoded, "/tmp/missing.json"),
+                {"client_email": "b64@example.test"},
+            )
+
 
 class PeriodWindowsTest(unittest.TestCase):
     def test_windows_are_adjacent_and_equal_length(self):
@@ -55,6 +66,13 @@ class PeriodWindowsTest(unittest.TestCase):
         self.assertEqual(cs, ce)
         self.assertEqual(ps, pe)
         self.assertEqual(pe, "2026-09-11")
+
+    def test_window_is_capped_to_retained_comparison_history(self):
+        cs, ce, ps, pe = g.period_windows(10**12, today=dt.date(2026, 9, 13))
+        cur_len = (dt.date.fromisoformat(ce) - dt.date.fromisoformat(cs)).days + 1
+        prev_len = (dt.date.fromisoformat(pe) - dt.date.fromisoformat(ps)).days + 1
+        self.assertEqual(cur_len, g.MAX_COMPARISON_WINDOW_DAYS)
+        self.assertEqual(prev_len, g.MAX_COMPARISON_WINDOW_DAYS)
 
 
 class SummaryAndComparisonTest(unittest.TestCase):
@@ -298,6 +316,18 @@ class FlagsTest(unittest.TestCase):
         flags = g.weekly_flags(self.cmp(), [], None, [], striking_complete=False)
         self.assertFalse(any("No striking-distance queries yet" in f for f in flags))
         self.assertTrue(any("absence is inconclusive" in f for f in flags))
+
+    def test_failed_striking_request_does_not_claim_row_cap(self):
+        flags = g.weekly_flags(
+            self.cmp(),
+            [],
+            None,
+            [],
+            striking_complete=False,
+            striking_failed=True,
+        )
+        self.assertTrue(any("failed or timed out" in f for f in flags))
+        self.assertFalse(any("row cap" in f for f in flags))
 
     def test_unavailable_sitemap_api_does_not_claim_none_submitted(self):
         flags = g.weekly_flags(
@@ -609,6 +639,16 @@ class ToolTextTest(unittest.TestCase):
         self.assertFalse(complete)
         self.assertIn("Sample truncated at 5,000", g.sample_note(len(rows), complete, "query rows"))
         self.assertEqual(g.sample_note(3, True), "")
+
+    def test_sample_note_distinguishes_transport_failure(self):
+        note = g.sample_note(
+            5000,
+            False,
+            "query rows",
+            incomplete_due_to_error=True,
+        )
+        self.assertIn("request failed or timed out", note)
+        self.assertNotIn("Sample truncated", note)
 
     def test_query_all_returns_partial_rows_after_transport_failure(self):
         session = PagingSession()
