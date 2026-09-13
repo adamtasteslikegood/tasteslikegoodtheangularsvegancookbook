@@ -140,7 +140,11 @@ def compare_totals(cur: dict[str, float], prev: dict[str, float]) -> dict[str, A
         "ctr": cur["ctr"],
         "ctr_delta": cur["ctr"] - prev["ctr"],
         "position": cur["position"],
-        "position_better": (prev["position"] - cur["position"]) if prev["position"] else 0.0,
+        "position_better": (
+            prev["position"] - cur["position"]
+            if cur["impressions"] > 0 and prev["impressions"] > 0
+            else None
+        ),
     }
 
 
@@ -300,6 +304,15 @@ def fmt_delta(value: Optional[float], pct: Optional[float] = None, better_when_p
     return core
 
 
+def fmt_position_comparison(position: float, position_better: Optional[float]) -> str:
+    """Render a rank comparison without treating a no-impression window as rank zero."""
+    current = f"{position:.1f}" if position > 0 else "—"
+    if position_better is None:
+        return f"avg position {current} (comparison unavailable)"
+    direction = "better" if position_better > 0 else "worse" if position_better < 0 else "flat"
+    return f"avg position {current} ({direction} by {abs(position_better):.1f})"
+
+
 def format_table(headers: list[str], rows: list[list[str]], max_width: int = 70) -> str:
     """Aligned plain-text table; long cells are truncated with an ellipsis."""
     if not rows:
@@ -340,8 +353,9 @@ def weekly_flags(
         flags.append(f"⚠️ Clicks down {abs(comparison['clicks_pct']):.0f}% vs the previous window.")
     if comparison["impressions_pct"] is not None and comparison["impressions_pct"] <= -30:
         flags.append(f"⚠️ Impressions down {abs(comparison['impressions_pct']):.0f}% vs the previous window.")
-    if comparison["position_better"] <= -3:
-        flags.append(f"⚠️ Average position worsened by {abs(comparison['position_better']):.1f}.")
+    position_better = comparison.get("position_better")
+    if position_better is not None and position_better <= -3:
+        flags.append(f"⚠️ Average position worsened by {abs(position_better):.1f}.")
     for sm in sitemaps:
         errors = int(sm.get("errors") or 0)
         warnings = int(sm.get("warnings") or 0)
@@ -352,7 +366,7 @@ def weekly_flags(
         if sm.get("isPending"):
             flags.append(f"⚠️ Sitemap {sm.get('path')} is still pending processing.")
         submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
-        if live_url_count is not None and submitted and abs(submitted - live_url_count) > 5:
+        if live_url_count is not None and abs(submitted - live_url_count) > 5:
             flags.append(
                 f"⚠️ Search Console reports {submitted} submitted URLs for {sm.get('path')} but the live sitemap has "
                 f"{live_url_count}. This count mismatch is a heuristic; lastDownloaded is the actual fetch timestamp."
@@ -652,7 +666,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
                 f"impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
-                f"avg position {cmp['position']:.1f} ({'better' if cmp['position_better'] > 0 else 'worse' if cmp['position_better'] < 0 else 'flat'} by {abs(cmp['position_better']):.1f})",
+                fmt_position_comparison(cmp["position"], cmp["position_better"]),
                 "",
                 "Gainers:",
                 format_table(
@@ -851,7 +865,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"  clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
                 f"  impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"  CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
-                f"  avg position {cmp['position']:.1f} ({'better' if cmp['position_better'] > 0 else 'worse' if cmp['position_better'] < 0 else 'flat'} by {abs(cmp['position_better']):.1f})",
+                "  " + fmt_position_comparison(cmp["position"], cmp["position_better"]),
                 f"  brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
                 f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr",
                 "",
