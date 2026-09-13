@@ -285,7 +285,7 @@ class ToolTextTest(unittest.TestCase):
 
     def test_weekly_report_shape(self):
         out = self.mcp.tools["gsc_weekly_report"](28)
-        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
+        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "request cap 1,000", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "request cap 5,000", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
             self.assertIn(needle, out, needle)
 
     def test_search_performance_rejects_bad_dimension(self):
@@ -325,6 +325,11 @@ class ToolTextTest(unittest.TestCase):
     def test_non_positive_days_note_matches_clamped_window(self):
         out = self.mcp.tools["gsc_search_performance"](0)
         self.assertIn("(1d)", out)
+
+    def test_striking_distance_discloses_api_sample(self):
+        out = self.mcp.tools["gsc_striking_distance"]()
+        self.assertIn("request cap 5,000", out)
+        self.assertIn("API may omit rows", out)
 
     def test_inspect_resolves_relative_path(self):
         out = self.mcp.tools["gsc_inspect_url"]("/r/vegan-cornbread")
