@@ -75,6 +75,12 @@ MAX_INSPECTIONS_PER_CALL = 25
 # of being killed without a report when Google's endpoint is slow.
 INSPECTION_REQUEST_TIMEOUT_SECONDS = 8.0
 INSPECTION_TOTAL_BUDGET_SECONDS = 240.0
+# Search Analytics requests are paginated and several are combined by the
+# report tools. Bound both transport latency and rendered output so one slow
+# API call or caller-supplied limit cannot exhaust the connector request.
+SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS = 12.0
+WEEKLY_REPORT_TOTAL_BUDGET_SECONDS = 240.0
+MAX_OUTPUT_ROWS = 100
 MAX_ROWS = 5000
 # Search Analytics returns rows click-ranked; a single page can drop low-click
 # rows that still qualify for striking distance or the brand split. Paginate
@@ -115,6 +121,11 @@ def period_windows(
     prev_end = cur_start - dt.timedelta(days=1)
     prev_start = prev_end - dt.timedelta(days=days - 1)
     return cur_start.isoformat(), cur_end.isoformat(), prev_start.isoformat(), prev_end.isoformat()
+
+
+def clamp_output_limit(value: int) -> int:
+    """Clamp caller-controlled table sizes to the connector response budget."""
+    return max(1, min(int(value), MAX_OUTPUT_ROWS))
 
 
 def summarize_rows(rows: list[dict]) -> dict[str, float]:
@@ -556,6 +567,7 @@ class GscClient:
         filters: Optional[list[dict]] = None,
         search_type: str = "web",
         start_row: int = 0,
+        timeout: float = 60.0,
     ) -> list[dict]:
         body: dict[str, Any] = {
             "startDate": start_date,
@@ -570,7 +582,12 @@ class GscClient:
             body["dimensions"] = dimensions
         if filters:
             body["dimensionFilterGroups"] = [{"filters": filters}]
-        data = self._request("POST", f"{self._site_path}/searchAnalytics/query", json=body)
+        data = self._request(
+            "POST",
+            f"{self._site_path}/searchAnalytics/query",
+            json=body,
+            timeout=timeout,
+        )
         return data.get("rows", []) or []
 
     def query_all(
@@ -581,31 +598,55 @@ class GscClient:
         filters: Optional[list[dict]] = None,
         search_type: str = "web",
         max_pages: int = MAX_PAGES,
+        request_timeout: float = SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+        deadline: Optional[float] = None,
+        partial_errors: Optional[list[str]] = None,
     ) -> tuple[list[dict], bool]:
         """Page through Search Analytics with ``startRow``.
 
         Returns ``(rows, complete)``. ``complete`` is False when ``max_pages``
         full pages came back and more may exist — callers must say so rather
-        than present a click-ranked sample as the whole population.
+        than present a click-ranked sample as the whole population. When
+        ``partial_errors`` is supplied, transport failures are recorded there
+        and rows already fetched are returned as an incomplete sample.
         """
         rows: list[dict] = []
         for page_index in range(max(1, int(max_pages))):
-            page = self.query(
-                start_date,
-                end_date,
-                dimensions,
-                row_limit=MAX_ROWS,
-                filters=filters,
-                search_type=search_type,
-                start_row=page_index * MAX_ROWS,
-            )
+            timeout = request_timeout
+            if deadline is not None:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0.1:
+                    if partial_errors is not None:
+                        partial_errors.append("total Search Analytics time budget exhausted")
+                    return rows, False
+                timeout = min(timeout, remaining)
+            try:
+                page = self.query(
+                    start_date,
+                    end_date,
+                    dimensions,
+                    row_limit=MAX_ROWS,
+                    filters=filters,
+                    search_type=search_type,
+                    start_row=page_index * MAX_ROWS,
+                    timeout=timeout,
+                )
+            except GscAccessError:
+                raise
+            except Exception as exc:
+                if partial_errors is None:
+                    raise
+                partial_errors.append(
+                    f"page {page_index + 1}: {type(exc).__name__}: {exc}"
+                )
+                return rows, False
             rows.extend(page)
             if len(page) < MAX_ROWS:
                 return rows, True
         return rows, False
 
-    def sitemaps(self) -> list[dict]:
-        return self._request("GET", f"{self._site_path}/sitemaps").get("sitemap", []) or []
+    def sitemaps(self, timeout: float = 60.0) -> list[dict]:
+        return self._request("GET", f"{self._site_path}/sitemaps", timeout=timeout).get("sitemap", []) or []
 
     def inspect(self, inspection_url: str, timeout: float = INSPECTION_REQUEST_TIMEOUT_SECONDS) -> dict:
         body = {"inspectionUrl": inspection_url, "siteUrl": self.site_url, "languageCode": "en-US"}
@@ -735,11 +776,18 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 filters.append({"dimension": "page", "operator": "contains", "expression": page_contains})
             if query_contains:
                 filters.append({"dimension": "query", "operator": "contains", "expression": query_contains})
-            requested = max(1, min(int(limit), MAX_ROWS))
+            requested = clamp_output_limit(limit)
             # Search Analytics returns rows click-ranked. Fetch the largest
             # bounded sample before applying an alternate local sort.
             fetch_limit = requested if key == "clicks" else MAX_ROWS
-            rows = gsc.query(cs, ce, [dim], row_limit=fetch_limit, filters=filters or None)
+            rows = gsc.query(
+                cs,
+                ce,
+                [dim],
+                row_limit=fetch_limit,
+                filters=filters or None,
+                timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+            )
             rows = sorted(
                 rows,
                 key=lambda r: float(r.get(key) or 0),
@@ -764,16 +812,33 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
     def gsc_compare_periods(days: int = 28, limit: int = 10) -> str:
         """Totals for the last `days` versus the `days` before them, plus the
         top query gainers and losers by clicks (impressions break ties, so a
-        zero-click site still gets a meaningful list)."""
+        zero-click site still gets a meaningful list). Output is capped at
+        100 gainers and 100 losers."""
 
         def run() -> str:
             cs, ce, ps, pe, note = _window_note(days)
-            cur_tot = summarize_rows(gsc.query(cs, ce, None, row_limit=1))
-            prev_tot = summarize_rows(gsc.query(ps, pe, None, row_limit=1))
+            cur_tot = summarize_rows(
+                gsc.query(
+                    cs,
+                    ce,
+                    None,
+                    row_limit=1,
+                    timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+                )
+            )
+            prev_tot = summarize_rows(
+                gsc.query(
+                    ps,
+                    pe,
+                    None,
+                    row_limit=1,
+                    timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+                )
+            )
             cmp = compare_totals(cur_tot, prev_tot)
             cur_q, cur_complete = gsc.query_all(cs, ce, ["query"])
             prev_q, prev_complete = gsc.query_all(ps, pe, ["query"])
-            mv = movers(cur_q, prev_q, limit=max(1, int(limit)))
+            mv = movers(cur_q, prev_q, limit=clamp_output_limit(limit))
             movers_note = (
                 sample_note(len(cur_q), cur_complete, "current-window query rows")
                 + sample_note(len(prev_q), prev_complete, "previous-window query rows")
@@ -814,13 +879,13 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
         """Queries already ranking between position_min and position_max with at
         least min_impressions, with the page Google shows for each. These are
         the cheapest wins: a title, intro paragraph, or internal link usually
-        moves them onto page one."""
+        moves them onto page one. Output is capped at 100 rows."""
 
         def run() -> str:
             cs, ce, _ps, _pe, note = _window_note(days)
             rows, complete = gsc.query_all(cs, ce, ["query", "page"])
             qualifying = striking_distance(rows, int(min_impressions), float(position_min), float(position_max))
-            sd = qualifying[: max(1, int(limit))]
+            sd = qualifying[: clamp_output_limit(limit)]
             table = [
                 [
                     (r.get("keys") or ["?", "?"])[0],
@@ -872,6 +937,11 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 [{}],
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
             )
+            if analytics_errors:
+                flags.append(
+                    "⚠️ Partial Search Analytics data: "
+                    + "; ".join(analytics_errors)
+                )
             if live is None:
                 flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
             lines.extend(flags)
@@ -981,17 +1051,76 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             cs, ce, ps, pe, note = _window_note(days)
-            cur_tot = summarize_rows(gsc.query(cs, ce, None, row_limit=1))
-            prev_tot = summarize_rows(gsc.query(ps, pe, None, row_limit=1))
+            deadline = time.monotonic() + WEEKLY_REPORT_TOTAL_BUDGET_SECONDS
+            analytics_errors: list[str] = []
+
+            def query_once(label: str, *args, **kwargs) -> list[dict]:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0.1:
+                    analytics_errors.append(
+                        f"{label}: total Search Analytics time budget exhausted"
+                    )
+                    return []
+                try:
+                    return gsc.query(
+                        *args,
+                        **kwargs,
+                        timeout=min(
+                            SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+                            remaining,
+                        ),
+                    )
+                except GscAccessError:
+                    raise
+                except Exception as exc:
+                    analytics_errors.append(
+                        f"{label}: {type(exc).__name__}: {exc}"
+                    )
+                    return []
+
+            cur_tot = summarize_rows(
+                query_once("current totals", cs, ce, None, row_limit=1)
+            )
+            prev_tot = summarize_rows(
+                query_once("previous totals", ps, pe, None, row_limit=1)
+            )
             cmp = compare_totals(cur_tot, prev_tot)
-            queries, queries_complete = gsc.query_all(cs, ce, ["query"])
-            pages = gsc.query(cs, ce, ["page"], row_limit=1000)
+            query_errors: list[str] = []
+            queries, queries_complete = gsc.query_all(
+                cs,
+                ce,
+                ["query"],
+                deadline=deadline,
+                partial_errors=query_errors,
+            )
+            analytics_errors.extend(f"queries: {error}" for error in query_errors)
+            pages = query_once("pages", cs, ce, ["page"], row_limit=1000)
             split = brand_split(queries)
             split_note = sample_note(len(queries), queries_complete, "query rows")
-            sd_rows, sd_complete = gsc.query_all(cs, ce, ["query", "page"])
+            sd_errors: list[str] = []
+            sd_rows, sd_complete = gsc.query_all(
+                cs,
+                ce,
+                ["query", "page"],
+                deadline=deadline,
+                partial_errors=sd_errors,
+            )
+            analytics_errors.extend(
+                f"striking distance: {error}" for error in sd_errors
+            )
             sd = striking_distance(sd_rows)[:10]
             sd_note = sample_note(len(sd_rows), sd_complete, "query/page rows")
-            sms = gsc.sitemaps()
+            remaining = deadline - time.monotonic()
+            sms = (
+                gsc.sitemaps(
+                    timeout=min(
+                        SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
+                        remaining,
+                    )
+                )
+                if remaining > 0.1
+                else []
+            )
             live = fetch_live_sitemap(public_base)
             live_count = len(live) if live is not None else None
             flags = weekly_flags(
