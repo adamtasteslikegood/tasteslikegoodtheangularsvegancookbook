@@ -563,6 +563,24 @@ class ToolTextTest(unittest.TestCase):
         self.assertIn("live sitemap: unavailable", out)
         self.assertIn("Live sitemap unavailable", out)
 
+    def test_weekly_report_does_not_turn_failed_totals_into_zero_traffic(self):
+        original = self.session.request
+
+        def failed_totals(method, url, timeout=None, json=None):
+            if url.endswith("/searchAnalytics/query") and not (
+                json.get("dimensions") or []
+            ):
+                raise TimeoutError("totals timed out")
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = failed_totals
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn("Totals:\n  unavailable (see Flags)", out)
+        self.assertIn("Partial report data", out)
+        self.assertNotIn("Zero impressions in the window", out)
+        self.assertNotIn("Clicks down", out)
+        self.assertNotIn("Impressions down", out)
+
     def test_query_all_paginates_with_start_row_and_reports_complete(self):
         session = PagingSession()
         client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: session)
