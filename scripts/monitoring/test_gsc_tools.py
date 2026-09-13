@@ -142,6 +142,13 @@ class SitemapAndErrorsTest(unittest.TestCase):
         self.assertIn("--project 746675616486", msg)
         self.assertNotIn("Users and permissions", msg)
 
+    def test_403_insufficient_scope_does_not_send_adam_to_the_user_list(self):
+        body = '{"error": {"code": 403, "message": "Request had insufficient authentication scopes.", "status": "PERMISSION_DENIED", "details": [{"reason": "ACCESS_TOKEN_SCOPE_INSUFFICIENT"}]}}'
+        msg = g.classify_http_error(403, body, "sc-domain:tasteslikegood.org", "sa@p.iam.gserviceaccount.com")
+        self.assertIn("webmasters.readonly", msg)
+        self.assertIn("will NOT fix this", msg)
+        self.assertNotIn("Users and permissions", msg)
+
     def test_404_explains_property_syntax(self):
         self.assertIn("sc-domain:", g.classify_http_error(404, "", "https://x/", "sa"))
 

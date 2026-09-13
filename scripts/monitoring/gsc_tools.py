@@ -230,6 +230,20 @@ def classify_http_error(status: int, body: str, site_url: str, principal: str) -
             "— wait a minute, then retry. (deploy_mcp_cloud_run.sh does this for the Cloud Run service's project.) "
             f"Detail: {snippet}"
         )
+    if status == 403 and (
+        "ACCESS_TOKEN_SCOPE_INSUFFICIENT" in (body or "")
+        or "insufficient authentication scopes" in (body or "").lower()
+    ):
+        return (
+            f"The access token for {principal} does not carry the Search Console scope "
+            f"({SCOPES[0]}) (HTTP 403 insufficient scopes). Adding a Search Console user "
+            "will NOT fix this. Locally: the key is fine, the scope is requested in "
+            "gsc_tools.build_credentials — check that code path ran. On Cloud Run: the "
+            "metadata server issued a token without the requested scope; redeploy with "
+            "the service account's access scopes including the Webmasters API, or run the "
+            "hosted server with a key (GOOGLE_APPLICATION_CREDENTIALS_B64) instead of ADC. "
+            f"Detail: {snippet}"
+        )
     if status == 403:
         return (
             f"Search Console refused access to {site_url} for {principal} (HTTP 403). "
