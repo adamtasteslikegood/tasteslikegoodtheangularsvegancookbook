@@ -406,18 +406,20 @@ def weekly_flags(
     striking_complete: bool = True,
     live_sitemap_url: Optional[str] = None,
     sitemaps_available: bool = True,
+    analytics_available: bool = True,
 ) -> list[str]:
     """⚠️ lines for the weekly report. Pure so the thresholds are testable."""
     flags: list[str] = []
-    if comparison["impressions"] == 0:
-        flags.append("⚠️ Zero impressions in the window — check the property is verified and the sitemap is available to Google.")
-    if comparison["clicks_pct"] is not None and comparison["clicks_pct"] <= -30:
-        flags.append(f"⚠️ Clicks down {abs(comparison['clicks_pct']):.0f}% vs the previous window.")
-    if comparison["impressions_pct"] is not None and comparison["impressions_pct"] <= -30:
-        flags.append(f"⚠️ Impressions down {abs(comparison['impressions_pct']):.0f}% vs the previous window.")
-    position_better = comparison.get("position_better")
-    if position_better is not None and position_better <= -3:
-        flags.append(f"⚠️ Average position worsened by {abs(position_better):.1f}.")
+    if analytics_available:
+        if comparison["impressions"] == 0:
+            flags.append("⚠️ Zero impressions in the window — check the property is verified and the sitemap is available to Google.")
+        if comparison["clicks_pct"] is not None and comparison["clicks_pct"] <= -30:
+            flags.append(f"⚠️ Clicks down {abs(comparison['clicks_pct']):.0f}% vs the previous window.")
+        if comparison["impressions_pct"] is not None and comparison["impressions_pct"] <= -30:
+            flags.append(f"⚠️ Impressions down {abs(comparison['impressions_pct']):.0f}% vs the previous window.")
+        position_better = comparison.get("position_better")
+        if position_better is not None and position_better <= -3:
+            flags.append(f"⚠️ Average position worsened by {abs(position_better):.1f}.")
     for sm in sitemaps:
         errors = int(sm.get("errors") or 0)
         warnings = int(sm.get("warnings") or 0)
@@ -1078,13 +1080,15 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             deadline = time.monotonic() + WEEKLY_REPORT_TOTAL_BUDGET_SECONDS
             analytics_errors: list[str] = []
 
-            def query_once(label: str, *args, **kwargs) -> list[dict]:
+            def query_once(
+                label: str, *args, **kwargs
+            ) -> Optional[list[dict]]:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0.1:
                     analytics_errors.append(
                         f"{label}: total Search Analytics time budget exhausted"
                     )
-                    return []
+                    return None
                 try:
                     return gsc.query(
                         *args,
@@ -1100,14 +1104,19 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     analytics_errors.append(
                         f"{label}: {type(exc).__name__}: {exc}"
                     )
-                    return []
+                    return None
 
-            cur_tot = summarize_rows(
-                query_once("current totals", cs, ce, None, row_limit=1)
+            cur_tot_rows = query_once(
+                "current totals", cs, ce, None, row_limit=1
             )
-            prev_tot = summarize_rows(
-                query_once("previous totals", ps, pe, None, row_limit=1)
+            prev_tot_rows = query_once(
+                "previous totals", ps, pe, None, row_limit=1
             )
+            totals_available = (
+                cur_tot_rows is not None and prev_tot_rows is not None
+            )
+            cur_tot = summarize_rows(cur_tot_rows or [])
+            prev_tot = summarize_rows(prev_tot_rows or [])
             cmp = compare_totals(cur_tot, prev_tot)
             query_errors: list[str] = []
             queries, queries_complete = gsc.query_all(
@@ -1118,7 +1127,10 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 partial_errors=query_errors,
             )
             analytics_errors.extend(f"queries: {error}" for error in query_errors)
-            pages = query_once("pages", cs, ce, ["page"], row_limit=1000)
+            queries_available = not query_errors or bool(queries)
+            page_rows = query_once("pages", cs, ce, ["page"], row_limit=1000)
+            pages_available = page_rows is not None
+            pages = page_rows or []
             split = brand_split(queries)
             split_note = sample_note(len(queries), queries_complete, "query rows")
             sd_errors: list[str] = []
@@ -1168,6 +1180,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 striking_complete=sd_complete,
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
                 sitemaps_available=sitemaps_available,
+                analytics_available=totals_available,
             )
             if analytics_errors:
                 flags.append(
@@ -1179,6 +1192,33 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             top_p = sorted(pages, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
             for r in top_p:
                 r["keys"] = [(r.get("keys") or ["?"])[0].replace(public_base, "") or "/"]
+            totals_lines = (
+                [
+                    f"  clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
+                    f"  impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
+                    f"  CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
+                    "  " + fmt_position_comparison(cmp["position"], cmp["position_better"]),
+                ]
+                if totals_available
+                else ["  unavailable (see Flags)"]
+            )
+            brand_line = (
+                f"  brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
+                f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr"
+                f" (over {len(queries):,} query rows).{split_note}"
+                if queries_available
+                else "  brand/non-brand unavailable (see Flags)"
+            )
+            top_queries_text = (
+                performance_rows_table(top_q, "query")
+                if queries_available
+                else "  unavailable (see Flags)"
+            )
+            top_pages_text = (
+                performance_rows_table(top_p, "page")
+                if pages_available
+                else "  unavailable (see Flags)"
+            )
             sm_lines = []
             for sm in sms:
                 submitted = sum(int(c.get("submitted") or 0) for c in sm.get("contents") or [])
@@ -1193,19 +1233,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"Previous window {ps} → {pe}.",
                 "",
                 "Totals:",
-                f"  clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
-                f"  impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
-                f"  CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
-                "  " + fmt_position_comparison(cmp["position"], cmp["position_better"]),
-                f"  brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
-                f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr"
-                f" (over {len(queries):,} query rows).{split_note}",
+                *totals_lines,
+                brand_line,
                 "",
                 "Top queries:",
-                performance_rows_table(top_q, "query"),
+                top_queries_text,
                 "",
                 "Top pages:",
-                performance_rows_table(top_p, "page"),
+                top_pages_text,
                 "",
                 f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr, {len(sd_rows):,} rows scanned):{sd_note}",
                 format_table(
