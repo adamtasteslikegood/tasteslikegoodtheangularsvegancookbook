@@ -107,6 +107,19 @@ jobs:
           PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
+  monitoring-mcp:
+    name: Monitoring MCP — unit tests + image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Run Search Console unit tests
+        run: python3 -m unittest scripts/monitoring/test_gsc_tools.py
+      - name: Build monitoring MCP image
+        run: docker build -f scripts/monitoring/Dockerfile scripts/monitoring
+
   # Branched Alembic heads make `flask db upgrade` refuse to run, which fails
   # the flask-backend-migrate Cloud Run Job and aborts the deploy mid-release.
   # This ran only on release-train.yml's manual dispatch and daily cron, so a
@@ -325,6 +338,7 @@ jobs:
       - frontend-build
       - frontend-test
       - backend-test
+      - monitoring-mcp
       - alembic-heads
       - submodule-sync
       - docker-build
