@@ -36,7 +36,8 @@ base64 key, or ADC on Cloud Run) must ALSO be added as a user on the property �
 Search Console → Settings → Users and permissions → Add user → the service
 account email, permission "Restricted". IAM roles do not grant Search Console
 access; only that per-property user list does. Until then every tool returns an
-instruction naming the exact email to add rather than a stack trace.
+actionable property-grant instruction rather than a stack trace, naming the
+principal email when the credential exposes it.
 
 Data freshness: Search Analytics finalizes rows ~2 days late. Windows end
 yesterday and are queried with ``dataState=all`` so the newest rows appear,
