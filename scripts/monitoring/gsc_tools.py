@@ -227,6 +227,18 @@ def parse_sitemap_urls(xml_text: str) -> list[tuple[str, Optional[str]]]:
     return sorted(out, key=lambda t: t[1] or "", reverse=True)
 
 
+def select_sitemap_sample(
+    urls: list[tuple[str, Optional[str]]],
+    which: str,
+    limit: int,
+) -> list[tuple[str, Optional[str]]]:
+    """Select newest/oldest dated URLs, placing unknown-age entries last."""
+    dated = [item for item in urls if item[1]]
+    undated = [item for item in urls if not item[1]]
+    dated.sort(key=lambda item: item[1] or "", reverse=(which == "newest"))
+    return (dated + undated)[: max(1, int(limit))]
+
+
 def classify_http_error(status: int, body: str, site_url: str, principal: str) -> str:
     """Turn an API error into the sentence the operator needs."""
     snippet = re.sub(r"\s+", " ", body or "")[:300]
@@ -847,7 +859,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 return f"Could not fetch or parse {public_base}/sitemap.xml to pick a sample."
             if not live:
                 return f"{public_base}/sitemap.xml is valid but contains no URLs."
-            picked = live[:n] if selection == "newest" else list(reversed(live))[:n]
+            picked = select_sitemap_sample(live, selection, n)
             results = [_summarize_inspection(loc, gsc.inspect(loc)) for loc, _ in picked]
             indexed = [r for r in results if r["verdict"] == "PASS"]
             lines = [
