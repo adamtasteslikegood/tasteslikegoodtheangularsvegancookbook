@@ -39,7 +39,8 @@ this routine step by step without pausing for confirmation.
    - **Headline** — one line: clicks and impressions vs the previous window,
      and whether "vegan recipe generator"-family queries are appearing.
    - **Brand vs non-brand** — is anyone finding the site who was not
-     already looking for it?
+     already looking for it? State that this split is the reported
+     click-ranked sample, not the aggregate property total.
    - **Indexing** — sitemap last-downloaded date and submitted URL count vs
      the live sitemap; coverage sample result if run.
    - **Striking distance → actions** — at most five, each with the page and
