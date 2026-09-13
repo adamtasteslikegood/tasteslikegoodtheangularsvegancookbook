@@ -104,11 +104,12 @@ Configure the environment on claude.ai → **Code** → environment settings:
    for attempt in 1 2 3; do
      /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
        'mcp>=1.10.0,<2.0.0' 'google-cloud-monitoring>=2.21.0,<3.0.0' \
+       'starlette>=0.40.0,<2.0.0' 'uvicorn>=0.30.0,<1.0.0' \
        'google-auth>=2.22.0,<3.0.0' 'requests>=2.31.0,<3.0.0' && break
      echo "pip attempt $attempt of 3 failed" >&2
      if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
-   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ("mcp", "google.cloud.monitoring_v3", "google.auth", "requests")) else 1)'
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; modules=("mcp","google.cloud.monitoring_v3","starlette","uvicorn","google.auth","requests"); sys.exit(0 if all(u.find_spec(m) for m in modules) else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
    ```
 
@@ -408,10 +409,13 @@ live sitemap for cross-checks).
 - Search Analytics lags about two days. Windows end yesterday and are queried
   with `dataState=all`; the last two days are labelled preliminary.
 - Early on, clicks will be single digits. The signals that matter first are
-  impressions and average position on **non-brand** queries — the report
-  splits those out — and whether Search Console's submitted URL count keeps
-  pace with the live catalog. `lastDownloaded` indicates fetch recency; the
-  URL Inspection coverage sample checks actual index state.
+  impressions and average position on **non-brand** queries. The report's
+  brand split uses the first 1,000 click-ranked query rows, and striking
+  distance uses the first 5,000 click-ranked query/page rows; both outputs
+  identify these as samples because Search Console may omit lower-ranked rows.
+  Search Console's submitted URL count should keep pace with the live catalog.
+  `lastDownloaded` indicates fetch recency; the URL Inspection coverage sample
+  checks actual index state.
 - Local ad-hoc run without MCP:
   `scripts/monitoring/.venv/bin/python scripts/monitoring/gsc_tools.py 28`
   prints `gsc_sites` and the weekly report using the repo-root `.env`.
