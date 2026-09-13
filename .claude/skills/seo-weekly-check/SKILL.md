@@ -26,8 +26,8 @@ this routine step by step without pausing for confirmation.
      `gsc_search_performance` with `dimension: "page"` to see which URLs lost
      impressions;
    - sitemap stale/errors → `gsc_sitemaps`, then
-     `gsc_index_coverage_sample` (newest 10) to see whether new recipes are
-     being indexed;
+     `gsc_index_coverage_sample` (newest 10) to see whether the newest sitemap
+     URLs are being indexed;
    - a single page in question → `gsc_inspect_url` with its path.
 4. **Find the cheap wins.** Read the striking-distance table (queries at
    position 5–30 with real impressions). For each one, name the page Google
