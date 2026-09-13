@@ -91,7 +91,9 @@ Configure the environment on claude.ai → **Code** → environment settings:
 
 1. **Setup script** — build the venv at the fixed path (repo isn't cloned
    yet, so the dependency list is inlined; keep it in sync with
-   `scripts/monitoring/requirements.txt`). PyPI reads from the cloud VM
+   `scripts/monitoring/requirements.txt` — the Search Console tools import
+   `google-auth` and `requests` lazily, so a venv missing them registers
+   fine and fails on the first `gsc_*` call). PyPI reads from the cloud VM
    time out sporadically, so the install retries and the final import
    check is what actually gates success:
 
@@ -101,11 +103,12 @@ Configure the environment on claude.ai → **Code** → environment settings:
    python3 -m venv /opt/gcp-monitor-venv
    for attempt in 1 2 3; do
      /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
-       'mcp>=1.10.0' 'google-cloud-monitoring>=2.21.0' && break
+       'mcp>=1.10.0,<2.0.0' 'google-cloud-monitoring>=2.21.0,<3.0.0' \
+       'google-auth>=2.22.0,<3.0.0' 'requests>=2.31.0,<3.0.0' && break
      echo "pip attempt $attempt of 3 failed" >&2
      if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
-   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)'
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if all(u.find_spec(m) for m in ("mcp", "google.cloud.monitoring_v3", "google.auth", "requests")) else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
    ```
 

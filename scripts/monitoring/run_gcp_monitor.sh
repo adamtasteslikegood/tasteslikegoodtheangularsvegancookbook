@@ -19,7 +19,9 @@ for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
 import importlib.util as u
 import sys
 
-sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)
+# gsc_tools.py imports google.auth and requests lazily, so a prebuilt venv
+# that lacks them would pass a two-module check and fail on the first gsc_* call.
+sys.exit(0 if all(u.find_spec(m) for m in ("mcp", "google.cloud.monitoring_v3", "google.auth", "requests")) else 1)
 EOF
   then
     if [[ "${1:-}" == "--bootstrap-only" ]]; then
