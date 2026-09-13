@@ -219,13 +219,25 @@ def movers(cur_rows: list[dict], prev_rows: list[dict], limit: int = 10) -> dict
                 "position": float(c.get("position") or 0) if c else None,
             }
         )
-    # Sort by clicks delta, then impressions delta so zero-click sites still
-    # get a meaningful movers list.
-    ranked = sorted(deltas, key=lambda d: (d["clicks_delta"], d["impressions_delta"]))
     # Tuple comparison keeps the buckets mutually exclusive: clicks decide
-    # direction first and impressions break an exact clicks tie.
-    losers = [d for d in ranked if (d["clicks_delta"], d["impressions_delta"]) < (0, 0)][:limit]
-    gainers = [d for d in reversed(ranked) if (d["clicks_delta"], d["impressions_delta"]) > (0, 0)][:limit]
+    # direction first and impressions break an exact clicks tie. The query key
+    # is the final sort key so tied rows render in a stable order.
+    losers = sorted(
+        (
+            d
+            for d in deltas
+            if (d["clicks_delta"], d["impressions_delta"]) < (0, 0)
+        ),
+        key=lambda d: (d["clicks_delta"], d["impressions_delta"], d["key"]),
+    )[:limit]
+    gainers = sorted(
+        (
+            d
+            for d in deltas
+            if (d["clicks_delta"], d["impressions_delta"]) > (0, 0)
+        ),
+        key=lambda d: (-d["clicks_delta"], -d["impressions_delta"], d["key"]),
+    )[:limit]
     return {"gainers": gainers, "losers": losers}
 
 
