@@ -70,6 +70,10 @@ PRELIMINARY_DAYS = 2
 # URL Inspection quota is 2,000/day per property; keep one call bounded.
 MAX_INSPECTIONS_PER_CALL = 25
 MAX_ROWS = 5000
+# Search Analytics returns rows click-ranked; a single page can drop low-click
+# rows that still qualify for striking distance or the brand split. Paginate
+# with startRow up to this many pages before declaring the sample truncated.
+MAX_PAGES = 5
 DIMENSIONS = ("query", "page", "country", "device", "date", "searchAppearance")
 BRAND_TERMS = ("tasteslikegood", "tastes like good", "vegangenius", "vegan genius")
 
@@ -378,6 +382,13 @@ def weekly_flags(
     return flags
 
 
+def sample_note(row_count: int, complete: bool, what: str = "rows") -> str:
+    """Disclosure line for paginated result sets; empty when complete."""
+    if complete:
+        return ""
+    return f" Sample truncated at {row_count:,} click-ranked {what} — lower-click rows beyond that are not included."
+
+
 # --------------------------------------------------------------------------
 # API client
 # --------------------------------------------------------------------------
@@ -475,6 +486,7 @@ class GscClient:
         row_limit: int = 1000,
         filters: Optional[list[dict]] = None,
         search_type: str = "web",
+        start_row: int = 0,
     ) -> list[dict]:
         body: dict[str, Any] = {
             "startDate": start_date,
@@ -483,12 +495,45 @@ class GscClient:
             "type": search_type,
             "dataState": "all",
         }
+        if start_row > 0:
+            body["startRow"] = int(start_row)
         if dimensions:
             body["dimensions"] = dimensions
         if filters:
             body["dimensionFilterGroups"] = [{"filters": filters}]
         data = self._request("POST", f"{self._site_path}/searchAnalytics/query", json=body)
         return data.get("rows", []) or []
+
+    def query_all(
+        self,
+        start_date: str,
+        end_date: str,
+        dimensions: Optional[list[str]] = None,
+        filters: Optional[list[dict]] = None,
+        search_type: str = "web",
+        max_pages: int = MAX_PAGES,
+    ) -> tuple[list[dict], bool]:
+        """Page through Search Analytics with ``startRow``.
+
+        Returns ``(rows, complete)``. ``complete`` is False when ``max_pages``
+        full pages came back and more may exist — callers must say so rather
+        than present a click-ranked sample as the whole population.
+        """
+        rows: list[dict] = []
+        for page_index in range(max(1, int(max_pages))):
+            page = self.query(
+                start_date,
+                end_date,
+                dimensions,
+                row_limit=MAX_ROWS,
+                filters=filters,
+                search_type=search_type,
+                start_row=page_index * MAX_ROWS,
+            )
+            rows.extend(page)
+            if len(page) < MAX_ROWS:
+                return rows, True
+        return rows, False
 
     def sitemaps(self) -> list[dict]:
         return self._request("GET", f"{self._site_path}/sitemaps").get("sitemap", []) or []
@@ -656,13 +701,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             cur_tot = summarize_rows(gsc.query(cs, ce, None, row_limit=1))
             prev_tot = summarize_rows(gsc.query(ps, pe, None, row_limit=1))
             cmp = compare_totals(cur_tot, prev_tot)
-            cur_q = gsc.query(cs, ce, ["query"], row_limit=1000)
-            prev_q = gsc.query(ps, pe, ["query"], row_limit=1000)
+            cur_q, cur_complete = gsc.query_all(cs, ce, ["query"])
+            prev_q, prev_complete = gsc.query_all(ps, pe, ["query"])
             mv = movers(cur_q, prev_q, limit=max(1, int(limit)))
+            movers_note = sample_note(len(cur_q), cur_complete and prev_complete, "query rows")
             lines = [
                 f"Period comparison — {site_url}",
                 note,
-                f"Previous window {ps} → {pe}.",
+                f"Previous window {ps} → {pe}.{movers_note}",
                 f"clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
                 f"impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
@@ -699,7 +745,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             cs, ce, _ps, _pe, note = _window_note(days)
-            rows = gsc.query(cs, ce, ["query", "page"], row_limit=MAX_ROWS)
+            rows, complete = gsc.query_all(cs, ce, ["query", "page"])
             sd = striking_distance(rows, int(min_impressions), float(position_min), float(position_max))[: max(1, int(limit))]
             table = [
                 [
@@ -713,8 +759,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             ]
             head = (
                 f"Striking distance (position {position_min:g}–{position_max:g}, ≥{min_impressions} impressions) — {site_url}\n{note}\n"
-                f"{len(sd)} of {len(rows)} rows qualify in the first {len(rows):,} click-ranked "
-                f"query/page rows returned (request cap {MAX_ROWS:,}; API may omit rows)."
+                f"{len(sd)} of {len(rows)} query/page rows qualify.{sample_note(len(rows), complete, 'query/page rows')}"
             )
             return head + "\n" + format_table(["query", "page", "impr", "clicks", "pos"], table)
 
@@ -834,11 +879,13 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             cur_tot = summarize_rows(gsc.query(cs, ce, None, row_limit=1))
             prev_tot = summarize_rows(gsc.query(ps, pe, None, row_limit=1))
             cmp = compare_totals(cur_tot, prev_tot)
-            queries = gsc.query(cs, ce, ["query"], row_limit=1000)
+            queries, queries_complete = gsc.query_all(cs, ce, ["query"])
             pages = gsc.query(cs, ce, ["page"], row_limit=1000)
             split = brand_split(queries)
-            sd_rows = gsc.query(cs, ce, ["query", "page"], row_limit=MAX_ROWS)
+            split_note = sample_note(len(queries), queries_complete, "query rows")
+            sd_rows, sd_complete = gsc.query_all(cs, ce, ["query", "page"])
             sd = striking_distance(sd_rows)[:10]
+            sd_note = sample_note(len(sd_rows), sd_complete, "query/page rows")
             sms = gsc.sitemaps()
             live = fetch_live_sitemap(public_base)
             live_count = len(live) if live is not None else None
@@ -867,10 +914,9 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 f"  impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"  CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
                 "  " + fmt_position_comparison(cmp["position"], cmp["position_better"]),
-                f"  brand/non-brand sample (first {len(queries):,} click-ranked query rows returned; "
-                "request cap 1,000; API may omit rows):",
-                f"    brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
-                f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr",
+                f"  brand: {fmt_int(split['brand']['clicks'])} clicks / {fmt_int(split['brand']['impressions'])} impr · "
+                f"non-brand: {fmt_int(split['non_brand']['clicks'])} clicks / {fmt_int(split['non_brand']['impressions'])} impr"
+                f" (over {len(queries):,} query rows).{split_note}",
                 "",
                 "Top queries:",
                 performance_rows_table(top_q, "query"),
@@ -878,8 +924,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 "Top pages:",
                 performance_rows_table(top_p, "page"),
                 "",
-                f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr; "
-                f"first {len(sd_rows):,} click-ranked rows returned, request cap {MAX_ROWS:,}; API may omit rows):",
+                f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr, {len(sd_rows):,} rows scanned):{sd_note}",
                 format_table(
                     ["query", "page", "impr", "pos"],
                     [

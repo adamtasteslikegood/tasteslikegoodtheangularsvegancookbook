@@ -252,6 +252,24 @@ class FakeSession:
         return FakeResponse(404, {})
 
 
+class PagingSession(FakeSession):
+    """Returns exactly MAX_ROWS query rows on the first page and 7 on the second,
+    so pagination and its disclosure can be asserted."""
+
+    def request(self, method, url, timeout=None, json=None):
+        if url.endswith("/searchAnalytics/query") and (json.get("dimensions") or []) == ["query"]:
+            self.calls.append((method, url, json))
+            start = int(json.get("startRow", 0))
+            if start == 0:
+                rows = [row([f"q{i}"], 0, 20, 12.0) for i in range(g.MAX_ROWS)]
+            elif start == g.MAX_ROWS:
+                rows = [row([f"tail{i}"], 0, 15, 9.0) for i in range(7)]
+            else:
+                rows = []
+            return FakeResponse(200, {"rows": rows})
+        return super().request(method, url, timeout=timeout, json=json)
+
+
 class Collector:
     def __init__(self):
         self.tools = {}
@@ -285,7 +303,7 @@ class ToolTextTest(unittest.TestCase):
 
     def test_weekly_report_shape(self):
         out = self.mcp.tools["gsc_weekly_report"](28)
-        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "request cap 1,000", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "request cap 5,000", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
+        for needle in ["Totals:", "clicks 12", "▲ +4 (+50%)", "(over 3 query rows)", "brand: 6 clicks", "non-brand: 6 clicks", "Top queries:", "vegan recipe generator", "Striking distance", "rows scanned", "/r/crispy-vegan-corn-dogs-on-a-stick", "Sitemaps:", "submitted URLs 98 (live sitemap: 98)", "Flags:", "  none"]:
             self.assertIn(needle, out, needle)
 
     def test_search_performance_rejects_bad_dimension(self):
@@ -326,10 +344,10 @@ class ToolTextTest(unittest.TestCase):
         out = self.mcp.tools["gsc_search_performance"](0)
         self.assertIn("(1d)", out)
 
-    def test_striking_distance_discloses_api_sample(self):
+    def test_striking_distance_discloses_scanned_rows_and_no_truncation_on_small_sites(self):
         out = self.mcp.tools["gsc_striking_distance"]()
-        self.assertIn("request cap 5,000", out)
-        self.assertIn("API may omit rows", out)
+        self.assertIn("of 2 query/page rows qualify", out)
+        self.assertNotIn("Sample truncated", out)
 
     def test_inspect_resolves_relative_path(self):
         out = self.mcp.tools["gsc_inspect_url"]("/r/vegan-cornbread")
@@ -350,6 +368,31 @@ class ToolTextTest(unittest.TestCase):
         out = self.mcp.tools["gsc_weekly_report"](28)
         self.assertIn("live sitemap: unavailable", out)
         self.assertIn("Live sitemap unavailable", out)
+
+    def test_query_all_paginates_with_start_row_and_reports_complete(self):
+        session = PagingSession()
+        client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: session)
+        rows, complete = client.query_all("2026-08-16", "2026-09-12", ["query"])
+        self.assertEqual(len(rows), g.MAX_ROWS + 7)
+        self.assertTrue(complete)
+        starts = [c[2].get("startRow", 0) for c in session.calls]
+        self.assertEqual(starts, [0, g.MAX_ROWS])
+        self.assertEqual(rows[-1]["keys"], ["tail6"])
+
+    def test_query_all_flags_truncation_at_max_pages(self):
+        session = PagingSession()
+        client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: session)
+        rows, complete = client.query_all("2026-08-16", "2026-09-12", ["query"], max_pages=1)
+        self.assertEqual(len(rows), g.MAX_ROWS)
+        self.assertFalse(complete)
+        self.assertIn("Sample truncated at 5,000", g.sample_note(len(rows), complete, "query rows"))
+        self.assertEqual(g.sample_note(3, True), "")
+
+    def test_weekly_report_discloses_row_population_for_brand_split(self):
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn("(over 3 query rows)", out)
+        self.assertNotIn("Sample truncated", out)
+        self.assertIn("rows scanned", out)
 
     def test_denied_access_returns_instruction_not_traceback(self):
         mcp = Collector()

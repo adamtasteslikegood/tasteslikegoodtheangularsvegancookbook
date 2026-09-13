@@ -409,10 +409,11 @@ live sitemap for cross-checks).
 - Search Analytics lags about two days. Windows end yesterday and are queried
   with `dataState=all`; the last two days are labelled preliminary.
 - Early on, clicks will be single digits. The signals that matter first are
-  impressions and average position on **non-brand** queries. The report's
-  brand split uses the first 1,000 click-ranked query rows, and striking
-  distance uses the first 5,000 click-ranked query/page rows; both outputs
-  identify these as samples because Search Console may omit lower-ranked rows.
+  impressions and average position on **non-brand** queries. Search Analytics
+  returns rows click-ranked, so the brand split, the period-comparison movers
+  and striking distance page through the API with `startRow` (up to 25,000
+  rows) and print "Sample truncated at N click-ranked rows" if that cap is
+  reached; the brand split states the row population it covers.
   Search Console's submitted URL count should keep pace with the live catalog.
   `lastDownloaded` indicates fetch recency; the URL Inspection coverage sample
   checks actual index state.
