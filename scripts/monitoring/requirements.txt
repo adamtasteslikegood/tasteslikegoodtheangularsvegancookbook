@@ -1,9 +1,9 @@
 # Runtime dependencies for scripts/monitoring/gcp_mcp_server.py
 # Install with: pip install -r scripts/monitoring/requirements.txt
 #
-# EVERY floor here carries a major-version ceiling. There is no lockfile and
-# nothing in CI builds this image, so a bare floor means the next `docker build`
-# silently adopts whatever major shipped that morning. That is not theoretical:
+# EVERY floor here carries a major-version ceiling. CI runs the focused unit
+# suite and builds this image, but there is no lockfile; the ceilings keep a
+# rebuild from silently adopting an incompatible major. That is not theoretical:
 # mcp 2.0.0 (2026-07-28) deleted mcp/server/fastmcp/ and the Railway service
 # crash-looped on `ModuleNotFoundError: No module named 'mcp.server.fastmcp'`
 # from the next rebuild onward. Raise a ceiling deliberately, with a test.
