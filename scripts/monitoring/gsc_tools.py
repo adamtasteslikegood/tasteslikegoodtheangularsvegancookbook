@@ -716,7 +716,10 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             cur_q, cur_complete = gsc.query_all(cs, ce, ["query"])
             prev_q, prev_complete = gsc.query_all(ps, pe, ["query"])
             mv = movers(cur_q, prev_q, limit=max(1, int(limit)))
-            movers_note = sample_note(len(cur_q), cur_complete and prev_complete, "query rows")
+            movers_note = (
+                sample_note(len(cur_q), cur_complete, "current-window query rows")
+                + sample_note(len(prev_q), prev_complete, "previous-window query rows")
+            )
             lines = [
                 f"Period comparison — {site_url}",
                 note,
