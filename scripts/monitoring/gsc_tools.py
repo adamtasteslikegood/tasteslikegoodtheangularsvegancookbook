@@ -204,7 +204,7 @@ def movers(cur_rows: list[dict], prev_rows: list[dict], limit: int = 10) -> dict
     prev_by_key = {tuple(r.get("keys") or []): r for r in prev_rows}
     cur_by_key = {tuple(r.get("keys") or []): r for r in cur_rows}
     deltas = []
-    for key in set(prev_by_key) | set(cur_by_key):
+    for key in sorted(set(prev_by_key) | set(cur_by_key)):
         c = cur_by_key.get(key, {})
         p = prev_by_key.get(key, {})
         d_clicks = float(c.get("clicks") or 0) - float(p.get("clicks") or 0)
