@@ -156,6 +156,27 @@ class SitemapAndErrorsTest(unittest.TestCase):
     def test_parse_sitemap_garbage(self):
         self.assertEqual(g.parse_sitemap_urls("<not xml"), [])
 
+    def test_sitemap_root_requires_namespaced_urlset(self):
+        self.assertTrue(g.is_sitemap_urlset(self.SITEMAP))
+        self.assertFalse(g.is_sitemap_urlset("<html><body>maintenance</body></html>"))
+        self.assertFalse(g.is_sitemap_urlset("<urlset><url /></urlset>"))
+
+    def test_refresh_error_returns_actionable_auth_guidance(self):
+        from google.auth.exceptions import RefreshError
+
+        class RefreshingSession:
+            def request(self, method, url, timeout=None, json=None):
+                raise RefreshError("expired credential")
+
+        client = g.GscClient(
+            "sc-domain:tasteslikegood.org",
+            session_factory=RefreshingSession,
+        )
+        with self.assertRaises(g.GscAccessError) as raised:
+            client.sites()
+        self.assertIn("application-default login", str(raised.exception))
+        self.assertIn("Cloud Run", str(raised.exception))
+
     def test_oldest_sample_prefers_dated_urls_before_unknown_age(self):
         urls = g.parse_sitemap_urls(self.SITEMAP)
         picked = g.select_sitemap_sample(urls, "oldest", 3)
@@ -400,6 +421,41 @@ class ToolTextTest(unittest.TestCase):
         self.mcp.tools["gsc_index_coverage_sample"](500)
         inspections = [c for c in self.session.calls if c[1] == g.INSPECTION_API]
         self.assertEqual(len(inspections), g.MAX_INSPECTIONS_PER_CALL)
+
+    def test_coverage_sample_uses_bounded_request_timeout(self):
+        timeouts = []
+        original = self.session.request
+
+        def recording_request(method, url, timeout=None, json=None):
+            if url == g.INSPECTION_API:
+                timeouts.append(timeout)
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = recording_request
+        self.mcp.tools["gsc_index_coverage_sample"](1)
+        self.assertEqual(timeouts, [g.INSPECTION_REQUEST_TIMEOUT_SECONDS])
+
+    def test_coverage_sample_discloses_partial_failures(self):
+        original = self.session.request
+        inspection_count = 0
+
+        def flaky_request(method, url, timeout=None, json=None):
+            nonlocal inspection_count
+            if url == g.INSPECTION_API:
+                inspection_count += 1
+                if inspection_count == 2:
+                    raise TimeoutError("inspection timed out")
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = flaky_request
+        g.fetch_live_sitemap = lambda base: [
+            (f"{base}/r/{index}", f"2026-09-{13 - index:02d}")
+            for index in range(3)
+        ]
+        out = self.mcp.tools["gsc_index_coverage_sample"](3)
+        self.assertIn("processed 2/3", out)
+        self.assertIn("Partial sample: 1 URL(s)", out)
+        self.assertIn("TimeoutError: inspection timed out", out)
 
     def test_coverage_sample_rejects_bad_selection(self):
         out = self.mcp.tools["gsc_index_coverage_sample"](10, "oldset")
