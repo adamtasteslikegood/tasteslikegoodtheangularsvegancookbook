@@ -27,12 +27,14 @@ query live Cloud Monitoring telemetry for the production stack and run the
 - A service account with **`roles/monitoring.viewer`** on project
   `comdottasteslikegood`, and its JSON key downloaded somewhere **outside the
   repo** (e.g. `~/gcp-keys/monitoring-viewer.json`). Never commit the key.
-  `monitoring.viewer` is sufficient for everything this server does —
+  `monitoring.viewer` is sufficient for the server's Cloud Monitoring tools —
   Pub/Sub metrics are read through the Monitoring API, so `pubsub.viewer` is
-  not required.
+  not required. The `gsc_*` tools separately require the credential's Google
+  account or service-account email to be granted access on the Search Console
+  property; see § 6.5.
 - `python3` with venv support (`sudo apt install python3.12-venv` on
   Debian/Ubuntu). The launcher script creates its own venv on first run and
-  installs `mcp` + `google-cloud-monitoring`.
+  installs the bounded dependency set in `scripts/monitoring/requirements.txt`.
 
 ## 2. Configuration
 
@@ -91,7 +93,9 @@ Configure the environment on claude.ai → **Code** → environment settings:
 
 1. **Setup script** — build the venv at the fixed path (repo isn't cloned
    yet, so the dependency list is inlined; keep it in sync with
-   `scripts/monitoring/requirements.txt`). PyPI reads from the cloud VM
+   `scripts/monitoring/requirements.txt` — the Search Console tools import
+   `google-auth` and `requests` lazily, so a venv missing them registers
+   fine and fails on the first `gsc_*` call). PyPI reads from the cloud VM
    time out sporadically, so the install retries and the final import
    check is what actually gates success:
 
@@ -101,11 +105,13 @@ Configure the environment on claude.ai → **Code** → environment settings:
    python3 -m venv /opt/gcp-monitor-venv
    for attempt in 1 2 3; do
      /opt/gcp-monitor-venv/bin/pip install --retries 10 --timeout 60 \
-       'mcp>=1.10.0' 'google-cloud-monitoring>=2.21.0' && break
+       'mcp>=1.10.0,<2.0.0' 'google-cloud-monitoring>=2.21.0,<3.0.0' \
+       'starlette>=0.40.0,<2.0.0' 'uvicorn>=0.30.0,<1.0.0' \
+       'google-auth>=2.22.0,<3.0.0' 'requests>=2.31.0,<3.0.0' && break
      echo "pip attempt $attempt of 3 failed" >&2
      if [[ "$attempt" -lt 3 ]]; then sleep 10; fi
    done
-   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)'
+   /opt/gcp-monitor-venv/bin/python -c 'import importlib.util as u, sys; modules=("mcp.server.fastmcp","google.cloud.monitoring_v3","starlette","uvicorn","google.auth","requests"); sys.exit(0 if all(u.find_spec(m) for m in modules) else 1)'
    chmod -R a+rX /opt/gcp-monitor-venv
    ```
 
@@ -206,8 +212,8 @@ Two hard constraints from how Claude's connector authenticates drove this design
    connector" dialog takes only a URL (no header field —
    [anthropics/claude-ai-mcp#112], closed as not-planned), and it reads any
    `401 + WWW-Authenticate` as "this server needs OAuth", launching a sign-in
-   flow the server doesn't implement (→ *"Couldn't register … sign-in service …
-   add an OAuth Client ID"*). A `?key=` query string also isn't reliably carried
+   flow the server doesn't implement (→ _"Couldn't register … sign-in service …
+   add an OAuth Client ID"_). A `?key=` query string also isn't reliably carried
    on the discovery probe.
 
 So the MCP endpoint is served at **`/<token>/mcp`** with no auth gate: the
@@ -352,6 +358,73 @@ Trigger it with: **Run System Health Check**.
   deployment.
 - `query_metric(metric_type, minutes_back, aligner, group_by, extra_filter)` —
   ad-hoc query for any metric the curated probes don't cover.
+
+## 6.5. Search Console tools (`gsc_*`) — KAN-270
+
+The same server also exposes Google Search Console, so the connector that
+already answers "is production healthy?" can answer "is anyone finding the
+site?". The site ships no client-side analytics by design (privacy policy
+§ 10.3; Sprint 10 opt-in telemetry decision), so Search Console is the only
+instrument for organic search. The tools live in
+`scripts/monitoring/gsc_tools.py` and register on the existing `FastMCP`
+instance; nothing new to add in `.mcp.json` or in the connector settings.
+
+| Tool                        | What it returns                                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `gsc_sites`                 | Properties the credential can read. **Run first after deploy** — empty means the user step below is missing.  |
+| `gsc_search_performance`    | Clicks / impressions / CTR / position by `query`, `page`, `country`, `device`, `date`, `searchAppearance`.    |
+| `gsc_compare_periods`       | Last _N_ days vs the _N_ before, plus top query gainers and losers.                                           |
+| `gsc_striking_distance`     | Queries ranking 5–30 with real impressions, and the page Google shows — the cheapest wins.                    |
+| `gsc_sitemaps`              | Sitemap status in Search Console cross-checked against the live `sitemap.xml` URL count.                      |
+| `gsc_inspect_url`           | URL Inspection for one page: verdict, coverage state, last crawl, Google canonical, rich results.             |
+| `gsc_index_coverage_sample` | Inspects the newest (or oldest) ≤ 25 sitemap URLs and summarizes coverage. Bounded: 2,000 inspections/day.    |
+| `gsc_weekly_report`         | The routine in one call: totals vs previous window, brand split, top queries/pages, striking distance, flags. |
+
+Drive them with `/seo-weekly-check` (`.claude/skills/seo-weekly-check/SKILL.md`),
+the Search Console counterpart of `/system-health-check`.
+
+### Access — one step, and it is not IAM
+
+Search Console access is granted **per property, per user, inside Search
+Console**. No GCP role grants it. After `deploy_mcp_cloud_run.sh` (which now
+also enables `searchconsole.googleapis.com` and prints this notice):
+
+1. Search Console → property `tasteslikegood.org` (the Domain property KAN-115
+   verified the sitemap against) → **Settings → Users and permissions → Add
+   user**.
+2. Email: the service account the server runs as — `gcp-monitor-mcp@<project>.iam.gserviceaccount.com`
+   on Cloud Run, or whatever key `GOOGLE_APPLICATION_CREDENTIALS` /
+   `GOOGLE_APPLICATION_CREDENTIALS_B64` names for the local and Railway
+   instances. Permission **Restricted** is enough (scope is
+   `webmasters.readonly`).
+3. Call `gsc_sites`. It must list `sc-domain:tasteslikegood.org`.
+
+Until then every `gsc_*` tool returns an actionable grant instruction instead
+of a stack trace. Service-account credentials name the exact email; user ADC
+diagnostics explain how to identify the active account or set
+`GSC_PRINCIPAL_EMAIL`. Configuration: `GSC_SITE_URL` (default
+`sc-domain:tasteslikegood.org` — domain properties use the `sc-domain:` form,
+URL-prefix properties the full origin with a trailing slash) and
+`GSC_PUBLIC_BASE` (default `https://www.tasteslikegood.org`, used to fetch the
+live sitemap for cross-checks).
+
+### Reading the numbers
+
+- Search Analytics lags about two days. Windows end yesterday and are queried
+  with `dataState=all`; the last two days are labelled preliminary.
+- Early on, clicks will be single digits. The signals that matter first are
+  impressions and average position on **non-brand** queries. Search Analytics
+  returns rows click-ranked, so the brand split, the period-comparison movers
+  and striking distance page through the API with `startRow` (up to 25,000
+  rows) and print "Sample truncated at N click-ranked rows" if that cap is
+  reached; the brand split states the row population it covers.
+  Search Console's submitted URL count should keep pace with the live catalog.
+  `lastDownloaded` indicates fetch recency; the URL Inspection coverage sample
+  checks actual index state.
+- Local ad-hoc run without MCP:
+  `scripts/monitoring/.venv/bin/python scripts/monitoring/gsc_tools.py 28`
+  prints `gsc_sites` and the weekly report using the repo-root `.env`.
+- Unit tests (no network): `python3 -m unittest scripts/monitoring/test_gsc_tools.py`.
 
 ## 7. Running the routine
 
