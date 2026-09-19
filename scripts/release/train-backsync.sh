@@ -137,8 +137,9 @@ EOF
   fi
 
   if [ "$MERGE" = "1" ] && [ -n "$existing" ]; then
-    # --merge, explicitly: `dev` allows squash by ruleset, so the wrong choice
-    # is reachable here and would silently undo the purpose of this PR.
+    # --merge, explicitly: neither repo's `dev` allows squash any more (verified
+    # 2026-09-19), but --rebase is still reachable and would silently undo the
+    # purpose of this PR just the same.
     gh pr merge "$existing" -R "$gh_repo" --merge ||
       die "$label: merge of #$existing failed (ruleset bypass requires admin)"
     echo "      merged #$existing with a merge commit"
