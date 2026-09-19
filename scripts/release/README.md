@@ -28,7 +28,7 @@ The train spans this repo and `adamtasteslikegood/tasteslikegood.com`
    ancestry never converges, and the drift count never returns to zero. On the
    cookbook, `dev` no longer permits squash at all (see the table below), so the
    merge-commit requirement is now enforced by the ruleset rather than only by
-   convention. Backend `dev` still permits squash — do not use it for a back-sync.
+   convention. Backend `dev` blocks squash too; use a merge commit for back-syncs in both repos.
 
    > Until 2026-08-25 this section claimed `required_linear_history` was set on
    > `dev` in both repos. **It was not, and is not, set on any ruleset in either
@@ -71,7 +71,7 @@ Pulled from the live rulesets, not from memory:
 | default branch            | `dev`                                                                 | `dev`                                  |
 | `main` merge methods      | `merge`, `rebase` (**squash blocked**)                                | `merge`, `rebase` (**squash blocked**) |
 | `main` rules              | deletion, non-fast-forward, PR required, code scanning, code quality  | + required status checks               |
-| `dev` merge methods       | `merge`, `rebase` (**squash blocked since 2026-08-25**)               | `merge`, `squash`, `rebase`            |
+| `dev` merge methods       | `merge`, `rebase` (**squash blocked since 2026-08-25**)               | `merge`, `rebase` (**squash blocked; verified 2026-09-19**) |
 | `required_linear_history` | **not set** (never has been)                                          | **not set**                            |
 | PR thread resolution      | **required** — unresolved review threads block the merge              | not required on `dev`                  |
 | approvals required        | 0                                                                     | 0                                      |
