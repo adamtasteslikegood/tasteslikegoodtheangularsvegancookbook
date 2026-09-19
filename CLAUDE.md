@@ -41,7 +41,7 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 
 `dev` and `main` are protected: **direct pushes are rejected**. All changes reach them via PR only. If you try `git push` to `dev` you will get `push declined due to repository rule violations`. This is not a bug — create a branch, push it, and open a PR.
 
-**Merge method (cookbook):** `dev` and `main` both allow **`merge` or `rebase` only — squash is blocked**. Use `gh pr merge <n> --merge`. Backend `dev` and `main` block squash too (verified 2026-09-19 against the live `dev` ruleset — GitHub rejects `--squash` with "Merge method squash merging is not allowed on this repository"; the Backend Dependabot auto-merge workflow picks rebase or merge per PR since Backend #315). `required_linear_history` is **not** set on any branch in either repo — if a doc tells you otherwise it is stale, and squashing to satisfy it destroys the ancestry that history reconciliation depends on.
+**Merge method (cookbook):** `dev` and `main` both allow **`merge` or `rebase` only — squash is blocked**. Use `gh pr merge <n> --merge`. Backend `dev` and `main` block squash too (verified 2026-09-19 against the live `dev` ruleset — GitHub rejects `--squash` with "Merge method squash merging is not allowed on this repository"; pending Backend #315 changes the Dependabot auto-merge workflow to pick rebase or merge per PR). `required_linear_history` is **not** set on any branch in either repo — if a doc tells you otherwise it is stale, and squashing to satisfy it destroys the ancestry that history reconciliation depends on.
 
 **Unresolved review threads block the merge** (`required_review_thread_resolution`). Answer and resolve every thread, or the PR sits at `BLOCKED` with all checks green.
 
