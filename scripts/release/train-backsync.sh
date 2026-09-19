@@ -10,9 +10,11 @@
 # Opens (and optionally merges) the main→dev PRs. Runs LOCALLY, not in CI:
 #   - the Backend repo is a different repository, and Actions' GITHUB_TOKEN is
 #     scoped to this one;
-#   - `dev` carries `required_linear_history` in both repos, so a merge-commit
-#     merge into dev only lands for an actor with ruleset bypass (repo admin).
-#     Squashing instead would defeat the whole point: it rewrites the commits,
+#   - `required_linear_history` is NOT set on either repo's `dev` (README.md
+#     lines 33-38 and RUNBOOK.md's 2026-08-25 correction refute the old claim),
+#     so an ordinary collaborator can land a merge-commit merge without ruleset
+#     bypass. The reason to require --merge is different: squashing would
+#     defeat the whole point of the back-sync — it rewrites the commits,
 #     ancestry never converges, and the drift count never reaches zero.
 #
 # Default is a dry run. Pass --apply to actually open PRs.
@@ -137,10 +139,11 @@ EOF
   fi
 
   if [ "$MERGE" = "1" ] && [ -n "$existing" ]; then
-    # --merge, explicitly: `dev` allows squash by ruleset, so the wrong choice
-    # is reachable here and would silently undo the purpose of this PR.
+    # --merge, explicitly: neither repo's `dev` allows squash any more (verified
+    # 2026-09-19), but --rebase is still reachable and would silently undo the
+    # purpose of this PR just the same.
     gh pr merge "$existing" -R "$gh_repo" --merge ||
-      die "$label: merge of #$existing failed (ruleset bypass requires admin)"
+      die "$label: merge of #$existing failed; inspect GitHub mergeability and policy checks"
     echo "      merged #$existing with a merge commit"
   fi
 }
