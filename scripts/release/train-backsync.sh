@@ -143,7 +143,7 @@ EOF
     # 2026-09-19), but --rebase is still reachable and would silently undo the
     # purpose of this PR just the same.
     gh pr merge "$existing" -R "$gh_repo" --merge ||
-      die "$label: merge of #$existing failed (ruleset bypass requires admin)"
+      die "$label: merge of #$existing failed; inspect GitHub mergeability and policy checks"
     echo "      merged #$existing with a merge commit"
   fi
 }
