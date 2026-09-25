@@ -61,7 +61,7 @@
     "@angular-eslint/template-parser": "22.5.0",
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
-    "@types/node": "^26.6.1",
+    "@types/node": "^26.6.2",
     "@typescript-eslint/eslint-plugin": "^8.70.0",
     "@typescript-eslint/parser": "^8.66.0",
     "eslint": "^10.10.0",
