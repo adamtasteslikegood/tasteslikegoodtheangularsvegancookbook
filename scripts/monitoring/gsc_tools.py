@@ -84,6 +84,7 @@ SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS = 12.0
 WEEKLY_REPORT_TOTAL_BUDGET_SECONDS = 240.0
 MAX_OUTPUT_ROWS = 100
 MAX_ROWS = 5000
+WEEKLY_PAGE_ROW_LIMIT = 1000  # one request; the weekly report shows the top 10
 # Search Console retains roughly 16 months of Search Analytics data. Keep each
 # side of an adjacent current-vs-previous comparison within half that span.
 MAX_COMPARISON_WINDOW_DAYS = 240
@@ -840,25 +841,55 @@ def _get_sitemap_document(url: str, timeout: float):
     )
 
 
-def _read_sitemap_body(resp) -> tuple[Optional[str], str]:
-    """Read a streamed response up to MAX_SITEMAP_BYTES.
+SITEMAP_MEDIA_TYPES = {"application/xml", "text/xml"}
 
-    Returns ``(text, "")`` or ``(None, reason)``. The Content-Length header is
-    checked first so an honestly oversized document is rejected without
-    reading it; the running byte count catches the rest, including bodies that
-    grow past the cap only after decompression.
+
+def sitemap_media_type_problem(content_type: str) -> str:
+    """Why a Content-Type rules a response out as a sitemap; empty when it is fine.
+
+    A missing header gives no signal and is tolerated; a declared type that is
+    not XML (an HTML error page served with 200, JSON, a gzip archive this
+    tool does not decompress) is named so the note says what the origin is
+    actually serving instead of the generic parse failure.
+    """
+    media_type = (content_type or "").split(";", 1)[0].strip().lower()
+    if not media_type or media_type in SITEMAP_MEDIA_TYPES or media_type.endswith("+xml"):
+        return ""
+    return f"was served as {media_type}, not XML; not read"
+
+
+def _read_sitemap_body(resp, deadline: Optional[float] = None) -> tuple[Optional[str], str]:
+    """Read a streamed response up to MAX_SITEMAP_BYTES and ``deadline``.
+
+    Returns ``(text, "")`` or ``(None, reason)``. The Content-Type and
+    Content-Length headers are checked first so a non-XML or honestly
+    oversized document is rejected without reading it; the running byte count
+    catches the rest, including bodies that grow past the cap only after
+    decompression. ``deadline`` is polled per chunk because the per-read
+    timeout on the request bounds only the gap between chunks: a server
+    dripping bytes just under it could otherwise stream one response for far
+    longer than the calling tool's whole budget.
     """
     try:
         if resp.status_code != 200:
             return None, f"did not return HTTP 200 (got {resp.status_code})"
-        declared = (resp.headers or {}).get("Content-Length", "")
-        if declared.isdigit() and int(declared) > MAX_SITEMAP_BYTES:
-            return None, f"declares {int(declared):,} bytes, over the {MAX_SITEMAP_BYTES:,}-byte limit; not read"
+        headers = resp.headers or {}
+        media_problem = sitemap_media_type_problem(headers.get("Content-Type", ""))
+        if media_problem:
+            return None, media_problem
+        try:
+            declared = int(headers.get("Content-Length", ""))
+        except ValueError:
+            declared = None
+        if declared is not None and declared > MAX_SITEMAP_BYTES:
+            return None, f"declares {declared:,} bytes, over the {MAX_SITEMAP_BYTES:,}-byte limit; not read"
         body = bytearray()
         for chunk in resp.iter_content(chunk_size=64 * 1024):
             body.extend(chunk)
             if len(body) > MAX_SITEMAP_BYTES:
                 return None, f"exceeds the {MAX_SITEMAP_BYTES:,}-byte limit; not parsed"
+            if deadline is not None and time.monotonic() >= deadline:
+                return None, "was still streaming when the fetch budget ran out; not parsed"
         # The Sitemap protocol requires UTF-8; anything else is replaced.
         text = bytes(body).decode("utf-8", errors="replace")
         if has_dtd(text):
@@ -893,7 +924,7 @@ def fetch_live_sitemap_detail(public_base: str, deadline: Optional[float] = None
         if remaining <= 0.1:
             return None, "was not fetched within the fetch budget"
         resp = _get_sitemap_document(url, min(SITEMAP_REQUEST_TIMEOUT_SECONDS, remaining))
-        return _read_sitemap_body(resp)
+        return _read_sitemap_body(resp, deadline=deadline)
 
     try:
         text, reason = fetch(root_url)
@@ -1251,11 +1282,12 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     f"errors {sm.get('errors', 0)}, warnings {sm.get('warnings', 0)}, pending {sm.get('isPending', False)}, submitted URLs {submitted}"
                 )
             flags = weekly_flags(
-                {"impressions": 1, "clicks_pct": None, "impressions_pct": None, "position_better": 0.0},
+                {},  # never read: this tool has no analytics window
                 sms,
                 live_count,
                 [{}],
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
+                analytics_available=False,
             )
             if live is None:
                 flags.append(f"⚠️ Live sitemap unavailable ({live_detail.note}); URL-count comparison was skipped.")
@@ -1425,9 +1457,14 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             )
             analytics_errors.extend(f"queries: {error}" for error in query_errors)
             queries_available = not query_errors or bool(queries)
-            page_rows = query_once("pages", cs, ce, ["page"], row_limit=1000)
+            page_rows = query_once("pages", cs, ce, ["page"], row_limit=WEEKLY_PAGE_ROW_LIMIT)
             pages_available = page_rows is not None
             pages = page_rows or []
+            pages_note = (
+                sample_note(len(pages), len(pages) < WEEKLY_PAGE_ROW_LIMIT, "page rows")
+                if pages_available
+                else ""
+            )
             split = brand_split(queries)
             split_note = sample_note(
                 len(queries),
@@ -1498,9 +1535,10 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             if live is None:
                 flags.append(f"⚠️ Live sitemap unavailable ({live_detail.note}); URL-count comparison was skipped.")
             top_q = sorted(queries, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
-            top_p = sorted(pages, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
-            for r in top_p:
-                r["keys"] = [(r.get("keys") or ["?"])[0].replace(public_base, "") or "/"]
+            top_p = [
+                {**r, "keys": [(r.get("keys") or ["?"])[0].replace(public_base, "") or "/"]}
+                for r in sorted(pages, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
+            ]
             totals_lines = (
                 [
                     f"  clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
@@ -1548,7 +1586,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 "Top queries:",
                 top_queries_text,
                 "",
-                "Top pages:",
+                f"Top pages:{pages_note}",
                 top_pages_text,
                 "",
                 f"Striking distance (pos {SD_POSITION_MIN:g}–{SD_POSITION_MAX:g}, ≥{SD_MIN_IMPRESSIONS} impr, {len(sd_rows):,} rows scanned):{sd_note}",

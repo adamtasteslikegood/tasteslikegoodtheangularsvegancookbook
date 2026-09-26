@@ -626,6 +626,38 @@ class ToolTextTest(unittest.TestCase):
         self.assertIn("submitted URLs 98", out)
         self.assertNotIn("Search Console tool failed", out)
 
+    def test_sitemaps_tool_never_evaluates_analytics_flags(self):
+        with mock.patch.object(g, "weekly_flags", wraps=g.weekly_flags) as flags:
+            out = self.mcp.tools["gsc_sitemaps"]()
+        self.assertIn("submitted URLs 98", out)
+        self.assertEqual(flags.call_count, 1)
+        self.assertIs(flags.call_args.kwargs["analytics_available"], False)
+        self.assertEqual(flags.call_args.args[0], {}, "no placeholder comparison for a future analytics check to fire on")
+
+    def test_weekly_report_discloses_the_page_row_cap(self):
+        original = self.session.request
+
+        def many_pages(method, url, timeout=None, json=None):
+            if url.endswith("/searchAnalytics/query") and (json.get("dimensions") or []) == ["page"]:
+                self.assertEqual(json["rowLimit"], g.WEEKLY_PAGE_ROW_LIMIT)
+                rows = [row([f"https://www.tasteslikegood.org/r/p{i}"], 1000 - i, 5000, 9.0) for i in range(g.WEEKLY_PAGE_ROW_LIMIT)]
+                return FakeResponse(200, {"rows": rows})
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = many_pages
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn(
+            f"Top pages: Sample truncated at {g.WEEKLY_PAGE_ROW_LIMIT:,} click-ranked page rows — lower-click rows beyond that are not included.",
+            out,
+        )
+        self.assertIn("/r/p0 ", out)
+        self.assertNotIn("/r/p10 ", out, "only the top 10 pages are listed")
+
+    def test_weekly_report_has_no_page_cap_note_below_the_cap(self):
+        out = self.mcp.tools["gsc_weekly_report"](28)
+        self.assertIn("Top pages:\n", out)
+        self.assertNotIn("page rows", out)
+
     def test_weekly_report_surfaces_partial_analytics_and_sitemap_failures(self):
         original = self.session.request
 
@@ -1039,6 +1071,71 @@ class SitemapIndexTest(unittest.TestCase):
             fresh = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org", deadline=__import__("time").monotonic() + 5.0)
             self.assertEqual(len(fresh.urls), 2)
             self.assertLessEqual(fake.calls[-1][1], 5.0, "per-request timeout is capped by the caller's remaining time")
+
+
+    def test_streaming_past_the_deadline_aborts_the_read(self):
+        clock = {"now": 1000.0}
+
+        class DrippingResponse(FakeHttpResponse):
+            def iter_content(self, chunk_size=1):
+                for chunk in super().iter_content(chunk_size):
+                    clock["now"] += 30.0  # each chunk arrives just under the per-read timeout
+                    yield chunk
+
+        big = (
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + "".join(f"<url><loc>https://www.tasteslikegood.org/r/x{i}</loc></url>" for i in range(6000))
+            + "</urlset>"
+        )
+        self.assertGreater(len(big.encode()), 3 * 64 * 1024, "the body spans at least four 64 KiB chunks")
+        fake = fake_requests({self.ROOT: (200, big)})
+        original_get = fake.get
+
+        def get(url, **kwargs):
+            resp = original_get(url, **kwargs)
+            dripping = DrippingResponse(resp.status_code, resp.text, resp.headers)
+            fake.responses[-1] = dripping
+            return dripping
+
+        fake.get = get
+        with mock.patch.dict(sys.modules, {"requests": fake}), mock.patch.object(g.time, "monotonic", lambda: clock["now"]):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org", deadline=1000.0 + 50.0)
+        self.assertIsNone(result.urls)
+        self.assertIn("still streaming when the fetch budget ran out; not parsed", result.note)
+        self.assertLessEqual(fake.responses[0].bytes_read, 2 * 64 * 1024, "the read stops at the first chunk past the deadline")
+        self.assertTrue(fake.responses[0].closed)
+
+    def test_content_length_with_whitespace_or_sign_is_still_honoured(self):
+        for declared in (f" {g.MAX_SITEMAP_BYTES + 1} ", f"+{g.MAX_SITEMAP_BYTES + 1}"):
+            fake = fake_requests({self.ROOT: (200, URLSET_XML, {"Content-Length": declared})})
+            with mock.patch.dict(sys.modules, {"requests": fake}):
+                result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+            self.assertIsNone(result.urls, declared)
+            self.assertIn("not read", result.note)
+            self.assertEqual(fake.responses[0].bytes_read, 0, declared)
+        fake = fake_requests({self.ROOT: (200, URLSET_XML, {"Content-Length": "unknown"})})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertEqual(len(result.urls), 2, "an unparseable Content-Length falls through to the bounded read")
+
+    def test_non_xml_content_type_is_named_and_not_read(self):
+        self.assertEqual(g.sitemap_media_type_problem(""), "")
+        self.assertEqual(g.sitemap_media_type_problem("application/xml; charset=UTF-8"), "")
+        self.assertEqual(g.sitemap_media_type_problem("Text/XML"), "")
+        self.assertEqual(g.sitemap_media_type_problem("application/atom+xml"), "")
+        for content_type in ("text/html; charset=utf-8", "application/json", "application/gzip", "text/plain"):
+            self.assertTrue(g.sitemap_media_type_problem(content_type), content_type)
+        fake = fake_requests({self.ROOT: (200, "<html><body>maintenance</body></html>", {"Content-Type": "text/html; charset=utf-8"})})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("was served as text/html, not XML; not read", result.note)
+        self.assertNotIn("not a sitemaps.org", result.note)
+        self.assertEqual(fake.responses[0].bytes_read, 0)
+        self.assertTrue(fake.responses[0].closed)
+        fake = fake_requests({self.ROOT: (200, URLSET_XML, {"Content-Type": "application/xml; charset=UTF-8"})})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            self.assertEqual(len(g.fetch_live_sitemap_detail("https://www.tasteslikegood.org").urls), 2)
 
 
 class BoundedToolsTest(unittest.TestCase):
