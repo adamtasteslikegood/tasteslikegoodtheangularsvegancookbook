@@ -58,6 +58,7 @@ import threading
 import time
 import urllib.parse
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
@@ -90,6 +91,15 @@ MAX_COMPARISON_WINDOW_DAYS = 240
 # rows that still qualify for striking distance or the brand split. Paginate
 # with startRow up to this many pages before declaring the sample truncated.
 MAX_PAGES = 5
+# Single-purpose tools (compare, striking distance, sitemaps) share one
+# wall-clock budget so pagination cannot outlive the Cloud Run request window.
+TOOL_TOTAL_BUDGET_SECONDS = 120.0
+# Live sitemap fetches: one request budget plus a total budget covering a
+# sitemap index and its children, which are followed one level deep.
+SITEMAP_REQUEST_TIMEOUT_SECONDS = 20.0
+SITEMAP_FETCH_TOTAL_BUDGET_SECONDS = 60.0
+MAX_SITEMAP_INDEX_CHILDREN = 10
+SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 DIMENSIONS = ("query", "page", "country", "device", "date", "searchAppearance")
 BRAND_TERMS = ("tasteslikegood", "tastes like good", "vegangenius", "vegan genius")
 
@@ -281,7 +291,31 @@ def is_sitemap_urlset(xml_text: str) -> bool:
         root = ET.fromstring(xml_text)
     except ET.ParseError:
         return False
-    return root.tag == "{http://www.sitemaps.org/schemas/sitemap/0.9}urlset"
+    return root.tag == f"{{{SITEMAP_NS}}}urlset"
+
+
+def is_sitemap_index(xml_text: str) -> bool:
+    """Return True only for a sitemaps.org ``sitemapindex`` document."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return False
+    return root.tag == f"{{{SITEMAP_NS}}}sitemapindex"
+
+
+def parse_sitemap_index(xml_text: str) -> list[str]:
+    """Child sitemap locations from a sitemaps.org ``sitemapindex``, in document order."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+    ns = {"sm": SITEMAP_NS}
+    out: list[str] = []
+    for entry in root.findall("sm:sitemap", ns):
+        loc = entry.findtext("sm:loc", default="", namespaces=ns).strip()
+        if loc:
+            out.append(loc)
+    return out
 
 
 def select_sitemap_sample(
@@ -516,6 +550,13 @@ def sample_note(
     return f" Sample truncated at {row_count:,} click-ranked {what} — lower-click rows beyond that are not included."
 
 
+def partial_data_note(errors: list[str]) -> str:
+    """⚠️ line naming the transport failures that left a result partial; empty when none."""
+    if not errors:
+        return ""
+    return "⚠️ Partial data: " + "; ".join(errors)
+
+
 # --------------------------------------------------------------------------
 # API client
 # --------------------------------------------------------------------------
@@ -730,25 +771,95 @@ class GscClient:
         return self._request("POST", INSPECTION_API, json=body, timeout=timeout).get("inspectionResult", {}) or {}
 
 
-def fetch_live_sitemap(public_base: str) -> Optional[list[tuple[str, Optional[str]]]]:
-    """Public fetch of sitemap.xml. None means unavailable; [] means valid but empty."""
-    try:
-        import requests
+@dataclass
+class LiveSitemap:
+    """Result of fetching the public sitemap.
 
-        resp = requests.get(
-            f"{public_base.rstrip('/')}/sitemap.xml",
-            timeout=20,
-            headers={"User-Agent": "gcp-monitor-mcp/gsc-tools (+https://www.tasteslikegood.org)"},
-        )
+    ``urls`` is None when unavailable and [] when valid but empty. ``kind`` is
+    "urlset" or "index" once the root document parsed. ``note`` explains an
+    index fetch, or why the URL list is unavailable, so tool output can show a
+    distinct reason instead of one generic failure state.
+    """
+
+    urls: Optional[list[tuple[str, Optional[str]]]]
+    kind: Optional[str] = None
+    note: str = ""
+
+
+def _get_sitemap_document(url: str, timeout: float):
+    import requests
+
+    return requests.get(
+        url,
+        timeout=timeout,
+        headers={"User-Agent": "gcp-monitor-mcp/gsc-tools (+https://www.tasteslikegood.org)"},
+    )
+
+
+def fetch_live_sitemap_detail(public_base: str) -> LiveSitemap:
+    """Public fetch of sitemap.xml, following a sitemap index one level deep.
+
+    Network, non-200, malformed-XML, and wrong-root-element failures are
+    reported as unavailable with a note, never as a real-looking zero-URL
+    sitemap. An index with more children than MAX_SITEMAP_INDEX_CHILDREN, or
+    any child that fails or is itself an index, is unavailable too: a partial
+    URL total would produce a false count-mismatch flag.
+    """
+    root_url = f"{public_base.rstrip('/')}/sitemap.xml"
+    deadline = time.monotonic() + SITEMAP_FETCH_TOTAL_BUDGET_SECONDS
+
+    def fetch(url: str) -> Optional[str]:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0.1:
+            return None
+        resp = _get_sitemap_document(url, min(SITEMAP_REQUEST_TIMEOUT_SECONDS, remaining))
         if resp.status_code != 200:
             return None
-        # Preserve malformed XML and well-formed non-sitemap responses as an
-        # unavailable state instead of a real-looking zero-URL sitemap.
-        if not is_sitemap_urlset(resp.text):
-            return None
-        return parse_sitemap_urls(resp.text)
-    except Exception:  # network or parse failure must not break a report
-        return None
+        return resp.text
+
+    try:
+        text = fetch(root_url)
+        if text is None:
+            return LiveSitemap(None, note=f"{root_url} did not return HTTP 200 within the fetch budget")
+        if is_sitemap_urlset(text):
+            return LiveSitemap(parse_sitemap_urls(text), kind="urlset")
+        if not is_sitemap_index(text):
+            return LiveSitemap(None, note=f"{root_url} is not a sitemaps.org urlset or sitemapindex")
+        children = parse_sitemap_index(text)
+        if not children:
+            return LiveSitemap([], kind="index", note="sitemap index lists no child sitemaps")
+        if len(children) > MAX_SITEMAP_INDEX_CHILDREN:
+            return LiveSitemap(
+                None,
+                kind="index",
+                note=(
+                    f"sitemap index lists {len(children)} child sitemaps, more than the "
+                    f"{MAX_SITEMAP_INDEX_CHILDREN} this tool fetches; URL-count comparison skipped"
+                ),
+            )
+        urls: list[tuple[str, Optional[str]]] = []
+        for child in children:
+            child_text = fetch(child)
+            if child_text is None:
+                return LiveSitemap(
+                    None, kind="index", note=f"child sitemap {child} did not return HTTP 200 within the fetch budget"
+                )
+            if not is_sitemap_urlset(child_text):
+                return LiveSitemap(
+                    None,
+                    kind="index",
+                    note=f"child sitemap {child} is not a sitemaps.org urlset (nested indexes are not followed)",
+                )
+            urls.extend(parse_sitemap_urls(child_text))
+        urls.sort(key=lambda t: t[1] or "", reverse=True)
+        return LiveSitemap(urls, kind="index", note=f"sitemap index with {len(children)} child sitemaps, all fetched")
+    except Exception as exc:  # network or parse failure must not break a report
+        return LiveSitemap(None, note=f"{type(exc).__name__}: {exc}")
+
+
+def fetch_live_sitemap(public_base: str) -> Optional[list[tuple[str, Optional[str]]]]:
+    """Public fetch of sitemap.xml. None means unavailable; [] means valid but empty."""
+    return fetch_live_sitemap_detail(public_base).urls
 
 
 def _summarize_inspection(url: str, result: dict) -> dict[str, Any]:
@@ -919,17 +1030,24 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 )
             )
             cmp = compare_totals(cur_tot, prev_tot)
-            cur_q, cur_complete = gsc.query_all(cs, ce, ["query"])
-            prev_q, prev_complete = gsc.query_all(ps, pe, ["query"])
+            deadline = time.monotonic() + TOOL_TOTAL_BUDGET_SECONDS
+            cur_errors: list[str] = []
+            prev_errors: list[str] = []
+            cur_q, cur_complete = gsc.query_all(cs, ce, ["query"], deadline=deadline, partial_errors=cur_errors)
+            prev_q, prev_complete = gsc.query_all(ps, pe, ["query"], deadline=deadline, partial_errors=prev_errors)
             mv = movers(cur_q, prev_q, limit=clamp_output_limit(limit))
             movers_note = (
-                sample_note(len(cur_q), cur_complete, "current-window query rows")
-                + sample_note(len(prev_q), prev_complete, "previous-window query rows")
+                sample_note(len(cur_q), cur_complete, "current-window query rows", incomplete_due_to_error=bool(cur_errors))
+                + sample_note(len(prev_q), prev_complete, "previous-window query rows", incomplete_due_to_error=bool(prev_errors))
+            )
+            partial = partial_data_note(
+                [f"current window: {e}" for e in cur_errors] + [f"previous window: {e}" for e in prev_errors]
             )
             lines = [
                 f"Period comparison — {site_url}",
                 note,
                 f"Previous window {ps} → {pe}.{movers_note}",
+                *([partial] if partial else []),
                 f"clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
                 f"impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
                 f"CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
@@ -966,7 +1084,9 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             cs, ce, _ps, _pe, note = _window_note(days)
-            rows, complete = gsc.query_all(cs, ce, ["query", "page"])
+            deadline = time.monotonic() + TOOL_TOTAL_BUDGET_SECONDS
+            errors: list[str] = []
+            rows, complete = gsc.query_all(cs, ce, ["query", "page"], deadline=deadline, partial_errors=errors)
             qualifying = striking_distance(rows, int(min_impressions), float(position_min), float(position_max))
             sd = qualifying[: clamp_output_limit(limit)]
             table = [
@@ -982,8 +1102,11 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             head = (
                 f"Striking distance (position {position_min:g}–{position_max:g}, ≥{min_impressions} impressions) — {site_url}\n{note}\n"
                 f"{len(qualifying)} of {len(rows)} query/page rows qualify; showing {len(sd)}."
-                f"{sample_note(len(rows), complete, 'query/page rows')}"
+                f"{sample_note(len(rows), complete, 'query/page rows', incomplete_due_to_error=bool(errors))}"
             )
+            partial = partial_data_note(errors)
+            if partial:
+                head += "\n" + partial
             return head + "\n" + format_table(["query", "page", "impr", "clicks", "pos"], table)
 
         return _guard(run)
@@ -995,13 +1118,16 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
         live sitemap.xml so count drift and fetch failures show up."""
 
         def run() -> str:
-            sms = gsc.sitemaps()
-            live = fetch_live_sitemap(public_base)
+            sms = gsc.sitemaps(timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS)
+            live_detail = fetch_live_sitemap_detail(public_base)
+            live = live_detail.urls
             live_count = len(live) if live is not None else None
             live_status = (
-                f"{live_count} URLs" + (f", newest lastmod {live[0][1]}" if live and live[0][1] else "")
+                f"{live_count} URLs"
+                + (f", newest lastmod {live[0][1]}" if live and live[0][1] else "")
+                + (f" ({live_detail.note})" if live_detail.note else "")
                 if live_count is not None
-                else "unavailable (fetch, HTTP, or XML parse failure)"
+                else f"unavailable ({live_detail.note or 'fetch, HTTP, or XML parse failure'})"
             )
             lines = [f"Sitemaps in Search Console — {site_url}", f"Live {public_base}/sitemap.xml: {live_status}"]
             if not sms:
@@ -1021,7 +1147,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 live_sitemap_url=f"{public_base.rstrip('/')}/sitemap.xml",
             )
             if live is None:
-                flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
+                flags.append(f"⚠️ Live sitemap unavailable ({live_detail.note}); URL-count comparison was skipped.")
             lines.extend(flags)
             return "\n".join(lines)
 
@@ -1069,9 +1195,11 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             selection = which.strip().lower()
             if selection not in ("newest", "oldest"):
                 return "which must be one of newest, oldest"
-            live = fetch_live_sitemap(public_base)
+            live_detail = fetch_live_sitemap_detail(public_base)
+            live = live_detail.urls
             if live is None:
-                return f"Could not fetch or parse {public_base}/sitemap.xml to pick a sample."
+                reason = f": {live_detail.note}" if live_detail.note else ""
+                return f"Could not fetch or parse {public_base}/sitemap.xml to pick a sample{reason}."
             if not live:
                 return f"{public_base}/sitemap.xml is valid but contains no URLs."
             picked = select_sitemap_sample(live, selection, n)
@@ -1235,7 +1363,8 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     )
                     sitemaps_available = False
                     sms = []
-            live = fetch_live_sitemap(public_base)
+            live_detail = fetch_live_sitemap_detail(public_base)
+            live = live_detail.urls
             live_count = len(live) if live is not None else None
             flags = weekly_flags(
                 cmp,
@@ -1253,7 +1382,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     "⚠️ Partial report data: " + "; ".join(analytics_errors)
                 )
             if live is None:
-                flags.append("⚠️ Live sitemap unavailable; URL-count comparison was skipped.")
+                flags.append(f"⚠️ Live sitemap unavailable ({live_detail.note}); URL-count comparison was skipped.")
             top_q = sorted(queries, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
             top_p = sorted(pages, key=lambda r: (-float(r.get("clicks") or 0), -float(r.get("impressions") or 0)))[:10]
             for r in top_p:
