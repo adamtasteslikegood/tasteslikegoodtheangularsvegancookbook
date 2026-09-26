@@ -871,21 +871,27 @@ def _summarize_inspection(url: str, result: dict) -> dict[str, Any]:
         rtype = item.get("richResultType", "?")
         issues = sum(len(i.get("issues") or []) for i in item.get("items") or [])
         detected.append(f"{rtype}{f' ({issues} issue(s))' if issues else ''}")
+    # Search Console returns null-valued keys on partial inspections, and
+    # dict.get(key, default) only substitutes for an absent key, so coerce
+    # both missing and null to the placeholder.
+    def field(source: dict, key: str, default: str = "—") -> str:
+        return source.get(key) or default
+
     return {
         "url": url,
-        "verdict": idx.get("verdict", "UNKNOWN"),
-        "coverage": idx.get("coverageState", "—"),
-        "indexing": idx.get("indexingState", "—"),
-        "robots": idx.get("robotsTxtState", "—"),
-        "fetch": idx.get("pageFetchState", "—"),
-        "last_crawl": (idx.get("lastCrawlTime") or "—")[:19].replace("T", " "),
-        "google_canonical": idx.get("googleCanonical", "—"),
-        "user_canonical": idx.get("userCanonical", "—"),
+        "verdict": field(idx, "verdict", "UNKNOWN"),
+        "coverage": field(idx, "coverageState"),
+        "indexing": field(idx, "indexingState"),
+        "robots": field(idx, "robotsTxtState"),
+        "fetch": field(idx, "pageFetchState"),
+        "last_crawl": field(idx, "lastCrawlTime")[:19].replace("T", " "),
+        "google_canonical": field(idx, "googleCanonical"),
+        "user_canonical": field(idx, "userCanonical"),
         "in_sitemap": bool(idx.get("sitemap")),
         "referring_urls": len(idx.get("referringUrls") or []),
-        "rich_results": ", ".join(detected) or rich.get("verdict", "—"),
-        "mobile": mobile.get("verdict", "—"),
-        "link": result.get("inspectionResultLink", ""),
+        "rich_results": ", ".join(detected) or field(rich, "verdict"),
+        "mobile": field(mobile, "verdict"),
+        "link": result.get("inspectionResultLink") or "",
     }
 
 

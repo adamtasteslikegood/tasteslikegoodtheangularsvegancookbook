@@ -963,5 +963,40 @@ class BoundedToolsTest(unittest.TestCase):
         self.assertIn("Live sitemap unavailable (https://www.tasteslikegood.org/sitemap.xml is not a sitemaps.org urlset or sitemapindex)", out)
 
 
+class InspectionSummaryTest(unittest.TestCase):
+    def test_null_valued_fields_render_as_placeholder_not_none(self):
+        partial = {
+            "inspectionResultLink": None,
+            "indexStatusResult": {
+                "verdict": None,
+                "coverageState": None,
+                "indexingState": None,
+                "robotsTxtState": None,
+                "pageFetchState": None,
+                "lastCrawlTime": None,
+                "googleCanonical": None,
+                "userCanonical": None,
+                "sitemap": None,
+                "referringUrls": None,
+            },
+            "richResultsResult": {"verdict": None, "detectedItems": None},
+            "mobileUsabilityResult": {"verdict": None},
+        }
+        s = g._summarize_inspection("https://www.tasteslikegood.org/r/x", partial)
+        self.assertEqual(s["verdict"], "UNKNOWN")
+        for key in ("coverage", "indexing", "robots", "fetch", "last_crawl", "google_canonical", "user_canonical", "rich_results", "mobile"):
+            self.assertEqual(s[key], "—", key)
+        self.assertEqual(s["link"], "")
+        self.assertFalse(s["in_sitemap"])
+        self.assertEqual(s["referring_urls"], 0)
+        self.assertNotIn("None", " ".join(str(v) for v in s.values()))
+
+    def test_absent_fields_still_render_as_placeholder(self):
+        s = g._summarize_inspection("https://www.tasteslikegood.org/r/x", {})
+        self.assertEqual(s["verdict"], "UNKNOWN")
+        self.assertEqual(s["coverage"], "—")
+        self.assertEqual(s["last_crawl"], "—")
+
+
 if __name__ == "__main__":
     unittest.main()
