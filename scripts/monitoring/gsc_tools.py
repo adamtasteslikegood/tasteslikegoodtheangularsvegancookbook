@@ -274,11 +274,34 @@ def movers(cur_rows: list[dict], prev_rows: list[dict], limit: int = 10) -> dict
     return {"gainers": gainers, "losers": losers}
 
 
+_DTD_MARKER = re.compile(r"<!\s*(DOCTYPE|ENTITY)\b", re.IGNORECASE)
+
+
+def has_dtd(xml_text: str) -> bool:
+    """True when the document declares a DOCTYPE or ENTITY.
+
+    Sitemaps never need either, and ``xml.etree`` expands entities during
+    parsing, so a network-controlled document under the byte cap could still
+    inflate to exhaust CPU or memory. Every sitemap parse rejects these
+    before calling the parser.
+    """
+    return bool(_DTD_MARKER.search(xml_text))
+
+
+def _parse_sitemap_xml(xml_text: str):
+    """ET root of a sitemap document, or None if it is malformed or carries a DTD."""
+    if has_dtd(xml_text):
+        return None
+    try:
+        return ET.fromstring(xml_text)
+    except ET.ParseError:
+        return None
+
+
 def parse_sitemap_urls(xml_text: str) -> list[tuple[str, Optional[str]]]:
     """(loc, lastmod) pairs from a sitemaps.org urlset, newest lastmod first."""
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
+    root = _parse_sitemap_xml(xml_text)
+    if root is None:
         return []
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     out: list[tuple[str, Optional[str]]] = []
@@ -291,28 +314,21 @@ def parse_sitemap_urls(xml_text: str) -> list[tuple[str, Optional[str]]]:
 
 
 def is_sitemap_urlset(xml_text: str) -> bool:
-    """Return True only for a sitemaps.org ``urlset`` document."""
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
-        return False
-    return root.tag == f"{{{SITEMAP_NS}}}urlset"
+    """Return True only for a sitemaps.org ``urlset`` document without a DTD."""
+    root = _parse_sitemap_xml(xml_text)
+    return root is not None and root.tag == f"{{{SITEMAP_NS}}}urlset"
 
 
 def is_sitemap_index(xml_text: str) -> bool:
-    """Return True only for a sitemaps.org ``sitemapindex`` document."""
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
-        return False
-    return root.tag == f"{{{SITEMAP_NS}}}sitemapindex"
+    """Return True only for a sitemaps.org ``sitemapindex`` document without a DTD."""
+    root = _parse_sitemap_xml(xml_text)
+    return root is not None and root.tag == f"{{{SITEMAP_NS}}}sitemapindex"
 
 
 def parse_sitemap_index(xml_text: str) -> list[str]:
     """Child sitemap locations from a sitemaps.org ``sitemapindex``, in document order."""
-    try:
-        root = ET.fromstring(xml_text)
-    except ET.ParseError:
+    root = _parse_sitemap_xml(xml_text)
+    if root is None:
         return []
     ns = {"sm": SITEMAP_NS}
     out: list[str] = []
@@ -844,7 +860,10 @@ def _read_sitemap_body(resp) -> tuple[Optional[str], str]:
             if len(body) > MAX_SITEMAP_BYTES:
                 return None, f"exceeds the {MAX_SITEMAP_BYTES:,}-byte limit; not parsed"
         # The Sitemap protocol requires UTF-8; anything else is replaced.
-        return bytes(body).decode("utf-8", errors="replace"), ""
+        text = bytes(body).decode("utf-8", errors="replace")
+        if has_dtd(text):
+            return None, "declares a DOCTYPE or ENTITY, which sitemaps never need; not parsed"
+        return text, ""
     finally:
         close = getattr(resp, "close", None)
         if close:

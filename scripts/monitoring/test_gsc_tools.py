@@ -946,6 +946,43 @@ class SitemapIndexTest(unittest.TestCase):
         self.assertEqual(fake.stream_flags, [True])
         self.assertTrue(fake.responses[0].closed)
 
+    def test_dtd_and_entity_declarations_are_rejected_before_parsing(self):
+        lol = (
+            '<?xml version="1.0"?><!DOCTYPE lolz [<!ENTITY lol "lol">'
+            '<!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">]>'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            "<url><loc>https://www.tasteslikegood.org/&lol2;</loc></url></urlset>"
+        )
+        entity_only = (
+            '<!ENTITY x "y"><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://a/</loc></url></urlset>'
+        )
+        for doc in (lol, entity_only, lol.replace("<!DOCTYPE", "<!doctype")):
+            self.assertTrue(g.has_dtd(doc))
+            self.assertFalse(g.is_sitemap_urlset(doc))
+            self.assertFalse(g.is_sitemap_index(doc))
+            self.assertEqual(g.parse_sitemap_urls(doc), [])
+            self.assertEqual(g.parse_sitemap_index(doc), [])
+        self.assertFalse(g.has_dtd(URLSET_XML))
+        self.assertFalse(g.has_dtd(INDEX_XML))
+        with mock.patch.object(g.ET, "fromstring", side_effect=AssertionError("parser must not run on a DTD document")):
+            self.assertFalse(g.is_sitemap_urlset(lol))
+            self.assertEqual(g.parse_sitemap_urls(lol), [])
+
+    def test_fetched_document_with_dtd_is_unavailable_with_its_own_note(self):
+        lol = '<!DOCTYPE x [<!ENTITY a "a">]>' + URLSET_XML
+        fake = fake_requests({self.ROOT: (200, lol)})
+        with mock.patch.dict(sys.modules, {"requests": fake}), mock.patch.object(
+            g.ET, "fromstring", side_effect=AssertionError("parser must not run on a DTD document")
+        ):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("declares a DOCTYPE or ENTITY", result.note)
+        child = fake_requests({self.ROOT: (200, INDEX_XML), "https://www.tasteslikegood.org/sitemap-recipes.xml": (200, lol)})
+        with mock.patch.dict(sys.modules, {"requests": child}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("child sitemap https://www.tasteslikegood.org/sitemap-recipes.xml declares a DOCTYPE or ENTITY", result.note)
+
     def test_child_off_the_configured_origin_is_rejected_without_a_request(self):
         for bad in (
             "https://evil.example/sitemap.xml",
