@@ -786,27 +786,55 @@ class LiveSitemap:
     note: str = ""
 
 
+def same_origin(url: str, base: str) -> bool:
+    """True when ``url`` is HTTP(S) on exactly the scheme and host:port of ``base``.
+
+    The Sitemap protocol requires an index's children to live on the same
+    site, and the child locations come from the network, so anything else
+    (another host, a private address, a scheme like file: or gopher:, or
+    userinfo smuggled into the authority) must never be fetched.
+    """
+    u = urllib.parse.urlsplit(url)
+    b = urllib.parse.urlsplit(base)
+    return (
+        u.scheme in ("http", "https")
+        and u.scheme == b.scheme
+        and bool(u.netloc)
+        and u.netloc.lower() == b.netloc.lower()
+    )
+
+
 def _get_sitemap_document(url: str, timeout: float):
     import requests
 
+    # Redirects are never followed: a 3xx from a sitemap is treated as a
+    # fetch failure so the connector cannot be steered off the configured
+    # origin by a network-controlled Location header.
     return requests.get(
         url,
         timeout=timeout,
+        allow_redirects=False,
         headers={"User-Agent": "gcp-monitor-mcp/gsc-tools (+https://www.tasteslikegood.org)"},
     )
 
 
-def fetch_live_sitemap_detail(public_base: str) -> LiveSitemap:
+def fetch_live_sitemap_detail(public_base: str, deadline: Optional[float] = None) -> LiveSitemap:
     """Public fetch of sitemap.xml, following a sitemap index one level deep.
 
-    Network, non-200, malformed-XML, and wrong-root-element failures are
-    reported as unavailable with a note, never as a real-looking zero-URL
-    sitemap. An index with more children than MAX_SITEMAP_INDEX_CHILDREN, or
-    any child that fails or is itself an index, is unavailable too: a partial
+    Network, non-200 (redirects included), malformed-XML, and wrong-root-
+    element failures are reported as unavailable with a note, never as a
+    real-looking zero-URL sitemap. An index with more children than
+    MAX_SITEMAP_INDEX_CHILDREN, a child off the configured origin, or any
+    child that fails or is itself an index, is unavailable too: a partial
     URL total would produce a false count-mismatch flag.
+
+    ``deadline`` is a ``time.monotonic()`` instant shared with the calling
+    tool; the fetch never runs past it, so sitemap time comes out of the
+    tool's own budget instead of adding to it.
     """
     root_url = f"{public_base.rstrip('/')}/sitemap.xml"
-    deadline = time.monotonic() + SITEMAP_FETCH_TOTAL_BUDGET_SECONDS
+    own_deadline = time.monotonic() + SITEMAP_FETCH_TOTAL_BUDGET_SECONDS
+    deadline = own_deadline if deadline is None else min(deadline, own_deadline)
 
     def fetch(url: str) -> Optional[str]:
         remaining = deadline - time.monotonic()
@@ -835,6 +863,16 @@ def fetch_live_sitemap_detail(public_base: str) -> LiveSitemap:
                 note=(
                     f"sitemap index lists {len(children)} child sitemaps, more than the "
                     f"{MAX_SITEMAP_INDEX_CHILDREN} this tool fetches; URL-count comparison skipped"
+                ),
+            )
+        off_origin = [child for child in children if not same_origin(child, public_base)]
+        if off_origin:
+            return LiveSitemap(
+                None,
+                kind="index",
+                note=(
+                    f"child sitemap {off_origin[0]} is not on {public_base}; "
+                    "only same-origin children are fetched"
                 ),
             )
         urls: list[tuple[str, Optional[str]]] = []
@@ -1124,8 +1162,9 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
         live sitemap.xml so count drift and fetch failures show up."""
 
         def run() -> str:
+            deadline = time.monotonic() + TOOL_TOTAL_BUDGET_SECONDS
             sms = gsc.sitemaps(timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS)
-            live_detail = fetch_live_sitemap_detail(public_base)
+            live_detail = fetch_live_sitemap_detail(public_base, deadline=deadline)
             live = live_detail.urls
             live_count = len(live) if live is not None else None
             live_status = (
@@ -1201,7 +1240,11 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             selection = which.strip().lower()
             if selection not in ("newest", "oldest"):
                 return "which must be one of newest, oldest"
-            live_detail = fetch_live_sitemap_detail(public_base)
+            # One budget covers the sitemap fetch and every inspection, so the
+            # tool always returns (partial if need be) inside Cloud Run's
+            # 300 s request window with room to format the response.
+            deadline = time.monotonic() + INSPECTION_TOTAL_BUDGET_SECONDS
+            live_detail = fetch_live_sitemap_detail(public_base, deadline=deadline)
             live = live_detail.urls
             if live is None:
                 reason = f": {live_detail.note}" if live_detail.note else ""
@@ -1211,7 +1254,6 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             picked = select_sitemap_sample(live, selection, n)
             results: list[dict[str, Any]] = []
             failures: list[tuple[str, str]] = []
-            deadline = time.monotonic() + INSPECTION_TOTAL_BUDGET_SECONDS
             for index, (loc, _lastmod) in enumerate(picked):
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
@@ -1369,7 +1411,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                     )
                     sitemaps_available = False
                     sms = []
-            live_detail = fetch_live_sitemap_detail(public_base)
+            live_detail = fetch_live_sitemap_detail(public_base, deadline=deadline)
             live = live_detail.urls
             live_count = len(live) if live is not None else None
             flags = weekly_flags(

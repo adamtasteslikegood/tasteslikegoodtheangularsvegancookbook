@@ -425,7 +425,7 @@ class ToolTextTest(unittest.TestCase):
         self.session = FakeSession()
         client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: self.session)
         self.addCleanup(setattr, g, "fetch_live_sitemap_detail", REAL_FETCH_LIVE_SITEMAP_DETAIL)
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")  # noqa: E731
         g.register(self.mcp, client=client)
 
     def test_all_tools_registered(self):
@@ -608,7 +608,7 @@ class ToolTextTest(unittest.TestCase):
             return original(method, url, timeout=timeout, json=json)
 
         self.session.request = flaky_request
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap([
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap([
             (f"{base}/r/{index}", f"2026-09-{13 - index:02d}")
             for index in range(3)
         ], kind="urlset")
@@ -647,7 +647,7 @@ class ToolTextTest(unittest.TestCase):
         self.assertNotIn("No sitemap is submitted", out)
 
     def test_weekly_report_surfaces_live_sitemap_failure(self):
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap(None, note="HTTP 503")
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap(None, note="HTTP 503")
         out = self.mcp.tools["gsc_weekly_report"](28)
         self.assertIn("live sitemap: unavailable", out)
         self.assertIn("Live sitemap unavailable", out)
@@ -770,9 +770,11 @@ def fake_requests(pages):
     """A stand-in ``requests`` module: ``pages`` maps URL -> (status, body)."""
     mod = ModuleType("requests")
     mod.calls = []
+    mod.redirect_flags = []
 
-    def get(url, timeout=None, headers=None):
+    def get(url, timeout=None, headers=None, allow_redirects=True):
         mod.calls.append((url, timeout))
+        mod.redirect_flags.append(allow_redirects)
         status, text = pages.get(url, (404, ""))
         return FakeHttpResponse(status, text)
 
@@ -877,6 +879,63 @@ class SitemapIndexTest(unittest.TestCase):
         self.assertIsNone(exhausted.urls)
         self.assertIn("within the fetch budget", exhausted.note)
 
+    def test_child_off_the_configured_origin_is_rejected_without_a_request(self):
+        for bad in (
+            "https://evil.example/sitemap.xml",
+            "http://169.254.169.254/latest/meta-data/",
+            "https://www.tasteslikegood.org:8443/sitemap-x.xml",
+            "https://user@www.tasteslikegood.org/sitemap-x.xml",
+            "file:///etc/passwd",
+            "http://www.tasteslikegood.org/sitemap-x.xml",
+        ):
+            xml = (
+                '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+                f"<sitemap><loc>{bad}</loc></sitemap>"
+                "<sitemap><loc>https://www.tasteslikegood.org/sitemap-recipes.xml</loc></sitemap>"
+                "</sitemapindex>"
+            )
+            fake = fake_requests({self.ROOT: (200, xml), "https://www.tasteslikegood.org/sitemap-recipes.xml": (200, URLSET_XML)})
+            with mock.patch.dict(sys.modules, {"requests": fake}):
+                result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+            self.assertIsNone(result.urls, bad)
+            self.assertIn("is not on https://www.tasteslikegood.org", result.note, bad)
+            self.assertEqual([u for u, _ in fake.calls], [self.ROOT], f"no child may be fetched for {bad}")
+
+    def test_same_origin_helper(self):
+        base = "https://www.tasteslikegood.org"
+        self.assertTrue(g.same_origin("https://www.tasteslikegood.org/a.xml", base))
+        self.assertTrue(g.same_origin("HTTPS://WWW.TASTESLIKEGOOD.ORG/a.xml", base))
+        self.assertFalse(g.same_origin("https://tasteslikegood.org/a.xml", base))
+        self.assertFalse(g.same_origin("//www.tasteslikegood.org/a.xml", base))
+        self.assertFalse(g.same_origin("/sitemap-x.xml", base))
+        self.assertFalse(g.same_origin("gopher://www.tasteslikegood.org/", base))
+
+    def test_redirects_are_never_followed(self):
+        fake = fake_requests(
+            {
+                self.ROOT: (200, INDEX_XML),
+                "https://www.tasteslikegood.org/sitemap-recipes.xml": (302, ""),
+                "https://www.tasteslikegood.org/sitemap-tags.xml": (200, CHILD_XML),
+            }
+        )
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("sitemap-recipes.xml did not return HTTP 200", result.note)
+        self.assertTrue(fake.redirect_flags, "requests.get must have been called")
+        self.assertFalse(any(fake.redirect_flags), "every sitemap fetch must pass allow_redirects=False")
+
+    def test_caller_deadline_caps_the_fetch(self):
+        fake = fake_requests({self.ROOT: (200, URLSET_XML)})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            spent = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org", deadline=__import__("time").monotonic())
+            self.assertIsNone(spent.urls)
+            self.assertIn("within the fetch budget", spent.note)
+            self.assertEqual(fake.calls, [], "no request once the caller's deadline has passed")
+            fresh = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org", deadline=__import__("time").monotonic() + 5.0)
+            self.assertEqual(len(fresh.urls), 2)
+            self.assertLessEqual(fake.calls[-1][1], 5.0, "per-request timeout is capped by the caller's remaining time")
+
 
 class BoundedToolsTest(unittest.TestCase):
     """The single-purpose tools use the same deadline/partial-error plumbing as the weekly report."""
@@ -886,7 +945,7 @@ class BoundedToolsTest(unittest.TestCase):
         self.session = FakeSession()
         client = g.GscClient("sc-domain:tasteslikegood.org", session_factory=lambda: self.session)
         self.addCleanup(setattr, g, "fetch_live_sitemap_detail", REAL_FETCH_LIVE_SITEMAP_DETAIL)
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")  # noqa: E731
         g.register(self.mcp, client=client)
 
     def fail_dimension(self, dims):
@@ -938,29 +997,60 @@ class BoundedToolsTest(unittest.TestCase):
         self.assertEqual(self.session.timeouts[sitemap_calls[0]], g.SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS)
 
     def test_sitemaps_tool_shows_index_note_and_compares_counts(self):
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="index", note="sitemap index with 2 child sitemaps, all fetched")  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="index", note="sitemap index with 2 child sitemaps, all fetched")  # noqa: E731
         out = self.mcp.tools["gsc_sitemaps"]()
         self.assertIn("98 URLs, newest lastmod 2026-09-13 (sitemap index with 2 child sitemaps, all fetched)", out)
         self.assertNotIn("count mismatch", out)
 
     def test_sitemaps_tool_distinguishes_oversized_index_from_fetch_failure(self):
         note = "sitemap index lists 14 child sitemaps, more than the 10 this tool fetches; URL-count comparison skipped"
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap(None, kind="index", note=note)  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap(None, kind="index", note=note)  # noqa: E731
         out = self.mcp.tools["gsc_sitemaps"]()
         self.assertIn(f"Live https://www.tasteslikegood.org/sitemap.xml: unavailable ({note})", out)
         self.assertIn(f"Live sitemap unavailable ({note}); URL-count comparison was skipped.", out)
         self.assertNotIn("count mismatch", out)
 
     def test_coverage_sample_reports_why_the_sitemap_was_unusable(self):
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap(None, kind="index", note="child sitemap https://www.tasteslikegood.org/sitemap-tags.xml did not return HTTP 200 within the fetch budget")  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap(None, kind="index", note="child sitemap https://www.tasteslikegood.org/sitemap-tags.xml did not return HTTP 200 within the fetch budget")  # noqa: E731
         out = self.mcp.tools["gsc_index_coverage_sample"](5)
         self.assertTrue(out.startswith("Could not fetch or parse"))
         self.assertIn("sitemap-tags.xml did not return HTTP 200", out)
 
     def test_weekly_report_names_the_live_sitemap_reason(self):
-        g.fetch_live_sitemap_detail = lambda base: g.LiveSitemap(None, note="https://www.tasteslikegood.org/sitemap.xml is not a sitemaps.org urlset or sitemapindex")  # noqa: E731
+        g.fetch_live_sitemap_detail = lambda base, deadline=None: g.LiveSitemap(None, note="https://www.tasteslikegood.org/sitemap.xml is not a sitemaps.org urlset or sitemapindex")  # noqa: E731
         out = self.mcp.tools["gsc_weekly_report"](28)
         self.assertIn("Live sitemap unavailable (https://www.tasteslikegood.org/sitemap.xml is not a sitemaps.org urlset or sitemapindex)", out)
+
+    def test_coverage_sample_shares_one_deadline_with_the_sitemap_fetch(self):
+        seen = []
+
+        def capture(base, deadline=None):
+            seen.append(deadline)
+            return g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 3, kind="urlset")
+
+        g.fetch_live_sitemap_detail = capture
+        with mock.patch.object(g, "INSPECTION_TOTAL_BUDGET_SECONDS", 0.0):
+            out = self.mcp.tools["gsc_index_coverage_sample"](3)
+        self.assertEqual(len(seen), 1)
+        self.assertIsNotNone(seen[0], "the sitemap fetch must receive the tool deadline")
+        self.assertIn("not attempted: total inspection time budget exhausted", out)
+        self.assertFalse(any(c[1] == g.INSPECTION_API for c in self.session.calls), "no inspection after the shared budget is spent")
+
+    def test_weekly_report_and_sitemaps_tool_pass_their_deadline_to_the_sitemap_fetch(self):
+        seen = []
+
+        def capture(base, deadline=None):
+            seen.append(deadline)
+            return g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")
+
+        g.fetch_live_sitemap_detail = capture
+        self.mcp.tools["gsc_weekly_report"](28)
+        self.mcp.tools["gsc_sitemaps"]()
+        self.assertEqual(len(seen), 2)
+        self.assertTrue(all(d is not None for d in seen))
+        now = __import__("time").monotonic()
+        self.assertLessEqual(seen[0] - now, g.WEEKLY_REPORT_TOTAL_BUDGET_SECONDS)
+        self.assertLessEqual(seen[1] - now, g.TOOL_TOTAL_BUDGET_SECONDS)
 
 
 class InspectionSummaryTest(unittest.TestCase):
