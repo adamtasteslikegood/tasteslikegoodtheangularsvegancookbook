@@ -984,11 +984,36 @@ class BoundedToolsTest(unittest.TestCase):
         self.assertIn("Incomplete current-window query rows", out)
         self.assertIn("Incomplete previous-window query rows", out)
 
-    def test_compare_periods_passes_the_shared_deadline_to_pagination(self):
+    def test_compare_periods_shares_one_deadline_across_totals_and_pagination(self):
         with mock.patch.object(g, "TOOL_TOTAL_BUDGET_SECONDS", 0.0):
             out = self.mcp.tools["gsc_compare_periods"](28)
-        self.assertIn("total Search Analytics time budget exhausted", out)
-        self.assertIn("clicks 12", out, "the bounded aggregate totals still render")
+        self.assertNotIn("Search Console tool failed", out)
+        self.assertIn("current totals: total Search Analytics time budget exhausted", out)
+        self.assertIn("totals unavailable (see Partial data)", out)
+        self.assertFalse(
+            any(c[1].endswith("/searchAnalytics/query") for c in self.session.calls),
+            "no analytics request may be issued once the budget is spent",
+        )
+
+    def test_compare_periods_keeps_movers_when_a_totals_request_fails(self):
+        original = self.session.request
+
+        def failed_totals(method, url, timeout=None, json=None):
+            if url.endswith("/searchAnalytics/query") and not (json.get("dimensions") or []):
+                raise TimeoutError("totals timed out")
+            return original(method, url, timeout=timeout, json=json)
+
+        self.session.request = failed_totals
+        out = self.mcp.tools["gsc_compare_periods"](28)
+        self.assertNotIn("Search Console tool failed", out)
+        self.assertIn("totals unavailable (see Partial data)", out)
+        self.assertIn("⚠️ Partial data: current totals: TimeoutError: totals timed out; previous totals: TimeoutError: totals timed out", out)
+        self.assertNotIn("clicks 0", out, "a failed aggregate must not render as zero traffic")
+        self.assertIn("Gainers:", out)
+        self.assertTrue(
+            any((c[2] or {}).get("dimensions") == ["query"] for c in self.session.calls),
+            "the query-row requests behind the movers must still run after the totals fail",
+        )
 
     def test_sitemaps_tool_bounds_the_api_request(self):
         self.mcp.tools["gsc_sitemaps"]()

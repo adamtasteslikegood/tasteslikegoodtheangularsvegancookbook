@@ -1055,26 +1055,35 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
 
         def run() -> str:
             cs, ce, ps, pe, note = _window_note(days)
-            cur_tot = summarize_rows(
-                gsc.query(
-                    cs,
-                    ce,
-                    None,
-                    row_limit=1,
-                    timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
-                )
-            )
-            prev_tot = summarize_rows(
-                gsc.query(
-                    ps,
-                    pe,
-                    None,
-                    row_limit=1,
-                    timeout=SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS,
-                )
-            )
-            cmp = compare_totals(cur_tot, prev_tot)
             deadline = time.monotonic() + TOOL_TOTAL_BUDGET_SECONDS
+            totals_errors: list[str] = []
+
+            def totals_once(label: str, start: str, end: str) -> Optional[list[dict]]:
+                # Same contract as the weekly report: a failed or timed-out
+                # aggregate renders as unavailable instead of failing the tool
+                # and discarding the query rows fetched alongside it.
+                remaining = deadline - time.monotonic()
+                if remaining <= 0.1:
+                    totals_errors.append(f"{label}: total Search Analytics time budget exhausted")
+                    return None
+                try:
+                    return gsc.query(
+                        start,
+                        end,
+                        None,
+                        row_limit=1,
+                        timeout=min(SEARCH_ANALYTICS_REQUEST_TIMEOUT_SECONDS, remaining),
+                    )
+                except GscAccessError:
+                    raise
+                except Exception as exc:
+                    totals_errors.append(f"{label}: {type(exc).__name__}: {exc}")
+                    return None
+
+            cur_rows = totals_once("current totals", cs, ce)
+            prev_rows = totals_once("previous totals", ps, pe)
+            totals_available = cur_rows is not None and prev_rows is not None
+            cmp = compare_totals(summarize_rows(cur_rows or []), summarize_rows(prev_rows or []))
             cur_errors: list[str] = []
             prev_errors: list[str] = []
             cur_q, cur_complete = gsc.query_all(cs, ce, ["query"], deadline=deadline, partial_errors=cur_errors)
@@ -1085,17 +1094,26 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 + sample_note(len(prev_q), prev_complete, "previous-window query rows", incomplete_due_to_error=bool(prev_errors))
             )
             partial = partial_data_note(
-                [f"current window: {e}" for e in cur_errors] + [f"previous window: {e}" for e in prev_errors]
+                totals_errors
+                + [f"current window: {e}" for e in cur_errors]
+                + [f"previous window: {e}" for e in prev_errors]
+            )
+            totals_lines = (
+                [
+                    f"clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
+                    f"impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
+                    f"CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
+                    fmt_position_comparison(cmp["position"], cmp["position_better"]),
+                ]
+                if totals_available
+                else ["totals unavailable (see Partial data)"]
             )
             lines = [
                 f"Period comparison — {site_url}",
                 note,
                 f"Previous window {ps} → {pe}.{movers_note}",
                 *([partial] if partial else []),
-                f"clicks {fmt_int(cmp['clicks'])} {fmt_delta(cmp['clicks_delta'], cmp['clicks_pct'])}",
-                f"impressions {fmt_int(cmp['impressions'])} {fmt_delta(cmp['impressions_delta'], cmp['impressions_pct'])}",
-                f"CTR {fmt_pct(cmp['ctr'])} ({'+' if cmp['ctr_delta'] >= 0 else ''}{cmp['ctr_delta'] * 100:.2f} pts)",
-                fmt_position_comparison(cmp["position"], cmp["position_better"]),
+                *totals_lines,
                 "",
                 "Gainers:",
                 format_table(
