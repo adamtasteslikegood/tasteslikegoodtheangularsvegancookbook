@@ -1069,13 +1069,20 @@ class BoundedToolsTest(unittest.TestCase):
             return g.LiveSitemap([("https://www.tasteslikegood.org/r/new", "2026-09-13")] * 98, kind="urlset")
 
         g.fetch_live_sitemap_detail = capture
+        monotonic = __import__("time").monotonic
+        before = monotonic()
         self.mcp.tools["gsc_weekly_report"](28)
         self.mcp.tools["gsc_sitemaps"]()
+        after = monotonic()
         self.assertEqual(len(seen), 2)
         self.assertTrue(all(d is not None for d in seen))
-        now = __import__("time").monotonic()
-        self.assertLessEqual(seen[0] - now, g.WEEKLY_REPORT_TOTAL_BUDGET_SECONDS)
-        self.assertLessEqual(seen[1] - now, g.TOOL_TOTAL_BUDGET_SECONDS)
+        # Each deadline was set inside its tool, so it must land exactly one
+        # budget after some instant between `before` and `after`: this bounds
+        # it from both sides and fails for a missing, smaller, or larger budget.
+        self.assertGreaterEqual(seen[0], before + g.WEEKLY_REPORT_TOTAL_BUDGET_SECONDS)
+        self.assertLessEqual(seen[0], after + g.WEEKLY_REPORT_TOTAL_BUDGET_SECONDS)
+        self.assertGreaterEqual(seen[1], before + g.TOOL_TOTAL_BUDGET_SECONDS)
+        self.assertLessEqual(seen[1], after + g.TOOL_TOTAL_BUDGET_SECONDS)
 
 
 class InspectionSummaryTest(unittest.TestCase):
