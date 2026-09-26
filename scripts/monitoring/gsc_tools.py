@@ -99,6 +99,11 @@ TOOL_TOTAL_BUDGET_SECONDS = 120.0
 SITEMAP_REQUEST_TIMEOUT_SECONDS = 20.0
 SITEMAP_FETCH_TOTAL_BUDGET_SECONDS = 60.0
 MAX_SITEMAP_INDEX_CHILDREN = 10
+# Per-document byte cap, counted after transport decompression. The sitemaps.org
+# limit is 50,000 URLs per file, which fits comfortably in 10 MiB; anything
+# larger is rejected unparsed so a hostile or runaway document cannot exhaust
+# the connector's memory (10 children x 10 MiB is still far under 512 MiB).
+MAX_SITEMAP_BYTES = 10 * 1024 * 1024
 SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 DIMENSIONS = ("query", "page", "country", "device", "date", "searchAppearance")
 BRAND_TERMS = ("tasteslikegood", "tastes like good", "vegangenius", "vegan genius")
@@ -814,8 +819,36 @@ def _get_sitemap_document(url: str, timeout: float):
         url,
         timeout=timeout,
         allow_redirects=False,
+        stream=True,  # body is read in bounded chunks by the caller
         headers={"User-Agent": "gcp-monitor-mcp/gsc-tools (+https://www.tasteslikegood.org)"},
     )
+
+
+def _read_sitemap_body(resp) -> tuple[Optional[str], str]:
+    """Read a streamed response up to MAX_SITEMAP_BYTES.
+
+    Returns ``(text, "")`` or ``(None, reason)``. The Content-Length header is
+    checked first so an honestly oversized document is rejected without
+    reading it; the running byte count catches the rest, including bodies that
+    grow past the cap only after decompression.
+    """
+    try:
+        if resp.status_code != 200:
+            return None, f"did not return HTTP 200 (got {resp.status_code})"
+        declared = (resp.headers or {}).get("Content-Length", "")
+        if declared.isdigit() and int(declared) > MAX_SITEMAP_BYTES:
+            return None, f"declares {int(declared):,} bytes, over the {MAX_SITEMAP_BYTES:,}-byte limit; not read"
+        body = bytearray()
+        for chunk in resp.iter_content(chunk_size=64 * 1024):
+            body.extend(chunk)
+            if len(body) > MAX_SITEMAP_BYTES:
+                return None, f"exceeds the {MAX_SITEMAP_BYTES:,}-byte limit; not parsed"
+        # The Sitemap protocol requires UTF-8; anything else is replaced.
+        return bytes(body).decode("utf-8", errors="replace"), ""
+    finally:
+        close = getattr(resp, "close", None)
+        if close:
+            close()
 
 
 def fetch_live_sitemap_detail(public_base: str, deadline: Optional[float] = None) -> LiveSitemap:
@@ -836,19 +869,17 @@ def fetch_live_sitemap_detail(public_base: str, deadline: Optional[float] = None
     own_deadline = time.monotonic() + SITEMAP_FETCH_TOTAL_BUDGET_SECONDS
     deadline = own_deadline if deadline is None else min(deadline, own_deadline)
 
-    def fetch(url: str) -> Optional[str]:
+    def fetch(url: str) -> tuple[Optional[str], str]:
         remaining = deadline - time.monotonic()
         if remaining <= 0.1:
-            return None
+            return None, "was not fetched within the fetch budget"
         resp = _get_sitemap_document(url, min(SITEMAP_REQUEST_TIMEOUT_SECONDS, remaining))
-        if resp.status_code != 200:
-            return None
-        return resp.text
+        return _read_sitemap_body(resp)
 
     try:
-        text = fetch(root_url)
+        text, reason = fetch(root_url)
         if text is None:
-            return LiveSitemap(None, note=f"{root_url} did not return HTTP 200 within the fetch budget")
+            return LiveSitemap(None, note=f"{root_url} {reason}")
         if is_sitemap_urlset(text):
             return LiveSitemap(parse_sitemap_urls(text), kind="urlset")
         if not is_sitemap_index(text):
@@ -877,11 +908,9 @@ def fetch_live_sitemap_detail(public_base: str, deadline: Optional[float] = None
             )
         urls: list[tuple[str, Optional[str]]] = []
         for child in children:
-            child_text = fetch(child)
+            child_text, reason = fetch(child)
             if child_text is None:
-                return LiveSitemap(
-                    None, kind="index", note=f"child sitemap {child} did not return HTTP 200 within the fetch budget"
-                )
+                return LiveSitemap(None, kind="index", note=f"child sitemap {child} {reason}")
             if not is_sitemap_urlset(child_text):
                 return LiveSitemap(
                     None,
@@ -1274,7 +1303,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
             failures: list[tuple[str, str]] = []
             for index, (loc, _lastmod) in enumerate(picked):
                 remaining = deadline - time.monotonic()
-                if remaining <= 0:
+                if remaining <= 0.1:
                     failures.extend(
                         (pending_loc, "not attempted: total inspection time budget exhausted")
                         for pending_loc, _ in picked[index:]
@@ -1283,7 +1312,7 @@ def register(mcp, sa_info: Optional[dict] = None, client: Optional[GscClient] = 
                 try:
                     result = gsc.inspect(
                         loc,
-                        timeout=min(INSPECTION_REQUEST_TIMEOUT_SECONDS, max(1.0, remaining)),
+                        timeout=min(INSPECTION_REQUEST_TIMEOUT_SECONDS, remaining),
                     )
                     results.append(_summarize_inspection(loc, result))
                 except GscAccessError:

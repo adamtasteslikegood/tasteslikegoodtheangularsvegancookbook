@@ -761,9 +761,24 @@ CHILD_XML = (
 
 
 class FakeHttpResponse:
-    def __init__(self, status, text):
+    """Enough of ``requests.Response`` for streamed, bounded reads."""
+
+    def __init__(self, status, text, headers=None):
         self.status_code = status
         self.text = text
+        self.headers = headers or {}
+        self.bytes_read = 0
+        self.closed = False
+
+    def iter_content(self, chunk_size=1):
+        data = self.text.encode("utf-8")
+        for i in range(0, len(data), chunk_size):
+            chunk = data[i : i + chunk_size]
+            self.bytes_read += len(chunk)
+            yield chunk
+
+    def close(self):
+        self.closed = True
 
 
 def fake_requests(pages):
@@ -771,12 +786,17 @@ def fake_requests(pages):
     mod = ModuleType("requests")
     mod.calls = []
     mod.redirect_flags = []
+    mod.stream_flags = []
+    mod.responses = []
 
-    def get(url, timeout=None, headers=None, allow_redirects=True):
+    def get(url, timeout=None, headers=None, allow_redirects=True, stream=False):
         mod.calls.append((url, timeout))
         mod.redirect_flags.append(allow_redirects)
-        status, text = pages.get(url, (404, ""))
-        return FakeHttpResponse(status, text)
+        mod.stream_flags.append(stream)
+        entry = pages.get(url, (404, ""))
+        resp = FakeHttpResponse(*entry)
+        mod.responses.append(resp)
+        return resp
 
     mod.get = get
     return mod
@@ -878,6 +898,53 @@ class SitemapIndexTest(unittest.TestCase):
                 exhausted = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
         self.assertIsNone(exhausted.urls)
         self.assertIn("within the fetch budget", exhausted.note)
+
+    def test_oversized_root_document_is_rejected_unparsed(self):
+        fake = fake_requests({self.ROOT: (200, URLSET_XML)})
+        with mock.patch.dict(sys.modules, {"requests": fake}), mock.patch.object(g, "MAX_SITEMAP_BYTES", 64):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("exceeds the 64-byte limit; not parsed", result.note)
+        self.assertLessEqual(fake.responses[0].bytes_read, 64 + 64 * 1024, "reading stops at the first chunk past the cap")
+        self.assertTrue(fake.responses[0].closed)
+
+    def test_declared_oversized_document_is_rejected_without_reading(self):
+        fake = fake_requests({self.ROOT: (200, URLSET_XML, {"Content-Length": str(g.MAX_SITEMAP_BYTES + 1)})})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertIn("over the", result.note)
+        self.assertIn("not read", result.note)
+        self.assertEqual(fake.responses[0].bytes_read, 0)
+
+    def test_oversized_child_makes_the_index_unavailable(self):
+        big_child = (
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+            + "".join(f"<url><loc>https://www.tasteslikegood.org/r/x{i}</loc></url>" for i in range(40))
+            + "</urlset>"
+        )
+        cap = len(INDEX_XML.encode("utf-8"))  # the index itself fits exactly; the child does not
+        self.assertGreater(len(big_child), cap)
+        fake = fake_requests(
+            {
+                self.ROOT: (200, INDEX_XML),
+                "https://www.tasteslikegood.org/sitemap-recipes.xml": (200, big_child),
+                "https://www.tasteslikegood.org/sitemap-tags.xml": (200, CHILD_XML),
+            }
+        )
+        with mock.patch.dict(sys.modules, {"requests": fake}), mock.patch.object(g, "MAX_SITEMAP_BYTES", cap):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertIsNone(result.urls)
+        self.assertEqual(result.kind, "index")
+        self.assertIn("child sitemap https://www.tasteslikegood.org/sitemap-recipes.xml exceeds the", result.note)
+
+    def test_sitemap_fetches_are_streamed(self):
+        fake = fake_requests({self.ROOT: (200, URLSET_XML)})
+        with mock.patch.dict(sys.modules, {"requests": fake}):
+            result = g.fetch_live_sitemap_detail("https://www.tasteslikegood.org")
+        self.assertEqual(len(result.urls), 2)
+        self.assertEqual(fake.stream_flags, [True])
+        self.assertTrue(fake.responses[0].closed)
 
     def test_child_off_the_configured_origin_is_rejected_without_a_request(self):
         for bad in (
@@ -1060,6 +1127,12 @@ class BoundedToolsTest(unittest.TestCase):
         self.assertIsNotNone(seen[0], "the sitemap fetch must receive the tool deadline")
         self.assertIn("not attempted: total inspection time budget exhausted", out)
         self.assertFalse(any(c[1] == g.INSPECTION_API for c in self.session.calls), "no inspection after the shared budget is spent")
+
+    def test_coverage_sample_has_no_timeout_floor_past_the_deadline(self):
+        with mock.patch.object(g, "INSPECTION_TOTAL_BUDGET_SECONDS", 0.05):
+            out = self.mcp.tools["gsc_index_coverage_sample"](3)
+        self.assertIn("not attempted: total inspection time budget exhausted", out)
+        self.assertFalse(any(c[1] == g.INSPECTION_API for c in self.session.calls), "under 0.1 s left must not start an inspection")
 
     def test_weekly_report_and_sitemaps_tool_pass_their_deadline_to_the_sitemap_fetch(self):
         seen = []
