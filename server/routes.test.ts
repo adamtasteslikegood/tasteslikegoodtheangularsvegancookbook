@@ -26,8 +26,11 @@ const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
 const STUB_SPA_SHELL =
-  '<!doctype html><html><body><app-root><h1>home-landing</h1></app-root></body></html>';
-const STUB_ROUTE_NEUTRAL_SHELL = '<!doctype html><html><body><app-root></app-root></body></html>';
+  '<!doctype html><html><head><!-- home-page-head:start --><title>Home</title>' +
+  '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
+  '<script type="application/ld+json">{"@type":"FAQPage"}</script>' +
+  '<!-- home-page-head:end --></head><body>' +
+  '<app-root><h1>home-landing</h1></app-root></body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
@@ -107,7 +110,12 @@ describe('home-only static fallback', () => {
     expect(await home.text()).toBe(STUB_SPA_SHELL);
 
     const kitchen = await fetch(`${baseUrl}/kitchen`);
-    expect(await kitchen.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
+    const kitchenHtml = await kitchen.text();
+    expect(kitchenHtml).toContain('<app-root></app-root>');
+    expect(kitchenHtml).toContain('<meta name="robots" content="noindex, follow" />');
+    expect(kitchenHtml).not.toContain('home-landing');
+    expect(kitchenHtml).not.toContain('FAQPage');
+    expect(kitchenHtml).not.toContain('rel="canonical"');
   });
 });
 
