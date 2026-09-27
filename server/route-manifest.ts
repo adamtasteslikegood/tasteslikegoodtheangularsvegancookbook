@@ -56,7 +56,7 @@ export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
   api: { prefix: '/api' },
   /** Flask-rendered SSR pages (/browse/tag/<slug>: curated category hubs, KAN-274) */
-  ssr: { paths: ['/browse', '/sitemap.xml'], prefixes: ['/r/', '/browse/tag/'] },
+  ssr: { paths: ['/browse', '/browse/tag', '/sitemap.xml'], prefixes: ['/r/', '/browse/tag/'] },
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
   /** Express-served standalone pages */
