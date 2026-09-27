@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **`/about` page** — who makes TastesLikeGood and why (no ads, no life story, no paywall),
+  what the generator does, how to read AI-written recipes, and contact routes, with
+  `AboutPage` + `Person` JSON-LD (`sameAs` GitHub; other profiles to add once confirmed).
+  Served statically like the privacy policy, classified `standalone` in the route manifest,
+  and linked from the app footer. KAN-272 (SEO audit C5).
+
 ## [0.4.13] - 2026-08-31
 
 Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy

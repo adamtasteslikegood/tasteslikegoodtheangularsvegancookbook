@@ -49,7 +49,7 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   api         — proxied to Flask (/api/*)
  *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /sitemap.xml)
  *   ssrStatic   — Flask SSR static assets (/static/*)
- *   standalone  — Express-served static pages (/privacy-policy, /favicon.ico)
+ *   standalone  — Express-served static pages (/privacy-policy, /about, /favicon.ico)
  *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
@@ -60,7 +60,7 @@ export const ROUTE_MANIFEST = {
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
   /** Express-served standalone pages */
-  standalone: { paths: ['/privacy-policy', '/favicon.ico'] },
+  standalone: { paths: ['/privacy-policy', '/about', '/favicon.ico'] },
   /** Angular SPA routes — catch-all serves index.html */
   spa: { paths: ['/', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
 } as const;

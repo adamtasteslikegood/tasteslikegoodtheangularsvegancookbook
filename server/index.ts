@@ -147,6 +147,12 @@ export const ready = (async () => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
 
+  // About page (KAN-272, SEO audit C5): who makes the site and why, with the
+  // author's Person schema. Static, like the privacy policy.
+  app.get('/about', staticPageLimiter, (_req, res) => {
+    res.sendFile(path.join(publicPath, 'about.html'));
+  });
+
   // /favicon.ico — browsers and crawlers request this path unconditionally,
   // but the SPA only ships favicon.svg, so the request fell through to the
   // catch-all and came back as index.html (text/html) — an HTML "icon"

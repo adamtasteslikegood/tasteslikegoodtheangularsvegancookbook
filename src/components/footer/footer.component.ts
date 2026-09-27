@@ -13,6 +13,7 @@ import { Component } from '@angular/core';
           <a href="/browse" class="hover:text-stone-800 underline underline-offset-2"
             >Browse Public Recipes</a
           >
+          <a href="/about" class="hover:text-stone-800 underline underline-offset-2">About</a>
           <a href="/privacy-policy" class="hover:text-stone-800 underline underline-offset-2"
             >Privacy Policy</a
           >

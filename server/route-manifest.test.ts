@@ -161,6 +161,7 @@ describe('ROUTE_MANIFEST', () => {
 
   it('declares standalone pages', () => {
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/privacy-policy');
+    expect(ROUTE_MANIFEST.standalone.paths).toContain('/about');
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/favicon.ico');
   });
 
@@ -209,6 +210,7 @@ describe('classifyRoute', () => {
     ['/r/vegan-cookies', 'ssr'],
     ['/static/css/tokens.css', 'ssrStatic'],
     ['/privacy-policy', 'standalone'],
+    ['/about', 'standalone'],
     ['/favicon.ico', 'standalone'],
     // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)
     ['/evil.js', 'asset'],
