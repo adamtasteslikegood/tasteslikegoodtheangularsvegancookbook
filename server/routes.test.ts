@@ -25,7 +25,10 @@ import type { AddressInfo } from 'node:net';
 const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
-const STUB_SPA_SHELL = '<!doctype html><html><body>spa-shell</body></html>';
+const STUB_SPA_SHELL =
+  '<!doctype html><html><body><app-root><h1>home-landing</h1></app-root></body></html>';
+const STUB_ROUTE_NEUTRAL_SHELL =
+  '<!doctype html><html><body><app-root></app-root></body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
@@ -99,6 +102,16 @@ afterAll(async () => {
   await new Promise<void>((resolve) => flaskStub.close(() => resolve()));
 });
 
+describe('home-only static fallback', () => {
+  it('serves the rich fallback at / but not through the SPA catch-all', async () => {
+    const home = await fetch(`${baseUrl}/`);
+    expect(await home.text()).toBe(STUB_SPA_SHELL);
+
+    const kitchen = await fetch(`${baseUrl}/kitchen`);
+    expect(await kitchen.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
+  });
+});
+
 describe('SSR static asset proxying', () => {
   it('proxies /static/* to Flask so SSR stylesheets are served as CSS', async () => {
     const res = await fetch(`${baseUrl}/static/css/tokens.css`);
@@ -162,7 +175,7 @@ describe('apple-touch-icon requests do not leak the SPA shell', () => {
   it('does not swallow ordinary SPA routes', async () => {
     const res = await fetch(`${baseUrl}/kitchen`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 });
 
@@ -189,13 +202,13 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
     const res = await fetch(`${baseUrl}/kitchen`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('still serves the shell for unknown non-asset paths (Angular owns its own 404)', async () => {
     const res = await fetch(`${baseUrl}/some/unknown/page`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 });
