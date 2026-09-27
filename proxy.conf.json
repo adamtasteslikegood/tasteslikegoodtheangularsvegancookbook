@@ -23,6 +23,12 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
+  "/sitemap.xml": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
   "/r/": {
     "target": "http://localhost:5000",
     "secure": false,
