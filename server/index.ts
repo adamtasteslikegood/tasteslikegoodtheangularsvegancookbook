@@ -1,4 +1,5 @@
 import express from 'express';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Server } from 'node:http';
@@ -138,6 +139,69 @@ export const ready = (async () => {
     ? path.resolve(process.env.SPA_DIST_DIR)
     : path.resolve(__dirname, '..', '..', 'dist');
 
+  // index.html contains useful static landing copy for the canonical home page,
+  // but the same file is also the fallback for /kitchen and /recipe/:id.
+  // Derive and cache a route-neutral form only if the catch-all is reached.
+  // Keeping this lazy preserves existing test/server startup behavior when no
+  // built SPA exists yet, while direct non-home loads never expose home copy.
+  const spaIndexPath = path.join(distPath, 'index.html');
+  let routeNeutralSpaShellPromise: Promise<string> | undefined;
+  const getRouteNeutralSpaShell = (): Promise<string> => {
+    if (routeNeutralSpaShellPromise) return routeNeutralSpaShellPromise;
+    // Wrap the parse so a transient readFile failure or a build that ships
+    // without the sentinels does not poison the cache: on rejection, clear
+    // the memo so the next request retries instead of 500ing forever.
+    const attempt = readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
+      // The checked-in index also carries home-only title/canonical/social tags
+      // and structured data. Removing only <app-root>'s children still exposed
+      // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
+      // head block and replace it with deliberately generic, non-indexable
+      // metadata before serving any non-home SPA fallback.
+      // Meta sentinels survive Angular's production HTML minification; ordinary
+      // comments do not. Match with a regex tolerant to attribute reordering,
+      // quote-style changes, and self-closing syntax that a future minifier
+      // upgrade could introduce. The name value is followed by a required
+      // boundary (quote, whitespace, `/`, or `>`) so a future sentinel-prefixed
+      // name like `tlg-home-head-start-social` cannot accidentally match here.
+      const homeHeadStartRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-start"|'tlg-home-head-start'|tlg-home-head-start(?=[\s/>]))[^>]*>/i;
+      const homeHeadEndRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-end"|'tlg-home-head-end'|tlg-home-head-end(?=[\s/>]))[^>]*>/i;
+      const homeHeadStartMatch = homeHeadStartRe.exec(fullSpaShell);
+      const homeHeadEndMatch = homeHeadStartMatch
+        ? homeHeadEndRe.exec(fullSpaShell.slice(homeHeadStartMatch.index))
+        : null;
+      if (!homeHeadStartMatch || !homeHeadEndMatch) {
+        throw new Error('Angular index.html is missing its home-page head sentinels');
+      }
+      const homeHeadStart = homeHeadStartMatch.index;
+      const homeHeadEnd =
+        homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
+      const neutralRobots = isStaging ? 'noindex, nofollow' : 'noindex, follow';
+      const neutralHead = `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
+      const shellWithoutHomeHead =
+        fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
+
+      const appRootOpenMatch = /<app-root(?:\s[^>]*)?>/.exec(shellWithoutHomeHead);
+      const appRootOpen = appRootOpenMatch?.index ?? -1;
+      const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
+      if (appRootOpen === -1 || appRootClose === -1 || !appRootOpenMatch) {
+        throw new Error('Angular index.html is missing its app-root element');
+      }
+
+      const appRootContentStart = appRootOpen + appRootOpenMatch[0].length;
+      return (
+        shellWithoutHomeHead.slice(0, appRootContentStart) +
+        shellWithoutHomeHead.slice(appRootClose)
+      );
+    });
+    routeNeutralSpaShellPromise = attempt.catch((err) => {
+      routeNeutralSpaShellPromise = undefined;
+      throw err;
+    });
+    return routeNeutralSpaShellPromise;
+  };
+
   // /index.html is a duplicate of the canonical home URL. Redirect it before
   // express.static can serve the file directly. Carry forward only the home
   // parameters the SPA understands; never reflect an arbitrary query string
@@ -231,6 +295,11 @@ export const ready = (async () => {
     next();
   });
   app.get('/browse', staticPageLimiter, ssrProxy);
+  // KAN-274: curated category hubs. Flask owns the allow-list (unknown slugs
+  // and the prefix root 404 there) and the trailing-slash 301, so both the
+  // prefix root and every child path must reach the SSR service.
+  app.get('/browse/tag', staticPageLimiter, ssrProxy);
+  app.get('/browse/tag/*splat', staticPageLimiter, ssrProxy);
   app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
   // The SSR templates link their stylesheets via Flask's /static/ (e.g.
   // /static/css/tokens.css). Without this route those requests fall through
@@ -240,7 +309,7 @@ export const ready = (async () => {
   // express.static so Angular build assets (if any collide) still win.
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
-  app.get('{*path}', staticPageLimiter, (req, res) => {
+  app.get('{*path}', staticPageLimiter, async (req, res) => {
     // Classified through absoluteRequestPath() — the same composed,
     // trailing-slash-trimmed path security.ts asks the manifest about — so
     // `/kitchen/` reads as the SPA route it is rather than an unknown path.
@@ -274,7 +343,29 @@ export const ready = (async () => {
     if (routeClass === 'unknown') {
       res.status(404);
     }
-    res.sendFile(path.join(distPath, 'index.html'));
+    // KAN-272: only the home page gets the full shell with its landing copy
+    // and home metadata; express.static normally answers "/" first, so this
+    // is a safety net. Every other route gets the route-neutral shell.
+    if (routePath === '/') {
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    let neutralShell: string;
+    try {
+      neutralShell = await getRouteNeutralSpaShell();
+    } catch (err) {
+      // A shell we cannot neutralise (no sentinels, no <app-root>) must not
+      // take every non-home route down with a 500. Fall back to the full
+      // shell: the pre-KAN-272 behaviour, a flash of home copy at worst.
+      console.warn('[spa] serving the full shell; route-neutral shell unavailable:', err);
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    // Mirror the Cache-Control the / sendFile branch inherits from Express's
+    // static/send defaults so intermediaries don't cache the noindex shell
+    // longer than the indexable home shell.
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    res.type('html').send(neutralShell);
   });
 
   // Error handling middleware (must be last)

@@ -32,8 +32,26 @@ import type { AddressInfo } from 'node:net';
 const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
+const STUB_HUB_HTML = '<!doctype html><html><body>ssr-hub-dinner</body></html>';
 const STUB_RECIPE_HTML = '<!doctype html><html><body>ssr-recipe</body></html>';
-const STUB_SPA_SHELL = '<!doctype html><html><body>spa-shell</body></html>';
+const STUB_SPA_SHELL =
+  '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
+  '<meta name="tlg-home-head-start-social" content="retain">' +
+  '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
+  '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
+  '<script type="application/ld+json">{"@type":"FAQPage"}</script>' +
+  '<script type="application/ld+json">{"@type":"WebApplication"}</script>' +
+  '<meta name="tlg-home-head-end" content=""></head><body>' +
+  '<app-root ng-version="22.1.0"><h1>home-landing</h1></app-root></body></html>';
+
+// Mirrors the transformations `getRouteNeutralSpaShell()` applies in
+// server/index.ts: the home-only head block between the sentinels is replaced
+// with a generic non-indexable head, and the <app-root> children are stripped.
+const STUB_ROUTE_NEUTRAL_SHELL =
+  '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
+  '<meta name="tlg-home-head-start-social" content="retain">' +
+  '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
+  '</head><body><app-root ng-version="22.1.0"></app-root></body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
@@ -58,6 +76,12 @@ beforeAll(async () => {
     } else if (req.url === '/browse') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_HTML);
+    } else if (req.url === '/browse/tag/dinner') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(STUB_HUB_HTML);
+    } else if (req.url === '/browse/tag/dinner/') {
+      res.writeHead(301, { location: '/browse/tag/dinner' });
+      res.end();
     } else if (req.url === '/r/test-slug') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_RECIPE_HTML);
@@ -120,6 +144,23 @@ afterAll(async () => {
   await new Promise<void>((resolve) => flaskStub.close(() => resolve()));
 });
 
+describe('home-only static fallback', () => {
+  it('serves the rich fallback at / but not through the SPA catch-all', async () => {
+    const home = await fetch(`${baseUrl}/`);
+    expect(await home.text()).toBe(STUB_SPA_SHELL);
+
+    const kitchen = await fetch(`${baseUrl}/kitchen`);
+    const kitchenHtml = await kitchen.text();
+    // <app-root> children are stripped but any attributes on the element
+    // (e.g. Angular's build-time ng-version) are preserved by design.
+    expect(kitchenHtml).toMatch(/<app-root(?:\s[^>]*)?><\/app-root>/);
+    expect(kitchenHtml).toContain('<meta name="robots" content="noindex, follow" />');
+    expect(kitchenHtml).not.toContain('home-landing');
+    expect(kitchenHtml).not.toContain('FAQPage');
+    expect(kitchenHtml).not.toContain('rel="canonical"');
+  });
+});
+
 describe('SSR static asset proxying', () => {
   it('proxies /static/* to Flask so SSR stylesheets are served as CSS', async () => {
     const res = await fetch(`${baseUrl}/static/css/tokens.css`);
@@ -153,6 +194,26 @@ describe('SSR page proxying (guard against regressions)', () => {
     const res = await fetch(`${baseUrl}/browse`);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(STUB_HTML);
+  });
+
+  it('proxies /browse/tag/<slug> hubs to Flask, not the SPA shell (KAN-274)', async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(STUB_HUB_HTML);
+  });
+
+  it("passes Flask's 404 for the hub root and unknown hubs instead of the shell", async () => {
+    for (const path of ['/browse/tag/', '/browse/tag/not-a-hub']) {
+      const res = await fetch(`${baseUrl}${path}`);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('content-type')).toContain('application/json');
+    }
+  });
+
+  it("passes Flask's canonical trailing-slash redirect through", async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner/`, { redirect: 'manual' });
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/browse/tag/dinner');
   });
 });
 
@@ -195,7 +256,7 @@ describe('apple-touch-icon requests do not leak the SPA shell', () => {
   it('does not swallow ordinary SPA routes', async () => {
     const res = await fetch(`${baseUrl}/kitchen`);
     expect(res.status).toBe(200);
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 });
 
@@ -215,7 +276,11 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
       const res = await fetch(`${baseUrl}${assetPath}`);
       expect(res.status).toBe(404);
       expect(res.headers.get('content-type')).not.toContain('text/html');
-      expect(await res.text()).not.toContain('spa-shell');
+      // Neither the home shell nor the route-neutral shell may leak here — a
+      // 404 for an asset-like path must be JSON, not HTML masquerading as one.
+      const body = await res.text();
+      expect(body).not.toContain('<app-root');
+      expect(body).not.toContain('<!doctype html>');
     });
   }
 
@@ -223,14 +288,14 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
     const res = await fetch(`${baseUrl}/kitchen`);
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('serves the shell for unknown non-asset paths, but with status 404 (KAN-276)', async () => {
     const res = await fetch(`${baseUrl}/some/unknown/page`);
     expect(res.status).toBe(404);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 });
 
@@ -254,7 +319,7 @@ describe('SPA shell index control (KAN-276)', () => {
     // security.ts set `index, follow` before the catch-all ran (NODE_ENV is
     // production in this file); seeing `noindex, follow` proves the override.
     expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('marks /kitchen/ (trailing slash) as the same SPA route', async () => {
@@ -267,7 +332,7 @@ describe('SPA shell index control (KAN-276)', () => {
     const res = await fetch(`${baseUrl}/recipe/abc`);
     expect(res.status).toBe(200);
     expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('answers an unknown HTML path 404 + noindex, still with the shell', async () => {
@@ -275,7 +340,7 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(res.status).toBe(404);
     expect(res.headers.get('content-type')).toContain('text/html');
     expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
-    expect(await res.text()).toBe(STUB_SPA_SHELL);
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('marks the asset-like 404 noindex too', async () => {
