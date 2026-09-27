@@ -139,11 +139,20 @@ export const ready = (async () => {
     : path.resolve(__dirname, '..', '..', 'dist');
 
   // /index.html is a duplicate of the canonical home URL. Redirect it before
-  // express.static can serve the file directly; keep the query string intact.
+  // express.static can serve the file directly. Carry forward only the home
+  // parameters the SPA understands; never reflect an arbitrary query string
+  // into a redirect target.
   app.get('/index.html', staticPageLimiter, (req, res) => {
-    const queryIndex = req.originalUrl.indexOf('?');
-    const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
-    res.redirect(301, `/${query}`);
+    const query = new URLSearchParams();
+    if (req.query.auth === 'success') query.set('auth', 'success');
+
+    const save = req.query.save;
+    if (typeof save === 'string' && /^[a-z0-9-]{1,200}$/.test(save)) {
+      query.set('save', save);
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    res.redirect(301, `/${suffix}`);
   });
 
   // The compiled Angular bundles and public assets must remain mounted before
