@@ -107,6 +107,68 @@ jobs:
           PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
+  monitoring-mcp:
+    name: Monitoring MCP — unit tests + image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Run Search Console unit tests
+        run: python3 -m unittest scripts/monitoring/test_gsc_tools.py
+      - name: Build monitoring MCP image
+        run: docker build -t gcp-monitor-mcp:test -f scripts/monitoring/Dockerfile scripts/monitoring
+      - name: Smoke-test registered monitoring MCP tools
+        run: |
+          docker run --rm -i --entrypoint python gcp-monitor-mcp:test - <<'PY'
+          import asyncio
+          import os
+          from unittest import mock
+
+          import gcp_mcp_server as server
+
+          expected = {
+              "check_system_health",
+              "list_available_metrics",
+              "query_metric",
+              "gsc_sites",
+              "gsc_search_performance",
+              "gsc_compare_periods",
+              "gsc_striking_distance",
+              "gsc_sitemaps",
+              "gsc_inspect_url",
+              "gsc_index_coverage_sample",
+              "gsc_weekly_report",
+          }
+          registered = {tool.name for tool in asyncio.run(server.mcp.list_tools())}
+          missing = expected - registered
+          if missing:
+              raise SystemExit(f"Monitoring MCP tools failed to register: {sorted(missing)}")
+          print(f"Registered {len(expected)} expected monitoring MCP tools.")
+
+          with (
+              mock.patch.dict(
+                  os.environ,
+                  {
+                      "MCP_AUTH_TOKEN": "ci-smoke-token",
+                      "MCP_ALLOWED_HOSTS": "",
+                      "PORT": "8080",
+                  },
+              ),
+              mock.patch("uvicorn.run") as run_http,
+          ):
+              server._run_http()
+
+          run_http.assert_called_once()
+          app = run_http.call_args.args[0]
+          if server.mcp.settings.streamable_http_path != "/ci-smoke-token/mcp":
+              raise SystemExit("HTTP MCP endpoint was not mounted at the secret path.")
+          if "/healthz" not in {getattr(route, "path", None) for route in app.router.routes}:
+              raise SystemExit("HTTP health endpoint was not registered.")
+          print("HTTP transport startup path completed without binding a socket.")
+          PY
+
   # Branched Alembic heads make `flask db upgrade` refuse to run, which fails
   # the flask-backend-migrate Cloud Run Job and aborts the deploy mid-release.
   # This ran only on release-train.yml's manual dispatch and daily cron, so a
@@ -325,6 +387,7 @@ jobs:
       - frontend-build
       - frontend-test
       - backend-test
+      - monitoring-mcp
       - alembic-heads
       - submodule-sync
       - docker-build
