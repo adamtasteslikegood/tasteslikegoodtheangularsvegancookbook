@@ -8,6 +8,18 @@ venv_python="$venv_dir/bin/python"
 requirements="$mon_dir/requirements.txt"
 deps_stamp="$venv_dir/.deps-installed"
 
+# Tie the readiness stamp to the exact dependency declaration. A stamp from an
+# older checkout must not suppress installation after requirements.txt changes.
+requirements_hash="$(python3 - "$requirements" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+installed_hash="$(cat "$deps_stamp" 2>/dev/null || true)"
+
 # Claude Code cloud environments build the venv in the environment's setup
 # script, which runs BEFORE the repo is cloned — so it can't live at
 # $venv_dir and instead sits at a fixed path baked into the snapshot (see
@@ -15,11 +27,42 @@ deps_stamp="$venv_dir/.deps-installed"
 # in-repo bootstrap that races the MCP client's startup timeout.
 for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
   prebuilt_python="$prebuilt/bin/python"
-  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - <<'EOF' 2>/dev/null
+  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - "$requirements" <<'EOF' 2>/dev/null
 import importlib.util as u
+import pathlib
 import sys
+from importlib.metadata import PackageNotFoundError, version
+from pip._vendor.packaging.requirements import Requirement
+from pip._vendor.packaging.version import Version
 
-sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)
+# A prebuilt venv lives outside the checkout and cannot share the repo-local
+# hash stamp. Validate every declared requirement against its installed
+# distribution version before taking the fast path, then probe the exact
+# modules imported by both stdio and HTTP startup.
+for raw_line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    requirement = Requirement(line)
+    if requirement.marker and not requirement.marker.evaluate():
+        continue
+    try:
+        installed = Version(version(requirement.name))
+    except PackageNotFoundError:
+        sys.exit(1)
+    if requirement.specifier and installed not in requirement.specifier:
+        sys.exit(1)
+
+# "mcp.server.fastmcp", not "mcp": the top-level package still exists on the
+# unsupported mcp 2.x (KAN-207), where this module was removed.
+sys.exit(0 if all(u.find_spec(m) for m in (
+    "mcp.server.fastmcp",
+    "google.cloud.monitoring_v3",
+    "starlette",
+    "uvicorn",
+    "google.auth",
+    "requests",
+)) else 1)
 EOF
   then
     if [[ "${1:-}" == "--bootstrap-only" ]]; then
@@ -34,7 +77,7 @@ done
 # The stamp is written only after pip succeeds, so an interrupted first run
 # (e.g. the MCP client's startup timeout killing us mid-install) re-installs
 # on the next launch instead of exec'ing a half-built venv.
-if [[ ! -x "$venv_python" || ! -f "$deps_stamp" ]]; then
+if [[ ! -x "$venv_python" || "$installed_hash" != "$requirements_hash" ]]; then
   echo "GCP monitor venv not ready. Bootstrapping $venv_dir" >&2
   if [[ ! -x "$venv_python" ]] && ! python3 -m venv "$venv_dir"; then
     cat >&2 <<'EOF'
@@ -47,7 +90,7 @@ EOF
   # corrupts the protocol stream on first run
   "$venv_python" -m pip install --upgrade pip >&2
   "$venv_python" -m pip install -r "$requirements" >&2
-  touch "$deps_stamp"
+  printf '%s\n' "$requirements_hash" >"$deps_stamp"
 fi
 
 # Pre-build the venv without starting the server, so the first real MCP

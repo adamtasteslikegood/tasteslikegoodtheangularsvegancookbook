@@ -106,6 +106,13 @@
 | [plans/](./plans/)                                                                   | Future plans (SEO, frontend fixes, Valkey pub/sub) |
 | [logs_findings/](./logs_findings/)                                                   | Investigation logs and findings                    |
 
+### 🔎 SEO — `Label: seo`
+
+| Document                                                 | Description                                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [SEO_AUDIT_2026-09-13.md](./seo/SEO_AUDIT_2026-09-13.md) | Full audit: strategy vs reality, findings with tickets, keyword targets, backlink plan, GSC monitoring |
+| [MCP_GCP_MONITORING.md § 6.5](./MCP_GCP_MONITORING.md)   | Search Console tools on the gcp-monitor connector (`gsc_*`) and the `/seo-weekly-check` routine        |
+
 ### 🐧 Reference — `Label: reference`
 
 | Document                             | Description                        |
