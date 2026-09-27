@@ -30,7 +30,7 @@ const STUB_SPA_SHELL =
   '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
   '<script type="application/ld+json">{"@type":"FAQPage"}</script>' +
   '<meta name="tlg-home-head-end" content=""></head><body>' +
-  '<app-root><h1>home-landing</h1></app-root></body></html>';
+  '<app-root ng-version="22.1.0"><h1>home-landing</h1></app-root></body></html>';
 
 // Mirrors the transformations `getRouteNeutralSpaShell()` applies in
 // server/index.ts: the home-only head block between the sentinels is replaced
@@ -38,7 +38,7 @@ const STUB_SPA_SHELL =
 const STUB_ROUTE_NEUTRAL_SHELL =
   '<!doctype html><html><head>' +
   '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
-  '</head><body><app-root></app-root></body></html>';
+  '</head><body><app-root ng-version="22.1.0"></app-root></body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
