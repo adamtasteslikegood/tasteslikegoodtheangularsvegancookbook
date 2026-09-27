@@ -161,7 +161,13 @@ export const ready = (async () => {
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
-  const publicPath = path.resolve(__dirname, '..', 'public');
+  // Source tests execute from server/, while production runs the compiled file
+  // from server/dist/. Resolve the checked-in server/public directory in both
+  // modes so standalone pages are testable through the real Express route.
+  const publicPath =
+    path.basename(__dirname) === 'dist'
+      ? path.resolve(__dirname, '..', 'public')
+      : path.resolve(__dirname, 'public');
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
   });
