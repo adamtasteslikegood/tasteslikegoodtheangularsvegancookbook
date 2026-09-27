@@ -27,8 +27,7 @@ const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
 const STUB_SPA_SHELL =
   '<!doctype html><html><body><app-root><h1>home-landing</h1></app-root></body></html>';
-const STUB_ROUTE_NEUTRAL_SHELL =
-  '<!doctype html><html><body><app-root></app-root></body></html>';
+const STUB_ROUTE_NEUTRAL_SHELL = '<!doctype html><html><body><app-root></app-root></body></html>';
 
 let flaskStub: http.Server;
 let expressServer: http.Server;
