@@ -99,6 +99,18 @@ afterAll(async () => {
   await new Promise<void>((resolve) => flaskStub.close(() => resolve()));
 });
 
+describe('standalone About page', () => {
+  it('serves /about from the checked-in static page', async () => {
+    const res = await fetch(`${baseUrl}/about`);
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(body).toContain('<h1>About TastesLikeGood</h1>');
+    expect(body).toContain('<link rel="canonical" href="https://www.tasteslikegood.org/about" />');
+  });
+});
+
 describe('SSR static asset proxying', () => {
   it('proxies /static/* to Flask so SSR stylesheets are served as CSS', async () => {
     const res = await fetch(`${baseUrl}/static/css/tokens.css`);
