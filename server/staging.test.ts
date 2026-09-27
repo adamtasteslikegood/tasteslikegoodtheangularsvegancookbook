@@ -35,7 +35,14 @@ beforeAll(async () => {
   // Stub Angular dist/ so the SPA catch-all has a shell to serve (same
   // pattern as server/routes.test.ts).
   stubDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spa-dist-stub-staging-'));
-  fs.writeFileSync(path.join(stubDistDir, 'index.html'), '<!doctype html><html></html>');
+  fs.writeFileSync(
+    path.join(stubDistDir, 'index.html'),
+    '<!doctype html><html><head>' +
+      '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
+      '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
+      '<meta name="tlg-home-head-end" content=""></head>' +
+      '<body><app-root><h1>home-landing</h1></app-root></body></html>',
+  );
   process.env.SPA_DIST_DIR = stubDistDir;
 
   const { app, ready } = await import('./index.js');
@@ -97,10 +104,14 @@ describe('staging X-Robots-Tag header', () => {
 });
 
 describe('staging SPA catch-all keeps nofollow (KAN-276)', () => {
-  it('keeps noindex, nofollow on a known SPA route', async () => {
+  it('keeps noindex, nofollow in the header and neutral shell', async () => {
     const res = await fetch(`${baseUrl}/kitchen`);
     expect(res.status).toBe(200);
     expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    const body = await res.text();
+    expect(body).toContain('<meta name="robots" content="noindex, nofollow" />');
+    expect(body).not.toContain('home-landing');
+    expect(body).not.toContain('rel="canonical"');
   });
 
   it('keeps noindex, nofollow on an unknown path (still 404)', async () => {
