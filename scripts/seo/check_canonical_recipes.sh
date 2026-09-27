@@ -100,10 +100,112 @@ if [[ -n "$LIVE_BASE" ]]; then
   #    answer 200 with a self-referencing canonical. Hubs ship from the Backend,
   #    so an older deploy that lists none is reported, not failed.
   hub_urls=()
-  if sitemap=$(curl --fail --silent --show-error -- "$LIVE_BASE/sitemap.xml"); then
-    mapfile -t hub_urls < <(printf '%s' "$sitemap" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
-    if (( ${#hub_urls[@]} == 0 )); then
-      echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+  sitemap_response=""
+  if sitemap_response=$(curl --location --fail --silent --show-error \
+    --write-out 
+
+  for hub in "${hub_urls[@]}"; do
+    if [[ "$hub" != "$LIVE_BASE/browse/tag/"* ]]; then
+      echo "FAIL: sitemap hub URL '$hub' is outside $LIVE_BASE/browse/tag/"
+      errors=$((errors + 1))
+      continue
+    fi
+
+    body=$(curl -s -w '\n%{http_code}' -- "$hub" 2>/dev/null || true)
+    status="${body##*$'\n'}"
+    canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
+    if [[ "$status" != "200" ]]; then
+      echo "FAIL: $hub returned HTTP $status (expected 200)"
+      errors=$((errors + 1))
+    elif [[ "$canonical" != "$hub" ]]; then
+      echo "FAIL: $hub canonical is '$canonical' (expected self)"
+      errors=$((errors + 1))
+    else
+      echo "OK: $hub → 200, self-canonical"
+    fi
+  done
+fi
+
+if (( errors > 0 )); then
+  echo ""
+  echo "FAILED: $errors error(s) found"
+  exit 1
+fi
+
+echo "OK: $count canonical recipes validated (JSON ↔ index.html consistent)"
+\\n%{http_code}' -- "$LIVE_BASE/sitemap.xml"); then
+    sitemap_status="${sitemap_response##*
+
+  for hub in "${hub_urls[@]}"; do
+    if [[ "$hub" != "$LIVE_BASE/browse/tag/"* ]]; then
+      echo "FAIL: sitemap hub URL '$hub' is outside $LIVE_BASE/browse/tag/"
+      errors=$((errors + 1))
+      continue
+    fi
+
+    body=$(curl -s -w '\n%{http_code}' -- "$hub" 2>/dev/null || true)
+    status="${body##*$'\n'}"
+    canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
+    if [[ "$status" != "200" ]]; then
+      echo "FAIL: $hub returned HTTP $status (expected 200)"
+      errors=$((errors + 1))
+    elif [[ "$canonical" != "$hub" ]]; then
+      echo "FAIL: $hub canonical is '$canonical' (expected self)"
+      errors=$((errors + 1))
+    else
+      echo "OK: $hub → 200, self-canonical"
+    fi
+  done
+fi
+
+if (( errors > 0 )); then
+  echo ""
+  echo "FAILED: $errors error(s) found"
+  exit 1
+fi
+
+echo "OK: $count canonical recipes validated (JSON ↔ index.html consistent)"
+\\n'}"
+    sitemap="${sitemap_response%
+
+  for hub in "${hub_urls[@]}"; do
+    if [[ "$hub" != "$LIVE_BASE/browse/tag/"* ]]; then
+      echo "FAIL: sitemap hub URL '$hub' is outside $LIVE_BASE/browse/tag/"
+      errors=$((errors + 1))
+      continue
+    fi
+
+    body=$(curl -s -w '\n%{http_code}' -- "$hub" 2>/dev/null || true)
+    status="${body##*$'\n'}"
+    canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
+    if [[ "$status" != "200" ]]; then
+      echo "FAIL: $hub returned HTTP $status (expected 200)"
+      errors=$((errors + 1))
+    elif [[ "$canonical" != "$hub" ]]; then
+      echo "FAIL: $hub canonical is '$canonical' (expected self)"
+      errors=$((errors + 1))
+    else
+      echo "OK: $hub → 200, self-canonical"
+    fi
+  done
+fi
+
+if (( errors > 0 )); then
+  echo ""
+  echo "FAILED: $errors error(s) found"
+  exit 1
+fi
+
+echo "OK: $count canonical recipes validated (JSON ↔ index.html consistent)"
+\\n'*}"
+    if [[ "$sitemap_status" != "200" ]]; then
+      echo "FAIL: $LIVE_BASE/sitemap.xml returned HTTP $sitemap_status (expected 200)"
+      errors=$((errors + 1))
+    else
+      mapfile -t hub_urls < <(printf '%s' "$sitemap" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
+      if (( ${#hub_urls[@]} == 0 )); then
+        echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+      fi
     fi
   else
     echo "FAIL: unable to fetch $LIVE_BASE/sitemap.xml"
