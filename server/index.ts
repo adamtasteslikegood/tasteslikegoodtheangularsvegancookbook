@@ -156,14 +156,18 @@ export const ready = (async () => {
     // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
     // head block and replace it with deliberately generic, non-indexable
     // metadata before serving any non-home SPA fallback.
-    const homeHeadStartMarker = '<!-- home-page-head:start -->';
-    const homeHeadEndMarker = '<!-- home-page-head:end -->';
+    // Meta sentinels survive Angular's production HTML minification; ordinary
+    // comments do not. Match only their stable opening prefixes because the
+    // builder may normalize whitespace or self-closing syntax.
+    const homeHeadStartMarker = '<meta name="tlg-home-head-start"';
+    const homeHeadEndMarker = '<meta name="tlg-home-head-end"';
     const homeHeadStart = fullSpaShell.indexOf(homeHeadStartMarker);
     const homeHeadEndStart = fullSpaShell.indexOf(homeHeadEndMarker, homeHeadStart);
-    if (homeHeadStart === -1 || homeHeadEndStart === -1) {
-      throw new Error('Angular index.html is missing its home-page head markers');
+    const homeHeadEnd =
+      homeHeadEndStart === -1 ? -1 : fullSpaShell.indexOf('>', homeHeadEndStart) + 1;
+    if (homeHeadStart === -1 || homeHeadEndStart === -1 || homeHeadEnd === 0) {
+      throw new Error('Angular index.html is missing its home-page head sentinels');
     }
-    const homeHeadEnd = homeHeadEndStart + homeHeadEndMarker.length;
     const neutralHead =
       '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />';
     const shellWithoutHomeHead =
