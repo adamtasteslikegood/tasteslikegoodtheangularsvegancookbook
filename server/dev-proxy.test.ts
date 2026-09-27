@@ -8,7 +8,7 @@ const proxyConfig = JSON.parse(
 
 describe('Angular development proxy', () => {
   it('forwards the complete browse surface to Flask', () => {
-    for (const path of ['/browse', '/r', '/static']) {
+    for (const path of ['/browse', '/r/', '/static']) {
       expect(proxyConfig[path]?.target).toBe('http://localhost:5000');
     }
   });
