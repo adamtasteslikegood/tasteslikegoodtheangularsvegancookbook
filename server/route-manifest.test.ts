@@ -151,6 +151,7 @@ describe('ROUTE_MANIFEST', () => {
 
   it('declares SSR paths that match index.ts route mounting', () => {
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/browse');
+    expect(ROUTE_MANIFEST.ssr.paths).toContain('/browse/tag');
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/sitemap.xml');
     expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/r/');
     expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/browse/tag/');
@@ -206,6 +207,8 @@ describe('classifyRoute', () => {
     ['/api', 'api'],
     ['/api/recipes', 'api'],
     ['/browse', 'ssr'],
+    ['/browse/tag', 'ssr'],
+    ['/browse/tag/', 'ssr'],
     ['/sitemap.xml', 'ssr'],
     ['/r/vegan-cookies', 'ssr'],
     ['/browse/tag/dinner', 'ssr'],
