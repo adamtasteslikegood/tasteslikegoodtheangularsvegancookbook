@@ -288,6 +288,12 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(res.headers.get('x-robots-tag')).toBe('index, follow');
   });
 
+  it('canonicalizes /index.html to the home page before express.static', async () => {
+    const res = await fetch(`${baseUrl}/index.html?auth=success`, { redirect: 'manual' });
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/?auth=success');
+  });
+
   // The public SSR surface is proxied to Flask before the catch-all, so it
   // keeps the production `index, follow` header.
   it('leaves /r/<slug> indexable (proxied to Flask, not the catch-all)', async () => {
