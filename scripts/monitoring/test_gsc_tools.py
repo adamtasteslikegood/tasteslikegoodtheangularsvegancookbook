@@ -182,6 +182,9 @@ class PrebuiltVenvProbeTest(unittest.TestCase):
             "mcp[cli]>=1.10.0,<2.0.0",
             "mcp~=1.10",
             "mcp==1.10.0",
+            "mcp",
+            "mcp>=1.10.0,",
+            "mcp,>=1.10.0",
         ):
             with self.subTest(line):
                 self.assertEqual(self.run_probe(requirements=line + "\n"), 1)
