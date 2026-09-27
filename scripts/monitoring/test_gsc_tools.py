@@ -9,7 +9,10 @@ import base64
 import datetime as dt
 import json
 import os
+import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -38,9 +41,9 @@ class LauncherBootstrapTest(unittest.TestCase):
         self.assertIn('requirements_hash="$(python3 - "$requirements"', launcher)
         self.assertIn('"$installed_hash" != "$requirements_hash"', launcher)
         self.assertIn('printf \'%s\\n\' "$requirements_hash" >"$deps_stamp"', launcher)
-        self.assertIn("requirement = Requirement(line)", launcher)
-        self.assertIn("Version(version(requirement.name))", launcher)
-        self.assertIn("installed not in requirement.specifier", launcher)
+        self.assertIn("from importlib.metadata import PackageNotFoundError, version", launcher)
+        # KAN-280: no private pip API in the prebuilt-venv probe.
+        self.assertNotIn("pip._vendor", launcher)
 
     def test_embedded_credentials_defer_to_usable_file(self):
         encoded = base64.b64encode(json.dumps({"client_email": "b64@example.test"}).encode()).decode()
@@ -52,6 +55,139 @@ class LauncherBootstrapTest(unittest.TestCase):
                 {"client_email": "b64@example.test"},
             )
 
+
+LAUNCHER = Path(__file__).with_name("run_gcp_monitor.sh")
+REQUIREMENTS = Path(__file__).with_name("requirements.txt")
+# Every distribution in requirements.txt at its declared floor.
+FLOOR_DISTS = {
+    "mcp": "1.10.0",
+    "google-cloud-monitoring": "2.21.0",
+    "starlette": "0.40.0",
+    "uvicorn": "0.30.0",
+    "google-auth": "2.22.0",
+    "requests": "2.31.0",
+}
+PROBED_MODULES = (
+    "mcp.server.fastmcp",
+    "google.cloud.monitoring_v3",
+    "starlette",
+    "uvicorn",
+    "google.auth",
+    "requests",
+)
+
+
+def prebuilt_venv_probe():
+    """The launcher's prebuilt-venv heredoc, exactly as shipped."""
+    bodies = re.findall(
+        r"<<'EOF' 2>/dev/null\n(.*?)\nEOF\n",
+        LAUNCHER.read_text(encoding="utf-8"),
+        re.DOTALL,
+    )
+    assert len(bodies) == 1, bodies
+    return bodies[0]
+
+
+class PrebuiltVenvProbeTest(unittest.TestCase):
+    """KAN-280: the fast-path probe must not depend on pip's private _vendor.
+
+    Each case builds a fake site directory (dist-info metadata + empty module
+    packages + a pip whose _vendor raises ImportError, as on distro pips) and
+    runs the shipped probe the way the launcher does: `python - requirements`.
+    `-S -E` keep the real site-packages and PYTHONPATH out, so sys.path is the
+    cwd (the fake site) plus the stdlib.
+    """
+
+    def run_probe(self, dists=None, requirements=None, skip_modules=()):
+        dists = FLOOR_DISTS if dists is None else dists
+        with tempfile.TemporaryDirectory() as tmp:
+            site = Path(tmp) / "site"
+            for name, ver in dists.items():
+                # pip writes the normalized (underscore) name; requirements
+                # use hyphens, so this exercises the real lookup path.
+                info = site / f"{name.replace('-', '_')}-{ver}.dist-info"
+                info.mkdir(parents=True)
+                (info / "METADATA").write_text(
+                    f"Metadata-Version: 2.1\nName: {name}\nVersion: {ver}\n", encoding="utf-8"
+                )
+            for module in PROBED_MODULES:
+                if module in skip_modules:
+                    continue
+                pkg = site
+                for part in module.split("."):
+                    pkg = pkg / part
+                    pkg.mkdir(exist_ok=True)
+                    (pkg / "__init__.py").touch()
+            vendor = site / "pip" / "_vendor"
+            vendor.mkdir(parents=True)
+            (site / "pip" / "__init__.py").touch()
+            (vendor / "__init__.py").write_text(
+                'raise ImportError("pip._vendor unbundled (distro pip)")\n', encoding="utf-8"
+            )
+            if requirements is None:
+                req_path = REQUIREMENTS
+            else:
+                req_path = Path(tmp) / "requirements.txt"
+                req_path.write_text(requirements, encoding="utf-8")
+            # Sanity: the shim really blocks the private API the old probe used.
+            blocked = subprocess.run(
+                [sys.executable, "-S", "-E", "-c", "import pip._vendor.packaging.requirements"],
+                cwd=site,
+                capture_output=True,
+            )
+            self.assertNotEqual(blocked.returncode, 0)
+            result = subprocess.run(
+                [sys.executable, "-S", "-E", "-", str(req_path)],
+                input=prebuilt_venv_probe(),
+                text=True,
+                cwd=site,
+                capture_output=True,
+            )
+            return result.returncode
+
+    def test_real_requirements_at_floor_pass_without_pip_vendor(self):
+        self.assertEqual(self.run_probe(), 0)
+
+    def test_versions_inside_range_pass(self):
+        cases = {
+            "short release equals padded floor": {"mcp": "1.10"},
+            "post release": {"requests": "2.32.3.post1"},
+            "local label": {"starlette": "1.9.0+deb12"},
+        }
+        for label, overrides in cases.items():
+            with self.subTest(label):
+                self.assertEqual(self.run_probe({**FLOOR_DISTS, **overrides}), 0)
+
+    def test_out_of_range_or_unusable_versions_fail(self):
+        cases = {
+            "mcp 2.x removed fastmcp (KAN-207)": {"mcp": "2.0.0"},
+            "below floor": {"google-cloud-monitoring": "2.20.9"},
+            "pre-release is unparseable": {"mcp": "1.10.0rc1"},
+            "garbage version": {"uvicorn": "garbage"},
+        }
+        for label, overrides in cases.items():
+            with self.subTest(label):
+                self.assertEqual(self.run_probe({**FLOOR_DISTS, **overrides}), 1)
+
+    def test_missing_distribution_fails(self):
+        dists = {k: v for k, v in FLOOR_DISTS.items() if k != "google-auth"}
+        self.assertEqual(self.run_probe(dists), 1)
+
+    def test_missing_startup_module_fails(self):
+        self.assertEqual(self.run_probe(skip_modules=("mcp.server.fastmcp",)), 1)
+
+    def test_unsupported_requirement_syntax_fails_closed(self):
+        for line in (
+            'mcp>=1.10.0,<2.0.0; python_version >= "3.10"',
+            "mcp[cli]>=1.10.0,<2.0.0",
+            "mcp~=1.10",
+            "mcp==1.10.0",
+            "mcp",
+            "mcp>=1.10.0,",
+            "mcp,>=1.10.0",
+        ):
+            with self.subTest(line):
+                self.assertEqual(self.run_probe(requirements=line + "\n"), 1)
 
 class PeriodWindowsTest(unittest.TestCase):
     def test_windows_are_adjacent_and_equal_length(self):
