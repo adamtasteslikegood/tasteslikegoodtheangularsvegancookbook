@@ -14,6 +14,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
   route manifest classifies the prefix as SSR. KAN-274.
 
+### Fixed
+
+- **SPA-only pages told search engines to index them** — `/kitchen`, `/recipe/<id>` and
+  any unknown HTML path answered 200 with the SPA shell and `X-Robots-Tag: index, follow`,
+  so crawlers saw a private per-user page, a duplicate of the public `/r/<slug>` page, and
+  endless soft-404s, all canonicalised to `/`. The SPA catch-all now sends
+  `X-Robots-Tag: noindex, follow` on every shell response except `/`, and answers paths
+  the route manifest does not recognise with status 404 (the shell is still served, so
+  Angular redirects the visitor home). Staging keeps its stricter `noindex, nofollow`.
+  KAN-276.
+
 ## [0.4.13] - 2026-08-31
 
 Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy
