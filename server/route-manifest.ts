@@ -9,11 +9,17 @@
  *                    (isPageSubresource)
  *   - index.ts     — the SPA catch-all consults classifyRoute() to 404
  *                    asset-like unrecognized paths instead of serving
- *                    index.html as text/html (RCP-77 AC4)
+ *                    index.html as text/html (RCP-77 AC4), and to answer
+ *                    'unknown' paths with the shell at status 404 rather
+ *                    than a soft-404 200 (KAN-276). It also marks every shell
+ *                    response except `/` as `X-Robots-Tag: noindex, follow`
+ *                    (KAN-276) — so adding a path to `spa` below makes it a
+ *                    200, never an indexable page.
  *
  * and by tests: route-manifest.test.ts unit-tests the classification;
  * routes.test.ts boots the real Express app and asserts unknown asset-like
- * paths are not answered 200 text/html by the catch-all.
+ * paths are not answered 200 text/html by the catch-all, and pins the
+ * status and X-Robots-Tag of shell responses.
  *
  * When adding a new route to Express, add its pattern here first.
  */
@@ -137,7 +143,9 @@ export type RouteClass = 'api' | 'ssr' | 'ssrStatic' | 'standalone' | 'asset' | 
  * 'asset' that reaches the catch-all was not found by express.static or any
  * earlier route, and must 404 rather than receive index.html as text/html —
  * a text/html "asset" is refused by browsers under X-Content-Type-Options:
- * nosniff and leaks the shell to crawlers (RCP-77 AC4).
+ * nosniff and leaks the shell to crawlers (RCP-77 AC4). A path classified
+ * 'unknown' still receives the shell, but with status 404 (KAN-276); 'spa'
+ * paths receive it with 200.
  *
  * Order matters: named surfaces (api/ssr/standalone) win over the asset
  * extension check (/sitemap.xml is ssr, /favicon.ico is standalone), and the
