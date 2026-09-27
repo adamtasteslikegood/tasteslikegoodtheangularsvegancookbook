@@ -10,6 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **The home page is now a landing page for "vegan recipe generator"** — a visible
+  `<h1>Vegan Recipe Generator</h1>`, intro copy, "How it works" and a five-question FAQ
+  (with `FAQPage` JSON-LD), rendered by the generator and mirrored as static HTML inside
+  `<app-root>` so the server HTML and the first paint carry it before the bundle boots.
+  Title (58 chars) and description (143) fit a result line; `og:image`/`twitter:image` are a
+  1200×630 JPEG instead of the SVG favicon unfurlers ignore; the dead `/?q=` `SearchAction`
+  is gone; the header brand is no longer an `<h1>` and its tabs are real anchors, including
+  `/browse`. `src/landing-copy.test.ts` fails if the two copies drift. KAN-272.
 - **Category hub pages are reachable** — Express proxies `/browse/tag/<slug>` to Flask's
   new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
   route manifest classifies the prefix as SSR. KAN-274.

@@ -66,7 +66,7 @@ export const ROUTE_MANIFEST = {
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
   /** Express-served standalone pages */
-  standalone: { paths: ['/privacy-policy', '/favicon.ico'] },
+  standalone: { paths: ['/privacy-policy', '/favicon.ico', '/index.html'] },
   /** Angular SPA routes — catch-all serves index.html */
   spa: { paths: ['/', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
 } as const;

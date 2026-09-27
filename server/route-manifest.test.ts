@@ -164,6 +164,7 @@ describe('ROUTE_MANIFEST', () => {
   it('declares standalone pages', () => {
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/privacy-policy');
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/favicon.ico');
+    expect(ROUTE_MANIFEST.standalone.paths).toContain('/index.html');
   });
 
   it('declares SPA routes matching src/app.routes.ts', () => {
@@ -215,6 +216,7 @@ describe('classifyRoute', () => {
     ['/static/css/tokens.css', 'ssrStatic'],
     ['/privacy-policy', 'standalone'],
     ['/favicon.ico', 'standalone'],
+    ['/index.html', 'standalone'],
     // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)
     ['/evil.js', 'asset'],
     ['/nope/thing.css', 'asset'],
