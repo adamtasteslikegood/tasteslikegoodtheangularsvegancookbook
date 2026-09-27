@@ -138,7 +138,17 @@ export const ready = (async () => {
     ? path.resolve(process.env.SPA_DIST_DIR)
     : path.resolve(__dirname, '..', '..', 'dist');
 
-NaN
+  // /index.html is a duplicate of the canonical home URL. Redirect it before
+  // express.static can serve the file directly; keep the query string intact.
+  app.get('/index.html', staticPageLimiter, (req, res) => {
+    const queryIndex = req.originalUrl.indexOf('?');
+    const query = queryIndex === -1 ? '' : req.originalUrl.slice(queryIndex);
+    res.redirect(301, `/${query}`);
+  });
+
+  // The compiled Angular bundles and public assets must remain mounted before
+  // the SPA catch-all. Missing assets then fall through to the asset 404 below.
+  app.use(express.static(distPath));
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
