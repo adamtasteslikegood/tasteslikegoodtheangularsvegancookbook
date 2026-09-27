@@ -160,9 +160,13 @@ export const ready = (async () => {
       // Meta sentinels survive Angular's production HTML minification; ordinary
       // comments do not. Match with a regex tolerant to attribute reordering,
       // quote-style changes, and self-closing syntax that a future minifier
-      // upgrade could introduce.
-      const homeHeadStartRe = /<meta\s+[^>]*name=["']?tlg-home-head-start["']?[^>]*>/i;
-      const homeHeadEndRe = /<meta\s+[^>]*name=["']?tlg-home-head-end["']?[^>]*>/i;
+      // upgrade could introduce. The name value is followed by a required
+      // boundary (quote, whitespace, `/`, or `>`) so a future sentinel-prefixed
+      // name like `tlg-home-head-start-social` cannot accidentally match here.
+      const homeHeadStartRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-start"|'tlg-home-head-start'|tlg-home-head-start(?=[\s/>]))[^>]*>/i;
+      const homeHeadEndRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-end"|'tlg-home-head-end'|tlg-home-head-end(?=[\s/>]))[^>]*>/i;
       const homeHeadStartMatch = homeHeadStartRe.exec(fullSpaShell);
       const homeHeadEndMatch = homeHeadStartMatch
         ? homeHeadEndRe.exec(fullSpaShell.slice(homeHeadStartMatch.index))

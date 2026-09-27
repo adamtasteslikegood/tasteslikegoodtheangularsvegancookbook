@@ -262,7 +262,11 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
       const res = await fetch(`${baseUrl}${assetPath}`);
       expect(res.status).toBe(404);
       expect(res.headers.get('content-type')).not.toContain('text/html');
-      expect(await res.text()).not.toContain('spa-shell');
+      // Neither the home shell nor the route-neutral shell may leak here — a
+      // 404 for an asset-like path must be JSON, not HTML masquerading as one.
+      const body = await res.text();
+      expect(body).not.toContain('<app-root');
+      expect(body).not.toContain('<!doctype html>');
     });
   }
 
