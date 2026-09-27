@@ -156,6 +156,18 @@ describe('SSR page proxying (guard against regressions)', () => {
   });
 });
 
+describe('standalone static pages', () => {
+  it('serves /about through the live Express route in source mode', async () => {
+    const res = await fetch(`${baseUrl}/about`);
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(body).toContain('<title>About TastesLikeGood');
+    expect(body).not.toContain('spa-shell');
+  });
+});
+
 /**
  * KAN-154 (production incident 2026-07-25): iOS Safari requests both
  * apple-touch-icon paths on every page view without any <link> tag. The repo
