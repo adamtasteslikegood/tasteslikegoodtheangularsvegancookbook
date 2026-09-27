@@ -299,7 +299,7 @@ describe('SPA shell index control (KAN-276)', () => {
   it('drops unsupported or unsafe query values from the /index.html redirect', async () => {
     const res = await fetch(
       `${baseUrl}/index.html?next=%2F%2Fevil.example&auth=failed&save=%2F%2Fevil.example`,
-      { redirect: 'manual' },
+      { redirect: 'manual' }
     );
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe('/');
