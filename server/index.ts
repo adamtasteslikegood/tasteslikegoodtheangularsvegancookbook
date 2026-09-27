@@ -14,7 +14,7 @@ import {
 import { createFlaskProxy } from './proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
-import { classifyRoute } from './route-manifest.js';
+import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -198,6 +198,25 @@ export const ready = (async () => {
     return routeNeutralSpaShellPromise;
   };
 
+  // /index.html is a duplicate of the canonical home URL. Redirect it before
+  // express.static can serve the file directly. Carry forward only the home
+  // parameters the SPA understands; never reflect an arbitrary query string
+  // into a redirect target.
+  app.get('/index.html', staticPageLimiter, (req, res) => {
+    const query = new URLSearchParams();
+    if (req.query.auth === 'success') query.set('auth', 'success');
+
+    const save = req.query.save;
+    if (typeof save === 'string' && /^[a-z0-9-]{1,200}$/.test(save)) {
+      query.set('save', save);
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    res.redirect(301, `/${suffix}`);
+  });
+
+  // The compiled Angular bundles and public assets must remain mounted before
+  // the SPA catch-all. Missing assets then fall through to the asset 404 below.
   app.use(express.static(distPath));
 
   // Privacy policy — served as a standalone static HTML page.
@@ -270,17 +289,58 @@ export const ready = (async () => {
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
   app.get('{*path}', staticPageLimiter, async (req, res) => {
+    // Classified through absoluteRequestPath() — the same composed,
+    // trailing-slash-trimmed path security.ts asks the manifest about — so
+    // `/kitchen/` reads as the SPA route it is rather than an unknown path.
+    const routePath = absoluteRequestPath(req);
+    const routeClass = classifyRoute(routePath);
+
+    // KAN-276: the home page is the only SPA shell worth indexing. Every
+    // other shell response is either a private per-user surface (/kitchen),
+    // a duplicate of a public SSR page (/recipe/<id> vs /r/<slug>), or a
+    // soft-404, and all of them carry the home page's canonical. Overrides
+    // the production `index, follow` security.ts set earlier in the chain.
+    // Staging is left alone: its global `noindex, nofollow` is stricter.
+    if (routePath !== '/' && !isStaging) {
+      res.setHeader('X-Robots-Tag', 'noindex, follow');
+    }
+
     // RCP-77 AC4 (KAN-160): an asset-like path reaching the catch-all was not
     // found by express.static or any earlier route. Serving index.html here
     // would answer 200 text/html for a missing .js/.css/.map — the browser
     // refuses it under nosniff and crawlers see soft-404 shell spam. 404
     // instead. Classification comes from the route manifest so the policy
     // lives in one place (server/route-manifest.ts).
-    if (classifyRoute(req.path) === 'asset') {
+    if (routeClass === 'asset') {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.type('html').send(await getRouteNeutralSpaShell());
+
+    // KAN-276: a path that is not a known SPA route is a real 404, not a
+    // soft one. The shell is still served so the browser lands somewhere
+    // sensible (Angular's `**` route redirects to the home page).
+    if (routeClass === 'unknown') {
+      res.status(404);
+    }
+    // KAN-272: only the home page gets the full shell with its landing copy
+    // and home metadata; express.static normally answers "/" first, so this
+    // is a safety net. Every other route gets the route-neutral shell.
+    if (routePath === '/') {
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    let neutralShell: string;
+    try {
+      neutralShell = await getRouteNeutralSpaShell();
+    } catch (err) {
+      // A shell we cannot neutralise (no sentinels, no <app-root>) must not
+      // take every non-home route down with a 500. Fall back to the full
+      // shell: the pre-KAN-272 behaviour, a flash of home copy at worst.
+      console.warn('[spa] serving the full shell; route-neutral shell unavailable:', err);
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    res.type('html').send(neutralShell);
   });
 
   // Error handling middleware (must be last)

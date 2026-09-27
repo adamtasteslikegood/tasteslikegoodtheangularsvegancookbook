@@ -223,6 +223,7 @@ describe('classifyRoute', () => {
     ['/kitchen', 'spa'],
     ['/chunk-error', 'spa'],
     ['/recipe/abc-123', 'spa'],
+    ['/recipe/', 'unknown'],
     // Unrecognized non-asset paths fall through to the shell (Angular 404)
     ['/some/unknown/page', 'unknown'],
     ['/apiary', 'unknown'], // prefix check must not treat /apiary as /api
