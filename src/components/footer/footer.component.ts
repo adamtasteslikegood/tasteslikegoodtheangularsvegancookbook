@@ -1,4 +1,10 @@
 import { Component } from '@angular/core';
+import { environment } from '../../environments/environment';
+
+export const standalonePageHref = (
+  path: '/about' | '/privacy-policy',
+  production = environment.production
+): string => (production ? path : `${path}.html`);
 
 @Component({
   selector: 'app-footer',
@@ -13,8 +19,8 @@ import { Component } from '@angular/core';
           <a href="/browse" class="hover:text-stone-800 underline underline-offset-2"
             >Browse Public Recipes</a
           >
-          <a href="/about" class="hover:text-stone-800 underline underline-offset-2">About</a>
-          <a href="/privacy-policy" class="hover:text-stone-800 underline underline-offset-2"
+          <a [href]="aboutHref" class="hover:text-stone-800 underline underline-offset-2">About</a>
+          <a [href]="privacyPolicyHref" class="hover:text-stone-800 underline underline-offset-2"
             >Privacy Policy</a
           >
         </nav>
@@ -22,4 +28,7 @@ import { Component } from '@angular/core';
     </footer>
   `,
 })
-export class FooterComponent {}
+export class FooterComponent {
+  readonly aboutHref = standalonePageHref('/about');
+  readonly privacyPolicyHref = standalonePageHref('/privacy-policy');
+}
