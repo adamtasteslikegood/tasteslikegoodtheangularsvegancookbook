@@ -40,6 +40,15 @@ describe('/about page', () => {
     for (const url of ld.mainEntity.sameAs) expect(url).toMatch(/^https:\/\//);
   });
 
+  it('pairs its large-image card with a 1200x630 og:image', () => {
+    expect(page).toContain('<meta name="twitter:card" content="summary_large_image" />');
+    expect(page).toContain(
+      '<meta property="og:image" content="https://www.tasteslikegood.org/og-home.jpg" />'
+    );
+    expect(page).toContain('<meta property="og:image:width" content="1200" />');
+    expect(page).toContain('<meta property="og:image:height" content="630" />');
+  });
+
   it('links back into the site', () => {
     for (const href of ['href="/"', 'href="/browse"', 'href="/privacy-policy"']) {
       expect(page).toContain(href);
