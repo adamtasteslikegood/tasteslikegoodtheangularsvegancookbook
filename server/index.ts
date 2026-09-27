@@ -150,15 +150,35 @@ export const ready = (async () => {
     if (routeNeutralSpaShell !== undefined) return routeNeutralSpaShell;
 
     const fullSpaShell = await readFile(spaIndexPath, 'utf8');
-    const appRootOpen = fullSpaShell.indexOf('<app-root>');
-    const appRootClose = fullSpaShell.indexOf('</app-root>', appRootOpen);
+
+    // The checked-in index also carries home-only title/canonical/social tags
+    // and structured data. Removing only <app-root>'s children still exposed
+    // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
+    // head block and replace it with deliberately generic, non-indexable
+    // metadata before serving any non-home SPA fallback.
+    const homeHeadStartMarker = '<!-- home-page-head:start -->';
+    const homeHeadEndMarker = '<!-- home-page-head:end -->';
+    const homeHeadStart = fullSpaShell.indexOf(homeHeadStartMarker);
+    const homeHeadEndStart = fullSpaShell.indexOf(homeHeadEndMarker, homeHeadStart);
+    if (homeHeadStart === -1 || homeHeadEndStart === -1) {
+      throw new Error('Angular index.html is missing its home-page head markers');
+    }
+    const homeHeadEnd = homeHeadEndStart + homeHeadEndMarker.length;
+    const neutralHead =
+      '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />';
+    const shellWithoutHomeHead =
+      fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
+
+    const appRootOpen = shellWithoutHomeHead.indexOf('<app-root>');
+    const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
     if (appRootOpen === -1 || appRootClose === -1) {
       throw new Error('Angular index.html is missing its app-root element');
     }
 
     const appRootContentStart = appRootOpen + '<app-root>'.length;
     routeNeutralSpaShell =
-      fullSpaShell.slice(0, appRootContentStart) + fullSpaShell.slice(appRootClose);
+      shellWithoutHomeHead.slice(0, appRootContentStart) +
+      shellWithoutHomeHead.slice(appRootClose);
     return routeNeutralSpaShell;
   };
 
