@@ -20,12 +20,13 @@
       what follows it. Guarded by src/app-shell.test.ts.
     -->
     <base href="/" />
-    <title>Tasteslikegood.org — VeganGenius Chef: AI-Powered Vegan Recipe Generator & Cookbook</title>
+    <!-- Title <= 60 chars and description <= 160 so results do not truncate (KAN-272). -->
+    <title>Free AI Vegan Recipe Generator &amp; Cookbook | TastesLikeGood</title>
 
     <!-- SEO Meta Tags -->
     <meta
       name="description"
-      content="Generate delicious vegan recipes with AI. Create, save, and organize plant-based meals in your personal digital cookbook. Powered by Google Gemini with AI-generated food photography."
+      content="Type what you&#39;re craving and get a complete vegan recipe with an AI food photo in seconds. Free, with no ads, no life story and no paywall."
     />
     <meta
       name="keywords"
@@ -39,26 +40,45 @@
 
     <!-- Open Graph (Facebook, LinkedIn, etc.) -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Tasteslikegood.org — VeganGenius Chef: AI-Powered Vegan Recipe Generator" />
+    <meta
+      property="og:title"
+      content="Free AI Vegan Recipe Generator &amp; Cookbook | TastesLikeGood"
+    />
     <meta
       property="og:description"
-      content="Generate delicious vegan recipes with AI. Create, save, and organize plant-based meals in your personal digital cookbook."
+      content="Type what you&#39;re craving and get a complete vegan recipe with an AI food photo in seconds. Free, with no ads, no life story and no paywall."
     />
     <meta property="og:url" content="https://www.tasteslikegood.org/" />
     <meta property="og:site_name" content="Tasteslikegood.org" />
     <meta property="og:locale" content="en_US" />
-    <meta property="og:image" content="https://www.tasteslikegood.org/favicon.svg" />
-    <meta property="og:image:alt" content="VeganGenius Chef logo" />
+    <!--
+      Raster, 1200x630: unfurlers (Facebook, X, Slack, iMessage, LinkedIn) ignore
+      SVG, so the old /favicon.svg rendered every home-page share blank (KAN-272).
+    -->
+    <meta property="og:image" content="https://www.tasteslikegood.org/og-home.jpg" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Vegan tacos, margherita pizza and chicken-style waffles under the words Free AI Vegan Recipe Generator"
+    />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Tasteslikegood.org — VeganGenius Chef: AI Vegan Recipe Generator" />
+    <meta
+      name="twitter:title"
+      content="Free AI Vegan Recipe Generator &amp; Cookbook | TastesLikeGood"
+    />
     <meta
       name="twitter:description"
-      content="Generate delicious vegan recipes with AI. Create, save, and organize plant-based meals in your personal digital cookbook."
+      content="Type what you&#39;re craving and get a complete vegan recipe with an AI food photo in seconds. Free, with no ads, no life story and no paywall."
     />
-    <meta name="twitter:image" content="https://www.tasteslikegood.org/favicon.svg" />
-    <meta name="twitter:image:alt" content="VeganGenius Chef logo" />
+    <meta name="twitter:image" content="https://www.tasteslikegood.org/og-home.jpg" />
+    <meta
+      name="twitter:image:alt"
+      content="Vegan tacos, margherita pizza and chicken-style waffles under the words Free AI Vegan Recipe Generator"
+    />
 
     <!-- Schema.org JSON-LD Structured Data -->
     <script type="application/ld+json">
@@ -97,12 +117,61 @@
         "@type": "WebSite",
         "name": "Tasteslikegood.org",
         "alternateName": "VeganGenius Chef",
-        "url": "https://www.tasteslikegood.org/",
-        "potentialAction": {
-          "@type": "SearchAction",
-          "target": "https://www.tasteslikegood.org/?q={search_term_string}",
-          "query-input": "required name=search_term_string"
-        }
+        "url": "https://www.tasteslikegood.org/"
+      }
+    </script>
+    <!--
+      No SearchAction: it promised /?q= search that the SPA never implemented
+      (KAN-272). Restore it pointing at /browse?q= once that exists.
+    -->
+
+    <!-- FAQPage: the same questions and answers the page shows (landing-copy.ts). -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Is the vegan recipe generator free?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Generating, saving and browsing recipes is free, with no ads and no subscription. A fair-use hourly limit keeps it free for everyone."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Are the recipes 100% vegan?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Every recipe is written to be vegan: no meat, fish, dairy or eggs. They are AI-generated, so check the labels on packaged ingredients, especially for allergens."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can it make a recipe from the ingredients I already have?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. List what is in your fridge or pantry, for example \"tofu, broccoli, peanut butter\", and it builds a recipe around those ingredients."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need an account?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Continue as a guest and your cookbook is saved in this browser. Sign in with Google to keep it in sync across your devices."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Where do the food photos come from?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "After the recipe is written, an AI image model creates a photo of the finished dish for that recipe. You can regenerate it if you want a different look."
+            }
+          }
+        ]
       }
     </script>
 
@@ -138,7 +207,114 @@
     </style>
   </head>
   <body class="bg-stone-50 text-stone-800 antialiased min-h-screen">
-    <app-root></app-root>
+    <app-root>
+      <!--
+        Static landing copy (KAN-272), generated from
+        src/components/generator/landing-copy.ts and kept in step by
+        src/landing-copy.test.ts. It is what non-JS crawlers, link unfurlers
+        and the first paint see; Angular replaces it with the generator (which
+        renders the same copy) when the bundle boots.
+      -->
+      <div class="max-w-6xl mx-auto p-4 md:p-8">
+        <p class="serif text-3xl md:text-4xl font-bold text-stone-800 mb-8">VeganGenius Chef</p>
+        <section class="mb-8 text-center md:text-left" aria-labelledby="landing-title">
+          <h1 id="landing-title" class="text-4xl md:text-5xl font-bold text-stone-800">
+            Vegan Recipe Generator
+          </h1>
+          <p class="mt-3 text-lg md:text-xl text-stone-600 max-w-3xl">
+            Type what you're craving and get a complete vegan recipe, with an AI food photo, in
+            seconds. No ads, no life story, no paywall.
+          </p>
+        </section>
+        <section class="mb-12 grid gap-10" aria-label="About the vegan recipe generator">
+          <div class="max-w-3xl space-y-4 text-stone-700 leading-relaxed">
+            <p>
+              VeganGenius Chef is a free AI vegan recipe generator from TastesLikeGood. Describe a
+              dish, a mood or the ingredients already in your fridge, like "spicy lentil tacos",
+              "something with chickpeas and spinach" or "a vegan mac and cheese", and it writes a
+              full plant-based recipe: measured ingredients, step-by-step method, prep and cook
+              times, and servings.
+            </p>
+            <p>
+              Save the recipes you like to your own cookbook, sort them into collections, and
+              publish your favourites for everyone to browse.
+            </p>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-stone-800 mb-4">How it works</h2>
+            <ol class="grid gap-4 md:grid-cols-3">
+              <li class="bg-white p-5 rounded-2xl border border-stone-200">
+                <h3 class="font-bold text-stone-800">1. Describe it</h3>
+                <p class="mt-1 text-stone-600">
+                  Type a dish, a craving, or a list of ingredients you want to use up.
+                </p>
+              </li>
+              <li class="bg-white p-5 rounded-2xl border border-stone-200">
+                <h3 class="font-bold text-stone-800">2. Get the recipe</h3>
+                <p class="mt-1 text-stone-600">
+                  Google Gemini writes a complete vegan recipe, and a photo of the finished dish
+                  follows.
+                </p>
+              </li>
+              <li class="bg-white p-5 rounded-2xl border border-stone-200">
+                <h3 class="font-bold text-stone-800">3. Save and cook</h3>
+                <p class="mt-1 text-stone-600">
+                  Keep it in your cookbook, scale the servings, and cook straight from the page.
+                </p>
+              </li>
+            </ol>
+          </div>
+          <div>
+            <h2 class="text-2xl font-bold text-stone-800 mb-4">Frequently asked questions</h2>
+            <dl class="space-y-5 max-w-3xl">
+              <div>
+                <dt class="font-bold text-stone-800">Is the vegan recipe generator free?</dt>
+                <dd class="mt-1 text-stone-600">
+                  Yes. Generating, saving and browsing recipes is free, with no ads and no
+                  subscription. A fair-use hourly limit keeps it free for everyone.
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-stone-800">Are the recipes 100% vegan?</dt>
+                <dd class="mt-1 text-stone-600">
+                  Every recipe is written to be vegan: no meat, fish, dairy or eggs. They are
+                  AI-generated, so check the labels on packaged ingredients, especially for
+                  allergens.
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-stone-800">
+                  Can it make a recipe from the ingredients I already have?
+                </dt>
+                <dd class="mt-1 text-stone-600">
+                  Yes. List what is in your fridge or pantry, for example "tofu, broccoli, peanut
+                  butter", and it builds a recipe around those ingredients.
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-stone-800">Do I need an account?</dt>
+                <dd class="mt-1 text-stone-600">
+                  No. Continue as a guest and your cookbook is saved in this browser. Sign in with
+                  Google to keep it in sync across your devices.
+                </dd>
+              </div>
+              <div>
+                <dt class="font-bold text-stone-800">Where do the food photos come from?</dt>
+                <dd class="mt-1 text-stone-600">
+                  After the recipe is written, an AI image model creates a photo of the finished
+                  dish for that recipe. You can regenerate it if you want a different look.
+                </dd>
+              </div>
+            </dl>
+          </div>
+          <p>
+            <a href="/browse" class="font-bold text-green-800 underline underline-offset-2"
+              >Browse published vegan recipes &rarr;</a
+            >
+          </p>
+        </section>
+      </div>
+    </app-root>
     <!--
       SSR crawlable links. The Angular shell is otherwise a JS-only app-root,
       so a crawler (or any no-JS client) hitting "/" finds no anchors and the
@@ -151,12 +327,16 @@
         <a href="/browse">Browse all vegan recipes</a>
         <a href="/r/classic-vegan-margherita-pizza">Classic Vegan Margherita Pizza</a>
         <a href="/r/vegan-cornbread">Vegan Cornbread</a>
-        <a href="/r/vegan-seitan-fried-chicken-and-waffles">Vegan Seitan Fried Chicken and Waffles</a>
+        <a href="/r/vegan-seitan-fried-chicken-and-waffles"
+          >Vegan Seitan Fried Chicken and Waffles</a
+        >
         <a href="/r/vegan-spaghetti-and-meatballs">Vegan Spaghetti and Meatballs</a>
         <a href="/r/classic-vegan-chocolate-chip-cookies">Classic Vegan Chocolate Chip Cookies</a>
         <a href="/r/maple-smoked-tempeh-blt">Maple Smoked Tempeh BLT</a>
         <a href="/r/vegan-street-style-tofu-tacos">Vegan Street Style Tofu Tacos</a>
-        <a href="/r/vegan-orange-chicken-style-seitan-with-white-rice">Vegan Orange Chicken Style Seitan with White Rice</a>
+        <a href="/r/vegan-orange-chicken-style-seitan-with-white-rice"
+          >Vegan Orange Chicken Style Seitan with White Rice</a
+        >
       </nav>
     </noscript>
   </body>

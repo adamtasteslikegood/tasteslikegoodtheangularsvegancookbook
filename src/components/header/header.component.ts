@@ -1,13 +1,13 @@
 import { Component, inject, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, NavigationEnd } from '@angular/router';
+import { Router, NavigationEnd, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
 
 @Component({
   selector: 'app-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   templateUrl: './header.component.html',
 })
 export class HeaderComponent {
@@ -29,10 +29,6 @@ export class HeaderComponent {
         else this.activeView.set('generator');
       }
     });
-  }
-
-  switchView(view: 'generator' | 'kitchen') {
-    this.router.navigate([view === 'kitchen' ? '/kitchen' : '/']);
   }
 
   toggleUserProfileCard() {
