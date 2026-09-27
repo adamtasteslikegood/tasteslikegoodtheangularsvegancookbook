@@ -21,14 +21,22 @@ export class HeaderComponent {
   readonly logoutRequested = output<void>();
 
   constructor() {
+    // Seed from the router's current URL so a direct load of /kitchen or
+    // /recipe/:id paints aria-current on the correct tab before the first
+    // NavigationEnd. Router bootstrap is non-blocking, so subscribing alone
+    // can miss the initial event.
+    this.applyActiveView(this.router.url);
     this.router.events.subscribe((e) => {
       if (e instanceof NavigationEnd) {
-        const url = e.urlAfterRedirects;
-        if (url.startsWith('/kitchen')) this.activeView.set('kitchen');
-        else if (url.startsWith('/recipe')) this.activeView.set('recipe');
-        else this.activeView.set('generator');
+        this.applyActiveView(e.urlAfterRedirects);
       }
     });
+  }
+
+  private applyActiveView(url: string) {
+    if (url.startsWith('/kitchen')) this.activeView.set('kitchen');
+    else if (url.startsWith('/recipe')) this.activeView.set('recipe');
+    else this.activeView.set('generator');
   }
 
   toggleUserProfileCard() {

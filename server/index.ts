@@ -349,6 +349,10 @@ export const ready = (async () => {
       res.sendFile(spaIndexPath);
       return;
     }
+    // Mirror the Cache-Control the / sendFile branch inherits from Express's
+    // static/send defaults so intermediaries don't cache the noindex shell
+    // longer than the indexable home shell.
+    res.setHeader('Cache-Control', 'public, max-age=0');
     res.type('html').send(neutralShell);
   });
 
