@@ -53,6 +53,9 @@ beforeAll(async () => {
     } else if (req.url === '/browse/tag/dinner') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_HUB_HTML);
+    } else if (req.url === '/browse/tag/dinner/') {
+      res.writeHead(301, { location: '/browse/tag/dinner' });
+      res.end();
     } else {
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end('{"error": "not found"}');
@@ -144,10 +147,18 @@ describe('SSR page proxying (guard against regressions)', () => {
     expect(await res.text()).toBe(STUB_HUB_HTML);
   });
 
-  it("passes Flask's 404 for an unknown hub through instead of serving the shell", async () => {
-    const res = await fetch(`${baseUrl}/browse/tag/not-a-hub`);
-    expect(res.status).toBe(404);
-    expect(res.headers.get('content-type')).toContain('application/json');
+  it("passes Flask's 404 for the hub root and unknown hubs instead of the shell", async () => {
+    for (const path of ['/browse/tag/', '/browse/tag/not-a-hub']) {
+      const res = await fetch(`${baseUrl}${path}`);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('content-type')).toContain('application/json');
+    }
+  });
+
+  it("passes Flask's canonical trailing-slash redirect through", async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner/`, { redirect: 'manual' });
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/browse/tag/dinner');
   });
 });
 
