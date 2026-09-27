@@ -289,9 +289,20 @@ describe('SPA shell index control (KAN-276)', () => {
   });
 
   it('canonicalizes /index.html to the home page before express.static', async () => {
-    const res = await fetch(`${baseUrl}/index.html?auth=success`, { redirect: 'manual' });
+    const res = await fetch(`${baseUrl}/index.html?auth=success&save=weeknight-chili`, {
+      redirect: 'manual',
+    });
     expect(res.status).toBe(301);
-    expect(res.headers.get('location')).toBe('/?auth=success');
+    expect(res.headers.get('location')).toBe('/?auth=success&save=weeknight-chili');
+  });
+
+  it('drops unsupported or unsafe query values from the /index.html redirect', async () => {
+    const res = await fetch(
+      `${baseUrl}/index.html?next=%2F%2Fevil.example&auth=failed&save=%2F%2Fevil.example`,
+      { redirect: 'manual' },
+    );
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/');
   });
 
   // The public SSR surface is proxied to Flask before the catch-all, so it
