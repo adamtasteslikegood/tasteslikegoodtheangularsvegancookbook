@@ -41,7 +41,7 @@ beforeAll(async () => {
       '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
       '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
       '<meta name="tlg-home-head-end" content=""></head>' +
-      '<body><app-root><h1>home-landing</h1></app-root></body></html>',
+      '<body><app-root><h1>home-landing</h1></app-root></body></html>'
   );
   process.env.SPA_DIST_DIR = stubDistDir;
 
