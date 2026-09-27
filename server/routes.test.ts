@@ -119,7 +119,9 @@ describe('home-only static fallback', () => {
 
     const kitchen = await fetch(`${baseUrl}/kitchen`);
     const kitchenHtml = await kitchen.text();
-    expect(kitchenHtml).toContain('<app-root></app-root>');
+    // <app-root> children are stripped but any attributes on the element
+    // (e.g. Angular's build-time ng-version) are preserved by design.
+    expect(kitchenHtml).toMatch(/<app-root(?:\s[^>]*)?><\/app-root>/);
     expect(kitchenHtml).toContain('<meta name="robots" content="noindex, follow" />');
     expect(kitchenHtml).not.toContain('home-landing');
     expect(kitchenHtml).not.toContain('FAQPage');

@@ -147,24 +147,32 @@ export const ready = (async () => {
   const spaIndexPath = path.join(distPath, 'index.html');
   let routeNeutralSpaShellPromise: Promise<string> | undefined;
   const getRouteNeutralSpaShell = (): Promise<string> => {
-    routeNeutralSpaShellPromise ??= readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
+    if (routeNeutralSpaShellPromise) return routeNeutralSpaShellPromise;
+    // Wrap the parse so a transient readFile failure or a build that ships
+    // without the sentinels does not poison the cache: on rejection, clear
+    // the memo so the next request retries instead of 500ing forever.
+    const attempt = readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
       // The checked-in index also carries home-only title/canonical/social tags
       // and structured data. Removing only <app-root>'s children still exposed
       // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
       // head block and replace it with deliberately generic, non-indexable
       // metadata before serving any non-home SPA fallback.
       // Meta sentinels survive Angular's production HTML minification; ordinary
-      // comments do not. Match only their stable opening prefixes because the
-      // builder may normalize whitespace or self-closing syntax.
-      const homeHeadStartMarker = '<meta name="tlg-home-head-start"';
-      const homeHeadEndMarker = '<meta name="tlg-home-head-end"';
-      const homeHeadStart = fullSpaShell.indexOf(homeHeadStartMarker);
-      const homeHeadEndStart = fullSpaShell.indexOf(homeHeadEndMarker, homeHeadStart);
-      const homeHeadEnd =
-        homeHeadEndStart === -1 ? -1 : fullSpaShell.indexOf('>', homeHeadEndStart) + 1;
-      if (homeHeadStart === -1 || homeHeadEndStart === -1 || homeHeadEnd === 0) {
+      // comments do not. Match with a regex tolerant to attribute reordering,
+      // quote-style changes, and self-closing syntax that a future minifier
+      // upgrade could introduce.
+      const homeHeadStartRe = /<meta\s+[^>]*name=["']?tlg-home-head-start["']?[^>]*>/i;
+      const homeHeadEndRe = /<meta\s+[^>]*name=["']?tlg-home-head-end["']?[^>]*>/i;
+      const homeHeadStartMatch = homeHeadStartRe.exec(fullSpaShell);
+      const homeHeadEndMatch = homeHeadStartMatch
+        ? homeHeadEndRe.exec(fullSpaShell.slice(homeHeadStartMatch.index))
+        : null;
+      if (!homeHeadStartMatch || !homeHeadEndMatch) {
         throw new Error('Angular index.html is missing its home-page head sentinels');
       }
+      const homeHeadStart = homeHeadStartMatch.index;
+      const homeHeadEnd =
+        homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
       const neutralHead =
         '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />';
       const shellWithoutHomeHead =
@@ -182,6 +190,10 @@ export const ready = (async () => {
         shellWithoutHomeHead.slice(0, appRootContentStart) +
         shellWithoutHomeHead.slice(appRootClose)
       );
+    });
+    routeNeutralSpaShellPromise = attempt.catch((err) => {
+      routeNeutralSpaShellPromise = undefined;
+      throw err;
     });
     return routeNeutralSpaShellPromise;
   };
