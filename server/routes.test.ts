@@ -32,6 +32,14 @@ const STUB_SPA_SHELL =
   '<meta name="tlg-home-head-end" content=""></head><body>' +
   '<app-root><h1>home-landing</h1></app-root></body></html>';
 
+// Mirrors the transformations `getRouteNeutralSpaShell()` applies in
+// server/index.ts: the home-only head block between the sentinels is replaced
+// with a generic non-indexable head, and the <app-root> children are stripped.
+const STUB_ROUTE_NEUTRAL_SHELL =
+  '<!doctype html><html><head>' +
+  '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
+  '</head><body><app-root></app-root></body></html>';
+
 let flaskStub: http.Server;
 let expressServer: http.Server;
 let baseUrl: string;
