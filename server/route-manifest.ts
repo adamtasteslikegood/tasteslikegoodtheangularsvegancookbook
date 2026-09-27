@@ -161,7 +161,11 @@ export function classifyRoute(path: string): RouteClass {
   if ((standalone.paths as readonly string[]).includes(path)) return 'standalone';
   if (looksLikeStaticAsset(path)) return 'asset';
   if ((spa.paths as readonly string[]).includes(path)) return 'spa';
-  if (spa.prefixes.some((prefix) => path.startsWith(prefix))) return 'spa';
+  // Prefix routes require content after the slash: /recipe/<id> is valid,
+  // while the collection-like /recipe/ path is not a known SPA page.
+  if (spa.prefixes.some((prefix) => path.startsWith(prefix) && path.length > prefix.length)) {
+    return 'spa';
+  }
   return 'unknown';
 }
 
