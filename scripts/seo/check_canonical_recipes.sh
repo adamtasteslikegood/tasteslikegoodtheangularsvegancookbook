@@ -118,17 +118,7 @@ if [[ -n "$LIVE_BASE" ]]; then
     fi
 
     body=$(curl -s -w '\n%{http_code}' -- "$hub" 2>/dev/null || true)
-    status="${body##*
-fi
-
-if (( errors > 0 )); then
-  echo ""
-  echo "FAILED: $errors error(s) found"
-  exit 1
-fi
-
-echo "OK: $count canonical recipes validated (JSON ↔ index.html consistent)"
-\n'}"
+    status="${body##*$'\n'}"
     canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
     if [[ "$status" != "200" ]]; then
       echo "FAIL: $hub returned HTTP $status (expected 200)"
