@@ -25,6 +25,7 @@ import type { AddressInfo } from 'node:net';
 const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
+const STUB_HUB_HTML = '<!doctype html><html><body>ssr-hub-dinner</body></html>';
 const STUB_SPA_SHELL = '<!doctype html><html><body>spa-shell</body></html>';
 
 let flaskStub: http.Server;
@@ -49,6 +50,9 @@ beforeAll(async () => {
     } else if (req.url === '/browse') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_HTML);
+    } else if (req.url === '/browse/tag/dinner') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(STUB_HUB_HTML);
     } else {
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end('{"error": "not found"}');
@@ -132,6 +136,18 @@ describe('SSR page proxying (guard against regressions)', () => {
     const res = await fetch(`${baseUrl}/browse`);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(STUB_HTML);
+  });
+
+  it('proxies /browse/tag/<slug> hubs to Flask, not the SPA shell (KAN-274)', async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(STUB_HUB_HTML);
+  });
+
+  it("passes Flask's 404 for an unknown hub through instead of serving the shell", async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/not-a-hub`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('content-type')).toContain('application/json');
   });
 });
 

@@ -200,6 +200,9 @@ export const ready = (async () => {
     next();
   });
   app.get('/browse', staticPageLimiter, ssrProxy);
+  // KAN-274: curated category hubs. Flask owns the allow-list (unknown slugs
+  // 404 there) and the trailing-slash 301, so this proxies the whole prefix.
+  app.get('/browse/tag/*splat', staticPageLimiter, ssrProxy);
   app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
   // The SSR templates link their stylesheets via Flask's /static/ (e.g.
   // /static/css/tokens.css). Without this route those requests fall through

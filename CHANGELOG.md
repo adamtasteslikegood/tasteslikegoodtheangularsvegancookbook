@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Category hub pages are reachable** — Express proxies `/browse/tag/<slug>` to Flask's
+  new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
+  route manifest classifies the prefix as SSR. KAN-274.
+
 ## [0.4.13] - 2026-08-31
 
 Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy

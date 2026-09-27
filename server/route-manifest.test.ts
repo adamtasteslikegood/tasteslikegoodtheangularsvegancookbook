@@ -153,6 +153,7 @@ describe('ROUTE_MANIFEST', () => {
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/browse');
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/sitemap.xml');
     expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/r/');
+    expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/browse/tag/');
   });
 
   it('declares SSR static prefix', () => {
@@ -207,6 +208,7 @@ describe('classifyRoute', () => {
     ['/browse', 'ssr'],
     ['/sitemap.xml', 'ssr'],
     ['/r/vegan-cookies', 'ssr'],
+    ['/browse/tag/dinner', 'ssr'],
     ['/static/css/tokens.css', 'ssrStatic'],
     ['/privacy-policy', 'standalone'],
     ['/favicon.ico', 'standalone'],
