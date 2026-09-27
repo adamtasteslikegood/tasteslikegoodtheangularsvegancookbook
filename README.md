@@ -5,6 +5,8 @@
 
 **AI-powered vegan recipe generator & personal cookbook**
 
+**Live: [www.tasteslikegood.org](https://www.tasteslikegood.org)** · [Browse the published recipes](https://www.tasteslikegood.org/browse)
+
 Generate recipes from natural-language prompts • AI food photography • Organize cookbooks • SSR public recipe pages
 
 [![CI](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/actions/workflows/ci.yml/badge.svg)](https://github.com/adamtasteslikegood/tasteslikegoodtheangularsvegancookbook/actions)
