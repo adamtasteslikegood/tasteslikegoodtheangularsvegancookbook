@@ -22,7 +22,7 @@
 export const LANDING_H1 = 'Vegan Recipe Generator';
 
 export const LANDING_LEAD =
-  "Type what you're craving and get a complete vegan recipe, with an AI food photo, in seconds. No ads, no life story, no paywall.";
+  "Type what you're craving and get a complete vegan recipe in seconds. An AI food photo follows. No ads, no life story, no paywall.";
 
 export const LANDING_INTRO: readonly string[] = [
   'VeganGenius Chef is a free AI vegan recipe generator from TastesLikeGood. Describe a dish, a mood or the ingredients already in your fridge, like "spicy lentil tacos", "something with chickpeas and spinach" or "a vegan mac and cheese", and it writes a full plant-based recipe: measured ingredients, step-by-step method, prep and cook times, and servings.',
