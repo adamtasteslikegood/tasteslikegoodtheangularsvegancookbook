@@ -102,7 +102,22 @@ if [[ -n "$LIVE_BASE" ]]; then
   hub_urls=()
   sitemap_response=""
   if sitemap_response=$(curl --location --fail --silent --show-error \
-    --write-out 
+    --write-out '\n%{http_code}' -- "$LIVE_BASE/sitemap.xml"); then
+    sitemap_status=$(printf '%s' "$sitemap_response" | tail -n 1)
+    sitemap=$(printf '%s' "$sitemap_response" | sed '$d')
+    if [[ "$sitemap_status" != "200" ]]; then
+      echo "FAIL: $LIVE_BASE/sitemap.xml returned HTTP $sitemap_status (expected 200)"
+      errors=$((errors + 1))
+    else
+      mapfile -t hub_urls < <(printf '%s' "$sitemap" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
+      if (( ${#hub_urls[@]} == 0 )); then
+        echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+      fi
+    fi
+  else
+    echo "FAIL: unable to fetch $LIVE_BASE/sitemap.xml"
+    errors=$((errors + 1))
+  fi
 
   for hub in "${hub_urls[@]}"; do
     if [[ "$hub" != "$LIVE_BASE/browse/tag/"* ]]; then
