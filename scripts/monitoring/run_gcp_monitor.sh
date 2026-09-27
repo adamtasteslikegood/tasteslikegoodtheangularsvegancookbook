@@ -29,29 +29,65 @@ for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
   prebuilt_python="$prebuilt/bin/python"
   if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - "$requirements" <<'EOF' 2>/dev/null
 import importlib.util as u
+import operator
 import pathlib
+import re
 import sys
 from importlib.metadata import PackageNotFoundError, version
-from pip._vendor.packaging.requirements import Requirement
-from pip._vendor.packaging.version import Version
 
 # A prebuilt venv lives outside the checkout and cannot share the repo-local
 # hash stamp. Validate every declared requirement against its installed
 # distribution version before taking the fast path, then probe the exact
 # modules imported by both stdio and HTTP startup.
+#
+# Stdlib only (KAN-280): pip's vendored copy of `packaging` is private and
+# distro pips unbundle it, and the public `packaging` is not guaranteed to be
+# in the venv. This parses exactly the `name>=X,<Y` shape requirements.txt
+# uses. Anything else (markers, extras, other operators, pre-release or
+# unparseable versions) fails closed, i.e. falls through to the in-repo
+# bootstrap; test_gsc_tools.py runs this probe against the real
+# requirements.txt so a new line shape cannot silently disable the fast path.
+NAME = re.compile(r"([A-Za-z0-9][A-Za-z0-9._-]*)\s*(.*)")
+CLAUSE = re.compile(r"(>=|<)\s*(\d+(?:\.\d+)*)")
+# Release segment, optionally followed by .postN and/or a +local label; for
+# `>=` and `<` the release tuple alone orders these correctly.
+VERSION = re.compile(r"(\d+(?:\.\d+)*)(?:\.post\d+)?(?:\+[A-Za-z0-9.]+)?")
+OPS = {">=": operator.ge, "<": operator.lt}
+
+
+def release(text):
+    match = VERSION.fullmatch((text or "").strip())
+    if not match:
+        sys.exit(1)
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def satisfies(installed, op, bound):
+    width = max(len(installed), len(bound))  # pad so 1.10 == 1.10.0
+    return OPS[op](installed + (0,) * (width - len(installed)), bound + (0,) * (width - len(bound)))
+
+
 for raw_line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
     line = raw_line.strip()
     if not line or line.startswith("#"):
         continue
-    requirement = Requirement(line)
-    if requirement.marker and not requirement.marker.evaluate():
-        continue
+    requirement = NAME.fullmatch(line)
+    if not requirement:
+        sys.exit(1)
+    name, specifier = requirement.groups()
+    clauses = [clause.strip() for clause in specifier.split(",")]
+    if not specifier or any(not clause for clause in clauses):
+        sys.exit(1)
     try:
-        installed = Version(version(requirement.name))
+        installed = release(version(name))
     except PackageNotFoundError:
         sys.exit(1)
-    if requirement.specifier and installed not in requirement.specifier:
-        sys.exit(1)
+    for clause in clauses:
+        match = CLAUSE.fullmatch(clause)
+        if not match:
+            sys.exit(1)
+        if not satisfies(installed, match.group(1), release(match.group(2))):
+            sys.exit(1)
 
 # "mcp.server.fastmcp", not "mcp": the top-level package still exists on the
 # unsupported mcp 2.x (KAN-207), where this module was removed.
