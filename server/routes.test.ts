@@ -36,6 +36,7 @@ const STUB_HUB_HTML = '<!doctype html><html><body>ssr-hub-dinner</body></html>';
 const STUB_RECIPE_HTML = '<!doctype html><html><body>ssr-recipe</body></html>';
 const STUB_SPA_SHELL =
   '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
+  '<meta name="tlg-home-head-start-social" content="retain">' +
   '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
   '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
   '<script type="application/ld+json">{"@type":"FAQPage"}</script>' +
@@ -48,6 +49,7 @@ const STUB_SPA_SHELL =
 // with a generic non-indexable head, and the <app-root> children are stripped.
 const STUB_ROUTE_NEUTRAL_SHELL =
   '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
+  '<meta name="tlg-home-head-start-social" content="retain">' +
   '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
   '</head><body><app-root ng-version="22.1.0"></app-root></body></html>';
 
