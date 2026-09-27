@@ -170,7 +170,7 @@ export const ready = (async () => {
       const shellWithoutHomeHead =
         fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
 
-      const appRootOpenMatch = /<app-root(?:\\s[^>]*)?>/.exec(shellWithoutHomeHead);
+      const appRootOpenMatch = /<app-root(?:\s[^>]*)?>/.exec(shellWithoutHomeHead);
       const appRootOpen = appRootOpenMatch?.index ?? -1;
       const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
       if (appRootOpen === -1 || appRootClose === -1 || !appRootOpenMatch) {
