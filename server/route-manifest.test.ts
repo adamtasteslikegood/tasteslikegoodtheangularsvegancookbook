@@ -163,6 +163,7 @@ describe('ROUTE_MANIFEST', () => {
 
   it('declares standalone pages', () => {
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/privacy-policy');
+    expect(ROUTE_MANIFEST.standalone.paths).toContain('/about');
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/favicon.ico');
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/index.html');
   });
@@ -215,6 +216,7 @@ describe('classifyRoute', () => {
     ['/browse/tag/dinner', 'ssr'],
     ['/static/css/tokens.css', 'ssrStatic'],
     ['/privacy-policy', 'standalone'],
+    ['/about', 'standalone'],
     ['/favicon.ico', 'standalone'],
     ['/index.html', 'standalone'],
     // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)

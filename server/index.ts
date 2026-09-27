@@ -225,9 +225,21 @@ export const ready = (async () => {
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
-  const publicPath = path.resolve(__dirname, '..', 'public');
+  // Source tests execute from server/, while production runs the compiled file
+  // from server/dist/. Resolve the checked-in server/public directory in both
+  // modes so standalone pages are testable through the real Express route.
+  const publicPath =
+    path.basename(__dirname) === 'dist'
+      ? path.resolve(__dirname, '..', 'public')
+      : path.resolve(__dirname, 'public');
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
+  });
+
+  // About page (KAN-272, SEO audit C5): who makes the site and why, with the
+  // author's Person schema. Static, like the privacy policy.
+  app.get('/about', staticPageLimiter, (_req, res) => {
+    res.sendFile(path.join(publicPath, 'about.html'));
   });
 
   // /favicon.ico — browsers and crawlers request this path unconditionally,

@@ -21,6 +21,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Category hub pages are reachable** — Express proxies `/browse/tag/<slug>` to Flask's
   new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
   route manifest classifies the prefix as SSR. KAN-274.
+- **`/about` page** — who makes TastesLikeGood and why (no ads, no life story, no paywall),
+  what the generator does, how to read AI-written recipes, and contact routes, with
+  `AboutPage` + `Person` JSON-LD (`sameAs` GitHub; other profiles to add once confirmed).
+  Served statically like the privacy policy, classified `standalone` in the route manifest,
+  and linked from the app footer. KAN-272 (SEO audit C5).
 
 ### Fixed
 
