@@ -75,11 +75,14 @@ for raw_line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines
     if not requirement:
         sys.exit(1)
     name, specifier = requirement.groups()
+    clauses = [clause.strip() for clause in specifier.split(",")]
+    if not specifier or any(not clause for clause in clauses):
+        sys.exit(1)
     try:
         installed = release(version(name))
     except PackageNotFoundError:
         sys.exit(1)
-    for clause in filter(None, (c.strip() for c in specifier.split(","))):
+    for clause in clauses:
         match = CLAUSE.fullmatch(clause)
         if not match:
             sys.exit(1)
