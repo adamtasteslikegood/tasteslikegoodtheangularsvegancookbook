@@ -145,45 +145,45 @@ export const ready = (async () => {
   // Keeping this lazy preserves existing test/server startup behavior when no
   // built SPA exists yet, while direct non-home loads never expose home copy.
   const spaIndexPath = path.join(distPath, 'index.html');
-  let routeNeutralSpaShell: string | undefined;
-  const getRouteNeutralSpaShell = async (): Promise<string> => {
-    if (routeNeutralSpaShell !== undefined) return routeNeutralSpaShell;
+  let routeNeutralSpaShellPromise: Promise<string> | undefined;
+  const getRouteNeutralSpaShell = (): Promise<string> => {
+    routeNeutralSpaShellPromise ??= readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
+      // The checked-in index also carries home-only title/canonical/social tags
+      // and structured data. Removing only <app-root>'s children still exposed
+      // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
+      // head block and replace it with deliberately generic, non-indexable
+      // metadata before serving any non-home SPA fallback.
+      // Meta sentinels survive Angular's production HTML minification; ordinary
+      // comments do not. Match only their stable opening prefixes because the
+      // builder may normalize whitespace or self-closing syntax.
+      const homeHeadStartMarker = '<meta name="tlg-home-head-start"';
+      const homeHeadEndMarker = '<meta name="tlg-home-head-end"';
+      const homeHeadStart = fullSpaShell.indexOf(homeHeadStartMarker);
+      const homeHeadEndStart = fullSpaShell.indexOf(homeHeadEndMarker, homeHeadStart);
+      const homeHeadEnd =
+        homeHeadEndStart === -1 ? -1 : fullSpaShell.indexOf('>', homeHeadEndStart) + 1;
+      if (homeHeadStart === -1 || homeHeadEndStart === -1 || homeHeadEnd === 0) {
+        throw new Error('Angular index.html is missing its home-page head sentinels');
+      }
+      const neutralHead =
+        '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />';
+      const shellWithoutHomeHead =
+        fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
 
-    const fullSpaShell = await readFile(spaIndexPath, 'utf8');
+      const appRootOpenMatch = /<app-root(?:\\s[^>]*)?>/.exec(shellWithoutHomeHead);
+      const appRootOpen = appRootOpenMatch?.index ?? -1;
+      const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
+      if (appRootOpen === -1 || appRootClose === -1 || !appRootOpenMatch) {
+        throw new Error('Angular index.html is missing its app-root element');
+      }
 
-    // The checked-in index also carries home-only title/canonical/social tags
-    // and structured data. Removing only <app-root>'s children still exposed
-    // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
-    // head block and replace it with deliberately generic, non-indexable
-    // metadata before serving any non-home SPA fallback.
-    // Meta sentinels survive Angular's production HTML minification; ordinary
-    // comments do not. Match only their stable opening prefixes because the
-    // builder may normalize whitespace or self-closing syntax.
-    const homeHeadStartMarker = '<meta name="tlg-home-head-start"';
-    const homeHeadEndMarker = '<meta name="tlg-home-head-end"';
-    const homeHeadStart = fullSpaShell.indexOf(homeHeadStartMarker);
-    const homeHeadEndStart = fullSpaShell.indexOf(homeHeadEndMarker, homeHeadStart);
-    const homeHeadEnd =
-      homeHeadEndStart === -1 ? -1 : fullSpaShell.indexOf('>', homeHeadEndStart) + 1;
-    if (homeHeadStart === -1 || homeHeadEndStart === -1 || homeHeadEnd === 0) {
-      throw new Error('Angular index.html is missing its home-page head sentinels');
-    }
-    const neutralHead =
-      '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />';
-    const shellWithoutHomeHead =
-      fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
-
-    const appRootOpen = shellWithoutHomeHead.indexOf('<app-root>');
-    const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
-    if (appRootOpen === -1 || appRootClose === -1) {
-      throw new Error('Angular index.html is missing its app-root element');
-    }
-
-    const appRootContentStart = appRootOpen + '<app-root>'.length;
-    routeNeutralSpaShell =
-      shellWithoutHomeHead.slice(0, appRootContentStart) +
-      shellWithoutHomeHead.slice(appRootClose);
-    return routeNeutralSpaShell;
+      const appRootContentStart = appRootOpen + appRootOpenMatch[0].length;
+      return (
+        shellWithoutHomeHead.slice(0, appRootContentStart) +
+        shellWithoutHomeHead.slice(appRootClose)
+      );
+    });
+    return routeNeutralSpaShellPromise;
   };
 
   app.use(express.static(distPath));
