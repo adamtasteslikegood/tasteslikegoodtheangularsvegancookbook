@@ -1,4 +1,5 @@
 import express from 'express';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Server } from 'node:http';
@@ -138,6 +139,21 @@ export const ready = (async () => {
     ? path.resolve(process.env.SPA_DIST_DIR)
     : path.resolve(__dirname, '..', '..', 'dist');
 
+  // index.html contains useful static landing copy for the canonical home page,
+  // but the same file is also the fallback for /kitchen and /recipe/:id.
+  // Cache a route-neutral form for those catch-all responses so direct non-home
+  // loads never flash or expose home-only content before Angular bootstraps.
+  const spaIndexPath = path.join(distPath, 'index.html');
+  const fullSpaShell = await readFile(spaIndexPath, 'utf8');
+  const appRootOpen = fullSpaShell.indexOf('<app-root>');
+  const appRootClose = fullSpaShell.indexOf('</app-root>', appRootOpen);
+  if (appRootOpen === -1 || appRootClose === -1) {
+    throw new Error('Angular index.html is missing its app-root element');
+  }
+  const appRootContentStart = appRootOpen + '<app-root>'.length;
+  const routeNeutralSpaShell =
+    fullSpaShell.slice(0, appRootContentStart) + fullSpaShell.slice(appRootClose);
+
   app.use(express.static(distPath));
 
   // Privacy policy — served as a standalone static HTML page.
@@ -220,7 +236,7 @@ export const ready = (async () => {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.sendFile(path.join(distPath, 'index.html'));
+    res.type('html').send(routeNeutralSpaShell);
   });
 
   // Error handling middleware (must be last)
