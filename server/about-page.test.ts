@@ -1,9 +1,9 @@
 /**
  * /about (KAN-272, SEO audit 2026-09-13 C5): who makes the site and why.
  *
- * Asserted against the checked-in file, like the other static-page guards:
- * under Vitest, index.ts resolves server/public relative to server/ rather
- * than server/dist, so a live-route test would read the wrong directory.
+ * Asserted against the checked-in file so metadata, structured data, and
+ * accessibility regressions are covered directly. The live Express route is
+ * covered separately in routes.test.ts.
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -11,6 +11,26 @@ import { fileURLToPath } from 'node:url';
 import { classifyRoute } from './route-manifest.js';
 
 const page = readFileSync(fileURLToPath(new URL('./public/about.html', import.meta.url)), 'utf8');
+
+function cssColor(name: string): string {
+  return page.match(new RegExp(`--${name}:\\s*(#[0-9a-f]{6})`, 'i'))?.[1] ?? '';
+}
+
+function relativeLuminance(hex: string): number {
+  const channels = hex
+    .slice(1)
+    .match(/.{2}/g)
+    ?.map((value) => parseInt(value, 16) / 255)
+    .map((value) => (value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+  if (!channels || channels.length !== 3) return Number.NaN;
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const lighter = Math.max(relativeLuminance(foreground), relativeLuminance(background));
+  const darker = Math.min(relativeLuminance(foreground), relativeLuminance(background));
+  return (lighter + 0.05) / (darker + 0.05);
+}
 
 describe('/about page', () => {
   it('is a standalone static page in the route manifest', () => {
@@ -47,6 +67,10 @@ describe('/about page', () => {
     );
     expect(page).toContain('<meta property="og:image:width" content="1200" />');
     expect(page).toContain('<meta property="og:image:height" content="630" />');
+  });
+
+  it('uses WCAG AA contrast for links and secondary headings', () => {
+    expect(contrastRatio(cssColor('light-green'), cssColor('bg'))).toBeGreaterThanOrEqual(4.5);
   });
 
   it('links back into the site', () => {
