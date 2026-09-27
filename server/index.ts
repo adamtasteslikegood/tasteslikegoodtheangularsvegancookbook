@@ -141,18 +141,26 @@ export const ready = (async () => {
 
   // index.html contains useful static landing copy for the canonical home page,
   // but the same file is also the fallback for /kitchen and /recipe/:id.
-  // Cache a route-neutral form for those catch-all responses so direct non-home
-  // loads never flash or expose home-only content before Angular bootstraps.
+  // Derive and cache a route-neutral form only if the catch-all is reached.
+  // Keeping this lazy preserves existing test/server startup behavior when no
+  // built SPA exists yet, while direct non-home loads never expose home copy.
   const spaIndexPath = path.join(distPath, 'index.html');
-  const fullSpaShell = await readFile(spaIndexPath, 'utf8');
-  const appRootOpen = fullSpaShell.indexOf('<app-root>');
-  const appRootClose = fullSpaShell.indexOf('</app-root>', appRootOpen);
-  if (appRootOpen === -1 || appRootClose === -1) {
-    throw new Error('Angular index.html is missing its app-root element');
-  }
-  const appRootContentStart = appRootOpen + '<app-root>'.length;
-  const routeNeutralSpaShell =
-    fullSpaShell.slice(0, appRootContentStart) + fullSpaShell.slice(appRootClose);
+  let routeNeutralSpaShell: string | undefined;
+  const getRouteNeutralSpaShell = async (): Promise<string> => {
+    if (routeNeutralSpaShell !== undefined) return routeNeutralSpaShell;
+
+    const fullSpaShell = await readFile(spaIndexPath, 'utf8');
+    const appRootOpen = fullSpaShell.indexOf('<app-root>');
+    const appRootClose = fullSpaShell.indexOf('</app-root>', appRootOpen);
+    if (appRootOpen === -1 || appRootClose === -1) {
+      throw new Error('Angular index.html is missing its app-root element');
+    }
+
+    const appRootContentStart = appRootOpen + '<app-root>'.length;
+    routeNeutralSpaShell =
+      fullSpaShell.slice(0, appRootContentStart) + fullSpaShell.slice(appRootClose);
+    return routeNeutralSpaShell;
+  };
 
   app.use(express.static(distPath));
 
@@ -225,7 +233,7 @@ export const ready = (async () => {
   // express.static so Angular build assets (if any collide) still win.
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
-  app.get('{*path}', staticPageLimiter, (req, res) => {
+  app.get('{*path}', staticPageLimiter, async (req, res) => {
     // RCP-77 AC4 (KAN-160): an asset-like path reaching the catch-all was not
     // found by express.static or any earlier route. Serving index.html here
     // would answer 200 text/html for a missing .js/.css/.map — the browser
@@ -236,7 +244,7 @@ export const ready = (async () => {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.type('html').send(routeNeutralSpaShell);
+    res.type('html').send(await getRouteNeutralSpaShell());
   });
 
   // Error handling middleware (must be last)
