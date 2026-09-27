@@ -5,7 +5,7 @@
 
 **AI-powered vegan recipe generator & personal cookbook**
 
-**Live: [www.tasteslikegood.org](https://www.tasteslikegood.org)** · [Browse the published recipes](https://www.tasteslikegood.org/browse)
+**Live: [free AI vegan recipe generator](https://www.tasteslikegood.org)** · [Browse the published recipes](https://www.tasteslikegood.org/browse)
 
 Generate recipes from natural-language prompts • AI food photography • Organize cookbooks • SSR public recipe pages
 
