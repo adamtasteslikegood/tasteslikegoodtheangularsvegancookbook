@@ -32,6 +32,7 @@ import type { AddressInfo } from 'node:net';
 const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
+const STUB_HUB_HTML = '<!doctype html><html><body>ssr-hub-dinner</body></html>';
 const STUB_RECIPE_HTML = '<!doctype html><html><body>ssr-recipe</body></html>';
 const STUB_SPA_SHELL = '<!doctype html><html><body>spa-shell</body></html>';
 
@@ -58,6 +59,12 @@ beforeAll(async () => {
     } else if (req.url === '/browse') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_HTML);
+    } else if (req.url === '/browse/tag/dinner') {
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+      res.end(STUB_HUB_HTML);
+    } else if (req.url === '/browse/tag/dinner/') {
+      res.writeHead(301, { location: '/browse/tag/dinner' });
+      res.end();
     } else if (req.url === '/r/test-slug') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_RECIPE_HTML);
@@ -153,6 +160,26 @@ describe('SSR page proxying (guard against regressions)', () => {
     const res = await fetch(`${baseUrl}/browse`);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe(STUB_HTML);
+  });
+
+  it('proxies /browse/tag/<slug> hubs to Flask, not the SPA shell (KAN-274)', async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner`);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe(STUB_HUB_HTML);
+  });
+
+  it("passes Flask's 404 for the hub root and unknown hubs instead of the shell", async () => {
+    for (const path of ['/browse/tag/', '/browse/tag/not-a-hub']) {
+      const res = await fetch(`${baseUrl}${path}`);
+      expect(res.status).toBe(404);
+      expect(res.headers.get('content-type')).toContain('application/json');
+    }
+  });
+
+  it("passes Flask's canonical trailing-slash redirect through", async () => {
+    const res = await fetch(`${baseUrl}/browse/tag/dinner/`, { redirect: 'manual' });
+    expect(res.status).toBe(301);
+    expect(res.headers.get('location')).toBe('/browse/tag/dinner');
   });
 });
 

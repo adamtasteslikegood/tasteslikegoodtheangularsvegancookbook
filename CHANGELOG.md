@@ -8,6 +8,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Category hub pages are reachable** — Express proxies `/browse/tag/<slug>` to Flask's
+  new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
+  route manifest classifies the prefix as SSR. KAN-274.
+
 ### Fixed
 
 - **SPA-only pages told search engines to index them** — `/kitchen`, `/recipe/<id>` and

@@ -53,7 +53,7 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *
  * Categories:
  *   api         — proxied to Flask (/api/*)
- *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /sitemap.xml)
+ *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /browse/tag/*, /sitemap.xml)
  *   ssrStatic   — Flask SSR static assets (/static/*)
  *   standalone  — Express-served static pages (/privacy-policy, /favicon.ico)
  *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
@@ -61,8 +61,8 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
 export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
   api: { prefix: '/api' },
-  /** Flask-rendered SSR pages */
-  ssr: { paths: ['/browse', '/sitemap.xml'], prefixes: ['/r/'] },
+  /** Flask-rendered SSR pages (/browse/tag/<slug>: curated category hubs, KAN-274) */
+  ssr: { paths: ['/browse', '/browse/tag', '/sitemap.xml'], prefixes: ['/r/', '/browse/tag/'] },
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
   /** Express-served standalone pages */
