@@ -34,9 +34,11 @@ const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
 const STUB_RECIPE_HTML = '<!doctype html><html><body>ssr-recipe</body></html>';
 const STUB_SPA_SHELL =
-  '<!doctype html><html><head><meta name="tlg-home-head-start" content=""><title>Home</title>' +
+  '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
+  '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
   '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
   '<script type="application/ld+json">{"@type":"FAQPage"}</script>' +
+  '<script type="application/ld+json">{"@type":"WebApplication"}</script>' +
   '<meta name="tlg-home-head-end" content=""></head><body>' +
   '<app-root ng-version="22.1.0"><h1>home-landing</h1></app-root></body></html>';
 
@@ -44,7 +46,7 @@ const STUB_SPA_SHELL =
 // server/index.ts: the home-only head block between the sentinels is replaced
 // with a generic non-indexable head, and the <app-root> children are stripped.
 const STUB_ROUTE_NEUTRAL_SHELL =
-  '<!doctype html><html><head>' +
+  '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
   '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
   '</head><body><app-root ng-version="22.1.0"></app-root></body></html>';
 

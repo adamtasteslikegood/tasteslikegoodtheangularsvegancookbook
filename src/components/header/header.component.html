@@ -38,6 +38,7 @@
     <div class="bg-stone-100 p-1 rounded-full flex items-center">
       <a
         routerLink="/"
+        [attr.aria-current]="activeView() === 'generator' ? 'page' : null"
         class="px-4 py-2 rounded-full text-sm font-bold transition-all"
         [class.bg-white]="activeView() === 'generator'"
         [class.shadow-sm]="activeView() === 'generator'"
@@ -48,6 +49,7 @@
       </a>
       <a
         routerLink="/kitchen"
+        [attr.aria-current]="activeView() === 'kitchen' ? 'page' : null"
         class="px-4 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2"
         [class.bg-white]="activeView() === 'kitchen'"
         [class.shadow-sm]="activeView() === 'kitchen'"

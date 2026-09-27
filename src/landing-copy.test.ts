@@ -164,10 +164,34 @@ describe('home page social cards (KAN-272)', () => {
   });
 });
 
+describe('route-neutral shell sentinels (KAN-272)', () => {
+  // server/index.ts strips the head between these sentinels and empties
+  // <app-root> for every non-home route; without them it falls back to the
+  // full home shell. Guard the source so that fallback never ships.
+  it('wraps the home-only head in both sentinels, in order, around the canonical', () => {
+    const start = liveShell.indexOf('name="tlg-home-head-start"');
+    const canonical = liveShell.indexOf('rel="canonical"');
+    const end = liveShell.indexOf('name="tlg-home-head-end"');
+    expect(start).toBeGreaterThan(-1);
+    expect(start).toBeLessThan(canonical);
+    expect(canonical).toBeLessThan(end);
+  });
+
+  it('keeps the site-wide favicon outside the sentinels', () => {
+    expect(liveShell.indexOf('rel="icon"')).toBeLessThan(
+      liveShell.indexOf('name="tlg-home-head-start"')
+    );
+  });
+});
+
 describe('rendered DOM (KAN-272)', () => {
   it('renders the landing H1 from the copy module in the generator', () => {
     expect(generatorTemplate).toMatch(/<h1\b[^>]*>\s*\{\{\s*landing\.h1\s*\}\}\s*<\/h1>/);
-    expect(generatorTemplate).toContain('landing.faq');
+    // Every field renders from the module, so no stale hardcoded copy can
+    // stand in for one of them.
+    for (const binding of ['landing.lead', 'landing.intro', 'landing.steps', 'landing.faq']) {
+      expect(generatorTemplate).toContain(binding);
+    }
   });
 
   it('leaves the H1 to the page: the site header has none', () => {
