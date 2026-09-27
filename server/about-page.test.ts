@@ -73,8 +73,12 @@ describe('/about page', () => {
     expect(contrastRatio(cssColor('light-green'), cssColor('bg'))).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('links back into the site', () => {
-    for (const href of ['href="/"', 'href="/browse"', 'href="/privacy-policy"']) {
+  it('links back into the site without sending dev-only pages to the SPA fallback', () => {
+    expect(page).toContain('href="/"');
+    for (const href of [
+      'href="https://www.tasteslikegood.org/browse"',
+      'href="https://www.tasteslikegood.org/privacy-policy"',
+    ]) {
       expect(page).toContain(href);
     }
   });
