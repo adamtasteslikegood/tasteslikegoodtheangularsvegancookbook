@@ -138,7 +138,7 @@ export const ready = (async () => {
     ? path.resolve(process.env.SPA_DIST_DIR)
     : path.resolve(__dirname, '..', '..', 'dist');
 
-  app.use(express.static(distPath));
+NaN
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
