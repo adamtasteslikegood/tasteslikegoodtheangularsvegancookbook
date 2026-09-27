@@ -7,7 +7,8 @@
 #   4. No anchors in index.html that aren't in the canonical list
 #
 # Usage: scripts/seo/check_canonical_recipes.sh [--live URL]
-#   --live URL  Also curl each /r/<slug> on the given base URL and assert 200.
+#   --live URL  Also curl each /r/<slug> on the given base URL and assert 200,
+#               and every /browse/tag/<slug> hub in its sitemap (200 + self-canonical).
 
 set -euo pipefail
 
@@ -92,6 +93,28 @@ if [[ -n "$LIVE_BASE" ]]; then
       errors=$((errors + 1))
     else
       echo "OK: $LIVE_BASE/r/$slug → 200"
+    fi
+  done
+
+  # 6. Category hubs (KAN-274): every /browse/tag/<slug> the sitemap lists must
+  #    answer 200 with a self-referencing canonical. Hubs ship from the Backend,
+  #    so an older deploy that lists none is reported, not failed.
+  mapfile -t hub_urls < <(curl -s "$LIVE_BASE/sitemap.xml" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
+  if (( ${#hub_urls[@]} == 0 )); then
+    echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+  fi
+  for hub in "${hub_urls[@]}"; do
+    body=$(curl -s -w '\n%{http_code}' "$hub" 2>/dev/null || true)
+    status="${body##*$'\n'}"
+    canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
+    if [[ "$status" != "200" ]]; then
+      echo "FAIL: $hub returned HTTP $status (expected 200)"
+      errors=$((errors + 1))
+    elif [[ "$canonical" != "$hub" ]]; then
+      echo "FAIL: $hub canonical is '$canonical' (expected self)"
+      errors=$((errors + 1))
+    else
+      echo "OK: $hub → 200, self-canonical"
     fi
   done
 fi
