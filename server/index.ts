@@ -178,8 +178,7 @@ export const ready = (async () => {
       const homeHeadEnd =
         homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
       const neutralRobots = isStaging ? 'noindex, nofollow' : 'noindex, follow';
-      const neutralHead =
-        `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
+      const neutralHead = `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
       const shellWithoutHomeHead =
         fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
 
