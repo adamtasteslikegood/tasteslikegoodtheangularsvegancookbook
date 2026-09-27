@@ -87,7 +87,7 @@ done
 # 5. Optional live check
 if [[ -n "$LIVE_BASE" ]]; then
   for slug in "${json_slugs[@]}"; do
-    status=$(curl -s -o /dev/null -w '%{http_code}' "$LIVE_BASE/r/$slug" 2>/dev/null || true)
+    status=$(curl -s -o /dev/null -w '%{http_code}' -- "$LIVE_BASE/r/$slug" 2>/dev/null || true)
     if [[ "$status" != "200" ]]; then
       echo "FAIL: $LIVE_BASE/r/$slug returned HTTP $status (expected 200)"
       errors=$((errors + 1))
@@ -99,13 +99,36 @@ if [[ -n "$LIVE_BASE" ]]; then
   # 6. Category hubs (KAN-274): every /browse/tag/<slug> the sitemap lists must
   #    answer 200 with a self-referencing canonical. Hubs ship from the Backend,
   #    so an older deploy that lists none is reported, not failed.
-  mapfile -t hub_urls < <(curl -s "$LIVE_BASE/sitemap.xml" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
-  if (( ${#hub_urls[@]} == 0 )); then
-    echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+  hub_urls=()
+  if sitemap=$(curl --fail --silent --show-error -- "$LIVE_BASE/sitemap.xml"); then
+    mapfile -t hub_urls < <(printf '%s' "$sitemap" | grep -oP '(?<=<loc>)[^<]*/browse/tag/[^<]+' || true)
+    if (( ${#hub_urls[@]} == 0 )); then
+      echo "INFO: no /browse/tag/ hubs in $LIVE_BASE/sitemap.xml"
+    fi
+  else
+    echo "FAIL: unable to fetch $LIVE_BASE/sitemap.xml"
+    errors=$((errors + 1))
   fi
+
   for hub in "${hub_urls[@]}"; do
-    body=$(curl -s -w '\n%{http_code}' "$hub" 2>/dev/null || true)
-    status="${body##*$'\n'}"
+    if [[ "$hub" != "$LIVE_BASE/browse/tag/"* ]]; then
+      echo "FAIL: sitemap hub URL '$hub' is outside $LIVE_BASE/browse/tag/"
+      errors=$((errors + 1))
+      continue
+    fi
+
+    body=$(curl -s -w '\n%{http_code}' -- "$hub" 2>/dev/null || true)
+    status="${body##*
+fi
+
+if (( errors > 0 )); then
+  echo ""
+  echo "FAILED: $errors error(s) found"
+  exit 1
+fi
+
+echo "OK: $count canonical recipes validated (JSON ↔ index.html consistent)"
+\n'}"
     canonical=$(printf '%s' "$body" | grep -oP '(?<=<link rel="canonical" href=")[^"]+' | head -1 || true)
     if [[ "$status" != "200" ]]; then
       echo "FAIL: $hub returned HTTP $status (expected 200)"
