@@ -125,7 +125,7 @@ Scale is transient presentation state.
 | `api`        | `/api` or `/api/*`                           | Proxy to Flask                              |
 | `ssr`        | `/browse`, `/sitemap.xml`, `/r/*`            | Proxy Flask-rendered response               |
 | `ssrStatic`  | `/static/*`                                  | Proxy Flask static asset                    |
-| `standalone` | `/privacy-policy`, `/favicon.ico`            | Express static response                     |
+| `standalone` | `/privacy-policy`, `/about`, `/favicon.ico`  | Express static response                     |
 | `asset`      | Known extension reaching catch-all           | Return `404`                                |
 | `spa`        | `/`, `/kitchen`, `/chunk-error`, `/recipe/*` | Serve Angular shell                         |
 | `unknown`    | Other non-asset path                         | Serve shell; Angular wildcard redirects `/` |
