@@ -46,11 +46,15 @@ The script performs preflight checks and idempotent setup for the staging projec
 
 ## Dependencies
 
-No dependencies identified.
+- Bash with standard POSIX utilities such as `grep`
+- Google Cloud CLI (`gcloud`), authenticated with access to the staging and image projects
+- Node.js, used to read the version from `package.json` when `--version` is omitted
+- OpenSSL, used to generate a staging Flask secret when one does not exist
+- Existing GCP project resources and IAM permissions described by the script
 
 ## 📁 Directory
 
-This file is part of the **staging** directory. View the [directory index](_docs/scripts/staging/README.md) to see all files in this module.
+This file is part of the **staging** directory. View the [directory index](README.md) to see all files in this module.
 
 ## Architecture Notes
 
@@ -73,7 +77,7 @@ This file is part of the **staging** directory. View the [directory index](_docs
 
 ## Navigation
 
-**↑ Parent Directory:** [Go up](_docs/scripts/staging/README.md)
+**↑ Parent Directory:** [Go up](README.md)
 
 ---
 
