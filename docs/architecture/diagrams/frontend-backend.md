@@ -125,7 +125,7 @@ Everything the request-flow diagrams elide, all in `server/index.ts`:
   proxy to replay to Flask verbatim. Every other `/api/*` route keeps raw
   streaming.
 - **Static assets** — the Angular bundle from `dist/`, plus explicit routes for
-  `/privacy-policy` and `/favicon.ico` that must precede the SPA catch-all.
+  `/privacy-policy`, `/about`, and `/favicon.ico` that must precede the SPA catch-all.
 - **Graceful shutdown** — drains in-flight HTTP, stops the Valkey token-refresh
   timer, closes the connection.
 

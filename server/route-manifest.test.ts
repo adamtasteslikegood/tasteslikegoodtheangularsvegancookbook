@@ -151,8 +151,10 @@ describe('ROUTE_MANIFEST', () => {
 
   it('declares SSR paths that match index.ts route mounting', () => {
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/browse');
+    expect(ROUTE_MANIFEST.ssr.paths).toContain('/browse/tag');
     expect(ROUTE_MANIFEST.ssr.paths).toContain('/sitemap.xml');
     expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/r/');
+    expect(ROUTE_MANIFEST.ssr.prefixes).toContain('/browse/tag/');
   });
 
   it('declares SSR static prefix', () => {
@@ -161,7 +163,9 @@ describe('ROUTE_MANIFEST', () => {
 
   it('declares standalone pages', () => {
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/privacy-policy');
+    expect(ROUTE_MANIFEST.standalone.paths).toContain('/about');
     expect(ROUTE_MANIFEST.standalone.paths).toContain('/favicon.ico');
+    expect(ROUTE_MANIFEST.standalone.paths).toContain('/index.html');
   });
 
   it('declares SPA routes matching src/app.routes.ts', () => {
@@ -205,11 +209,16 @@ describe('classifyRoute', () => {
     ['/api', 'api'],
     ['/api/recipes', 'api'],
     ['/browse', 'ssr'],
+    ['/browse/tag', 'ssr'],
+    ['/browse/tag/', 'ssr'],
     ['/sitemap.xml', 'ssr'],
     ['/r/vegan-cookies', 'ssr'],
+    ['/browse/tag/dinner', 'ssr'],
     ['/static/css/tokens.css', 'ssrStatic'],
     ['/privacy-policy', 'standalone'],
+    ['/about', 'standalone'],
     ['/favicon.ico', 'standalone'],
+    ['/index.html', 'standalone'],
     // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)
     ['/evil.js', 'asset'],
     ['/nope/thing.css', 'asset'],
@@ -223,6 +232,7 @@ describe('classifyRoute', () => {
     ['/kitchen', 'spa'],
     ['/chunk-error', 'spa'],
     ['/recipe/abc-123', 'spa'],
+    ['/recipe/', 'unknown'],
     // Unrecognized non-asset paths fall through to the shell (Angular 404)
     ['/some/unknown/page', 'unknown'],
     ['/apiary', 'unknown'], // prefix check must not treat /apiary as /api

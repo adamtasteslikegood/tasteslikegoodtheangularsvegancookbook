@@ -2,12 +2,12 @@
 
 _Chartered:_ 2026-08-27 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-88** (delivery/acceptance)
-_Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8)
-_Execution tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249/250 · KAN-248 · KAN-209 · KAN-195 · RCP-67 · KAN-176**
+_Acceptance rows:_ **RCP-89** (S1a) · **RCP-90** (S1b) · **RCP-92** (S2) · **RCP-93** (S3) · **RCP-94** (S4) · **RCP-95** (S5) · **RCP-96** (S6) · **RCP-67** (S7) · **RCP-91** (S8) · **RCP-97** (S9, added 2026-09-02)
+_Delivery tickets:_ **KAN-255 · KAN-256 · KAN-257 · KAN-151 · KAN-249 · KAN-250 · KAN-258 · KAN-209 · KAN-195 · RCP-67 · KAN-176 · KAN-265**
 (KAN = execution, RCP = scope/acceptance)
-_Jira sprint:_ **Sprint 9** — id **52** on board **168**, active.
+_Jira sprint:_ **Sprint 9** — id **52** on board **168**, closed 2026-09-05 America/Los_Angeles (`completeDate` 2026-09-06 UTC).
 _Timebox:_ **No single-point date.** Sprint box is the timebox.
-_Status:_ **Chartered via `/cs:grill-pm`, 2026-08-27.** All six branches locked by Adam.
+_Status:_ **Closed 2026-09-05.** Chartered via `/cs:grill-pm`, 2026-08-27; all six branches locked by Adam. Charter amended 2026-09-05 (S3/KAN-250, see close-out).
 
 ## Why this sprint exists
 
@@ -96,19 +96,22 @@ done, do not read this sprint's throughput as a rate.
 
 ## Aging table (standing artifact — Sprint 6 retro action)
 
-| Item    | Filed      | Age (d) | Sprint history          | Disposition                   |
-| ------- | ---------- | ------- | ----------------------- | ----------------------------- |
-| KAN-255 | 2026-08-27 | 0       | New                     | **Commit — S1a**              |
-| KAN-256 | 2026-08-27 | 0       | New                     | **Commit — S1a**              |
-| KAN-257 | 2026-08-27 | 0       | New                     | **Commit — S1b**              |
-| KAN-151 | 2026-07-24 | 34      | Rolled S7→S8→S9         | **Commit — ANCHOR**           |
-| KAN-249 | 2026-08-25 | 2       | New (Sprint 8 residual) | **Commit**                    |
-| KAN-250 | 2026-08-25 | 2       | New (Sprint 8 residual) | **Commit**                    |
-| KAN-248 | 2026-08-24 | 3       | Rolled S8→S9            | **Commit**                    |
-| KAN-209 | 2026-08-07 | 20      | Never committed         | **Commit — half-day timebox** |
-| KAN-195 | 2026-07-31 | 27      | Never committed         | **Commit**                    |
-| RCP-67  | 2026-08-01 | 26      | Never committed         | **Commit — half-day timebox** |
-| KAN-176 | 2026-07-28 | 30      | Never committed         | **Commit — half-day timebox** |
+_Ages calculated as of the Sprint 9 close-out on 2026-09-05 (America/Los_Angeles)._
+
+| Item    | Filed      | Age (d) | Sprint history          | Disposition                                        |
+| ------- | ---------- | ------- | ----------------------- | -------------------------------------------------- |
+| KAN-255 | 2026-08-27 | 9       | New                     | **Done** — PR #3450, shipped v0.4.13               |
+| KAN-256 | 2026-08-27 | 9       | New                     | **Done** — PR #3450, shipped v0.4.13               |
+| KAN-257 | 2026-08-27 | 9       | New                     | **Done** — PR #3452, shipped v0.4.13               |
+| KAN-151 | 2026-07-24 | 43      | Rolled S7→S8→S9         | **Done** — Backend #299/#301, shipped v0.4.13      |
+| KAN-249 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Done** — PR #3441, shipped v0.4.13               |
+| KAN-250 | 2026-08-25 | 11      | New (Sprint 8 residual) | **Amended** — scope satisfied; see close-out       |
+| KAN-258 | 2026-08-27 | 9       | New (S4 delivery ticket) | **Done** — PR #3483, shipped v0.4.13              |
+| KAN-209 | 2026-08-07 | 29      | Never committed         | **Done** — PR #3465, shipped v0.4.13               |
+| KAN-195 | 2026-07-31 | 36      | Never committed         | **Done** — Backend #300/#301, shipped v0.4.13      |
+| RCP-67  | 2026-08-01 | 35      | Never committed         | **Done** — PR #3451, shipped v0.4.13               |
+| KAN-176 | 2026-07-28 | 39      | Never committed         | **Done** — cutover applied, shipped v0.4.13        |
+| KAN-265 | 2026-09-02 | 3       | Added mid-sprint (S9)   | **Done** — PR #3472, shipped v0.4.13               |
 
 ## Mid-sprint reconcile — 2026-09-01
 
@@ -189,13 +192,15 @@ sprint** and fails when nothing carries it. All 20 sprint-52 members are now lab
 Both gates were run red before the fix and green after — `check_sprint_lane.sh`
 exit 1 → 0, `sprint9_hard_gate.py` exit 1 (8 violations) → 0.
 
-The table above keys S4 to **KAN-258**, not the **KAN-248** cited in the scope table.
-That is deliberate and is not a typo in either place: `KAN-248` is _"Migrate staging DB
-from Railway Postgres to CloudSQL"_, a subtask of KAN-244 that genuinely completed on
-2026-08-24. The model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed
-2026-08-27. See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. The charter
-rows and the two PR titles still carry the old key and want re-keying — left alone here
-so this reconcile stays a status update rather than a scope edit.
+The delivery summary, aging table, and close-out records key S4 to **KAN-258**, while
+the locked committed-scope table and acceptance heading retain the historical
+**KAN-248** key. This is deliberate: `KAN-248` is _"Migrate staging DB from Railway
+Postgres to CloudSQL"_, a subtask of KAN-244 that completed on 2026-08-24. The
+model-selection tail and the v0.4.13 cut are tracked as `KAN-258`, filed 2026-08-27.
+See `specs/harness/README.md` § _KAN-248 is not the S4 ticket_. At close-out, the
+committed-scope S4 row/heading and the two PR titles still carry the old key; they
+remain unchanged to preserve the historical charter, while current delivery records
+use KAN-258.
 
 ### Board corrections made, with evidence
 
@@ -482,3 +487,56 @@ Sprint 9 is closed when:
 5. Jira tickets transitioned with evidence linked — no row moves on a merge alone.
 6. Retrospective page created on Confluence under parent `50298881`, titled
    `Sprint 9 Retrospective — <YYYY-MM-DD>`, with its **Actions for Next Sprint** table.
+
+### Charter amendment — S3/KAN-250 (2026-09-05)
+
+**Approver:** Adam Schoen
+**Rationale:** The staging deploy path via GitHub Actions (`staging-deploy.yml`)
+worked end-to-end and served its purpose for Sprint 9 — Adam previewed the app on
+staging before the v0.4.13 production cut. KAN-249 (cloudbuild.staging.yaml)
+delivered the GCP-side infrastructure. KAN-250's remaining scope — replacing the
+GitHub Actions trigger with Cloud Deploy CI/CD — is a new infrastructure evolution
+step, not unfinished Sprint 9 work. PR #3449 was closed by Adam (not failed);
+the approach needs rethinking.
+**Outcome:** S3 is **complete for Sprint 9's acceptance purpose** (functional staging
+confirmed by Adam). The Cloud Deploy migration is scoped as a new ticket for
+Sprint 10, not a roll of KAN-250.
+
+### Close-out result — 2026-09-05 (America/Los_Angeles)
+
+**v0.4.13 deployed and verified in production 2026-09-04.** Marker string
+`refreshRecipeFromApi` confirmed in served assets. Back-sync complete on both repos.
+
+**Final tally: 10 of 10 SIs complete.** S3 amended — KAN-249 Done, KAN-250 scope satisfied (staging functional); Cloud Deploy migration scoped for Sprint 10.
+
+| SI      | Ticket            | Outcome                                                                                                                   |
+| ------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **S1a** | KAN-255 + KAN-256 | **Done** — PR #3450. Adam verified on staging                                                                             |
+| **S1b** | KAN-257           | **Done** — PR #3452. Adam verified on staging                                                                             |
+| **S2**  | KAN-151           | **Done** — Backend #299/#301, pinned `f64174d`. Prod-verified                                                             |
+| **S3**  | KAN-249 / KAN-250 | **Amended.** KAN-249 Done (#3441). KAN-250 scope satisfied (staging functional); Cloud Deploy migration → Sprint 10 |
+| **S4**  | KAN-258           | **Done** — PR #3483 (release). Tag `v0.4.13` pushed, Cloud Build triggered                                                |
+| **S5**  | KAN-209           | **Done** — PR #3465. RESP2 pin removed; RESP3 exercised against `veganchef-valkeymem-test` (Valkey 8.0.6, IAM_AUTH)       |
+| **S6**  | KAN-195           | **Done** — Backend #300/#301. Versioned public image URLs                                                                 |
+| **S7**  | RCP-67            | **Done** — PR #3451. Route manifest + IPv6 masking                                                                        |
+| **S8**  | KAN-176           | **Done** — Path B cutover applied 2026-08-28, two guards live                                                             |
+| **S9**  | KAN-265           | **Done** — PR #3472. Guest→login dedup by sourceRecipeId/sourceSlug/slug                                                  |
+
+**D6 drops:** None exercised. All three timeboxed items (S5, S7, S8) completed
+within their half-day budget.
+
+**Close-out checklist:**
+
+- [x] Every committed SI passes or is amended (S3/KAN-250 charter amendment above)
+- [x] Gate passes on all merged PRs; Copilot findings addressed
+- [x] v0.4.13 live in production, verified by content (`refreshRecipeFromApi`)
+- [x] Aging table updated with final dispositions
+- [x] Jira tickets transitioned with evidence comments (D4)
+- [x] Sprint 52 closed via Agile API (`completeDate` falls on 2026-09-06 UTC)
+- [x] RCP-88 epic → Done
+- [x] Retrospective page created on Confluence under parent `50298881`
+
+**KAN-151 history note.** This ticket rolled from Sprint 7 → Sprint 8 → Sprint 9.
+Forty-three days from filing to close. The response cache has been non-functional
+since merge `07123c2` on 2026-04-12 — nearly five months. It is now live on Valkey
+in production.

@@ -8,6 +8,99 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-28
+
+Backend submodule pointer: `f64174d` → **`d43b58f`**, a **113-commit Backend delta** covering
+sized image variants, internal linking, category hubs and the model default. See the Backend
+section below.
+
+The SEO release: it implements the prioritized action plan from the 2026-09-13 SEO audit
+(KAN-270) — a real landing page for "vegan recipe generator", an `/about` page, crawlable
+links between recipes and into curated category hubs, faster mobile heroes, and index
+control on SPA-only routes — and moves the default text model to `gemini-3.8-flash`.
+
+### Added
+
+- **The home page is now a landing page for "vegan recipe generator"** — a visible
+  `<h1>Vegan Recipe Generator</h1>`, intro copy, "How it works" and a five-question FAQ
+  (with `FAQPage` JSON-LD), rendered by the generator and mirrored as static HTML inside
+  `<app-root>` so the server HTML and the first paint carry it before the bundle boots.
+  Title (58 chars) and description (143) fit a result line; `og:image`/`twitter:image` are a
+  1200×630 JPEG instead of the SVG favicon unfurlers ignore; the dead `/?q=` `SearchAction`
+  is gone; the header brand is no longer an `<h1>` and its tabs are real anchors, including
+  `/browse`. `src/landing-copy.test.ts` fails if the two copies drift. KAN-272.
+- **Category hub pages are reachable** — Express proxies `/browse/tag/<slug>` to Flask's
+  new curated hub pages (Backend KAN-274) instead of answering with the SPA shell, and the
+  route manifest classifies the prefix as SSR. KAN-274.
+- **`/about` page** — who makes TastesLikeGood and why (no ads, no life story, no paywall),
+  what the generator does, how to read AI-written recipes, and contact routes, with
+  `AboutPage` + `Person` JSON-LD (`sameAs` GitHub; other profiles to add once confirmed).
+  Served statically like the privacy policy, classified `standalone` in the route manifest,
+  and linked from the app footer. KAN-272 (SEO audit C5).
+- **Search Console on the gcp-monitor connector** — eight read-only `gsc_*` tools (search
+  performance, period comparison, striking-distance queries, sitemaps, URL inspection, a
+  bounded index-coverage sample and a weekly report) plus the `/seo-weekly-check` routine,
+  so organic search can be measured without client-side analytics. Ships with the SEO audit
+  (`docs/seo/SEO_AUDIT_2026-09-13.md`) this release implements. KAN-270.
+
+### Changed
+
+- **Default text model is `gemini-3.8-flash`** (was `gemini-3.7-flash`) in the production
+  and staging `GEMINI_DEFAULT_MODEL` pins. Verified on the live API model list and through the
+  worker's real generation path (JSON parse + schema validation). The image model is unchanged.
+  KAN-282.
+- **Dependabot auto-merge picks rebase or merge**, never squash, matching the branch
+  rulesets. KAN-279.
+
+### Fixed
+
+- **SPA-only pages told search engines to index them** — `/kitchen`, `/recipe/<id>` and
+  any unknown HTML path answered 200 with the SPA shell and `X-Robots-Tag: index, follow`,
+  so crawlers saw a private per-user page, a duplicate of the public `/r/<slug>` page, and
+  endless soft-404s, all canonicalised to `/`. The SPA catch-all now sends
+  `X-Robots-Tag: noindex, follow` on every shell response except `/`, and answers paths
+  the route manifest does not recognise with status 404 (the shell is still served, so
+  Angular redirects the visitor home). Staging keeps its stricter `noindex, nofollow`.
+  KAN-276.
+- **gcp-monitor launcher's prebuilt-venv probe** no longer imports `pip._vendor.packaging`
+  (absent from some venvs); it uses a stdlib-only check, so the hosted connector starts on a
+  prebuilt venv instead of rebuilding it. KAN-280.
+
+### Dependencies
+
+- Vitest 5 and `@angular/build`/`@angular/cli` 22.2.0 (#3517, supersedes #3490); the
+  Angular group (14 updates, #3489) and the `npm_and_yarn` group (#3488). The dead `hono`
+  override is removed (#3518). KAN-281.
+
+### Backend (`f64174d` → `d43b58f`, 113 commits)
+
+- **Faster recipe pages on mobile** — the image route serves sized WebP variants
+  (`?w=400/800/1200`, Pillow, bounded source size, cached per image version); recipe heroes
+  are no longer lazy-loaded and carry `fetchpriority`, `srcset` and a preload, and browse
+  cards use 400/800w variants. The full-size and variant caches, and the public `?v=` token,
+  are keyed on every stored image source, so a replaced photo is never served stale, and an
+  invalid stored payload is a 404 rather than a 500. KAN-271, KAN-283.
+- **Recipes link to each other** — each recipe page lists up to six public recipes ranked by
+  shared tags (newest as fallback), shows a visible breadcrumb with `BreadcrumbList` JSON-LD,
+  and derives `recipeCategory`/`recipeCuisine` from its tags. `/browse` gains
+  `CollectionPage` + `ItemList` JSON-LD, an `og:image`, and a counted title and description;
+  long titles drop the site suffix and descriptions cut at a sentence boundary; `/r/<slug>/`
+  301s to the canonical URL, keeping only `utm_*` and `save`. KAN-273.
+- **Curated category hubs** — twelve allow-listed hubs at `/browse/tag/<slug>` (breakfast,
+  dessert, high-protein…) with intro copy, JSON-LD, a hub strip on `/browse`, sitemap
+  entries and the category crumb on recipe pages. Hubs with fewer than three live recipes
+  are `noindex` in both the meta tag and `X-Robots-Tag`. KAN-274.
+- **`/about` in the SSR footer and sitemap** (KAN-272); README links to the live site
+  (KAN-277); the obsolete Pinterest `p:domain_verify` placeholder is removed, since the
+  domain is verified by DNS TXT (KAN-277).
+- **`config.py` text-model fallback is `gemini-3.8-flash`**, matching the deploy pins.
+  KAN-282.
+- Dependency bumps: the `python-production` group (14 updates, including `google-genai`
+  2.25.0, SQLAlchemy 2.0.54 and ddtrace 4.15.2), Pillow 12.3.0 added, the uv Docker base
+  0.12.5 → 0.12.19, and CI action versions.
+
+---
+
 ## [0.4.13] - 2026-08-31
 
 Backend submodule pointer: `6becf93` → **`f64174d`** — a **31-commit Backend delta** covering the Valkey response-cache restore, published-copy

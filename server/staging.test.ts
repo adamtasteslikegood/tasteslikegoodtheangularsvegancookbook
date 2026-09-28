@@ -5,6 +5,8 @@
  * - deny-all /robots.txt — which must ALSO carry the X-Robots-Tag header
  *   (regression guard for the ordering bug where the robots.txt route was
  *   registered before the header middleware)
+ * - the SPA catch-all's KAN-276 `noindex, follow` must not weaken staging's
+ *   `noindex, nofollow` on shell responses
  *
  * Follows the boot pattern of server/redirects.test.ts: set the env BEFORE
  * dynamically importing the real Express app (NODE_ENV is read at app-build
@@ -13,18 +15,35 @@
  * test files.
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 let expressServer: Server;
 let baseUrl: string;
+let stubDistDir: string;
 
 const originalVitestEnv = process.env.VITEST;
 const originalNodeEnv = process.env.NODE_ENV;
+const originalSpaDistDir = process.env.SPA_DIST_DIR;
 
 beforeAll(async () => {
   process.env.VITEST = process.env.VITEST || 'true';
   process.env.NODE_ENV = 'staging';
+  // Stub Angular dist/ so the SPA catch-all has a shell to serve (same
+  // pattern as server/routes.test.ts).
+  stubDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spa-dist-stub-staging-'));
+  fs.writeFileSync(
+    path.join(stubDistDir, 'index.html'),
+    '<!doctype html><html><head>' +
+      '<meta name="tlg-home-head-start" content=""><title>Home</title>' +
+      '<link rel="canonical" href="https://www.tasteslikegood.org/">' +
+      '<meta name="tlg-home-head-end" content=""></head>' +
+      '<body><app-root><h1>home-landing</h1></app-root></body></html>'
+  );
+  process.env.SPA_DIST_DIR = stubDistDir;
 
   const { app, ready } = await import('./index.js');
   await ready;
@@ -45,6 +64,12 @@ afterAll(async () => {
   } else {
     process.env.NODE_ENV = originalNodeEnv;
   }
+  if (originalSpaDistDir === undefined) {
+    delete process.env.SPA_DIST_DIR;
+  } else {
+    process.env.SPA_DIST_DIR = originalSpaDistDir;
+  }
+  fs.rmSync(stubDistDir, { recursive: true, force: true });
   await new Promise<void>((resolve) => expressServer.close(() => resolve()));
 });
 
@@ -75,5 +100,23 @@ describe('staging X-Robots-Tag header', () => {
     const res = await fetch(`${baseUrl}/api/health`);
     const body = (await res.json()) as { environment: string };
     expect(body.environment).toBe('staging');
+  });
+});
+
+describe('staging SPA catch-all keeps nofollow (KAN-276)', () => {
+  it('keeps noindex, nofollow in the header and neutral shell', async () => {
+    const res = await fetch(`${baseUrl}/kitchen`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
+    const body = await res.text();
+    expect(body).toContain('<meta name="robots" content="noindex, nofollow" />');
+    expect(body).not.toContain('home-landing');
+    expect(body).not.toContain('rel="canonical"');
+  });
+
+  it('keeps noindex, nofollow on an unknown path (still 404)', async () => {
+    const res = await fetch(`${baseUrl}/some-random-path`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, nofollow');
   });
 });

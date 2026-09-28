@@ -8,6 +8,18 @@ venv_python="$venv_dir/bin/python"
 requirements="$mon_dir/requirements.txt"
 deps_stamp="$venv_dir/.deps-installed"
 
+# Tie the readiness stamp to the exact dependency declaration. A stamp from an
+# older checkout must not suppress installation after requirements.txt changes.
+requirements_hash="$(python3 - "$requirements" <<'PY'
+import hashlib
+import pathlib
+import sys
+
+print(hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest())
+PY
+)"
+installed_hash="$(cat "$deps_stamp" 2>/dev/null || true)"
+
 # Claude Code cloud environments build the venv in the environment's setup
 # script, which runs BEFORE the repo is cloned — so it can't live at
 # $venv_dir and instead sits at a fixed path baked into the snapshot (see
@@ -15,11 +27,78 @@ deps_stamp="$venv_dir/.deps-installed"
 # in-repo bootstrap that races the MCP client's startup timeout.
 for prebuilt in "${GCP_MONITOR_VENV:-}" /opt/gcp-monitor-venv; do
   prebuilt_python="$prebuilt/bin/python"
-  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - <<'EOF' 2>/dev/null
+  if [[ -n "$prebuilt" && -x "$prebuilt_python" ]] && "$prebuilt_python" - "$requirements" <<'EOF' 2>/dev/null
 import importlib.util as u
+import operator
+import pathlib
+import re
 import sys
+from importlib.metadata import PackageNotFoundError, version
 
-sys.exit(0 if u.find_spec("mcp") and u.find_spec("google.cloud.monitoring_v3") else 1)
+# A prebuilt venv lives outside the checkout and cannot share the repo-local
+# hash stamp. Validate every declared requirement against its installed
+# distribution version before taking the fast path, then probe the exact
+# modules imported by both stdio and HTTP startup.
+#
+# Stdlib only (KAN-280): pip's vendored copy of `packaging` is private and
+# distro pips unbundle it, and the public `packaging` is not guaranteed to be
+# in the venv. This parses exactly the `name>=X,<Y` shape requirements.txt
+# uses. Anything else (markers, extras, other operators, pre-release or
+# unparseable versions) fails closed, i.e. falls through to the in-repo
+# bootstrap; test_gsc_tools.py runs this probe against the real
+# requirements.txt so a new line shape cannot silently disable the fast path.
+NAME = re.compile(r"([A-Za-z0-9][A-Za-z0-9._-]*)\s*(.*)")
+CLAUSE = re.compile(r"(>=|<)\s*(\d+(?:\.\d+)*)")
+# Release segment, optionally followed by .postN and/or a +local label; for
+# `>=` and `<` the release tuple alone orders these correctly.
+VERSION = re.compile(r"(\d+(?:\.\d+)*)(?:\.post\d+)?(?:\+[A-Za-z0-9.]+)?")
+OPS = {">=": operator.ge, "<": operator.lt}
+
+
+def release(text):
+    match = VERSION.fullmatch((text or "").strip())
+    if not match:
+        sys.exit(1)
+    return tuple(int(part) for part in match.group(1).split("."))
+
+
+def satisfies(installed, op, bound):
+    width = max(len(installed), len(bound))  # pad so 1.10 == 1.10.0
+    return OPS[op](installed + (0,) * (width - len(installed)), bound + (0,) * (width - len(bound)))
+
+
+for raw_line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    requirement = NAME.fullmatch(line)
+    if not requirement:
+        sys.exit(1)
+    name, specifier = requirement.groups()
+    clauses = [clause.strip() for clause in specifier.split(",")]
+    if not specifier or any(not clause for clause in clauses):
+        sys.exit(1)
+    try:
+        installed = release(version(name))
+    except PackageNotFoundError:
+        sys.exit(1)
+    for clause in clauses:
+        match = CLAUSE.fullmatch(clause)
+        if not match:
+            sys.exit(1)
+        if not satisfies(installed, match.group(1), release(match.group(2))):
+            sys.exit(1)
+
+# "mcp.server.fastmcp", not "mcp": the top-level package still exists on the
+# unsupported mcp 2.x (KAN-207), where this module was removed.
+sys.exit(0 if all(u.find_spec(m) for m in (
+    "mcp.server.fastmcp",
+    "google.cloud.monitoring_v3",
+    "starlette",
+    "uvicorn",
+    "google.auth",
+    "requests",
+)) else 1)
 EOF
   then
     if [[ "${1:-}" == "--bootstrap-only" ]]; then
@@ -34,7 +113,7 @@ done
 # The stamp is written only after pip succeeds, so an interrupted first run
 # (e.g. the MCP client's startup timeout killing us mid-install) re-installs
 # on the next launch instead of exec'ing a half-built venv.
-if [[ ! -x "$venv_python" || ! -f "$deps_stamp" ]]; then
+if [[ ! -x "$venv_python" || "$installed_hash" != "$requirements_hash" ]]; then
   echo "GCP monitor venv not ready. Bootstrapping $venv_dir" >&2
   if [[ ! -x "$venv_python" ]] && ! python3 -m venv "$venv_dir"; then
     cat >&2 <<'EOF'
@@ -47,7 +126,7 @@ EOF
   # corrupts the protocol stream on first run
   "$venv_python" -m pip install --upgrade pip >&2
   "$venv_python" -m pip install -r "$requirements" >&2
-  touch "$deps_stamp"
+  printf '%s\n' "$requirements_hash" >"$deps_stamp"
 fi
 
 # Pre-build the venv without starting the server, so the first real MCP

@@ -9,11 +9,17 @@
  *                    (isPageSubresource)
  *   - index.ts     — the SPA catch-all consults classifyRoute() to 404
  *                    asset-like unrecognized paths instead of serving
- *                    index.html as text/html (RCP-77 AC4)
+ *                    index.html as text/html (RCP-77 AC4), and to answer
+ *                    'unknown' paths with the shell at status 404 rather
+ *                    than a soft-404 200 (KAN-276). It also marks every shell
+ *                    response except `/` as `X-Robots-Tag: noindex, follow`
+ *                    (KAN-276) — so adding a path to `spa` below makes it a
+ *                    200, never an indexable page.
  *
  * and by tests: route-manifest.test.ts unit-tests the classification;
  * routes.test.ts boots the real Express app and asserts unknown asset-like
- * paths are not answered 200 text/html by the catch-all.
+ * paths are not answered 200 text/html by the catch-all, and pins the
+ * status and X-Robots-Tag of shell responses.
  *
  * When adding a new route to Express, add its pattern here first.
  */
@@ -47,20 +53,20 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *
  * Categories:
  *   api         — proxied to Flask (/api/*)
- *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /sitemap.xml)
+ *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /browse/tag/*, /sitemap.xml)
  *   ssrStatic   — Flask SSR static assets (/static/*)
- *   standalone  — Express-served static pages (/privacy-policy, /favicon.ico)
+ *   standalone  — Express-served static pages (/privacy-policy, /about, /favicon.ico, /index.html)
  *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
   api: { prefix: '/api' },
-  /** Flask-rendered SSR pages */
-  ssr: { paths: ['/browse', '/sitemap.xml'], prefixes: ['/r/'] },
+  /** Flask-rendered SSR pages (/browse/tag/<slug>: curated category hubs, KAN-274) */
+  ssr: { paths: ['/browse', '/browse/tag', '/sitemap.xml'], prefixes: ['/r/', '/browse/tag/'] },
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
   /** Express-served standalone pages */
-  standalone: { paths: ['/privacy-policy', '/favicon.ico'] },
+  standalone: { paths: ['/privacy-policy', '/about', '/favicon.ico', '/index.html'] },
   /** Angular SPA routes — catch-all serves index.html */
   spa: { paths: ['/', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
 } as const;
@@ -137,7 +143,9 @@ export type RouteClass = 'api' | 'ssr' | 'ssrStatic' | 'standalone' | 'asset' | 
  * 'asset' that reaches the catch-all was not found by express.static or any
  * earlier route, and must 404 rather than receive index.html as text/html —
  * a text/html "asset" is refused by browsers under X-Content-Type-Options:
- * nosniff and leaks the shell to crawlers (RCP-77 AC4).
+ * nosniff and leaks the shell to crawlers (RCP-77 AC4). A path classified
+ * 'unknown' still receives the shell, but with status 404 (KAN-276); 'spa'
+ * paths receive it with 200.
  *
  * Order matters: named surfaces (api/ssr/standalone) win over the asset
  * extension check (/sitemap.xml is ssr, /favicon.ico is standalone), and the
@@ -153,7 +161,11 @@ export function classifyRoute(path: string): RouteClass {
   if ((standalone.paths as readonly string[]).includes(path)) return 'standalone';
   if (looksLikeStaticAsset(path)) return 'asset';
   if ((spa.paths as readonly string[]).includes(path)) return 'spa';
-  if (spa.prefixes.some((prefix) => path.startsWith(prefix))) return 'spa';
+  // Prefix routes require content after the slash: /recipe/<id> is valid,
+  // while the collection-like /recipe/ path is not a known SPA page.
+  if (spa.prefixes.some((prefix) => path.startsWith(prefix) && path.length > prefix.length)) {
+    return 'spa';
+  }
   return 'unknown';
 }
 

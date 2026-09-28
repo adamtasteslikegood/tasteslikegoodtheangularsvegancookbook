@@ -41,7 +41,7 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 
 `dev` and `main` are protected: **direct pushes are rejected**. All changes reach them via PR only. If you try `git push` to `dev` you will get `push declined due to repository rule violations`. This is not a bug — create a branch, push it, and open a PR.
 
-**Merge method (cookbook):** `dev` and `main` both allow **`merge` or `rebase` only — squash is blocked**. Use `gh pr merge <n> --merge`. Backend `dev` still allows squash; Backend `main` does not. `required_linear_history` is **not** set on any branch in either repo — if a doc tells you otherwise it is stale, and squashing to satisfy it destroys the ancestry that history reconciliation depends on.
+**Merge method (cookbook):** `dev` and `main` both allow **`merge` or `rebase` only — squash is blocked**. Use `gh pr merge <n> --merge`. Backend `dev` and `main` block squash too (verified 2026-09-19 against the live `dev` ruleset — GitHub rejects `--squash` with "Merge method squash merging is not allowed on this repository"; pending Backend #315 changes the Dependabot auto-merge workflow to pick rebase or merge per PR). `required_linear_history` is **not** set on any branch in either repo — if a doc tells you otherwise it is stale, and squashing to satisfy it destroys the ancestry that history reconciliation depends on.
 
 **Unresolved review threads block the merge** (`required_review_thread_resolution`). Answer and resolve every thread, or the PR sits at `BLOCKED` with all checks green.
 
@@ -129,7 +129,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 ## Project
 
-**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.7-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
+**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field (currently v0.4.2)
@@ -275,7 +275,7 @@ npm run pm:daemon:status     # check if daemon is alive
 ## Non-obvious patterns
 
 - **Rate limiter** uses Valkey for distributed state. GH #163/#162 are FIXED (2026-04-15). Live concerns are Flask-side: IAM token-refresh (Backend #247) and response-cache lost in merge `07123c2` (KAN-151).
-- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use. The model choice itself is **settled**: `gemini-3.7-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) — both GA, both verified on the live API surface, and pinned in `cloudbuild.yaml`. The `Backend/config.py` defaults are being moved onto the same pair by Backend PR #298; until that lands and the submodule pointer is bumped, those pins are load-bearing and must not be removed. There is no GA Gemini 3.x _Pro_ text model, so `gemini-3.1-pro-preview` is not an alternative: it is a preview model, and preview-model retirement is what took production down when Imagen 4.0 was withdrawn. Do not propose reverting either.
+- **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use. The model choice itself is **settled**: `gemini-3.8-flash` (text; moved from `gemini-3.7-flash` on 2026-09-28, KAN-282) and `gemini-3-pro-image` (images, Nano Banana Pro) — both GA, both verified on the live API surface, and pinned in `cloudbuild.yaml`. Backend PR #323 moves the `Backend/config.py` text fallback to match; the image fallback already matches. Until #323 lands and the submodule pointer is bumped, those pins are load-bearing and must not be removed. There is no GA Gemini 3.x _Pro_ text model, so `gemini-3.1-pro-preview` is not an alternative: it is a preview model, and preview-model retirement is what took production down when Imagen 4.0 was withdrawn. Do not propose reverting either.
 - **Backend submodule** — remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`. Always check for open Backend PRs and unsynced commits before backend work or releases.
 - **gbrain and Backend** — Backend indexed as separate source `gstack-code-backend`; queries need `--source gstack-code-backend` or they silently miss. Never run `/sync-gbrain` from inside `Backend/`.
 - **TypeScript pinned exactly** (`6.0.3`) — Angular 22 needs TS >=6.0 <6.1. Bump TS + all `@angular/*` + `@angular-eslint/*` together.

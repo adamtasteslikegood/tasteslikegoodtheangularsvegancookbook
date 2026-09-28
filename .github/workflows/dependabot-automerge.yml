@@ -38,7 +38,13 @@ jobs:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge (squash)
+      # Squash is blocked on dev by ruleset (GitHub rejects it with "Merge
+      # method squash merging is not allowed on this repository"), so pick per
+      # PR: a single-commit bump rebases cleanly and keeps history linear; a
+      # multi-commit PR gets a merge commit so its ancestry survives. If the
+      # ruleset rejects the first choice, fall back to the other rather than
+      # leaving the PR unmerged.
+      - name: Enable auto-merge (rebase or merge)
         if: steps.metadata.outputs.update-type != 'version-update:semver-major'
         uses: actions/github-script@v9
         with:
@@ -56,14 +62,26 @@ jobs:
 
             core.info(`Dependabot update-type: ${{ steps.metadata.outputs.update-type }}`);
 
-            await github.graphql(`
-              mutation($pullRequestId:ID!) {
-                enablePullRequestAutoMerge(input:{
-                  pullRequestId:$pullRequestId,
-                  mergeMethod:SQUASH
-                }) { pullRequest { number } }
-              }`,
-              { pullRequestId: pr.data.node_id }
-            );
-
-            core.info(`Enabled auto-merge (squash) for PR #${pull_number}.`);
+            const commits = pr.data.commits;
+            const order = commits === 1 ? ["REBASE", "MERGE"] : ["MERGE", "REBASE"];
+            const failures = [];
+            for (const mergeMethod of order) {
+              try {
+                await github.graphql(`
+                  mutation($pullRequestId:ID!, $mergeMethod:PullRequestMergeMethod!) {
+                    enablePullRequestAutoMerge(input:{
+                      pullRequestId:$pullRequestId,
+                      mergeMethod:$mergeMethod
+                    }) { pullRequest { number } }
+                  }`,
+                  { pullRequestId: pr.data.node_id, mergeMethod }
+                );
+                core.info(`Enabled auto-merge (${mergeMethod.toLowerCase()}) for PR #${pull_number} (${commits} commit${commits === 1 ? "" : "s"}).`);
+                return;
+              } catch (err) {
+                const reason = err instanceof Error ? err.message : String(err);
+                failures.push(`${mergeMethod}: ${reason}`);
+                core.warning(`Auto-merge with ${mergeMethod} rejected; trying the next method.`);
+              }
+            }
+            core.setFailed(`Could not enable auto-merge with any allowed method:\n${failures.join("\n")}`);

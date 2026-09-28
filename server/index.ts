@@ -1,4 +1,5 @@
 import express from 'express';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Server } from 'node:http';
@@ -13,7 +14,7 @@ import {
 import { createFlaskProxy } from './proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
-import { classifyRoute } from './route-manifest.js';
+import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -138,13 +139,107 @@ export const ready = (async () => {
     ? path.resolve(process.env.SPA_DIST_DIR)
     : path.resolve(__dirname, '..', '..', 'dist');
 
+  // index.html contains useful static landing copy for the canonical home page,
+  // but the same file is also the fallback for /kitchen and /recipe/:id.
+  // Derive and cache a route-neutral form only if the catch-all is reached.
+  // Keeping this lazy preserves existing test/server startup behavior when no
+  // built SPA exists yet, while direct non-home loads never expose home copy.
+  const spaIndexPath = path.join(distPath, 'index.html');
+  let routeNeutralSpaShellPromise: Promise<string> | undefined;
+  const getRouteNeutralSpaShell = (): Promise<string> => {
+    if (routeNeutralSpaShellPromise) return routeNeutralSpaShellPromise;
+    // Wrap the parse so a transient readFile failure or a build that ships
+    // without the sentinels does not poison the cache: on rejection, clear
+    // the memo so the next request retries instead of 500ing forever.
+    const attempt = readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
+      // The checked-in index also carries home-only title/canonical/social tags
+      // and structured data. Removing only <app-root>'s children still exposed
+      // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
+      // head block and replace it with deliberately generic, non-indexable
+      // metadata before serving any non-home SPA fallback.
+      // Meta sentinels survive Angular's production HTML minification; ordinary
+      // comments do not. Match with a regex tolerant to attribute reordering,
+      // quote-style changes, and self-closing syntax that a future minifier
+      // upgrade could introduce. The name value is followed by a required
+      // boundary (quote, whitespace, `/`, or `>`) so a future sentinel-prefixed
+      // name like `tlg-home-head-start-social` cannot accidentally match here.
+      const homeHeadStartRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-start"|'tlg-home-head-start'|tlg-home-head-start(?=[\s/>]))[^>]*>/i;
+      const homeHeadEndRe =
+        /<meta\s+[^>]*name=(?:"tlg-home-head-end"|'tlg-home-head-end'|tlg-home-head-end(?=[\s/>]))[^>]*>/i;
+      const homeHeadStartMatch = homeHeadStartRe.exec(fullSpaShell);
+      const homeHeadEndMatch = homeHeadStartMatch
+        ? homeHeadEndRe.exec(fullSpaShell.slice(homeHeadStartMatch.index))
+        : null;
+      if (!homeHeadStartMatch || !homeHeadEndMatch) {
+        throw new Error('Angular index.html is missing its home-page head sentinels');
+      }
+      const homeHeadStart = homeHeadStartMatch.index;
+      const homeHeadEnd =
+        homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
+      const neutralRobots = isStaging ? 'noindex, nofollow' : 'noindex, follow';
+      const neutralHead = `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
+      const shellWithoutHomeHead =
+        fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
+
+      const appRootOpenMatch = /<app-root(?:\s[^>]*)?>/.exec(shellWithoutHomeHead);
+      const appRootOpen = appRootOpenMatch?.index ?? -1;
+      const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
+      if (appRootOpen === -1 || appRootClose === -1 || !appRootOpenMatch) {
+        throw new Error('Angular index.html is missing its app-root element');
+      }
+
+      const appRootContentStart = appRootOpen + appRootOpenMatch[0].length;
+      return (
+        shellWithoutHomeHead.slice(0, appRootContentStart) +
+        shellWithoutHomeHead.slice(appRootClose)
+      );
+    });
+    routeNeutralSpaShellPromise = attempt.catch((err) => {
+      routeNeutralSpaShellPromise = undefined;
+      throw err;
+    });
+    return routeNeutralSpaShellPromise;
+  };
+
+  // /index.html is a duplicate of the canonical home URL. Redirect it before
+  // express.static can serve the file directly. Carry forward only the home
+  // parameters the SPA understands; never reflect an arbitrary query string
+  // into a redirect target.
+  app.get('/index.html', staticPageLimiter, (req, res) => {
+    const query = new URLSearchParams();
+    if (req.query.auth === 'success') query.set('auth', 'success');
+
+    const save = req.query.save;
+    if (typeof save === 'string' && /^[a-z0-9-]{1,200}$/.test(save)) {
+      query.set('save', save);
+    }
+
+    const suffix = query.size > 0 ? `?${query.toString()}` : '';
+    res.redirect(301, `/${suffix}`);
+  });
+
+  // The compiled Angular bundles and public assets must remain mounted before
+  // the SPA catch-all. Missing assets then fall through to the asset 404 below.
   app.use(express.static(distPath));
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
-  const publicPath = path.resolve(__dirname, '..', 'public');
+  // Source tests execute from server/, while production runs the compiled file
+  // from server/dist/. Resolve the checked-in server/public directory in both
+  // modes so standalone pages are testable through the real Express route.
+  const publicPath =
+    path.basename(__dirname) === 'dist'
+      ? path.resolve(__dirname, '..', 'public')
+      : path.resolve(__dirname, 'public');
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
     res.sendFile(path.join(publicPath, 'privacy-policy.html'));
+  });
+
+  // About page (KAN-272, SEO audit C5): who makes the site and why, with the
+  // author's Person schema. Static, like the privacy policy.
+  app.get('/about', staticPageLimiter, (_req, res) => {
+    res.sendFile(path.join(publicPath, 'about.html'));
   });
 
   // /favicon.ico — browsers and crawlers request this path unconditionally,
@@ -200,6 +295,11 @@ export const ready = (async () => {
     next();
   });
   app.get('/browse', staticPageLimiter, ssrProxy);
+  // KAN-274: curated category hubs. Flask owns the allow-list (unknown slugs
+  // and the prefix root 404 there) and the trailing-slash 301, so both the
+  // prefix root and every child path must reach the SSR service.
+  app.get('/browse/tag', staticPageLimiter, ssrProxy);
+  app.get('/browse/tag/*splat', staticPageLimiter, ssrProxy);
   app.get('/sitemap.xml', staticPageLimiter, ssrProxy);
   // The SSR templates link their stylesheets via Flask's /static/ (e.g.
   // /static/css/tokens.css). Without this route those requests fall through
@@ -209,18 +309,63 @@ export const ready = (async () => {
   // express.static so Angular build assets (if any collide) still win.
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
-  app.get('{*path}', staticPageLimiter, (req, res) => {
+  app.get('{*path}', staticPageLimiter, async (req, res) => {
+    // Classified through absoluteRequestPath() — the same composed,
+    // trailing-slash-trimmed path security.ts asks the manifest about — so
+    // `/kitchen/` reads as the SPA route it is rather than an unknown path.
+    const routePath = absoluteRequestPath(req);
+    const routeClass = classifyRoute(routePath);
+
+    // KAN-276: the home page is the only SPA shell worth indexing. Every
+    // other shell response is either a private per-user surface (/kitchen),
+    // a duplicate of a public SSR page (/recipe/<id> vs /r/<slug>), or a
+    // soft-404, and all of them carry the home page's canonical. Overrides
+    // the production `index, follow` security.ts set earlier in the chain.
+    // Staging is left alone: its global `noindex, nofollow` is stricter.
+    if (routePath !== '/' && !isStaging) {
+      res.setHeader('X-Robots-Tag', 'noindex, follow');
+    }
+
     // RCP-77 AC4 (KAN-160): an asset-like path reaching the catch-all was not
     // found by express.static or any earlier route. Serving index.html here
     // would answer 200 text/html for a missing .js/.css/.map — the browser
     // refuses it under nosniff and crawlers see soft-404 shell spam. 404
     // instead. Classification comes from the route manifest so the policy
     // lives in one place (server/route-manifest.ts).
-    if (classifyRoute(req.path) === 'asset') {
+    if (routeClass === 'asset') {
       res.status(404).json({ error: 'Not found' });
       return;
     }
-    res.sendFile(path.join(distPath, 'index.html'));
+
+    // KAN-276: a path that is not a known SPA route is a real 404, not a
+    // soft one. The shell is still served so the browser lands somewhere
+    // sensible (Angular's `**` route redirects to the home page).
+    if (routeClass === 'unknown') {
+      res.status(404);
+    }
+    // KAN-272: only the home page gets the full shell with its landing copy
+    // and home metadata; express.static normally answers "/" first, so this
+    // is a safety net. Every other route gets the route-neutral shell.
+    if (routePath === '/') {
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    let neutralShell: string;
+    try {
+      neutralShell = await getRouteNeutralSpaShell();
+    } catch (err) {
+      // A shell we cannot neutralise (no sentinels, no <app-root>) must not
+      // take every non-home route down with a 500. Fall back to the full
+      // shell: the pre-KAN-272 behaviour, a flash of home copy at worst.
+      console.warn('[spa] serving the full shell; route-neutral shell unavailable:', err);
+      res.sendFile(spaIndexPath);
+      return;
+    }
+    // Mirror the Cache-Control the / sendFile branch inherits from Express's
+    // static/send defaults so intermediaries don't cache the noindex shell
+    // longer than the indexable home shell.
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    res.type('html').send(neutralShell);
   });
 
   // Error handling middleware (must be last)

@@ -68,7 +68,7 @@ substitutions:
   # PR #3439 adds the same pair to cloudbuild.yaml. If both land, keep the two
   # files in step — a silent divergence here is exactly the class of drift
   # that made the imagen-4.0 retirement invisible until production broke.
-  _TEXT_MODEL: gemini-3.7-flash
+  _TEXT_MODEL: gemini-3.8-flash
   _IMAGE_MODEL: gemini-3-pro-image
   _VERSION: staging
 

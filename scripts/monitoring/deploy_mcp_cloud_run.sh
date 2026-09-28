@@ -52,6 +52,13 @@ gcloud projects add-iam-policy-binding "$PROJECT_ID" \
   --role roles/monitoring.viewer \
   --condition None >/dev/null
 
+# Search Console tools (gsc_tools.py, KAN-270). Enabling the API is the only
+# GCP-side step; access to the property itself is granted inside Search
+# Console, per user, and no IAM role can substitute for it — see the notice
+# printed at the end of this script.
+echo "Enabling searchconsole.googleapis.com for the Search Console tools"
+gcloud services enable searchconsole.googleapis.com --project "$PROJECT_ID" >/dev/null
+
 # ── 2. Secret path token ─────────────────────────────────────────────────────
 # The token becomes a URL path segment (the endpoint is /<token>/mcp), so it must
 # be URL-path-safe. New tokens are base64url with the '=' padding stripped for a
@@ -91,7 +98,7 @@ gcloud run deploy "$SERVICE" \
   --region "$REGION" \
   --source "$SOURCE_DIR" \
   --service-account "$SA_EMAIL" \
-  --set-env-vars "MCP_TRANSPORT=http,GCP_PROJECT_ID=$PROJECT_ID" \
+  --set-env-vars "MCP_TRANSPORT=http,GCP_PROJECT_ID=$PROJECT_ID,GSC_SITE_URL=${GSC_SITE_URL:-sc-domain:tasteslikegood.org},GSC_PUBLIC_BASE=${GSC_PUBLIC_BASE:-https://www.tasteslikegood.org},GSC_PRINCIPAL_EMAIL=$SA_EMAIL" \
   --set-secrets "MCP_AUTH_TOKEN=${SECRET_NAME}:latest" \
   --allow-unauthenticated \
   --min-instances 0 \
@@ -145,3 +152,11 @@ echo "The same URL works from Claude Code CLI / Desktop / the API connector too.
 echo
 echo "Fetch the token:"
 echo "  gcloud secrets versions access latest --secret=$SECRET_NAME --project=$PROJECT_ID"
+echo
+echo "Search Console tools (gsc_*): ONE manual step remains, and it is not IAM."
+echo "  Search Console -> property ${GSC_SITE_URL:-sc-domain:tasteslikegood.org}"
+echo "  -> Settings -> Users and permissions -> Add user"
+echo "       email:      $SA_EMAIL"
+echo "       permission: Restricted (read-only is all the tools need)"
+echo "  Then call the gsc_sites tool from the connector: it must list the property."
+echo "  Until the user is added every gsc_* tool returns that instruction instead of data."

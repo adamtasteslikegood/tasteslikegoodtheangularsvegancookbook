@@ -3,6 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import type { Recipe } from '../../recipe.types';
+import {
+  LANDING_FAQ,
+  LANDING_H1,
+  LANDING_INTRO,
+  LANDING_LEAD,
+  LANDING_STEPS,
+} from './landing-copy';
 
 @Component({
   selector: 'app-generator',
@@ -11,6 +18,15 @@ import type { Recipe } from '../../recipe.types';
   templateUrl: './generator.component.html',
 })
 export class GeneratorComponent extends RecipeViewBase {
+  /** Landing copy (KAN-272); mirrored into index.html — see landing-copy.ts. */
+  readonly landing = {
+    h1: LANDING_H1,
+    lead: LANDING_LEAD,
+    intro: LANDING_INTRO,
+    steps: LANDING_STEPS,
+    faq: LANDING_FAQ,
+  };
+
   prompt = signal('');
   isRecipeLoading = signal(false);
   error = signal<string | null>(null);
