@@ -455,8 +455,8 @@
   </main>
 </div>
 
-<!-- Delete Recipe Confirmation Modal -->
-@if (showDeleteConfirmation()) {
+<!-- Delete Recipe Confirmation Modal (KAN-289: three modes, see deleteModeFor) -->
+@if (showDeleteConfirmation() && recipeToDelete(); as r) {
   <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
     <button
       type="button"
@@ -467,6 +467,9 @@
     ></button>
     <div
       class="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl p-6 animate-[fadeIn_0.3s_ease-out]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="delete-recipe-title"
     >
       <div class="text-center mb-4">
         <div
@@ -485,24 +488,89 @@
             />
           </svg>
         </div>
-        <h3 class="text-xl font-bold text-stone-800 serif">Delete Recipe?</h3>
-        <p class="text-stone-500 mt-2 text-sm">
-          <strong>{{ recipeToDelete()?.name }}</strong> will be moved to the Recycle Bin.
-        </p>
+        @switch (deleteMode()) {
+          @case ('published') {
+            <h3 id="delete-recipe-title" class="text-xl font-bold text-stone-800 serif">
+              This recipe is published
+            </h3>
+            <p class="text-stone-500 mt-2 text-sm">
+              <strong>{{ r.name }}</strong> is live on the site, so it can't be deleted. Unpublish
+              it first, then come back here to delete it.
+            </p>
+          }
+          @case ('retiring') {
+            <h3 id="delete-recipe-title" class="text-xl font-bold text-stone-800 serif">
+              Delete a once-published recipe?
+            </h3>
+            <div class="text-stone-600 mt-2 text-sm text-left space-y-2">
+              <p>
+                <strong>{{ r.name }}</strong> used to have a public page. Deleting it retires that
+                address for good:
+              </p>
+              <ul class="list-disc pl-5 space-y-1">
+                <li>
+                  <code class="text-stone-800">/r/{{ retiringText() }}</code> will answer "removed"
+                  to anyone who follows an old link or bookmark.
+                </li>
+                <li>
+                  No recipe will ever get that address again, including this one if you restore it
+                  from the Recycle Bin.
+                </li>
+              </ul>
+              <p class="font-bold text-red-700">This action is NOT reversible.</p>
+              <label class="block pt-1">
+                <span class="text-stone-600">
+                  Type <code class="font-bold text-stone-800">{{ retiringText() }}</code> to
+                  confirm:
+                </span>
+                <input
+                  type="text"
+                  autocomplete="off"
+                  autocapitalize="off"
+                  spellcheck="false"
+                  class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 font-mono text-stone-800 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+                  [value]="deleteConfirmationTyped()"
+                  (input)="deleteConfirmationTyped.set($any($event.target).value)"
+                />
+              </label>
+            </div>
+          }
+          @default {
+            <h3 id="delete-recipe-title" class="text-xl font-bold text-stone-800 serif">
+              Delete Recipe?
+            </h3>
+            <p class="text-stone-500 mt-2 text-sm">
+              <strong>{{ r.name }}</strong> will be moved to the Recycle Bin.
+            </p>
+          }
+        }
+        @if (deleteError(); as message) {
+          <p class="mt-3 text-sm text-red-700" role="alert">{{ message }}</p>
+        }
       </div>
       <div class="flex gap-3">
-        <button
-          (click)="cancelDeleteRecipe()"
-          class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
-        >
-          Cancel
-        </button>
-        <button
-          (click)="confirmDeleteRecipe()"
-          class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20"
-        >
-          Delete
-        </button>
+        @if (deleteMode() === 'published') {
+          <button
+            (click)="cancelDeleteRecipe()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+          >
+            OK
+          </button>
+        } @else {
+          <button
+            (click)="cancelDeleteRecipe()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+          >
+            Cancel
+          </button>
+          <button
+            (click)="confirmDeleteRecipe()"
+            [disabled]="!canConfirmDelete()"
+            class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {{ deleteMode() === 'retiring' ? 'Delete forever' : 'Delete' }}
+          </button>
+        }
       </div>
     </div>
   </div>

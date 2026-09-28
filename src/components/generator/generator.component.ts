@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
+import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
 import {
   LANDING_FAQ,
@@ -15,7 +16,7 @@ import {
 @Component({
   selector: 'app-generator',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UnpublishConfirmComponent],
   templateUrl: './generator.component.html',
 })
 export class GeneratorComponent extends RecipeViewBase {

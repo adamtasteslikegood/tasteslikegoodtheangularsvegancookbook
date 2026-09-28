@@ -181,6 +181,38 @@ export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe 
   };
 }
 
+/** KAN-289 — what the kitchen needs to know after asking to delete a recipe. */
+export type DeleteOutcome = { ok: true } | { ok: false; message: string };
+
+export const DELETE_SYNC_FAILURE =
+  "Couldn't delete this recipe. Check your connection and try again; it is still in your cookbook.";
+export const DELETE_PUBLISHED_REFUSAL =
+  'This recipe is published. Unpublish it before deleting it: deleting permanently retires its public page.';
+
+/**
+ * KAN-289 — decide what a DELETE /api/recipes/:id response means.
+ *
+ * Only a success or a 404 (the row is already gone server-side, e.g. deleted
+ * from another device) lets the local delete go ahead. A 409 is the KAN-288
+ * refusal to delete a published recipe and a 400 the KAN-139 canonical lock;
+ * for both the server's text wins over the client fallback. Anything else is a failure: the local copy must stay, or the row
+ * lives on server-side with no way back to it from the kitchen.
+ */
+export async function interpretDeleteResponse(res: SaveResponseLike): Promise<DeleteOutcome> {
+  if (res.ok || res.status === 404) return { ok: true };
+  if (res.status === 409 || res.status === 400) {
+    let message = res.status === 409 ? DELETE_PUBLISHED_REFUSAL : DELETE_SYNC_FAILURE;
+    try {
+      const body = (await res.json()) as { error?: unknown } | null;
+      if (body && typeof body.error === 'string' && body.error) message = body.error;
+    } catch {
+      // Body missing or not JSON: keep the client fallback.
+    }
+    return { ok: false, message };
+  }
+  return { ok: false, message: DELETE_SYNC_FAILURE };
+}
+
 /**
  * PersistenceService — hybrid persistence layer for Phase IV.
  *
@@ -354,15 +386,34 @@ export class PersistenceService {
     }
   }
 
-  async deleteRecipe(recipeId: string): Promise<void> {
+  /**
+   * KAN-289 — server first, then the local recycle bin, and only on success.
+   *
+   * This used to move the recipe to the bin (and out of every cookbook) and
+   * then fire the DELETE without reading the answer. Once the server can say
+   * no — KAN-288 refuses to delete a published recipe with 409 — that order
+   * orphans the row: still public on the site, gone from the owner's kitchen,
+   * so the toggle that would unpublish it is unreachable. That is exactly how
+   * the zucchini poppers page was stranded.
+   */
+  async deleteRecipe(recipeId: string): Promise<DeleteOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return { ok: false, message: DELETE_SYNC_FAILURE };
 
-    // Soft-delete: move to recycle bin in localStorage
-    this.auth.deleteRecipe(recipeId);
+    let outcome: DeleteOutcome;
+    try {
+      const res = await this._fetch(`/api/recipes/${encodeURIComponent(recipeId)}`, {
+        method: 'DELETE',
+      });
+      outcome = await interpretDeleteResponse(res);
+    } catch (err) {
+      console.warn(`[PersistenceService] deleteRecipe failed for ${recipeId}:`, err);
+      outcome = { ok: false, message: DELETE_SYNC_FAILURE };
+    }
 
-    // Backend hard-deletes (no recycle bin server-side yet)
-    await this._fetch(`/api/recipes/${recipeId}`, { method: 'DELETE' });
+    // Soft-delete locally (recycle bin); the backend hard-deletes (KAN-290).
+    if (outcome.ok) this.auth.deleteRecipe(recipeId);
+    return outcome;
   }
 
   async restoreRecipe(recipeId: string): Promise<void> {

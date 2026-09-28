@@ -6,7 +6,31 @@ import { GeminiService } from '../../services/gemini.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
+import { hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
+
+/**
+ * KAN-289 — which confirmation the delete button opens.
+ *
+ * 'published' — live on the site. Deleting is refused outright (the server
+ *               answers 409 too). The dialog only says to unpublish first:
+ *               no link or shortcut to do it, by design (Adam, 2026-09-28).
+ * 'retiring'  — unpublished, but it once had a public page. Deleting retires
+ *               that /r/<slug> for good (410, never reused), so the user types
+ *               the slug to confirm.
+ * 'bin'       — never published: the ordinary recycle-bin confirmation.
+ */
+export type DeleteMode = 'published' | 'retiring' | 'bin';
+
+export function deleteModeFor(recipe: Recipe): DeleteMode {
+  if (recipe.is_public) return 'published';
+  return hasEverBeenPublished(recipe) ? 'retiring' : 'bin';
+}
+
+/** What the user must type to confirm a 'retiring' delete. */
+export function retiringConfirmationText(recipe: Recipe): string {
+  return recipe.slug || recipe.name;
+}
 
 @Component({
   selector: 'app-kitchen',
@@ -41,6 +65,30 @@ export class KitchenComponent {
   showRecycleBin = signal(false);
   showDeleteConfirmation = signal(false);
   recipeToDelete = signal<Recipe | null>(null);
+  deleteMode = computed<DeleteMode | null>(() => {
+    const r = this.recipeToDelete();
+    return r ? deleteModeFor(r) : null;
+  });
+  retiringText = computed(() => {
+    const r = this.recipeToDelete();
+    return r ? retiringConfirmationText(r) : '';
+  });
+  deleteConfirmationTyped = signal('');
+  deleteInFlight = signal(false);
+  /** Why the last delete attempt was refused; shown inside the dialog. */
+  deleteError = signal<string | null>(null);
+  canConfirmDelete = computed(() => {
+    const r = this.recipeToDelete();
+    if (!r || this.deleteInFlight()) return false;
+    switch (this.deleteMode()) {
+      case 'bin':
+        return true;
+      case 'retiring':
+        return this.deleteConfirmationTyped().trim() === retiringConfirmationText(r);
+      default:
+        return false;
+    }
+  });
   showEmptyBinConfirmation = signal(false);
 
   recycleBinRecipes = computed(() => this.authService.currentUser()?.deletedRecipes || []);
@@ -99,23 +147,37 @@ export class KitchenComponent {
     // the template disables the button — this backstops it.
     if (recipe.is_canonical) return;
     this.recipeToDelete.set(recipe);
+    this.deleteConfirmationTyped.set('');
+    this.deleteError.set(null);
     this.showDeleteConfirmation.set(true);
   }
 
   async confirmDeleteRecipe() {
     const r = this.recipeToDelete();
-    if (!r) return;
-    await this.persistenceService.deleteRecipe(r.id);
-    if (this.recipeState.currentRecipe()?.id === r.id) {
-      this.recipeState.clearRecipe();
+    if (!r || !this.canConfirmDelete()) return;
+    this.deleteInFlight.set(true);
+    this.deleteError.set(null);
+    try {
+      // KAN-289: the recipe leaves the kitchen only once the server agrees.
+      const outcome = await this.persistenceService.deleteRecipe(r.id);
+      if (!outcome.ok) {
+        this.deleteError.set(outcome.message);
+        return;
+      }
+      if (this.recipeState.currentRecipe()?.id === r.id) {
+        this.recipeState.clearRecipe();
+      }
+      this.cancelDeleteRecipe();
+    } finally {
+      this.deleteInFlight.set(false);
     }
-    this.showDeleteConfirmation.set(false);
-    this.recipeToDelete.set(null);
   }
 
   cancelDeleteRecipe() {
     this.showDeleteConfirmation.set(false);
     this.recipeToDelete.set(null);
+    this.deleteConfirmationTyped.set('');
+    this.deleteError.set(null);
   }
 
   async restoreRecipe(recipeId: string) {
