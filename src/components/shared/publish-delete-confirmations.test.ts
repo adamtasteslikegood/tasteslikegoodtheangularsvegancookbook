@@ -21,7 +21,11 @@ import {
   PersistenceService,
   interpretDeleteResponse,
 } from '../../services/persistence.service';
-import { deleteModeFor, retiringConfirmationText } from '../kitchen/kitchen.component';
+import {
+  KitchenComponent,
+  deleteModeFor,
+  retiringConfirmationText,
+} from '../kitchen/kitchen.component';
 import { hasEverBeenPublished, recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
 
@@ -135,6 +139,26 @@ describe('deleteModeFor', () => {
     expect(retiringConfirmationText(recipe({ first_published_at: '2026-08-12' }))).toBe(
       'Vegan Zucchini Poppers'
     );
+  });
+});
+
+describe('KitchenComponent pending delete', () => {
+  it('does not dismiss a delete that the server may already complete', () => {
+    const showDeleteConfirmation = { set: vi.fn() };
+    const recipeToDelete = { set: vi.fn() };
+    const deleteConfirmationTyped = { set: vi.fn() };
+    const deleteError = { set: vi.fn() };
+
+    KitchenComponent.prototype.cancelDeleteRecipe.call({
+      deleteInFlight: () => true,
+      showDeleteConfirmation,
+      recipeToDelete,
+      deleteConfirmationTyped,
+      deleteError,
+    } as unknown as KitchenComponent);
+
+    expect(showDeleteConfirmation.set).not.toHaveBeenCalled();
+    expect(recipeToDelete.set).not.toHaveBeenCalled();
   });
 });
 

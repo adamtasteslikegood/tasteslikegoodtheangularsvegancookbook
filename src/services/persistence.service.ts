@@ -173,11 +173,28 @@ export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe 
     else if (typeof value === 'string' && value) serverSourceRecipeId = value;
   }
 
-  if (serverSlug === recipe.slug && serverSourceRecipeId === recipe.sourceRecipeId) return recipe;
+  let serverFirstPublishedAt = recipe.first_published_at;
+  let hasServerFirstPublishedAt = false;
+  if ('first_published_at' in row) {
+    const value = row['first_published_at'];
+    if (value === null || (typeof value === 'string' && value)) {
+      serverFirstPublishedAt = value;
+      hasServerFirstPublishedAt = true;
+    }
+  }
+
+  if (
+    serverSlug === recipe.slug &&
+    serverSourceRecipeId === recipe.sourceRecipeId &&
+    serverFirstPublishedAt === recipe.first_published_at
+  ) {
+    return recipe;
+  }
   return {
     ...recipe,
     ...(serverSlug ? { slug: serverSlug } : {}),
     sourceRecipeId: serverSourceRecipeId,
+    ...(hasServerFirstPublishedAt ? { first_published_at: serverFirstPublishedAt } : {}),
   };
 }
 

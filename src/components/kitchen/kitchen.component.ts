@@ -167,13 +167,21 @@ export class KitchenComponent {
       if (this.recipeState.currentRecipe()?.id === r.id) {
         this.recipeState.clearRecipe();
       }
-      this.cancelDeleteRecipe();
+      this.closeDeleteDialog();
     } finally {
       this.deleteInFlight.set(false);
     }
   }
 
   cancelDeleteRecipe() {
+    // Once DELETE has reached the server, closing the dialog cannot cancel it.
+    // Keep the operation visible until its outcome is known so Cancel never
+    // promises something the client can no longer deliver.
+    if (this.deleteInFlight()) return;
+    this.closeDeleteDialog();
+  }
+
+  private closeDeleteDialog() {
     this.showDeleteConfirmation.set(false);
     this.recipeToDelete.set(null);
     this.deleteConfirmationTyped.set('');

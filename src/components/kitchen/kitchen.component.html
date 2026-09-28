@@ -462,6 +462,7 @@
       type="button"
       class="absolute inset-0 bg-stone-900/50 backdrop-blur-sm"
       (click)="cancelDeleteRecipe()"
+      [disabled]="deleteInFlight()"
       aria-label="Close delete recipe dialog"
       tabindex="-1"
     ></button>
@@ -552,6 +553,7 @@
         @if (deleteMode() === 'published') {
           <button
             (click)="cancelDeleteRecipe()"
+            [disabled]="deleteInFlight()"
             class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
           >
             OK
@@ -559,7 +561,8 @@
         } @else {
           <button
             (click)="cancelDeleteRecipe()"
-            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200"
+            [disabled]="deleteInFlight()"
+            class="flex-1 py-3 bg-stone-100 text-stone-600 font-bold rounded-xl hover:bg-stone-200 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
@@ -568,7 +571,13 @@
             [disabled]="!canConfirmDelete()"
             class="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-lg shadow-red-600/20 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            {{ deleteMode() === 'retiring' ? 'Delete forever' : 'Delete' }}
+            {{
+              deleteInFlight()
+                ? 'Deleting…'
+                : deleteMode() === 'retiring'
+                  ? 'Delete forever'
+                  : 'Delete'
+            }}
           </button>
         }
       </div>
