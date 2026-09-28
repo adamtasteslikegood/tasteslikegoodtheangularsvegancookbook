@@ -8,6 +8,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-28
+
+Backend submodule pointer: unchanged at **`d43b58f`** (Backend `main`). A frontend-only patch.
+
+Fixes v0.5.0, which went live mostly unstyled: the logo filled the viewport and the
+navigation and prompt box collapsed.
+
+### Fixed
+
+- **The site renders styled again (KAN-286).** `@angular/build` 22.2.0 (KAN-281) changed the
+  critical-CSS stylesheet swap from an `onload="this.media='all'"` attribute to an inline
+  `<script>` that flips `link[data-beasties-media]` to `media="all"`. The CSP's
+  `script-src 'self'` blocked that script, so the main stylesheet stayed `media="print"` and
+  only the inlined critical CSS applied on screen. The CSP now allows exactly that script by
+  its SHA-256 hash (`sha256-LMY6wYo…`). The dead `script-src-attr` onload hash is removed, and
+  `script-src-attr` is pinned explicitly to `'none'`.
+
 ### Changed
 
 - `npm run build` now fails when the built `dist/index.html` has lost its home-head sentinels or `<app-root>`, running the same parser the SPA catch-all uses (`server/spa-shell.ts`). A bad build fails the PR gate, the Express Docker gate and Cloud Build instead of deploying a shell that shows home-page copy on every non-home route (KAN-285).
