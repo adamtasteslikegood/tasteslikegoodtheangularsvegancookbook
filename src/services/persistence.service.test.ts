@@ -119,7 +119,7 @@ describe('interpretSaveResponse (KAN-155)', () => {
   });
 });
 
-describe('recipeWithServerIdentity (KAN-265)', () => {
+describe('recipeWithServerIdentity (KAN-265/KAN-289)', () => {
   const recipe = {
     id: 'guest-copy',
     name: 'Cornbread',
@@ -151,6 +151,20 @@ describe('recipeWithServerIdentity (KAN-265)', () => {
         { source_recipe_id: null }
       ).sourceRecipeId
     ).toBeUndefined();
+  });
+
+  it('adopts first_published_at after the first publish', () => {
+    const firstPublishedAt = '2026-09-28T18:20:00';
+
+    expect(
+      recipeWithServerIdentity(
+        { ...recipe, is_public: true, first_published_at: null },
+        { slug: 'server-slug', first_published_at: firstPublishedAt }
+      )
+    ).toMatchObject({
+      slug: 'server-slug',
+      first_published_at: firstPublishedAt,
+    });
   });
 
   it('ignores malformed response identity fields', () => {

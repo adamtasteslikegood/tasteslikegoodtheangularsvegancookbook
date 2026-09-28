@@ -26,6 +26,7 @@ export interface RecipeRow {
   source_slug?: string | null;
   source_recipe_id?: string | null;
   origin?: Recipe['origin'] | null;
+  first_published_at?: string | null;
 }
 
 /** True when the payload is a row envelope rather than a bare Recipe blob. */
@@ -57,7 +58,35 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
         ? (payload.source_recipe_id ?? undefined)
         : payload.data.sourceRecipeId,
     origin: payload.origin ?? payload.data.origin,
+    // KAN-289: row-level only (never in the blob). Absent key = a Backend
+    // predating KAN-288; keep it undefined so hasEverBeenPublished falls back.
+    ...('first_published_at' in payload
+      ? { first_published_at: payload.first_published_at ?? null }
+      : {}),
   };
+}
+
+/**
+ * KAN-289 — has this recipe ever had a public /r/<slug> page?
+ *
+ * Deleting such a recipe permanently retires its address (Backend KAN-288:
+ * 410 Gone, never handed to another recipe), so the kitchen asks for the
+ * irreversible type-the-slug confirmation instead of the recycle-bin one.
+ *
+ * `first_published_at` is authoritative when the Backend sends it (null =
+ * never published). When it is absent the Backend predates the column, and a
+ * slug or public flag stands in: slugs are minted only by publishing and kept
+ * on unpublish, which is the same rule the KAN-288 migration backfills with.
+ */
+export function hasEverBeenPublished(recipe: {
+  first_published_at?: string | null;
+  slug?: string;
+  is_public?: boolean;
+}): boolean {
+  if (recipe.first_published_at !== undefined) {
+    return recipe.first_published_at !== null || !!recipe.is_public;
+  }
+  return !!recipe.slug || !!recipe.is_public;
 }
 
 /**

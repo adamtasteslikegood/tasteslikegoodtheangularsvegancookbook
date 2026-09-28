@@ -657,3 +657,12 @@
     </p>
   </section>
 }
+
+<!-- KAN-289: unpublishing needs an explicit confirmation -->
+@if (unpublishCandidate(); as candidate) {
+  <app-unpublish-confirm
+    [recipe]="candidate"
+    (confirmed)="confirmUnpublish()"
+    (cancelled)="cancelUnpublish()"
+  />
+}

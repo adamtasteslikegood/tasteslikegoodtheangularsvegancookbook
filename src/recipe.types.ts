@@ -43,6 +43,14 @@ export interface Recipe {
   is_public?: boolean;
   slug?: string;
   /**
+   * KAN-288/289 — server-owned: when the row first went public (ISO string),
+   * null if it never has. Survives unpublish. A non-null value means deleting
+   * the row permanently retires its /r/<slug> (410, never reused), so the
+   * kitchen shows the irreversible type-the-slug confirmation. Undefined means
+   * the Backend predates the column; see `hasEverBeenPublished`.
+   */
+  first_published_at?: string | null;
+  /**
    * The public `/r/<slug>` this recipe was saved from, if it originated from
    * the public site's "Save to cookbook" CTA. Used to dedup repeat saves so
    * tapping Save again surfaces the existing copy instead of adding another.

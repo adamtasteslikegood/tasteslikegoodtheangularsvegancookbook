@@ -650,7 +650,10 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       expect(persistenceSaveRecipe).not.toHaveBeenCalled();
     });
 
-    it('does not prompt on unpublish', async () => {
+    // KAN-289 replaced the one-tap unpublish: the toggle opens the in-app
+    // checkbox dialog (never the native confirm) and nothing is saved until
+    // the dialog's confirm comes back.
+    it('unpublishes only through the confirmation dialog, keeping the slug', async () => {
       const confirmMock = vi.fn();
       vi.stubGlobal('confirm', confirmMock);
       const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
@@ -663,6 +666,12 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       await component.togglePublic(recipe as never);
 
       expect(confirmMock).not.toHaveBeenCalled();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+      expect(component.unpublishCandidate()).toBe(recipe);
+
+      await component.confirmUnpublish();
+
+      expect(component.unpublishCandidate()).toBeNull();
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
       // Unpublish keeps the slug (KAN-139: unpublished rows retain slugs).
       expect(persistenceSaveRecipe).toHaveBeenCalledWith(
