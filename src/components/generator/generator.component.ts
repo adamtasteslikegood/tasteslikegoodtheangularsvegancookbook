@@ -28,8 +28,12 @@ export class GeneratorComponent extends RecipeViewBase {
     faq: LANDING_FAQ,
   };
 
-  /** False on /generate (KAN-287): the Generator tab is just the input box. */
-  readonly showLanding = inject(ActivatedRoute).snapshot.data['landing'] !== false;
+  /**
+   * False on /generate (KAN-287): the Generator tab is just the input box.
+   * Optional so the component still renders (as the landing) outside a route.
+   */
+  readonly showLanding =
+    inject(ActivatedRoute, { optional: true })?.snapshot.data['landing'] !== false;
 
   prompt = signal('');
   isRecipeLoading = signal(false);
