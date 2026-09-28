@@ -15,7 +15,7 @@ export class HeaderComponent {
   readonly authService = inject(AuthService);
   readonly modalService = inject(ModalService);
 
-  readonly activeView = signal<'generator' | 'kitchen' | 'recipe'>('generator');
+  readonly activeView = signal<'home' | 'generator' | 'kitchen' | 'recipe'>('home');
   readonly showUserProfileCard = signal(false);
 
   readonly logoutRequested = output<void>();
@@ -36,7 +36,9 @@ export class HeaderComponent {
   private applyActiveView(url: string) {
     if (url.startsWith('/kitchen')) this.activeView.set('kitchen');
     else if (url.startsWith('/recipe')) this.activeView.set('recipe');
-    else this.activeView.set('generator');
+    else if (url.startsWith('/generate')) this.activeView.set('generator');
+    // "/" is the landing page (KAN-287): the logo's destination, no tab.
+    else this.activeView.set('home');
   }
 
   toggleUserProfileCard() {

@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- **Landing page visual pass (KAN-287).** The Generator tab opens a new `/generate` page
+  that is just the prompt box; `/` stays the indexable "Vegan Recipe Generator" landing
+  page, and `/generate` gets the noindex route-neutral shell like `/kitchen`. The header
+  wordmark is nav-sized with no tagline, so it no longer reads as a second title above the
+  H1. "How it works" is a numbered list in the reading column instead of three cards, and
+  the hero is left-aligned on mobile. Landing copy and the H1 are unchanged.
+
 ## [0.5.1] - 2026-09-28
 
 Backend submodule pointer: unchanged at **`d43b58f`** (Backend `main`). A frontend-only patch.

@@ -1,14 +1,17 @@
 <!--
   Landing copy (KAN-272). Mirrored as static HTML inside <app-root> in index.html
   so the server HTML and first paint carry it too; src/landing-copy.test.ts keeps
-  the two in step. Text comes from landing-copy.ts.
+  the two in step. Text comes from landing-copy.ts. Only "/" shows it; the
+  Generator tab's /generate is just the input box (KAN-287).
 -->
-<section class="mb-8 text-center md:text-left" aria-labelledby="landing-title">
-  <h1 id="landing-title" class="text-4xl md:text-5xl font-bold text-stone-800">
-    {{ landing.h1 }}
-  </h1>
-  <p class="mt-3 text-lg md:text-xl text-stone-600 max-w-3xl">{{ landing.lead }}</p>
-</section>
+@if (showLanding) {
+  <section class="mb-8" aria-labelledby="landing-title">
+    <h1 id="landing-title" class="text-4xl md:text-5xl font-bold text-stone-800">
+      {{ landing.h1 }}
+    </h1>
+    <p class="mt-3 text-lg md:text-xl text-stone-600 max-w-3xl">{{ landing.lead }}</p>
+  </section>
+}
 
 <!-- Input Section -->
 <section class="mb-12 bg-white p-6 rounded-2xl shadow-sm border border-stone-200">
@@ -611,7 +614,7 @@
 }
 
 <!-- How it works + FAQ (KAN-272): the page's explanatory copy, hidden while a recipe is shown. -->
-@if (!recipe()) {
+@if (showLanding && !recipe()) {
   <section class="mb-12 grid gap-10" aria-label="About the vegan recipe generator">
     <div class="max-w-3xl space-y-4 text-stone-700 leading-relaxed">
       @for (paragraph of landing.intro; track $index) {
@@ -620,11 +623,18 @@
     </div>
     <div>
       <h2 class="text-2xl font-bold text-stone-800 mb-4">How it works</h2>
-      <ol class="grid gap-4 md:grid-cols-3">
+      <ol class="max-w-3xl space-y-5">
         @for (step of landing.steps; track step.title) {
-          <li class="bg-white p-5 rounded-2xl border border-stone-200">
-            <h3 class="font-bold text-stone-800">{{ $index + 1 }}. {{ step.title }}</h3>
-            <p class="mt-1 text-stone-600">{{ step.text }}</p>
+          <li class="flex gap-4">
+            <span
+              class="serif text-2xl font-bold text-green-700 leading-none w-6 shrink-0"
+              aria-hidden="true"
+              >{{ $index + 1 }}</span
+            >
+            <div>
+              <h3 class="font-bold text-stone-800">{{ step.title }}</h3>
+              <p class="mt-1 text-stone-600">{{ step.text }}</p>
+            </div>
           </li>
         }
       </ol>

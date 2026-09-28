@@ -10,6 +10,13 @@ export const routes: Routes = [
     canActivate: [ssrEntryGuard],
   },
   {
+    // KAN-287: the Generator tab. Same component, without the landing copy
+    // that makes "/" the indexable page; served the noindex route-neutral shell.
+    path: 'generate',
+    component: GeneratorComponent,
+    data: { landing: false },
+  },
+  {
     path: 'kitchen',
     loadComponent: () =>
       import('./components/kitchen/kitchen.component').then((m) => m.KitchenComponent),

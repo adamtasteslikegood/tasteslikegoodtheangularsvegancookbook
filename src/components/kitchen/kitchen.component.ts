@@ -68,7 +68,7 @@ export class KitchenComponent {
   }
 
   switchView(view: 'generator' | 'kitchen') {
-    this.router.navigate([view === 'kitchen' ? '/kitchen' : '/']);
+    this.router.navigate([view === 'kitchen' ? '/kitchen' : '/generate']);
   }
 
   viewRecipe(r: Recipe) {
