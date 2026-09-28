@@ -27,6 +27,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   Served statically like the privacy policy, classified `standalone` in the route manifest,
   and linked from the app footer. KAN-272 (SEO audit C5).
 
+### Changed
+
+- **Default text model is `gemini-3.8-flash`** (was `gemini-3.7-flash`) in the production
+  and staging `GEMINI_DEFAULT_MODEL` pins. Verified on the live API model list and through the
+  worker's real generation path (JSON parse + schema validation). The image model is unchanged.
+  KAN-282.
+
 ### Fixed
 
 - **SPA-only pages told search engines to index them** — `/kitchen`, `/recipe/<id>` and
