@@ -391,7 +391,7 @@ git tag v0.5.0         && git push  ->  GCP trigger ^v[0-9]+\.[0-9]+\.[0-9]+$   
 4. `v0.4.13` tagged; Cloud Build deploys; **verified by content** — grep every served
    asset for a string new in this release and absent from v0.4.12. Pick the marker
    **before** merging; the absence half is unverifiable afterwards.
-5. Production serves `gemini-3.8-flash` (text) and `gemini-3-pro-image` (images).
+5. Production serves `gemini-3.7-flash` (text) and `gemini-3-pro-image` (images).
 
 ### S5 — RESP2 pin revisit (KAN-209) · half-day, drop fallback
 

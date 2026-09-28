@@ -257,7 +257,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: state the marker string chosen BEFORE the merge and confirmed absent from v0.4.12; then, once deployed, paste the grep hit across EVERY served asset (main-*, chunk-*, polyfills-*), not main-*.js alone. Confirm production serves gemini-3.8-flash and gemini-3-pro-image. If the release has not been cut yet, say so — a spent version deploys nothing and reports success.",
+          "cmd": "MANUAL: state the marker string chosen BEFORE the merge and confirmed absent from v0.4.12; then, once deployed, paste the grep hit across EVERY served asset (main-*, chunk-*, polyfills-*), not main-*.js alone. Confirm production serves gemini-3.7-flash and gemini-3-pro-image. If the release has not been cut yet, say so — a spent version deploys nothing and reports success.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
