@@ -623,11 +623,18 @@
     </div>
     <div>
       <h2 class="text-2xl font-bold text-stone-800 mb-4">How it works</h2>
-      <ol class="grid gap-4 md:grid-cols-3">
+      <ol class="max-w-3xl space-y-5">
         @for (step of landing.steps; track step.title) {
-          <li class="bg-white p-5 rounded-2xl border border-stone-200">
-            <h3 class="font-bold text-stone-800">{{ $index + 1 }}. {{ step.title }}</h3>
-            <p class="mt-1 text-stone-600">{{ step.text }}</p>
+          <li class="flex gap-4">
+            <span
+              class="serif text-2xl font-bold text-green-700 leading-none w-6 shrink-0"
+              aria-hidden="true"
+              >{{ $index + 1 }}</span
+            >
+            <div>
+              <h3 class="font-bold text-stone-800">{{ step.title }}</h3>
+              <p class="mt-1 text-stone-600">{{ step.text }}</p>
+            </div>
           </li>
         }
       </ol>
