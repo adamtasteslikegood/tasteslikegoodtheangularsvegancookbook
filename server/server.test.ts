@@ -683,7 +683,7 @@ describe('applySecurityMiddleware', () => {
     expect(csp).toContain("frame-ancestors 'none'");
   });
 
-  it("allows Angular's critical-CSS inline onload handler via script-src-attr hash", async () => {
+  it("allows beasties' critical-CSS stylesheet-swap inline script via script-src hash", async () => {
     const { applySecurityMiddleware } = await import('./security.js');
     const useMock = vi.fn();
     applySecurityMiddleware({ use: useMock } as unknown as Express);
@@ -707,15 +707,17 @@ describe('applySecurityMiddleware', () => {
 
     const csp = headers['content-security-policy'];
     expect(csp).toBeDefined();
-    // Angular's inlineCritical optimization emits onload="this.media='all'" on the
-    // production stylesheet <link>; Helmet's default script-src-attr 'none' would block it.
-    // The hash below is sha256 of exactly: this.media='all'
+    // Angular's inlineCritical optimization (beasties) ships the stylesheet as media="print"
+    // and flips it to "all" from an inline <script>. If script-src blocks that script the
+    // site renders unstyled (KAN-286). The hash is sha256 of that exact script body.
     expect(csp).toContain(
-      "script-src-attr 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='"
+      "script-src 'self' 'sha256-LMY6wYoFV9I4wWzxaq1N/dTpl4iurQktw706UCHK3vM='"
     );
-    // It must not fall back to blocking everything or allowing everything.
-    expect(csp).not.toContain("script-src-attr 'none'");
-    expect(csp).not.toContain("script-src-attr 'unsafe-inline'");
+    // Only that one script is allowed, never all inline scripts.
+    expect(csp).not.toMatch(/script-src [^;]*'unsafe-inline'/);
+    // The old onload-handler hash is dead (@angular/build >= 22.2.0 no longer emits it);
+    // inline event handlers stay blocked by Helmet's default.
+    expect(csp).toContain("script-src-attr 'none'");
   });
 
   it('registers X-Robots-Tag middleware in production (two app.use calls)', async () => {

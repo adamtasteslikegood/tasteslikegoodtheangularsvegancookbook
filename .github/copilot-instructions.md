@@ -224,11 +224,12 @@ npm start
 
 #### Content-Security-Policy — HIGH-RISK, do not loosen or disable
 
-Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` (no inline scripts), `script-src-attr` allowing exactly one hashed inline handler emitted by Angular's critical-CSS optimization, `style-src` allowing `'unsafe-inline'` (Angular runtime styles) + Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
+Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` plus exactly one hashed inline script (beasties' critical-CSS stylesheet swap; no other inline scripts), `script-src-attr` left at Helmet's default `'none'`, `style-src` allowing `'unsafe-inline'` (Angular runtime styles) + Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
 
 Treat ANY change to CSP directives, inline scripts/handlers, or the OAuth callback flow as high-risk:
 
 - **History:** enabling `script-src 'self'` (PR #3109) silently broke Google OAuth login in v0.3.4/v0.3.5 — the OAuth callback page relied on an inline-`<script>` redirect that CSP blocked, stranding users on a blank page. Fixed in v0.3.6 by switching the Flask callback to a plain HTTP 302 redirect (Backend PR #195).
+- **History:** the `@angular/build` 22.2.0 bump (KAN-281) changed beasties' stylesheet swap from a hashed `onload` attribute to an inline `<script>`; CSP blocked it and v0.5.0 shipped with the main stylesheet stuck at `media="print"` (site unstyled). Fixed by hashing the new script into `script-src` (KAN-286). Re-check the home page console after any `@angular/build` bump.
 - **Lesson:** CSP breakage is invisible to unit tests and type-check; it only surfaces in a real browser. Any PR touching CSP must include a manual browser check of the full Google-login flow.
 
 ### Public Recipe Site (SSR)

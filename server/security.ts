@@ -168,15 +168,18 @@ export const applySecurityMiddleware = (app: Express) => {
   // per-recipe data — stock photos come from images.unsplash.com today, AI images are served
   // same-origin via the Flask proxy, but stored/legacy recipes may reference other HTTPS hosts.
   // Images cannot execute script, so the exposure is limited; scripts stay 'self'-only.
-  // script-src-attr: Angular's critical-CSS optimization (inlineCritical) emits the stylesheet
-  // link as <link ... media="print" onload="this.media='all'"> in the built index.html. Helmet's
-  // default script-src-attr 'none' would block that inline handler and the main stylesheet would
-  // stay media="print" (never applied on screen). 'unsafe-hashes' plus the SHA-256 hash of the
-  // exact handler string ("this.media='all'") allows only that one handler — no other inline
-  // event handlers can run. If Angular ever changes the emitted handler, regenerate the hash:
-  //   printf %s "NEW_HANDLER" | openssl dgst -sha256 -binary | openssl base64
-  // (Alternatives rejected: disabling inlineCritical in angular.json costs first-paint
-  // performance; script-src-attr 'unsafe-inline' would allow ALL inline handlers.)
+  // script-src hash: Angular's critical-CSS optimization (inlineCritical, via beasties) emits the
+  // main stylesheet as <link ... media="print" data-beasties-media="all"> plus one inline
+  // <script> that swaps media back to "all". Without that script running, the stylesheet stays
+  // media="print" and the site renders unstyled on screen (KAN-286: shipped broken in v0.5.0).
+  // The SHA-256 hash below allows exactly that script body and nothing else. It is pinned to
+  // beasties' output, so an @angular/build bump can change it — if the browser console shows a
+  // script-src violation on the home page, regenerate from the built dist/index.html:
+  //   printf %s "SCRIPT_BODY" | openssl dgst -sha256 -binary | openssl base64
+  // (Before @angular/build 22.2.0 the swap was an onload="this.media='all'" attribute allowed
+  // via script-src-attr 'unsafe-hashes'; nothing emits it any more, so script-src-attr is back
+  // to Helmet's default 'none'. Alternatives rejected: disabling inlineCritical in angular.json
+  // costs first-paint performance; 'unsafe-inline' would allow ALL inline scripts.)
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
@@ -184,12 +187,8 @@ export const applySecurityMiddleware = (app: Express) => {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          // Hash of Angular's critical-CSS onload handler: this.media='all'
-          scriptSrcAttr: [
-            "'unsafe-hashes'",
-            "'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='",
-          ],
+          // Hash of beasties' inline stylesheet-swap script (see comment above).
+          scriptSrc: ["'self'", "'sha256-LMY6wYoFV9I4wWzxaq1N/dTpl4iurQktw706UCHK3vM='"],
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
           connectSrc: ["'self'"],
