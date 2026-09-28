@@ -10,10 +10,13 @@
 >   Backend #326). No `p:domain_verify` meta tag is needed or present.
 > - Recipe Rich Pins read Schema.org Recipe markup: every `/r/<slug>` page emits
 >   Recipe JSON-LD, so Rich Pins need only a URL-debugger validation pass.
-> - Pin shape and text are handled by KAN-284 (Backend #330): a 1000×1500 2:3
->   pin image at `?pin=1`, a keyword pin description, and `data-pin-media` /
->   `data-pin-description` on the hero. No `pinit.js`, because it is a
->   third-party script and the site ships no client tracking.
+>
+> **In progress, not yet shipped:** pin shape and text are KAN-284
+> (Backend #330, open as of 2026-09-28): a 1000×1500 2:3 pin image at
+> `?pin=1`, a keyword pin description, and `data-pin-media` /
+> `data-pin-description` on the hero. No `pinit.js`, because it is a
+> third-party script and the site ships no client tracking. Move this into the
+> checked list once #330 is merged, pinned and live.
 >
 > **Deliberately out of scope:** Pinterest API v5 auto-pinning (automation
 > policy, and the earlier anti-spam account deactivation), and Catalogs /
