@@ -159,6 +159,16 @@ describe('home-only static fallback', () => {
     expect(kitchenHtml).not.toContain('FAQPage');
     expect(kitchenHtml).not.toContain('rel="canonical"');
   });
+
+  it('serves /generate (the plain Generator tab, KAN-287) the noindex neutral shell', async () => {
+    const res = await fetch(`${baseUrl}/generate`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
+    const html = await res.text();
+    expect(html).toMatch(/<app-root(?:\s[^>]*)?><\/app-root>/);
+    expect(html).not.toContain('home-landing');
+    expect(html).not.toContain('rel="canonical"');
+  });
 });
 
 describe('SSR static asset proxying', () => {

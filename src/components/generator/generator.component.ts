@@ -1,5 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import type { Recipe } from '../../recipe.types';
@@ -26,6 +27,9 @@ export class GeneratorComponent extends RecipeViewBase {
     steps: LANDING_STEPS,
     faq: LANDING_FAQ,
   };
+
+  /** False on /generate (KAN-287): the Generator tab is just the input box. */
+  readonly showLanding = inject(ActivatedRoute).snapshot.data['landing'] !== false;
 
   prompt = signal('');
   isRecipeLoading = signal(false);
