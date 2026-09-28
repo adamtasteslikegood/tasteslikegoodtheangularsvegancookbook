@@ -177,9 +177,11 @@ export const applySecurityMiddleware = (app: Express) => {
   // script-src violation on the home page, regenerate from the built dist/index.html:
   //   printf %s "SCRIPT_BODY" | openssl dgst -sha256 -binary | openssl base64
   // (Before @angular/build 22.2.0 the swap was an onload="this.media='all'" attribute allowed
-  // via script-src-attr 'unsafe-hashes'; nothing emits it any more, so script-src-attr is back
-  // to Helmet's default 'none'. Alternatives rejected: disabling inlineCritical in angular.json
-  // costs first-paint performance; 'unsafe-inline' would allow ALL inline scripts.)
+  // via script-src-attr 'unsafe-hashes'; nothing emits it any more, so script-src-attr is pinned
+  // explicitly to 'none' below rather than relying on Helmet's default — a helmet major bump
+  // could change that default without any diff in this file. Alternatives rejected: disabling
+  // inlineCritical in angular.json costs first-paint performance; 'unsafe-inline' would allow
+  // ALL inline scripts.)
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
@@ -189,6 +191,9 @@ export const applySecurityMiddleware = (app: Express) => {
           defaultSrc: ["'self'"],
           // Hash of beasties' inline stylesheet-swap script (see comment above).
           scriptSrc: ["'self'", "'sha256-LMY6wYoFV9I4wWzxaq1N/dTpl4iurQktw706UCHK3vM='"],
+          // Explicit 'none' rather than Helmet's default: keeps intent visible in the file
+          // and immune to a future helmet-major default change.
+          scriptSrcAttr: ["'none'"],
           styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
           imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
           connectSrc: ["'self'"],
