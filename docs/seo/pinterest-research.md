@@ -1,3 +1,24 @@
+> **Status — read this first (KAN-284, 2026-09-28).** This is an unedited AI
+> research dump from 2026-07-18, moved here from the repo root
+> (`pintrest-research.md`). It was **not** fact-checked line by line, and its
+> "Sources" list names pages without URLs. Treat anything below as unverified
+> unless it is listed here.
+>
+> **Checked against this project:**
+>
+> - Domain verification: done by DNS TXT on `tasteslikegood.org` (KAN-277,
+>   Backend #326). No `p:domain_verify` meta tag is needed or present.
+> - Recipe Rich Pins read Schema.org Recipe markup: every `/r/<slug>` page emits
+>   Recipe JSON-LD, so Rich Pins need only a URL-debugger validation pass.
+> - Pin shape and text are handled by KAN-284 (Backend #330): a 1000×1500 2:3
+>   pin image at `?pin=1`, a keyword pin description, and `data-pin-media` /
+>   `data-pin-description` on the hero. No `pinit.js`, because it is a
+>   third-party script and the site ships no client tracking.
+>
+> **Deliberately out of scope:** Pinterest API v5 auto-pinning (automation
+> policy, and the earlier anti-spam account deactivation), and Catalogs /
+> Product Pins (the site sells nothing).
+
 > **Based on my research across Pinterest's official developer**
 > **documentation, help center, and business resources, here's**
 > **a comprehensive briefing on Pinterest SEO and links guidelines for developers:**

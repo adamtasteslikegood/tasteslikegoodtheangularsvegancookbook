@@ -108,10 +108,11 @@
 
 ### 🔎 SEO — `Label: seo`
 
-| Document                                                 | Description                                                                                            |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [SEO_AUDIT_2026-09-13.md](./seo/SEO_AUDIT_2026-09-13.md) | Full audit: strategy vs reality, findings with tickets, keyword targets, backlink plan, GSC monitoring |
-| [MCP_GCP_MONITORING.md § 6.5](./MCP_GCP_MONITORING.md)   | Search Console tools on the gcp-monitor connector (`gsc_*`) and the `/seo-weekly-check` routine        |
+| Document                                                 | Description                                                                                                           |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| [SEO_AUDIT_2026-09-13.md](./seo/SEO_AUDIT_2026-09-13.md) | Full audit: strategy vs reality, findings with tickets, keyword targets, backlink plan, GSC monitoring                |
+| [MCP_GCP_MONITORING.md § 6.5](./MCP_GCP_MONITORING.md)   | Search Console tools on the gcp-monitor connector (`gsc_*`) and the `/seo-weekly-check` routine                       |
+| [pinterest-research.md](./seo/pinterest-research.md)     | Pinterest Rich Pins and pin research (2026-07-18 AI dump; unverified except the checked items in its header, KAN-284) |
 
 ### 🐧 Reference — `Label: reference`
 
