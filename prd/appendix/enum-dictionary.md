@@ -120,15 +120,15 @@ Scale is transient presentation state.
 
 ## 12. Route classification
 
-| Value        | Meaning                                                    | Express behavior                            |
-| ------------ | ---------------------------------------------------------- | ------------------------------------------- |
-| `api`        | `/api` or `/api/*`                                         | Proxy to Flask                              |
-| `ssr`        | `/browse`, `/sitemap.xml`, `/r/*`                          | Proxy Flask-rendered response               |
-| `ssrStatic`  | `/static/*`                                                | Proxy Flask static asset                    |
-| `standalone` | `/privacy-policy`, `/about`, `/favicon.ico`, `/index.html` | Express static response                     |
-| `asset`      | Known extension reaching catch-all                         | Return `404`                                |
-| `spa`        | `/`, `/kitchen`, `/chunk-error`, `/recipe/*`               | Serve Angular shell                         |
-| `unknown`    | Other non-asset path                                       | Serve shell; Angular wildcard redirects `/` |
+| Value        | Meaning                                                           | Express behavior                                                                    |
+| ------------ | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `api`        | `/api` or `/api/*`                                                | Proxy to Flask                                                                      |
+| `ssr`        | `/browse`, `/browse/tag`, `/browse/tag/*`, `/sitemap.xml`, `/r/*` | Proxy Flask-rendered response                                                       |
+| `ssrStatic`  | `/static/*`                                                       | Proxy Flask static asset                                                            |
+| `standalone` | `/privacy-policy`, `/about`, `/favicon.ico`, `/index.html`        | Express static response                                                             |
+| `asset`      | Known extension reaching catch-all                                | Return `404`                                                                        |
+| `spa`        | `/`, `/kitchen`, `/chunk-error`, `/recipe/*`                      | Serve Angular shell                                                                 |
+| `unknown`    | Other non-asset path                                              | `404` + `noindex` + `no-store`, route-neutral shell; Angular wildcard redirects `/` |
 
 ## 13. Environment and indexing mode
 

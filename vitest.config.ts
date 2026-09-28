@@ -16,6 +16,7 @@ export default defineConfig({
         'server/**/*.spec.ts',
         // Startup / integration files — covered by E2E, not unit tests
         'server/index.ts',
+        'server/check-spa-shell.ts',
         'server/proxy.ts',
         'server/types.ts',
       ],

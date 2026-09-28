@@ -343,6 +343,15 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
+  it('marks the 404 shell no-store, but keeps known SPA routes revalidating (KAN-285)', async () => {
+    const missing = await fetch(`${baseUrl}/some-random-path`);
+    expect(missing.status).toBe(404);
+    expect(missing.headers.get('cache-control')).toBe('no-store');
+    const kitchen = await fetch(`${baseUrl}/kitchen`);
+    expect(kitchen.status).toBe(200);
+    expect(kitchen.headers.get('cache-control')).toBe('public, max-age=0');
+  });
+
   it('marks the asset-like 404 noindex too', async () => {
     const res = await fetch(`${baseUrl}/evil.js`);
     expect(res.status).toBe(404);
