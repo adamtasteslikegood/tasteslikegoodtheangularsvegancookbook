@@ -101,7 +101,7 @@ scripts/                     # Utility scripts (list_revisions.sh, etc.)
 | Linting            | ESLint (flat config) + Prettier                                             | 10 / 3   |
 | Testing            | Vitest (server + src unit tests)                                            | 4        |
 
-All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side and settled: **`gemini-3.8-flash` for text, `gemini-3-pro-image` (Nano Banana Pro) for images**. Both are GA, verified present on the live API surface, and live-tested. Production gets them from the `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` pins in `cloudbuild.yaml`. **Do not remove those pins** unless you have confirmed that the currently-pinned `Backend/config.py` already defaults to the same pair — Backend PR #323 moves the text fallback to match; the image fallback already matches. Until #323 lands and the submodule pointer is bumped, an unset text-model env var still falls back to the older model. Do not reintroduce `gemini-3.1-pro-preview` as a default — it is a _preview_ model, which is the retirement exposure that took production down when Imagen 4.0 was withdrawn. Generation paths use bare IDs, while entries from `GET /api/models` carry the `models/` prefix — both forms are in active use.
+All AI calls happen in Flask via the `google-genai` **Python** SDK — there is no client-side AI SDK (the unused `@google/genai` npm dependency was removed in #3155). Model choice is server-side and settled: **`gemini-3.8-flash` for text, `gemini-3-pro-image` (Nano Banana Pro) for images**. Both are GA, verified present on the live API surface, and live-tested. Production gets them from the `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` pins in `cloudbuild.yaml`. Since v0.5.0 the pinned `Backend/config.py` (Backend #323) defaults to the same pair, so the pins are belt-and-braces rather than load-bearing. Keep the pins and the defaults moving together; a model change updates both. Do not reintroduce `gemini-3.1-pro-preview` as a default — it is a _preview_ model, which is the retirement exposure that took production down when Imagen 4.0 was withdrawn. Generation paths use bare IDs, while entries from `GET /api/models` carry the `models/` prefix — both forms are in active use.
 
 ---
 
@@ -224,11 +224,12 @@ npm start
 
 #### Content-Security-Policy — HIGH-RISK, do not loosen or disable
 
-Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` (no inline scripts), `script-src-attr` allowing exactly one hashed inline handler emitted by Angular's critical-CSS optimization, `style-src` allowing `'unsafe-inline'` (Angular runtime styles) + Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
+Helmet CSP is **ENABLED** with a deliberately scoped policy in `server/security.ts`: `script-src 'self'` plus exactly one hashed inline script (beasties' critical-CSS stylesheet swap; no other inline scripts), `script-src-attr` left at Helmet's default `'none'`, `style-src` allowing `'unsafe-inline'` (Angular runtime styles) + Google Fonts origins for styles/fonts, and `img-src` open to `https:` because recipe image URLs are per-recipe data.
 
 Treat ANY change to CSP directives, inline scripts/handlers, or the OAuth callback flow as high-risk:
 
 - **History:** enabling `script-src 'self'` (PR #3109) silently broke Google OAuth login in v0.3.4/v0.3.5 — the OAuth callback page relied on an inline-`<script>` redirect that CSP blocked, stranding users on a blank page. Fixed in v0.3.6 by switching the Flask callback to a plain HTTP 302 redirect (Backend PR #195).
+- **History:** the `@angular/build` 22.2.0 bump (KAN-281) changed beasties' stylesheet swap from a hashed `onload` attribute to an inline `<script>`; CSP blocked it and v0.5.0 shipped with the main stylesheet stuck at `media="print"` (site unstyled). Fixed by hashing the new script into `script-src` (KAN-286). Re-check the home page console after any `@angular/build` bump.
 - **Lesson:** CSP breakage is invisible to unit tests and type-check; it only surfaces in a real browser. Any PR touching CSP must include a manual browser check of the full Google-login flow.
 
 ### Public Recipe Site (SSR)
@@ -243,7 +244,7 @@ Since v0.2, recipes can be published to a public server-rendered site (SEO-focus
 ### Flask Backend (API + AI + Auth + DB)
 
 - Google OAuth via Flask sessions (server-side, not JWT).
-- Gemini recipe and image generation via the `google-genai` Python SDK. `gemini-3.8-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) are pinned via `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` in `cloudbuild.yaml`. The goal is for the `Backend/config.py` defaults to name the same pair so an unset env var cannot silently yield an older model; Backend PR #323 moves the text fallback to match; the image fallback already matches. Until #323 lands and the pointer is bumped, the `cloudbuild.yaml` pins are the only thing holding production on the settled models.
+- Gemini recipe and image generation via the `google-genai` Python SDK. `gemini-3.8-flash` (text) and `gemini-3-pro-image` (images, Nano Banana Pro) are pinned via `GEMINI_DEFAULT_MODEL`/`GEMINI_IMAGE_MODEL` in `cloudbuild.yaml`. The `Backend/config.py` defaults name the same pair (Backend #323, shipped in v0.5.0), so an unset env var cannot silently yield an older model; the pins are a second line of defence.
 - `/api/generate` and `/api/generate_image` live in `blueprints/generation_api_bp.py` (`generation_bp.py` is legacy HTML-form helpers, not the JSON API).
 - CRUD for recipes and collections (cookbooks) in Cloud SQL.
 - Modular architecture: blueprints, repositories, services, models. `Backend/CLAUDE.md` is the authoritative Backend reference.

@@ -1,11 +1,11 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.5.1",
   "type": "module",
   "scripts": {
     "dev": "ng serve",
-    "build": "ng build && tsc -p server/tsconfig.server.json",
+    "build": "ng build && tsc -p server/tsconfig.server.json && node server/dist/check-spa-shell.js",
     "preview": "ng serve --configuration=production",
     "start": "node server/dist/index.js",
     "test": "vitest",
