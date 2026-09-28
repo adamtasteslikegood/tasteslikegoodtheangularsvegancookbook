@@ -15,6 +15,7 @@ import { createFlaskProxy } from './proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
+import { buildRouteNeutralSpaShell } from './spa-shell.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -151,50 +152,12 @@ export const ready = (async () => {
     // Wrap the parse so a transient readFile failure or a build that ships
     // without the sentinels does not poison the cache: on rejection, clear
     // the memo so the next request retries instead of 500ing forever.
-    const attempt = readFile(spaIndexPath, 'utf8').then((fullSpaShell) => {
-      // The checked-in index also carries home-only title/canonical/social tags
-      // and structured data. Removing only <app-root>'s children still exposed
-      // the home FAQ and canonical on /kitchen and /recipe/:id. Strip the marked
-      // head block and replace it with deliberately generic, non-indexable
-      // metadata before serving any non-home SPA fallback.
-      // Meta sentinels survive Angular's production HTML minification; ordinary
-      // comments do not. Match with a regex tolerant to attribute reordering,
-      // quote-style changes, and self-closing syntax that a future minifier
-      // upgrade could introduce. The name value is followed by a required
-      // boundary (quote, whitespace, `/`, or `>`) so a future sentinel-prefixed
-      // name like `tlg-home-head-start-social` cannot accidentally match here.
-      const homeHeadStartRe =
-        /<meta\s+[^>]*name=(?:"tlg-home-head-start"|'tlg-home-head-start'|tlg-home-head-start(?=[\s/>]))[^>]*>/i;
-      const homeHeadEndRe =
-        /<meta\s+[^>]*name=(?:"tlg-home-head-end"|'tlg-home-head-end'|tlg-home-head-end(?=[\s/>]))[^>]*>/i;
-      const homeHeadStartMatch = homeHeadStartRe.exec(fullSpaShell);
-      const homeHeadEndMatch = homeHeadStartMatch
-        ? homeHeadEndRe.exec(fullSpaShell.slice(homeHeadStartMatch.index))
-        : null;
-      if (!homeHeadStartMatch || !homeHeadEndMatch) {
-        throw new Error('Angular index.html is missing its home-page head sentinels');
-      }
-      const homeHeadStart = homeHeadStartMatch.index;
-      const homeHeadEnd =
-        homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
-      const neutralRobots = isStaging ? 'noindex, nofollow' : 'noindex, follow';
-      const neutralHead = `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
-      const shellWithoutHomeHead =
-        fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
-
-      const appRootOpenMatch = /<app-root(?:\s[^>]*)?>/.exec(shellWithoutHomeHead);
-      const appRootOpen = appRootOpenMatch?.index ?? -1;
-      const appRootClose = shellWithoutHomeHead.indexOf('</app-root>', appRootOpen);
-      if (appRootOpen === -1 || appRootClose === -1 || !appRootOpenMatch) {
-        throw new Error('Angular index.html is missing its app-root element');
-      }
-
-      const appRootContentStart = appRootOpen + appRootOpenMatch[0].length;
-      return (
-        shellWithoutHomeHead.slice(0, appRootContentStart) +
-        shellWithoutHomeHead.slice(appRootClose)
-      );
-    });
+    const neutralRobots = isStaging ? 'noindex, nofollow' : 'noindex, follow';
+    const attempt = readFile(spaIndexPath, 'utf8').then((fullSpaShell) =>
+      // The parse lives in spa-shell.ts so `npm run build` can run the same
+      // one against the built index.html and fail closed (KAN-285).
+      buildRouteNeutralSpaShell(fullSpaShell, neutralRobots)
+    );
     routeNeutralSpaShellPromise = attempt.catch((err) => {
       routeNeutralSpaShellPromise = undefined;
       throw err;
@@ -342,6 +305,9 @@ export const ready = (async () => {
     // sensible (Angular's `**` route redirects to the home page).
     if (routeClass === 'unknown') {
       res.status(404);
+      // KAN-285: no cache should hold a 404 shell. Set before either send
+      // below; `send` leaves an existing Cache-Control header alone.
+      res.setHeader('Cache-Control', 'no-store');
     }
     // KAN-272: only the home page gets the full shell with its landing copy
     // and home metadata; express.static normally answers "/" first, so this
@@ -363,8 +329,8 @@ export const ready = (async () => {
     }
     // Mirror the Cache-Control the / sendFile branch inherits from Express's
     // static/send defaults so intermediaries don't cache the noindex shell
-    // longer than the indexable home shell.
-    res.setHeader('Cache-Control', 'public, max-age=0');
+    // longer than the indexable home shell. A 404 keeps its no-store.
+    if (routeClass !== 'unknown') res.setHeader('Cache-Control', 'public, max-age=0');
     res.type('html').send(neutralShell);
   });
 
