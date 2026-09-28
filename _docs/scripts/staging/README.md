@@ -1,26 +1,10 @@
-<details><summary>Directory Metadata (for smart change detection)</summary>
-
-```json
-{
-  "doc_type": "directory_index",
-  "directory_path": "_docs/scripts/staging",
-  "directory_hash": "61499f34096f0850fb9c0684a4de53ad12e871a96e4c54bf9b8004b92ddb4a1d",
-  "file_count": 1,
-  "file_hashes": {
-    "deploy-staging.sh": "13b61a958c5dedb2"
-  }
-}
-```
-
-</details>
-
 [Documentation Home](../../README.md) > [scripts](../README.md) > [staging](./README.md) > **staging**
 
 ---
 
 # 📁 staging
 
-> **Purpose:** Contains scripts to deploy the project's staging Cloud Run services using production images from a specified Artifact Registry.
+> **Purpose:** Contains staging deployment, local-generation, data-seeding, and verification utilities.
 > 
 
 ![Organization: Flat](https://img.shields.io/badge/Organization-Flat-blue)
@@ -37,20 +21,23 @@
 
 ## Overview
 
-This directory contains deployment automation intended specifically for the staging environment. At the root level it includes a single shell script, deploy-staging.sh, which reuses production container images hosted in an Artifact Registry to deploy the staging Cloud Run services for the project. The script is the canonical entry point for performing staging deployments and encapsulates the commands and environment assumptions required to point Cloud Run at production-built images.
+This directory contains four staging utilities: `deploy-staging.sh` deploys production-built images to staging Cloud Run services; `local-generation.sh` exercises generation locally; `seed-data.py` seeds staging data; and `verify-staging.sh` validates the staging deployment.
 
-Because there are no subdirectories, the directory is intentionally minimal: it groups the staging deployment logic separately from other environment scripts (e.g., production or local) so that developers and CI pipelines can operate on staging deployments without affecting other environments. The role this directory plays in the larger system is to provide a reproducible, auditable deployment step for staging that depends on pre-built artifacts in Artifact Registry and targets Cloud Run services, enabling testing and validation against production images before any further promotion or changes.
+Because there are no subdirectories, the directory uses a flat layout that keeps staging-specific operational tools together without mixing them into application code. The scripts cover deployment, local generation, seed data, and post-deployment verification.
 
 
 ### File Organization
 
-A single-file flat layout: one shell script (deploy-staging.sh) at the root implements the staging deployment flow. The flat structure keeps environment-specific deployment automation isolated and easy to find.
+A four-file flat layout keeps the staging workflow isolated and easy to find.
 
 ## 📂 All Files
 
 | File | Type |
 | --- | --- |
 | [deploy-staging.sh](./deploy-staging.sh.md) | 🐚 Shell |
+| [local-generation.sh](../../../scripts/staging/local-generation.sh) | 🐚 Shell |
+| [seed-data.py](../../../scripts/staging/seed-data.py) | 🐍 Python |
+| [verify-staging.sh](../../../scripts/staging/verify-staging.sh) | 🐚 Shell |
 
 ## Dependencies
 
