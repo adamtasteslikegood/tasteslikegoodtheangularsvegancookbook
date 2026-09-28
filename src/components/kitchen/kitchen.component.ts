@@ -8,6 +8,7 @@ import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
 import { hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
+import { DialogFocusDirective } from '../shared/dialog-focus.directive';
 
 /**
  * KAN-289 — which confirmation the delete button opens.
@@ -35,7 +36,7 @@ export function retiringConfirmationText(recipe: Recipe): string {
 @Component({
   selector: 'app-kitchen',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DialogFocusDirective],
   templateUrl: './kitchen.component.html',
 })
 export class KitchenComponent {

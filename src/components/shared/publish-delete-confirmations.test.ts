@@ -15,6 +15,7 @@ import '@angular/compiler';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
+import { ElementRef } from '@angular/core';
 import {
   DELETE_PUBLISHED_REFUSAL,
   DELETE_SYNC_FAILURE,
@@ -28,6 +29,7 @@ import {
 } from '../kitchen/kitchen.component';
 import { hasEverBeenPublished, recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
+import { DialogFocusDirective } from './dialog-focus.directive';
 
 const recipe = (over: Partial<Recipe> = {}): Recipe =>
   ({ id: 'r1', name: 'Vegan Zucchini Poppers', ...over }) as Recipe;
@@ -162,6 +164,53 @@ describe('KitchenComponent pending delete', () => {
   });
 });
 
+describe('DialogFocusDirective', () => {
+  it('focuses the dialog, traps Tab, and restores the opener', async () => {
+    const document = { activeElement: null as unknown };
+    const focusable = () => {
+      const element = {
+        isConnected: true,
+        focus: vi.fn(() => {
+          document.activeElement = element;
+        }),
+      };
+      return element;
+    };
+    const opener = focusable();
+    const first = focusable();
+    const last = focusable();
+    document.activeElement = opener;
+
+    const host = {
+      querySelector: vi.fn(() => first),
+      querySelectorAll: vi.fn(() => [first, last]),
+      contains: vi.fn((element: unknown) => element === first || element === last),
+      focus: vi.fn(),
+    };
+    const directive = new DialogFocusDirective(
+      new ElementRef(host as unknown as HTMLElement),
+      document as unknown as Document
+    );
+
+    directive.ngAfterViewInit();
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(first.focus).toHaveBeenCalledOnce();
+
+    document.activeElement = last;
+    const tab = {
+      key: 'Tab',
+      shiftKey: false,
+      preventDefault: vi.fn(),
+    } as unknown as KeyboardEvent;
+    directive.onKeydown(tab);
+    expect(tab.preventDefault).toHaveBeenCalledOnce();
+    expect(first.focus).toHaveBeenCalledTimes(2);
+
+    directive.ngOnDestroy();
+    expect(opener.focus).toHaveBeenCalledOnce();
+  });
+});
+
 describe('hasEverBeenPublished', () => {
   it('trusts first_published_at when the Backend sends it', () => {
     expect(hasEverBeenPublished({ first_published_at: '2026-08-12' })).toBe(true);
@@ -212,6 +261,15 @@ describe('dialog templates', () => {
     const src = read('./unpublish-confirm.component.ts');
     expect(src).toContain('Unpublish this recipe anyway');
     expect(src).toMatch(/\(click\)="confirmed\.emit\(\)"\s+\[disabled\]="!acknowledged\(\)"/);
+  });
+
+  it('traps and restores focus for both new dialogs', () => {
+    const unpublish = read('./unpublish-confirm.component.ts');
+    const kitchen = read('../kitchen/kitchen.component.html');
+    expect(unpublish).toContain('appDialogFocus');
+    expect(unpublish).toContain('data-dialog-initial-focus');
+    expect(kitchen).toContain('appDialogFocus');
+    expect(kitchen).toContain('data-dialog-initial-focus');
   });
 
   it('offers no shortcut from the published-delete refusal', () => {

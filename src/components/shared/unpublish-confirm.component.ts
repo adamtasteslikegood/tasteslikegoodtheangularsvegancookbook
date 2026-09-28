@@ -1,5 +1,6 @@
 import { Component, input, output, signal } from '@angular/core';
 import type { Recipe } from '../../recipe.types';
+import { DialogFocusDirective } from './dialog-focus.directive';
 
 /**
  * KAN-289 — the unpublish confirmation (Adam, 2026-09-28): a popup with an
@@ -15,6 +16,7 @@ import type { Recipe } from '../../recipe.types';
 @Component({
   selector: 'app-unpublish-confirm',
   standalone: true,
+  imports: [DialogFocusDirective],
   template: `
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <button
@@ -29,6 +31,8 @@ import type { Recipe } from '../../recipe.types';
         role="dialog"
         aria-modal="true"
         aria-labelledby="unpublish-title"
+        appDialogFocus
+        tabindex="-1"
       >
         <h3 id="unpublish-title" class="text-xl font-bold text-stone-800 serif text-center">
           Unpublish this recipe?
@@ -52,6 +56,7 @@ import type { Recipe } from '../../recipe.types';
         <label class="mt-4 flex items-start gap-3 rounded-xl bg-stone-50 p-3 cursor-pointer">
           <input
             type="checkbox"
+            data-dialog-initial-focus
             class="mt-0.5 h-4 w-4 accent-red-600"
             [checked]="acknowledged()"
             (change)="acknowledged.set($any($event.target).checked)"

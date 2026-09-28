@@ -471,6 +471,8 @@
       role="dialog"
       aria-modal="true"
       aria-labelledby="delete-recipe-title"
+      appDialogFocus
+      tabindex="-1"
     >
       <div class="text-center mb-4">
         <div
@@ -526,6 +528,7 @@
                 </span>
                 <input
                   type="text"
+                  data-dialog-initial-focus
                   autocomplete="off"
                   autocapitalize="off"
                   spellcheck="false"
