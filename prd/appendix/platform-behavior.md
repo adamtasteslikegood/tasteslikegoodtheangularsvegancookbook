@@ -100,7 +100,7 @@ Helmet supplies HSTS and content type, frame, and referrer protections plus scop
 - Fonts: self and Google Fonts files.
 - Images: self, data, blob, and HTTPS recipe image sources.
 - Objects: none; frame ancestors: none; base and form action: self.
-- One hashed Angular critical-CSS `onload` handler is allowed; arbitrary inline handlers are not.
+- One hashed beasties critical-CSS stylesheet-swap script is allowed; arbitrary inline scripts and handlers are not.
 
 Production HTML gets `X-Robots-Tag: index, follow`. Staging gets `noindex, nofollow` on every response and a disallow-all `robots.txt`.
 
