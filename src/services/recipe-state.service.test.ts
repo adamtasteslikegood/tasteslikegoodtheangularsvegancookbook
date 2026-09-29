@@ -56,6 +56,18 @@ describe('RecipeStateService.viewRecipe', () => {
     expect(action).toHaveBeenCalledTimes(2);
   });
 
+  it('counts a Kitchen revisit without discarding cached recipe state', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+
+    service.viewRecipe(recipe());
+    service.leaveRecipeView();
+    expect(service.currentRecipe()?.id).toBe('r1');
+    service.viewRecipe(recipe());
+
+    expect(action).toHaveBeenCalledTimes(2);
+  });
+
   it('clearRecipe resets the saved flag', () => {
     service.viewRecipe(recipe());
     service.clearRecipe();
