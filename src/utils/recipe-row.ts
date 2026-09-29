@@ -27,6 +27,7 @@ export interface RecipeRow {
   source_recipe_id?: string | null;
   origin?: Recipe['origin'] | null;
   first_published_at?: string | null;
+  slug_reserved?: boolean;
 }
 
 /** True when the payload is a row envelope rather than a bare Recipe blob. */
@@ -63,6 +64,8 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
     ...('first_published_at' in payload
       ? { first_published_at: payload.first_published_at ?? null }
       : {}),
+    // KAN-291: list-endpoint only, same absent-key rule as above.
+    ...('slug_reserved' in payload ? { slug_reserved: !!payload.slug_reserved } : {}),
   };
 }
 
