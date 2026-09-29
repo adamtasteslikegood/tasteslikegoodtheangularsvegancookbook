@@ -297,11 +297,11 @@
       "target": true,
       "solutions": [
         {
-          "statement": "Audit every owned property and add the links still missing (the cookbook README link shipped in v0.5.0 and is not counted), plus 3-5 original articles on owned or high-trust properties, each passing the per-article rubric (original material, Adam sign-off, byline linked to /about, AI assistance disclosed), shipped through the sprint",
+          "statement": "Audit every owned property and add the links still missing (the cookbook README link shipped in v0.5.0 and is not counted), plus 3-5 strong, original articles on owned or high-trust off-site properties (no on-site article pages this sprint), each passing the complete per-article rubric: material only this site has, Adam sign-off, recipe claims linked to a live /r/<slug>, no invented nutrition, byline linked to /about, and AI assistance disclosed; shipped through the sprint with no volume target",
           "tests": [
             {
-              "assumption": "Each shipped article or link is live and points at a canonical URL",
-              "type": "one KAN row per deliverable: fetch the source page/post and show it contains the link, then curl that link and show it resolves 200 to the intended canonical URL"
+              "assumption": "Each shipped owned-property link is live and canonical; every article is off-site and has per-deliverable evidence for the complete rubric, including original material, Adam sign-off, live /r/<slug> support for recipe claims, no invented nutrition, an /about-linked byline, and AI disclosure",
+              "type": "one KAN row per deliverable: attach the completed Q6 rubric checklist, fetch the source page/post and verify the required links and disclosures, then curl each destination and show it resolves 200 to the intended canonical URL"
             }
           ]
         },
