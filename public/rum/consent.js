@@ -164,6 +164,15 @@
     return out;
   }
 
+  var URL_IN_TEXT = /https?:\/\/[^\s"'<>()]+/g;
+
+  function scrubUrlsInText(text) {
+    if (typeof text !== 'string' || !text) return text;
+    return text.replace(URL_IN_TEXT, function (match) {
+      return sanitizeUrl(match);
+    });
+  }
+
   function beforeSend(event) {
     if (event.view) {
       event.view.url = sanitizeUrl(event.view.url);
@@ -175,8 +184,14 @@
       }
     }
     if (event.resource) event.resource.url = sanitizeUrl(event.resource.url);
-    if (event.error && event.error.resource) {
-      event.error.resource.url = sanitizeUrl(event.error.resource.url);
+    if (event.error) {
+      if (event.error.resource) {
+        event.error.resource.url = sanitizeUrl(event.error.resource.url);
+      }
+      // Error text can embed a full URL (e.g. a failed fetch naming
+      // location.href); scrub every absolute URL inside it the same way.
+      event.error.message = scrubUrlsInText(event.error.message);
+      event.error.stack = scrubUrlsInText(event.error.stack);
     }
     return true;
   }
@@ -313,6 +328,7 @@
       (primary
         ? 'background:#166534;color:#fff;border:1px solid #166534;'
         : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;');
+    if (!primary) b.setAttribute('data-analytics-deny', '');
     b.addEventListener('click', onClick);
     return b;
   }
@@ -375,8 +391,11 @@
     returnFocus = trigger && typeof trigger.focus === 'function' ? trigger : null;
     showBanner();
     if (banner) {
-      var first = banner.querySelector('button');
-      if (first) first.focus();
+      // Deliberate fail-closed keyboard default: focus "No thanks", so an
+      // accidental Enter can never opt someone in. Selected by attribute, not
+      // DOM order, so reordering the buttons cannot silently invert it.
+      var deny = banner.querySelector('[data-analytics-deny]');
+      if (deny) deny.focus();
     }
   }
 

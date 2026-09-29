@@ -110,10 +110,11 @@ function makeEl(tagName: string): FakeEl {
       (this.listeners[t] ??= []).push(fn);
     },
     querySelector(sel) {
+      const attr = sel.startsWith('[') ? sel.replace(/^\[|\]$/g, '') : null;
       const tag = sel.toUpperCase();
       const walk = (n: FakeEl): FakeEl | null => {
         for (const c of n.children) {
-          if (c.tagName === tag) return c;
+          if (attr ? attr in c.attrs : c.tagName === tag) return c;
           const hit = walk(c);
           if (hit) return hit;
         }
@@ -388,10 +389,18 @@ describe('RUM consent gate — after consent', () => {
     const error = {
       type: 'error',
       view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
-      error: { resource: { url: 'https://images.unsplash.com/p.jpg?ixid=abc' } },
+      error: {
+        resource: { url: 'https://images.unsplash.com/p.jpg?ixid=abc' },
+        message: 'Failed to fetch https://www.tasteslikegood.org/?save=my-slug&utm_source=x',
+        stack: 'Error\n    at f (https://www.tasteslikegood.org/main-ABCDEFGH.js?v=1#x:1:2)',
+      },
     };
     beforeSend(error);
     expect(error.error.resource.url).toBe('https://images.unsplash.com/p.jpg');
+    expect(error.error.message).toBe(
+      'Failed to fetch https://www.tasteslikegood.org/?utm_source=x'
+    );
+    expect(error.error.stack).not.toContain('v=1');
   });
 
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
@@ -479,6 +488,9 @@ describe('RUM consent gate — withdrawal', () => {
     h.docClick(settings);
     expect(h.banner()).toBeDefined();
     expect(settings.focused).toBe(false);
+    // Fail-closed keyboard default: reopening focuses "No thanks".
+    expect(h.buttonByLabel('No thanks').focused).toBe(true);
+    expect(h.buttonByLabel('Allow analytics').focused).toBe(false);
 
     h.buttonByLabel('No thanks').click();
     expect(settings.focused).toBe(true);

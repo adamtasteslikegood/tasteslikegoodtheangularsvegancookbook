@@ -238,6 +238,21 @@ describe('RUM router', () => {
     }
   });
 
+  it('applies the RUM limiter to /rum/config too', async () => {
+    const limiter = createRumIntakeLimiter(null, 60_000, 1);
+    const srv = await boot(CONFIG, undefined, limiter);
+    try {
+      const first = await fetch(`${srv.url}/rum/config`);
+      const second = await fetch(`${srv.url}/rum/config`, {
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      expect(first.status).toBe(200);
+      expect(second.status).toBe(429);
+    } finally {
+      await srv.close();
+    }
+  });
+
   it('answers 502 when the intake is unreachable', async () => {
     const fetchImpl = vi.fn(async () => {
       throw new TypeError('network down');
