@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 import { RecipeStateService } from './recipe-state.service';
 import type { Recipe } from '../recipe.types';
+import { resetAnalyticsForTest } from '../utils/analytics';
 
 const recipe = (over: Partial<Recipe> = {}): Recipe =>
   ({
@@ -24,6 +25,7 @@ describe('RecipeStateService.viewRecipe', () => {
   let service: RecipeStateService;
 
   beforeEach(() => {
+    resetAnalyticsForTest();
     // No deps — construct directly, same as recipe-detail.component.test.ts.
     service = new RecipeStateService();
   });
