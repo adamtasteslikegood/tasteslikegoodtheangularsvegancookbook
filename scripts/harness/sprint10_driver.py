@@ -140,22 +140,30 @@ def task_plan(plan, task_id):
 
 
 def cmd_status(args):
-    plan = load_plan(args.plan)
-    states, wip = snapshot(plan, args.state_dir)
-    print("WIP %d/%d%s" % (len(wip), WIP_LIMIT, (" — " + ", ".join(wip)) if wip else ""))
-    for t in plan["tasks"]:
-        deps = t.get("depends_on", [])
-        ready = all(states[d] == "verified" for d in deps)
-        note = ""
-        if states[t["id"]] == "not-started":
-            note = "startable" if ready and len(wip) < WIP_LIMIT else (
-                "waiting on " + ", ".join(d for d in deps if states[d] != "verified")
-                if not ready else "WIP full")
-            if t.get("requires_done") and note == "startable":
-                note = "startable if %s are Done" % ", ".join(t["requires_done"])
-        print("%-4s %-8s %-2s %-12s %s" % (t["id"], t.get("si", "-"), t.get("lane", "-"),
-                                          states[t["id"]], note))
-    return 0
+    try:
+        plan = load_plan(args.plan)
+        states, wip = snapshot(plan, args.state_dir)
+        print("WIP %d/%d%s" % (len(wip), WIP_LIMIT,
+                               (" — " + ", ".join(wip)) if wip else ""))
+        for t in plan["tasks"]:
+            deps = t.get("depends_on", [])
+            ready = all(states[d] == "verified" for d in deps)
+            note = ""
+            if states[t["id"]] == "not-started":
+                note = "startable" if ready and len(wip) < WIP_LIMIT else (
+                    "waiting on " + ", ".join(
+                        d for d in deps if states[d] != "verified")
+                    if not ready else "WIP full")
+                if t.get("requires_done") and note == "startable":
+                    note = "startable if %s are Done" % ", ".join(
+                        t["requires_done"])
+            print("%-4s %-8s %-2s %-12s %s" % (
+                t["id"], t.get("si", "-"), t.get("lane", "-"),
+                states[t["id"]], note))
+        return 0
+    except (Exception, SystemExit) as exc:
+        print("CONFIG/API ERROR: %s" % exc, file=sys.stderr)
+        return 2
 
 
 def cmd_start(args):
