@@ -148,14 +148,16 @@ Committed and adjacent items, ages as of 2026-09-29 (created → today):
 **Pre-registered readout** — written here before the post, graded 7 days after it.
 Nothing below may be changed once the post is live.
 
-| Kind       | Measure                                                                | Healthy              | Failing     |
-| ---------- | ---------------------------------------------------------------------- | -------------------- | ----------- |
-| Grade      | Recipes kept in the 7 days after launch vs the pre-launch RUM baseline | Above baseline       | At or below |
-| Grade      | View → save on `/r/<slug>` for launch-referred sessions                | ≥ 2 %                | < 0.5 %     |
-| Diagnostic | Referral sessions by source; GSC non-brand impressions                 | Reported, not graded | —           |
-| Guardrail  | Field LCP p75                                                          | ≤ 2.5 s              | > 2.5 s     |
-| Guardrail  | Image endpoint p95                                                     | < 2 s                | ≥ 2 s       |
-| Guardrail  | New statistically identical public pair (sitemap sweep)                | None                 | Any         |
+| Kind  | Measure                                                                | Healthy        | Failing     |
+| ----- | ---------------------------------------------------------------------- | -------------- | ----------- |
+| Grade | Recipes kept in the 7 days after launch vs the pre-launch RUM baseline | Above baseline | At or below |
+| Grade | View → save on `/r/<slug>` for launch-referred sessions                | ≥ 2 %          | < 0.5 %     |
+
+**Middle band (pre-registered):** view → save from 0.5 % up to 2 % is graded **neither healthy nor failing**. It is reported as **inconclusive** with its rate and n, and it does not count as a pass for the launch.
+| Diagnostic | Referral sessions by source; GSC non-brand impressions | Reported, not graded | — |
+| Guardrail | Field LCP p75 | ≤ 2.5 s | > 2.5 s |
+| Guardrail | Image endpoint p95 | < 2 s | ≥ 2 s |
+| Guardrail | New statistically identical public pair (sitemap sweep) | None | Any |
 
 **Minimum sample (pre-registered):** view → save is graded only if the window holds ≥ 100 launch-referred `/r/<slug>` views; below that it is reported as **inconclusive** with its n. Recipes kept is graded against the baseline only if the baseline week is non-zero; otherwise both counts are reported and the grade is inconclusive. Raw visits and upvotes are not the grade.
 
@@ -263,11 +265,11 @@ in To Do) is the close gate by design, so on day 1 it is **expected red**.
 
 **Day-1 evidence, 2026-09-29:**
 
-| Run                                  | Before the sprint existed / started                                                     | After start (sprint 85 active)                                                                                                        |
-| ------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `sprint10_hard_gate.py --charter`    | exit 1 — "Sprint 10 does not exist on board 168"; then exit 1 — "Sprint 10 is 'future'" | **exit 0** — 11 acceptance rows board-rendered; re-run after S12–S16: 16                                                              |
-| `check_sprint_lane.sh`               | —                                                                                       | **exit 0** — 24 members carry `sprint-10`, 12 open KAN rows, 0 orphans; re-run after S12–S16: 34 members, 17 open KAN rows, 0 orphans |
-| `sprint10_hard_gate.py` (close form) | —                                                                                       | exit 1 — 21 items in To Do (expected on day 1)                                                                                        |
+| Run                                  | Before the sprint existed / started                                                     | After start (sprint 85 active)                                                                                                                                                               |
+| ------------------------------------ | --------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sprint10_hard_gate.py --charter`    | exit 1 — "Sprint 10 does not exist on board 168"; then exit 1 — "Sprint 10 is 'future'" | **exit 0** — 11 acceptance rows board-rendered; re-run after S12–S16: 16; after the charter pair was gated (KAN-269 added to the sprint): 17 incl. RCP-99                                    |
+| `check_sprint_lane.sh`               | —                                                                                       | **exit 0** — 24 members carry `sprint-10`, 12 open KAN rows, 0 orphans; re-run after S12–S16: 34 members, 17 open KAN rows, 0 orphans; with KAN-269: 35 members, 17 open KAN rows, 0 orphans |
+| `sprint10_hard_gate.py` (close form) | —                                                                                       | exit 1 — 21 items in To Do (expected on day 1); with acceptance rows and the charter pair counted: 32                                                                                        |
 
 ## Close-out
 
