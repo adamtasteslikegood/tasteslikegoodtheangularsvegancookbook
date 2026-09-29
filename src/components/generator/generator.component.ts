@@ -91,11 +91,12 @@ export class GeneratorComponent extends RecipeViewBase {
         // AI-mediated content from manual entry.
         origin: 'generated',
       };
-      this.recipe.set(generatedRecipe);
-      this.isSaved.set(true);
-      await this.persistenceService.saveRecipe(generatedRecipe);
-      // KAN-292: a generated recipe is kept in the Kitchen automatically.
-      trackRecipeSaved('generated', 'saved');
+      // Route the generated result through the shared view boundary so its
+      // recipe_view action and display state match every other SPA recipe.
+      this.recipeState.viewRecipe(generatedRecipe);
+      const saved = await this.persistenceService.saveRecipe(generatedRecipe);
+      // KAN-292: local persistence remains available when API sync is offline.
+      trackRecipeSaved('generated', saved ? 'saved' : 'saved_offline');
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
       void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
@@ -111,9 +112,9 @@ export class GeneratorComponent extends RecipeViewBase {
   async onSaveRecipe() {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
-    await this.persistenceService.saveRecipe(currentRecipe);
+    const saved = await this.persistenceService.saveRecipe(currentRecipe);
     this.isSaved.set(true);
-    trackRecipeSaved('generator_save', 'saved');
+    trackRecipeSaved('generator_save', saved ? 'saved' : 'saved_offline');
   }
 
   openAddToCookbookModal() {
