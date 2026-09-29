@@ -122,6 +122,12 @@
       .site-nav a {
         text-decoration: none;
       }
+      /* This page's --light-green (#40916c) is 3.65:1 on --bg, under WCAG AA at
+         nav/footer sizes; the chrome uses --green (#2d6a4f), as dark as /about's. */
+      .site-nav a,
+      footer a {
+        color: var(--green);
+      }
       .site-nav a:first-child {
         margin-right: auto;
       }
