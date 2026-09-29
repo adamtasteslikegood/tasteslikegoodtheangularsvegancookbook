@@ -95,12 +95,13 @@ export class GeneratorComponent extends RecipeViewBase {
         // AI-mediated content from manual entry.
         origin: 'generated',
       };
-      // Render optimistically while persistence runs, but do not let that UI
-      // state claim the recipe was kept. The detailed outcome below is the
-      // authority for recipe_view.saved (KAN-292).
-      this.recipeState.stageRecipeForNavigation(generatedRecipe);
+      // Display and count the view immediately; persistence can be slow or
+      // fail, and a rendered recipe is still a view. Start unsaved, then let
+      // the detailed outcome below reconcile the Save control (KAN-292).
+      this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
+      trackRecipeView(generatedRecipe, false);
       const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
-      trackRecipeView(generatedRecipe, saveOutcomeForAnalytics(outcome) !== null);
+      this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       // KAN-292: already_saved / saved / saved_offline from the detailed
       // outcome; ownership and duplicate refusals keep nothing and emit nothing.
       trackRecipeSaveOutcome('generated', outcome);
@@ -120,7 +121,7 @@ export class GeneratorComponent extends RecipeViewBase {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
     const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
-    this.isSaved.set(true);
+    this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
     trackRecipeSaveOutcome('generator_save', outcome);
   }
 

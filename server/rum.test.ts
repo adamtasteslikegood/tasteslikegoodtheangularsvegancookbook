@@ -19,7 +19,11 @@ import {
   resolveRumConfig,
   type RumConfig,
 } from './rum.js';
-import { applySecurityMiddleware, createRumIntakeLimiter } from './security.js';
+import {
+  applySecurityMiddleware,
+  createRumConfigLimiter,
+  createRumIntakeLimiter,
+} from './security.js';
 
 const CONFIG: RumConfig = {
   enabled: true,
@@ -36,11 +40,12 @@ const passThrough = (_req: Request, _res: Response, next: NextFunction) => next(
 async function boot(
   config: RumConfig | null,
   fetchImpl?: typeof fetch,
-  intakeLimiter: RequestHandler = passThrough
+  intakeLimiter: RequestHandler = passThrough,
+  configLimiter: RequestHandler = passThrough
 ) {
   const app = express();
   app.set('trust proxy', 1);
-  app.use(createRumRouter({ config, intakeLimiter, fetchImpl }));
+  app.use(createRumRouter({ config, intakeLimiter, configLimiter, fetchImpl }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
@@ -243,9 +248,16 @@ describe('RUM router', () => {
     }
   });
 
-  it('applies the RUM limiter to /rum/config too', async () => {
-    const limiter = createRumIntakeLimiter(null, 60_000, 1);
-    const srv = await boot(CONFIG, undefined, limiter);
+  it('limits config reads without consuming the intake forwarding allowance', async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 202 }));
+    const intakeLimiter = createRumIntakeLimiter(null, 60_000, 1);
+    const configLimiter = createRumConfigLimiter(null, 60_000, 1);
+    const srv = await boot(
+      CONFIG,
+      fetchImpl as unknown as typeof fetch,
+      intakeLimiter,
+      configLimiter
+    );
     try {
       const first = await fetch(`${srv.url}/rum/config`);
       const second = await fetch(`${srv.url}/rum/config`, {
@@ -253,6 +265,13 @@ describe('RUM router', () => {
       });
       expect(first.status).toBe(200);
       expect(second.status).toBe(429);
+
+      const intake = await fetch(
+        `${srv.url}/rum/intake?ddforward=${forwardParam('ddsource=browser&dd-api-key=pub-token')}`,
+        { method: 'POST', body: 'beacon' }
+      );
+      expect(intake.status).toBe(202);
+      expect(fetchImpl).toHaveBeenCalledOnce();
     } finally {
       await srv.close();
     }

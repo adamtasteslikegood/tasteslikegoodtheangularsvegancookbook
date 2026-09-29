@@ -50,6 +50,10 @@
   // is unavailable. In particular, a denied choice must fail closed even if a
   // stale persisted grant cannot be read or replaced.
   var pageConsent = null;
+  // A denial explicitly chosen on this page must not be overridden by a grant
+  // in another tab. Remote withdrawals are different: a later remote grant
+  // should restore every tab that followed that shared withdrawal.
+  var localDenial = false;
   var consentGrantedListeners = [];
   var grantPendingConfig = false;
 
@@ -397,6 +401,7 @@
   function choose(state) {
     var previous = consentState();
     pageConsent = state;
+    localDenial = state === 'denied';
     var stored = writeStore(localStore, CONSENT_KEY, state);
     // A failed denial write must not leave a stale persisted grant. Removing
     // the key is also fail-closed: the next page shows the choice without
@@ -459,7 +464,11 @@
     if (event.storageArea && localStore && event.storageArea !== localStore) return;
     var next = event.key === null ? null : event.newValue;
     if (next === 'granted') {
-      if (pageConsent !== null) return;
+      if (localDenial) return;
+      // Release the remote-withdrawal override so the shared stored grant is
+      // authoritative again. This also lets consentState() observe it while
+      // /rum/config is still pending.
+      pageConsent = null;
       if (!config) {
         grantPendingConfig = true;
         return;
@@ -520,9 +529,9 @@
     var link = document.createElement('a');
     link.href = '/privacy-policy#analytics';
     // A new tab keeps THIS page, and its in-memory landing referrer/UTM, alive
-    // while the visitor reads the policy: nothing is persisted or sent before
-    // consent, and a grant made in the policy tab reaches this tab through
-    // the storage event (onStorage above).
+    // while the visitor reads the policy: nothing is sent to Datadog before
+    // consent, and a grant made in the policy tab reaches this tab through the
+    // storage event (onStorage above).
     link.target = '_blank';
     link.rel = 'noopener';
     link.textContent = 'Details (opens in a new tab)';
@@ -590,11 +599,12 @@
 
   // Before consent the landing lives only in this page's memory, so the SSR
   // save link (/?save=<slug>#kitchen) would drop it. Carry ONLY the utm_*
-  // tags the visitor arrived with onto that same-origin link: nothing is
-  // stored or sent, and the URL gains no data it did not already have. The
-  // external referrer is deliberately NOT carried (it would put new data in
-  // a URL); that journey keeps UTM attribution but not the referrer. After
-  // consent the landing is already in sessionStorage, so nothing is needed.
+  // tags the visitor arrived with onto that same-origin link. The destination
+  // server receives those tags through ordinary navigation, but the URL gains
+  // no data it did not already have and nothing is sent to Datadog. The external
+  // referrer is deliberately NOT carried (it would put new data in a URL); that
+  // journey keeps UTM attribution but not the referrer. After consent the
+  // landing is already in sessionStorage, so nothing is needed.
   function carryUtmAcrossSave(link) {
     if (consentState() === 'granted' || !link.getAttribute) return;
     var href = link.getAttribute('href');

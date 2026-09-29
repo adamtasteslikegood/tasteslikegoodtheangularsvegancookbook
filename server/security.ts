@@ -178,6 +178,28 @@ export const createRumIntakeLimiter = (
 };
 
 /**
+ * Rate limiter for the public Datadog RUM configuration document.
+ *
+ * Kept in a distinct keyspace so unconsented page loads and cache bypasses
+ * can never consume the forwarding allowance for consented RUM beacons.
+ */
+export const createRumConfigLimiter = (
+  valkeyClient: Redis | null = null,
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 600
+) => {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+    keyGenerator: rateLimitKeyGenerator,
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.rumConfig),
+  });
+};
+
+/**
  * Apply security middleware to an Express app
  */
 export const applySecurityMiddleware = (app: Express) => {

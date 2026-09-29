@@ -10,6 +10,7 @@ import {
   createErrorHandler,
   createExpensiveOperationLimiter,
   createRequestLogger,
+  createRumConfigLimiter,
   createRumIntakeLimiter,
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
@@ -143,6 +144,7 @@ export const ready = (async () => {
   app.use(
     createRumRouter({
       config: resolveRumConfig(process.env, packageVersion),
+      configLimiter: createRumConfigLimiter(valkeyClient),
       intakeLimiter: createRumIntakeLimiter(valkeyClient),
     })
   );

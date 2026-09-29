@@ -94,12 +94,10 @@ export function buildUpstreamUrl(query: Request['query'], clientToken: string): 
 
 export interface RumRouterOptions {
   config: RumConfig | null;
-  /**
-   * Rate limiter for both RUM routes (own `rl:rum:` keyspace). /rum/config is
-   * hit once per page load, so sharing the RUM budget keeps it off the page
-   * limiter while still capping a client that bypasses the cache.
-   */
+  /** Rate limiter for beacon forwarding (own `rl:rum:` keyspace). */
   intakeLimiter: RequestHandler;
+  /** Separate limiter for public config reads (`rl:rum-config:`). */
+  configLimiter: RequestHandler;
   /** Injected for tests; defaults to global fetch. */
   fetchImpl?: typeof fetch;
 }
@@ -107,13 +105,14 @@ export interface RumRouterOptions {
 export function createRumRouter({
   config,
   intakeLimiter,
+  configLimiter,
   fetchImpl = fetch,
 }: RumRouterOptions): Router {
   const router = express.Router();
 
   // Public runtime config for the consent loader. Short cache: the loader asks
   // on every page, and a sample-rate change should land within minutes.
-  router.get('/rum/config', intakeLimiter, (_req: Request, res: Response) => {
+  router.get('/rum/config', configLimiter, (_req: Request, res: Response) => {
     res.set('Cache-Control', 'public, max-age=300');
     res.json(config ?? { enabled: false });
   });

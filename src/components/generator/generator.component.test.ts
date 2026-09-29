@@ -262,7 +262,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(recipeState.currentRecipe()?.id).toBe('gen-1');
     expect(action).toHaveBeenCalledWith('recipe_view', {
       surface: 'spa',
-      saved: true,
+      saved: false,
       slug: null,
     });
     expect(action).toHaveBeenCalledWith('recipe_saved', {
@@ -271,6 +271,34 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       outcome: 'saved_offline',
       slug: null,
     });
+    expect(component.isSaved()).toBe(true);
+  });
+
+  it('records a generated view before persistence settles', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: false,
+      slug: null,
+    });
+    expect(component.isSaved()).toBe(false);
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.isSaved()).toBe(true);
   });
 
   it('reports a manual generator save as offline when API sync fails', async () => {
@@ -307,6 +335,23 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       outcome,
       slug: null,
     });
+    expect(component.isSaved()).toBe(true);
+  });
+
+  it.each([
+    { ok: true, noSession: true },
+    { ok: false, refusal: 'ownership' },
+    { ok: false, refusal: 'duplicate' },
+  ])('keeps manual Save enabled when persistence is unconfirmed (%o)', async (saveOutcome) => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(component.isSaved()).toBe(false);
+    expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
   });
 
   it('emits no recipe_saved when there was no session, so nothing was saved', async () => {
@@ -323,6 +368,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       slug: null,
     });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+    expect(component.isSaved()).toBe(false);
   });
 
   it.each(['duplicate', 'ownership', 'OWNERSHIP_OTHER_ACCOUNT'])(
@@ -341,6 +387,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
         slug: null,
       });
       expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+      expect(component.isSaved()).toBe(false);
     }
   );
 

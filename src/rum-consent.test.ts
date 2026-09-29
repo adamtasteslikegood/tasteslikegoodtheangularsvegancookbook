@@ -796,6 +796,21 @@ describe('RUM consent gate — cross-tab consent', () => {
     expect(active.rum.addAction).not.toHaveBeenCalled();
   });
 
+  it('a later remote grant restores a remotely withdrawn tab', async () => {
+    const shared = new FakeStorage();
+    const h = await run({ consent: 'granted', localStorage: shared });
+    h.loadSdk();
+
+    shared.setItem('tlg.analytics-consent', 'denied');
+    h.storage('tlg.analytics-consent', 'denied');
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('not-granted');
+
+    shared.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
+    expect(h.sdkScripts()).toHaveLength(1);
+  });
+
   it('storage.clear() or key removal elsewhere also fails closed, even mid SDK load', async () => {
     const h = await run({ consent: 'granted' });
     expect(h.sdkScripts()).toHaveLength(1); // SDK requested, not yet loaded
