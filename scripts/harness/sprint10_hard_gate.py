@@ -175,7 +175,12 @@ def main():
         print("CONFIG ERROR: %s" % exc, file=sys.stderr)
         return 2
 
-    report = {"gate": "sprint10-charter" if args.charter else "sprint10-no-todo", "checks": [], "violations": [], "passed": False}
+    gate = (
+        "sprint10-charter" if args.charter
+        else "sprint10-scoped-status" if args.issues is not None
+        else "sprint10-no-todo"
+    )
+    report = {"gate": gate, "checks": [], "violations": [], "passed": False}
     status_descriptions = dict(COMMITTED)
 
     try:
@@ -296,10 +301,13 @@ def finish(report, args):
             print("\nHARD GATE FAILED — %d violation(s):" % len(report["violations"]))
             for v in report["violations"]:
                 print("  - %s" % v)
+        elif report["gate"] == "sprint10-scoped-status":
+            print("\nSCOPED CHECK PASSED — every requested issue is out of To Do.")
         else:
             print("\nHARD GATE PASSED — every committed Sprint 10 item is %s AND has an "
                   "acceptance row the board renders." % (
-                      "a member of the active sprint" if report["gate"] == "sprint10-charter"
+                      "a member of the active sprint"
+                      if report["gate"] == "sprint10-charter"
                       else "out of To Do"))
     return 0 if report["passed"] else 1
 
