@@ -4,7 +4,7 @@
   "version": "0.5.2",
   "type": "module",
   "scripts": {
-    "dev": "ng serve",
+    "dev": "tsc -p server/tsconfig.server.json && node scripts/dev.mjs",
     "build": "ng build && tsc -p server/tsconfig.server.json && node server/dist/check-spa-shell.js",
     "preview": "ng serve --configuration=production",
     "start": "node server/dist/index.js",
