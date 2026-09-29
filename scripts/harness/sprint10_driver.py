@@ -50,7 +50,6 @@ REPO = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "scripts" / "pm"))
 PLAN = REPO / "specs" / "harness" / "SPRINT_10_HARNESS_PLAN.json"
-STATE_DIR = REPO / ".agent-harness" / "sprint10"
 CONTROLLER = os.environ.get(
     "HARNESS_CONTROLLER",
     str(Path.home() / ".claude/plugins/cache/claude-code-skills/agent-harness/"
@@ -60,6 +59,19 @@ GOAL_ITERATIONS = 12   # D6: 12 iterations per goal, goal = one SI
 TASK_ATTEMPTS = 3      # D6: 3 attempts per task
 WIP_LIMIT = 3          # D6: WIP <= 3
 REFUSED = 3
+
+
+def default_state_dir():
+    """The shared state dir in the MAIN checkout, even from a linked worktree.
+
+    WIP, the start lock and D6 all depend on one state dir shared by every lane
+    session. Deriving it from ``__file__`` would give each worktree its own, so a
+    session that omitted ``--state-dir`` would see an empty board and start a
+    fourth task. ``repo_root()`` resolves ``--git-common-dir``, as the Jira client
+    does for ``.env``.
+    """
+    from _jira_client import repo_root
+    return repo_root() / ".agent-harness" / "sprint10"
 
 
 def load_plan(path=PLAN):
@@ -204,7 +216,8 @@ def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plan", default=str(PLAN))
-    p.add_argument("--state-dir", default=str(STATE_DIR))
+    p.add_argument("--state-dir", default=None,
+                   help="shared state dir (default: <main checkout>/.agent-harness/sprint10)")
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status", help="every task's state, WIP, and what may start")
     s = sub.add_parser("start", help="initialize one task's own capped state")
@@ -217,6 +230,8 @@ def build_parser():
 
 def main(argv=None):
     args = build_parser().parse_args(argv)
+    if args.state_dir is None:
+        args.state_dir = str(default_state_dir())
     return cmd_status(args) if args.cmd == "status" else cmd_start(args)
 
 

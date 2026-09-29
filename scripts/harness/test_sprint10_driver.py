@@ -277,5 +277,26 @@ class StartRuleTests(unittest.TestCase):
         self.assertEqual([p.name for p in Path(self.dir).iterdir()], [".start.lock"])
 
 
+
+class SharedStateDirTests(unittest.TestCase):
+    def test_default_state_dir_is_the_main_checkout_not_the_worktree(self):
+        # Linked worktrees share one common dir; the default must follow it, or
+        # each lane session would lock and count WIP in its own directory.
+        import _jira_client
+        with patch.object(_jira_client, "repo_root",
+                          return_value=Path("/main/checkout")):
+            self.assertEqual(driver.default_state_dir(),
+                             Path("/main/checkout/.agent-harness/sprint10"))
+
+    def test_omitting_state_dir_uses_the_shared_default(self):
+        with (
+            tempfile.TemporaryDirectory() as shared,
+            patch.object(driver, "default_state_dir", return_value=Path(shared)),
+            patch("sprint10_driver.cmd_status", return_value=0) as status,
+        ):
+            driver.main(["status"])
+        self.assertEqual(status.call_args[0][0].state_dir, shared)
+
+
 if __name__ == "__main__":
     unittest.main()

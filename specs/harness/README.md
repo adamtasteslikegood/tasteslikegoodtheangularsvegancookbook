@@ -42,8 +42,9 @@ After `start`, the controller runs untouched:
 python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
 python3 scripts/harness/sprint10_driver.py status          # WIP, and what may start now
 python3 scripts/harness/sprint10_driver.py start T0        # refused unless deps/WIP/Done allow
-HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"\nexport HARNESS_CONTROLLER="$HC"
-S=.agent-harness/sprint10/T0.state.json
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
+S="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/sprint10/T0.state.json"   # the shared state dir
 python3 $HC next   --state $S                              # → directive
 python3 $HC record --state $S --task T0 --phase execute --exit-code 0
 python3 $HC verify --state $S --task T0 --cwd "$PWD"
