@@ -82,7 +82,10 @@ export function buildUpstreamUrl(query: Request['query'], clientToken: string): 
     return null;
   }
   if (upstream.origin !== RUM_INTAKE_ORIGIN || upstream.pathname !== RUM_INTAKE_PATH) return null;
-  if (upstream.searchParams.get('dd-api-key') !== clientToken) return null;
+  // Reject ambiguous duplicates: different URL parsers may choose the first or
+  // last value, which could otherwise bypass the single-org relay boundary.
+  const apiKeys = upstream.searchParams.getAll('dd-api-key');
+  if (apiKeys.length !== 1 || apiKeys[0] !== clientToken) return null;
   // Rebuild from constants so only the query string is caller-supplied.
   const safe = new URL(RUM_INTAKE_PATH, RUM_INTAKE_ORIGIN);
   safe.search = upstream.search;
