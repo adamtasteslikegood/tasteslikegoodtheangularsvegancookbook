@@ -3,7 +3,13 @@
  * intake proxy, and the CSP invariant the proxy exists to protect.
  */
 import { describe, expect, it, vi } from 'vitest';
-import express, { type Express, type NextFunction, type Request, type Response } from 'express';
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type RequestHandler,
+  type Response,
+} from 'express';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import {
@@ -13,7 +19,7 @@ import {
   resolveRumConfig,
   type RumConfig,
 } from './rum.js';
-import { applySecurityMiddleware } from './security.js';
+import { applySecurityMiddleware, createRumIntakeLimiter } from './security.js';
 
 const CONFIG: RumConfig = {
   enabled: true,
@@ -27,10 +33,14 @@ const CONFIG: RumConfig = {
 
 const passThrough = (_req: Request, _res: Response, next: NextFunction) => next();
 
-async function boot(config: RumConfig | null, fetchImpl?: typeof fetch) {
+async function boot(
+  config: RumConfig | null,
+  fetchImpl?: typeof fetch,
+  intakeLimiter: RequestHandler = passThrough
+) {
   const app = express();
   app.set('trust proxy', 1);
-  app.use(createRumRouter({ config, intakeLimiter: passThrough, fetchImpl }));
+  app.use(createRumRouter({ config, intakeLimiter, fetchImpl }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;
@@ -204,6 +214,25 @@ describe('RUM router', () => {
       expect(headers['X-Forwarded-For']).toBe('203.0.113.7');
       // Only the two headers above: no cookies or auth leak to Datadog.
       expect(Object.keys(headers).sort()).toEqual(['Content-Type', 'X-Forwarded-For']);
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it('applies the dedicated intake limiter before forwarding', async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 202 }));
+    const limiter = createRumIntakeLimiter(null, 60_000, 1);
+    const srv = await boot(CONFIG, fetchImpl as unknown as typeof fetch, limiter);
+    const url = `${srv.url}/rum/intake?ddforward=${forwardParam(
+      'ddsource=browser&dd-api-key=pub-token'
+    )}`;
+    try {
+      const first = await fetch(url, { method: 'POST', body: 'first' });
+      const second = await fetch(url, { method: 'POST', body: 'second' });
+
+      expect(first.status).toBe(202);
+      expect(second.status).toBe(429);
+      expect(fetchImpl).toHaveBeenCalledOnce();
     } finally {
       await srv.close();
     }
