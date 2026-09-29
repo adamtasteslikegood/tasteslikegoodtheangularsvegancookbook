@@ -47,9 +47,17 @@
   // stale persisted grant cannot be read or replaced.
   var pageConsent = null;
 
+  function getStore(name) {
+    try {
+      return window[name];
+    } catch (e) {
+      return null;
+    }
+  }
+
   function readStore(store, key) {
     try {
-      return store.getItem(key);
+      return store ? store.getItem(key) : null;
     } catch (e) {
       return null;
     }
@@ -57,6 +65,7 @@
 
   function writeStore(store, key, value) {
     try {
+      if (!store) return false;
       store.setItem(key, value);
       return true;
     } catch (e) {
@@ -67,6 +76,7 @@
 
   function removeStore(store, key) {
     try {
+      if (!store) return false;
       store.removeItem(key);
       return true;
     } catch (e) {
@@ -75,9 +85,12 @@
     }
   }
 
+  var localStore = getStore('localStorage');
+  var sessionStore = getStore('sessionStorage');
+
   function consentState() {
     if (pageConsent === 'granted' || pageConsent === 'denied') return pageConsent;
-    var v = readStore(window.localStorage, CONSENT_KEY);
+    var v = readStore(localStore, CONSENT_KEY);
     return v === 'granted' || v === 'denied' ? v : null;
   }
 
@@ -91,7 +104,7 @@
    */
   function captureLanding() {
     var canPersist = consentState() === 'granted';
-    var existing = canPersist ? readStore(window.sessionStorage, LANDING_KEY) : null;
+    var existing = canPersist ? readStore(sessionStore, LANDING_KEY) : null;
     if (existing) {
       try {
         return JSON.parse(existing);
@@ -119,7 +132,7 @@
       var val = params ? params.get(UTM_KEYS[i]) : null;
       if (val) landing[UTM_KEYS[i]] = val.slice(0, 200);
     }
-    if (canPersist) writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
+    if (canPersist) writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
     return landing;
   }
 
@@ -202,26 +215,29 @@
   }
 
   function choose(state) {
+    var previous = consentState();
     pageConsent = state;
-    var stored = writeStore(window.localStorage, CONSENT_KEY, state);
+    var stored = writeStore(localStore, CONSENT_KEY, state);
     // A failed denial write must not leave a stale persisted grant. Removing
     // the key is also fail-closed: the next page shows the choice without
     // loading RUM.
     if (state === 'denied' && !stored) {
-      stored = removeStore(window.localStorage, CONSENT_KEY);
+      stored = removeStore(localStore, CONSENT_KEY);
     }
     closeBanner(true);
     if (state === 'granted') {
-      writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
+      writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
       // The initial SSR view was intentionally dropped before consent. Queue
       // it now so a first-visit grant still has a complete view -> save funnel.
       var slug = ssrRecipeSlug();
-      if (slug) action('recipe_view', { surface: 'ssr', slug: slug });
+      if (slug && previous !== 'granted') {
+        action('recipe_view', { surface: 'ssr', slug: slug });
+      }
       loadSdk();
       return;
     }
     queue = [];
-    removeStore(window.sessionStorage, LANDING_KEY);
+    removeStore(sessionStore, LANDING_KEY);
     if (sdkState !== 'idle') {
       if (window.DD_RUM && window.DD_RUM.stopSession) window.DD_RUM.stopSession();
       // Reload only when denial is safely persisted (or a stale grant was
