@@ -47,6 +47,11 @@ class PlanContractTests(unittest.TestCase):
         for tid in IDS:
             visit(tid)
 
+    def test_lane_a_preserves_s1_then_s3_then_s4(self):
+        deps = {t["id"]: t["depends_on"] for t in PLAN["tasks"]}
+        self.assertEqual(deps["T3"], ["T1"])
+        self.assertEqual(deps["T4"], ["T3"])
+
     def test_every_task_carries_the_charter_attempt_cap(self):
         self.assertTrue(all(t["max_attempts"] == 3 for t in PLAN["tasks"]))
         self.assertEqual(PLAN["loop"]["max_loop_iterations"], 12)
@@ -87,6 +92,14 @@ class StartRuleTests(unittest.TestCase):
         for tid in ("T0", "T1"):
             write_state(self.dir, tid, "verified")
         self.assertEqual(driver.refusals(PLAN, "T3", self.dir), [])
+
+    def test_s4_waits_for_s3_after_s1_is_verified(self):
+        for tid in ("T0", "T1"):
+            write_state(self.dir, tid, "verified")
+        reasons = driver.refusals(PLAN, "T4", self.dir)
+        self.assertTrue(any("depends on T3" in r for r in reasons), reasons)
+        write_state(self.dir, "T3", "verified")
+        self.assertEqual(driver.refusals(PLAN, "T4", self.dir), [])
 
     def test_refuses_a_fourth_open_task(self):
         write_state(self.dir, "T0", "verified")
@@ -137,6 +150,22 @@ class StartRuleTests(unittest.TestCase):
         written = json.loads((Path(self.dir) / "T0.plan.json").read_text())
         self.assertEqual([t["id"] for t in written["tasks"]], ["T0"])
 
+    def test_start_locks_before_evaluating_wip(self):
+        with (
+            patch("sprint10_driver.fcntl.flock") as flock,
+            patch("sprint10_driver.refusals") as refusals,
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            def assert_locked(*_args):
+                self.assertTrue(flock.called)
+                return []
+
+            refusals.side_effect = assert_locked
+            rc = driver.main(["--state-dir", self.dir, "start", "T0", "--dry-run"])
+        self.assertEqual(rc, 0)
+        flock.assert_called_once()
+        self.assertEqual(flock.call_args.args[1], driver.fcntl.LOCK_EX)
+
     def test_refused_start_exits_3_and_initializes_nothing(self):
         with (
             patch("sprint10_driver.subprocess.run") as run,
@@ -145,7 +174,7 @@ class StartRuleTests(unittest.TestCase):
             rc = driver.main(["--state-dir", self.dir, "start", "T3"])
         self.assertEqual(rc, driver.REFUSED)
         run.assert_not_called()
-        self.assertFalse(list(Path(self.dir).iterdir()))
+        self.assertEqual([p.name for p in Path(self.dir).iterdir()], [".start.lock"])
 
 
 if __name__ == "__main__":
