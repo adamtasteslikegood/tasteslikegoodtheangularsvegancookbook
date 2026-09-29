@@ -6,14 +6,15 @@ Second `/cs:grill-product` pass on Sprint 10, run because v0.5.0–v0.5.2 shippe
 
 ## What changed since 2026-09-06
 
-| 09-06 branch   | Status on 09-29                                                                                                                 |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Q1 Outcome     | **Amended** (below): exit number unchanged, partly met; second tier added                                                       |
-| Q3 Evidence    | **Amended**: "pre-launch by design" lifted (see Q2)                                                                             |
-| Q4 Priority    | **Replaced** (Q4 below). Ranks 3–4 (images, nav) shipped in v0.5.x; "not the launch sprint" reversed                            |
-| Q5 Workbench   | Stands. KAN-227 (per-PR preview URLs) is now declined for Sprint 10 (Q4)                                                        |
-| Q6 Measurement | Stands (North Star: recipes kept per week; Datadog RUM behind consent). Launch readout added (Q5 below)                         |
-| Q7 AI feature  | Stands for the settings model picker (GA allowlist, 12-prompt golden set, eval spec before UI). Article rubric added (Q6 below) |
+| 09-06 branch   | Status on 09-29                                                                                                                                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Q1 Outcome     | **Amended** (below): exit number unchanged, partly met; second tier added                                                                                                                                                                                                                                                                                     |
+| Q2 / Q2b Retro | **Superseded.** 09-06 Q2 disposed of "five Sprint 9 retro actions" before the retro existed; the published retro (81657858) has seven, (a)–(g), all disposed in this file (SI #1 + process lane). Carried forward from 09-06 because it is not in (a)–(g): per-user recipe tables = Adam decision row. Q2b (KAN-151 stays Done; KAN-268 non-droppable) stands |
+| Q3 Evidence    | **Amended**: "pre-launch by design" lifted (see Q2)                                                                                                                                                                                                                                                                                                           |
+| Q4 Priority    | **Replaced** (Q4 below). Ranks 3–4 (images, nav) shipped in v0.5.x; "not the launch sprint" reversed                                                                                                                                                                                                                                                          |
+| Q5 Workbench   | Stands. KAN-227 (per-PR preview URLs) is now declined for Sprint 10 (Q4)                                                                                                                                                                                                                                                                                      |
+| Q6 Measurement | Stands (North Star: recipes kept per week; Datadog RUM behind consent). Launch readout added (Q5 below)                                                                                                                                                                                                                                                       |
+| Q7 AI feature  | Stands for the settings model picker (GA allowlist, 12-prompt golden set, eval spec before UI). Article rubric added (Q6 below)                                                                                                                                                                                                                               |
 
 ## Evidence re-measured 2026-09-29
 
@@ -66,7 +67,7 @@ Recipe page sampled: `/r/loaded-vegan-breakfast-burrito-with-crispy-hash-browns-
 
 **Declined for Sprint 10, in writing:** KAN-227 per-PR preview URLs (developer workflow, not the outcome; the S3 amendment had scoped it here) · canonical-recipes phase 2 rubric scoring (needs GSC data the launch has not produced) · on-site article/blog pages.
 
-**Process lane (ticketed, no SI slot):** Sprint 9 retro actions (a) AC-by-AC closes, (b) retro in the close-out session, (c) the five Sprint 8 carry-overs ticketed or declined, (d) KAN-271/272/273/274/276 closed against v0.5.x evidence, (f) KAN-250, RCP-58, duplicate page 67108866, (g) harness T9 repo scope; KAN-259's overdue NAT measurements; PR #3537 (KAN-291). Action (e) is SI #1.
+**Process lane (ticketed, no SI slot):** Sprint 9 retro actions (a) AC-by-AC closes, (b) retro in the close-out session, (c) the five Sprint 8 carry-overs ticketed or declined — secrets-reference gate (S8 action 4), CLAUDE.md suppressed-comment step (3), delete the copied checks list (5), Backend-pointer preflight (6), platform-vs-code note (7), (d) KAN-271/272/273/274/276 closed against v0.5.x evidence, (f) KAN-250, RCP-58, duplicate page 67108866, (g) harness T9 repo scope; KAN-259's overdue NAT measurements; PR #3537 (KAN-291). Action (e) is SI #1.
 
 ## Next
 

@@ -59,6 +59,7 @@
         },
         {
           "statement": "Shorter SPA shell time-to-first-paint on / (route-level code split, deferred modals, no render-blocking font import) so the first screen is content, not a 6 s blank",
+          "status": "shipped v0.5.0 (KAN-272 server-rendered landing copy): home LCP 1.2 s, FCP 1.2 s, Lighthouse mobile 2026-09-29",
           "tests": [
             {
               "assumption": "FCP on / <= 2.0 s at slow-4G (from 6.0 s)",
