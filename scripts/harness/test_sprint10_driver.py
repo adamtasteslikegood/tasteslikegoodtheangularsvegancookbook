@@ -100,6 +100,29 @@ class PlanContractTests(unittest.TestCase):
 
 
 
+class StatusRuleTests(unittest.TestCase):
+    def test_missing_plan_returns_the_documented_config_error_code(self):
+        with (
+            tempfile.TemporaryDirectory() as state_dir,
+            contextlib.redirect_stderr(io.StringIO()) as stderr,
+        ):
+            rc = driver.main([
+                "--plan", str(Path(state_dir) / "missing.json"),
+                "--state-dir", state_dir,
+                "status",
+            ])
+        self.assertEqual(rc, 2)
+        self.assertIn("CONFIG/API ERROR:", stderr.getvalue())
+
+    def test_malformed_state_returns_the_documented_config_error_code(self):
+        with tempfile.TemporaryDirectory() as state_dir:
+            (Path(state_dir) / "T0.state.json").write_text("{")
+            with contextlib.redirect_stderr(io.StringIO()) as stderr:
+                rc = driver.main(["--state-dir", state_dir, "status"])
+        self.assertEqual(rc, 2)
+        self.assertIn("CONFIG/API ERROR:", stderr.getvalue())
+
+
 class StartRuleTests(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
