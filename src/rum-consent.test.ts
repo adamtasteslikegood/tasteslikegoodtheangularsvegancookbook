@@ -294,8 +294,9 @@ describe('RUM consent gate — before consent', () => {
     expect(h.rum.init).not.toHaveBeenCalled();
     expect(h.banner()).toBeDefined();
     expect(h.banner()!.attrs.role).toBe('region');
-    // Referrer/UTM attribution is not persisted before opt-in.
+    // Referrer/UTM attribution and actions are not persisted before opt-in.
     expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
+    expect(h.sessionStorage.getItem('tlg.analytics-pending-actions')).toBeNull();
     // The hidden "Analytics choice" controls are revealed once RUM is available.
     expect(h.head.children.filter((c) => c.tagName === 'STYLE')).toHaveLength(1);
   });
@@ -474,6 +475,29 @@ describe('RUM consent gate — after consent', () => {
       surface: 'ssr',
       slug: 'vegan-cornbread',
     });
+  });
+
+  it('carries consented SSR actions across navigation before the SDK loads', async () => {
+    const first = await run({ consent: 'granted', path: '/r/vegan-cornbread' });
+    const cta = makeEl('a');
+    cta.setAttribute('data-save-recipe', '');
+    first.docClick(cta);
+
+    expect(first.rum.addAction).not.toHaveBeenCalled();
+    expect(first.sessionStorage.getItem('tlg.analytics-pending-actions')).not.toBeNull();
+
+    const next = await run({
+      path: '/kitchen',
+      localStorage: first.localStorage,
+      sessionStorage: first.sessionStorage,
+    });
+    next.loadSdk();
+
+    expect(next.rum.addAction.mock.calls).toEqual([
+      ['recipe_view', { surface: 'ssr', slug: 'vegan-cornbread' }],
+      ['recipe_save_click', { surface: 'ssr', slug: 'vegan-cornbread' }],
+    ]);
+    expect(next.sessionStorage.getItem('tlg.analytics-pending-actions')).toBeNull();
   });
 });
 
