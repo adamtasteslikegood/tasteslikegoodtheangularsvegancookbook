@@ -252,6 +252,8 @@ describe('RUM consent gate — before consent', () => {
     expect(h.rum.init).not.toHaveBeenCalled();
     expect(h.banner()).toBeDefined();
     expect(h.banner()!.attrs.role).toBe('region');
+    // Referrer/UTM attribution is not persisted before opt-in.
+    expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     // The hidden "Analytics choice" controls are revealed once RUM is available.
     expect(h.head.children.filter((c) => c.tagName === 'STYLE')).toHaveLength(1);
   });
@@ -283,6 +285,7 @@ describe('RUM consent gate — after consent', () => {
     h.buttonByLabel('Allow analytics').click();
 
     expect(h.localStorage.getItem('tlg.analytics-consent')).toBe('granted');
+    expect(h.sessionStorage.getItem('tlg.analytics-landing')).not.toBeNull();
     expect(rumTraffic(h).sdkScripts).toEqual(['/rum/datadog-rum-slim.js']);
     h.loadSdk();
     expect(h.rum.init).toHaveBeenCalledOnce();
@@ -327,6 +330,7 @@ describe('RUM consent gate — after consent', () => {
 
   it('keeps the landing attribution for the session, not the latest internal page', async () => {
     const first = await run({
+      consent: 'granted',
       search: '?utm_source=hn',
       referrer: 'https://news.ycombinator.com/',
     });
@@ -370,6 +374,7 @@ describe('RUM consent gate — withdrawal', () => {
 
     h.buttonByLabel('No thanks').click();
     expect(h.localStorage.getItem('tlg.analytics-consent')).toBe('denied');
+    expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     expect(h.rum.stopSession).toHaveBeenCalledOnce();
     expect(h.reload).toHaveBeenCalledOnce();
 
