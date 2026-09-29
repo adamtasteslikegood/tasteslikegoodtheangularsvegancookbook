@@ -41,6 +41,10 @@
   var sdkState = 'idle'; // idle | loading | ready | failed
   var queue = [];
   var banner = null;
+  // The current page's explicit choice takes precedence when browser storage
+  // is unavailable. In particular, a denied choice must fail closed even if a
+  // stale persisted grant cannot be read or replaced.
+  var pageConsent = null;
 
   function readStore(store, key) {
     try {
@@ -53,20 +57,25 @@
   function writeStore(store, key, value) {
     try {
       store.setItem(key, value);
+      return true;
     } catch (e) {
       /* storage disabled: the choice lasts for this page only */
+      return false;
     }
   }
 
   function removeStore(store, key) {
     try {
       store.removeItem(key);
+      return true;
     } catch (e) {
       /* storage disabled */
+      return false;
     }
   }
 
   function consentState() {
+    if (pageConsent === 'granted' || pageConsent === 'denied') return pageConsent;
     var v = readStore(window.localStorage, CONSENT_KEY);
     return v === 'granted' || v === 'denied' ? v : null;
   }
@@ -131,6 +140,12 @@
     script.src = SDK_URL;
     script.async = true;
     script.onload = function () {
+      // Consent can be withdrawn while the SDK script is in flight.
+      if (consentState() !== 'granted') {
+        sdkState = 'failed';
+        queue = [];
+        return;
+      }
       var rum = window.DD_RUM;
       if (!rum) {
         sdkState = 'failed';
@@ -182,8 +197,14 @@
   }
 
   function choose(state) {
-    var previous = consentState();
-    writeStore(window.localStorage, CONSENT_KEY, state);
+    pageConsent = state;
+    var stored = writeStore(window.localStorage, CONSENT_KEY, state);
+    // A failed denial write must not leave a stale persisted grant. Removing
+    // the key is also fail-closed: the next page shows the choice without
+    // loading RUM.
+    if (state === 'denied' && !stored) {
+      stored = removeStore(window.localStorage, CONSENT_KEY);
+    }
     closeBanner();
     if (state === 'granted') {
       writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
@@ -192,10 +213,12 @@
     }
     queue = [];
     removeStore(window.sessionStorage, LANDING_KEY);
-    if (previous === 'granted' && sdkState !== 'idle') {
+    if (sdkState !== 'idle') {
       if (window.DD_RUM && window.DD_RUM.stopSession) window.DD_RUM.stopSession();
-      // The SDK cannot be un-initialised in place; a reload leaves it unloaded.
-      window.location.reload();
+      // Reload only when denial is safely persisted (or a stale grant was
+      // removed). If both operations are blocked, stay on this stopped,
+      // fail-closed page instead of reactivating a stale grant on reload.
+      if (stored) window.location.reload();
     }
   }
 
