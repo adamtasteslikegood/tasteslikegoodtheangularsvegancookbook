@@ -271,10 +271,15 @@
       </p>
       <p>
         Your analytics choice is remembered in your browser&rsquo;s <code>localStorage</code>
-        (<code>tlg.analytics-consent</code>), and how you arrived on this visit is held in
-        <code>sessionStorage</code> on your device only. If you allow analytics, Datadog also
-        keeps an anonymous session identifier in <code>localStorage</code> (<code>_dd_s_v2</code>).
-        Datadog sets no cookies here.
+        (<code>tlg.analytics-consent</code>). Before you allow analytics, how you arrived is held
+        only in page memory and is not sent. If you allow analytics, the sanitized landing context
+        (the page path, external referrer reduced to its origin and path, and any <code>utm_</code>
+        tags) is stored for this browser session in <code>sessionStorage</code>
+        (<code>tlg.analytics-landing</code>) and sent to Datadog. Consented recipe actions waiting
+        for the analytics code may also be stored temporarily in <code>sessionStorage</code>
+        (<code>tlg.analytics-pending-actions</code>) and are removed after delivery or when you
+        withdraw consent. Datadog also keeps an anonymous session identifier in
+        <code>localStorage</code> (<code>_dd_s_v2</code>). Datadog sets no cookies here.
       </p>
 
       <hr />
