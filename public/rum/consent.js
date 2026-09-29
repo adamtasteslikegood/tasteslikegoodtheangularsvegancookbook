@@ -208,6 +208,10 @@
     closeBanner();
     if (state === 'granted') {
       writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
+      // The initial SSR view was intentionally dropped before consent. Queue
+      // it now so a first-visit grant still has a complete view -> save funnel.
+      var slug = ssrRecipeSlug();
+      if (slug) action('recipe_view', { surface: 'ssr', slug: slug });
       loadSdk();
       return;
     }
