@@ -503,12 +503,21 @@
           }
           @case ('retiring') {
             <h3 id="delete-recipe-title" class="text-xl font-bold text-stone-800 serif">
-              Delete a once-published recipe?
+              @if (r.first_published_at === null) {
+                Delete a recipe with a reserved address?
+              } @else {
+                Delete a once-published recipe?
+              }
             </h3>
             <div class="text-stone-600 mt-2 text-sm text-left space-y-2">
               <p>
-                <strong>{{ r.name }}</strong> used to have a public page. Deleting it retires that
-                address for good:
+                @if (r.first_published_at === null) {
+                  <strong>{{ r.name }}</strong> holds a reserved public address. Deleting it retires
+                  that address for good:
+                } @else {
+                  <strong>{{ r.name }}</strong> used to have a public page. Deleting it retires that
+                  address for good:
+                }
               </p>
               <ul class="list-disc pl-5 space-y-1">
                 <li>

@@ -8,6 +8,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- **Kitchen delete warns for reserved slugs (KAN-291).** A never-published recipe whose
+  slug holds a KAN-288 owner marker (17 private rows in production) got the plain
+  Recycle Bin dialog, although deleting it makes the slug permanent. The kitchen now
+  reads the list endpoint's `slug_reserved` flag (tasteslikegood.com#336) and asks for
+  the irreversible type-the-slug confirmation, worded for a reserved address rather
+  than a once-published page.
+- **Canonical-lock delete fallback (KAN-291).** A 400 canonical-lock refusal without a
+  JSON body now falls back to a refusal message, not "Check your connection and try
+  again", which invited a retry that can never succeed.
+
+### Changed
+
+- `docs/seo/pinterest-research.md`: the KAN-284 pin image, pin description and
+  `data-pin-*` hero attributes moved to the checked list, confirmed live on v0.5.2.
+
 ## [0.5.2] - 2026-09-28
 
 Backend submodule pointer: **`d43b58f` → `03e6cdaa70f0`** (Backend `main`, promotion

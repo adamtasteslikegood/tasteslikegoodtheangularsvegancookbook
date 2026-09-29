@@ -205,6 +205,8 @@ export const DELETE_SYNC_FAILURE =
   "Couldn't delete this recipe. Check your connection and try again; it is still in your cookbook.";
 export const DELETE_PUBLISHED_REFUSAL =
   'This recipe is published. Unpublish it before deleting it: deleting permanently retires its public page.';
+export const DELETE_CANONICAL_LOCK_REFUSAL =
+  "This is a canonical public recipe, so it can't be deleted. It is still in your cookbook.";
 
 /**
  * KAN-289 — decide what a DELETE /api/recipes/:id response means.
@@ -218,7 +220,9 @@ export const DELETE_PUBLISHED_REFUSAL =
 export async function interpretDeleteResponse(res: SaveResponseLike): Promise<DeleteOutcome> {
   if (res.ok || res.status === 404) return { ok: true };
   if (res.status === 409 || res.status === 400) {
-    let message = res.status === 409 ? DELETE_PUBLISHED_REFUSAL : DELETE_SYNC_FAILURE;
+    // Both are deliberate server refusals: a retry-shaped "check your
+    // connection" fallback would invite a retry that can never succeed (KAN-291).
+    let message = res.status === 409 ? DELETE_PUBLISHED_REFUSAL : DELETE_CANONICAL_LOCK_REFUSAL;
     try {
       const body = (await res.json()) as { error?: unknown } | null;
       if (body && typeof body.error === 'string' && body.error) message = body.error;

@@ -51,6 +51,13 @@ export interface Recipe {
    */
   first_published_at?: string | null;
   /**
+   * KAN-291 — server-owned, from `GET /api/recipes` only: the row owns a
+   * `retired_slug` marker, so deleting it makes that slug permanent even when
+   * `first_published_at` is null (the KAN-288 migration's owner markers on
+   * private slugs). Undefined means the Backend predates the flag.
+   */
+  slug_reserved?: boolean;
+  /**
    * The public `/r/<slug>` this recipe was saved from, if it originated from
    * the public site's "Save to cookbook" CTA. Used to dedup repeat saves so
    * tapping Save again surfaces the existing copy instead of adding another.
