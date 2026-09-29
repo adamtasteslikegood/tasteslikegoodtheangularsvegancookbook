@@ -47,11 +47,11 @@ product grill's scope table, kept so either document can be read against the oth
 
 ### Cut before charter — Adam, 2026-09-29
 
-| Grill # | Item                             | Disposition                                                                                                                                                                                                                                                    |
-| ------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 4       | Recycle bin and delete integrity | **Dropped.** The recycle bin is dropped as a feature; delete and unpublish confirmations shipped in v0.5.2 (KAN-289). Bin code is still on `dev` (`kitchen.component.*`, `persistence.service.ts`); removing it is not Sprint 10 work.                         |
-| 11      | Settings tab (model picker)      | **Deferred.** Not UI-consistency work. The 09-06 Q7 eval spec stands for when it is scheduled.                                                                                                                                                                 |
-| 12      | Duplicate hygiene                | **Dropped.** Adam unpublished the actual duplicates and curates competing recipes by hand. **Slug suffixing is unchanged:** two authors' distinct recipes whose slugs collide still get `-2`, including against a slug retired to the KAN-288 tombstone table. |
+| Grill # | Item                             | Disposition                                                                                                                                                                                                                                                                                                               |
+| ------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 4       | Recycle bin and delete integrity | **Dropped.** The recycle bin is dropped as a feature; delete and unpublish confirmations shipped in v0.5.2 (KAN-289). Bin code is still on `dev` (`kitchen.component.*`, `persistence.service.ts`); removing it is not Sprint 10 work.                                                                                    |
+| 11      | Settings tab (model picker)      | **Deferred.** Not UI-consistency work. The 09-06 Q7 eval spec stands for when it is scheduled.                                                                                                                                                                                                                            |
+| 12      | Duplicate hygiene                | **Dropped.** Adam unpublished the actual duplicates and curates competing recipes by hand. **Slug suffixing is unchanged:** two authors' distinct recipes whose slugs collide still get `-2`, including against a slug retired to the KAN-288 tombstone table. KAN-275 stays open as a follow-up audit of recipe hygiene. |
 
 Also declined in the grill, in writing: KAN-227 per-PR preview URLs, canonical-recipes
 phase 2 rubric scoring, and on-site article/blog pages.
@@ -108,20 +108,20 @@ lane clears it; it is not sprint scope.
 
 Committed and adjacent items, ages as of 2026-09-29 (created → today):
 
-| Key     | Status      | Age | Note                                                                      |
-| ------- | ----------- | --- | ------------------------------------------------------------------------- |
-| KAN-181 | In Progress | 61  | S4. Last invariant evidence 2026-08-01, before KAN-265/288/289            |
-| KAN-250 | In Progress | 35  | Process lane (retro f): close against the Sprint 9 S3 amendment           |
-| KAN-268 | To Do       | 23  | S1. Filed at the 09-06 grill; no fix on Backend `dev`                     |
-| KAN-269 | In Progress | 23  | Charter row; closes with RCP-99                                           |
-| KAN-277 | In Progress | 16  | S10. README link shipped v0.5.0; the rest is open                         |
-| KAN-271 | In Review   | 16  | Process lane (retro d): close on v0.5.0 evidence; S3 carries the residual |
-| KAN-272 | In Review   | 16  | Process lane (retro d)                                                    |
-| KAN-273 | In Review   | 16  | Process lane (retro d)                                                    |
-| KAN-274 | In Review   | 16  | Process lane (retro d)                                                    |
-| KAN-276 | In Review   | 16  | Process lane (retro d)                                                    |
-| KAN-275 | To Do       | 16  | Grill #12, dropped: close with Adam's curation as the evidence            |
-| KAN-290 | To Do       | 1   | Grill #4, dropped: recycle bin dropped as a feature                       |
+| Key     | Status      | Age | Note                                                                                                                |
+| ------- | ----------- | --- | ------------------------------------------------------------------------------------------------------------------- |
+| KAN-181 | In Progress | 61  | S4. Last invariant evidence 2026-08-01, before KAN-265/288/289                                                      |
+| KAN-250 | In Progress | 35  | Process lane (retro f): close against the Sprint 9 S3 amendment                                                     |
+| KAN-268 | To Do       | 23  | S1. Filed at the 09-06 grill; no fix on Backend `dev`                                                               |
+| KAN-269 | In Progress | 23  | Charter row; closes with RCP-99                                                                                     |
+| KAN-277 | In Progress | 16  | S10. README link shipped v0.5.0; the rest is open                                                                   |
+| KAN-271 | In Review   | 16  | Process lane (retro d): close on v0.5.0 evidence; S3 carries the residual                                           |
+| KAN-272 | In Review   | 16  | Process lane (retro d)                                                                                              |
+| KAN-273 | In Review   | 16  | Process lane (retro d)                                                                                              |
+| KAN-274 | In Review   | 16  | Process lane (retro d)                                                                                              |
+| KAN-276 | In Review   | 16  | Process lane (retro d)                                                                                              |
+| KAN-275 | To Do       | 16  | Grill #12, dropped from Sprint 10; kept open as a follow-up audit of recipe hygiene (`follow-up` label)             |
+| KAN-290 | To Do       | 1   | Grill #4, dropped from Sprint 10; kept open as a follow-up audit of the recycle-bin/delete path (`follow-up` label) |
 
 ## Launch gates and the pre-registered 7-day readout (grill Q2 + Q5)
 
@@ -211,19 +211,19 @@ Verbatim from the [Sprint 9 Retrospective](https://tasteslikegood.atlassian.net/
 
 ## Process lane (no SI slot)
 
-| Item                                                                                         | Source        | Status                           |
-| -------------------------------------------------------------------------------------------- | ------------- | -------------------------------- |
-| Close KAN-271/272/273/274/276 on v0.5.x evidence                                             | Retro d       | Open                             |
-| KAN-250 closed against the S3 amendment; RCP-58 on KAN-161's evidence; page 67108866 deleted | Retro f       | Open                             |
-| Harness T9 `-R` scope                                                                        | Retro g       | Open, conditional                |
-| S8 action 4 — secrets-reference gate                                                         | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 3 — CLAUDE.md suppressed-comment step                                              | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 5 — delete the copied checks list                                                  | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 6 — Backend-pointer preflight                                                      | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 7 — platform-vs-code note                                                          | Retro c       | Awaiting Adam: ticket or decline |
-| KAN-290 (recycle bin) and KAN-275 (duplicates): close with Adam's 2026-09-29 dispositions    | Grill #4, #12 | Open                             |
-| KAN-259's overdue NAT measurements                                                           | Grill         | Open                             |
-| PR #3537 (KAN-291 follow-ups)                                                                | Grill         | Open PR                          |
+| Item                                                                                                                                                                                                                                                                                                                                                                                                                                               | Source        | Status                           |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------- |
+| Close KAN-271/272/273/274/276 on v0.5.x evidence                                                                                                                                                                                                                                                                                                                                                                                                   | Retro d       | Open                             |
+| KAN-250 closed against the S3 amendment; RCP-58 on KAN-161's evidence; page 67108866 deleted                                                                                                                                                                                                                                                                                                                                                       | Retro f       | Open                             |
+| Harness T9 `-R` scope                                                                                                                                                                                                                                                                                                                                                                                                                              | Retro g       | Open, conditional                |
+| S8 action 4 — secrets-reference gate                                                                                                                                                                                                                                                                                                                                                                                                               | Retro c       | Awaiting Adam: ticket or decline |
+| S8 action 3 — CLAUDE.md suppressed-comment step                                                                                                                                                                                                                                                                                                                                                                                                    | Retro c       | Awaiting Adam: ticket or decline |
+| S8 action 5 — delete the copied checks list                                                                                                                                                                                                                                                                                                                                                                                                        | Retro c       | Awaiting Adam: ticket or decline |
+| S8 action 6 — Backend-pointer preflight                                                                                                                                                                                                                                                                                                                                                                                                            | Retro c       | Awaiting Adam: ticket or decline |
+| S8 action 7 — platform-vs-code note                                                                                                                                                                                                                                                                                                                                                                                                                | Retro c       | Awaiting Adam: ticket or decline |
+| Follow-up audits, outside Sprint 10 (Adam, 2026-09-29): KAN-290 — state of recycle-bin delete (where bin code still lives, what DELETE does for private/published/reserved-slug rows, whether the recorded defects reproduce); KAN-275 — state of recipe hygiene (sitemap sweep for identical pairs, competing clusters, every public `-<digit>` slug checked as distinct or copy). Each ends in a state report; fixes are filed as their own rows | Grill #4, #12 | Open, not labelled `sprint-10`   |
+| KAN-259's overdue NAT measurements                                                                                                                                                                                                                                                                                                                                                                                                                 | Grill         | Open                             |
+| PR #3537 (KAN-291 follow-ups)                                                                                                                                                                                                                                                                                                                                                                                                                      | Grill         | Open PR                          |
 
 ## Gates
 
