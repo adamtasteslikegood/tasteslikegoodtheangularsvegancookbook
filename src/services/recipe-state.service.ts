@@ -1,6 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Recipe } from '../recipe.types';
-import { trackRecipeView } from '../utils/analytics';
+import { resetRecipeViewTracking, trackRecipeView } from '../utils/analytics';
 
 /**
  * Set/replace a `_t=<epoch>` cache-buster on an image URL, preserving any
@@ -137,5 +137,6 @@ export class RecipeStateService {
     this.currentRecipe.set(null);
     this.generatedImageUrl.set(null);
     this.isSaved.set(false);
+    resetRecipeViewTracking();
   }
 }
