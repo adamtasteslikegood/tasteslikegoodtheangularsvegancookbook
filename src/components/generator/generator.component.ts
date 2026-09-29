@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
-import { trackRecipeSaved } from '../../utils/analytics';
+import { trackRecipeSaveOutcome } from '../../utils/analytics';
 import {
   LANDING_FAQ,
   LANDING_H1,
@@ -94,9 +94,10 @@ export class GeneratorComponent extends RecipeViewBase {
       // Route the generated result through the shared view boundary so its
       // recipe_view action and display state match every other SPA recipe.
       this.recipeState.viewRecipe(generatedRecipe);
-      const saved = await this.persistenceService.saveRecipe(generatedRecipe);
-      // KAN-292: local persistence remains available when API sync is offline.
-      trackRecipeSaved('generated', saved ? 'saved' : 'saved_offline');
+      const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+      // KAN-292: already_saved / saved / saved_offline from the detailed
+      // outcome; ownership and duplicate refusals keep nothing and emit nothing.
+      trackRecipeSaveOutcome('generated', outcome);
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
       void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
@@ -112,9 +113,9 @@ export class GeneratorComponent extends RecipeViewBase {
   async onSaveRecipe() {
     const currentRecipe = this.recipe();
     if (!currentRecipe) return;
-    const saved = await this.persistenceService.saveRecipe(currentRecipe);
+    const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
     this.isSaved.set(true);
-    trackRecipeSaved('generator_save', saved ? 'saved' : 'saved_offline');
+    trackRecipeSaveOutcome('generator_save', outcome);
   }
 
   openAddToCookbookModal() {

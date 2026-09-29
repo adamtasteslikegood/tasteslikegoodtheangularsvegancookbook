@@ -4,7 +4,7 @@ import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { buildSavedRecipeFromPublic } from './public-recipe.mapper';
 import type { Recipe } from '../recipe.types';
-import { trackRecipeSaved } from '../utils/analytics';
+import { saveOutcomeForAnalytics, trackRecipeSaved } from '../utils/analytics';
 
 /**
  * Predicate matching a saved recipe's `sourceSlug` or `slug` against an
@@ -145,7 +145,11 @@ export class SsrEntryService {
         trackRecipeSaved('public_page', 'saved', normalizedSlug);
         this.toast.show('Saved to your cookbook.', recipe);
       } else {
-        trackRecipeSaved('public_page', 'saved_offline', normalizedSlug);
+        // Only a sync failure kept the recipe locally; an ownership or
+        // duplicate refusal kept nothing and must not count as a keep.
+        if (saveOutcomeForAnalytics(outcome) === 'saved_offline') {
+          trackRecipeSaved('public_page', 'saved_offline', normalizedSlug);
+        }
         this.toast.show("Saved on this device — we'll sync it when you're back online.", recipe);
       }
     } catch (err) {

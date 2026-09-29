@@ -1,5 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resetAnalyticsForTest, trackRecipeSaved, trackRecipeView } from './analytics';
+import {
+  resetAnalyticsForTest,
+  saveOutcomeForAnalytics,
+  trackRecipeSaved,
+  trackRecipeView,
+} from './analytics';
 
 const g = globalThis as { tlgAnalytics?: unknown };
 
@@ -97,5 +102,19 @@ describe('SPA RUM custom actions (KAN-292)', () => {
       outcome: 'already_saved',
       slug: 'vegan-cornbread',
     });
+  });
+});
+
+describe('saveOutcomeForAnalytics (recipes-kept numerator, KAN-292)', () => {
+  it.each([
+    [{ ok: true, alreadySaved: true }, 'already_saved'],
+    [{ ok: true }, 'saved'],
+    [{ ok: false, refusal: 'sync' }, 'saved_offline'],
+    [{ ok: false }, 'saved_offline'],
+    [{ ok: false, refusal: 'duplicate' }, null],
+    [{ ok: false, refusal: 'ownership' }, null],
+    [{ ok: false, refusal: 'OWNERSHIP_ORPHANED_GUEST_ROW' }, null],
+  ])('%o -> %s', (outcome, expected) => {
+    expect(saveOutcomeForAnalytics(outcome)).toBe(expected);
   });
 });

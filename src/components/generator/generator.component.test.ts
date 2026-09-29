@@ -28,14 +28,25 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     vi.restoreAllMocks();
   });
 
-  const createComponent = (opts: { isGuest?: boolean; saveResult?: boolean } = {}) => {
+  const createComponent = (
+    opts: {
+      isGuest?: boolean;
+      saveResult?: boolean;
+      saveOutcome?: { ok: boolean; refusal?: string; alreadySaved?: boolean };
+    } = {}
+  ) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
+    // One double for saveRecipe and saveRecipeDetailed (the publish tests
+    // override it per case), resolving to a detailed SaveOutcome.
     const persistenceSaveRecipe = vi
       .fn()
-      .mockResolvedValue(opts.saveResult === false ? false : { ok: true });
+      .mockResolvedValue(
+        opts.saveOutcome ??
+          (opts.saveResult === false ? { ok: false, refusal: 'sync' } : { ok: true })
+      );
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
@@ -272,6 +283,41 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       slug: null,
     });
   });
+
+  it.each([
+    [{ ok: true, alreadySaved: true }, 'already_saved'],
+    [{ ok: true }, 'saved'],
+    [{ ok: false, refusal: 'sync' }, 'saved_offline'],
+  ])('maps a manual save outcome %o to recipe_saved %s', async (saveOutcome, outcome) => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generator_save',
+      outcome,
+      slug: null,
+    });
+  });
+
+  it.each(['duplicate', 'ownership', 'OWNERSHIP_OTHER_ACCOUNT'])(
+    'emits no recipe_saved when a generated save is refused (%s)',
+    async (refusal) => {
+      const action = vi.fn();
+      vi.stubGlobal('tlgAnalytics', { action });
+      const { component } = createComponent({ saveOutcome: { ok: false, refusal } });
+      component.prompt.set('vegan cornbread');
+
+      await component.onGenerate();
+
+      expect(action).toHaveBeenCalledWith('recipe_view', expect.anything());
+      expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+    }
+  );
 
   // KAN-256: `clearRecipe()` fired inside onGenerate() — submit-time, not
   // entry-time. The recipe lives on RecipeStateService (a root singleton) so

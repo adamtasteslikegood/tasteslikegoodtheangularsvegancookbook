@@ -98,6 +98,39 @@ export function trackRecipeView(
   send('recipe_view', context, analytics);
 }
 
+/** The persistence outcome fields the recipes-kept numerator depends on. */
+export interface SaveOutcomeLike {
+  ok: boolean;
+  refusal?: string;
+  alreadySaved?: boolean;
+}
+
+/**
+ * Map a detailed persistence outcome to the recipe_saved outcome, or null
+ * when no recipe was kept (KAN-292, recipes-kept numerator):
+ *   alreadySaved          -> already_saved  (a no-op, not a new keep)
+ *   ok                    -> saved
+ *   refusal 'sync'        -> saved_offline  (kept locally; sync will retry)
+ *   any other refusal     -> null           (ownership/duplicate: a retry
+ *                                            will not fix it, nothing kept)
+ */
+export function saveOutcomeForAnalytics(outcome: SaveOutcomeLike): RecipeSaveOutcome | null {
+  if (outcome.alreadySaved) return 'already_saved';
+  if (outcome.ok) return 'saved';
+  if (outcome.refusal === undefined || outcome.refusal === 'sync') return 'saved_offline';
+  return null;
+}
+
+/** trackRecipeSaved from a detailed outcome; sends nothing for real refusals. */
+export function trackRecipeSaveOutcome(
+  source: RecipeSaveSource,
+  outcome: SaveOutcomeLike,
+  slug?: string | null
+): void {
+  const mapped = saveOutcomeForAnalytics(outcome);
+  if (mapped) trackRecipeSaved(source, mapped, slug);
+}
+
 export function trackRecipeSaved(
   source: RecipeSaveSource,
   outcome: RecipeSaveOutcome,
