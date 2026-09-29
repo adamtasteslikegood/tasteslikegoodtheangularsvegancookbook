@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 import { RecipeStateService } from './recipe-state.service';
 import type { Recipe } from '../recipe.types';
 
@@ -28,6 +28,10 @@ describe('RecipeStateService.viewRecipe', () => {
     service = new RecipeStateService();
   });
 
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it('marks the recipe saved by default (cookbook navigation path)', () => {
     service.viewRecipe(recipe());
     expect(service.isSaved()).toBe(true);
@@ -38,6 +42,18 @@ describe('RecipeStateService.viewRecipe', () => {
     service.viewRecipe(recipe(), false);
     expect(service.isSaved()).toBe(false);
     expect(service.currentRecipe()?.id).toBe('r1');
+  });
+
+  it('counts the same recipe again after clearRecipe starts a new view boundary', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    service.clearRecipe();
+
+    service.viewRecipe(recipe());
+    service.clearRecipe();
+    service.viewRecipe(recipe());
+
+    expect(action).toHaveBeenCalledTimes(2);
   });
 
   it('clearRecipe resets the saved flag', () => {
