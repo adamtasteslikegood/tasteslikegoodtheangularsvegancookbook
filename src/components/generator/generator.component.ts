@@ -5,7 +5,11 @@ import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
-import { trackRecipeSaveOutcome } from '../../utils/analytics';
+import {
+  saveOutcomeForAnalytics,
+  trackRecipeSaveOutcome,
+  trackRecipeView,
+} from '../../utils/analytics';
 import {
   LANDING_FAQ,
   LANDING_H1,
@@ -91,10 +95,12 @@ export class GeneratorComponent extends RecipeViewBase {
         // AI-mediated content from manual entry.
         origin: 'generated',
       };
-      // Route the generated result through the shared view boundary so its
-      // recipe_view action and display state match every other SPA recipe.
-      this.recipeState.viewRecipe(generatedRecipe);
+      // Render optimistically while persistence runs, but do not let that UI
+      // state claim the recipe was kept. The detailed outcome below is the
+      // authority for recipe_view.saved (KAN-292).
+      this.recipeState.stageRecipeForNavigation(generatedRecipe);
       const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+      trackRecipeView(generatedRecipe, saveOutcomeForAnalytics(outcome) !== null);
       // KAN-292: already_saved / saved / saved_offline from the detailed
       // outcome; ownership and duplicate refusals keep nothing and emit nothing.
       trackRecipeSaveOutcome('generated', outcome);

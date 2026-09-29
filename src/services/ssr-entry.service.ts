@@ -125,6 +125,7 @@ export class SsrEntryService {
       const recipeData = await response.json();
       const recipe: Recipe = buildSavedRecipeFromPublic(recipeData);
       const outcome = await this.persistence.saveRecipeDetailed(recipe);
+      const analyticsOutcome = saveOutcomeForAnalytics(outcome);
 
       if (outcome.alreadySaved) {
         // KAN-241: the server already has this recipe — the ghost was cleaned
@@ -141,16 +142,16 @@ export class SsrEntryService {
         // The real copy surfaces on the next hydrate/sync cycle.
         trackRecipeSaved('public_page', 'already_saved', normalizedSlug);
         this.toast.show('Good news — you already have this recipe.', existing ?? null);
-      } else if (outcome.ok) {
+      } else if (analyticsOutcome === 'saved') {
         trackRecipeSaved('public_page', 'saved', normalizedSlug);
         this.toast.show('Saved to your cookbook.', recipe);
-      } else {
+      } else if (analyticsOutcome === 'saved_offline') {
         // Only a sync failure kept the recipe locally; an ownership or
         // duplicate refusal kept nothing and must not count as a keep.
-        if (saveOutcomeForAnalytics(outcome) === 'saved_offline') {
-          trackRecipeSaved('public_page', 'saved_offline', normalizedSlug);
-        }
+        trackRecipeSaved('public_page', 'saved_offline', normalizedSlug);
         this.toast.show("Saved on this device — we'll sync it when you're back online.", recipe);
+      } else {
+        this.toast.show('Could not save this recipe. Please try again.');
       }
     } catch (err) {
       console.error('Failed to save recipe from SSR CTA:', err);

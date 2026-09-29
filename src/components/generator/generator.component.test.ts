@@ -317,6 +317,11 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
     await component.onGenerate();
 
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: false,
+      slug: null,
+    });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
   });
 
@@ -330,7 +335,11 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
       await component.onGenerate();
 
-      expect(action).toHaveBeenCalledWith('recipe_view', expect.anything());
+      expect(action).toHaveBeenCalledWith('recipe_view', {
+        surface: 'spa',
+        saved: false,
+        slug: null,
+      });
       expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
     }
   );
