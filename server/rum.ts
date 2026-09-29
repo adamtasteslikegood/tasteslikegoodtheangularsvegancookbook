@@ -153,6 +153,13 @@ export function createRumRouter({
           body: new Uint8Array(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)),
           signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         });
+        // This proxy relays only the status. Release any Datadog response body
+        // so Undici can reuse the connection instead of retaining a socket.
+        try {
+          await upstream.body?.cancel();
+        } catch {
+          // A body-cleanup failure must not replace the upstream status.
+        }
         res.status(upstream.status).end();
       } catch (err) {
         console.warn('[rum] intake forward failed:', err instanceof Error ? err.name : 'error');
