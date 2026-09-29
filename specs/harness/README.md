@@ -24,6 +24,7 @@ iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions
   A happy-path task costs 3 iterations and a failed attempt at most 3, so 3 attempts fit.
   Reading "goal" as one SI is a choice, named here so Adam can overrule it.
 - **Order.** Each task's `depends_on` must be verified before it starts.
+  The graph enforces Lane C's T10 → T11 order and Lane D's T15 → T14 → T13 → T16 order.
 - **WIP ≤ 3.** A fourth open task is refused; an escalated task keeps its slot until a
   human resolves it.
   The charter's day-1 schedule names four items (S1, S2, S5, S10). **Adam, 2026-09-29:
@@ -62,15 +63,37 @@ and then in a **fresh session and a clean worktree** based on a freshly synced `
 ```bash
 git fetch origin --prune && git submodule update --init Backend && git -C Backend fetch --prune
 scripts/git/ahead-behind.sh --base dev . Backend      # both repos level with origin/dev
-git worktree add .claude/worktrees/sprint10-loop -b chore/sprint10-loop-KAN-269 origin/dev
-cd .claude/worktrees/sprint10-loop
-git submodule update --init Backend                  # Backend at the pinned SHA; never re-pin here
-# Backend work (T1, T2, T5, T7, T8, T9): branch inside Backend/ from its origin/dev, e.g.
-#   git -C Backend switch -c fix/kan-268-<topic> origin/dev
-# and leave the cookbook gitlink alone until the release step pins Backend main.
-python3 scripts/harness/sprint10_hard_gate.py --charter   # board still honest: exit 0
-python3 scripts/harness/sprint10_driver.py status          # then start T0, per "How the run is driven"
+ROOT=$(git rev-parse --show-toplevel)
+STATE_DIR="$ROOT/.agent-harness/sprint10"              # one absolute shared PM state
+mkdir -p "$STATE_DIR"
+
+python3 scripts/harness/sprint10_hard_gate.py --charter
+python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" status
+python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T0
+# Drive and verify T0 before opening the three day-1 implementation tasks.
+
+git worktree add "$ROOT/.claude/worktrees/sprint10-t1" -b fix/kan-268-sprint10 origin/dev
+git worktree add "$ROOT/.claude/worktrees/sprint10-t2" -b feat/kan-292-sprint10 origin/dev
+git worktree add "$ROOT/.claude/worktrees/sprint10-t5" -b feat/kan-294-sprint10 origin/dev
+for WT in sprint10-t1 sprint10-t2 sprint10-t5; do
+  git -C "$ROOT/.claude/worktrees/$WT" submodule update --init Backend
+done
+
+# Each concurrent task owns its cookbook worktree and its private Backend checkout.
+git -C "$ROOT/.claude/worktrees/sprint10-t1/Backend" switch -c fix/kan-268-sprint10 origin/dev
+git -C "$ROOT/.claude/worktrees/sprint10-t2/Backend" switch -c feat/kan-292-sprint10 origin/dev
+git -C "$ROOT/.claude/worktrees/sprint10-t5/Backend" switch -c feat/kan-294-sprint10 origin/dev
+
+(cd "$ROOT/.claude/worktrees/sprint10-t1" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T1)
+(cd "$ROOT/.claude/worktrees/sprint10-t2" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T2)
+(cd "$ROOT/.claude/worktrees/sprint10-t5" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T5)
 ```
+
+Never run two open tasks from the same cookbook worktree, and never switch a Backend
+branch underneath another task. Give every later concurrent task its own worktree and
+submodule checkout from fresh `origin/dev`, while passing the same absolute
+`--state-dir "$STATE_DIR"` to every `status` and `start` command. Leave each
+cookbook gitlink unchanged until that task's release step intentionally pins Backend main.
 
 What changed from Sprint 9, and why:
 
