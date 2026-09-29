@@ -1,10 +1,23 @@
 import { Component } from '@angular/core';
 import { environment } from '../../environments/environment';
+import siteNav from '../../site-nav.json';
 
 export const standalonePageHref = (
   path: '/about' | '/privacy-policy',
   production = environment.production
 ): string => (production ? path : `${path}.html`);
+
+/**
+ * The footer's links: the canonical set in src/site-nav.json (KAN-294), shared
+ * with the SSR base template. Only the href is adjusted, and only under
+ * `npm run dev`, where the standalone pages are served as .html assets.
+ */
+export const footerLinks = (production = environment.production) =>
+  siteNav.footer.map(({ href, label }) => ({
+    label,
+    href:
+      href === '/about' || href === '/privacy-policy' ? standalonePageHref(href, production) : href,
+  }));
 
 @Component({
   selector: 'app-footer',
@@ -16,19 +29,16 @@ export const standalonePageHref = (
       >
         <p class="serif">&copy; 2026 Tasteslikegood.org &mdash; VeganGenius Chef</p>
         <nav class="flex items-center gap-5">
-          <a href="/browse" class="hover:text-stone-800 underline underline-offset-2"
-            >Browse Public Recipes</a
-          >
-          <a [href]="aboutHref" class="hover:text-stone-800 underline underline-offset-2">About</a>
-          <a [href]="privacyPolicyHref" class="hover:text-stone-800 underline underline-offset-2"
-            >Privacy Policy</a
-          >
+          @for (link of links; track link.href) {
+            <a [href]="link.href" class="hover:text-stone-800 underline underline-offset-2">{{
+              link.label
+            }}</a>
+          }
         </nav>
       </div>
     </footer>
   `,
 })
 export class FooterComponent {
-  readonly aboutHref = standalonePageHref('/about');
-  readonly privacyPolicyHref = standalonePageHref('/privacy-policy');
+  readonly links = footerLinks();
 }

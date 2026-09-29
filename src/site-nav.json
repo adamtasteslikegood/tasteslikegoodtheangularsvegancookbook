@@ -1,0 +1,13 @@
+{
+  "header": [
+    { "href": "/", "label": "VeganGenius Chef home" },
+    { "href": "/generate", "label": "Generator" },
+    { "href": "/kitchen", "label": "My Kitchen" },
+    { "href": "/browse", "label": "Browse" }
+  ],
+  "footer": [
+    { "href": "/browse", "label": "Browse recipes" },
+    { "href": "/about", "label": "About" },
+    { "href": "/privacy-policy", "label": "Privacy Policy" }
+  ]
+}
