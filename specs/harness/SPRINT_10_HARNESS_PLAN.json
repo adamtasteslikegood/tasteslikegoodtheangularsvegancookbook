@@ -26,26 +26,41 @@
   "lanes": {
     "A": {
       "owns": "S1 -> S3 -> S4, S2 in parallel (gates)",
-      "must_not_touch": ["CLAUDE.md", ".github/workflows/"]
+      "must_not_touch": [
+        "CLAUDE.md",
+        ".github/workflows/"
+      ]
     },
     "B": {
       "owns": "S5 -> S6 -> S7 -> S8 -> S9 (UI, serial)",
-      "must_not_touch": ["Backend/services/", ".github/workflows/"]
+      "must_not_touch": [
+        "Backend/services/",
+        ".github/workflows/"
+      ]
     },
     "C": {
       "owns": "S10 through the sprint, S11 last (distribution)",
-      "must_not_touch": ["src/", "Backend/"]
+      "must_not_touch": [
+        "src/",
+        "Backend/"
+      ]
     },
     "D": {
       "owns": "S15 first, then S12; S14 -> S13 -> S16 on CLAUDE.md (process)",
-      "must_not_touch": ["src/", "Backend/"]
+      "must_not_touch": [
+        "src/",
+        "Backend/"
+      ]
     }
   },
   "tasks": [
     {
       "id": "T0",
       "si": "board",
-      "jira": ["RCP-100", "RCP-99"],
+      "jira": [
+        "RCP-100",
+        "RCP-99"
+      ],
       "lane": "PM",
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
@@ -78,7 +93,10 @@
     {
       "id": "T1",
       "si": "S1",
-      "jira": ["KAN-268", "RCP-98"],
+      "jira": [
+        "KAN-268",
+        "RCP-98"
+      ],
       "lane": "A",
       "anchor": true,
       "skill": "investigate",
@@ -118,12 +136,17 @@
     {
       "id": "T2",
       "si": "S2",
-      "jira": ["KAN-292", "RCP-101"],
+      "jira": [
+        "KAN-292",
+        "RCP-101"
+      ],
       "lane": "A",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. Starts day 1: its 7-day clock is the long pole for S11.",
-      "suggested_tools": ["gh pr list --state all --search 'KAN-292 in:title'"],
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-292 in:title'"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-292",
@@ -148,9 +171,14 @@
     {
       "id": "T3",
       "si": "S3",
-      "jira": ["KAN-293", "RCP-102"],
+      "jira": [
+        "KAN-293",
+        "RCP-102"
+      ],
       "lane": "A",
-      "gates": ["T1"],
+      "gates": [
+        "T1"
+      ],
       "skill": "benchmark",
       "skill_path": "~/.claude/skills/benchmark",
       "objective": "Mobile LCP <= 2.5 s on /r/<slug>, /browse, / (Lighthouse 12, simulated slow-4G; now 3.1/3.1/1.2 s). Measured on the release that includes S1. Pre-stated flip: if S1 alone meets it, close evidence-only.",
@@ -176,12 +204,17 @@
     {
       "id": "T4",
       "si": "S4",
-      "jira": ["KAN-181", "RCP-103"],
+      "jira": [
+        "KAN-181",
+        "RCP-103"
+      ],
       "lane": "A",
       "skill": "qa-only",
       "skill_path": "~/.claude/skills/qa-only",
       "objective": "Re-walk KAN-181 INV-1..INV-9 on the current production revision (after the v0.5.2 delete/unpublish confirmations). Report pass/fail per invariant on KAN-181; file any failure as its own bug. Guests cannot publish: test through the app/API, never the ORM.",
-      "suggested_tools": ["/browse (gstack) against https://www.tasteslikegood.org"],
+      "suggested_tools": [
+        "/browse (gstack) against https://www.tasteslikegood.org"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-181",
@@ -201,12 +234,17 @@
     {
       "id": "T5",
       "si": "S5",
-      "jira": ["KAN-294", "RCP-104"],
+      "jira": [
+        "KAN-294",
+        "RCP-104"
+      ],
       "lane": "B",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Header and footer nav parity across the SPA shell and the SSR base template (base_public.html). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": ["gh pr list --state all --search 'KAN-294 in:title'"],
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-294 in:title'"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-294",
@@ -231,12 +269,17 @@
     {
       "id": "T6",
       "si": "S6",
-      "jira": ["KAN-295", "RCP-105"],
+      "jira": [
+        "KAN-295",
+        "RCP-105"
+      ],
       "lane": "B",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Visible breadcrumbs in the SPA, matching the SSR BreadcrumbList (KAN-273). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": ["gh pr list --state all --search 'KAN-295 in:title'"],
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-295 in:title'"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-295",
@@ -261,7 +304,10 @@
     {
       "id": "T7",
       "si": "S7",
-      "jira": ["KAN-296", "RCP-106"],
+      "jira": [
+        "KAN-296",
+        "RCP-106"
+      ],
       "lane": "B",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
@@ -299,12 +345,17 @@
     {
       "id": "T8",
       "si": "S8",
-      "jira": ["KAN-297", "RCP-107"],
+      "jira": [
+        "KAN-297",
+        "RCP-107"
+      ],
       "lane": "B",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Mobile 2-up recipe cards on /browse, tag hubs and /kitchen. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": ["gh pr list --state all --search 'KAN-297 in:title'"],
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-297 in:title'"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-297",
@@ -329,7 +380,10 @@
     {
       "id": "T9",
       "si": "S9",
-      "jira": ["KAN-298", "RCP-108"],
+      "jira": [
+        "KAN-298",
+        "RCP-108"
+      ],
       "lane": "B",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
@@ -367,12 +421,17 @@
     {
       "id": "T10",
       "si": "S10",
-      "jira": ["KAN-277", "RCP-109"],
+      "jira": [
+        "KAN-277",
+        "RCP-109"
+      ],
       "lane": "C",
       "skill": "marketing-skills:content-strategy",
       "skill_path": "marketing-skills:content-strategy",
       "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each.",
-      "suggested_tools": ["JQL: issue in linkedIssues(RCP-109) AND project = KAN"],
+      "suggested_tools": [
+        "JQL: issue in linkedIssues(RCP-109) AND project = KAN"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-277",
@@ -397,9 +456,21 @@
     {
       "id": "T11",
       "si": "S11",
-      "jira": ["KAN-299", "RCP-110"],
+      "jira": [
+        "KAN-299",
+        "RCP-110"
+      ],
       "lane": "C",
-      "gates": ["T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9"],
+      "gates": [
+        "T1",
+        "T2",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9"
+      ],
       "skill": "marketing-skills:launch-strategy",
       "skill_path": "marketing-skills:launch-strategy",
       "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting.",
@@ -430,7 +501,10 @@
     {
       "id": "T12",
       "si": "S12",
-      "jira": ["KAN-300", "RCP-111"],
+      "jira": [
+        "KAN-300",
+        "RCP-111"
+      ],
       "lane": "D",
       "skill": "senior-devops",
       "skill_path": "engineering-skills:senior-devops",
@@ -463,12 +537,17 @@
     {
       "id": "T13",
       "si": "S13",
-      "jira": ["KAN-301", "RCP-112"],
+      "jira": [
+        "KAN-301",
+        "RCP-112"
+      ],
       "lane": "D",
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Write the suppressed-comment sweep into the CLAUDE.md PR lifecycle: pulls/<n>/reviews bodies are read in full before any PR is declared review-debt-zero. LANE D runs the CLAUDE.md items serially (S14 -> S13 -> S16).",
-      "suggested_tools": ["git show origin/dev:CLAUDE.md | grep -n 'pulls/<n>'"],
+      "suggested_tools": [
+        "git show origin/dev:CLAUDE.md | grep -n 'pulls/<n>'"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-301",
@@ -493,12 +572,17 @@
     {
       "id": "T14",
       "si": "S14",
-      "jira": ["KAN-302", "RCP-113"],
+      "jira": [
+        "KAN-302",
+        "RCP-113"
+      ],
       "lane": "D",
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Delete the copied required-checks list from CLAUDE.md; name gh api repos/{owner}/{repo}/rulesets (plus branch protection) as the source of truth.",
-      "suggested_tools": ["gh api repos/{owner}/{repo}/rulesets"],
+      "suggested_tools": [
+        "gh api repos/{owner}/{repo}/rulesets"
+      ],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-302",
@@ -528,7 +612,10 @@
     {
       "id": "T15",
       "si": "S15",
-      "jira": ["KAN-303", "RCP-114"],
+      "jira": [
+        "KAN-303",
+        "RCP-114"
+      ],
       "lane": "D",
       "skill": "git-worktree-manager",
       "skill_path": "engineering-advanced-skills:git-worktree-manager",
@@ -554,6 +641,11 @@
           "kind": "content"
         },
         {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qE 'scripts/git/[^[:space:]]*preflight'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
           "cmd": "MANUAL: the failing output on a deliberately stale or pointer-rolled-back branch, and the passing output on a fresh one.",
           "expect_exit": 0,
           "kind": "manual-evidence"
@@ -566,7 +658,10 @@
     {
       "id": "T16",
       "si": "S16",
-      "jira": ["KAN-304", "RCP-115"],
+      "jira": [
+        "KAN-304",
+        "RCP-115"
+      ],
       "lane": "D",
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
@@ -590,6 +685,16 @@
           "cmd": "git show origin/dev:CLAUDE.md | grep -q 'action_required'",
           "expect_exit": 0,
           "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -Fq 'gh api repos/{owner}/{repo}/actions/runs/<id>/jobs'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -Fq 'gh run view <id> --json status,conclusion'",
+          "expect_exit": 0,
+          "kind": "content"
         }
       ],
       "done_when": "discriminator on origin/dev CLAUDE.md with both calls, RCP-115 ACs evidenced",
@@ -599,7 +704,9 @@
     {
       "id": "T17",
       "si": "close",
-      "jira": ["RCP-100"],
+      "jira": [
+        "RCP-100"
+      ],
       "lane": "PM",
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
@@ -636,7 +743,11 @@
     "sequencing_note": "T0 first. Then T1 and T2 on day 1 (T2 starts the 7-day RUM clock). Lane B (T5-T9) serially from day 1; Lane D (T15, T12, T14, T13, T16) fills WIP slack under WIP <= 3. T3 and T4 after T1 releases. T10 through the sprint. T11 only after its gates. T17 last.",
     "max_loop_iterations": 72,
     "max_iterations_reason": "18 tasks x (execute + verify) is 36 iterations before any retry; tasks carry 3-5 attempts. 72 leaves room for retries without escalating on arithmetic; the charter D6 per-goal cap of 12 applies per SI goal, not to this 18-task plan.",
-    "escalate_on": ["attempts_exhausted", "no_verification_available", "timebox_expired"]
+    "escalate_on": [
+      "attempts_exhausted",
+      "no_verification_available",
+      "timebox_expired"
+    ]
   },
   "close": {
     "requires": "every task verified, or explicitly waived by Adam with a reason. Sprint 10 pre-authorises no drops: waiving any task requires a charter update.",
