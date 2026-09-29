@@ -170,6 +170,7 @@ async function run(opts: {
   referrer?: string;
   localStorage?: FakeStorage;
   sessionStorage?: FakeStorage;
+  throwOnStorageAccess?: boolean;
 }): Promise<Harness> {
   const head = makeEl('head');
   const body = makeEl('body');
@@ -191,8 +192,6 @@ async function run(opts: {
   };
   const reload = vi.fn();
   const win: Record<string, unknown> = {
-    localStorage,
-    sessionStorage,
     fetch: fetchMock,
     location: {
       pathname: opts.path ?? '/',
@@ -202,6 +201,23 @@ async function run(opts: {
       reload,
     },
   };
+  if (opts.throwOnStorageAccess) {
+    Object.defineProperties(win, {
+      localStorage: {
+        get() {
+          throw new Error('localStorage property blocked');
+        },
+      },
+      sessionStorage: {
+        get() {
+          throw new Error('sessionStorage property blocked');
+        },
+      },
+    });
+  } else {
+    win.localStorage = localStorage;
+    win.sessionStorage = sessionStorage;
+  }
   const document = {
     referrer: opts.referrer ?? '',
     head,
@@ -281,6 +297,17 @@ describe('RUM consent gate — before consent', () => {
     expect(h.head.children.filter((c) => c.tagName === 'STYLE')).toHaveLength(1);
   });
 
+  it('still shows the choice when storage properties themselves throw', async () => {
+    const h = await run({ throwOnStorageAccess: true, path: '/r/vegan-cornbread' });
+
+    expect(h.banner()).toBeDefined();
+    expect(h.win.tlgAnalytics).toBeDefined();
+    expect(rumTraffic(h)).toEqual({ sdkScripts: [], fetches: [] });
+
+    h.buttonByLabel('Allow analytics').click();
+    expect(rumTraffic(h).sdkScripts).toEqual(['/rum/datadog-rum-slim.js']);
+  });
+
   it('shows no banner and loads nothing when the server has RUM disabled', async () => {
     const h = await run({ config: { enabled: false } });
     expect(h.banner()).toBeUndefined();
@@ -333,6 +360,19 @@ describe('RUM consent gate — after consent', () => {
       surface: 'ssr',
       slug: 'vegan-cornbread',
     });
+  });
+
+  it('does not duplicate an SSR view when an existing grant is reconfirmed', async () => {
+    const h = await run({ consent: 'granted', path: '/r/vegan-cornbread' });
+    h.loadSdk();
+    expect(h.rum.addAction).toHaveBeenCalledTimes(1);
+
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+    h.buttonByLabel('Allow analytics').click();
+
+    expect(h.rum.addAction).toHaveBeenCalledTimes(1);
   });
 
   it('attaches launch-referral attribution (external referrer + UTM) as global context', async () => {
