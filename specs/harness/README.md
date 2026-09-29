@@ -16,12 +16,17 @@ Run state lives in `.agent-harness/sprint10-state.json` (gitignored).
 HC=~/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py
 python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
 # STOP: Adam must review the strict QA report and give an explicit human go/no-go.
-# Run init only after that approval is recorded.
-python3 $HC init --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --state .agent-harness/sprint10-state.json
+# Even after approval, do not initialize this monolithic plan: the pinned controller
+# drops lane/gate metadata and cannot enforce the charter's 12-iterations-per-goal cap.
+# Add independently capped lane/goal plans plus a PM coordination driver first; those
+# artifacts must provide the initialization commands used for the run.
 ```
 
 A zero-exit QA report is necessary but not authorization to spend loop budget. Record
-Adam's explicit human go/no-go before running `init`; without it, stop after QA.
+Adam's explicit human go/no-go before any initialization. The monolithic plan is a
+reviewable source of task definitions, not an executable schedule; without both the
+approval and independently capped lane/goal plans plus a PM coordination driver, stop
+after QA.
 
 ### Kickoff — only after both PRs merge (Adam, 2026-09-29)
 
@@ -40,15 +45,17 @@ git submodule update --init Backend                  # Backend at the pinned SHA
 #   git -C Backend switch -c fix/kan-268-<topic> origin/dev
 # and leave the cookbook gitlink alone until the release step pins Backend main.
 python3 scripts/harness/sprint10_hard_gate.py --charter   # board still honest: exit 0
-# then, in that session:  /pm-skills:cs-pm-loop  (or /agent-harness:cs-harness) with this plan
+# STOP after the charter gate until the independently capped lane/goal plans and
+# PM coordination driver exist. Do not start either loop with this monolithic plan.
 ```
 
 What changed from Sprint 9, and why:
 
 - **Repo scope (Sprint 9 retro action g).** Sprint 9's T9 looked for a Backend-only
   ticket's PR in this repo, so its artifact check could not pass. Every artifact check
-  for Backend work now passes `-R adamtasteslikegood/tasteslikegood.com`: T1 (KAN-268)
-  and the Backend-template halves of T7 and T9. The plan records the rule under
+  for Backend work now passes `-R adamtasteslikegood/tasteslikegood.com`: T1 (KAN-268),
+  T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), and the Backend-template halves of T7
+  and T9. The plan records the rule under
   `repo_scope`.
 - **Content checks for the process items.** S13, S14 and S16 are verified against
   `origin/dev:CLAUDE.md`, and S15 against a `scripts/git/*preflight*` file on
