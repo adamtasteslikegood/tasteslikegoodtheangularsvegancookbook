@@ -262,7 +262,7 @@
       "target": true,
       "solutions": [
         {
-          "statement": "Unpublish the identical '-2' copies and refuse '-<digit>' slugs at publish time; the cornbread canonical and joke-title naming are Adam decision rows, not work items",
+          "statement": "Unpublish the identical '-2' copies and refuse a '-<digit>' slug at publish time only when its content duplicates an existing public recipe (a genuinely different recipe with a colliding title still gets '-2', per SPRINT_6_PLAN.md:234-235); the cornbread canonical and joke-title naming are Adam decision rows, not work items",
           "tests": [
             {
               "assumption": "The public catalog has no statistically identical pair after the change",
@@ -291,7 +291,7 @@
           "tests": [
             {
               "assumption": "Each shipped article or link is live and points at a canonical URL",
-              "type": "one KAN row per deliverable with the live URL and a curl of the link target"
+              "type": "one KAN row per deliverable: fetch the source page/post and show it contains the link, then curl that link and show it resolves 200 to the intended canonical URL"
             }
           ]
         },
