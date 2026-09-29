@@ -304,7 +304,28 @@ export abstract class RecipeViewBase {
     this.servingsMultiplier.set(multiplier);
   }
 
-  async togglePublic(recipe: Recipe) {
+  /**
+   * KAN-289 — the recipe waiting on the unpublish confirmation, or null. The
+   * templates render `<app-unpublish-confirm>` while it is set.
+   */
+  readonly unpublishCandidate = signal<Recipe | null>(null);
+
+  async confirmUnpublish() {
+    const recipe = this.unpublishCandidate();
+    this.unpublishCandidate.set(null);
+    if (recipe) await this.togglePublic(recipe, true);
+  }
+
+  cancelUnpublish() {
+    this.unpublishCandidate.set(null);
+  }
+
+  /**
+   * @param confirmed KAN-289: unpublishing needs the explicit confirmation
+   *   dialog first. The toggle calls this without it, which opens the dialog;
+   *   the dialog's confirm calls back in with `true`.
+   */
+  async togglePublic(recipe: Recipe, confirmed = false) {
     if (!this.canPublish()) {
       this.onPublishDenied();
       return;
@@ -321,6 +342,12 @@ export abstract class RecipeViewBase {
       return;
     }
     const nextState = !recipe.is_public;
+
+    // KAN-289: taking a page offline is never a single tap.
+    if (!nextState && !confirmed) {
+      this.unpublishCandidate.set(recipe);
+      return;
+    }
 
     // KAN-140: manually entered recipes cannot be published — the server
     // rejects with 400; the template disables the toggle, this backstops it.
@@ -377,6 +404,14 @@ export abstract class RecipeViewBase {
       const fresh = this.authService.currentUser()?.savedRecipes.find((r) => r.id === recipe.id);
       if (fresh && this.recipe()?.id === recipe.id) {
         this.recipe.set(fresh);
+      }
+      if (!nextState) {
+        // KAN-289 (RCP-62): confirm the page really went offline.
+        this.toastService.show(
+          recipe.slug
+            ? `Unpublished. /r/${recipe.slug} is offline until you publish it again.`
+            : 'Unpublished. The public page is offline until you publish it again.'
+        );
       }
     } catch (err) {
       console.error('Failed to toggle public state:', err);

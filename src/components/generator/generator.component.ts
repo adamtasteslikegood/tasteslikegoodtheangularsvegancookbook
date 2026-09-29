@@ -1,7 +1,9 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
+import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
 import {
   LANDING_FAQ,
@@ -14,7 +16,7 @@ import {
 @Component({
   selector: 'app-generator',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UnpublishConfirmComponent],
   templateUrl: './generator.component.html',
 })
 export class GeneratorComponent extends RecipeViewBase {
@@ -26,6 +28,13 @@ export class GeneratorComponent extends RecipeViewBase {
     steps: LANDING_STEPS,
     faq: LANDING_FAQ,
   };
+
+  /**
+   * False on /generate (KAN-287): the Generator tab is just the input box.
+   * Optional so the component still renders (as the landing) outside a route.
+   */
+  readonly showLanding =
+    inject(ActivatedRoute, { optional: true })?.snapshot.data['landing'] !== false;
 
   prompt = signal('');
   isRecipeLoading = signal(false);

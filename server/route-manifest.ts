@@ -68,7 +68,7 @@ export const ROUTE_MANIFEST = {
   /** Express-served standalone pages */
   standalone: { paths: ['/privacy-policy', '/about', '/favicon.ico', '/index.html'] },
   /** Angular SPA routes — catch-all serves index.html */
-  spa: { paths: ['/', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
+  spa: { paths: ['/', '/generate', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
 } as const;
 
 // ── Classification functions ─────────────────────────────────────────────

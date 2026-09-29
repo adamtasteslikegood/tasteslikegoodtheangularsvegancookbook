@@ -8,6 +8,55 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-09-28
+
+Backend submodule pointer: **`d43b58f` → `03e6cdaa70f0`** (Backend `main`, promotion
+tasteslikegood.com#333). Carries tasteslikegood.com#330, #331, #332 and #334.
+
+**Release constraints.** The KAN-289 SPA change and the KAN-288 Backend change must go
+live together: the previous SPA dropped a recipe locally even when the server refused
+the delete. The `flask-backend-migrate` job adds the `retired_slug` table,
+`recipe.first_published_at` and the `ix_retired_slug_recipe_id` index before the new
+revision serves; make no recipe deletes, renames or unpublishes in that window.
+
+### Added
+
+- **A published slug is never handed to a different recipe (KAN-288, Backend #332, #334).**
+  Deleting a recipe that was ever published retires its `/r/<slug>` for good, and the
+  URL answers **410 Gone** instead of later serving another recipe with the same name.
+  A renamed recipe's old slug redirects (302) to the current one. The API refuses
+  `DELETE` of a still-published recipe with **409**. A migration backfills
+  `first_published_at` and the tombstones for recipes already deleted or renamed.
+- **Pinterest-ready recipe pins (KAN-284, Backend #330).** Recipe pages offer a 2:3 pin
+  image (cached, blurred-pad JPEG), a keyword pin description and `data-pin-*` attributes.
+
+### Changed
+
+- **Landing page visual pass (KAN-287).** The Generator tab opens a new `/generate` page
+  that is just the prompt box; `/` stays the indexable "Vegan Recipe Generator" landing
+  page, and `/generate` gets the noindex route-neutral shell like `/kitchen`. The header
+  wordmark is nav-sized with no tagline, so it no longer reads as a second title above the
+  H1. "How it works" is a numbered list in the reading column instead of three cards, and
+  the hero is left-aligned on mobile. Landing copy and the H1 are unchanged.
+- **Confirmations before a public recipe page goes away (KAN-289).** Unpublishing opens a
+  dialog with an "Unpublish this recipe anyway" checkbox, and a toast confirms the page
+  is offline. A published recipe can't be deleted: the dialog says to unpublish it first,
+  with no shortcut. Deleting a recipe that was ever published warns that its `/r/<slug>`
+  is retired for good and says "This action is NOT reversible."; you type the slug to
+  enable Delete. Never-published recipes keep the Recycle Bin confirmation.
+
+### Fixed
+
+- **Deleting a recipe no longer strands its public page (KAN-289).** The kitchen used to
+  move a recipe to the Recycle Bin, and out of its cookbooks, before the server answered
+  the DELETE. It now waits for the answer, and keeps the recipe and its cookbooks if the
+  server refuses (Backend KAN-288's 409 for published recipes) or can't be reached.
+  Recipes read from the API carry `first_published_at`.
+
+### Security
+
+- Backend `cryptography` 49.0.0 → 50.0.0 (Backend #331).
+
 ## [0.5.1] - 2026-09-28
 
 Backend submodule pointer: unchanged at **`d43b58f`** (Backend `main`). A frontend-only patch.

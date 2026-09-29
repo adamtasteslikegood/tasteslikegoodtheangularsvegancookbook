@@ -125,6 +125,63 @@ describe('RecipeViewBase', () => {
     );
   });
 
+  // KAN-289: unpublishing needs the checkbox dialog; the toggle only opens it.
+  describe('unpublish confirmation (KAN-289)', () => {
+    const published = () =>
+      ({ id: 'r1', name: 'Vegan Cornbread', is_public: true, slug: 'vegan-cornbread' }) as never;
+
+    it('opens the dialog instead of saving', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      const r = published();
+
+      await host.togglePublic(r);
+
+      expect(host.unpublishCandidate()).toBe(r);
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('saves nothing when the dialog is cancelled', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      await host.togglePublic(published());
+
+      host.cancelUnpublish();
+
+      expect(host.unpublishCandidate()).toBeNull();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('unpublishes on confirm and says the page is offline', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      await host.togglePublic(published());
+
+      await host.confirmUnpublish();
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'r1', is_public: false, slug: 'vegan-cornbread' })
+      );
+      expect(toastShow).toHaveBeenCalledWith(expect.stringContaining('/r/vegan-cornbread'));
+    });
+
+    it('does not claim success when the unpublish is refused', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      persistenceSaveRecipe.mockResolvedValue({ ok: false, refusal: 'sync' });
+      await host.togglePublic(published());
+
+      await host.confirmUnpublish();
+
+      expect(toastShow).toHaveBeenCalledOnce();
+      expect(String(toastShow.mock.calls[0][0])).not.toMatch(/^Unpublished/);
+    });
+
+    it('still explains a locked canonical recipe before any dialog', async () => {
+      const { host } = createHost();
+      await host.togglePublic({ ...(published() as object), is_canonical: true } as never);
+
+      expect(host.unpublishCandidate()).toBeNull();
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/locked/i));
+    });
+  });
+
   // GH #3255 (KAN-143): the reason a toggle is unavailable used to live only in
   // a `title` on a `disabled` button, which neither surfaces a tooltip reliably
   // nor is reachable by keyboard — so the explanation could never appear.
