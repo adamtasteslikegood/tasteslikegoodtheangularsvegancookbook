@@ -111,6 +111,27 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertIn("RCP-110 is not rendered by board 168", output)
 
+    def test_charter_pair_is_a_gated_unit(self):
+        self.assertIn("KAN-269", hard_gate.REQUIRED)
+        self.assertEqual(hard_gate.SI_EXECUTION["charter"], ["KAN-269"])
+        self.assertEqual(hard_gate.ACCEPTANCE["charter"], "RCP-99")
+
+    def test_charter_refuses_a_missing_charter_execution_row(self):
+        rc, output = self._run_gate(self._members() - {"KAN-269"}, charter=True)
+        self.assertEqual(rc, 1)
+        self.assertIn("KAN-269 is not in Sprint 10", output)
+
+    def test_charter_refuses_an_unrendered_charter_acceptance_row(self):
+        rendered = set(hard_gate.ACCEPTANCE.values()) - {"RCP-99"}
+        rc, output = self._run_gate(self._members(), charter=True, rendered=rendered)
+        self.assertEqual(rc, 1)
+        self.assertIn("RCP-99 is not rendered by board 168", output)
+
+    def test_full_gate_fails_when_the_charter_row_is_left_in_todo(self):
+        rc, output = self._run_gate(self._members(), todo_keys={"RCP-99"})
+        self.assertEqual(rc, 1)
+        self.assertIn("RCP-99 is in To Do", output)
+
     def test_full_gate_passes_when_nothing_is_todo(self):
         rc, output = self._run_gate(self._members(), todo_keys=())
         self.assertEqual(rc, 0, output)

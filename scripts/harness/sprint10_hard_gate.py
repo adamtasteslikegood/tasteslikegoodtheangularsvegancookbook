@@ -93,6 +93,7 @@ SPRINT_NAME = "Sprint 10"
 # 2026-09-29; they are not here and need no exemption.
 REQUIRED = {
     "RCP-100": "epic — Sprint 10 delivery/acceptance",
+    "KAN-269": "charter — execution row; closes with RCP-99",
     "KAN-268": "S1  — Flask Valkey IAM auth fix (non-droppable)",
     "KAN-292": "S2  — Datadog RUM behind consent, live >= 7 days before launch",
     "KAN-293": "S3  — mobile LCP residual on /r and /browse",
@@ -115,6 +116,10 @@ REQUIRED = {
 
 # Sprint items -> the execution rows that carry them.
 SI_EXECUTION = {
+    # The charter pair is gated like an SI: the plan names KAN-269/RCP-99 as a
+    # committed execution/acceptance pair, so an absent or unrendered charter row
+    # must fail rule 2 or 4, and one left in To Do must fail rule 3 at close.
+    "charter": ["KAN-269"],
     "S1": ["KAN-268"],
     "S2": ["KAN-292"],
     "S3": ["KAN-293"],
@@ -136,6 +141,7 @@ SI_EXECUTION = {
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
 # means the row was never filed — a violation, not a skip (KAN-260).
 ACCEPTANCE = {
+    "charter": "RCP-99",
     "S1": "RCP-98",
     "S2": "RCP-101",
     "S3": "RCP-102",
