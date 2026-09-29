@@ -33,7 +33,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue(opts.saveResult ?? true);
+    const persistenceSaveRecipe = vi
+      .fn()
+      .mockResolvedValue(opts.saveResult === false ? false : { ok: true });
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
