@@ -109,10 +109,7 @@ describe('buildUpstreamUrl', () => {
     ['path traversal', { ddforward: '/api/v2/rum/../../x?dd-api-key=pub-token' }],
     ['subdomain forward', { ddforward: ok, ddforwardSubdomain: 'sdk-configuration' }],
     ['foreign token', { ddforward: '/api/v2/rum?ddsource=browser&dd-api-key=someone-else' }],
-    [
-      'duplicate token',
-      { ddforward: '/api/v2/rum?dd-api-key=pub-token&dd-api-key=someone-else' },
-    ],
+    ['duplicate token', { ddforward: '/api/v2/rum?dd-api-key=pub-token&dd-api-key=someone-else' }],
     ['no token', { ddforward: '/api/v2/rum?ddsource=browser' }],
   ])('refuses %s', (_label, query) => {
     expect(buildUpstreamUrl(query as Request['query'], 'pub-token')).toBeNull();
