@@ -1,4 +1,61 @@
-# Sprint 9 agent harness
+# Sprint agent harnesses
+
+## Sprint 10 (current)
+
+The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
+SI (S1–S16), plus T0 (board honesty) and T17 (close-out).
+
+| File                                                                                         | Role                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 18 tasks, each with its lane, its checks, and its skill              |
+| [`../../scripts/harness/sprint10_hard_gate.py`](../../scripts/harness/sprint10_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
+
+Run state lives in `.agent-harness/sprint10-state.json` (gitignored).
+
+```bash
+HC=~/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py
+python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
+python3 $HC init --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --state .agent-harness/sprint10-state.json
+```
+
+### Kickoff — only after both PRs merge (Adam, 2026-09-29)
+
+The loop does **not** start from the chartering session. It starts only after the charter PR
+(#3539: plan + `sprint10_hard_gate.py`) and this harness PR have both merged to `dev`,
+and then in a **fresh session and a clean worktree** based on a freshly synced `dev` in
+**both** repos:
+
+```bash
+git fetch origin --prune && git submodule update --init Backend && git -C Backend fetch --prune
+scripts/git/ahead-behind.sh --base dev . Backend      # both repos level with origin/dev
+git worktree add .claude/worktrees/sprint10-loop -b chore/sprint10-loop-KAN-269 origin/dev
+cd .claude/worktrees/sprint10-loop
+git submodule update --init Backend                  # Backend at the pinned SHA; never re-pin here
+# Backend work (T1, T7, T9): branch inside Backend/ from its origin/dev, e.g.
+#   git -C Backend switch -c fix/kan-268-<topic> origin/dev
+# and leave the cookbook gitlink alone until the release step pins Backend main.
+python3 scripts/harness/sprint10_hard_gate.py --charter   # board still honest: exit 0
+# then, in that session:  /pm-skills:cs-pm-loop  (or /agent-harness:cs-harness) with this plan
+```
+
+What changed from Sprint 9, and why:
+
+- **Repo scope (Sprint 9 retro action g).** Sprint 9's T9 looked for a Backend-only
+  ticket's PR in this repo, so its artifact check could not pass. Every artifact check
+  for Backend work now passes `-R adamtasteslikegood/tasteslikegood.com`: T1 (KAN-268)
+  and the Backend-template halves of T7 and T9. The plan records the rule under
+  `repo_scope`.
+- **Content checks for the process items.** S13, S14 and S16 are verified against
+  `origin/dev:CLAUDE.md`, and S15 against a `scripts/git/*preflight*` file on
+  `origin/dev`. Each check was confirmed failing on 2026-09-29, so none can pass
+  before the work lands.
+- **No sprint-board script.** Sprint 10 was created, filled and started at charter, so
+  T0 re-proves the board with `--charter` and the lane gate instead of a
+  `sprint9_board.py` equivalent.
+
+---
+
+# Sprint 9 agent harness (closed 2026-09-05)
 
 The executable half of [`specs/SPRINT_9_PLAN.md`](../SPRINT_9_PLAN.md). The charter
 says what Sprint 9 commits to; this drives it and refuses to call it finished on
