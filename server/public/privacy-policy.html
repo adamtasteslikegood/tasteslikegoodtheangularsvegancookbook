@@ -110,10 +110,31 @@
         color: var(--muted);
         font-size: 0.85rem;
       }
+      /* Site nav: the canonical header set in src/site-nav.json (KAN-294). */
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1.25rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .site-nav a {
+        text-decoration: none;
+      }
+      .site-nav a:first-child {
+        margin-right: auto;
+      }
     </style>
   </head>
   <body>
     <header>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/" aria-label="VeganGenius Chef home">VeganGenius Chef</a>
+        <a href="/generate">Generator</a>
+        <a href="/kitchen">My Kitchen</a>
+        <a href="https://www.tasteslikegood.org/browse">Browse</a>
+      </nav>
       <h1>Privacy Policy</h1>
       <p>tasteslikegood.org &mdash; Vegangenius Chef &nbsp;|&nbsp; Last updated: April 13, 2026</p>
     </header>
@@ -473,7 +494,9 @@
     <footer>
       <p>
         &copy; 2026 Tasteslikegood.org &mdash; Vegangenius Chef. All rights reserved.<br />
-        <a href="/">Return to app</a>
+        <a href="https://www.tasteslikegood.org/browse">Browse recipes</a> &middot;
+        <a href="https://www.tasteslikegood.org/about">About</a> &middot;
+        <a href="https://www.tasteslikegood.org/privacy-policy">Privacy Policy</a>
       </p>
     </footer>
   </body>

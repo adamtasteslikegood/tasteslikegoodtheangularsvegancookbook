@@ -22,6 +22,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **Header and footer nav parity (KAN-294).** One canonical link set,
+  `src/site-nav.json`, now drives every page chrome: header VeganGenius Chef → `/`,
+  Generator, My Kitchen, Browse; footer Browse recipes, About, Privacy Policy. The SPA
+  footer renders it, `/about` and `/privacy-policy` gain the header nav and the same
+  footer, and the SSR pages follow in tasteslikegood.com#337 (brand links home, a real
+  My Kitchen link replaces the script-only button). `server/site-nav-parity.test.ts`
+  asserts the set in the SPA header, both standalone pages and, locally, the SSR base
+  template.
 - `docs/seo/pinterest-research.md`: the KAN-284 pin image, pin description and
   `data-pin-*` hero attributes moved to the checked list, confirmed live on v0.5.2.
 
