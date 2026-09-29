@@ -5,6 +5,7 @@ import io
 import json
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -165,6 +166,49 @@ class StartRuleTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         flock.assert_called_once()
         self.assertEqual(flock.call_args.args[1], driver.fcntl.LOCK_EX)
+
+    def test_concurrent_starts_serialize_before_the_wip_snapshot(self):
+        first_inside = threading.Event()
+        release_first = threading.Event()
+        second_started = threading.Event()
+        calls = []
+        results = {}
+
+        def guarded_refusals(_plan, task_id, _state_dir):
+            calls.append(task_id)
+            if task_id == "T0":
+                first_inside.set()
+                self.assertTrue(release_first.wait(1))
+            return []
+
+        def run(name, task_id, started=None):
+            if started:
+                started.set()
+            results[name] = driver.main(
+                ["--state-dir", self.dir, "start", task_id, "--dry-run"])
+
+        with (
+            patch("sprint10_driver.refusals", side_effect=guarded_refusals),
+            contextlib.redirect_stdout(io.StringIO()),
+        ):
+            first = threading.Thread(target=run, args=("first", "T0"))
+            second = threading.Thread(
+                target=run, args=("second", "T1", second_started))
+            first.start()
+            self.assertTrue(first_inside.wait(1))
+            second.start()
+            self.assertTrue(second_started.wait(1))
+            second.join(0.05)
+            self.assertTrue(second.is_alive(), "second start must wait on .start.lock")
+            self.assertEqual(calls, ["T0"])
+            release_first.set()
+            first.join(1)
+            second.join(1)
+
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        self.assertEqual(results, {"first": 0, "second": 0})
+        self.assertEqual(calls, ["T0", "T1"])
 
     def test_refused_start_exits_3_and_initializes_nothing(self):
         with (
