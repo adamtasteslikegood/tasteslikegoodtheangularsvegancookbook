@@ -190,8 +190,12 @@ describe('RUM router', () => {
     }
   });
 
-  it('forwards the raw body to the us5 intake with X-Forwarded-For and relays the status', async () => {
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 202 }));
+  it('forwards the raw body, releases the response, and relays the status', async () => {
+    const cancel = vi.fn(async () => {});
+    const fetchImpl = vi.fn(async () => ({
+      status: 202,
+      body: { cancel },
+    }));
     const srv = await boot(CONFIG, fetchImpl as unknown as typeof fetch);
     try {
       const body = '{"type":"view"}\n{"type":"action"}';
@@ -214,6 +218,7 @@ describe('RUM router', () => {
       expect(headers['X-Forwarded-For']).toBe('203.0.113.7');
       // Only the two headers above: no cookies or auth leak to Datadog.
       expect(Object.keys(headers).sort()).toEqual(['Content-Type', 'X-Forwarded-For']);
+      expect(cancel).toHaveBeenCalledOnce();
     } finally {
       await srv.close();
     }
