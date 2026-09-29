@@ -222,7 +222,7 @@
       ],
       "lane": "A",
       "depends_on": [
-        "T1"
+        "T3"
       ],
       "skill": "qa-only",
       "skill_path": "~/.claude/skills/qa-only",
@@ -842,7 +842,7 @@
   ],
   "loop": {
     "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
-    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3/T4 after T1. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last.",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last.",
     "max_loop_iterations": 12,
     "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
     "escalate_on": [
