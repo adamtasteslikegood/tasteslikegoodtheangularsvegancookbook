@@ -57,7 +57,12 @@ export function trackRecipeSaved(
   send('recipe_saved', { surface: 'spa', source, outcome, slug: slug ?? null });
 }
 
-/** Test-only: forget the last viewed recipe. */
-export function resetAnalyticsForTest(): void {
+/** Forget the current view deduplication boundary after leaving recipe state. */
+export function resetRecipeViewTracking(): void {
   lastViewedId = null;
+}
+
+/** Test-only: reset module state between cases. */
+export function resetAnalyticsForTest(): void {
+  resetRecipeViewTracking();
 }
