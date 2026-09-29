@@ -233,6 +233,10 @@
     } catch (e) {
       return '';
     }
+    // URL.origin is the literal string "null" for data:, blob:, javascript:,
+    // and other opaque schemes, while URL.pathname can contain the complete
+    // inline payload. Only network URLs are safe to retain in telemetry.
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return '';
     var out = u.origin + u.pathname;
     if (u.origin === window.location.origin) {
       var kept = [];

@@ -486,6 +486,33 @@ describe('RUM consent gate — after consent', () => {
     }
   });
 
+  it('beforeSend drops non-HTTP URL payloads from built-in URL fields', async () => {
+    const h = await run({ consent: 'granted' });
+    h.loadSdk();
+    const beforeSend = h.rum.init.mock.calls[0][0].beforeSend as (e: unknown) => boolean;
+    const inlinePayload = 'private-recipe-photo';
+    const event = {
+      type: 'resource',
+      view: {
+        url: `data:text/html,${inlinePayload}`,
+        referrer: `javascript:alert('${inlinePayload}')`,
+        performance: {
+          lcp: { resource_url: `blob:https://www.tasteslikegood.org/${inlinePayload}` },
+        },
+      },
+      resource: { url: `data:image/svg+xml,${inlinePayload}` },
+      error: { resource: { url: `data:text/plain,${inlinePayload}` } },
+    };
+
+    expect(beforeSend(event)).toBe(true);
+    expect(event.view.url).toBe('');
+    expect(event.view.referrer).toBe('');
+    expect(event.view.performance.lcp.resource_url).toBe('');
+    expect(event.resource.url).toBe('');
+    expect(event.error.resource.url).toBe('');
+    expect(JSON.stringify(event)).not.toContain(inlinePayload);
+  });
+
   it('keeps only the five documented utm_* keys; unknown utm_* and other params are dropped', async () => {
     const all =
       'utm_source=reddit&utm_medium=social&utm_campaign=launch&utm_content=post&utm_term=vegan';
@@ -882,7 +909,7 @@ describe('RUM consent gate — re-consent and banner accessibility', () => {
 });
 
 describe('RUM consent gate — UTM across the pre-consent SSR save link', () => {
-  it('carries only the arrival utm_* tags onto the save link, storing and sending nothing', async () => {
+  it('carries only the arrival utm_* tags onto the save link without starting RUM', async () => {
     const h = await run({
       path: '/r/vegan-cornbread',
       search: '?utm_source=reddit&utm_campaign=launch&utm_foo=leak&other=x',

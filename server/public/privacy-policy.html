@@ -273,10 +273,13 @@
       </p>
       <p>
         Your analytics choice is remembered in your browser&rsquo;s <code>localStorage</code>
-        (<code>tlg.analytics-consent</code>). Before you allow analytics, how you arrived is held
-        only in page memory and is not sent. If you allow analytics, the sanitized landing context
-        (the page path, external referrer reduced to its origin and path, and those five campaign
-        tags) is stored for this browser session in <code>sessionStorage</code>
+        (<code>tlg.analytics-consent</code>). Before you allow analytics, how you arrived is not sent
+        to Datadog. If you follow a recipe&rsquo;s save link before choosing, only those five campaign
+        tags already in the page address are copied into the same-origin destination address to
+        preserve attribution; our server receives that address as part of the ordinary navigation.
+        If you allow analytics, the sanitized landing context (the page path, external referrer
+        reduced to its origin and path, and those five campaign tags) is stored for this browser
+        session in <code>sessionStorage</code>
         (<code>tlg.analytics-landing</code>) and sent to Datadog. Consented recipe actions waiting
         for the analytics code may also be stored temporarily in <code>sessionStorage</code>
         (<code>tlg.analytics-pending-actions</code>) and are removed after delivery or when you
