@@ -1,5 +1,7 @@
 # Sprint 10 assumption map (2026-09-06)
 
+> **Superseded in part (2026-09-29).** [`product-grill-2026-09-29.md`](./product-grill-2026-09-29.md) made Sprint 10 the launch sprint and deferred the Settings tab out of it. Where this map says "pre-launch by design" (rank 1, sample size) or ranks Settings 9 / first cut (rank 2), the re-grill wins. The assumptions and scores are kept as the 09-06 record.
+
 Product-discovery pass over `ost.json` (linter exit 0, 8 opportunities) and the locked decisions in `product-grill-2026-09-06.md`. Inputs and reruns:
 
 ```bash
