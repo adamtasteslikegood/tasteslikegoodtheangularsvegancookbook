@@ -1,6 +1,6 @@
 {
   "schema": "agent-harness/plan.v1",
-  "goal": "Drive Sprint 10 to close: every committed SI in specs/SPRINT_10_PLAN.md is Done on its acceptance row with AC-by-AC evidence, or in PR under review, or escalated to Adam and dropped by a charter update. Hard gate: no committed Sprint 10 item sits in To Do.",
+  "goal": "Drive Sprint 10 to close: every committed SI in specs/SPRINT_10_PLAN.md is Done on its acceptance row with AC-by-AC evidence, or escalated to Adam and dropped by a charter update. Hard gate: no committed Sprint 10 item sits in To Do.",
   "domain": "project-management",
   "compiled_at": "2026-09-29",
   "authored_by": "hand-authored against specs/SPRINT_10_PLAN.md, like Sprint 9's: goal_compiler.py emits one generic task per matched skill and cannot carry per-SI acceptance or lane boundaries",
@@ -757,7 +757,7 @@
     "order": "sequential",
     "sequencing_note": "T0 first. Then T1 and T2 on day 1 (T2 starts the 7-day RUM clock). Lane B (T5-T9) serially from day 1; Lane D (T15, T12, T14, T13, T16) fills WIP slack under WIP <= 3. T3 and T4 after T1 releases. T10 through the sprint. T11 only after its gates. T17 last.",
     "max_loop_iterations": 72,
-    "max_iterations_reason": "18 tasks x (execute + verify) is 36 iterations before any retry; tasks carry 3-5 attempts. 72 leaves room for retries without escalating on arithmetic; the charter D6 per-goal cap of 12 applies per SI goal, not to this 18-task plan.",
+    "max_iterations_reason": "18 tasks x (execute + verify) is 36 iterations before any retry; every task carries at most 3 attempts. The monolithic 72-iteration cap leaves retry room but does not enforce the charter D6 per-goal cap of 12; initialization remains blocked until execution is split into independently capped lane/goal states.",
     "escalate_on": [
       "attempts_exhausted",
       "no_verification_available",
@@ -766,7 +766,7 @@
   },
   "close": {
     "requires": "every task verified, or explicitly waived by Adam with a reason. Sprint 10 pre-authorises no drops: waiving any task requires a charter update.",
-    "definition_of_done": "Every Sprint 10 item is Done on the board with AC-by-AC evidence, or In Progress/In Review with its PR under review, or dropped by a written charter update. HARD GATE (close form): no Sprint 10 item sits in To Do.",
+    "definition_of_done": "Every Sprint 10 acceptance row is Done with AC-by-AC evidence, or the SI is dropped by a written charter update. The close hard gate's no-To-Do result is necessary but not sufficient; T17's evidence check enforces final Done statuses.",
     "handoff": "python3 scripts/harness/sprint10_hard_gate.py --json, plus the controller's evidence log"
   }
 }
