@@ -104,6 +104,13 @@ REQUIRED = {
     "KAN-298": "S9  — filter/sort, /browse?sort&tag canonical to /browse",
     "KAN-277": "S10 — owned-property links + 3-5 articles",
     "KAN-299": "S11 — launch post, last, behind the four gates",
+    # S12-S16: the five Sprint 8 retro carry-overs, ticketed into Sprint 10 by
+    # Adam on 2026-09-29 (Sprint 9 retro action c).
+    "KAN-300": "S12 — workflow secrets.* references gated against gh secret list",
+    "KAN-301": "S13 — CLAUDE.md suppressed-comment (review body) sweep",
+    "KAN-302": "S14 — delete the copied required-checks list from CLAUDE.md",
+    "KAN-303": "S15 — pre-work branch preflight incl. Backend-pointer ancestry",
+    "KAN-304": "S16 — CLAUDE.md platform-vs-code CI discriminator",
 }
 
 # Sprint items -> the execution rows that carry them.
@@ -119,6 +126,11 @@ SI_EXECUTION = {
     "S9": ["KAN-298"],
     "S10": ["KAN-277"],
     "S11": ["KAN-299"],
+    "S12": ["KAN-300"],
+    "S13": ["KAN-301"],
+    "S14": ["KAN-302"],
+    "S15": ["KAN-303"],
+    "S16": ["KAN-304"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -135,6 +147,11 @@ ACCEPTANCE = {
     "S9": "RCP-108",
     "S10": "RCP-109",
     "S11": "RCP-110",
+    "S12": "RCP-111",
+    "S13": "RCP-112",
+    "S14": "RCP-113",
+    "S15": "RCP-114",
+    "S16": "RCP-115",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
