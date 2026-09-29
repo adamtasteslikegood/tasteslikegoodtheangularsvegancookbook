@@ -512,7 +512,8 @@
         "T6",
         "T7",
         "T8",
-        "T9"
+        "T9",
+        "T10"
       ],
       "requires_done": [
         "RCP-98",
@@ -647,7 +648,7 @@
       ],
       "lane": "D",
       "depends_on": [
-        "T0"
+        "T15"
       ],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
