@@ -158,6 +158,27 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T3", "verified")
         self.assertEqual(driver.refusals(PLAN, "T4", self.dir), [])
 
+    def test_deferred_tasks_wait_for_the_day_one_tasks_to_start(self):
+        # WIP alone would let T10/T14/T15 take a day-1 slot ahead of T1/T2/T5.
+        write_state(self.dir, "T0", "verified")
+        write_state(self.dir, "T1", "in_progress")
+        for tid in ("T10", "T14", "T15"):
+            reasons = driver.refusals(PLAN, tid, self.dir)
+            self.assertTrue(any("waits until T2, T5 have started" in r
+                                for r in reasons), (tid, reasons))
+
+    def test_deferred_task_may_start_once_day_one_tasks_have_started(self):
+        write_state(self.dir, "T0", "verified")
+        write_state(self.dir, "T1", "verified")
+        write_state(self.dir, "T2", "in_progress")
+        write_state(self.dir, "T5", "verified")
+        self.assertEqual(driver.refusals(PLAN, "T10", self.dir), [])
+
+    def test_day_one_tasks_carry_no_start_order_hold(self):
+        for tid in ("T1", "T2", "T5"):
+            task = next(t for t in PLAN["tasks"] if t["id"] == tid)
+            self.assertNotIn("after_started", task, tid)
+
     def test_refuses_a_fourth_open_task(self):
         write_state(self.dir, "T0", "verified")
         for tid in ("T1", "T2", "T5"):

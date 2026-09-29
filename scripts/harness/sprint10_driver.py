@@ -111,6 +111,14 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
     if waiting:
         reasons.append("%s depends on %s, not yet verified"
                        % (task_id, ", ".join(waiting)))
+    # WIP limits how many tasks are open, not which go first. after_started
+    # holds deferred tasks until the day-1 tasks have taken their slots
+    # (Adam, 2026-09-29: after T0, T1, T2 and T5 open first; T10 waits).
+    unstarted = [d for d in task.get("after_started", [])
+                 if states[d] == "not-started"]
+    if unstarted:
+        reasons.append("%s waits until %s have started (day-1 priority)"
+                       % (task_id, ", ".join(unstarted)))
     if len(wip) >= WIP_LIMIT:
         reasons.append("WIP is %d (%s) against the charter's limit of %d"
                        % (len(wip), ", ".join(wip), WIP_LIMIT))

@@ -469,6 +469,11 @@
       "depends_on": [
         "T0"
       ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
+      ],
       "skill": "marketing-skills:content-strategy",
       "skill_path": "marketing-skills:content-strategy",
       "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each. Starts only when a WIP slot frees after T1, T2 and T5 open on day 1 (Adam, 2026-09-29: WIP stays 3; T10 waits).",
@@ -650,6 +655,11 @@
       "depends_on": [
         "T15"
       ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
+      ],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Delete the copied required-checks list from CLAUDE.md; name gh api repos/{owner}/{repo}/rulesets (plus branch protection) as the source of truth.",
@@ -692,6 +702,11 @@
       "lane": "D",
       "depends_on": [
         "T0"
+      ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
       ],
       "skill": "git-worktree-manager",
       "skill_path": "engineering-advanced-skills:git-worktree-manager",

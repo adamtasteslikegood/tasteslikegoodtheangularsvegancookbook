@@ -29,7 +29,9 @@ iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions
   human resolves it.
   The charter's day-1 schedule names four items (S1, S2, S5, S10). **Adam, 2026-09-29:
   WIP stays 3 as written.** After T0, start T1, T2 and T5; T10 waits for the first free
-  slot. A refused `start T10` on day 1 is the rule working, not a defect.
+  slot. WIP alone limits how many tasks are open, not which go first, so T10, T14 and T15
+  also carry `after_started: [T1, T2, T5]` and are refused until all three have started.
+  A refused `start T10` on day 1 is the rule working, not a defect.
 - **Irreversible starts.** T11 (the launch post) also carries `requires_done`:
   `start T11` refuses unless RCP-98, RCP-101, RCP-103 and RCP-104…RCP-108 are exactly
   `Done`. In Review is not enough, because the post cannot be taken back.
@@ -39,11 +41,11 @@ a fourth open task (WIP 3), and T11 against live Jira (all eight gate rows To Do
 After `start`, the controller runs untouched:
 
 ```bash
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
 python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
 python3 scripts/harness/sprint10_driver.py status          # WIP, and what may start now
 python3 scripts/harness/sprint10_driver.py start T0        # refused unless deps/WIP/Done allow
-HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
-export HARNESS_CONTROLLER="$HC"
 S="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/sprint10/T0.state.json"   # the shared state dir
 python3 $HC next   --state $S                              # → directive
 python3 $HC record --state $S --task T0 --phase execute --exit-code 0
@@ -67,6 +69,7 @@ scripts/git/ahead-behind.sh --base dev . Backend      # both repos level with or
 ROOT=$(git rev-parse --show-toplevel)
 STATE_DIR="$ROOT/.agent-harness/sprint10"              # one absolute shared PM state
 mkdir -p "$STATE_DIR"
+export HARNESS_CONTROLLER="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
 
 python3 scripts/harness/sprint10_hard_gate.py --charter
 python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" status
