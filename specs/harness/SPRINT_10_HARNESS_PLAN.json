@@ -130,7 +130,7 @@
         }
       ],
       "done_when": "Backend fix merged, promoted, pinned, released; RCP-98 ACs evidenced",
-      "max_attempts": 5,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -165,7 +165,7 @@
         }
       ],
       "done_when": "RUM live behind consent for >= 7 consecutive days, evidenced on RCP-101",
-      "max_attempts": 5,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -198,7 +198,7 @@
         }
       ],
       "done_when": "LCP <= 2.5 s on all three URLs, evidenced on RCP-102",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -263,7 +263,7 @@
         }
       ],
       "done_when": "RCP-104 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -298,7 +298,7 @@
         }
       ],
       "done_when": "RCP-105 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -339,7 +339,7 @@
         }
       ],
       "done_when": "RCP-106 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -374,7 +374,7 @@
         }
       ],
       "done_when": "RCP-107 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -415,7 +415,7 @@
         }
       ],
       "done_when": "RCP-108 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -450,7 +450,7 @@
         }
       ],
       "done_when": "audit complete, every missing link shipped or dispositioned, 3-5 articles pass Q6, RCP-109 ACs evidenced",
-      "max_attempts": 5,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -531,7 +531,7 @@
         }
       ],
       "done_when": "check live in pr-gate.yml, observed failing for its reason, RCP-111 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -561,6 +561,16 @@
         },
         {
           "cmd": "git show origin/dev:CLAUDE.md | grep -q 'pulls/<n>/reviews'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qi 'bodies in full'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qi 'review-debt-zero'",
           "expect_exit": 0,
           "kind": "content"
         }
@@ -652,7 +662,7 @@
         }
       ],
       "done_when": "preflight on origin/dev, observed failing and passing, RCP-114 ACs evidenced",
-      "max_attempts": 4,
+      "max_attempts": 3,
       "status": "pending"
     },
     {
@@ -695,6 +705,11 @@
           "cmd": "git show origin/dev:CLAUDE.md | grep -Fq 'gh run view <id> --json status,conclusion'",
           "expect_exit": 0,
           "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qiE 'all jobs.*queued.*outage'",
+          "expect_exit": 0,
+          "kind": "content"
         }
       ],
       "done_when": "discriminator on origin/dev CLAUDE.md with both calls, RCP-115 ACs evidenced",
@@ -710,7 +725,7 @@
       "lane": "PM",
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
-      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective - <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). The Actions for Next Sprint table is the point.",
+      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). The Actions for Next Sprint table is the point.",
       "suggested_tools": [
         "python3 scripts/harness/sprint10_hard_gate.py --json",
         "bash scripts/pm/check_sprint_lane.sh",
