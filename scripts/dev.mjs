@@ -6,7 +6,7 @@ const angular = spawn(process.execPath, ['node_modules/@angular/cli/bin/ng.js', 
 });
 const express = spawn(process.execPath, ['server/dist/index.js'], {
   stdio: 'inherit',
-  env: { ...process.env, PORT: process.env.PORT || '8080' },
+  env: { ...process.env, PORT: '8080' },
 });
 
 const children = [angular, express];
