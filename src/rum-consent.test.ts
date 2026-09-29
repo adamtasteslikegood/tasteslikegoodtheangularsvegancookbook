@@ -68,6 +68,7 @@ interface FakeEl {
   parentNode: FakeEl | null;
   style: { cssText: string };
   textContent: string;
+  focused: boolean;
   src?: string;
   onload?: () => void;
   onerror?: () => void;
@@ -90,6 +91,7 @@ function makeEl(tagName: string): FakeEl {
     parentNode: null,
     style: { cssText: '' },
     textContent: '',
+    focused: false,
     listeners: {},
     setAttribute(k, v) {
       this.attrs[k] = v;
@@ -125,7 +127,9 @@ function makeEl(tagName: string): FakeEl {
         !n ? null : attr in n.attrs ? n : up(n.parentNode);
       return up(el);
     },
-    focus() {},
+    focus() {
+      this.focused = true;
+    },
     click() {
       for (const fn of this.listeners.click ?? []) fn({ target: this });
     },
@@ -390,8 +394,10 @@ describe('RUM consent gate — withdrawal', () => {
     settings.setAttribute('data-analytics-settings', '');
     h.docClick(settings);
     expect(h.banner()).toBeDefined();
+    expect(settings.focused).toBe(false);
 
     h.buttonByLabel('No thanks').click();
+    expect(settings.focused).toBe(true);
     expect(h.localStorage.getItem('tlg.analytics-consent')).toBe('denied');
     expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     expect(h.rum.stopSession).toHaveBeenCalledOnce();
