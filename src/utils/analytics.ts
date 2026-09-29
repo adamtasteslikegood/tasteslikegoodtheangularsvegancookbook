@@ -34,11 +34,7 @@ function analyticsGlobal(): TlgAnalytics | undefined {
   return undefined;
 }
 
-function send(
-  name: string,
-  context: Record<string, unknown>,
-  analytics = analyticsGlobal()
-): void {
+function send(name: string, context: Record<string, unknown>, analytics = analyticsGlobal()): void {
   try {
     analytics?.action(name, context);
   } catch {
