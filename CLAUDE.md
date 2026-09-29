@@ -141,7 +141,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 ```bash
 npm install
-npm run dev          # Angular dev server on :3000, proxies /api → Flask :5000
+npm run dev          # Angular :3000 + Express :8080; proxies /api to Flask and /rum + /privacy-policy to Express
 npm run build        # ng build + compile server/tsconfig.server.json → server/dist/
 npm start            # node server/dist/index.js (production, port 8080)
 npm run lint         # ESLint (src/ + server/)
