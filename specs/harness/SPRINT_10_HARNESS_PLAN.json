@@ -471,7 +471,7 @@
       ],
       "skill": "marketing-skills:content-strategy",
       "skill_path": "marketing-skills:content-strategy",
-      "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each.",
+      "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each. Starts only when a WIP slot frees after T1, T2 and T5 open on day 1 (Adam, 2026-09-29: WIP stays 3; T10 waits).",
       "suggested_tools": [
         "JQL: issue in linkedIssues(RCP-109) AND project = KAN"
       ],
@@ -842,7 +842,7 @@
   ],
   "loop": {
     "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
-    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last.",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15.",
     "max_loop_iterations": 12,
     "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
     "escalate_on": [

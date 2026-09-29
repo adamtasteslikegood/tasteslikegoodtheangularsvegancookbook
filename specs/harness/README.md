@@ -26,6 +26,9 @@ iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions
 - **Order.** Each task's `depends_on` must be verified before it starts.
 - **WIP ≤ 3.** A fourth open task is refused; an escalated task keeps its slot until a
   human resolves it.
+  The charter's day-1 schedule names four items (S1, S2, S5, S10). **Adam, 2026-09-29:
+  WIP stays 3 as written.** After T0, start T1, T2 and T5; T10 waits for the first free
+  slot. A refused `start T10` on day 1 is the rule working, not a defect.
 - **Irreversible starts.** T11 (the launch post) also carries `requires_done`:
   `start T11` refuses unless RCP-98, RCP-101, RCP-103 and RCP-104…RCP-108 are exactly
   `Done`. In Review is not enough, because the post cannot be taken back.
