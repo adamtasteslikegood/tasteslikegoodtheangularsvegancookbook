@@ -59,6 +59,16 @@ class Sprint10HardGateTests(unittest.TestCase):
             hard_gate.main()
         self.assertEqual(raised.exception.code, 2)
 
+    def test_scoped_mode_requires_at_least_one_issue(self):
+        argv = ["sprint10_hard_gate.py", "--issues"]
+        with (
+            patch.object(sys, "argv", argv),
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            hard_gate.main()
+        self.assertEqual(raised.exception.code, 2)
+
     def test_charter_passes_on_day_one_with_everything_in_todo(self):
         rc, output = self._run_gate(self._members(), charter=True)
         self.assertEqual(rc, 0, output)
