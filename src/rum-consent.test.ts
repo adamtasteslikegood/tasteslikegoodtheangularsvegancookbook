@@ -42,6 +42,25 @@ class FakeStorage {
   }
 }
 
+class FaultyStorage extends FakeStorage {
+  failReads = false;
+  failWrites = false;
+  failRemovals = false;
+
+  override getItem(k: string) {
+    if (this.failReads) throw new Error('storage read blocked');
+    return super.getItem(k);
+  }
+  override setItem(k: string, v: string) {
+    if (this.failWrites) throw new Error('storage write blocked');
+    super.setItem(k, v);
+  }
+  override removeItem(k: string) {
+    if (this.failRemovals) throw new Error('storage removal blocked');
+    super.removeItem(k);
+  }
+}
+
 interface FakeEl {
   tagName: string;
   attrs: Record<string, string>;
@@ -377,6 +396,51 @@ describe('RUM consent gate — withdrawal', () => {
     expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     expect(h.rum.stopSession).toHaveBeenCalledOnce();
     expect(h.reload).toHaveBeenCalledOnce();
+
+    h.rum.addAction.mockClear();
+    h.win.tlgAnalytics.action('recipe_saved', {});
+    expect(h.rum.addAction).not.toHaveBeenCalled();
+  });
+
+  it('removes a stale grant and stops RUM when consent reads and writes are blocked', async () => {
+    const storage = new FaultyStorage();
+    storage.setItem('tlg.analytics-consent', 'granted');
+    const h = await run({ localStorage: storage });
+    h.loadSdk();
+
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+
+    storage.failReads = true;
+    storage.failWrites = true;
+    h.buttonByLabel('No thanks').click();
+
+    expect(h.rum.stopSession).toHaveBeenCalledOnce();
+    expect(h.reload).toHaveBeenCalledOnce();
+    expect(h.rum.addAction).not.toHaveBeenCalled();
+
+    storage.failReads = false;
+    expect(storage.getItem('tlg.analytics-consent')).toBeNull();
+  });
+
+  it('stays stopped without reloading when neither denial nor removal can persist', async () => {
+    const storage = new FaultyStorage();
+    storage.setItem('tlg.analytics-consent', 'granted');
+    const h = await run({ localStorage: storage });
+    h.loadSdk();
+
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+
+    storage.failReads = true;
+    storage.failWrites = true;
+    storage.failRemovals = true;
+    h.buttonByLabel('No thanks').click();
+
+    expect(h.rum.stopSession).toHaveBeenCalledOnce();
+    expect(h.reload).not.toHaveBeenCalled();
 
     h.rum.addAction.mockClear();
     h.win.tlgAnalytics.action('recipe_saved', {});
