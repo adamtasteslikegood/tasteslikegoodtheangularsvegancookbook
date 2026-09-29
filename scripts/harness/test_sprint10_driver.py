@@ -68,6 +68,17 @@ class PlanContractTests(unittest.TestCase):
         t17 = next(t for t in PLAN["tasks"] if t["id"] == "T17")
         self.assertEqual(set(t17["depends_on"]), set(IDS) - {"T17"})
 
+    def test_close_task_requires_no_si_process_lane_dispositions(self):
+        t17 = next(t for t in PLAN["tasks"] if t["id"] == "T17")
+        evidence = next(v["cmd"] for v in t17["verification"]
+                        if v["kind"] == "manual-evidence")
+        self.assertIn("closed or explicitly carried with a linked reason", evidence)
+        for marker in (
+            "KAN-271/272/273/274/276", "KAN-250", "RCP-58", "67108866",
+            "T9 \`-R\` scope", "KAN-259", "PR #3537", "KAN-291", "KAN-275/KAN-290",
+        ):
+            self.assertIn(marker, evidence)
+
     def test_generated_task_plan_is_one_goal_capped_at_twelve(self):
         tp = driver.task_plan(PLAN, "T5")
         self.assertEqual([t["id"] for t in tp["tasks"]], ["T5"])
