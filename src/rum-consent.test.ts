@@ -920,6 +920,27 @@ describe('RUM consent gate — cross-tab consent', () => {
     expect(h.accepted).toContainEqual(['recipe_view', { surface: 'spa', slug: null }]);
   });
 
+  it('a remote withdrawal followed by a remote grant resumes this tab (deny-then-allow across tabs)', async () => {
+    const shared = new FakeStorage();
+    const h = await run({ consent: 'granted', localStorage: shared, path: '/r/vegan-cornbread' });
+    h.loadSdk();
+
+    // Another tab withdraws: this tab fails closed without a reload.
+    shared.setItem('tlg.analytics-consent', 'denied');
+    h.storage('tlg.analytics-consent', 'denied');
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('not-granted');
+    expect(h.reload).not.toHaveBeenCalled();
+
+    // The other tab allows again: this tab was never denied locally, so the
+    // shared grant is authoritative and collection resumes.
+    shared.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
+    h.accepted.length = 0;
+    h.win.tlgAnalytics.action('recipe_saved', { source: 'public_page' });
+    expect(h.accepted).toContainEqual(['recipe_saved', { source: 'public_page' }]);
+  });
+
   it('a grant elsewhere does not override a denial made on this page', async () => {
     const h = await run({});
     h.buttonByLabel('No thanks').click();
