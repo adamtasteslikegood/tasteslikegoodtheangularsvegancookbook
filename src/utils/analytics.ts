@@ -73,10 +73,13 @@ function waitForConsent(analytics: TlgAnalytics): void {
 }
 
 export function trackRecipeView(
-  recipe: { id: string; slug?: string | null },
+  recipe: { id: string; slug?: string | null; sourceSlug?: string | null },
   saved: boolean
 ): void {
-  const context = { surface: 'spa', saved, slug: recipe.slug ?? null };
+  // A copy saved from a public page carries that page's slug in sourceSlug
+  // (public-recipe.mapper.ts), not slug. Fall back to it so the SPA view joins
+  // the SSR view and save actions of the same public recipe.
+  const context = { surface: 'spa', saved, slug: recipe.slug ?? recipe.sourceSlug ?? null };
   const analytics = analyticsGlobal();
 
   // A recipe can render before the visitor decides. Keep only the latest

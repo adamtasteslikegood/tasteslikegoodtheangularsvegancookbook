@@ -567,6 +567,35 @@
     return m ? m[1] : null;
   }
 
+  // Before consent the landing lives only in this page's memory, so the SSR
+  // save link (/?save=<slug>#kitchen) would drop it. Carry ONLY the utm_*
+  // tags the visitor arrived with onto that same-origin link: nothing is
+  // stored or sent, and the URL gains no data it did not already have. The
+  // external referrer is deliberately NOT carried (it would put new data in
+  // a URL); that journey keeps UTM attribution but not the referrer. After
+  // consent the landing is already in sessionStorage, so nothing is needed.
+  function carryUtmAcrossSave(link) {
+    if (consentState() === 'granted' || !link.getAttribute) return;
+    var href = link.getAttribute('href');
+    if (!href) return;
+    var u;
+    try {
+      u = new URL(href, window.location.origin);
+    } catch (e) {
+      return;
+    }
+    if (u.origin !== window.location.origin) return;
+    var changed = false;
+    for (var i = 0; i < UTM_KEYS.length; i++) {
+      var val = landing[UTM_KEYS[i]];
+      if (val && !u.searchParams.get(UTM_KEYS[i])) {
+        u.searchParams.set(UTM_KEYS[i], val);
+        changed = true;
+      }
+    }
+    if (changed) link.setAttribute('href', u.pathname + u.search + u.hash);
+  }
+
   document.addEventListener('click', function (event) {
     var target = event.target;
     if (!target || !target.closest) return;
@@ -576,8 +605,10 @@
       openSettings(settingsTrigger);
       return;
     }
-    if (target.closest('[data-save-recipe]')) {
+    var saveLink = target.closest('[data-save-recipe]');
+    if (saveLink) {
       action('recipe_save_click', { surface: 'ssr', slug: ssrRecipeSlug() });
+      carryUtmAcrossSave(saveLink);
     }
   });
 

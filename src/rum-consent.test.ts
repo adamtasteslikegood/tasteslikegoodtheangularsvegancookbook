@@ -74,6 +74,7 @@ interface FakeEl {
   onerror?: () => void;
   listeners: Record<string, Array<(e: unknown) => void>>;
   setAttribute(k: string, v: string): void;
+  getAttribute(k: string): string | null;
   appendChild(c: FakeEl | { text: string }): void;
   removeChild(c: FakeEl): void;
   addEventListener(t: string, fn: (e: unknown) => void): void;
@@ -95,6 +96,9 @@ function makeEl(tagName: string): FakeEl {
     listeners: {},
     setAttribute(k, v) {
       this.attrs[k] = v;
+    },
+    getAttribute(k: string) {
+      return k in this.attrs ? this.attrs[k] : null;
     },
     appendChild(c) {
       if ('tagName' in c) {
@@ -801,5 +805,48 @@ describe('RUM consent gate — re-consent and banner accessibility', () => {
     expect(link.href).toBe('/privacy-policy#analytics');
     expect(link.target).toBe('_blank');
     expect(link.rel).toBe('noopener');
+  });
+});
+
+describe('RUM consent gate — UTM across the pre-consent SSR save link', () => {
+  it('carries only the arrival utm_* tags onto the save link, storing and sending nothing', async () => {
+    const h = await run({
+      path: '/r/vegan-cornbread',
+      search: '?utm_source=reddit&utm_campaign=launch&other=x',
+      referrer: 'https://old.reddit.com/r/vegan/',
+    });
+    const cta = makeEl('a');
+    cta.setAttribute('data-save-recipe', '');
+    cta.setAttribute('href', '/?save=vegan-cornbread#kitchen');
+    h.docClick(cta);
+    expect(cta.getAttribute('href')).toBe(
+      '/?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch#kitchen'
+    );
+    expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
+    expect(rumTraffic(h)).toEqual({ sdkScripts: [], fetches: [] });
+
+    // The SPA page it lands on re-captures the UTM tags as its landing.
+    const spa = await run({
+      consent: 'granted',
+      path: '/',
+      search: '?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch',
+      referrer: 'https://www.tasteslikegood.org/r/vegan-cornbread',
+    });
+    spa.loadSdk();
+    expect(spa.rum.setGlobalContextProperty).toHaveBeenCalledWith('launch', {
+      landing_path: '/',
+      referrer: null,
+      utm_source: 'reddit',
+      utm_campaign: 'launch',
+    });
+  });
+
+  it('leaves the save link alone after consent', async () => {
+    const h = await run({ consent: 'granted', path: '/r/x', search: '?utm_source=reddit' });
+    const cta = makeEl('a');
+    cta.setAttribute('data-save-recipe', '');
+    cta.setAttribute('href', '/?save=x#kitchen');
+    h.docClick(cta);
+    expect(cta.getAttribute('href')).toBe('/?save=x#kitchen');
   });
 });

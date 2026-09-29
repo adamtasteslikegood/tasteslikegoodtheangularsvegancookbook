@@ -118,3 +118,24 @@ describe('saveOutcomeForAnalytics (recipes-kept numerator, KAN-292)', () => {
     expect(saveOutcomeForAnalytics(outcome)).toBe(expected);
   });
 });
+
+describe('recipe_view slug for saved copies (KAN-292)', () => {
+  beforeEach(() => resetAnalyticsForTest());
+  afterEach(() => {
+    delete (globalThis as { tlgAnalytics?: unknown }).tlgAnalytics;
+  });
+
+  it('falls back to sourceSlug so a saved copy joins its public recipe', () => {
+    const action = vi.fn();
+    (globalThis as { tlgAnalytics?: unknown }).tlgAnalytics = {
+      action,
+      consent: () => 'granted',
+    };
+    trackRecipeView({ id: 'copy-1', slug: null, sourceSlug: 'vegan-cornbread' }, true);
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: true,
+      slug: 'vegan-cornbread',
+    });
+  });
+});
