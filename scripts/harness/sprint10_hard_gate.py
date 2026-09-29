@@ -157,7 +157,7 @@ def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     mode = p.add_mutually_exclusive_group()
-    mode.add_argument("--issues", nargs="*", default=None,
+    mode.add_argument("--issues", nargs="+", default=None,
                       help="scoped check: only these keys must be out of To Do "
                            "(skips the sprint-membership rules)")
     mode.add_argument("--charter", action="store_true",
