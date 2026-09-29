@@ -28,12 +28,12 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     vi.restoreAllMocks();
   });
 
-  const createComponent = (opts: { isGuest?: boolean } = {}) => {
+  const createComponent = (opts: { isGuest?: boolean; saveResult?: boolean } = {}) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
+    const persistenceSaveRecipe = vi.fn().mockResolvedValue(opts.saveResult ?? true);
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
@@ -58,7 +58,18 @@ describe('GeneratorComponent shared recipe behaviour', () => {
             publishStateSync: () => 'synced',
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: {
+            generateRecipe: vi.fn().mockResolvedValue({
+              id: 'gen-1',
+              name: 'Vegan Cornbread',
+              ingredients: { wet: [], dry: [], other: [] },
+              instructions: [],
+            }),
+            generateImage: vi.fn().mockResolvedValue('/api/recipes/gen-1/image'),
+          },
+        },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
         { provide: ModalService, useValue: { openAuth, openAddToCookbook: vi.fn() } },
@@ -220,6 +231,44 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(component.formatAmount(0.5)).toBe('1/2');
     expect(component.formatAmount(2)).toBe('2');
     expect(component.formatAmount([1, 2])).toBe('1 - 2');
+  });
+
+  it('routes generated recipes through the shared view event and reports offline saves', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component, recipeState } = createComponent({ saveResult: false });
+    component.prompt.set('vegan cornbread');
+
+    await component.onGenerate();
+
+    expect(recipeState.currentRecipe()?.id).toBe('gen-1');
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: true,
+      slug: null,
+    });
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generated',
+      outcome: 'saved_offline',
+      slug: null,
+    });
+  });
+
+  it('reports a manual generator save as offline when API sync fails', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveResult: false });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generator_save',
+      outcome: 'saved_offline',
+      slug: null,
+    });
   });
 
   // KAN-256: `clearRecipe()` fired inside onGenerate() — submit-time, not
