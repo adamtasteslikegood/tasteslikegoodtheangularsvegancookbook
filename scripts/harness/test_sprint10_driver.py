@@ -75,7 +75,7 @@ class PlanContractTests(unittest.TestCase):
         self.assertIn("closed or explicitly carried with a linked reason", evidence)
         for marker in (
             "KAN-271/272/273/274/276", "KAN-250", "RCP-58", "67108866",
-            "T9 \`-R\` scope", "KAN-259", "PR #3537", "KAN-291", "KAN-275/KAN-290",
+            "T9 `-R` scope", "KAN-259", "PR #3537", "KAN-291", "KAN-275/KAN-290",
         ):
             self.assertIn(marker, evidence)
 
