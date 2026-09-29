@@ -570,7 +570,7 @@
           "kind": "content"
         },
         {
-          "cmd": "git show origin/dev:CLAUDE.md | grep -qi 'review-debt-zero'",
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qiE 'review-debt[- ]zero'",
           "expect_exit": 0,
           "kind": "content"
         }
