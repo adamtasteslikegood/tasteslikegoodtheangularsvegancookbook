@@ -303,6 +303,23 @@
       // location.href); scrub every absolute URL inside it the same way.
       event.error.message = scrubUrlsInText(event.error.message);
       event.error.stack = scrubUrlsInText(event.error.stack);
+      event.error.handling_stack = scrubUrlsInText(event.error.handling_stack);
+      // error.causes[] is NOT in SDK 7.15's modifiable fields for beforeSend
+      // (browser-rum-core assembly.ts), so edits there would be discarded.
+      // If any chained cause carries a URL the scrub would change, drop the
+      // whole error event rather than send it.
+      var causes = event.error.causes;
+      if (causes && causes.length) {
+        for (var c = 0; c < causes.length; c++) {
+          var cause = causes[c] || {};
+          if (
+            scrubUrlsInText(cause.message) !== cause.message ||
+            scrubUrlsInText(cause.stack) !== cause.stack
+          ) {
+            return false;
+          }
+        }
+      }
     }
     return true;
   }

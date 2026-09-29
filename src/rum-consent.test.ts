@@ -484,6 +484,56 @@ describe('RUM consent gate — after consent', () => {
     for (const who of ['alice', 'bob', 'carol', 'dan']) {
       expect(quoted.error.message).not.toContain(who);
     }
+
+    // handling_stack is modifiable, so it is scrubbed in place.
+    const handling = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message: 'x',
+        handling_stack:
+          'HandlingStack\n  at f (https://www.tasteslikegood.org/?save=private-slug:1:2)',
+      },
+    };
+    expect(beforeSend(handling)).toBe(true);
+    expect(handling.error.handling_stack).not.toContain('private-slug');
+    expect(handling.error.handling_stack).toContain('(https://www.tasteslikegood.org/');
+
+    // causes[] cannot be modified in beforeSend (SDK 7.15), so an error whose
+    // chained cause carries a sensitive query is dropped entirely...
+    const leakyCause = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message: 'outer',
+        causes: [
+          { message: 'fine', stack: 'plain' },
+          { message: 'fetch https://www.tasteslikegood.org/?save=private-slug failed' },
+        ],
+      },
+    };
+    expect(beforeSend(leakyCause)).toBe(false);
+    const leakyCauseStack = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message: 'outer',
+        causes: [{ message: 'm', stack: 'at g (https://x.example/a.js?token=abc:1:1)' }],
+      },
+    };
+    expect(beforeSend(leakyCauseStack)).toBe(false);
+    // ...while clean causes (no URLs, or allowlisted-only URLs) are kept.
+    const cleanCause = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message: 'outer',
+        causes: [
+          { message: 'boom', stack: 'at h (https://www.tasteslikegood.org/main-ABCDEFGH.js:1:2)' },
+        ],
+      },
+    };
+    expect(beforeSend(cleanCause)).toBe(true);
   });
 
   it('beforeSend drops non-HTTP URL payloads from built-in URL fields', async () => {
