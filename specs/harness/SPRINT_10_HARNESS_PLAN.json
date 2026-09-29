@@ -473,7 +473,7 @@
       ],
       "skill": "marketing-skills:launch-strategy",
       "skill_path": "marketing-skills:launch-strategy",
-      "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting.",
+      "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting. If its due date falls after the sprint box, record the roll with owner, due date, and the unchanged pre-registered table so close-out can proceed without pretending the readout exists.",
       "suggested_tools": [
         "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-268 KAN-292 KAN-181 KAN-294 KAN-295 KAN-296 KAN-297 KAN-298"
       ],
@@ -489,12 +489,12 @@
           "kind": "gates-out-of-todo"
         },
         {
-          "cmd": "MANUAL: the four gate rows Done with their evidence, the post URL(s) and date, and the readout written 7 days later against the pre-registered table (inconclusive below the minimum sample).",
+          "cmd": "MANUAL: the four gate rows Done with their evidence and the post URL(s) and date; then either (a) the readout written 7 days later against the pre-registered table, inconclusive below the minimum sample, or (b) when that due date falls after the sprint box, an explicit evidenced roll naming the owner, due date, post baseline, and unchanged pre-registered table.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
       ],
-      "done_when": "post published after all four gates, readout written",
+      "done_when": "post published after all four gates, with either the completed seven-day readout or an explicit evidenced roll when the readout is due after the sprint box",
       "max_attempts": 3,
       "status": "pending"
     },
