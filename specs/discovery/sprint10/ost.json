@@ -263,19 +263,19 @@
       "target": true,
       "solutions": [
         {
-          "statement": "Unpublish the identical '-2' copies and refuse a '-<digit>' slug at publish time only when its content duplicates an existing public recipe (a genuinely different recipe with a colliding title still gets '-2', per SPRINT_6_PLAN.md:234-235); the cornbread canonical and joke-title naming are Adam decision rows, not work items",
+          "statement": "Unpublish the identical '-2' copies (done by Adam, 2026-09-29) and curate competing recipes by hand; slug suffixing is unchanged: two authors' distinct recipes whose slugs collide still get '-2', including against a slug retired to the KAN-288 tombstone table; the cornbread canonical and joke-title naming are Adam decision rows, not work items",
           "tests": [
             {
               "assumption": "The public catalog has no statistically identical pair after the change",
               "type": "sitemap sweep comparing ingredient, step and word counts per slug pair"
             },
             {
-              "assumption": "The publish path refuses a '-<digit>' slug whose content duplicates an existing public recipe",
-              "type": "Backend API test: publishing a content-duplicate returns the refusal and creates no '-<digit>' slug"
+              "assumption": "A different author's distinct recipe whose slug collides still publishes as '-2'",
+              "type": "Backend API test: publishing a distinct same-title recipe succeeds with a '-2' slug"
             },
             {
-              "assumption": "A genuinely different recipe with a colliding title still publishes as '-2'",
-              "type": "Backend API test: publishing a distinct same-title recipe succeeds with a '-2' slug"
+              "assumption": "A slug retired to the tombstone table on delete is never reissued; the next colliding publish gets '-2'",
+              "type": "Backend API test: delete a published recipe, publish a same-title recipe, assert a '-2' slug and the tombstoned slug still answers as retired"
             }
           ]
         },
