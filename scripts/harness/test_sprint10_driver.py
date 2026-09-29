@@ -199,6 +199,17 @@ class StartRuleTests(unittest.TestCase):
         reasons = driver.refusals(PLAN, "T0", self.dir)
         self.assertTrue(any("already open" in r for r in reasons), reasons)
 
+    def test_reinit_short_circuits_before_launch_gate_hits_jira(self):
+        # T11 is the only requires_done task; re-running start on an in-progress
+        # T11 must not fire 8 Jira GETs just to report 'already open'.
+        write_state(self.dir, "T11", "verifying")
+        jira = Mock()
+        reasons = driver.refusals(PLAN, "T11", self.dir, lambda: jira)
+        self.assertEqual(reasons, [
+            "T11 is already open — drive it with the controller, do not "
+            "re-initialize it"])
+        jira.issue.assert_not_called()
+
     def _verify_t11_deps(self):
         for tid in ("T0", "T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9", "T10"):
             write_state(self.dir, tid, "verified")

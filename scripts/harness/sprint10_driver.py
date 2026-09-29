@@ -50,10 +50,10 @@ REPO = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(REPO / "scripts" / "pm"))
 PLAN = REPO / "specs" / "harness" / "SPRINT_10_HARNESS_PLAN.json"
-CONTROLLER = os.environ.get(
+CONTROLLER = os.path.expanduser(os.environ.get(
     "HARNESS_CONTROLLER",
     str(Path.home() / ".claude/plugins/cache/claude-code-skills/agent-harness/"
-        "1.0.0/skills/agent-harness/scripts/loop_controller.py"))
+        "1.0.0/skills/agent-harness/scripts/loop_controller.py")))
 
 GOAL_ITERATIONS = 12   # D6: 12 iterations per goal, goal = one SI
 TASK_ATTEMPTS = 3      # D6: 3 attempts per task
@@ -103,10 +103,13 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
         return ["unknown task %s" % task_id]
     task = tasks[task_id]
     states, wip = snapshot(plan, state_dir)
-    reasons = []
     if states[task_id] != "not-started":
-        reasons.append("%s is already %s — drive it with the controller, do not "
-                       "re-initialize it" % (task_id, states[task_id]))
+        # Skip the remaining checks — they would report irrelevant reasons for a
+        # task that has already been initialized, and requires_done would make
+        # unnecessary Jira HTTP calls on every re-run.
+        return ["%s is already %s — drive it with the controller, do not "
+                "re-initialize it" % (task_id, states[task_id])]
+    reasons = []
     waiting = [d for d in task.get("depends_on", []) if states[d] != "verified"]
     if waiting:
         reasons.append("%s depends on %s, not yet verified"
