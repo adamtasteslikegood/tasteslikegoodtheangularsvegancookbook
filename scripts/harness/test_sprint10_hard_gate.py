@@ -16,7 +16,7 @@ class Sprint10HardGateTests(unittest.TestCase):
         return set(hard_gate.REQUIRED) | set(hard_gate.ACCEPTANCE.values())
 
     def _run_gate(self, members, state="active", charter=False, rendered=None,
-                  todo_keys=None):
+                  todo_keys=None, issues=None):
         members = set(members)
         todo_keys = members if todo_keys is None else set(todo_keys)
         jira = Mock()
@@ -33,7 +33,11 @@ class Sprint10HardGateTests(unittest.TestCase):
                 "statusCategory": {"key": "new" if todo else "indeterminate"}}}}
 
         jira.issue.side_effect = issue
-        argv = ["sprint10_hard_gate.py"] + (["--charter"] if charter else [])
+        argv = ["sprint10_hard_gate.py"]
+        if charter:
+            argv.append("--charter")
+        elif issues is not None:
+            argv.extend(["--issues", *issues])
         output = io.StringIO()
         with (
             patch("sprint10_hard_gate.Jira", return_value=jira),
@@ -68,6 +72,14 @@ class Sprint10HardGateTests(unittest.TestCase):
         ):
             hard_gate.main()
         self.assertEqual(raised.exception.code, 2)
+
+    def test_scoped_success_is_not_labeled_as_the_full_gate(self):
+        rc, output = self._run_gate(
+            (), issues=("KAN-268",), todo_keys=())
+        self.assertEqual(rc, 0, output)
+        self.assertIn("SCOPED CHECK PASSED", output)
+        self.assertNotIn("every committed Sprint 10 item", output)
+        self.assertNotIn("acceptance row the board renders", output)
 
     def test_charter_passes_on_day_one_with_everything_in_todo(self):
         rc, output = self._run_gate(self._members(), charter=True)
