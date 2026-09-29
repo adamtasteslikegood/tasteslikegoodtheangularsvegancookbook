@@ -20,7 +20,8 @@ python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10
 python3 $HC init --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --state .agent-harness/sprint10-state.json
 ```
 
-A zero-exit QA report is necessary but not authorization to spend loop budget. Record Adam's explicit human go/no-go before running `init`; without it, stop after QA.
+A zero-exit QA report is necessary but not authorization to spend loop budget. Record
+Adam's explicit human go/no-go before running `init`; without it, stop after QA.
 
 ### Kickoff — only after both PRs merge (Adam, 2026-09-29)
 
