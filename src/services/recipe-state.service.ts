@@ -133,6 +133,11 @@ export class RecipeStateService {
     trackRecipeView(r, saved);
   }
 
+  /** Start a new analytics view boundary without discarding cached recipe state. */
+  leaveRecipeView() {
+    resetRecipeViewTracking();
+  }
+
   clearRecipe() {
     this.currentRecipe.set(null);
     this.generatedImageUrl.set(null);
