@@ -152,6 +152,11 @@ interface Harness {
     stopSession: ReturnType<typeof vi.fn>;
     setTrackingConsent: ReturnType<typeof vi.fn>;
   };
+  /** Actions the fake SDK actually accepted (dropped while 'not-granted'). */
+  accepted: Array<[string, unknown]>;
+  /** Dispatch a cross-tab `storage` event, as another tab writing would. */
+  storage(key: string | null, newValue: string | null): void;
+  setActiveElement(el: FakeEl | null): void;
   reload: ReturnType<typeof vi.fn>;
   docClick(target: FakeEl): void;
   sdkScripts(): FakeEl[];
@@ -186,16 +191,27 @@ async function run(opts: {
     }
     throw new Error(`unexpected fetch ${url}`);
   });
+  const accepted: Array<[string, unknown]> = [];
+  let sdkConsent = 'granted';
   const rum = {
     init: vi.fn(),
-    addAction: vi.fn(),
+    // Models the real SDK: actions are dropped while tracking consent is off.
+    addAction: vi.fn((name: string, context: unknown) => {
+      if (sdkConsent === 'granted') accepted.push([name, context]);
+    }),
     setGlobalContextProperty: vi.fn(),
     stopSession: vi.fn(),
-    setTrackingConsent: vi.fn(),
+    setTrackingConsent: vi.fn((value: string) => {
+      sdkConsent = value;
+    }),
   };
+  const winListeners: Record<string, Array<(e: unknown) => void>> = {};
   const reload = vi.fn();
   const win: Record<string, unknown> = {
     fetch: fetchMock,
+    addEventListener: (t: string, fn: (e: unknown) => void) => {
+      (winListeners[t] ??= []).push(fn);
+    },
     location: {
       pathname: opts.path ?? '/',
       search: opts.search ?? '',
@@ -221,7 +237,8 @@ async function run(opts: {
     win.localStorage = localStorage;
     win.sessionStorage = sessionStorage;
   }
-  const document = {
+  const document: Record<string, unknown> = {
+    activeElement: body,
     referrer: opts.referrer ?? '',
     head,
     body,
@@ -247,6 +264,15 @@ async function run(opts: {
     sessionStorage,
     fetchMock,
     rum,
+    accepted,
+    storage(key, newValue) {
+      for (const fn of winListeners.storage ?? []) {
+        fn({ key, newValue, storageArea: localStorage });
+      }
+    },
+    setActiveElement(el) {
+      document.activeElement = el ?? body;
+    },
     reload,
     docClick(target) {
       for (const fn of docListeners) fn({ target, preventDefault() {} });
@@ -420,6 +446,30 @@ describe('RUM consent gate — after consent', () => {
         '(https://www.tasteslikegood.org/r/bar?utm_source=z)'
     );
     expect(paren.error.message).not.toContain('alice');
+
+    // Quoted query values are dropped whole; quotes that only WRAP the URL,
+    // and trailing sentence punctuation, survive.
+    const quoted = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message:
+          "single https://www.tasteslikegood.org/r/foo?email='alice@example.com' then " +
+          'double https://www.tasteslikegood.org/r/foo?email="bob@example.com" then ' +
+          '"https://www.tasteslikegood.org/r/bar?email=\'carol@example.com\'" and ' +
+          '\'https://www.tasteslikegood.org/r/baz?email="dan@example.com"&utm_source=z\'.',
+      },
+    };
+    beforeSend(quoted);
+    expect(quoted.error.message).toBe(
+      'single https://www.tasteslikegood.org/r/foo then ' +
+        'double https://www.tasteslikegood.org/r/foo then ' +
+        '"https://www.tasteslikegood.org/r/bar" and ' +
+        "'https://www.tasteslikegood.org/r/baz?utm_source=z'."
+    );
+    for (const who of ['alice', 'bob', 'carol', 'dan']) {
+      expect(quoted.error.message).not.toContain(who);
+    }
   });
 
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
@@ -642,5 +692,114 @@ describe('RUM consent gate — withdrawal without reload', () => {
     expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
     // The SDK was not injected a second time.
     expect(h.sdkScripts()).toHaveLength(1);
+  });
+});
+
+describe('RUM consent gate — cross-tab consent', () => {
+  it('a withdrawal in another tab fails this active tab closed', async () => {
+    const shared = new FakeStorage();
+    const active = await run({
+      consent: 'granted',
+      localStorage: shared,
+      path: '/r/vegan-cornbread',
+    });
+    active.loadSdk();
+    expect(active.rum.init).toHaveBeenCalledOnce();
+
+    // The other tab chooses "No thanks"; the browser fires `storage` here.
+    const other = await run({ localStorage: shared });
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    other.docClick(settings);
+    other.buttonByLabel('No thanks').click();
+    expect(shared.getItem('tlg.analytics-consent')).toBe('denied');
+    active.storage('tlg.analytics-consent', 'denied');
+
+    expect(active.rum.setTrackingConsent).toHaveBeenCalledWith('not-granted');
+    expect(active.rum.stopSession).toHaveBeenCalledOnce();
+    expect(active.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
+    expect(active.reload).not.toHaveBeenCalled();
+    active.rum.addAction.mockClear();
+    active.win.tlgAnalytics.action('recipe_saved', {});
+    expect(active.rum.addAction).not.toHaveBeenCalled();
+  });
+
+  it('storage.clear() or key removal elsewhere also fails closed, even mid SDK load', async () => {
+    const h = await run({ consent: 'granted' });
+    expect(h.sdkScripts()).toHaveLength(1); // SDK requested, not yet loaded
+    h.storage(null, null);
+    h.loadSdk();
+    expect(h.rum.init).not.toHaveBeenCalled();
+  });
+
+  it('a grant made in another tab (e.g. the policy tab) applies here with the original landing', async () => {
+    const h = await run({
+      path: '/r/vegan-cornbread',
+      search: '?utm_source=reddit',
+      referrer: 'https://old.reddit.com/r/vegan/',
+    });
+    expect(h.banner()).toBeDefined();
+    expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
+    h.localStorage.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    expect(h.banner()).toBeUndefined();
+    h.loadSdk();
+    expect(h.rum.setGlobalContextProperty).toHaveBeenCalledWith('launch', {
+      landing_path: '/r/vegan-cornbread',
+      referrer: 'https://old.reddit.com/r/vegan/',
+      utm_source: 'reddit',
+    });
+  });
+
+  it('a grant elsewhere does not override a denial made on this page', async () => {
+    const h = await run({});
+    h.buttonByLabel('No thanks').click();
+    h.storage('tlg.analytics-consent', 'granted');
+    expect(h.sdkScripts()).toHaveLength(0);
+  });
+});
+
+describe('RUM consent gate — re-consent and banner accessibility', () => {
+  it('re-allowing after a no-reload withdrawal restores SDK consent before the view is sent', async () => {
+    const storage = new FaultyStorage();
+    storage.setItem('tlg.analytics-consent', 'granted');
+    const h = await run({ localStorage: storage, path: '/r/vegan-cornbread' });
+    h.loadSdk();
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+    storage.failReads = true;
+    storage.failWrites = true;
+    storage.failRemovals = true;
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    h.accepted.length = 0;
+
+    h.docClick(settings);
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.accepted).toContainEqual(['recipe_view', { surface: 'ssr', slug: 'vegan-cornbread' }]);
+  });
+
+  it('first display focuses "No thanks" and restores the prior focus on close', async () => {
+    const h = await run({});
+    expect(h.buttonByLabel('No thanks').focused).toBe(true);
+    h.buttonByLabel('No thanks').click();
+    expect(h.banner()).toBeUndefined();
+  });
+
+  it('the Details link opens in a new tab so this page keeps its landing', async () => {
+    const h = await run({});
+    const find = (n: FakeEl): FakeEl | null => {
+      for (const c of n.children) {
+        if (c.tagName === 'A') return c;
+        const hit = find(c);
+        if (hit) return hit;
+      }
+      return null;
+    };
+    const link = find(h.banner()!) as FakeEl & { target?: string; rel?: string; href?: string };
+    expect(link.href).toBe('/privacy-policy#analytics');
+    expect(link.target).toBe('_blank');
+    expect(link.rel).toBe('noopener');
   });
 });

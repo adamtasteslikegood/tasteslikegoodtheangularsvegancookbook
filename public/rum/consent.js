@@ -234,22 +234,32 @@
     return out;
   }
 
-  // Parentheses are valid inside URL query values, so they are part of the
-  // match; only UNBALANCED trailing ')' (a stack frame's "(https://...)"
-  // wrapper) is peeled off and put back after sanitizing.
-  var URL_IN_TEXT = /https?:\/\/[^\s"'<>]+/g;
+  // Host and path stop at quotes, but once a query or fragment starts the
+  // match runs to the next whitespace, so quoted and parenthesised values
+  // (?email='a@b', ?q=(x)) are captured whole and then dropped by
+  // sanitizeUrl. Only UNBALANCED trailing wrappers (a stack frame's "(...)",
+  // a quoted URL's closing quote, sentence punctuation) are peeled off and
+  // put back after sanitizing.
+  var URL_IN_TEXT = /https?:\/\/[^\s"'<>?#]+(?:[?#][^\s<>]*)?/g;
 
   function count(str, ch) {
     return str.split(ch).length - 1;
+  }
+
+  function isUnbalancedTail(str) {
+    var last = str.slice(-1);
+    if (last === ')') return count(str, ')') > count(str, '(');
+    if (last === '"' || last === "'") return count(str, last) % 2 === 1;
+    return last === '.' || last === ',' || last === ';' || last === ':';
   }
 
   function scrubUrlsInText(text) {
     if (typeof text !== 'string' || !text) return text;
     return text.replace(URL_IN_TEXT, function (match) {
       var suffix = '';
-      while (match.slice(-1) === ')' && count(match, ')') > count(match, '(')) {
+      while (match.length && isUnbalancedTail(match)) {
+        suffix = match.slice(-1) + suffix;
         match = match.slice(0, -1);
-        suffix = ')' + suffix;
       }
       return sanitizeUrl(match) + suffix;
     });
@@ -381,36 +391,71 @@
     }
     closeBanner(true);
     if (state === 'granted') {
-      writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
-      // The initial SSR view was intentionally dropped before consent. Queue
-      // it now so a first-visit grant still has a complete view -> save funnel.
-      var slug = ssrRecipeSlug();
-      if (slug && previous !== 'granted') {
-        action('recipe_view', { surface: 'ssr', slug: slug });
-      }
-      if (previous !== 'granted') notifyConsentGranted();
-      if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
-        // Re-allowed on the page where it was withdrawn without a reload.
-        window.DD_RUM.setTrackingConsent('granted');
-        flushQueue();
-      }
-      loadSdk();
+      applyGrant(previous);
       return;
     }
+    shutDown();
+    // Reload only when denial is safely persisted (or a stale grant was
+    // removed). If both operations are blocked, stay on this stopped,
+    // fail-closed page instead of reactivating a stale grant on reload.
+    if (sdkState !== 'idle' && stored) window.location.reload();
+  }
+
+  function applyGrant(previous) {
+    writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
+    if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
+      // Re-allowed on a page where it was withdrawn without a reload. Restore
+      // SDK consent FIRST: actions added while it is 'not-granted' are dropped.
+      window.DD_RUM.setTrackingConsent('granted');
+    }
+    // The initial SSR view was intentionally dropped before consent. Queue
+    // it now so a first-visit grant still has a complete view -> save funnel.
+    var slug = ssrRecipeSlug();
+    if (slug && previous !== 'granted') {
+      action('recipe_view', { surface: 'ssr', slug: slug });
+    }
+    if (previous !== 'granted') notifyConsentGranted();
+    if (sdkState === 'ready') flushQueue();
+    loadSdk();
+  }
+
+  // Stop everything on this page: queued and persisted pending actions, the
+  // landing attribution, and the SDK itself. stopSession() alone is not a
+  // withdrawal (the next interaction starts a new session); 'not-granted'
+  // stops all collection and sending. An in-flight SDK load is caught by the
+  // consent re-check in script.onload.
+  function shutDown() {
     clearQueue();
     removeStore(sessionStore, LANDING_KEY);
     if (sdkState !== 'idle') {
       var rum = window.DD_RUM;
-      // stopSession() alone is not a withdrawal: the next interaction starts
-      // a new session. 'not-granted' stops all collection and sending on this
-      // page, which is what covers the no-reload path below.
       if (rum && rum.setTrackingConsent) rum.setTrackingConsent('not-granted');
       if (rum && rum.stopSession) rum.stopSession();
-      // Reload only when denial is safely persisted (or a stale grant was
-      // removed). If both operations are blocked, stay on this stopped,
-      // fail-closed page instead of reactivating a stale grant on reload.
-      if (stored) window.location.reload();
     }
+  }
+
+  // Cross-tab consent. The key is shared by every tab on this origin; the
+  // browser fires `storage` only in the OTHER tabs. A withdrawal (or removal /
+  // storage.clear()) elsewhere fails this tab closed at once. A grant made
+  // elsewhere (e.g. in the privacy-policy tab the Details link opens) applies
+  // here only if this page has not made its own choice.
+  function onStorage(event) {
+    if (!event || (event.key !== CONSENT_KEY && event.key !== null)) return;
+    if (event.storageArea && localStore && event.storageArea !== localStore) return;
+    var next = event.key === null ? null : event.newValue;
+    if (next === 'granted') {
+      if (pageConsent !== null || !config || !config.enabled) return;
+      closeBanner(false);
+      applyGrant(null);
+      return;
+    }
+    pageConsent = 'denied';
+    closeBanner(false);
+    shutDown();
+  }
+
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('storage', onStorage);
   }
 
   function makeButton(label, onClick, primary) {
@@ -453,7 +498,13 @@
     );
     var link = document.createElement('a');
     link.href = '/privacy-policy#analytics';
-    link.textContent = 'Details';
+    // A new tab keeps THIS page, and its in-memory landing referrer/UTM, alive
+    // while the visitor reads the policy: nothing is persisted or sent before
+    // consent, and a grant made in the policy tab reaches this tab through
+    // the storage event (onStorage above).
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = 'Details (opens in a new tab)';
     link.style.cssText = 'color:inherit;text-decoration:underline;';
     text.appendChild(link);
     var actions = document.createElement('div');
@@ -480,17 +531,33 @@
     document.body.appendChild(banner);
   }
 
+  // Deliberate fail-closed keyboard default: focus "No thanks", so an
+  // accidental Enter can never opt someone in. Selected by attribute, not DOM
+  // order, so reordering the buttons cannot silently invert it.
+  function focusDeny() {
+    if (!banner) return;
+    var deny = banner.querySelector('[data-analytics-deny]');
+    if (deny) deny.focus({ preventScroll: true });
+  }
+
   function openSettings(trigger) {
     closeBanner(false);
     returnFocus = trigger && typeof trigger.focus === 'function' ? trigger : null;
     showBanner();
-    if (banner) {
-      // Deliberate fail-closed keyboard default: focus "No thanks", so an
-      // accidental Enter can never opt someone in. Selected by attribute, not
-      // DOM order, so reordering the buttons cannot silently invert it.
-      var deny = banner.querySelector('[data-analytics-deny]');
-      if (deny) deny.focus();
-    }
+    focusDeny();
+  }
+
+  // First display arrives asynchronously after /rum/config, and a role=region
+  // inserted later is not announced. Moving focus to the safe choice makes
+  // the question perceivable to screen-reader and keyboard users; closing
+  // the banner returns focus to whatever had it before.
+  function showFirstBanner() {
+    var active = document.activeElement;
+    showBanner();
+    if (!banner) return;
+    returnFocus =
+      active && active !== document.body && typeof active.focus === 'function' ? active : null;
+    focusDeny();
   }
 
   // SSR surface: a /r/<slug> page is a recipe view, and its save CTA is the
@@ -549,7 +616,7 @@
         revealSettingsControls();
         var state = consentState();
         if (state === 'granted') loadSdk();
-        else if (state === null) showBanner();
+        else if (state === null) showFirstBanner();
         var slug = ssrRecipeSlug();
         if (slug) action('recipe_view', { surface: 'ssr', slug: slug });
       });
