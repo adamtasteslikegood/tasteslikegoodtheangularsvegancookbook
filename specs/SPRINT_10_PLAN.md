@@ -2,8 +2,8 @@
 
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
-_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · charter row **RCP-99**
-_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
+_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · charter row **RCP-99**
+_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
 _Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
@@ -26,24 +26,36 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 11 SIs
+## Committed scope — 16 SIs (11 chartered + S12–S16 added 2026-09-29)
 
-| SI      | Grill # | Lane           | Summary                                                                             | KAN     | Acceptance |
-| ------- | ------- | -------------- | ----------------------------------------------------------------------------------- | ------- | ---------- |
-| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                       | KAN-268 | RCP-98     |
-| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 7 days before launch                  | KAN-292 | RCP-101    |
-| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                         | KAN-293 | RCP-102    |
-| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                 | KAN-181 | RCP-103    |
-| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                     | KAN-294 | RCP-104    |
-| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                      | KAN-295 | RCP-105    |
-| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                       | KAN-296 | RCP-106    |
-| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                             | KAN-297 | RCP-107    |
-| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`         | KAN-298 | RCP-108    |
-| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric | KAN-277 | RCP-109    |
-| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates                                    | KAN-299 | RCP-110    |
+| SI      | Grill # | Lane           | Summary                                                                                  | KAN     | Acceptance |
+| ------- | ------- | -------------- | ---------------------------------------------------------------------------------------- | ------- | ---------- |
+| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                            | KAN-268 | RCP-98     |
+| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 7 days before launch                       | KAN-292 | RCP-101    |
+| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                              | KAN-293 | RCP-102    |
+| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                      | KAN-181 | RCP-103    |
+| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                          | KAN-294 | RCP-104    |
+| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                           | KAN-295 | RCP-105    |
+| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                            | KAN-296 | RCP-106    |
+| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                                  | KAN-297 | RCP-107    |
+| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`              | KAN-298 | RCP-108    |
+| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric      | KAN-277 | RCP-109    |
+| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates                                         | KAN-299 | RCP-110    |
+| **S12** | —       | Process        | Workflow `secrets.*` references gated against `gh secret list`, wired into `pr-gate.yml` | KAN-300 | RCP-111    |
+| **S13** | —       | Process        | CLAUDE.md PR lifecycle: read `pulls/<n>/reviews` bodies in full (suppressed findings)    | KAN-301 | RCP-112    |
+| **S14** | —       | Process        | Delete the copied required-checks list from CLAUDE.md; name the live rulesets command    | KAN-302 | RCP-113    |
+| **S15** | —       | Process        | Pre-work branch preflight: commits-behind `origin/dev` + Backend-pointer ancestry        | KAN-303 | RCP-114    |
+| **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                     | KAN-304 | RCP-115    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
+
+### S12–S16 were added at charter — 2026-09-29
+
+The five undelivered Sprint 8 retro actions (carried as Sprint 9 retro action c).
+**Adam ticketed all five into Sprint 10** rather than declining any. Each has its own
+KAN row and acceptance row under RCP-100, both labelled `sprint-10`, and each is in
+sprint 85. "Grill #" is "—" because they come from the retros, not the product grill.
 
 ### Cut before charter — Adam, 2026-09-29
 
@@ -58,7 +70,7 @@ phase 2 rubric scoring, and on-site article/blog pages.
 
 ### On the item count — read this before citing it as velocity
 
-Eleven rows is a **tracking granularity, not a load signal** (Adam, 2026-09-29). Each
+Sixteen rows (eleven product SIs plus the five process carry-overs) is a **tracking granularity, not a load signal** (Adam, 2026-09-29). Each
 UI item has its own row so each can be accepted on its own evidence; earlier sprints
 carried a whole category as one SI. Comparing row counts across sprints compares
 bookkeeping, not work. No item was bundled to fit a cap (R-4).
@@ -83,15 +95,16 @@ override by Adam without re-chartering.
 `jira_snapshot_bridge.py --to flow --forecast 11` over KAN (resolved since 2026-07-01
 or still open; 235 items):
 
-| Measure                         | Value                                       |
-| ------------------------------- | ------------------------------------------- |
-| WIP (open, started)             | 18                                          |
-| Throughput                      | 5.26 items/week over 27 weeks               |
-| Cycle time (created → resolved) | p50 4 d · p85 36 d · p95 106 d              |
-| SLE (p85)                       | 36 d, 85.2% conformance                     |
-| Monte Carlo, 11 items           | **p50 2 weeks · p85 3 weeks · p95 4 weeks** |
+| Measure                              | Value                                       |
+| ------------------------------------ | ------------------------------------------- |
+| WIP (open, started)                  | 18                                          |
+| Throughput                           | 5.26 items/week over 27 weeks               |
+| Cycle time (created → resolved)      | p50 4 d · p85 36 d · p95 106 d              |
+| SLE (p85)                            | 36 d, 85.2% conformance                     |
+| Monte Carlo, 11 items                | p50 2 weeks · p85 3 weeks · p95 4 weeks     |
+| Monte Carlo, 16 items (with S12–S16) | **p50 2 weeks · p85 4 weeks · p95 5 weeks** |
 
-The box is 3 weeks, so the scope sits at p85. Sprint 9 closed 10 of 10.
+The box is 3 weeks. The 11 product SIs sit at p85; **with S12–S16 the p85 is 4 weeks, one past the box.** The forecast counts items, not size: S12–S16 are three CLAUDE.md edits and two small scripts, so the real overrun risk is smaller than the item count says, but it is stated here rather than hidden. Sprint 9 closed 10 of 10.
 
 **Caveats.** Cycle time is created→resolved, because the export carries no in-progress
 timestamp, so it overstates active time. Throughput counts every KAN item, including
@@ -165,11 +178,12 @@ _"It is three weeks from now and Sprint 10 failed. Why?"_
 
 WIP ≤ 3, one session per lane:
 
-| Lane             | SIs, in order                     | Surface                                     |
-| ---------------- | --------------------------------- | ------------------------------------------- |
-| A — Gates        | S1 → S3 → S4; S2 in parallel      | Backend (S1), `index.html`/SSR base (S2)    |
-| B — UI           | S5 → S6 → S7 → S8 → S9            | SPA shell + SSR templates, serial by design |
-| C — Distribution | S10 through the sprint → S11 last | Off-site; no repo conflicts                 |
+| Lane             | SIs, in order                                           | Surface                                     |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------- |
+| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base (S2)    |
+| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design |
+| C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                 |
+| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`    |
 
 ## Execution order
 
@@ -178,6 +192,7 @@ WIP ≤ 3, one session per lane:
 3. **After S1 releases:** S3 is measured (flip R3), then S4 re-walks production.
 4. **S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).
 5. **S11** starts only when the four gates are Done.
+6. **S12–S16** fill WIP slack. S15 (the preflight) goes first, because it protects every later branch.
 
 ## Acceptance criteria
 
@@ -195,6 +210,11 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S9 / RCP-108:** Kitchen filter/sort works; `/browse?sort&tag` returns 200 with `rel=canonical` to `/browse`; `/browse/tag/<tag>` keeps its own canonical.
 - **S10 / RCP-109:** KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled `sprint-10` and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` fails on any `sprint-10` KAN child not linked to an RCP row, so no child can exist untracked; RCP-109 closes only with a comment listing every child key against the audit list, each with its Done evidence, and the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
 - **S11 / RCP-110:** four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
+- **S12 / RCP-111:** a check greps workflows for `secrets.[A-Z_]+`, diffs against `gh secret list`, is wired into `pr-gate.yml` and `gate.needs`, and has been seen to fail once for the reason it exists.
+- **S13 / RCP-112:** CLAUDE.md's PR lifecycle requires reading `pulls/<n>/reviews` bodies in full before a PR is declared review-debt-zero.
+- **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.
+- **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
+- **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
 
 ## Sprint 9 retro actions — row-by-row disposition
 
@@ -204,7 +224,7 @@ Verbatim from the [Sprint 9 Retrospective](https://tasteslikegood.atlassian.net/
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | a   | Close an acceptance row AC by AC. The Done comment enumerates every numbered AC with its evidence; an AC without evidence keeps the row open or is amended in writing by Adam.                                                       | Every Sprint 10 acceptance row's closing comment lists each AC number with a link or command output.                       | **Committed.** D4 + R6; every acceptance row created 2026-09-29 carries it in its description.                                                                          |
 | b   | Write the retro in the close-out session. No close-out checkbox is ticked without a link to the thing it claims.                                                                                                                     | Sprint 10 retro page exists under 50298881 on the day Sprint 10 closes; every ticked close-out box links its evidence.     | **Committed.** Close-out checklist below.                                                                                                                               |
-| c   | Ticket the undelivered Sprint 8 actions or decline them explicitly — secrets-reference gate (4), CLAUDE.md suppressed-comment step (3), delete the copied checks list (5), Backend-pointer preflight (6), platform-vs-code note (7). | Each of the five is either a KAN row labelled sprint-10 or named as declined, with a reason, in `specs/SPRINT_10_PLAN.md`. | **Awaiting Adam** — ticket vs decline is a scope call. Until Adam rules, all five are listed here as undecided; the process-lane table below holds the row per action.  |
+| c   | Ticket the undelivered Sprint 8 actions or decline them explicitly — secrets-reference gate (4), CLAUDE.md suppressed-comment step (3), delete the copied checks list (5), Backend-pointer preflight (6), platform-vs-code note (7). | Each of the five is either a KAN row labelled sprint-10 or named as declined, with a reason, in `specs/SPRINT_10_PLAN.md`. | **Committed (Adam, 2026-09-29): all five ticketed into Sprint 10** as S12–S16 (KAN-300…304, RCP-111…115). None declined.                                                |
 | d   | Charter before shipping. Charter Sprint 10 under KAN-269 and fold the unsprinted SEO work in: move KAN-271/272/273/274/276 to Done against the v0.5.0–v0.5.2 release evidence.                                                       | Sprint 10 exists on board 168 with its epic and acceptance rows; no KAN-27x SEO row is In Review for work already live.    | **Half done at charter.** Sprint 10 (id 85), RCP-100 and the acceptance rows exist. KAN-271…276 close in the process lane, each on its own release evidence (AC by AC). |
 | e   | KAN-268 first — the defect S2's skipped measurement would have found. Already rank 1 in the Sprint 10 grill (RCP-98).                                                                                                                | Production: Valkey AuthenticationError rate ~0 over 7 days and image endpoint p95 < 2 s (RCP-98's own bar).                | **Committed as S1.**                                                                                                                                                    |
 | f   | Clear Sprint 9 board residue: KAN-250 closed against the amendment (Cloud Deploy work lives on KAN-227); RCP-58 closed on KAN-161's evidence; delete duplicate page 67108866.                                                        | Zero sprint-9 rows not Done; RCP-58 resolved; page 67108866 gone.                                                          | **Process lane.**                                                                                                                                                       |
@@ -212,19 +232,19 @@ Verbatim from the [Sprint 9 Retrospective](https://tasteslikegood.atlassian.net/
 
 ## Process lane (no SI slot)
 
-| Item                                                                                                                                                                                                                                                                                                                                                                                                                                               | Source        | Status                           |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | -------------------------------- |
-| Close KAN-271/272/273/274/276 on v0.5.x evidence                                                                                                                                                                                                                                                                                                                                                                                                   | Retro d       | Open                             |
-| KAN-250 closed against the S3 amendment; RCP-58 on KAN-161's evidence; page 67108866 deleted                                                                                                                                                                                                                                                                                                                                                       | Retro f       | Open                             |
-| Harness T9 `-R` scope                                                                                                                                                                                                                                                                                                                                                                                                                              | Retro g       | Open, conditional                |
-| S8 action 4 — secrets-reference gate                                                                                                                                                                                                                                                                                                                                                                                                               | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 3 — CLAUDE.md suppressed-comment step                                                                                                                                                                                                                                                                                                                                                                                                    | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 5 — delete the copied checks list                                                                                                                                                                                                                                                                                                                                                                                                        | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 6 — Backend-pointer preflight                                                                                                                                                                                                                                                                                                                                                                                                            | Retro c       | Awaiting Adam: ticket or decline |
-| S8 action 7 — platform-vs-code note                                                                                                                                                                                                                                                                                                                                                                                                                | Retro c       | Awaiting Adam: ticket or decline |
-| Follow-up audits, outside Sprint 10 (Adam, 2026-09-29): KAN-290 — state of recycle-bin delete (where bin code still lives, what DELETE does for private/published/reserved-slug rows, whether the recorded defects reproduce); KAN-275 — state of recipe hygiene (sitemap sweep for identical pairs, competing clusters, every public `-<digit>` slug checked as distinct or copy). Each ends in a state report; fixes are filed as their own rows | Grill #4, #12 | Open, not labelled `sprint-10`   |
-| KAN-259's overdue NAT measurements                                                                                                                                                                                                                                                                                                                                                                                                                 | Grill         | Open                             |
-| PR #3537 (KAN-291 follow-ups)                                                                                                                                                                                                                                                                                                                                                                                                                      | Grill         | Open PR                          |
+| Item                                                                                                                                                                                                                                                                                                                                                                                                                                               | Source        | Status                                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------------------------------------- |
+| Close KAN-271/272/273/274/276 on v0.5.x evidence                                                                                                                                                                                                                                                                                                                                                                                                   | Retro d       | Open                                                            |
+| KAN-250 closed against the S3 amendment; RCP-58 on KAN-161's evidence; page 67108866 deleted                                                                                                                                                                                                                                                                                                                                                       | Retro f       | Open                                                            |
+| Harness T9 `-R` scope                                                                                                                                                                                                                                                                                                                                                                                                                              | Retro g       | Open, conditional                                               |
+| S8 action 4 — secrets-reference gate                                                                                                                                                                                                                                                                                                                                                                                                               | Retro c       | Ticketed as S12 (KAN-300); tracked in committed scope, not here |
+| S8 action 3 — CLAUDE.md suppressed-comment step                                                                                                                                                                                                                                                                                                                                                                                                    | Retro c       | Ticketed as S13 (KAN-301); tracked in committed scope, not here |
+| S8 action 5 — delete the copied checks list                                                                                                                                                                                                                                                                                                                                                                                                        | Retro c       | Ticketed as S14 (KAN-302); tracked in committed scope, not here |
+| S8 action 6 — Backend-pointer preflight                                                                                                                                                                                                                                                                                                                                                                                                            | Retro c       | Ticketed as S15 (KAN-303); tracked in committed scope, not here |
+| S8 action 7 — platform-vs-code note                                                                                                                                                                                                                                                                                                                                                                                                                | Retro c       | Ticketed as S16 (KAN-304); tracked in committed scope, not here |
+| Follow-up audits, outside Sprint 10 (Adam, 2026-09-29): KAN-290 — state of recycle-bin delete (where bin code still lives, what DELETE does for private/published/reserved-slug rows, whether the recorded defects reproduce); KAN-275 — state of recipe hygiene (sitemap sweep for identical pairs, competing clusters, every public `-<digit>` slug checked as distinct or copy). Each ends in a state report; fixes are filed as their own rows | Grill #4, #12 | Open, not labelled `sprint-10`                                  |
+| KAN-259's overdue NAT measurements                                                                                                                                                                                                                                                                                                                                                                                                                 | Grill         | Open                                                            |
+| PR #3537 (KAN-291 follow-ups)                                                                                                                                                                                                                                                                                                                                                                                                                      | Grill         | Open PR                                                         |
 
 ## Gates
 
@@ -243,11 +263,11 @@ in To Do) is the close gate by design, so on day 1 it is **expected red**.
 
 **Day-1 evidence, 2026-09-29:**
 
-| Run                                  | Before the sprint existed / started                                                     | After start (sprint 85 active)                                         |
-| ------------------------------------ | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `sprint10_hard_gate.py --charter`    | exit 1 — "Sprint 10 does not exist on board 168"; then exit 1 — "Sprint 10 is 'future'" | **exit 0** — 11 acceptance rows board-rendered                         |
-| `check_sprint_lane.sh`               | —                                                                                       | **exit 0** — 24 members carry `sprint-10`, 12 open KAN rows, 0 orphans |
-| `sprint10_hard_gate.py` (close form) | —                                                                                       | exit 1 — 21 items in To Do (expected on day 1)                         |
+| Run                                  | Before the sprint existed / started                                                     | After start (sprint 85 active)                                                                                                        |
+| ------------------------------------ | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `sprint10_hard_gate.py --charter`    | exit 1 — "Sprint 10 does not exist on board 168"; then exit 1 — "Sprint 10 is 'future'" | **exit 0** — 11 acceptance rows board-rendered; re-run after S12–S16: 16                                                              |
+| `check_sprint_lane.sh`               | —                                                                                       | **exit 0** — 24 members carry `sprint-10`, 12 open KAN rows, 0 orphans; re-run after S12–S16: 34 members, 17 open KAN rows, 0 orphans |
+| `sprint10_hard_gate.py` (close form) | —                                                                                       | exit 1 — 21 items in To Do (expected on day 1)                                                                                        |
 
 ## Close-out
 
