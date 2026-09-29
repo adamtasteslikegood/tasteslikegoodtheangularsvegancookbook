@@ -217,6 +217,7 @@ describe('RUM router', () => {
       const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toBe(`${RUM_INTAKE_ORIGIN}/api/v2/rum?ddsource=browser&dd-api-key=pub-token`);
       expect(init.method).toBe('POST');
+      expect(init.redirect).toBe('error');
       expect(Buffer.from(init.body as Uint8Array).toString()).toBe(body);
       const headers = init.headers as Record<string, string>;
       expect(headers['Content-Type']).toBe('text/plain;charset=UTF-8');

@@ -148,6 +148,9 @@ export function createRumRouter({
       try {
         const upstream = await fetchImpl(upstreamUrl, {
           method: 'POST',
+          // Keep the single-host forwarding boundary intact even if the
+          // configured Datadog intake responds with a redirect.
+          redirect: 'error',
           headers,
           body: new Uint8Array(Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0)),
           signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
