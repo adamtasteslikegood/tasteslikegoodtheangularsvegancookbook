@@ -226,7 +226,8 @@
               "assumption": "The settings tab is used by at least one non-author user within 4 weeks of first users",
               "type": "Datadog RUM custom action"
             }
-          ]
+          ],
+          "status": "deferred beyond Sprint 10 (Adam, 2026-09-29): not UI-consistency work"
         }
       ]
     },
@@ -267,6 +268,14 @@
             {
               "assumption": "The public catalog has no statistically identical pair after the change",
               "type": "sitemap sweep comparing ingredient, step and word counts per slug pair"
+            },
+            {
+              "assumption": "The publish path refuses a '-<digit>' slug whose content duplicates an existing public recipe",
+              "type": "Backend API test: publishing a content-duplicate returns the refusal and creates no '-<digit>' slug"
+            },
+            {
+              "assumption": "A genuinely different recipe with a colliding title still publishes as '-2'",
+              "type": "Backend API test: publishing a distinct same-title recipe succeeds with a '-2' slug"
             }
           ]
         },
@@ -279,7 +288,8 @@
             }
           ]
         }
-      ]
+      ],
+      "status": "not scheduled for Sprint 10 (Adam, 2026-09-29): actual duplicates unpublished and competing recipes curated by hand; publish-time guard not built"
     },
     {
       "statement": "Nobody outside the author knows the site exists: owned properties did not link it and no external referring domain has been measured",
@@ -287,7 +297,7 @@
       "target": true,
       "solutions": [
         {
-          "statement": "Owned-property links plus 3-5 original articles on owned or high-trust properties, each passing the per-article rubric (original material, Adam sign-off, byline linked to /about, AI assistance disclosed), shipped through the sprint",
+          "statement": "Audit every owned property and add the links still missing (the cookbook README link shipped in v0.5.0 and is not counted), plus 3-5 original articles on owned or high-trust properties, each passing the per-article rubric (original material, Adam sign-off, byline linked to /about, AI assistance disclosed), shipped through the sprint",
           "tests": [
             {
               "assumption": "Each shipped article or link is live and points at a canonical URL",
