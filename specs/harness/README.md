@@ -65,7 +65,7 @@ scripts/git/ahead-behind.sh --base dev . Backend      # both repos level with or
 git worktree add .claude/worktrees/sprint10-loop -b chore/sprint10-loop-KAN-269 origin/dev
 cd .claude/worktrees/sprint10-loop
 git submodule update --init Backend                  # Backend at the pinned SHA; never re-pin here
-# Backend work (T1, T7, T9): branch inside Backend/ from its origin/dev, e.g.
+# Backend work (T1, T2, T5, T7, T8, T9): branch inside Backend/ from its origin/dev, e.g.
 #   git -C Backend switch -c fix/kan-268-<topic> origin/dev
 # and leave the cookbook gitlink alone until the release step pins Backend main.
 python3 scripts/harness/sprint10_hard_gate.py --charter   # board still honest: exit 0
