@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `/rum/consent.js`, is shared by the Angular shell and the Flask SSR pages
   (tasteslikegood.com PR), so both surfaces read one consent key
   (`tlg.analytics-consent`). Until a visitor clicks "Allow analytics" the Datadog SDK is
-  not requested or initialised; the footer's "Analytics choice" link reopens the choice,
+  not requested or initialised; the footer's "Analytics choice" button reopens the choice,
   and withdrawal stops the session. The SDK (`@datadog/browser-rum-slim`, no Session
   Replay; `sessionReplaySampleRate: 0`) is served from `/rum/` and posts to a same-origin
   intake proxy (`POST /rum/intake`) that forwards only `/api/v2/rum` batches carrying our
