@@ -831,6 +831,24 @@ describe('createExpensiveOperationLimiter with non-null Valkey client', () => {
   });
 });
 
+describe('createRumIntakeLimiter with non-null Valkey client', () => {
+  it('uses the dedicated rl:rum: keyspace', async () => {
+    const RedisStore = (await import('rate-limit-redis')).default;
+    const storeConstructor = vi.mocked(RedisStore);
+    storeConstructor.mockClear();
+
+    const { createRumIntakeLimiter } = await import('./security.js');
+    const limiter = createRumIntakeLimiter({ call: vi.fn() } as unknown as Parameters<
+      typeof createRumIntakeLimiter
+    >[0]);
+
+    expect(typeof limiter).toBe('function');
+    expect(storeConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({ prefix: 'rl:rum:' })
+    );
+  });
+});
+
 // ── createFlaskProxy — Host header routing (regression) ───────────────────
 // Regression: Cloud Run's frontend load balancer routes by Host header.
 // If the proxy forwards the browser's Host (custom domain) to a
