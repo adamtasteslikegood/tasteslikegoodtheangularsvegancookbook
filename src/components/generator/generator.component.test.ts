@@ -97,9 +97,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     return { component, persistenceSaveRecipe, authUser, recipeState, injector };
   };
 
-  const draftRecipe = () =>
+  const draftRecipe = (id = 'gen-1') =>
     ({
-      id: 'gen-1',
+      id,
       name: 'Vegan Cornbread',
       ingredients: { wet: [], dry: [], other: [] },
       instructions: [],
@@ -299,6 +299,100 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     resolveSave({ ok: true });
     await generating;
     expect(component.isSaved()).toBe(true);
+  });
+
+  it('blocks a manual save while the generated recipe save is still pending', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+    expect(component.isCurrentRecipeSaving()).toBe(true);
+
+    await component.onSaveRecipe();
+    expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.isCurrentRecipeSaving()).toBe(false);
+    expect(action.mock.calls.filter(([name]) => name === 'recipe_saved')).toHaveLength(1);
+  });
+
+  it('coalesces rapid repeated manual saves for the same recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    recipeState.stageRecipeForNavigation(draftRecipe(), false);
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    const first = component.onSaveRecipe();
+    const second = component.onSaveRecipe();
+    await second;
+    expect(component.isCurrentRecipeSaving()).toBe(true);
+    expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+
+    resolveSave({ ok: true });
+    await first;
+    expect(component.isCurrentRecipeSaving()).toBe(false);
+    expect(action.mock.calls.filter(([name]) => name === 'recipe_saved')).toHaveLength(1);
+  });
+
+  it('does not let a stale generated-save result update a newly selected recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+    recipeState.stageRecipeForNavigation(draftRecipe('gen-2'), false);
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.recipe()?.id).toBe('gen-2');
+    expect(component.isSaved()).toBe(false);
+    expect(action).toHaveBeenCalledWith('recipe_saved', expect.anything());
+  });
+
+  it('does not let a stale manual-save result update a newly selected recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    recipeState.stageRecipeForNavigation(draftRecipe(), false);
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    const saving = component.onSaveRecipe();
+    recipeState.stageRecipeForNavigation(draftRecipe('gen-2'), false);
+    resolveSave({ ok: true });
+    await saving;
+
+    expect(component.recipe()?.id).toBe('gen-2');
+    expect(component.isSaved()).toBe(false);
+    expect(action).toHaveBeenCalledWith('recipe_saved', expect.anything());
   });
 
   it('reports a manual generator save as offline when API sync fails', async () => {
