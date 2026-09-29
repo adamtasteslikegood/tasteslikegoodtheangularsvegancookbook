@@ -143,7 +143,7 @@
       "lane": "A",
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
-      "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. Starts day 1: its 7-day clock is the long pole for S11.",
+      "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. CSP: server/security.ts pins connect-src 'self' and script-src 'self'+hash, so RUM is blocked until this task changes it narrowly (same-origin intake proxy, or only the exact us5 intake host in connect-src; SDK bundled or same-origin; no third-party script-src, no 'unsafe-inline'). Custom actions for recipe view and save-to-Kitchen plus launch-referral attribution (referrer/UTM) must exist before the 7-day clock starts, because that week is the readout baseline. Starts day 1: its 7-day clock is the long pole for S11.",
       "suggested_tools": [
         "gh pr list --state all --search 'KAN-292 in:title'"
       ],
@@ -159,7 +159,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: the consent-gate unit test, a production network capture with zero RUM intake requests before consent, the RUM explorer link for SPA and SSR views, and the daily session counts for 7 consecutive days.",
+          "cmd": "MANUAL: the consent-gate unit test, a production network capture with zero RUM intake requests before consent, a real-browser production capture with zero CSP violations after consent on one SPA and one SSR route, the RUM explorer link for SPA and SSR views, the view / save-to-Kitchen custom actions and referral attribution seen in the explorer before the clock starts, and the daily session counts for 7 consecutive days.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
