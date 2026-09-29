@@ -70,6 +70,20 @@ describe('RecipeStateService.viewRecipe', () => {
     expect(action).toHaveBeenCalledTimes(2);
   });
 
+  it('stages Kitchen navigation without tracking until the detail route displays', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+
+    service.stageRecipeForNavigation(recipe());
+
+    expect(service.currentRecipe()?.id).toBe('r1');
+    expect(service.isSaved()).toBe(true);
+    expect(action).not.toHaveBeenCalled();
+
+    service.viewRecipe(recipe());
+    expect(action).toHaveBeenCalledOnce();
+  });
+
   it('clearRecipe resets the saved flag', () => {
     service.viewRecipe(recipe());
     service.clearRecipe();

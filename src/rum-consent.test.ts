@@ -143,7 +143,12 @@ function makeEl(tagName: string): FakeEl {
 }
 
 interface Harness {
-  win: Record<string, unknown> & { tlgAnalytics: { action: (n: string, c?: unknown) => void } };
+  win: Record<string, unknown> & {
+    tlgAnalytics: {
+      action: (n: string, c?: unknown) => void;
+      onConsentGranted: (listener: () => void) => () => void;
+    };
+  };
   head: FakeEl;
   body: FakeEl;
   localStorage: FakeStorage;
@@ -175,6 +180,7 @@ async function settle() {
 
 async function run(opts: {
   config?: unknown;
+  configPromise?: Promise<unknown>;
   consent?: string | null;
   path?: string;
   search?: string;
@@ -191,7 +197,11 @@ async function run(opts: {
   const docListeners: Array<(e: unknown) => void> = [];
   const fetchMock = vi.fn(async (url: string) => {
     if (url === '/rum/config') {
-      return { ok: true, json: async () => opts.config ?? ENABLED };
+      return {
+        ok: true,
+        json: async () =>
+          opts.configPromise ? await opts.configPromise : (opts.config ?? ENABLED),
+      };
     }
     throw new Error(`unexpected fetch ${url}`);
   });
@@ -476,6 +486,34 @@ describe('RUM consent gate — after consent', () => {
     }
   });
 
+  it('keeps bounded standard and future utm_* fields while dropping unrelated parameters', async () => {
+    const h = await run({
+      consent: 'granted',
+      search: '?utm_id=launch-42&utm_source_platform=reddit&other=secret',
+    });
+    h.loadSdk();
+
+    expect(h.rum.setGlobalContextProperty).toHaveBeenCalledWith('launch', {
+      landing_path: '/',
+      referrer: null,
+      utm_id: 'launch-42',
+      utm_source_platform: 'reddit',
+    });
+
+    const beforeSend = h.rum.init.mock.calls[0][0].beforeSend as (e: unknown) => boolean;
+    const view = {
+      type: 'view',
+      view: {
+        url: 'https://www.tasteslikegood.org/?utm_id=launch-42&utm_source_platform=reddit&other=secret',
+        referrer: '',
+      },
+    };
+    beforeSend(view);
+    expect(view.view.url).toBe(
+      'https://www.tasteslikegood.org/?utm_id=launch-42&utm_source_platform=reddit'
+    );
+  });
+
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
     const h = await run({ consent: 'granted', path: '/r/vegan-cornbread' });
     expect(h.banner()).toBeUndefined();
@@ -755,6 +793,38 @@ describe('RUM consent gate — cross-tab consent', () => {
     });
   });
 
+  it('preserves landing and notifies SPA listeners when a cross-tab grant beats config', async () => {
+    let resolveConfig!: (config: unknown) => void;
+    const configPromise = new Promise<unknown>((resolve) => {
+      resolveConfig = resolve;
+    });
+    const h = await run({
+      configPromise,
+      path: '/recipe/r1',
+      search: '?utm_id=launch-42',
+      referrer: 'https://example.com/campaign?private=x',
+    });
+    h.win.tlgAnalytics.onConsentGranted(() => {
+      h.win.tlgAnalytics.action('recipe_view', { surface: 'spa', slug: null });
+    });
+
+    h.localStorage.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    expect(h.sdkScripts()).toHaveLength(0);
+
+    resolveConfig(ENABLED);
+    await settle();
+
+    expect(JSON.parse(h.sessionStorage.getItem('tlg.analytics-landing')!)).toEqual({
+      landing_path: '/recipe/r1',
+      referrer: 'https://example.com/campaign',
+      utm_id: 'launch-42',
+    });
+    expect(h.sessionStorage.getItem('tlg.analytics-pending-actions')).not.toBeNull();
+    h.loadSdk();
+    expect(h.accepted).toContainEqual(['recipe_view', { surface: 'spa', slug: null }]);
+  });
+
   it('a grant elsewhere does not override a denial made on this page', async () => {
     const h = await run({});
     h.buttonByLabel('No thanks').click();
@@ -812,7 +882,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
   it('carries only the arrival utm_* tags onto the save link, storing and sending nothing', async () => {
     const h = await run({
       path: '/r/vegan-cornbread',
-      search: '?utm_source=reddit&utm_campaign=launch&other=x',
+      search: '?utm_source=reddit&utm_campaign=launch&utm_id=launch-42&other=x',
       referrer: 'https://old.reddit.com/r/vegan/',
     });
     const cta = makeEl('a');
@@ -820,7 +890,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
     cta.setAttribute('href', '/?save=vegan-cornbread#kitchen');
     h.docClick(cta);
     expect(cta.getAttribute('href')).toBe(
-      '/?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch#kitchen'
+      '/?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch&utm_id=launch-42#kitchen'
     );
     expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     expect(rumTraffic(h)).toEqual({ sdkScripts: [], fetches: [] });
@@ -829,7 +899,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
     const spa = await run({
       consent: 'granted',
       path: '/',
-      search: '?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch',
+      search: '?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch&utm_id=launch-42',
       referrer: 'https://www.tasteslikegood.org/r/vegan-cornbread',
     });
     spa.loadSdk();
@@ -838,6 +908,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
       referrer: null,
       utm_source: 'reddit',
       utm_campaign: 'launch',
+      utm_id: 'launch-42',
     });
   });
 

@@ -126,7 +126,9 @@ export class KitchenComponent {
   }
 
   viewRecipe(r: Recipe) {
-    this.recipeState.viewRecipe(r);
+    // Stage the fast-path state now; RecipeDetailComponent records the view
+    // only after the detail route actually activates.
+    this.recipeState.stageRecipeForNavigation(r);
     this.router.navigate(['/recipe', r.id]);
   }
 

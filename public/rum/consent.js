@@ -35,7 +35,8 @@
   var INTAKE_PATH = '/rum/intake';
   var SITE = 'us5.datadoghq.com';
   var MAX_QUEUE = 50;
-  var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
+  var MAX_UTM_KEYS = 20;
+  var UTM_KEY = /^utm_[a-z0-9_]{1,60}$/i;
   var SSR_RECIPE_PATH = /^\/r\/([a-z0-9-]{1,200})$/;
 
   var config = null;
@@ -48,6 +49,7 @@
   // stale persisted grant cannot be read or replaced.
   var pageConsent = null;
   var consentGrantedListeners = [];
+  var grantPendingConfig = false;
 
   function getStore(name) {
     try {
@@ -85,6 +87,37 @@
       /* storage disabled */
       return false;
     }
+  }
+
+  // Campaign platforms add new `utm_*` fields over time (for example
+  // `utm_id` and `utm_source_platform`). Keep the documented prefix contract
+  // without accepting an unbounded query-string-shaped payload.
+  function readUtmParams(params) {
+    var values = {};
+    var count = 0;
+    if (!params || typeof params.forEach !== 'function') return values;
+    params.forEach(function (value, key) {
+      var normalized = String(key).toLowerCase();
+      if (
+        count >= MAX_UTM_KEYS ||
+        !UTM_KEY.test(normalized) ||
+        !value ||
+        Object.prototype.hasOwnProperty.call(values, normalized)
+      ) {
+        return;
+      }
+      values[normalized] = String(value).slice(0, 200);
+      count++;
+    });
+    return values;
+  }
+
+  function landingUtmKeys() {
+    return Object.keys(landing)
+      .filter(function (key) {
+        return UTM_KEY.test(key);
+      })
+      .slice(0, MAX_UTM_KEYS);
   }
 
   var localStore = getStore('localStorage');
@@ -198,9 +231,10 @@
     } catch (e) {
       params = null;
     }
-    for (var i = 0; i < UTM_KEYS.length; i++) {
-      var val = params ? params.get(UTM_KEYS[i]) : null;
-      if (val) landing[UTM_KEYS[i]] = val.slice(0, 200);
+    var campaign = readUtmParams(params);
+    var campaignKeys = Object.keys(campaign);
+    for (var i = 0; i < campaignKeys.length; i++) {
+      landing[campaignKeys[i]] = campaign[campaignKeys[i]];
     }
     if (canPersist) writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
     return landing;
@@ -225,9 +259,10 @@
     var out = u.origin + u.pathname;
     if (u.origin === window.location.origin) {
       var kept = [];
-      for (var i = 0; i < UTM_KEYS.length; i++) {
-        var v = u.searchParams.get(UTM_KEYS[i]);
-        if (v) kept.push(UTM_KEYS[i] + '=' + encodeURIComponent(v.slice(0, 200)));
+      var campaign = readUtmParams(u.searchParams);
+      var campaignKeys = Object.keys(campaign);
+      for (var i = 0; i < campaignKeys.length; i++) {
+        kept.push(campaignKeys[i] + '=' + encodeURIComponent(campaign[campaignKeys[i]]));
       }
       if (kept.length) out += '?' + kept.join('&');
     }
@@ -444,11 +479,17 @@
     if (event.storageArea && localStore && event.storageArea !== localStore) return;
     var next = event.key === null ? null : event.newValue;
     if (next === 'granted') {
-      if (pageConsent !== null || !config || !config.enabled) return;
+      if (pageConsent !== null) return;
+      if (!config) {
+        grantPendingConfig = true;
+        return;
+      }
+      if (!config.enabled) return;
       closeBanner(false);
       applyGrant(null);
       return;
     }
+    grantPendingConfig = false;
     pageConsent = 'denied';
     closeBanner(false);
     shutDown();
@@ -586,10 +627,12 @@
     }
     if (u.origin !== window.location.origin) return;
     var changed = false;
-    for (var i = 0; i < UTM_KEYS.length; i++) {
-      var val = landing[UTM_KEYS[i]];
-      if (val && !u.searchParams.get(UTM_KEYS[i])) {
-        u.searchParams.set(UTM_KEYS[i], val);
+    var campaignKeys = landingUtmKeys();
+    for (var i = 0; i < campaignKeys.length; i++) {
+      var key = campaignKeys[i];
+      var val = landing[key];
+      if (val && !u.searchParams.get(key)) {
+        u.searchParams.set(key, val);
         changed = true;
       }
     }
@@ -646,7 +689,14 @@
         }
         revealSettingsControls();
         var state = consentState();
-        if (state === 'granted') loadSdk();
+        if (state === 'granted') {
+          if (grantPendingConfig) {
+            grantPendingConfig = false;
+            writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
+            notifyConsentGranted();
+          }
+          loadSdk();
+        }
         else if (state === null) showFirstBanner();
         var slug = ssrRecipeSlug();
         if (slug) action('recipe_view', { surface: 'ssr', slug: slug });
