@@ -58,6 +58,14 @@
     }
   }
 
+  function removeStore(store, key) {
+    try {
+      store.removeItem(key);
+    } catch (e) {
+      /* storage disabled */
+    }
+  }
+
   function consentState() {
     var v = readStore(window.localStorage, CONSENT_KEY);
     return v === 'granted' || v === 'denied' ? v : null;
@@ -66,12 +74,14 @@
   /*
    * Launch-referral attribution, captured synchronously at script start —
    * before Angular's router or the ?save= guard rewrites the URL. Kept in
-   * sessionStorage on this device only; it reaches Datadog solely as RUM
-   * global context, i.e. only after consent. The referrer is reduced to
-   * origin + path so a query string on the referring page is never kept.
+   * memory until consent is granted. Only then is it persisted in
+   * sessionStorage for later pages and sent as RUM global context. The
+   * referrer is reduced to origin + path so a query string on the referring
+   * page is never kept.
    */
   function captureLanding() {
-    var existing = readStore(window.sessionStorage, LANDING_KEY);
+    var canPersist = consentState() === 'granted';
+    var existing = canPersist ? readStore(window.sessionStorage, LANDING_KEY) : null;
     if (existing) {
       try {
         return JSON.parse(existing);
@@ -99,7 +109,7 @@
       var val = params ? params.get(UTM_KEYS[i]) : null;
       if (val) landing[UTM_KEYS[i]] = val.slice(0, 200);
     }
-    writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
+    if (canPersist) writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
     return landing;
   }
 
@@ -176,10 +186,12 @@
     writeStore(window.localStorage, CONSENT_KEY, state);
     closeBanner();
     if (state === 'granted') {
+      writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
       loadSdk();
       return;
     }
     queue = [];
+    removeStore(window.sessionStorage, LANDING_KEY);
     if (previous === 'granted' && sdkState !== 'idle') {
       if (window.DD_RUM && window.DD_RUM.stopSession) window.DD_RUM.stopSession();
       // The SDK cannot be un-initialised in place; a reload leaves it unloaded.
