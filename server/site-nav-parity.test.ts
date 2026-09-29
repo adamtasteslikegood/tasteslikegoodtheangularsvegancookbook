@@ -14,6 +14,11 @@
  *
  * The SSR half is a LOCAL check, not a CI gate: the Vitest job checks out
  * without submodules, so Backend/ is empty there and that case is skipped.
+ * It is also skipped when Backend/ is checked out at a SHA older than the
+ * KAN-294 template (no tests/test_public_nav_parity.py): the gitlink moves
+ * only at release, so between merge and the next pin a fresh checkout of dev
+ * carries the old template, and failing every contributor's `npm test` there
+ * would gate nothing the Backend test does not already gate.
  * The CI gate for the SSR side is Backend's tests/test_public_nav_parity.py,
  * which renders the real pages and, when run inside this superproject (the
  * backend-test job uses `submodules: recursive`), compares against this same
@@ -137,8 +142,12 @@ describe.each(['server/public/about.html', 'server/public/privacy-policy.html'])
 
 const SSR_BASE = 'Backend/templates/public/base_public.html';
 
-describe.skipIf(!existsSync(repoFile(SSR_BASE)))(
-  `SSR base template (${SSR_BASE}; local only, CI checks out without submodules)`,
+// Present only in a Backend checkout that carries the parity work.
+const BACKEND_PARITY_TEST = 'Backend/tests/test_public_nav_parity.py';
+
+describe.skipIf(!existsSync(repoFile(BACKEND_PARITY_TEST)))(
+  `SSR base template (${SSR_BASE}; local only — skipped when Backend/ is absent, as in CI, ` +
+    'or checked out at a pre-KAN-294 SHA; the pointer moves at release)',
   () => {
     const template = () => read(SSR_BASE);
 
