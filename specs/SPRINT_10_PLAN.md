@@ -180,12 +180,12 @@ _"It is three weeks from now and Sprint 10 failed. Why?"_
 
 WIP ≤ 3, one session per lane:
 
-| Lane             | SIs, in order                                           | Surface                                     |
-| ---------------- | ------------------------------------------------------- | ------------------------------------------- |
-| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base (S2)    |
-| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design |
-| C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                 |
-| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`    |
+| Lane             | SIs, in order                                           | Surface                                                             |
+| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
+| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2) |
+| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
+| C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                                         |
+| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
 
 ## Execution order
 
@@ -202,7 +202,7 @@ Each SI's acceptance lives on its RCP row, which is authoritative. The summaries
 are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 
 - **S1 / RCP-98:** Backend fix merged, promoted, pinned, released; Datadog production 24 h: `redis.command` error rate < 1 %, PING p50 < 50 ms, image p95 < 2 s; root cause written on KAN-268.
-- **S2 / RCP-101:** zero RUM requests before consent (unit test + production network capture); RUM sessions visible for SPA and SSR views; ≥ 7 consecutive days live before S11.
+- **S2 / RCP-101:** zero RUM requests before consent (unit test + production network capture); RUM sessions visible for SPA and SSR views; **CSP admits RUM narrowly:** today `server/security.ts` pins `connect-src` to `'self'` and `script-src` to `'self'` plus one hash, so RUM is blocked until S2 changes it. Either route intake through a same-origin proxy (Datadog's `proxy` option, `connect-src` stays `'self'`) or add only the exact us5 intake host to `connect-src`; the SDK is bundled or served same-origin (no third-party `script-src`, no `'unsafe-inline'`). A real-browser production capture shows zero CSP violations after consent on one SPA and one SSR route. On SSR pages RUM is a single same-origin script, the only JS those pages carry. **Custom actions:** recipe view and save-to-Kitchen (the recipes-kept and view → save numerators) plus launch-referral attribution (referrer/UTM on the session), each seen in the RUM explorer **before the 7-day clock starts**, since that week is the readout baseline. ≥ 7 consecutive days live before S11.
 - **S3 / RCP-102:** Lighthouse 12 mobile slow-4G LCP ≤ 2.5 s on `/r/<slug>`, `/browse`, `/`, measured on the release that includes S1.
 - **S4 / RCP-103:** INV-1…INV-9 each walked on current production, with pass/fail and evidence per invariant on KAN-181; any failure filed as its own bug.
 - **S5 / RCP-104:** a test asserts identical header/footer link sets in the SPA shell and SSR base template; production check across SPA and SSR routes.
