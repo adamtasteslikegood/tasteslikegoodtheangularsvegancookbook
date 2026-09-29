@@ -9,24 +9,45 @@ SI (S1–S16), plus T0 (board honesty) and T17 (close-out).
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 18 tasks, each with its lane, its checks, and its skill              |
 | [`../../scripts/harness/sprint10_hard_gate.py`](../../scripts/harness/sprint10_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
+| [`../../scripts/harness/sprint10_driver.py`](../../scripts/harness/sprint10_driver.py)       | **The PM driver.** Starts one task per controller state, in charter order       |
 
-Run state lives in `.agent-harness/sprint10-state.json` (gitignored).
+### How the run is driven
+
+The pinned `loop_controller.py` runs one plan strictly in list order, drops lane and
+gate metadata at `init`, and keeps one global iteration counter. A single 18-task state
+could not run the lanes in parallel or enforce charter D6 (3 attempts per task, 12
+iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions** and
+`sprint10_driver.py` decides what may start:
+
+- **Goal = one SI.** `start T<n>` writes a one-task plan and initializes its own state
+  under `.agent-harness/sprint10/` (gitignored), capped at 12 iterations and 3 attempts.
+  A happy-path task costs 3 iterations and a failed attempt at most 3, so 3 attempts fit.
+  Reading "goal" as one SI is a choice, named here so Adam can overrule it.
+- **Order.** Each task's `depends_on` must be verified before it starts.
+- **WIP ≤ 3.** A fourth open task is refused; an escalated task keeps its slot until a
+  human resolves it.
+- **Irreversible starts.** T11 (the launch post) also carries `requires_done`:
+  `start T11` refuses unless RCP-98, RCP-101, RCP-103 and RCP-104…RCP-108 are exactly
+  `Done`. In Review is not enough, because the post cannot be taken back.
+
+Each refusal was observed on 2026-09-29 against scratch states: T3 (T1 not verified),
+a fourth open task (WIP 3), and T11 against live Jira (all eight gate rows To Do).
+After `start`, the controller runs untouched:
 
 ```bash
-HC=~/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py
 python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
-# STOP: Adam must review the strict QA report and give an explicit human go/no-go.
-# Even after approval, do not initialize this monolithic plan: the pinned controller
-# drops lane/gate metadata and cannot enforce the charter's 12-iterations-per-goal cap.
-# Add independently capped lane/goal plans plus a PM coordination driver first; those
-# artifacts must provide the initialization commands used for the run.
+python3 scripts/harness/sprint10_driver.py status          # WIP, and what may start now
+python3 scripts/harness/sprint10_driver.py start T0        # refused unless deps/WIP/Done allow
+HC=~/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py
+S=.agent-harness/sprint10/T0.state.json
+python3 $HC next   --state $S                              # → directive
+python3 $HC record --state $S --task T0 --phase execute --exit-code 0
+python3 $HC verify --state $S --task T0 --cwd "$PWD"
+python3 $HC close  --state $S
 ```
 
-A zero-exit QA report is necessary but not authorization to spend loop budget. Record
-Adam's explicit human go/no-go before any initialization. The monolithic plan is a
-reviewable source of task definitions, not an executable schedule; without both the
-approval and independently capped lane/goal plans plus a PM coordination driver, stop
-after QA.
+The driver reads the controller path from `HARNESS_CONTROLLER` (default: the `HC` path
+above), so a different plugin cache needs only that variable.
 
 ### Kickoff — only after both PRs merge (Adam, 2026-09-29)
 
@@ -45,8 +66,7 @@ git submodule update --init Backend                  # Backend at the pinned SHA
 #   git -C Backend switch -c fix/kan-268-<topic> origin/dev
 # and leave the cookbook gitlink alone until the release step pins Backend main.
 python3 scripts/harness/sprint10_hard_gate.py --charter   # board still honest: exit 0
-# STOP after the charter gate until the independently capped lane/goal plans and
-# PM coordination driver exist. Do not start either loop with this monolithic plan.
+python3 scripts/harness/sprint10_driver.py status          # then start T0, per "How the run is driven"
 ```
 
 What changed from Sprint 9, and why:

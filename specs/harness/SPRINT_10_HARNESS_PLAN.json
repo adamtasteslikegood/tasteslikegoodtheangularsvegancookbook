@@ -62,6 +62,7 @@
         "RCP-99"
       ],
       "lane": "PM",
+      "depends_on": [],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
       "objective": "Board honesty before any SI runs. Sprint 10 (id 85, board 168) was created and started at charter on 2026-09-29 with every committed item; this task re-proves it and moves RCP-100 to In Progress as the sprint's own start evidence. Do not re-create the sprint.",
@@ -98,6 +99,9 @@
         "RCP-98"
       ],
       "lane": "A",
+      "depends_on": [
+        "T0"
+      ],
       "anchor": true,
       "skill": "investigate",
       "skill_path": "~/.claude/skills/investigate",
@@ -141,6 +145,9 @@
         "RCP-101"
       ],
       "lane": "A",
+      "depends_on": [
+        "T0"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. CSP: server/security.ts pins connect-src 'self' and script-src 'self'+hash, so RUM is blocked until this task changes it narrowly (same-origin intake proxy, or only the exact us5 intake host in connect-src; SDK bundled or same-origin; no third-party script-src, no 'unsafe-inline'). Custom actions for recipe view and save-to-Kitchen plus launch-referral attribution (referrer/UTM) must exist before the 7-day clock starts, because that week is the readout baseline. Starts day 1: its 7-day clock is the long pole for S11.",
@@ -181,7 +188,7 @@
         "RCP-102"
       ],
       "lane": "A",
-      "gates": [
+      "depends_on": [
         "T1"
       ],
       "skill": "benchmark",
@@ -214,6 +221,9 @@
         "RCP-103"
       ],
       "lane": "A",
+      "depends_on": [
+        "T1"
+      ],
       "skill": "qa-only",
       "skill_path": "~/.claude/skills/qa-only",
       "objective": "Re-walk KAN-181 INV-1..INV-9 on the current production revision (after the v0.5.2 delete/unpublish confirmations). Report pass/fail per invariant on KAN-181; file any failure as its own bug. Guests cannot publish: test through the app/API, never the ORM.",
@@ -244,6 +254,9 @@
         "RCP-104"
       ],
       "lane": "B",
+      "depends_on": [
+        "T0"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Header and footer nav parity across the SPA shell and the SSR base template (base_public.html). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
@@ -284,6 +297,9 @@
         "RCP-105"
       ],
       "lane": "B",
+      "depends_on": [
+        "T5"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Visible breadcrumbs in the SPA, matching the SSR BreadcrumbList (KAN-273). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
@@ -319,6 +335,9 @@
         "RCP-106"
       ],
       "lane": "B",
+      "depends_on": [
+        "T6"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Numbered SSR pagination (?page=N anchors, self-canonical per page, out-of-range behaviour decided and tested) on /browse and tag hubs. Backend templates + cookbook pointer. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
@@ -360,6 +379,9 @@
         "RCP-107"
       ],
       "lane": "B",
+      "depends_on": [
+        "T7"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Mobile 2-up recipe cards on /browse, tag hubs and /kitchen. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
@@ -400,6 +422,9 @@
         "RCP-108"
       ],
       "lane": "B",
+      "depends_on": [
+        "T8"
+      ],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Kitchen client-side filter/sort; /browse?sort&tag with rel=canonical to /browse; /browse/tag/<tag> keeps its own canonical. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
@@ -441,6 +466,9 @@
         "RCP-109"
       ],
       "lane": "C",
+      "depends_on": [
+        "T0"
+      ],
       "skill": "marketing-skills:content-strategy",
       "skill_path": "marketing-skills:content-strategy",
       "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each.",
@@ -476,7 +504,7 @@
         "RCP-110"
       ],
       "lane": "C",
-      "gates": [
+      "depends_on": [
         "T1",
         "T2",
         "T4",
@@ -486,9 +514,19 @@
         "T8",
         "T9"
       ],
+      "requires_done": [
+        "RCP-98",
+        "RCP-101",
+        "RCP-103",
+        "RCP-104",
+        "RCP-105",
+        "RCP-106",
+        "RCP-107",
+        "RCP-108"
+      ],
       "skill": "marketing-skills:launch-strategy",
       "skill_path": "marketing-skills:launch-strategy",
-      "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting. If its due date falls after the sprint box, record the roll with owner, due date, and the unchanged pre-registered table so close-out can proceed without pretending the readout exists.",
+      "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. Enforced before the work, not after it: sprint10_driver.py start T11 refuses unless every requires_done row is exactly Done (In Review is not enough; the post cannot be taken back). The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting. If its due date falls after the sprint box, record the roll with owner, due date, and the unchanged pre-registered table so close-out can proceed without pretending the readout exists.",
       "suggested_tools": [
         "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-268 KAN-292 KAN-181 KAN-294 KAN-295 KAN-296 KAN-297 KAN-298"
       ],
@@ -521,12 +559,15 @@
         "RCP-111"
       ],
       "lane": "D",
+      "depends_on": [
+        "T15"
+      ],
       "skill": "senior-devops",
       "skill_path": "engineering-skills:senior-devops",
       "objective": "A check that extracts .github/workflows references with the authoritative pattern secrets\\.[A-Za-z0-9_]+, diffs them against gh secret list, and explicitly exempts only the built-in GITHUB_TOKEN (which gh secret list does not return); wire it into pr-gate.yml and gate.needs, and observe it fail once for the reason it exists. LANE D: .github/workflows/ and scripts only.",
       "suggested_tools": [
         "gh secret list",
-        "grep -rhoE 'secrets\\.[A-Z_]+' .github/workflows | sort -u"
+        "grep -rhoE 'secrets\\.[A-Za-z0-9_]+' .github/workflows | sort -u | grep -vx 'secrets\\.GITHUB_TOKEN'"
       ],
       "verification": [
         {
@@ -557,6 +598,9 @@
         "RCP-112"
       ],
       "lane": "D",
+      "depends_on": [
+        "T14"
+      ],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Write the suppressed-comment sweep into the CLAUDE.md PR lifecycle: pulls/<n>/reviews bodies are read in full before any PR is declared review-debt-zero. LANE D runs the CLAUDE.md items serially (S14 -> S13 -> S16).",
@@ -602,6 +646,9 @@
         "RCP-113"
       ],
       "lane": "D",
+      "depends_on": [
+        "T0"
+      ],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Delete the copied required-checks list from CLAUDE.md; name gh api repos/{owner}/{repo}/rulesets (plus branch protection) as the source of truth.",
@@ -642,6 +689,9 @@
         "RCP-114"
       ],
       "lane": "D",
+      "depends_on": [
+        "T0"
+      ],
       "skill": "git-worktree-manager",
       "skill_path": "engineering-advanced-skills:git-worktree-manager",
       "objective": "One scripts/git/ preflight (the filename must contain \"preflight\") reporting commits-behind origin/dev and failing when the branch's Backend gitlink is not a descendant of origin/dev's (pointer rollback). Seen to fail on a stale/rolled-back branch and pass on a fresh one; referenced from the CLAUDE.md session-start steps. Goes first in Lane D: it protects every later branch.",
@@ -688,6 +738,9 @@
         "RCP-115"
       ],
       "lane": "D",
+      "depends_on": [
+        "T13"
+      ],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Document the platform-vs-code discriminator in CLAUDE.md's CI section: read a run's jobs before its logs; all jobs queued = outage, action_required = never started. Include the two API calls.",
@@ -738,6 +791,25 @@
         "RCP-100"
       ],
       "lane": "PM",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16"
+      ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
       "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). The Actions for Next Sprint table is the point.",
@@ -769,10 +841,10 @@
     }
   ],
   "loop": {
-    "order": "sequential",
-    "sequencing_note": "T0 first. Then T1 and T2 on day 1 (T2 starts the 7-day RUM clock). Lane B (T5-T9) serially from day 1; Lane D (T15, T12, T14, T13, T16) fills WIP slack under WIP <= 3. T3 and T4 after T1 releases. T10 through the sprint. T11 only after its gates. T17 last.",
-    "max_loop_iterations": 72,
-    "max_iterations_reason": "18 tasks x (execute + verify) is 36 iterations before any retry; every task carries at most 3 attempts. The monolithic 72-iteration cap leaves retry room but does not enforce the charter D6 per-goal cap of 12; initialization remains blocked until execution is split into independently capped lane/goal states.",
+    "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3/T4 after T1. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last.",
+    "max_loop_iterations": 12,
+    "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
     "escalate_on": [
       "attempts_exhausted",
       "no_verification_available",
