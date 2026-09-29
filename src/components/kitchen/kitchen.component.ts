@@ -60,6 +60,10 @@ export class KitchenComponent {
   }
 
   constructor() {
+    // Entering the recipe list ends the prior detail-page analytics view.
+    // Keep the cached recipe for fast return navigation, but allow selecting
+    // the same recipe again to count as a new view.
+    this.recipeState.leaveRecipeView();
     this.authService.ensureGuestSession();
   }
 
