@@ -149,6 +149,7 @@ interface Harness {
     addAction: ReturnType<typeof vi.fn>;
     setGlobalContextProperty: ReturnType<typeof vi.fn>;
     stopSession: ReturnType<typeof vi.fn>;
+    setTrackingConsent: ReturnType<typeof vi.fn>;
   };
   reload: ReturnType<typeof vi.fn>;
   docClick(target: FakeEl): void;
@@ -189,6 +190,7 @@ async function run(opts: {
     addAction: vi.fn(),
     setGlobalContextProperty: vi.fn(),
     stopSession: vi.fn(),
+    setTrackingConsent: vi.fn(),
   };
   const reload = vi.fn();
   const win: Record<string, unknown> = {
@@ -347,7 +349,49 @@ describe('RUM consent gate — after consent', () => {
       sessionSampleRate: 40,
       sessionReplaySampleRate: 0,
       sessionPersistence: 'local-storage',
+      // No automatic click actions: their names come from element text,
+      // which includes user-owned values (Copilot, PR #3544).
+      trackUserInteractions: false,
+      defaultPrivacyLevel: 'mask',
     });
+  });
+
+  it('beforeSend strips non-UTM query strings and fragments from built-in URL fields', async () => {
+    const h = await run({ consent: 'granted' });
+    h.loadSdk();
+    const beforeSend = h.rum.init.mock.calls[0][0].beforeSend as (e: unknown) => boolean;
+    const view = {
+      type: 'view',
+      view: {
+        url: 'https://www.tasteslikegood.org/r/foo?utm_source=x&email=a%40b.c#frag',
+        referrer: 'https://old.reddit.com/r/vegan/comments/abc?share=1&utm_source=y',
+        performance: { lcp: { resource_url: '/api/recipes/1/image?token=secret' } },
+      },
+    };
+    expect(beforeSend(view)).toBe(true);
+    expect(view.view).toEqual({
+      url: 'https://www.tasteslikegood.org/r/foo?utm_source=x',
+      referrer: 'https://old.reddit.com/r/vegan/comments/abc',
+      performance: {
+        lcp: { resource_url: 'https://www.tasteslikegood.org/api/recipes/1/image' },
+      },
+    });
+    const resource = {
+      type: 'resource',
+      view: { url: 'https://www.tasteslikegood.org/kitchen?auth=success', referrer: '' },
+      resource: { url: 'https://www.tasteslikegood.org/api/recipes?user=42' },
+    };
+    beforeSend(resource);
+    expect(resource.view.url).toBe('https://www.tasteslikegood.org/kitchen');
+    expect(resource.view.referrer).toBe('');
+    expect(resource.resource.url).toBe('https://www.tasteslikegood.org/api/recipes');
+    const error = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: { resource: { url: 'https://images.unsplash.com/p.jpg?ixid=abc' } },
+    };
+    beforeSend(error);
+    expect(error.error.resource.url).toBe('https://images.unsplash.com/p.jpg');
   });
 
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
@@ -509,9 +553,40 @@ describe('RUM consent gate — withdrawal', () => {
 
     expect(h.rum.stopSession).toHaveBeenCalledOnce();
     expect(h.reload).not.toHaveBeenCalled();
+    // No reload here, so the SDK stays on the page: collection itself must be
+    // off, or the next interaction would start a new session (Copilot, #3544).
+    expect(h.rum.setTrackingConsent).toHaveBeenCalledWith('not-granted');
+    expect(h.rum.setTrackingConsent.mock.invocationCallOrder[0]).toBeLessThan(
+      h.rum.stopSession.mock.invocationCallOrder[0]
+    );
 
     h.rum.addAction.mockClear();
     h.win.tlgAnalytics.action('recipe_saved', {});
     expect(h.rum.addAction).not.toHaveBeenCalled();
+  });
+});
+
+describe('RUM consent gate — withdrawal without reload', () => {
+  it('re-allowing on the same page restores tracking consent', async () => {
+    const storage = new FaultyStorage();
+    storage.setItem('tlg.analytics-consent', 'granted');
+    const h = await run({ localStorage: storage });
+    h.loadSdk();
+
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+    storage.failReads = true;
+    storage.failWrites = true;
+    storage.failRemovals = true;
+    h.buttonByLabel('No thanks').click();
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('not-granted');
+    expect(h.reload).not.toHaveBeenCalled();
+
+    h.docClick(settings);
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
+    // The SDK was not injected a second time.
+    expect(h.sdkScripts()).toHaveLength(1);
   });
 });

@@ -138,6 +138,49 @@
 
   var landing = captureLanding();
 
+  /*
+   * Datadog's built-in URL fields (view.url, view.referrer, resource.url, ...)
+   * carry full query strings and fragments. Reduce every one to origin + path,
+   * keeping only the utm_* allowlist for our own origin; a foreign URL (e.g.
+   * the referrer) keeps no query at all. Unparseable values are dropped.
+   */
+  function sanitizeUrl(value) {
+    if (typeof value !== 'string' || !value) return value;
+    var u;
+    try {
+      u = new URL(value, window.location.origin);
+    } catch (e) {
+      return '';
+    }
+    var out = u.origin + u.pathname;
+    if (u.origin === window.location.origin) {
+      var kept = [];
+      for (var i = 0; i < UTM_KEYS.length; i++) {
+        var v = u.searchParams.get(UTM_KEYS[i]);
+        if (v) kept.push(UTM_KEYS[i] + '=' + encodeURIComponent(v.slice(0, 200)));
+      }
+      if (kept.length) out += '?' + kept.join('&');
+    }
+    return out;
+  }
+
+  function beforeSend(event) {
+    if (event.view) {
+      event.view.url = sanitizeUrl(event.view.url);
+      event.view.referrer = sanitizeUrl(event.view.referrer);
+      if (event.view.performance && event.view.performance.lcp) {
+        event.view.performance.lcp.resource_url = sanitizeUrl(
+          event.view.performance.lcp.resource_url
+        );
+      }
+    }
+    if (event.resource) event.resource.url = sanitizeUrl(event.resource.url);
+    if (event.error && event.error.resource) {
+      event.error.resource.url = sanitizeUrl(event.error.resource.url);
+    }
+    return true;
+  }
+
   function flushQueue() {
     var rum = window.DD_RUM;
     if (!rum) return;
@@ -175,11 +218,15 @@
         proxy: window.location.origin + INTAKE_PATH,
         sessionSampleRate: config.sessionSampleRate,
         sessionReplaySampleRate: 0,
-        trackUserInteractions: true,
+        // Automatic click actions are named from element text, which here
+        // includes user-owned values (profile name, recipe and cookbook
+        // names). The readout needs only the explicit custom actions.
+        trackUserInteractions: false,
         trackResources: true,
         trackLongTasks: true,
-        defaultPrivacyLevel: 'mask-user-input',
+        defaultPrivacyLevel: 'mask',
         sessionPersistence: 'local-storage',
+        beforeSend: beforeSend,
       });
       rum.setGlobalContextProperty('launch', landing);
       sdkState = 'ready';
@@ -233,13 +280,23 @@
       if (slug && previous !== 'granted') {
         action('recipe_view', { surface: 'ssr', slug: slug });
       }
+      if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
+        // Re-allowed on the page where it was withdrawn without a reload.
+        window.DD_RUM.setTrackingConsent('granted');
+        flushQueue();
+      }
       loadSdk();
       return;
     }
     queue = [];
     removeStore(sessionStore, LANDING_KEY);
     if (sdkState !== 'idle') {
-      if (window.DD_RUM && window.DD_RUM.stopSession) window.DD_RUM.stopSession();
+      var rum = window.DD_RUM;
+      // stopSession() alone is not a withdrawal: the next interaction starts
+      // a new session. 'not-granted' stops all collection and sending on this
+      // page, which is what covers the no-reload path below.
+      if (rum && rum.setTrackingConsent) rum.setTrackingConsent('not-granted');
+      if (rum && rum.stopSession) rum.stopSession();
       // Reload only when denial is safely persisted (or a stale grant was
       // removed). If both operations are blocked, stay on this stopped,
       // fail-closed page instead of reactivating a stale grant on reload.
