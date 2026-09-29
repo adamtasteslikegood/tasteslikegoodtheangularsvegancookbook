@@ -285,7 +285,7 @@ steps:
           --min-instances=0 \
           --max-instances=2 \
           --memory=512Mi \
-          --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=$${FLASK_URL}" \
+          --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=$${FLASK_URL},DATADOG_RUM_APPLICATION_ID=016bb477-73b3-4009-b251-bba30913eb39,DATADOG_RUM_CLIENT_TOKEN=pub57e8b9a4278395e990884a84a70e4b22,DATADOG_RUM_SERVICE=vegangenius-chef-web,DATADOG_RUM_SESSION_SAMPLE_RATE=100,DATADOG_RUM_ENV=staging" \
           --set-secrets=GEMINI_API_KEY=GOOGLE_API_KEY_STAGING:latest \
           --labels=service=express-frontend-staging,environment=staging \
           --allow-unauthenticated \
