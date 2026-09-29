@@ -176,7 +176,7 @@ WIP ≤ 3, one session per lane:
 1. **Day 1:** S1 (KAN-268) and S2 (RUM) start. S2's 7-day clock is the long pole.
 2. **Lane B** starts in parallel with S5, because nav parity touches every later UI item.
 3. **After S1 releases:** S3 is measured (flip R3), then S4 re-walks production.
-4. **S10** ships deliverables as they are ready, one KAN row per article.
+4. **S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).
 5. **S11** starts only when the four gates are Done.
 
 ## Acceptance criteria
@@ -193,7 +193,7 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S7 / RCP-106:** SSR numbered `?page=N` anchors, self-canonical per page, out-of-range behaviour decided and tested.
 - **S8 / RCP-107:** two cards per row at 360 and 414 px on `/browse`, a tag hub and `/kitchen`, with no horizontal scroll; S3 LCP not regressed.
 - **S9 / RCP-108:** Kitchen filter/sort works; `/browse?sort&tag` returns 200 with `rel=canonical` to `/browse`; `/browse/tag/<tag>` keeps its own canonical.
-- **S10 / RCP-109:** audit list of every owned property; missing links added; 3–5 articles pass the Q6 rubric; per deliverable, the source contains the link and the link resolves 200 to the canonical URL. The README link does not count.
+- **S10 / RCP-109:** KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled `sprint-10` and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` fails on any `sprint-10` KAN child not linked to an RCP row, so no child can exist untracked; RCP-109 closes only with a comment listing every child key against the audit list, each with its Done evidence, and the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
 - **S11 / RCP-110:** four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
 
 ## Sprint 9 retro actions — row-by-row disposition
