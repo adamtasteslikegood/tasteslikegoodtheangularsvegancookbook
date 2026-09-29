@@ -24,6 +24,19 @@ export const standalonePageHref = (
             >Privacy Policy</a
           >
         </nav>
+        <!--
+          KAN-292: a button, not a nav link (the footer link set is canonical, KAN-294).
+          Ships hidden; public/rum/consent.js reveals it when RUM is configured and
+          opens the analytics choice on click.
+        -->
+        <button
+          type="button"
+          hidden
+          data-analytics-settings
+          class="hover:text-stone-800 underline underline-offset-2"
+        >
+          Analytics choice
+        </button>
       </div>
     </footer>
   `,

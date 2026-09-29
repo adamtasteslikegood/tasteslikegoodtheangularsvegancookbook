@@ -10,7 +10,9 @@ import {
   createErrorHandler,
   createExpensiveOperationLimiter,
   createRequestLogger,
+  createRumIntakeLimiter,
 } from './security.js';
+import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
@@ -125,6 +127,25 @@ export const ready = (async () => {
   // through to Flask without being consumed by the JSON parser (the AI
   // endpoints above are the deliberate buffer-and-replay exception).
   app.use('/api', createFlaskProxy('API'));
+
+  // ── Datadog RUM (KAN-292) ───────────────────────────────────────
+  // GET /rum/config feeds the consent loader (public/rum/consent.js);
+  // POST /rum/intake is the same-origin intake proxy that keeps the CSP's
+  // connect-src at 'self'. Mounted before express.json(): the intake route
+  // reads its body raw. RUM is off (no banner, intake 404) until
+  // DATADOG_RUM_APPLICATION_ID and DATADOG_RUM_CLIENT_TOKEN are set.
+  // Source runs from server/ (tests), production from server/dist/.
+  const serverDir = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(serverDir, path.basename(serverDir) === 'dist' ? '../..' : '..');
+  const packageVersion = await readFile(path.join(repoRoot, 'package.json'), 'utf8')
+    .then((raw) => String((JSON.parse(raw) as { version?: unknown }).version ?? '0.0.0'))
+    .catch(() => '0.0.0');
+  app.use(
+    createRumRouter({
+      config: resolveRumConfig(process.env, packageVersion),
+      intakeLimiter: createRumIntakeLimiter(valkeyClient),
+    })
+  );
 
   // Reduce default JSON payload limit to 50KB for security
   app.use(express.json({ limit: '50kb' }));

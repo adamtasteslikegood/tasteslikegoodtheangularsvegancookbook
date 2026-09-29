@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
+import { trackRecipeSaved } from '../../utils/analytics';
 import {
   LANDING_FAQ,
   LANDING_H1,
@@ -93,6 +94,8 @@ export class GeneratorComponent extends RecipeViewBase {
       this.recipe.set(generatedRecipe);
       this.isSaved.set(true);
       await this.persistenceService.saveRecipe(generatedRecipe);
+      // KAN-292: a generated recipe is kept in the Kitchen automatically.
+      trackRecipeSaved('generated', 'saved');
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
       void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
@@ -110,6 +113,7 @@ export class GeneratorComponent extends RecipeViewBase {
     if (!currentRecipe) return;
     await this.persistenceService.saveRecipe(currentRecipe);
     this.isSaved.set(true);
+    trackRecipeSaved('generator_save', 'saved');
   }
 
   openAddToCookbookModal() {

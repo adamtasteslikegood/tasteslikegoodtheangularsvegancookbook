@@ -4,6 +4,7 @@ import { PersistenceService } from './persistence.service';
 import { ToastService } from './toast.service';
 import { buildSavedRecipeFromPublic } from './public-recipe.mapper';
 import type { Recipe } from '../recipe.types';
+import { trackRecipeSaved } from '../utils/analytics';
 
 /**
  * Predicate matching a saved recipe's `sourceSlug` or `slug` against an
@@ -105,6 +106,7 @@ export class SsrEntryService {
       saved.find(matchesSlug(normalizedSlug, 'sourceSlug')) ??
       saved.find(matchesSlug(normalizedSlug, 'slug'));
     if (alreadySaved) {
+      trackRecipeSaved('public_page', 'already_saved', normalizedSlug);
       this.toast.show('Good news — you already have this recipe.', alreadySaved);
       return;
     }
@@ -137,10 +139,13 @@ export class SsrEntryService {
         // the ghost was just removed, so `recipe` points at a dead object whose
         // View button would navigate to a recipe no longer in savedRecipes.
         // The real copy surfaces on the next hydrate/sync cycle.
+        trackRecipeSaved('public_page', 'already_saved', normalizedSlug);
         this.toast.show('Good news — you already have this recipe.', existing ?? null);
       } else if (outcome.ok) {
+        trackRecipeSaved('public_page', 'saved', normalizedSlug);
         this.toast.show('Saved to your cookbook.', recipe);
       } else {
+        trackRecipeSaved('public_page', 'saved_offline', normalizedSlug);
         this.toast.show("Saved on this device — we'll sync it when you're back online.", recipe);
       }
     } catch (err) {

@@ -92,4 +92,6 @@ export const RATE_LIMIT_PREFIXES = {
   page: 'rl:page:',
   /** Expensive AI operations rate limiter (/api/generate, /api/generate_image) */
   expensive: 'rl:expensive:',
+  /** Datadog RUM intake proxy (/rum/intake, KAN-292) */
+  rum: 'rl:rum:',
 } as const;

@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Recipe } from '../recipe.types';
+import { trackRecipeView } from '../utils/analytics';
 
 /**
  * Set/replace a `_t=<epoch>` cache-buster on an image URL, preserving any
@@ -128,6 +129,8 @@ export class RecipeStateService {
     this.currentRecipe.set(r);
     this.generatedImageUrl.set(this.imageDisplayUrl(r.id, r.ai_image_url));
     this.isSaved.set(saved);
+    // KAN-292: RUM custom action (a no-op without analytics consent).
+    trackRecipeView(r, saved);
   }
 
   clearRecipe() {

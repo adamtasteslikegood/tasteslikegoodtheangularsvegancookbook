@@ -154,6 +154,30 @@ export const createExpensiveOperationLimiter = (
 };
 
 /**
+ * Rate limiter for the Datadog RUM intake proxy (/rum/intake, KAN-292).
+ *
+ * Its own keyspace so RUM beacons never spend the page or API budget. A
+ * consented session flushes a batch roughly every 30 s plus on page hide, so
+ * 600 per 15 min per IP leaves room for several people behind one NAT while
+ * still capping what one client can push through to Datadog.
+ */
+export const createRumIntakeLimiter = (
+  valkeyClient: Redis | null = null,
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 600
+) => {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+    keyGenerator: rateLimitKeyGenerator,
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.rum),
+  });
+};
+
+/**
  * Apply security middleware to an Express app
  */
 export const applySecurityMiddleware = (app: Express) => {
@@ -182,6 +206,9 @@ export const applySecurityMiddleware = (app: Express) => {
   // could change that default without any diff in this file. Alternatives rejected: disabling
   // inlineCritical in angular.json costs first-paint performance; 'unsafe-inline' would allow
   // ALL inline scripts.)
+  // connect-src stays 'self' by design (KAN-292): Datadog RUM posts to the same-origin
+  // /rum/intake proxy (server/rum.ts) and its SDK is served from /rum/, so no Datadog host
+  // appears anywhere in this policy. security-headers tests pin that.
   // All other Helmet protections remain active (X-Content-Type-Options, X-Frame-Options,
   // HSTS, Referrer-Policy, X-Powered-By removal, etc.).
   app.use(
