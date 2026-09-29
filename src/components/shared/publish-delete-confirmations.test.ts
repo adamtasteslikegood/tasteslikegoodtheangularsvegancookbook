@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 import { ElementRef } from '@angular/core';
 import {
+  DELETE_CANONICAL_LOCK_REFUSAL,
   DELETE_PUBLISHED_REFUSAL,
   DELETE_SYNC_FAILURE,
   PersistenceService,
@@ -64,6 +65,14 @@ describe('interpretDeleteResponse', () => {
       ok: false,
       message: DELETE_PUBLISHED_REFUSAL,
     });
+  });
+
+  it('falls back to a non-retry refusal when the 400 canonical lock has no JSON body', async () => {
+    // KAN-291: "check your connection and try again" invited a retry that can
+    // never succeed; the lock is a deliberate refusal like the 409.
+    const outcome = await interpretDeleteResponse(res(400));
+    expect(outcome).toEqual({ ok: false, message: DELETE_CANONICAL_LOCK_REFUSAL });
+    expect(DELETE_CANONICAL_LOCK_REFUSAL).not.toMatch(/connection|try again/i);
   });
 
   it('never reads a server error as success', async () => {
@@ -132,6 +141,14 @@ describe('deleteModeFor', () => {
 
   it('uses the recycle bin confirmation for a never-published recipe', () => {
     expect(deleteModeFor(recipe({ first_published_at: null }))).toBe('bin');
+    expect(deleteModeFor(recipe({ first_published_at: null, slug_reserved: false }))).toBe('bin');
+  });
+
+  it('asks for the irreversible confirmation when the slug is reserved (KAN-291)', () => {
+    // A KAN-288 owner marker: never published, but the delete makes it permanent.
+    expect(
+      deleteModeFor(recipe({ slug: 'draft-slug', first_published_at: null, slug_reserved: true }))
+    ).toBe('retiring');
   });
 
   it('asks for the slug, or the name when a published recipe somehow has none', () => {
@@ -238,6 +255,23 @@ describe('hasEverBeenPublished', () => {
     const { first_published_at: _omit, ...legacy } = row;
     void _omit;
     expect('first_published_at' in recipeFromRow(legacy as RecipeRow)).toBe(false);
+  });
+
+  it('carries slug_reserved from the row, and leaves it unset when absent', () => {
+    const row = {
+      id: 'r1',
+      data: recipe(),
+      slug: 'draft-slug',
+      is_public: false,
+      is_canonical: false,
+      first_published_at: null,
+      slug_reserved: true,
+    } as RecipeRow;
+    expect(recipeFromRow(row).slug_reserved).toBe(true);
+
+    const { slug_reserved: _omit, ...legacy } = row;
+    void _omit;
+    expect('slug_reserved' in recipeFromRow(legacy as RecipeRow)).toBe(false);
   });
 });
 
