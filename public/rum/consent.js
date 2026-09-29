@@ -234,12 +234,24 @@
     return out;
   }
 
-  var URL_IN_TEXT = /https?:\/\/[^\s"'<>()]+/g;
+  // Parentheses are valid inside URL query values, so they are part of the
+  // match; only UNBALANCED trailing ')' (a stack frame's "(https://...)"
+  // wrapper) is peeled off and put back after sanitizing.
+  var URL_IN_TEXT = /https?:\/\/[^\s"'<>]+/g;
+
+  function count(str, ch) {
+    return str.split(ch).length - 1;
+  }
 
   function scrubUrlsInText(text) {
     if (typeof text !== 'string' || !text) return text;
     return text.replace(URL_IN_TEXT, function (match) {
-      return sanitizeUrl(match);
+      var suffix = '';
+      while (match.slice(-1) === ')' && count(match, ')') > count(match, '(')) {
+        match = match.slice(0, -1);
+        suffix = ')' + suffix;
+      }
+      return sanitizeUrl(match) + suffix;
     });
   }
 

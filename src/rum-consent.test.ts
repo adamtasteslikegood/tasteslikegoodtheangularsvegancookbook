@@ -402,6 +402,24 @@ describe('RUM consent gate — after consent', () => {
       'Failed to fetch https://www.tasteslikegood.org/?utm_source=x'
     );
     expect(error.error.stack).not.toContain('v=1');
+    expect(error.error.stack).toContain('(https://www.tasteslikegood.org/main-ABCDEFGH.js)');
+
+    // Parentheses inside a query value are stripped with the rest of it.
+    const paren = {
+      type: 'error',
+      view: { url: 'https://www.tasteslikegood.org/', referrer: '' },
+      error: {
+        message:
+          'boom https://www.tasteslikegood.org/r/foo?email=(alice@example.com) and ' +
+          '(https://www.tasteslikegood.org/r/bar?x=(y)&utm_source=z)',
+      },
+    };
+    beforeSend(paren);
+    expect(paren.error.message).toBe(
+      'boom https://www.tasteslikegood.org/r/foo and ' +
+        '(https://www.tasteslikegood.org/r/bar?utm_source=z)'
+    );
+    expect(paren.error.message).not.toContain('alice');
   });
 
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
