@@ -120,6 +120,14 @@ def task_plan(plan, task_id):
     """The one-task controller plan for ``task_id`` (one goal = one SI)."""
     task = dict(next(t for t in plan["tasks"] if t["id"] == task_id))
     task["max_attempts"] = TASK_ATTEMPTS
+    lane = task.get("lane")
+    no_touch = plan.get("lanes", {}).get(lane, {}).get("must_not_touch", [])
+    if no_touch:
+        # The pinned controller drops custom lane metadata at init. Put the
+        # charter boundary in the retained objective so the executing agent
+        # receives it in every directive.
+        task["objective"] += "\n\nLANE %s MUST NOT TOUCH: %s" % (
+            lane, ", ".join(no_touch))
     return {
         "schema": plan["schema"],
         "goal": "%s (%s): %s" % (task_id, task.get("si", "-"), task["done_when"]),
