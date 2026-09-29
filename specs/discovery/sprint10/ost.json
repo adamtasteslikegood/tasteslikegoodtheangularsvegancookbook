@@ -246,10 +246,11 @@
         },
         {
           "statement": "Remove the WebSite SearchAction that promises /?q=, which the SPA ignores (audit O6), until /browse?q= exists",
+          "status": "shipped v0.5.0 (KAN-272; CHANGELOG 0.5.0, index.html:115-128); not a Sprint 10 SI",
           "tests": [
             {
               "assumption": "No structured data advertises a search URL that does not search",
-              "type": "curl / | grep -c SearchAction returns 0; Rich Results Test clean"
+              "type": "src/landing-copy.test.ts:145-146 asserts the parsed JSON-LD blocks contain no SearchAction (a raw grep also matches the explanatory comment at index.html:126)"
             }
           ]
         }
