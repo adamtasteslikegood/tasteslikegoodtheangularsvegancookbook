@@ -92,8 +92,8 @@ override by Adam without re-chartering.
 
 ## Forecast check (D2/D3) — run at charter time, 2026-09-29
 
-`jira_snapshot_bridge.py --to flow --forecast 11` over KAN (resolved since 2026-07-01
-or still open; 235 items):
+`jira_snapshot_bridge.py --to flow --forecast 11` and `--forecast 16` over KAN
+(resolved since 2026-07-01 or still open; 235 items):
 
 | Measure                              | Value                                       |
 | ------------------------------------ | ------------------------------------------- |
