@@ -144,7 +144,7 @@ Nothing below may be changed once the post is live.
 | Guardrail  | Image endpoint p95                                                     | < 2 s                | ≥ 2 s       |
 | Guardrail  | New statistically identical public pair (sitemap sweep)                | None                 | Any         |
 
-Raw visits and upvotes are not the grade.
+**Minimum sample (pre-registered):** view → save is graded only if the window holds ≥ 100 launch-referred `/r/<slug>` views; below that it is reported as **inconclusive** with its n. Recipes kept is graded against the baseline only if the baseline week is non-zero; otherwise both counts are reported and the grade is inconclusive. Raw visits and upvotes are not the grade.
 
 ## Risks and committed mitigations (pre-mortem, D5)
 
