@@ -38,6 +38,7 @@ Exit codes: 0 ok · 2 configuration or API error · 3 start refused.
 """
 
 import argparse
+import fcntl
 import json
 import os
 import subprocess
@@ -150,32 +151,37 @@ def cmd_status(args):
 
 
 def cmd_start(args):
-    plan = load_plan(args.plan)
     try:
-        reasons = refusals(plan, args.task, args.state_dir)
-    except (Exception, SystemExit) as exc:  # missing creds, guard, API failure
+        plan = load_plan(args.plan)
+        state_dir = Path(args.state_dir)
+        state_dir.mkdir(parents=True, exist_ok=True)
+        # Multiple lane sessions may call start concurrently. Keep the WIP
+        # snapshot and controller initialization in one cross-process critical
+        # section so two callers cannot both observe WIP=2 and create WIP=4.
+        with (state_dir / ".start.lock").open("a") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            reasons = refusals(plan, args.task, state_dir)
+            if reasons:
+                print("START REFUSED — %s:" % args.task)
+                for r in reasons:
+                    print("  - %s" % r)
+                return REFUSED
+            plan_path = state_dir / ("%s.plan.json" % args.task)
+            state_path = state_dir / ("%s.state.json" % args.task)
+            if args.dry_run:
+                print("START ALLOWED — %s (dry run; nothing initialized)" % args.task)
+                return 0
+            plan_path.write_text(json.dumps(task_plan(plan, args.task), indent=2) + "\n")
+            proc = subprocess.run([sys.executable, args.controller, "init",
+                                   "--plan", str(plan_path), "--state", str(state_path)])
+            if proc.returncode != 0:
+                return 2
+            print("STARTED %s — drive it with: python3 %s next --state %s"
+                  % (args.task, args.controller, state_path))
+            return 0
+    except (Exception, SystemExit) as exc:  # missing creds, guard, API/filesystem failure
         print("CONFIG/API ERROR: %s" % exc, file=sys.stderr)
         return 2
-    if reasons:
-        print("START REFUSED — %s:" % args.task)
-        for r in reasons:
-            print("  - %s" % r)
-        return REFUSED
-    state_dir = Path(args.state_dir)
-    plan_path = state_dir / ("%s.plan.json" % args.task)
-    state_path = state_dir / ("%s.state.json" % args.task)
-    if args.dry_run:
-        print("START ALLOWED — %s (dry run; nothing initialized)" % args.task)
-        return 0
-    state_dir.mkdir(parents=True, exist_ok=True)
-    plan_path.write_text(json.dumps(task_plan(plan, args.task), indent=2) + "\n")
-    proc = subprocess.run([sys.executable, args.controller, "init",
-                           "--plan", str(plan_path), "--state", str(state_path)])
-    if proc.returncode != 0:
-        return 2
-    print("STARTED %s — drive it with: python3 %s next --state %s"
-          % (args.task, args.controller, state_path))
-    return 0
 
 
 def build_parser():
