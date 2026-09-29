@@ -56,6 +56,18 @@ python3 $HC close  --state $S
 The driver reads the controller path from `HARNESS_CONTROLLER` (default: the `HC` path
 above), so a different plugin cache needs only that variable.
 
+### Board automation — what moves a row, and what does not (2026-09-29)
+
+- **A merge moves nothing to Done.** `.github/workflows/jira-auto-transition.yml`
+  has been `disabled_manually` since 2026-08-28 12:06Z (its last run was 11:28Z that
+  day). The Sprint 9 section below describes it as history. A merged PR leaves its KAN
+  and RCP rows where they were. Each task moves its own rows by hand, evidence first,
+  as the charter requires (KAN-269 stayed In Progress after #3540 merged and was closed
+  by hand).
+- **Creating a branch still moves `To Do → In Progress`** (a live Jira rule, confirmed by
+  Adam 2026-09-29). A row can leave To Do with no work behind it, which is why status
+  alone is never evidence and every task pairs the gate with an artifact check.
+
 ### Kickoff — only after both PRs merge (Adam, 2026-09-29)
 
 The loop does **not** start from the chartering session. It starts only after the charter PR
@@ -235,6 +247,12 @@ _before_ moving the row, so D4's "no acceptance row moves without its named
 evidence linked" holds by construction rather than by discipline.
 
 ### Automation that wears a human's name
+
+> **Disabled since 2026-08-28 12:06Z. Merges no longer close rows.** The workflow
+> below was switched off right after it auto-closed KAN-249 and KAN-258. This section
+> is kept because `reset-truth --github-correlate` still has to recognise its old
+> transitions in Sprint 9 changelogs. For current behaviour, see Sprint 10 → "Board
+> automation" above.
 
 `.github/workflows/jira-auto-transition.yml` (KAN-97/RCP-39) moves KAN rows to
 Done when a PR whose **title** carries their key merges into `dev` or `main`. It
