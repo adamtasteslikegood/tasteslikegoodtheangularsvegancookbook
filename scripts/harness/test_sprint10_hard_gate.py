@@ -48,6 +48,17 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertTrue(all(hard_gate.ACCEPTANCE.values()))
         self.assertEqual(hard_gate.DROPPABLE, {})
 
+    def test_charter_and_scoped_modes_are_mutually_exclusive(self):
+        argv = [
+            "sprint10_hard_gate.py", "--charter", "--issues", "KAN-268"]
+        with (
+            patch.object(sys, "argv", argv),
+            contextlib.redirect_stderr(io.StringIO()),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            hard_gate.main()
+        self.assertEqual(raised.exception.code, 2)
+
     def test_charter_passes_on_day_one_with_everything_in_todo(self):
         rc, output = self._run_gate(self._members(), charter=True)
         self.assertEqual(rc, 0, output)
