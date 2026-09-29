@@ -126,6 +126,11 @@ describe('buildUpstreamUrl', () => {
     ['foreign token', { ddforward: '/api/v2/rum?ddsource=browser&dd-api-key=someone-else' }],
     ['duplicate token', { ddforward: '/api/v2/rum?dd-api-key=pub-token&dd-api-key=someone-else' }],
     ['no token', { ddforward: '/api/v2/rum?ddsource=browser' }],
+    [
+      'mixed-case duplicate token',
+      { ddforward: '/api/v2/rum?dd-api-key=pub-token&DD-API-KEY=someone-else' },
+    ],
+    ['only a mixed-case token', { ddforward: '/api/v2/rum?DD-API-KEY=pub-token' }],
   ])('refuses %s', (_label, query) => {
     expect(buildUpstreamUrl(query as Request['query'], 'pub-token')).toBeNull();
   });

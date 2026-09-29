@@ -1036,3 +1036,23 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
     expect(cta.getAttribute('href')).toBe('/?save=x#kitchen');
   });
 });
+
+describe('RUM consent gate — restoring pending actions', () => {
+  it('replays only allowlisted custom actions from a tampered pending-actions entry', async () => {
+    const session = new FakeStorage();
+    session.setItem(
+      'tlg.analytics-pending-actions',
+      JSON.stringify([
+        ['recipe_view', { surface: 'ssr', slug: 'vegan-cornbread' }],
+        ['injected_action', { email: 'a@b.c' }],
+        ['recipe_saved', { surface: 'spa', source: 'generated', outcome: 'saved', slug: null }],
+      ])
+    );
+    const h = await run({ consent: 'granted', sessionStorage: session });
+    h.loadSdk();
+    const names = h.accepted.map(([name]) => name);
+    expect(names).toContain('recipe_view');
+    expect(names).toContain('recipe_saved');
+    expect(names).not.toContain('injected_action');
+  });
+});

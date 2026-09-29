@@ -84,8 +84,16 @@ export function buildUpstreamUrl(query: Request['query'], clientToken: string): 
   if (upstream.origin !== RUM_INTAKE_ORIGIN || upstream.pathname !== RUM_INTAKE_PATH) return null;
   // Reject ambiguous duplicates: different URL parsers may choose the first or
   // last value, which could otherwise bypass the single-org relay boundary.
+  // Parameter names are compared case-insensitively too: a mixed-case
+  // `DD-API-KEY=other-org` alongside ours must not ride along if the intake
+  // normalises names.
+  const apiKeyNames = [...upstream.searchParams.keys()].filter(
+    (name) => name.toLowerCase() === 'dd-api-key'
+  );
   const apiKeys = upstream.searchParams.getAll('dd-api-key');
-  if (apiKeys.length !== 1 || apiKeys[0] !== clientToken) return null;
+  if (apiKeyNames.length !== 1 || apiKeys.length !== 1 || apiKeys[0] !== clientToken) {
+    return null;
+  }
   // Rebuild from constants so only the query string is caller-supplied.
   const safe = new URL(RUM_INTAKE_PATH, RUM_INTAKE_ORIGIN);
   safe.search = upstream.search;

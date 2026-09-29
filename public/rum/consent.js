@@ -148,6 +148,10 @@
     }
   }
 
+  // Only the custom actions this site emits may be replayed from storage; a
+  // tampered pending-actions entry cannot inject arbitrary Datadog actions.
+  var RESTORABLE_ACTIONS = ['recipe_view', 'recipe_save_click', 'recipe_saved'];
+
   function restoreQueue() {
     if (consentState() !== 'granted') {
       removeStore(sessionStore, PENDING_ACTIONS_KEY);
@@ -163,7 +167,7 @@
         if (
           Array.isArray(item) &&
           typeof item[0] === 'string' &&
-          item[0] &&
+          RESTORABLE_ACTIONS.indexOf(item[0]) !== -1 &&
           item[1] &&
           typeof item[1] === 'object' &&
           !Array.isArray(item[1])
