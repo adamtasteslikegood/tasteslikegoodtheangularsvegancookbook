@@ -245,9 +245,11 @@
         <strong>Optional performance analytics (opt-in).</strong> If, and only if, you choose
         &ldquo;Allow analytics&rdquo; in the analytics banner, we measure page load speed and
         errors, the pages you view, which recipes are viewed and saved, and how you arrived (the
-        referring site and any <code>utm_</code> campaign tags in the link), using Datadog Real User
-        Monitoring. Until you allow it, the Datadog code is not loaded and nothing is sent. Page
-        addresses are sent without their query strings, apart from <code>utm_</code> tags. We do
+        referring site and the standard campaign tags in the link: <code>utm_source</code>,
+        <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_content</code> and
+        <code>utm_term</code>), using Datadog Real User Monitoring. Until you allow it, the Datadog
+        code is not loaded and nothing is sent. Page addresses are sent without their query strings,
+        apart from those five campaign tags. We do
         not record your screen (no session replay), we do not record what you type or the text of
         what you click, and we do not use this data for advertising.
       </p>
@@ -273,7 +275,7 @@
         Your analytics choice is remembered in your browser&rsquo;s <code>localStorage</code>
         (<code>tlg.analytics-consent</code>). Before you allow analytics, how you arrived is held
         only in page memory and is not sent. If you allow analytics, the sanitized landing context
-        (the page path, external referrer reduced to its origin and path, and any <code>utm_</code>
+        (the page path, external referrer reduced to its origin and path, and those five campaign
         tags) is stored for this browser session in <code>sessionStorage</code>
         (<code>tlg.analytics-landing</code>) and sent to Datadog. Consented recipe actions waiting
         for the analytics code may also be stored temporarily in <code>sessionStorage</code>

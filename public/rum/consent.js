@@ -35,8 +35,10 @@
   var INTAKE_PATH = '/rum/intake';
   var SITE = 'us5.datadoghq.com';
   var MAX_QUEUE = 50;
-  var MAX_UTM_KEYS = 20;
-  var UTM_KEY = /^utm_[a-z0-9_]{1,60}$/i;
+  // The documented allowlist (privacy policy section 3.4). Every read and
+  // write below iterates these constants, never key names taken from a URL,
+  // so an unknown utm_* parameter can carry nothing to Datadog.
+  var UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'];
   var SSR_RECIPE_PATH = /^\/r\/([a-z0-9-]{1,200})$/;
 
   var config = null;
@@ -89,43 +91,11 @@
     }
   }
 
-  // Campaign platforms add new `utm_*` fields over time (for example
-  // `utm_id` and `utm_source_platform`). Keep the documented prefix contract
-  // without accepting an unbounded query-string-shaped payload.
-  function readUtmParams(params) {
-    var values = {};
-    var count = 0;
-    if (!params || typeof params.forEach !== 'function') return values;
-    params.forEach(function (value, key) {
-      var normalized = String(key).toLowerCase();
-      if (
-        count >= MAX_UTM_KEYS ||
-        !UTM_KEY.test(normalized) ||
-        !value ||
-        Object.prototype.hasOwnProperty.call(values, normalized)
-      ) {
-        return;
-      }
-      // defineProperty creates an own data property even for unusual names;
-      // combined with the strict utm_ key grammar above, this avoids remote
-      // property injection / prototype mutation from query parameter names.
-      Object.defineProperty(values, normalized, {
-        value: String(value).slice(0, 200),
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
-      count++;
-    });
-    return values;
-  }
-
-  function landingUtmKeys() {
-    return Object.keys(landing)
-      .filter(function (key) {
-        return UTM_KEY.test(key);
-      })
-      .slice(0, MAX_UTM_KEYS);
+  // Value of one allowlisted key from URLSearchParams, or null.
+  function utmValue(params, key) {
+    if (!params || typeof params.get !== 'function') return null;
+    var v = params.get(key);
+    return v ? String(v).slice(0, 200) : null;
   }
 
   var localStore = getStore('localStorage');
@@ -239,15 +209,9 @@
     } catch (e) {
       params = null;
     }
-    var campaign = readUtmParams(params);
-    var campaignKeys = Object.keys(campaign);
-    for (var i = 0; i < campaignKeys.length; i++) {
-      Object.defineProperty(landing, campaignKeys[i], {
-        value: campaign[campaignKeys[i]],
-        enumerable: true,
-        configurable: true,
-        writable: true,
-      });
+    for (var i = 0; i < UTM_KEYS.length; i++) {
+      var val = utmValue(params, UTM_KEYS[i]);
+      if (val) landing[UTM_KEYS[i]] = val;
     }
     if (canPersist) writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
     return landing;
@@ -272,10 +236,9 @@
     var out = u.origin + u.pathname;
     if (u.origin === window.location.origin) {
       var kept = [];
-      var campaign = readUtmParams(u.searchParams);
-      var campaignKeys = Object.keys(campaign);
-      for (var i = 0; i < campaignKeys.length; i++) {
-        kept.push(campaignKeys[i] + '=' + encodeURIComponent(campaign[campaignKeys[i]]));
+      for (var i = 0; i < UTM_KEYS.length; i++) {
+        var v = utmValue(u.searchParams, UTM_KEYS[i]);
+        if (v) kept.push(UTM_KEYS[i] + '=' + encodeURIComponent(v));
       }
       if (kept.length) out += '?' + kept.join('&');
     }
@@ -640,11 +603,10 @@
     }
     if (u.origin !== window.location.origin) return;
     var changed = false;
-    var campaignKeys = landingUtmKeys();
-    for (var i = 0; i < campaignKeys.length; i++) {
-      var key = campaignKeys[i];
+    for (var i = 0; i < UTM_KEYS.length; i++) {
+      var key = UTM_KEYS[i];
       var val = landing[key];
-      if (val && !u.searchParams.get(key)) {
+      if (typeof val === 'string' && val && !u.searchParams.get(key)) {
         u.searchParams.set(key, val);
         changed = true;
       }
@@ -709,8 +671,7 @@
             notifyConsentGranted();
           }
           loadSdk();
-        }
-        else if (state === null) showFirstBanner();
+        } else if (state === null) showFirstBanner();
         var slug = ssrRecipeSlug();
         if (slug) action('recipe_view', { surface: 'ssr', slug: slug });
       });

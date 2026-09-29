@@ -486,32 +486,35 @@ describe('RUM consent gate — after consent', () => {
     }
   });
 
-  it('keeps bounded standard and future utm_* fields while dropping unrelated parameters', async () => {
+  it('keeps only the five documented utm_* keys; unknown utm_* and other params are dropped', async () => {
+    const all =
+      'utm_source=reddit&utm_medium=social&utm_campaign=launch&utm_content=post&utm_term=vegan';
     const h = await run({
       consent: 'granted',
-      search: '?utm_id=launch-42&utm_source_platform=reddit&other=secret',
+      search: `?${all}&utm_foo=leak&utm_id=launch-42&other=secret`,
     });
     h.loadSdk();
 
     expect(h.rum.setGlobalContextProperty).toHaveBeenCalledWith('launch', {
       landing_path: '/',
       referrer: null,
-      utm_id: 'launch-42',
-      utm_source_platform: 'reddit',
+      utm_source: 'reddit',
+      utm_medium: 'social',
+      utm_campaign: 'launch',
+      utm_content: 'post',
+      utm_term: 'vegan',
     });
 
     const beforeSend = h.rum.init.mock.calls[0][0].beforeSend as (e: unknown) => boolean;
     const view = {
       type: 'view',
       view: {
-        url: 'https://www.tasteslikegood.org/?utm_id=launch-42&utm_source_platform=reddit&other=secret',
+        url: `https://www.tasteslikegood.org/?${all}&utm_foo=leak&other=secret`,
         referrer: '',
       },
     };
     beforeSend(view);
-    expect(view.view.url).toBe(
-      'https://www.tasteslikegood.org/?utm_id=launch-42&utm_source_platform=reddit'
-    );
+    expect(view.view.url).toBe(`https://www.tasteslikegood.org/?${all}`);
   });
 
   it('a stored grant (made on the SPA or an SSR page) loads RUM on the next page', async () => {
@@ -801,7 +804,7 @@ describe('RUM consent gate — cross-tab consent', () => {
     const h = await run({
       configPromise,
       path: '/recipe/r1',
-      search: '?utm_id=launch-42',
+      search: '?utm_campaign=launch-42',
       referrer: 'https://example.com/campaign?private=x',
     });
     h.win.tlgAnalytics.onConsentGranted(() => {
@@ -818,7 +821,7 @@ describe('RUM consent gate — cross-tab consent', () => {
     expect(JSON.parse(h.sessionStorage.getItem('tlg.analytics-landing')!)).toEqual({
       landing_path: '/recipe/r1',
       referrer: 'https://example.com/campaign',
-      utm_id: 'launch-42',
+      utm_campaign: 'launch-42',
     });
     expect(h.sessionStorage.getItem('tlg.analytics-pending-actions')).not.toBeNull();
     h.loadSdk();
@@ -882,7 +885,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
   it('carries only the arrival utm_* tags onto the save link, storing and sending nothing', async () => {
     const h = await run({
       path: '/r/vegan-cornbread',
-      search: '?utm_source=reddit&utm_campaign=launch&utm_id=launch-42&other=x',
+      search: '?utm_source=reddit&utm_campaign=launch&utm_foo=leak&other=x',
       referrer: 'https://old.reddit.com/r/vegan/',
     });
     const cta = makeEl('a');
@@ -890,7 +893,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
     cta.setAttribute('href', '/?save=vegan-cornbread#kitchen');
     h.docClick(cta);
     expect(cta.getAttribute('href')).toBe(
-      '/?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch&utm_id=launch-42#kitchen'
+      '/?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch#kitchen'
     );
     expect(h.sessionStorage.getItem('tlg.analytics-landing')).toBeNull();
     expect(rumTraffic(h)).toEqual({ sdkScripts: [], fetches: [] });
@@ -899,7 +902,7 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
     const spa = await run({
       consent: 'granted',
       path: '/',
-      search: '?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch&utm_id=launch-42',
+      search: '?save=vegan-cornbread&utm_source=reddit&utm_campaign=launch',
       referrer: 'https://www.tasteslikegood.org/r/vegan-cornbread',
     });
     spa.loadSdk();
@@ -908,7 +911,6 @@ describe('RUM consent gate — UTM across the pre-consent SSR save link', () => 
       referrer: null,
       utm_source: 'reddit',
       utm_campaign: 'launch',
-      utm_id: 'launch-42',
     });
   });
 
