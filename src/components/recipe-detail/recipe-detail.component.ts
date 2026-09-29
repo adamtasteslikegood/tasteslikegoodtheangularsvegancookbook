@@ -97,7 +97,8 @@ export class RecipeDetailComponent extends RecipeViewBase {
       // promoting to 'ready' here, every re-navigation to a cold-deep-linked
       // recipe would flash a spinner and issue a redundant GET even though
       // the singleton already carries the exact same recipe object.
-      if (this.recipe()?.id === id) {
+      const cachedRecipe = this.recipe();
+      if (cachedRecipe?.id === id) {
         // Cancel any in-flight load from a prior nav. Otherwise a late
         // `viewRecipe(otherId)` from that load will clobber the recipe we
         // just adopted from state — e.g. /recipe/A → click /recipe/B
@@ -105,6 +106,11 @@ export class RecipeDetailComponent extends RecipeViewBase {
         // this bump load(B) still has seq === requestSeq, its fetch
         // resolves, and the user sees B on URL /recipe/A.
         this.requestSeq++;
+        // Re-enter through the state service even when the cached recipe
+        // already matches. It preserves the fast path while emitting a new
+        // analytics view after Kitchen reset the deduplication boundary (for
+        // example, Kitchen → browser Back to the same recipe).
+        this.recipeState.viewRecipe(cachedRecipe, this.isSaved());
         this.loadState.set('ready');
         return;
       }

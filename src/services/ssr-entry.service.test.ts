@@ -24,9 +24,16 @@ describe('SsrEntryService', () => {
     fetchResponse?: { ok: boolean; json: () => Promise<unknown> };
     firstSyncSettled?: Promise<void>;
     alreadySaved?: boolean;
+    saveOutcome?: {
+      ok: boolean;
+      refusal?: string;
+      alreadySaved?: boolean;
+      noSession?: boolean;
+    };
   }) => {
     const saveOutcome =
-      opts.alreadySaved === true ? { ok: true, alreadySaved: true } : { ok: opts.synced ?? true };
+      opts.saveOutcome ??
+      (opts.alreadySaved === true ? { ok: true, alreadySaved: true } : { ok: opts.synced ?? true });
     const saveRecipeDetailed = vi.fn().mockResolvedValue(saveOutcome);
     const saveRecipe = vi.fn().mockResolvedValue(saveOutcome.ok);
     const injector = Injector.create({
@@ -258,6 +265,27 @@ describe('SsrEntryService', () => {
       expect.any(Object)
     );
     expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook/i);
+  });
+
+  it('does not report a save when the session disappears during the public recipe fetch', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    vi.stubGlobal('crypto', { randomUUID: () => 'new-id' });
+
+    const { service } = createService({
+      savedRecipes: [],
+      saveOutcome: { ok: true, noSession: true },
+      fetchResponse: {
+        ok: true,
+        json: async () => ({ name: 'Thai Peanut Noodles', slug: 'thai-peanut-noodles' }),
+      },
+    });
+
+    await service.handleSave('thai-peanut-noodles');
+
+    expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+    expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/could not save/i));
+    expect(toastShow.mock.calls[0][0]).not.toMatch(/saved to your cookbook|on this device/i);
   });
 
   // KAN-241: the server returns 409 RECIPE_ALREADY_SAVED — the client-side dedup

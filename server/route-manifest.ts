@@ -55,7 +55,8 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   api         — proxied to Flask (/api/*)
  *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /browse/tag/*, /sitemap.xml)
  *   ssrStatic   — Flask SSR static assets (/static/*)
- *   standalone  — Express-served static pages (/privacy-policy, /about, /favicon.ico, /index.html)
+ *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html)
+ *                 and the Express-local RUM endpoints (/rum/config, /rum/intake)
  *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
@@ -65,8 +66,21 @@ export const ROUTE_MANIFEST = {
   ssr: { paths: ['/browse', '/browse/tag', '/sitemap.xml'], prefixes: ['/r/', '/browse/tag/'] },
   /** Flask SSR static assets */
   ssrStatic: { prefixes: ['/static/'] },
-  /** Express-served standalone pages */
-  standalone: { paths: ['/privacy-policy', '/about', '/favicon.ico', '/index.html'] },
+  /**
+   * Express-served standalone pages, plus the Express-local Datadog RUM endpoints
+   * (/rum/config, /rum/intake — KAN-292, server/rum.ts). The RUM scripts under
+   * /rum/*.js are Angular build assets served by express.static.
+   */
+  standalone: {
+    paths: [
+      '/privacy-policy',
+      '/about',
+      '/favicon.ico',
+      '/index.html',
+      '/rum/config',
+      '/rum/intake',
+    ],
+  },
   /** Angular SPA routes — catch-all serves index.html */
   spa: { paths: ['/', '/generate', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
 } as const;

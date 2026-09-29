@@ -8,6 +8,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **Datadog RUM behind consent, SPA + SSR (KAN-292, RCP-101).** One same-origin script,
+  `/rum/consent.js`, is shared by the Angular shell and the Flask SSR pages
+  (tasteslikegood.com PR), so both surfaces read one consent key
+  (`tlg.analytics-consent`). Until a visitor clicks "Allow analytics" the Datadog SDK is
+  not requested or initialised; the footer's "Analytics choice" button reopens the choice,
+  and withdrawal stops the session. The SDK (`@datadog/browser-rum-slim`, no Session
+  Replay; `sessionReplaySampleRate: 0`) is served from `/rum/` and posts to a same-origin
+  intake proxy (`POST /rum/intake`) that forwards only `/api/v2/rum` batches carrying our
+  client token to the us5 intake, under its own rate limit. The CSP is unchanged:
+  `connect-src` and `script-src` stay `'self'`. Custom actions `recipe_view`,
+  `recipe_save_click` and `recipe_saved`, plus landing referrer/UTM attribution as
+  session context. Configured by `DATADOG_RUM_APPLICATION_ID`, `DATADOG_RUM_CLIENT_TOKEN`
+  and `DATADOG_RUM_SESSION_SAMPLE_RATE`; RUM stays off until they are set. The privacy
+  policy (sections 3.4, 3.6, 7.2, 10.3) now describes the opt-in.
+
 ### Fixed
 
 - **Kitchen delete warns for reserved slugs (KAN-291).** A never-published recipe whose

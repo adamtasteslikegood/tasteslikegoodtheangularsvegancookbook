@@ -60,6 +60,10 @@ export class KitchenComponent {
   }
 
   constructor() {
+    // Entering the recipe list ends the prior detail-page analytics view.
+    // Keep the cached recipe for fast return navigation, but allow selecting
+    // the same recipe again to count as a new view.
+    this.recipeState.leaveRecipeView();
     this.authService.ensureGuestSession();
   }
 
@@ -122,7 +126,9 @@ export class KitchenComponent {
   }
 
   viewRecipe(r: Recipe) {
-    this.recipeState.viewRecipe(r);
+    // Stage the fast-path state now; RecipeDetailComponent records the view
+    // only after the detail route actually activates.
+    this.recipeState.stageRecipeForNavigation(r);
     this.router.navigate(['/recipe', r.id]);
   }
 

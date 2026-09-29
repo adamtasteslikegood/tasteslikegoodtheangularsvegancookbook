@@ -57,6 +57,10 @@ export interface SaveOutcome {
    *  a failure. Callers should surface "you already have this" rather than
    *  "saved to your cookbook" or an error. */
   alreadySaved?: boolean;
+  /** True when there was no session, so nothing was saved (not even locally).
+   *  `ok` stays true for the existing boolean callers; analytics must not
+   *  count it as a kept recipe (KAN-292). */
+  noSession?: boolean;
 }
 
 /** Minimal shape of what `interpretSaveResponse` needs from a `Response`. */
@@ -311,7 +315,7 @@ export class PersistenceService {
    *  and none of them should have to care about refusal reasons. */
   async saveRecipeDetailed(recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return { ok: true };
+    if (!user) return { ok: true, noSession: true };
 
     // Whether this id was ALREADY a saved row before the optimistic write
     // below. Must be sampled first: auth.saveRecipe dedups by id, so after it

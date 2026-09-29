@@ -15,7 +15,14 @@
             "outputPath": { "base": "./dist", "browser": "." },
             "browser": "index.tsx",
             "tsConfig": "tsconfig.json",
-            "assets": [{ "glob": "**/*", "input": "public" }],
+            "assets": [
+              { "glob": "**/*", "input": "public" },
+              {
+                "glob": "datadog-rum-slim.js",
+                "input": "node_modules/@datadog/browser-rum-slim/bundle",
+                "output": "rum"
+              }
+            ],
             "styles": ["src/styles.css"]
           },
           "configurations": {
@@ -46,6 +53,11 @@
               "sourceMap": true,
               "assets": [
                 { "glob": "**/*", "input": "public" },
+                {
+                  "glob": "datadog-rum-slim.js",
+                  "input": "node_modules/@datadog/browser-rum-slim/bundle",
+                  "output": "rum"
+                },
                 { "glob": "*.html", "input": "server/public" }
               ]
             }

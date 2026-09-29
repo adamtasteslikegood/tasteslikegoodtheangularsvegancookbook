@@ -50,16 +50,16 @@ cp .env.example .env         # Set GOOGLE_API_KEY, GOOGLE_CLIENT_ID, etc.
 ./init_database.sh
 cd ..
 
-# 4. Run (three terminals)
+# 4. Run (two terminals)
 cd Backend && uv run python app.py          # Flask on :5000
-npm run dev                                  # Angular on :3000 (proxies /api → :5000)
+npm run dev                                  # Angular :3000 + Express :8080; dev routes are proxied
 ```
 
 ## Commands
 
 | Command              | Description                          |
 | -------------------- | ------------------------------------ |
-| `npm run dev`        | Angular dev server (port 3000)       |
+| `npm run dev`        | Angular :3000 + Express :8080        |
 | `npm run build`      | Production build (Angular + Express) |
 | `npm start`          | Production server (port 8080)        |
 | `npm run lint`       | ESLint check                         |

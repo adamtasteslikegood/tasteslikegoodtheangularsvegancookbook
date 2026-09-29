@@ -268,6 +268,33 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     }
   });
 
+  it('tracks a new view when browser history returns to the cached same recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component, recipeState } = createComponent();
+    const recipe = {
+      id: 'A',
+      name: 'Recipe A',
+      ingredients: {},
+      instructions: [],
+    } as never;
+
+    recipeState.viewRecipe(recipe);
+    recipeState.leaveRecipeView();
+    action.mockClear();
+
+    emitId('A');
+    await Promise.resolve();
+
+    expect(component.loadState()).toBe('ready');
+    expect(component.recipe()?.id).toBe('A');
+    expect(action).toHaveBeenCalledOnce();
+    expect(action).toHaveBeenCalledWith(
+      'recipe_view',
+      expect.objectContaining({ surface: 'spa', saved: true })
+    );
+  });
+
   // KAN-257 regression: the constructor fast-path (`recipe.id === id` already
   // in state) used to return without cancelling an in-flight `load(otherId)`
   // from a previous nav. That load's late `viewRecipe(otherId)` then wrote
