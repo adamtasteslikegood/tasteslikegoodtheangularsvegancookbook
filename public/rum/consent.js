@@ -29,6 +29,7 @@
 
   var CONSENT_KEY = 'tlg.analytics-consent';
   var LANDING_KEY = 'tlg.analytics-landing';
+  var PENDING_ACTIONS_KEY = 'tlg.analytics-pending-actions';
   var CONFIG_URL = '/rum/config';
   var SDK_URL = '/rum/datadog-rum-slim.js';
   var INTAKE_PATH = '/rum/intake';
@@ -46,6 +47,7 @@
   // is unavailable. In particular, a denied choice must fail closed even if a
   // stale persisted grant cannot be read or replaced.
   var pageConsent = null;
+  var consentGrantedListeners = [];
 
   function getStore(name) {
     try {
@@ -93,6 +95,74 @@
     var v = readStore(localStore, CONSENT_KEY);
     return v === 'granted' || v === 'denied' ? v : null;
   }
+
+  function onConsentGranted(listener) {
+    if (typeof listener !== 'function') return function () {};
+    consentGrantedListeners.push(listener);
+    return function () {
+      var index = consentGrantedListeners.indexOf(listener);
+      if (index !== -1) consentGrantedListeners.splice(index, 1);
+    };
+  }
+
+  function notifyConsentGranted() {
+    var listeners = consentGrantedListeners.slice();
+    for (var i = 0; i < listeners.length; i++) {
+      try {
+        listeners[i]();
+      } catch (e) {
+        /* analytics callbacks must never break consent handling */
+      }
+    }
+  }
+
+  function clearQueue() {
+    queue = [];
+    removeStore(sessionStore, PENDING_ACTIONS_KEY);
+  }
+
+  function persistQueue() {
+    if (consentState() !== 'granted' || queue.length === 0) {
+      removeStore(sessionStore, PENDING_ACTIONS_KEY);
+      return;
+    }
+    try {
+      writeStore(sessionStore, PENDING_ACTIONS_KEY, JSON.stringify(queue.slice(0, MAX_QUEUE)));
+    } catch (e) {
+      /* JSON/storage failure: keep the in-memory queue only */
+    }
+  }
+
+  function restoreQueue() {
+    if (consentState() !== 'granted') {
+      removeStore(sessionStore, PENDING_ACTIONS_KEY);
+      return;
+    }
+    var raw = readStore(sessionStore, PENDING_ACTIONS_KEY);
+    if (!raw) return;
+    try {
+      var saved = JSON.parse(raw);
+      if (!Array.isArray(saved)) throw new Error('invalid pending action queue');
+      for (var i = 0; i < saved.length && queue.length < MAX_QUEUE; i++) {
+        var item = saved[i];
+        if (
+          Array.isArray(item) &&
+          typeof item[0] === 'string' &&
+          item[0] &&
+          item[1] &&
+          typeof item[1] === 'object' &&
+          !Array.isArray(item[1])
+        ) {
+          queue.push([item[0], item[1]]);
+        }
+      }
+      persistQueue();
+    } catch (e) {
+      removeStore(sessionStore, PENDING_ACTIONS_KEY);
+    }
+  }
+
+  restoreQueue();
 
   /*
    * Launch-referral attribution, captured synchronously at script start —
@@ -200,8 +270,15 @@
     var rum = window.DD_RUM;
     if (!rum) return;
     while (queue.length) {
-      var item = queue.shift();
-      rum.addAction(item[0], item[1]);
+      var item = queue[0];
+      try {
+        rum.addAction(item[0], item[1]);
+      } catch (e) {
+        // Leave this action and the remainder persisted for the next page.
+        return;
+      }
+      queue.shift();
+      persistQueue();
     }
   }
 
@@ -215,12 +292,13 @@
       // Consent can be withdrawn while the SDK script is in flight.
       if (consentState() !== 'granted') {
         sdkState = 'failed';
-        queue = [];
+        clearQueue();
         return;
       }
       var rum = window.DD_RUM;
       if (!rum) {
         sdkState = 'failed';
+        clearQueue();
         return;
       }
       rum.init({
@@ -249,7 +327,7 @@
     };
     script.onerror = function () {
       sdkState = 'failed';
-      queue = [];
+      clearQueue();
     };
     document.head.appendChild(script);
   }
@@ -264,7 +342,10 @@
       return;
     }
     if (sdkState === 'failed') return;
-    if (queue.length < MAX_QUEUE) queue.push([name, context || {}]);
+    if (queue.length < MAX_QUEUE) {
+      queue.push([name, context || {}]);
+      persistQueue();
+    }
   }
 
   function closeBanner(restoreFocus) {
@@ -295,6 +376,7 @@
       if (slug && previous !== 'granted') {
         action('recipe_view', { surface: 'ssr', slug: slug });
       }
+      if (previous !== 'granted') notifyConsentGranted();
       if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
         // Re-allowed on the page where it was withdrawn without a reload.
         window.DD_RUM.setTrackingConsent('granted');
@@ -303,7 +385,7 @@
       loadSdk();
       return;
     }
-    queue = [];
+    clearQueue();
     removeStore(sessionStore, LANDING_KEY);
     if (sdkState !== 'idle') {
       var rum = window.DD_RUM;
@@ -424,6 +506,7 @@
     action: action,
     openSettings: openSettings,
     consent: consentState,
+    onConsentGranted: onConsentGranted,
   };
 
   // The "Analytics choice" controls ship with the `hidden` attribute, so a page
@@ -448,7 +531,7 @@
       .then(function (cfg) {
         config = cfg && cfg.enabled ? cfg : { enabled: false };
         if (!config.enabled) {
-          queue = [];
+          clearQueue();
           return;
         }
         revealSettingsControls();
