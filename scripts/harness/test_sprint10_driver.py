@@ -86,6 +86,19 @@ class PlanContractTests(unittest.TestCase):
         self.assertEqual(tp["tasks"][0]["max_attempts"], 3)
         self.assertEqual(tp["schema"], PLAN["schema"])
 
+    def test_generated_task_plans_carry_lane_no_touch_boundaries(self):
+        tasks = {t["id"]: t for t in PLAN["tasks"]}
+        for task_id, task in tasks.items():
+            lane = task.get("lane")
+            if lane not in PLAN["lanes"]:
+                continue
+            generated = driver.task_plan(PLAN, task_id)["tasks"][0]
+            self.assertIn("LANE %s MUST NOT TOUCH:" % lane,
+                          generated["objective"], task_id)
+            for path in PLAN["lanes"][lane]["must_not_touch"]:
+                self.assertIn(path, generated["objective"], task_id)
+
+
 
 class StartRuleTests(unittest.TestCase):
     def setUp(self):
