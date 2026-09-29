@@ -812,7 +812,7 @@
       ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
-      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). The Actions for Next Sprint table is the point.",
+      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). Before closing, update every row in the charter's \"Process lane (no SI slot)\" table to closed or explicitly carried with a linked reason; the hard gate does not cover those rows. The Actions for Next Sprint table is the point.",
       "suggested_tools": [
         "python3 scripts/harness/sprint10_hard_gate.py --json",
         "bash scripts/pm/check_sprint_lane.sh",
@@ -830,12 +830,12 @@
           "kind": "lane"
         },
         {
-          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-115) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, and the aging table carries final dispositions.",
+          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-115) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
       ],
-      "done_when": "the close gate exits 0 AND the retrospective page exists with its actions table",
+      "done_when": "the close gate exits 0, every process-lane row is closed or explicitly carried with a linked reason, AND the retrospective page exists with its actions table",
       "max_attempts": 3,
       "status": "pending"
     }
