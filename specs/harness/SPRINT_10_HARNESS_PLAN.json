@@ -124,7 +124,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: paste the Datadog production 24 h evidence named on RCP-98 (redis.command error rate < 1 %, PING p50 < 50 ms, image p95 < 2 s), the Backend PR numbers and pinned SHA, and the root-cause note on KAN-268. If the release is not live yet, name those ACs as outstanding.",
+          "cmd": "MANUAL: paste the Datadog production 24 h evidence named on RCP-98 (redis.command error rate < 1 %, PING p50 < 50 ms, image p95 < 2 s), the Backend PR numbers and pinned SHA, and the root-cause note on KAN-268. All listed ACs must be satisfied; if the release is not live or any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -368,7 +368,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: screenshots at 360 and 414 px on all three surfaces, and a Lighthouse re-run on /browse showing S3 not regressed.",
+          "cmd": "MANUAL: screenshots at 360 and 414 px on all three surfaces explicitly showing exactly two cards per row and no horizontal overflow at either width, plus a Lighthouse re-run on /browse showing S3 not regressed.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -444,7 +444,7 @@
           "kind": "lane"
         },
         {
-          "cmd": "MANUAL: the owned-property audit list; per child row: source contains the link, link resolves 200 to the canonical URL, articles carry the completed Q6 rubric; JQL issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done returning nothing.",
+          "cmd": "MANUAL: the owned-property audit list; per child row: the child is labelled sprint-10 and Relates-linked to both KAN-277 and RCP-109, source contains the link, link resolves 200 to the canonical URL, and articles carry the completed Q6 rubric; JQL issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done returning nothing.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -605,7 +605,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "! git show origin/dev:CLAUDE.md | grep -q '^- branch protection (`dev` + `main`)'",
+          "cmd": "! git show origin/dev:CLAUDE.md | sed -n '/^### Branch protection — what it means for you$/,/^### Run checks locally before pushing$/p' | grep -qE 'Gate — all checks passed|Analyze \\(javascript-typescript\\)|Dependency Review|Frontend — lint \\+ format|Frontend / main repo checks|GitGuardian Security Checks|SEO — canonical recipes|CodeQL|Independent Claude review'",
           "expect_exit": 0,
           "kind": "content"
         },
@@ -656,7 +656,7 @@
           "kind": "content"
         },
         {
-          "cmd": "MANUAL: the failing output on a deliberately stale or pointer-rolled-back branch, and the passing output on a fresh one.",
+          "cmd": "MANUAL: separate failing outputs from (1) a deliberately stale branch showing commits-behind and (2) a branch whose Backend gitlink is rolled back, plus passing output on a fresh branch.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -743,7 +743,7 @@
           "kind": "lane"
         },
         {
-          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every ticked close-out box links its evidence and the aging table carries final dispositions.",
+          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-115) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, and the aging table carries final dispositions.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
