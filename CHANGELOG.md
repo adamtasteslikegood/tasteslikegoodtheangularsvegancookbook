@@ -8,6 +8,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-09-29
+
+Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
+tasteslikegood.com#340). Carries tasteslikegood.com#336, #337, #338 and #339. No
+migration changes; the `flask-backend-migrate` job is a no-op.
+
+**Release constraints.** The SSR pages now load `/rum/consent.js` (tasteslikegood.com#339),
+which only this cookbook release serves, so both halves must go live together. The prod
+and staging `express-frontend` deploys now set the RUM configuration with
+`--update-env-vars` (application id, client token, `DATADOG_RUM_SERVICE`,
+`DATADOG_RUM_ENV`, `DATADOG_RUM_SESSION_SAMPLE_RATE=100`); this is its first run.
+
 ### Added
 
 - **Datadog RUM behind consent, SPA + SSR (KAN-292, RCP-101).** One same-origin script,
@@ -27,6 +39,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- **Flask Valkey IAM auth no longer fails on ~51% of connects (KAN-268, RCP-98,
+  tasteslikegood.com#338).** The token refresher slept a fixed 45 minutes, but the Cloud
+  Run metadata server hands back cached tokens with 33–37 minutes left, so every instance
+  spent ~12 minutes per cycle rejecting auth, and redis-py retried each rejection for
+  ~4.4 s. Refresh now follows the token's own expiry (5 minutes early, capped at 45),
+  an auth failure refreshes and retries once, and redis-py no longer retries
+  `AuthenticationError`. Targets the image endpoint p95 (9.6–11 s) that sits on the
+  Sprint 10 LCP exit number.
 - **Kitchen delete warns for reserved slugs (KAN-291).** A never-published recipe whose
   slug holds a KAN-288 owner marker (17 private rows in production) got the plain
   Recycle Bin dialog, although deleting it makes the slug permanent. The kitchen now
