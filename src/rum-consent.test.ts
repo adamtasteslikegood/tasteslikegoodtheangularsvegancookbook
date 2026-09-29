@@ -402,6 +402,28 @@ describe('RUM consent gate — withdrawal', () => {
     expect(h.rum.addAction).not.toHaveBeenCalled();
   });
 
+  it('queues the first SSR view and can withdraw when localStorage writes are blocked', async () => {
+    const storage = new FaultyStorage();
+    storage.failWrites = true;
+    const h = await run({ localStorage: storage, path: '/r/vegan-cornbread' });
+
+    h.buttonByLabel('Allow analytics').click();
+    expect(storage.getItem('tlg.analytics-consent')).toBeNull();
+    h.loadSdk();
+    expect(h.rum.addAction).toHaveBeenCalledWith('recipe_view', {
+      surface: 'ssr',
+      slug: 'vegan-cornbread',
+    });
+
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+    h.buttonByLabel('No thanks').click();
+
+    expect(h.rum.stopSession).toHaveBeenCalledOnce();
+    expect(h.reload).toHaveBeenCalledOnce();
+  });
+
   it('removes a stale grant and stops RUM when consent reads and writes are blocked', async () => {
     const storage = new FaultyStorage();
     storage.setItem('tlg.analytics-consent', 'granted');
