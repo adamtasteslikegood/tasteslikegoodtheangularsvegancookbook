@@ -1,7 +1,7 @@
 {
   "outcome": {
-    "statement": "More mobile visitors who land on a public recipe page keep a recipe (save it into a Kitchen). Sprint 10 exit number: mobile LCP <= 2.5 s at Lighthouse slow-4G on /r/<slug>, /browse and /, from 7.6 / 7.7 / 6.1 s (2026-09-06 baseline). North Star: recipes kept per week, baseline captured in Sprint 10.",
-    "metric": "recipes kept per week (North Star; inputs: recipe-page reach, view->save, generation+image completion, returning Kitchen use, publication); Sprint 10 gate: mobile LCP <= 2.5 s on the three public surfaces"
+    "statement": "More mobile visitors who land on a public recipe page keep a recipe (save it into a Kitchen). Sprint 10 exit number: mobile LCP <= 2.5 s at Lighthouse slow-4G on /r/<slug>, /browse and / (2026-09-06 baseline 7.6 / 7.7 / 6.1 s; re-measured 2026-09-29 after v0.5.x: 3.1 / 3.1 / 1.2 s). Second tier (Search Console, leading): non-brand impressions >= 100 per 28 days (baseline 6 non-brand of 18 total, 2026-09-01..09-28) and the tag hubs + /about indexed per URL Inspection. Sprint 10 is the launch sprint: the launch post ships last, gated on KAN-268 fixed, RUM instrumentation live >= 7 days, the KAN-181 invariants re-walked on production, and the UI-consistency lane done. North Star: recipes kept per week.",
+    "metric": "recipes kept per week (North Star; inputs: recipe-page reach, view->save, generation+image completion, returning Kitchen use, publication); Sprint 10 gate: mobile LCP <= 2.5 s on the three public surfaces; second tier: GSC non-brand impressions >= 100/28d; launch readout pre-registered, measured 7 days after the launch post"
   },
   "opportunities": [
     {
@@ -40,7 +40,8 @@
             }
           ]
         }
-      ]
+      ],
+      "status": "shipped v0.5.0-v0.5.2 (header Browse link; home links /browse and 10 recipes; verified live 2026-09-29). Header/footer parity across SPA and SSR, visible breadcrumbs and numbered pagination are Sprint 10 UI-consistency items"
     },
     {
       "statement": "On a phone a visitor sees at most one recipe at a time; browse is 13,122 px tall for 20 cards and the SPA home shows no recipe at all above the fold",
@@ -130,7 +131,8 @@
             }
           ]
         }
-      ]
+      ],
+      "status": "partly shipped: sized variants and an eager hero in v0.5.0 (KAN-271); LCP 3.1 s on /r and /browse remains, KAN-268 (origin auth stalls) is the named blocker"
     },
     {
       "statement": "With 95 public and 134 personal recipes across dozens of cookbooks, there is no way to narrow or order a list: the SPA has no search/sort, /browse takes only ?page, and the home page advertises a schema.org SearchAction that nothing implements",
@@ -222,6 +224,81 @@
             {
               "assumption": "The settings tab is used by at least one non-author user within 4 weeks of first users",
               "type": "Datadog RUM custom action"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "People searching 'vegan recipe generator' or category queries ('vegan dinner ideas', 'vegan recipes with tofu') do not find the site: the home page averages position 43 and non-brand impressions are 6 in 28 days",
+      "evidence": "Search Console weekly report 2026-09-01..09-28 (sc-domain:tasteslikegood.org): 18 impressions, 0 clicks, '/' avg position 42.9, 'vegan recipe generator' position 87. The window ends the day v0.5.0 shipped, so it is the pre-release baseline. SEO audit 2026-09-13 T1, O1, O6",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Close the remaining mobile LCP gap on /r/<slug> and /browse (3.1 s -> <= 2.5 s) after the KAN-268 Valkey auth fix; page experience is a ranking input",
+          "tests": [
+            {
+              "assumption": "Fixing KAN-268 alone removes most of the 0.6 s gap",
+              "type": "Lighthouse 12 mobile slow-4G before/after the KAN-268 release, same three URLs"
+            }
+          ]
+        },
+        {
+          "statement": "Remove the WebSite SearchAction that promises /?q=, which the SPA ignores (audit O6), until /browse?q= exists",
+          "tests": [
+            {
+              "assumption": "No structured data advertises a search URL that does not search",
+              "type": "curl / | grep -c SearchAction returns 0; Rich Results Test clean"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "Identical and near-duplicate public pages split whatever ranking signal the catalog earns",
+      "evidence": "SEO audit 2026-09-13 C2 (KAN-275): two '-2' slugs statistically identical to their originals, a '-2' pizza dough with no original, three cornbreads, several near-pairs; recurrence of KAN-157",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Unpublish the identical '-2' copies and refuse '-<digit>' slugs at publish time; the cornbread canonical and joke-title naming are Adam decision rows, not work items",
+          "tests": [
+            {
+              "assumption": "The public catalog has no statistically identical pair after the change",
+              "type": "sitemap sweep comparing ingredient, step and word counts per slug pair"
+            }
+          ]
+        },
+        {
+          "statement": "Keep the copies published but emit rel=canonical to the original and drop them from the sitemap, so saved-copy owners keep their public page",
+          "tests": [
+            {
+              "assumption": "Google honours the declared canonical for the copies rather than choosing its own",
+              "type": "gsc_inspect_url on each copy: Google-selected canonical equals the original"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "statement": "Nobody outside the author knows the site exists: owned properties did not link it and no external referring domain has been measured",
+      "evidence": "SEO audit 2026-09-13 B1 (KAN-277): both GitHub repos had homepage null and no README link; Docker Hub, YouTube, Instagram and LinkedIn link status unknown; Semrush backlink data unavailable",
+      "target": true,
+      "solutions": [
+        {
+          "statement": "Owned-property links plus 3-5 original articles on owned or high-trust properties, each passing the per-article rubric (original material, Adam sign-off, byline linked to /about, AI assistance disclosed), shipped through the sprint",
+          "tests": [
+            {
+              "assumption": "Each shipped article or link is live and points at a canonical URL",
+              "type": "one KAN row per deliverable with the live URL and a curl of the link target"
+            }
+          ]
+        },
+        {
+          "statement": "Launch post (Show HN / Product Hunt / r/vegan) last, gated on KAN-268 fixed, RUM live >= 7 days, the KAN-181 re-walk, and the UI-consistency lane done",
+          "tests": [
+            {
+              "assumption": "Launch-referred sessions convert: view->save >= 2% healthy, < 0.5% failing, with field LCP p75 <= 2.5 s and image p95 < 2 s under load",
+              "type": "pre-registered 7-day Datadog RUM readout in SPRINT_10_PLAN.md"
             }
           ]
         }

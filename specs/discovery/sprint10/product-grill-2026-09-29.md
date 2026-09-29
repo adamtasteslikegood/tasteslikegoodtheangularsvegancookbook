@@ -1,0 +1,73 @@
+# Sprint 10 product re-grill — locked decisions (2026-09-29)
+
+Second `/cs:grill-product` pass on Sprint 10, run because v0.5.0–v0.5.2 shipped the SEO audit work (KAN-270) outside any sprint and Adam refocused the sprint: "focus on SEO audit findings and rollover items deferred from previous sprints." It **amends** [`product-grill-2026-09-06.md`](./product-grill-2026-09-06.md); where the two disagree, this file wins. Execution ticket: **KAN-269**. Required input walked: the published [Sprint 9 Retrospective — 2026-09-29](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/81657858) (Confluence 81657858).
+
+**Structure gate:** `specs/discovery/sprint10/ost.json` amended in place and passes `ost_linter.py` (11 opportunities, 0 violations, exit 0). The first lint of the amendment failed O3 (the duplicates opportunity had one solution); a canonical-tag alternative was added.
+
+## What changed since 2026-09-06
+
+| 09-06 branch   | Status on 09-29                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Q1 Outcome     | **Amended** (below): exit number unchanged, partly met; second tier added                                                       |
+| Q3 Evidence    | **Amended**: "pre-launch by design" lifted (see Q2)                                                                             |
+| Q4 Priority    | **Replaced** (Q4 below). Ranks 3–4 (images, nav) shipped in v0.5.x; "not the launch sprint" reversed                            |
+| Q5 Workbench   | Stands. KAN-227 (per-PR preview URLs) is now declined for Sprint 10 (Q4)                                                        |
+| Q6 Measurement | Stands (North Star: recipes kept per week; Datadog RUM behind consent). Launch readout added (Q5 below)                         |
+| Q7 AI feature  | Stands for the settings model picker (GA allowlist, 12-prompt golden set, eval spec before UI). Article rubric added (Q6 below) |
+
+## Evidence re-measured 2026-09-29
+
+**Lighthouse 12, mobile, simulated slow-4G** (same command as the 09-06 baseline):
+
+| Page        | Perf | LCP   | FCP   | Bytes    | 09-06 LCP |
+| ----------- | ---- | ----- | ----- | -------- | --------- |
+| `/r/<slug>` | 92   | 3.1 s | 2.0 s | 186 KiB  | 7.6 s     |
+| `/browse`   | 89   | 3.1 s | 2.9 s | 500 KiB  | 7.7 s     |
+| `/`         | 99   | 1.2 s | 1.2 s | 1057 KiB | 6.1 s     |
+
+Recipe page sampled: `/r/loaded-vegan-breakfast-burrito-with-crispy-hash-browns-and-homemade-queso` (first sitemap entry).
+
+**Search Console** (`gsc_weekly_report`, 2026-09-01 → 09-28): 18 impressions (6 non-brand), 0 clicks, `/` average position 42.9, "vegan recipe generator" position 87; sitemap 98 submitted vs 105 live. The window ends the day v0.5.0 shipped, so this is the **pre-release baseline**, not a verdict.
+
+**Board:** KAN-271/272/273/274/276 are live (v0.5.0) but still In Review. KAN-268 is To Do with no fix on Backend `dev`. The home page still emits the dead `SearchAction` (audit O6). The nav dead end is fixed: header carries Browse; home links `/browse` and ten recipes. KAN-181's last invariant evidence is 2026-08-01, before KAN-265/288/289.
+
+## Locked decisions
+
+| #   | Branch         | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | How locked                      |
+| --- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Q1  | Outcome        | Exit number unchanged: **mobile LCP ≤ 2.5 s** on `/r/<slug>`, `/browse`, `/` (now 3.1 / 3.1 / 1.2 s). **Second tier (leading, Search Console):** non-brand impressions ≥ 100 per 28 days, and the tag hubs + `/about` indexed per URL Inspection. North Star unchanged: recipes kept per week.                                                                                                                                                                                                                                | Confirmed                       |
+| Q2  | Launch         | **Sprint 10 is the launch sprint.** The pre-launch hold existed because the save → publish → save → duplicate loop made the main CTA produce duplicates; that loop is fixed (KAN-265, KAN-288, KAN-289). The launch post goes **last**, behind three gates: (1) KAN-268 fixed, (2) RUM instrumentation live, (3) KAN-181 INV-1…INV-9 re-walked on production against v0.5.2.                                                                                                                                                  | Adam correction, then confirmed |
+| Q3  | Structure      | Amend `ost.json` in place: root gains the second tier and the gated launch; nav marked shipped, images marked partly shipped; three new problem-phrased opportunities (search discovery, duplicate pages, nobody knows the site exists). Unchosen UI solutions stay in the tree. Lint exit 0 before the plan cites it.                                                                                                                                                                                                        | Confirmed                       |
+| Q4  | Prioritisation | **15 SIs, over the 12-item cap by written tracking decision, not a forecast; no bundling to fit the cap (R-4). WIP ≤ 3.** The UI items are **in**: they make the site consistent before launch (nav, breadcrumbs, numbered pages, header/footer parity), not polish. Distribution is a **lane through the sprint**, not a final item: articles and links ship as they are ready; the launch post is the last, small event.                                                                                                    | Adam override, then confirmed   |
+| Q5  | Measurement    | **Pre-registered 7-day launch readout**, written into `SPRINT_10_PLAN.md` before the launch post. Grade: recipes kept in the 7 days after launch vs the pre-launch RUM baseline; view→save on `/r/<slug>` for launch-referred sessions (≥ 2 % healthy, < 0.5 % failing). Diagnostic inputs: referral sessions by source; GSC non-brand impressions. Guardrails: field LCP p75 ≤ 2.5 s, image p95 < 2 s, zero new `-\d` slugs. Raw visits and upvotes are not the grade. **RUM must be live ≥ 7 days before the launch post.** | Confirmed                       |
+| Q6  | AI feature     | Settings model picker keeps the 09-06 eval spec. **Per-article rubric** as acceptance criteria on each distribution row: original material only this site has; Adam reads and signs off; recipe claims link a live `/r/<slug>`, no invented nutrition; byline linked to `/about`, AI assistance disclosed; off-site on owned or high-trust properties, **no on-site article pages this sprint**; 3–5 strong pieces, no volume target.                                                                                         | Confirmed                       |
+
+## Committed scope (Q4)
+
+| Rank | Lane           | SI                                                                                                                                                            | Ticket           |
+| ---- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| 1    | Gates          | Flask Valkey IAM auth fix — **non-droppable**                                                                                                                 | KAN-268 / RCP-98 |
+| 2    | Gates          | Datadog RUM with consent (SPA + SSR); live ≥ 7 days before launch                                                                                             | new              |
+| 3    | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse` — measured after #1, then close any gap                                                                              | KAN-271 residual |
+| 4    | Gates          | Recycle bin and delete integrity (bin browser-only and wiped on startup; delete left `/r/vegan-zucchini-poppers` live; restore re-publishes under a new slug) | KAN-290          |
+| 5    | Gates          | Production re-walk of KAN-181 INV-1…INV-9 against v0.5.2 — after #4                                                                                           | KAN-181          |
+| 6    | UI consistency | Header and footer nav parity across SPA and SSR                                                                                                               | new              |
+| 7    | UI consistency | Visible breadcrumbs in the SPA (SSR has `BreadcrumbList` via KAN-273)                                                                                         | new              |
+| 8    | UI consistency | Numbered pagination on `/browse` and tag hubs                                                                                                                 | new              |
+| 9    | UI consistency | Mobile 2-up card layout (`/browse`, hubs, Kitchen)                                                                                                            | new              |
+| 10   | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` with filtered views canonical to `/browse` (audit row 14), curated tags stay at `/browse/tag/<tag>`      | new              |
+| 11   | UI consistency | Settings tab — eval spec before UI (09-06 Q7)                                                                                                                 | new              |
+| 12   | SEO            | Duplicate hygiene: identical `-2` copies, `-\d` slugs refused at publish. Cornbread canonical and joke titles are **Adam decision rows**, not SIs             | KAN-275          |
+| 13   | SEO            | Remove the dead `SearchAction`                                                                                                                                | new              |
+| 14   | Distribution   | Owned-property links + 3–5 articles, one KAN row per deliverable, shipped through the sprint under the Q6 rubric                                              | KAN-277          |
+| 15   | Distribution   | Launch post — last; gated on #1, #2 (≥ 7 days), #5 and the UI-consistency lane                                                                                | KAN-277          |
+
+**Ranking flips (pre-stated):** if #1 alone brings `/r` and `/browse` to ≤ 2.5 s, #3 becomes evidence-only. If the RUM consent UI exceeds a half day, ship analytics opt-in only rather than hold the launch.
+
+**Declined for Sprint 10, in writing:** KAN-227 per-PR preview URLs (developer workflow, not the outcome; the S3 amendment had scoped it here) · canonical-recipes phase 2 rubric scoring (needs GSC data the launch has not produced) · on-site article/blog pages.
+
+**Process lane (ticketed, no SI slot):** Sprint 9 retro actions (a) AC-by-AC closes, (b) retro in the close-out session, (c) the five Sprint 8 carry-overs ticketed or declined, (d) KAN-271/272/273/274/276 closed against v0.5.x evidence, (f) KAN-250, RCP-58, duplicate page 67108866, (g) harness T9 repo scope; KAN-259's overdue NAT measurements; PR #3537 (KAN-291). Action (e) is SI #1.
+
+## Next
+
+`/cs:grill-pm` → `specs/SPRINT_10_PLAN.md` citing this file and the linted OST, the RCP delivery epic, one `S10 acceptance:` row per SI (RCP-98 exists; parent it; RCP-99 covers the charter), KAN rows labelled `sprint-10`, both sprint gates green on day 1. All under KAN-269.
