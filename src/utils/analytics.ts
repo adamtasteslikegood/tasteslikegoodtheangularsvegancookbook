@@ -106,6 +106,7 @@ export interface SaveOutcomeLike {
   ok: boolean;
   refusal?: string;
   alreadySaved?: boolean;
+  noSession?: boolean;
 }
 
 /**
@@ -118,6 +119,8 @@ export interface SaveOutcomeLike {
  *                                            will not fix it, nothing kept)
  */
 export function saveOutcomeForAnalytics(outcome: SaveOutcomeLike): RecipeSaveOutcome | null {
+  // No session: nothing was saved anywhere, whatever `ok` says.
+  if (outcome.noSession) return null;
   if (outcome.alreadySaved) return 'already_saved';
   if (outcome.ok) return 'saved';
   if (outcome.refusal === undefined || outcome.refusal === 'sync') return 'saved_offline';

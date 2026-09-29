@@ -32,7 +32,12 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     opts: {
       isGuest?: boolean;
       saveResult?: boolean;
-      saveOutcome?: { ok: boolean; refusal?: string; alreadySaved?: boolean };
+      saveOutcome?: {
+        ok: boolean;
+        refusal?: string;
+        alreadySaved?: boolean;
+        noSession?: boolean;
+      };
     } = {}
   ) => {
     const recipeState = runInInjectionContext(
@@ -302,6 +307,17 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       outcome,
       slug: null,
     });
+  });
+
+  it('emits no recipe_saved when there was no session, so nothing was saved', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
+    component.prompt.set('vegan cornbread');
+
+    await component.onGenerate();
+
+    expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
   });
 
   it.each(['duplicate', 'ownership', 'OWNERSHIP_OTHER_ACCOUNT'])(

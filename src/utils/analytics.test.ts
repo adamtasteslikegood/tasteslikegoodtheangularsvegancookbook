@@ -114,6 +114,7 @@ describe('saveOutcomeForAnalytics (recipes-kept numerator, KAN-292)', () => {
     [{ ok: false, refusal: 'duplicate' }, null],
     [{ ok: false, refusal: 'ownership' }, null],
     [{ ok: false, refusal: 'OWNERSHIP_ORPHANED_GUEST_ROW' }, null],
+    [{ ok: true, noSession: true }, null],
   ])('%o -> %s', (outcome, expected) => {
     expect(saveOutcomeForAnalytics(outcome)).toBe(expected);
   });
