@@ -53,6 +53,16 @@ class PlanContractTests(unittest.TestCase):
         self.assertEqual(deps["T3"], ["T1"])
         self.assertEqual(deps["T4"], ["T3"])
 
+    def test_lane_c_launch_waits_for_owned_property_work(self):
+        deps = {t["id"]: t["depends_on"] for t in PLAN["tasks"]}
+        self.assertIn("T10", deps["T11"])
+
+    def test_lane_d_claude_md_work_waits_for_preflight(self):
+        deps = {t["id"]: t["depends_on"] for t in PLAN["tasks"]}
+        self.assertEqual(deps["T14"], ["T15"])
+        self.assertEqual(deps["T13"], ["T14"])
+        self.assertEqual(deps["T16"], ["T13"])
+
     def test_every_task_carries_the_charter_attempt_cap(self):
         self.assertTrue(all(t["max_attempts"] == 3 for t in PLAN["tasks"]))
         self.assertEqual(PLAN["loop"]["max_loop_iterations"], 12)
@@ -97,7 +107,6 @@ class PlanContractTests(unittest.TestCase):
                           generated["objective"], task_id)
             for path in PLAN["lanes"][lane]["must_not_touch"]:
                 self.assertIn(path, generated["objective"], task_id)
-
 
 
 class StatusRuleTests(unittest.TestCase):
@@ -170,7 +179,7 @@ class StartRuleTests(unittest.TestCase):
         self.assertTrue(any("already open" in r for r in reasons), reasons)
 
     def _verify_t11_deps(self):
-        for tid in ("T0", "T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9"):
+        for tid in ("T0", "T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9", "T10"):
             write_state(self.dir, tid, "verified")
 
     def test_launch_post_refuses_a_gate_row_in_review(self):
