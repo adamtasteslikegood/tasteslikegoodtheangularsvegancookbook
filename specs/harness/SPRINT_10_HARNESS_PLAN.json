@@ -21,7 +21,7 @@
   },
   "repo_scope": {
     "backend_repo": "adamtasteslikegood/tasteslikegood.com",
-    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. T1 (KAN-268) and the Backend-template halves of T7/T9 do; cookbook-only tasks search this repo."
+    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. T1 (KAN-268), T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), and the Backend-template halves of T7/T9 do; cookbook-only tasks search this repo."
   },
   "lanes": {
     "A": {
@@ -159,6 +159,11 @@
           "kind": "artifact"
         },
         {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-292 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
           "cmd": "MANUAL: the consent-gate unit test, a production network capture with zero RUM intake requests before consent, a real-browser production capture with zero CSP violations after consent on one SPA and one SSR route, the RUM explorer link for SPA and SSR views, the view / save-to-Kitchen custom actions and referral attribution seen in the explorer before the clock starts, and the daily session counts for 7 consecutive days.",
           "expect_exit": 0,
           "kind": "manual-evidence"
@@ -257,6 +262,11 @@
           "kind": "artifact"
         },
         {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-294 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
           "cmd": "MANUAL: the parity test output and production evidence on /, /kitchen, /r/<slug>, /browse, /browse/tag/<tag>, /about.",
           "expect_exit": 0,
           "kind": "manual-evidence"
@@ -292,7 +302,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: the component test and a production screenshot showing the trail matching the SSR JSON-LD.",
+          "cmd": "MANUAL: the component tests and production screenshots of both the SPA recipe-detail and collection views, each showing a visible breadcrumb trail matching the corresponding SSR JSON-LD.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -368,6 +378,11 @@
           "kind": "artifact"
         },
         {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-297 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
           "cmd": "MANUAL: screenshots at 360 and 414 px on all three surfaces explicitly showing exactly two cards per row and no horizontal overflow at either width, plus a Lighthouse re-run on /browse showing S3 not regressed.",
           "expect_exit": 0,
           "kind": "manual-evidence"
@@ -409,7 +424,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: the component test, the Backend canonical test, and a production curl of a filtered /browse showing the canonical.",
+          "cmd": "MANUAL: the component test, the Backend canonical test, a production curl of filtered /browse showing canonical /browse, and a production curl of /browse/tag/<tag> showing that tag hub's own canonical.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -508,7 +523,7 @@
       "lane": "D",
       "skill": "senior-devops",
       "skill_path": "engineering-skills:senior-devops",
-      "objective": "A check that greps .github/workflows for secrets.[A-Z_]+ and diffs against gh secret list, wired into pr-gate.yml and gate.needs, and seen to fail once for the reason it exists. LANE D: .github/workflows/ and scripts only.",
+      "objective": "A check that extracts .github/workflows references with the authoritative pattern secrets\\.[A-Za-z0-9_]+, diffs them against gh secret list, and explicitly exempts only the built-in GITHUB_TOKEN (which gh secret list does not return); wire it into pr-gate.yml and gate.needs, and observe it fail once for the reason it exists. LANE D: .github/workflows/ and scripts only.",
       "suggested_tools": [
         "gh secret list",
         "grep -rhoE 'secrets\\.[A-Z_]+' .github/workflows | sort -u"
@@ -525,7 +540,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: the run log where the check failed on a deliberately missing secret, then passed; and the pr-gate.yml gate.needs line.",
+          "cmd": "MANUAL: tests proving the exact secrets\\.[A-Za-z0-9_]+ extraction accepts lowercase and digits, GITHUB_TOKEN is the explicit built-in exemption, the run log where the check failed on a deliberately missing secret then passed, and the pr-gate.yml gate.needs line.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
