@@ -156,12 +156,13 @@ def is_todo(fields):
 def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--issues", nargs="*", default=None,
-                   help="scoped check: only these keys must be out of To Do "
-                        "(skips the sprint-membership rules)")
-    p.add_argument("--charter", action="store_true",
-                   help="day-1 gate: rules 1, 2, 4 with the sprint active; "
-                        "skips rule 3 (To Do)")
+    mode = p.add_mutually_exclusive_group()
+    mode.add_argument("--issues", nargs="*", default=None,
+                      help="scoped check: only these keys must be out of To Do "
+                           "(skips the sprint-membership rules)")
+    mode.add_argument("--charter", action="store_true",
+                      help="day-1 gate: rules 1, 2, 4 with the sprint active; "
+                           "skips rule 3 (To Do)")
     p.add_argument("--json", action="store_true", help="machine-readable output")
     args = p.parse_args()
 
