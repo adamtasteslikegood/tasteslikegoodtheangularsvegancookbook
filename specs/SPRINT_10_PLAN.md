@@ -152,12 +152,10 @@ Nothing below may be changed once the post is live.
 | ----- | ---------------------------------------------------------------------- | -------------- | ----------- |
 | Grade | Recipes kept in the 7 days after launch vs the pre-launch RUM baseline | Above baseline | At or below |
 | Grade | View → save on `/r/<slug>` for launch-referred sessions                | ≥ 2 %          | < 0.5 %     |
-
 | Diagnostic | Referral sessions by source; GSC non-brand impressions | Reported, not graded | — |
 | Guardrail | Field LCP p75 | ≤ 2.5 s | > 2.5 s |
 | Guardrail | Image endpoint p95 | < 2 s | ≥ 2 s |
 | Guardrail | New statistically identical public pair (sitemap sweep) | None | Any |
-
 
 **Middle band (pre-registered):** view → save from 0.5 % up to 2 % is graded **neither healthy nor failing**. It is reported as **inconclusive** with its rate and n, and it does not count as a pass for the launch.
 
