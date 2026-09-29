@@ -843,9 +843,7 @@ describe('createRumIntakeLimiter with non-null Valkey client', () => {
     >[0]);
 
     expect(typeof limiter).toBe('function');
-    expect(storeConstructor).toHaveBeenCalledWith(
-      expect.objectContaining({ prefix: 'rl:rum:' })
-    );
+    expect(storeConstructor).toHaveBeenCalledWith(expect.objectContaining({ prefix: 'rl:rum:' }));
   });
 });
 
