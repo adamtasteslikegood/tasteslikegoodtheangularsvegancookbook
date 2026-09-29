@@ -41,6 +41,7 @@
   var sdkState = 'idle'; // idle | loading | ready | failed
   var queue = [];
   var banner = null;
+  var returnFocus = null;
   // The current page's explicit choice takes precedence when browser storage
   // is unavailable. In particular, a denied choice must fail closed even if a
   // stale persisted grant cannot be read or replaced.
@@ -191,9 +192,13 @@
     if (queue.length < MAX_QUEUE) queue.push([name, context || {}]);
   }
 
-  function closeBanner() {
+  function closeBanner(restoreFocus) {
     if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
     banner = null;
+    if (restoreFocus && returnFocus && typeof returnFocus.focus === 'function') {
+      returnFocus.focus();
+    }
+    returnFocus = null;
   }
 
   function choose(state) {
@@ -205,7 +210,7 @@
     if (state === 'denied' && !stored) {
       stored = removeStore(window.localStorage, CONSENT_KEY);
     }
-    closeBanner();
+    closeBanner(true);
     if (state === 'granted') {
       writeStore(window.sessionStorage, LANDING_KEY, JSON.stringify(landing));
       // The initial SSR view was intentionally dropped before consent. Queue
@@ -292,8 +297,9 @@
     document.body.appendChild(banner);
   }
 
-  function openSettings() {
-    closeBanner();
+  function openSettings(trigger) {
+    closeBanner(false);
+    returnFocus = trigger && typeof trigger.focus === 'function' ? trigger : null;
     showBanner();
     if (banner) {
       var first = banner.querySelector('button');
@@ -311,9 +317,10 @@
   document.addEventListener('click', function (event) {
     var target = event.target;
     if (!target || !target.closest) return;
-    if (target.closest('[data-analytics-settings]')) {
+    var settingsTrigger = target.closest('[data-analytics-settings]');
+    if (settingsTrigger) {
       event.preventDefault();
-      openSettings();
+      openSettings(settingsTrigger);
       return;
     }
     if (target.closest('[data-save-recipe]')) {
