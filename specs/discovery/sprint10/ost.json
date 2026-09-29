@@ -136,8 +136,8 @@
       "status": "partly shipped: sized variants and an eager hero in v0.5.0 (KAN-271); LCP 3.1 s on /r and /browse remains, KAN-268 (origin auth stalls) is the named blocker"
     },
     {
-      "statement": "With 95 public and 134 personal recipes across dozens of cookbooks, there is no way to narrow or order a list: the SPA has no search/sort, /browse takes only ?page, and the home page advertises a schema.org SearchAction that nothing implements",
-      "evidence": "Inspection: kitchen.component.ts filters by cookbook membership only; public_bp.py:492 reads ?page only; index.html:101-106 dead SearchAction",
+      "statement": "With 95 public and 134 personal recipes across dozens of cookbooks, there is no way to narrow or order a list: the SPA has no search/sort and /browse takes only ?page",
+      "evidence": "Inspection: kitchen.component.ts filters by cookbook membership only; public_bp.py:492 reads ?page only. The former dead SearchAction was removed in v0.5.0 (KAN-272; index.html:115-128; src/landing-copy.test.ts:145-146)",
       "target": true,
       "solutions": [
         {
