@@ -41,6 +41,54 @@ describe('SPA RUM custom actions (KAN-292)', () => {
     ]);
   });
 
+  it('replays the latest visible recipe once when consent is granted', () => {
+    let consent: string | null = null;
+    let grant = () => {};
+    const unsubscribe = vi.fn();
+    g.tlgAnalytics = {
+      action,
+      consent: () => consent,
+      onConsentGranted: (listener: () => void) => {
+        grant = listener;
+        return unsubscribe;
+      },
+    };
+
+    trackRecipeView({ id: 'a', slug: 'first' }, false);
+    trackRecipeView({ id: 'b', slug: 'visible' }, true);
+    expect(action).not.toHaveBeenCalled();
+
+    consent = 'granted';
+    grant();
+
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(action.mock.calls).toEqual([
+      ['recipe_view', { surface: 'spa', saved: true, slug: 'visible' }],
+    ]);
+
+    // The grant replay establishes the normal same-recipe deduplication boundary.
+    trackRecipeView({ id: 'b', slug: 'visible' }, true);
+    expect(action).toHaveBeenCalledTimes(1);
+  });
+
+  it('drops a pending consent replay after leaving recipe state', () => {
+    let grant = () => {};
+    g.tlgAnalytics = {
+      action,
+      consent: () => null,
+      onConsentGranted: (listener: () => void) => {
+        grant = listener;
+        return vi.fn();
+      },
+    };
+
+    trackRecipeView({ id: 'a' }, false);
+    resetAnalyticsForTest();
+    grant();
+
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it('sends recipe_saved with source and outcome', () => {
     trackRecipeSaved('public_page', 'already_saved', 'vegan-cornbread');
     expect(action).toHaveBeenCalledWith('recipe_saved', {
