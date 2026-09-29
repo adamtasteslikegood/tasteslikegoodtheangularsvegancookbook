@@ -15,8 +15,12 @@ Run state lives in `.agent-harness/sprint10-state.json` (gitignored).
 ```bash
 HC=~/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py
 python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
+# STOP: Adam must review the strict QA report and give an explicit human go/no-go.
+# Run init only after that approval is recorded.
 python3 $HC init --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --state .agent-harness/sprint10-state.json
 ```
+
+A zero-exit QA report is necessary but not authorization to spend loop budget. Record Adam's explicit human go/no-go before running `init`; without it, stop after QA.
 
 ### Kickoff — only after both PRs merge (Adam, 2026-09-29)
 
