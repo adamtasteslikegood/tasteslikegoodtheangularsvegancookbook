@@ -1,4 +1,123 @@
-# Sprint 9 agent harness
+# Sprint agent harnesses
+
+## Sprint 10 (current)
+
+The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
+SI (S1–S16), plus T0 (board honesty) and T17 (close-out).
+
+| File                                                                                         | Role                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 18 tasks, each with its lane, its checks, and its skill              |
+| [`../../scripts/harness/sprint10_hard_gate.py`](../../scripts/harness/sprint10_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
+| [`../../scripts/harness/sprint10_driver.py`](../../scripts/harness/sprint10_driver.py)       | **The PM driver.** Starts one task per controller state, in charter order       |
+
+### How the run is driven
+
+The pinned `loop_controller.py` runs one plan strictly in list order, drops lane and
+gate metadata at `init`, and keeps one global iteration counter. A single 18-task state
+could not run the lanes in parallel or enforce charter D6 (3 attempts per task, 12
+iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions** and
+`sprint10_driver.py` decides what may start:
+
+- **Goal = one SI.** `start T<n>` writes a one-task plan and initializes its own state
+  under `.agent-harness/sprint10/` (gitignored), capped at 12 iterations and 3 attempts.
+  A happy-path task costs 3 iterations and a failed attempt at most 3, so 3 attempts fit.
+  Reading "goal" as one SI is a choice, named here so Adam can overrule it.
+- **Order.** Each task's `depends_on` must be verified before it starts.
+  The graph enforces Lane C's T10 → T11 order and Lane D's T15 → T14 → T13 → T16 order.
+- **WIP ≤ 3.** A fourth open task is refused; an escalated task keeps its slot until a
+  human resolves it.
+  The charter's day-1 schedule names four items (S1, S2, S5, S10). **Adam, 2026-09-29:
+  WIP stays 3 as written.** After T0, start T1, T2 and T5; T10 waits for the first free
+  slot. WIP alone limits how many tasks are open, not which go first, so T10, T14 and T15
+  also carry `after_started: [T1, T2, T5]` and are refused until all three have started.
+  A refused `start T10` on day 1 is the rule working, not a defect.
+- **Irreversible starts.** T11 (the launch post) also carries `requires_done`:
+  `start T11` refuses unless RCP-98, RCP-101, RCP-103 and RCP-104…RCP-108 are exactly
+  `Done`. In Review is not enough, because the post cannot be taken back.
+
+Each refusal was observed on 2026-09-29 against scratch states: T3 (T1 not verified),
+a fourth open task (WIP 3), and T11 against live Jira (all eight gate rows To Do).
+After `start`, the controller runs untouched:
+
+```bash
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
+python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_10_HARNESS_PLAN.json --strict
+python3 scripts/harness/sprint10_driver.py status          # WIP, and what may start now
+python3 scripts/harness/sprint10_driver.py start T0        # refused unless deps/WIP/Done allow
+S="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/sprint10/T0.state.json"   # the shared state dir
+python3 $HC next   --state $S                              # → directive
+python3 $HC record --state $S --task T0 --phase execute --exit-code 0
+python3 $HC verify --state $S --task T0 --cwd "$PWD"
+python3 $HC close  --state $S
+```
+
+The driver reads the controller path from `HARNESS_CONTROLLER` (default: the `HC` path
+above), so a different plugin cache needs only that variable.
+
+### Kickoff — only after both PRs merge (Adam, 2026-09-29)
+
+The loop does **not** start from the chartering session. It starts only after the charter PR
+(#3539: plan + `sprint10_hard_gate.py`) and this harness PR have both merged to `dev`,
+and then in a **fresh session and a clean worktree** based on a freshly synced `dev` in
+**both** repos:
+
+```bash
+git fetch origin --prune && git submodule update --init Backend && git -C Backend fetch --prune
+scripts/git/ahead-behind.sh --base dev . Backend      # both repos level with origin/dev
+ROOT=$(git rev-parse --show-toplevel)
+STATE_DIR="$ROOT/.agent-harness/sprint10"              # one absolute shared PM state
+mkdir -p "$STATE_DIR"
+export HARNESS_CONTROLLER="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+
+python3 scripts/harness/sprint10_hard_gate.py --charter
+python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" status
+python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T0
+# Drive and verify T0 before opening the three day-1 implementation tasks.
+
+git worktree add "$ROOT/.claude/worktrees/sprint10-t1" -b fix/kan-268-sprint10 origin/dev
+git worktree add "$ROOT/.claude/worktrees/sprint10-t2" -b feat/kan-292-sprint10 origin/dev
+git worktree add "$ROOT/.claude/worktrees/sprint10-t5" -b feat/kan-294-sprint10 origin/dev
+for WT in sprint10-t1 sprint10-t2 sprint10-t5; do
+  git -C "$ROOT/.claude/worktrees/$WT" submodule update --init Backend
+done
+
+# Each concurrent task owns its cookbook worktree and its private Backend checkout.
+git -C "$ROOT/.claude/worktrees/sprint10-t1/Backend" switch -c fix/kan-268-sprint10 origin/dev
+git -C "$ROOT/.claude/worktrees/sprint10-t2/Backend" switch -c feat/kan-292-sprint10 origin/dev
+git -C "$ROOT/.claude/worktrees/sprint10-t5/Backend" switch -c feat/kan-294-sprint10 origin/dev
+
+(cd "$ROOT/.claude/worktrees/sprint10-t1" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T1)
+(cd "$ROOT/.claude/worktrees/sprint10-t2" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T2)
+(cd "$ROOT/.claude/worktrees/sprint10-t5" && python3 scripts/harness/sprint10_driver.py --state-dir "$STATE_DIR" start T5)
+```
+
+Never run two open tasks from the same cookbook worktree, and never switch a Backend
+branch underneath another task. Give every later concurrent task its own worktree and
+submodule checkout from fresh `origin/dev`, while passing the same absolute
+`--state-dir "$STATE_DIR"` to every `status` and `start` command. Leave each
+cookbook gitlink unchanged until that task's release step intentionally pins Backend main.
+
+What changed from Sprint 9, and why:
+
+- **Repo scope (Sprint 9 retro action g).** Sprint 9's T9 looked for a Backend-only
+  ticket's PR in this repo, so its artifact check could not pass. Every artifact check
+  for Backend work now passes `-R adamtasteslikegood/tasteslikegood.com`: T1 (KAN-268),
+  T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), and the Backend-template halves of T7
+  and T9. The plan records the rule under
+  `repo_scope`.
+- **Content checks for the process items.** S13, S14 and S16 are verified against
+  `origin/dev:CLAUDE.md`, and S15 against a `scripts/git/*preflight*` file on
+  `origin/dev`. Each check was confirmed failing on 2026-09-29, so none can pass
+  before the work lands.
+- **No sprint-board script.** Sprint 10 was created, filled and started at charter, so
+  T0 re-proves the board with `--charter` and the lane gate instead of a
+  `sprint9_board.py` equivalent.
+
+---
+
+# Sprint 9 agent harness (closed 2026-09-05)
 
 The executable half of [`specs/SPRINT_9_PLAN.md`](../SPRINT_9_PLAN.md). The charter
 says what Sprint 9 commits to; this drives it and refuses to call it finished on
