@@ -106,7 +106,15 @@
       ) {
         return;
       }
-      values[normalized] = String(value).slice(0, 200);
+      // defineProperty creates an own data property even for unusual names;
+      // combined with the strict utm_ key grammar above, this avoids remote
+      // property injection / prototype mutation from query parameter names.
+      Object.defineProperty(values, normalized, {
+        value: String(value).slice(0, 200),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
       count++;
     });
     return values;
@@ -234,7 +242,12 @@
     var campaign = readUtmParams(params);
     var campaignKeys = Object.keys(campaign);
     for (var i = 0; i < campaignKeys.length; i++) {
-      landing[campaignKeys[i]] = campaign[campaignKeys[i]];
+      Object.defineProperty(landing, campaignKeys[i], {
+        value: campaign[campaignKeys[i]],
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
     }
     if (canPersist) writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
     return landing;
