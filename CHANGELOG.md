@@ -39,6 +39,12 @@ clock starts once this build is verified live.
   front end and, behind it, only the LB's own address (`server/trust-proxy.ts`), so a
   direct internal caller cannot pick its `req.ip` by writing `X-Forwarded-For` (KAN-307).
 
+### Security
+
+- Transitive npm bumps landed on `dev` during the release freeze (Dependabot):
+  `brace-expansion` 5.0.9 → 5.0.12 and `ip-address` 10.4.0 → 10.7.2 (the latter is used by
+  `express-rate-limit`'s IP key generator). Lockfile only; clears the two moderate alerts.
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
