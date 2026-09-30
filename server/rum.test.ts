@@ -24,6 +24,7 @@ import {
   createRumConfigLimiter,
   createRumIntakeLimiter,
 } from './security.js';
+import { TRUST_PROXY_HOPS } from './trust-proxy.js';
 
 const CONFIG: RumConfig = {
   enabled: true,
@@ -44,7 +45,7 @@ async function boot(
   configLimiter: RequestHandler = passThrough
 ) {
   const app = express();
-  app.set('trust proxy', 1);
+  app.set('trust proxy', TRUST_PROXY_HOPS);
   app.use(createRumRouter({ config, intakeLimiter, configLimiter, fetchImpl }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -213,7 +214,11 @@ describe('RUM router', () => {
         `${srv.url}/rum/intake?ddforward=${forwardParam('ddsource=browser&dd-api-key=pub-token')}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'X-Forwarded-For': '203.0.113.7' },
+          // Production shape (KAN-307): client-supplied value, client, then the LB.
+          headers: {
+            'Content-Type': 'text/plain;charset=UTF-8',
+            'X-Forwarded-For': '198.51.100.9, 203.0.113.7, 34.8.251.224',
+          },
           body,
         }
       );

@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Express trusted one proxy hop behind the external load balancer, so `req.ip` was the
+  LB's own address for every request. Every rate limiter was one bucket shared by all
+  visitors, and every RUM session was geolocated to the LB. Now two hops
+  (`server/trust-proxy.ts`), which is exact because Cloud Run ingress only admits the LB
+  (KAN-307).
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
