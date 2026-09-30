@@ -95,7 +95,7 @@ REQUIRED = {
     "RCP-100": "epic — Sprint 10 delivery/acceptance",
     "KAN-269": "charter — execution row; closes with RCP-99",
     "KAN-268": "S1  — Flask Valkey IAM auth fix (non-droppable)",
-    "KAN-292": "S2  — Datadog RUM behind consent, live >= 7 days before launch",
+    "KAN-292": "S2  — Datadog RUM behind consent, live >= 72 h before launch",
     "KAN-293": "S3  — mobile LCP residual on /r and /browse",
     "KAN-181": "S4  — KAN-181 INV-1..INV-9 production re-walk",
     "KAN-294": "S5  — header/footer nav parity SPA vs SSR",
@@ -112,6 +112,9 @@ REQUIRED = {
     "KAN-302": "S14 — delete the copied required-checks list from CLAUDE.md",
     "KAN-303": "S15 — pre-work branch preflight incl. Backend-pointer ancestry",
     "KAN-304": "S16 — CLAUDE.md platform-vs-code CI discriminator",
+    # S17-S18: added mid-sprint by Adam on 2026-09-30.
+    "KAN-307": "S17 — Express trusts the ALB hops: req.ip is the visitor",
+    "KAN-309": "S18 — Pinterest pin variant as a 1:1 centre crop",
 }
 
 # Sprint items -> the execution rows that carry them.
@@ -136,6 +139,8 @@ SI_EXECUTION = {
     "S14": ["KAN-302"],
     "S15": ["KAN-303"],
     "S16": ["KAN-304"],
+    "S17": ["KAN-307"],
+    "S18": ["KAN-309"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -158,6 +163,8 @@ ACCEPTANCE = {
     "S14": "RCP-113",
     "S15": "RCP-114",
     "S16": "RCP-115",
+    "S17": "RCP-116",
+    "S18": "RCP-117",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
