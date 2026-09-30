@@ -22,6 +22,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   under `.claude/worktrees/`). Production was unaffected; the two local test failures
   written off as environment noise are gone (KAN-308).
 
+- The RUM intake proxy now forwards the visitor's `User-Agent`, so Datadog can parse
+  browser, OS and device. Before, it saw Node's fetch UA and every session read "Other",
+  which left no mobile/desktop split for the launch readout (KAN-292).
+
 - Express trusted one proxy hop behind the external load balancer, so `req.ip` was the
   LB's own address for every request. Every rate limiter was one bucket shared by all
   visitors, and every RUM session was geolocated to the LB. Express now trusts Cloud Run's

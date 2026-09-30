@@ -153,6 +153,10 @@ export function createRumRouter({
       };
       // Datadog derives geo/IP attributes from X-Forwarded-For when proxied.
       if (req.ip) headers['X-Forwarded-For'] = req.ip;
+      // ...and browser/OS/device from the request's User-Agent. Without it Datadog
+      // parses Node's fetch UA ("node") and every session reads "Other" (KAN-292).
+      const userAgent = req.get('user-agent');
+      if (userAgent) headers['User-Agent'] = userAgent.slice(0, 512);
       try {
         const upstream = await fetchImpl(upstreamUrl, {
           method: 'POST',
