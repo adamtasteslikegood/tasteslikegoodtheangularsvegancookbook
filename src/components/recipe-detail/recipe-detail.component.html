@@ -75,6 +75,9 @@
   </div>
 } @else if (recipe(); as r) {
   <article class="animate-[fadeIn_0.5s_ease-out]" itemscope itemtype="https://schema.org/Recipe">
+    <!-- KAN-295: the visible trail; for a published recipe, its SSR BreadcrumbList. -->
+    <app-breadcrumb [crumbs]="breadcrumbs()" />
+
     <!-- Back Navigation -->
     <button
       (click)="goBack()"

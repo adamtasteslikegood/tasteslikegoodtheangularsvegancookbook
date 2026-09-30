@@ -9,6 +9,8 @@ import { ModalService } from '../../services/modal.service';
 import { hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
+import { BreadcrumbComponent } from '../shared/breadcrumb.component';
+import { kitchenTrail } from '../../utils/breadcrumbs';
 
 /**
  * KAN-289 — which confirmation the delete button opens.
@@ -37,7 +39,7 @@ export function retiringConfirmationText(recipe: Recipe): string {
 @Component({
   selector: 'app-kitchen',
   standalone: true,
-  imports: [CommonModule, DialogFocusDirective],
+  imports: [CommonModule, DialogFocusDirective, BreadcrumbComponent],
   templateUrl: './kitchen.component.html',
 })
 export class KitchenComponent {
@@ -105,6 +107,9 @@ export class KitchenComponent {
     if (!id) return null;
     return this.authService.currentUser()?.cookbooks.find((cb) => cb.id === id) || null;
   });
+
+  /** KAN-295: the visible trail; a selected cookbook is its last crumb. */
+  breadcrumbs = computed(() => kitchenTrail(this.activeCookbook()?.name));
 
   displayedKitchenRecipes = computed(() => {
     const user = this.authService.currentUser();
