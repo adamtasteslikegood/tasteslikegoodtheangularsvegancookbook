@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/git/branch-preflight.sh` fails a branch that is behind `origin/dev`, or whose
+  Backend gitlink (committed or staged) is not `origin/dev`'s pointer or a descendant of
+  it, so a stale branch can no longer roll the submodule back on merge. Referenced from
+  the CLAUDE.md session-start steps (KAN-303).
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
