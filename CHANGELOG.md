@@ -22,6 +22,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   under `.claude/worktrees/`). Production was unaffected; the two local test failures
   written off as environment noise are gone (KAN-308).
 
+- The RUM intake proxy now forwards the visitor's `User-Agent`, so Datadog can parse
+  browser, OS and device. Before, it saw Node's fetch UA and every session read "Other",
+  which left no mobile/desktop split for the launch readout (KAN-292).
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
