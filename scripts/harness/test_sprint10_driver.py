@@ -333,6 +333,25 @@ class StartRuleTests(unittest.TestCase):
         self.assertEqual(rc, 0, out)
         self.assertIsNone(driver.soak_phase(self.dir, "T1"))
 
+    def test_a_second_soak_cannot_move_an_active_deadline(self):
+        write_state(self.dir, "T2", "verifying")
+        rc, _ = self._run("soak", "T2", "--until", self._soon(1), "--reason", "x")
+        self.assertEqual(rc, 0)
+        mark = Path(self.dir) / "T2.soak.json"
+        before = mark.read_text()
+        rc, out = self._run("soak", "T2", "--until", self._soon(71), "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED, out)
+        self.assertIn("already marked", out)
+        self.assertEqual(mark.read_text(), before)
+
+    def test_a_second_soak_cannot_revive_an_expired_mark(self):
+        write_state(self.dir, "T2", "verifying")
+        self._soak("T2", until=self.PAST)
+        self.assertEqual(driver.soak_phase(self.dir, "T2"), "reentry")
+        rc, out = self._run("soak", "T2", "--until", self._soon(1), "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED, out)
+        self.assertEqual(driver.soak_phase(self.dir, "T2"), "reentry")
+
     def test_only_t1_and_t2_declare_a_soak_window(self):
         declared = {t["id"]: t["soak_window_hours"] for t in PLAN["tasks"] if "soak_window_hours" in t}
         self.assertEqual(declared, {"T1": 24, "T2": 72})
