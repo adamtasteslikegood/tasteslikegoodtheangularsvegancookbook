@@ -43,7 +43,7 @@ clock starts once this build is verified live.
 
 - Transitive npm bumps landed on `dev` during the release freeze (Dependabot):
   `brace-expansion` 5.0.9 → 5.0.12 and `ip-address` 10.4.0 → 10.7.2 (the latter is used by
-  `express-rate-limit`'s IP key generator). Lockfile only; clears the two moderate alerts.
+  `express-rate-limit`'s IP key generator). Lockfile only; closes the moderate alerts on those two packages.
 
 ## [0.5.3] - 2026-09-29
 
