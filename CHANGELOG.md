@@ -15,6 +15,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   it, so a stale branch can no longer roll the submodule back on merge. Referenced from
   the CLAUDE.md session-start steps (KAN-303).
 
+### Fixed
+
+- `/favicon.ico`, `/about`, `/privacy-policy` and the SPA shell now use `sendFile` with a
+  `root`, so they no longer 404 in a checkout under a dot-directory (every agent worktree
+  under `.claude/worktrees/`). Production was unaffected; the two local test failures
+  written off as environment noise are gone (KAN-308).
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
