@@ -811,5 +811,74 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       ]);
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    // Independent Claude review: guard against a late-arriving trail
+    // response for the previous slug overwriting the freshly-loaded one.
+    it('ignores a late public-trail response for the recipe the user has left', async () => {
+      let releaseTrailA: (value: unknown) => void = () => {};
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === '/api/recipes/public/slug-a') {
+          return new Promise((resolve) => {
+            releaseTrailA = resolve;
+          });
+        }
+        if (url === '/api/recipes/public/slug-b') {
+          return ok({ slug: 'slug-b', breadcrumbs: ssrTrail });
+        }
+        if (url === '/api/recipes/r-a') {
+          return ok(row({ id: 'r-a', is_public: true, slug: 'slug-a' }));
+        }
+        return ok(row({ id: 'r-b', is_public: true, slug: 'slug-b' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-a');
+      await vi.waitFor(() => expect(component.recipe()?.slug).toBe('slug-a'));
+
+      emitId('r-b');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+      expect(component.breadcrumbs()[3]).toEqual({
+        name: 'Tofu Scramble',
+        url: '/r/tofu-scramble',
+      });
+
+      // Late answer for slug-a arrives after we've moved to slug-b.
+      releaseTrailA(ok({ slug: 'slug-a', breadcrumbs: ssrTrail }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()).toHaveLength(4);
+      expect(component.breadcrumbs()[3].url).toBe('/r/tofu-scramble');
+    });
+
+    // Independent Claude review: a transient failure must not lock the
+    // slug into fallback forever — a re-navigation to the same slug retries.
+    it('retries the public-trail fetch after a transient failure', async () => {
+      let call = 0;
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.startsWith('/api/recipes/public/')) {
+          call += 1;
+          if (call === 1) throw new TypeError('Failed to fetch');
+          return ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail });
+        }
+        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(component.breadcrumbs()).toHaveLength(3); // fallback
+
+      // Re-emit the same id — markReady() runs again, retrying the trail fetch.
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+      expect(component.breadcrumbs()[3]).toEqual({
+        name: 'Tofu Scramble',
+        url: '/r/tofu-scramble',
+      });
+    });
   });
 });

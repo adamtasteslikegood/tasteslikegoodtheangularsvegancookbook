@@ -171,6 +171,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
    * KAN-295 — fetch the published recipe's SSR trail once per slug. Any
    * failure leaves the fallback trail in place: the breadcrumb is navigation,
    * never a reason to show an error.
+   *
+   * Two guards keep the trail correct across navigation:
+   *   1. Before writing, re-read `this.recipe()?.slug` — a late answer for a
+   *      slug the user has already navigated away from must not overwrite the
+   *      trail a newer fetch already applied.
+   *   2. The "requested" mark is only kept when the fetch actually applied a
+   *      trail; a transient failure clears it so a later markReady() /
+   *      togglePublic() can retry.
    */
   private async syncPublicTrail() {
     const r = this.recipe();
@@ -178,6 +186,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
     const slug = r.slug;
     if (this.publicTrailRequestedFor === slug) return;
     this.publicTrailRequestedFor = slug;
+    let applied = false;
     try {
       const resp = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`, {
         credentials: 'include',
@@ -185,9 +194,16 @@ export class RecipeDetailComponent extends RecipeViewBase {
       if (!resp.ok) return;
       const body = (await resp.json()) as { breadcrumbs?: unknown } | null;
       const crumbs = trailFromApi(body?.breadcrumbs);
-      if (crumbs) this.publicTrail.set({ slug, crumbs });
+      if (!crumbs) return;
+      if (this.recipe()?.slug !== slug) return;
+      this.publicTrail.set({ slug, crumbs });
+      applied = true;
     } catch {
       // Keep the fallback trail.
+    } finally {
+      if (!applied && this.publicTrailRequestedFor === slug) {
+        this.publicTrailRequestedFor = null;
+      }
     }
   }
 
