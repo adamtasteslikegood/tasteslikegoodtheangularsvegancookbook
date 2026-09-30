@@ -200,10 +200,18 @@ class StartRuleTests(unittest.TestCase):
         reasons = driver.refusals(PLAN, "T0", self.dir)
         self.assertTrue(any("already open" in r for r in reasons), reasons)
 
-    # Soaking (Adam, 2026-09-30): a verifying task waiting out a window holds no slot.
-    def _soak(self, task_id, until="2999-01-01T00:00:00+00:00"):
-        (Path(self.dir) / ("%s.soak.json" % task_id)).write_text(
-            json.dumps({"until": until, "reason": "test"}))
+    # Soaking (Adam, 2026-09-30) + review on #3552: only declared time-window
+    # tasks soak, a marked task never counts, and re-entry is a locked resume.
+    FAR = "2999-01-01T00:00:00+00:00"
+    PAST = "2000-01-01T00:00:00+00:00"
+
+    def _soak(self, task_id, until=FAR):
+        path = Path(self.dir) / ("%s.soak.json" % task_id)
+        path.write_text(json.dumps({"until": until, "reason": "test"}))
+        # The mark is written after the state file, as the soak command does.
+        state = Path(self.dir) / ("%s.state.json" % task_id)
+        if state.exists():
+            os.utime(path, (state.stat().st_mtime + 1, state.stat().st_mtime + 1))
 
     def _three_open(self):
         write_state(self.dir, "T0", "verified")
@@ -211,65 +219,123 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T2", "verifying")
         write_state(self.dir, "T5", "in_progress")
 
-    def test_a_soaking_verifying_task_frees_its_wip_slot(self):
+    def _run(self, *argv):
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = driver.main(["--state-dir", self.dir, *argv])
+        return rc, out.getvalue()
+
+    def _soon(self, hours):
+        return (driver.datetime.now(driver.timezone.utc)
+                + driver.timedelta(hours=hours)).isoformat()
+
+    def test_a_soaking_task_frees_its_wip_slot(self):
         self._three_open()
         self._soak("T1")
         reasons = driver.refusals(PLAN, "T10", self.dir)
         self.assertFalse(any("WIP is" in r for r in reasons), reasons)
 
-    def test_an_expired_soak_counts_toward_wip_again(self):
-        self._three_open()
-        self._soak("T1", until="2000-01-01T00:00:00+00:00")
-        reasons = driver.refusals(PLAN, "T10", self.dir)
-        self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
-
-    def test_a_soak_mark_on_a_task_back_in_execution_is_ignored(self):
-        self._three_open()
-        self._soak("T5")  # T5 is in_progress, not verifying
-        reasons = driver.refusals(PLAN, "T10", self.dir)
-        self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
-
-    def test_stale_soak_from_prior_verifying_spell_does_not_re_free_slot(self):
-        """Cycle verifying → in_progress → verifying: the earlier soak mark
-        must not silently free the slot again (Adam's docstring: 'a task sent
-        back to execute was never just waiting'). Without the mtime check, the
-        stale mark would honour an ``until`` from the first spell and could
-        collapse T2's 72 h RUM window to a fraction of that."""
+    def test_expiry_after_the_freed_slot_is_refilled_never_makes_wip_four(self):
         self._three_open()
         self._soak("T1")
-        # Force state file mtime to be after the soak file (a real bounce would
-        # rewrite the state file; force it here so the test is time-independent).
-        soak_path = Path(self.dir) / "T1.soak.json"
-        state_path = Path(self.dir) / "T1.state.json"
-        soak_mtime = soak_path.stat().st_mtime
-        os.utime(state_path, (soak_mtime + 1, soak_mtime + 1))
+        write_state(self.dir, "T10", "in_progress")  # T10 took T1's slot
+        later = driver.datetime(3000, 1, 1, tzinfo=driver.timezone.utc)
+        _, wip = driver.snapshot(PLAN, self.dir, now=later)
+        self.assertEqual(wip, ["T10", "T2", "T5"])
+        self.assertEqual(driver.soak_phase(self.dir, "T1", later), "reentry")
+
+    def test_an_ended_soak_takes_the_next_slot_before_new_starts(self):
+        self._three_open()
+        self._soak("T1", until=self.PAST)
         reasons = driver.refusals(PLAN, "T10", self.dir)
-        self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
+        self.assertTrue(any("resume T1" in r for r in reasons), reasons)
 
-    def test_soak_command_refuses_a_task_that_is_not_verifying(self):
-        write_state(self.dir, "T5", "in_progress")
-        with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = driver.main(["--state-dir", self.dir, "soak", "T5",
-                              "--until", "2999-01-01T00:00:00+00:00", "--reason", "x"])
+    def test_resume_is_refused_while_wip_is_full_and_admits_when_a_slot_frees(self):
+        self._three_open()
+        self._soak("T1", until=self.PAST)
+        write_state(self.dir, "T10", "in_progress")
+        rc, out = self._run("resume", "T1")
+        self.assertEqual(rc, driver.REFUSED, out)
+        self.assertTrue((Path(self.dir) / "T1.soak.json").exists())
+        write_state(self.dir, "T10", "verified")
+        rc, out = self._run("resume", "T1")
+        self.assertEqual(rc, 0, out)
+        self.assertFalse((Path(self.dir) / "T1.soak.json").exists())
+
+    def test_unsoak_obeys_the_same_slot_rule(self):
+        self._three_open()
+        self._soak("T1")
+        write_state(self.dir, "T10", "in_progress")
+        rc, _ = self._run("unsoak", "T1")
         self.assertEqual(rc, driver.REFUSED)
-        self.assertIn("SOAK REFUSED", out.getvalue())
-        self.assertFalse((Path(self.dir) / "T5.soak.json").exists())
 
-    def test_soak_command_requires_a_timezone(self):
+    def test_driving_a_soaked_task_blocks_new_starts(self):
+        self._three_open()
+        self._soak("T1")
+        write_state(self.dir, "T1", "in_progress")  # bounced without resume
+        state = Path(self.dir) / "T1.state.json"
+        mark = Path(self.dir) / "T1.soak.json"
+        os.utime(state, (mark.stat().st_mtime + 5, mark.stat().st_mtime + 5))
+        self.assertEqual(driver.soak_phase(self.dir, "T1"), "violation")
+        reasons = driver.refusals(PLAN, "T10", self.dir)
+        self.assertTrue(any("driven while soaked" in r for r in reasons), reasons)
+
+    def test_a_verifying_bounce_does_not_revive_an_old_mark(self):
+        self._three_open()
+        self._soak("T2")
+        state = Path(self.dir) / "T2.state.json"
+        mark = Path(self.dir) / "T2.soak.json"
+        os.utime(state, (mark.stat().st_mtime + 5, mark.stat().st_mtime + 5))
+        self.assertIsNone(driver.soak_until(self.dir, "T2"))
+
+    def test_soak_refuses_a_verifying_task_not_declared_time_window_only(self):
+        write_state(self.dir, "T5", "verifying")
+        rc, out = self._run("soak", "T5", "--until", self._soon(1), "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED)
+        self.assertIn("soak_window_hours", out)
+
+    def test_soak_refuses_unknown_and_path_like_ids_without_touching_files(self):
+        for bad in ("T99", "../T1", "T1/../../x"):
+            for cmd in (["soak", bad, "--until", self._soon(1), "--reason", "x"],
+                        ["resume", bad], ["unsoak", bad]):
+                rc, out = self._run(*cmd)
+                self.assertEqual(rc, driver.REFUSED, (cmd, out))
+        self.assertEqual(sorted(p.name for p in Path(self.dir).iterdir()), [])
+
+    def test_soak_refuses_a_past_deadline(self):
         write_state(self.dir, "T1", "verifying")
-        with contextlib.redirect_stdout(io.StringIO()):
-            rc = driver.main(["--state-dir", self.dir, "soak", "T1",
-                              "--until", "2999-01-01T00:00:00", "--reason", "x"])
+        rc, out = self._run("soak", "T1", "--until", self.PAST, "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED)
+        self.assertIn("not in the future", out)
+
+    def test_soak_refuses_a_deadline_beyond_the_declared_window(self):
+        write_state(self.dir, "T1", "verifying")  # T1 declares 24 h
+        rc, out = self._run("soak", "T1", "--until", self._soon(30), "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED)
+        self.assertIn("24 h window", out)
+
+    def test_soak_requires_a_timezone(self):
+        write_state(self.dir, "T1", "verifying")
+        rc, _ = self._run("soak", "T1", "--until", "2999-01-01T00:00:00", "--reason", "x")
         self.assertEqual(rc, driver.REFUSED)
 
-    def test_soak_then_unsoak_round_trip(self):
+    def test_soak_refuses_a_task_that_is_not_verifying(self):
+        write_state(self.dir, "T2", "in_progress")
+        rc, out = self._run("soak", "T2", "--until", self._soon(1), "--reason", "x")
+        self.assertEqual(rc, driver.REFUSED)
+        self.assertIn("verifying", out)
+
+    def test_soak_then_resume_round_trip(self):
         write_state(self.dir, "T1", "verifying")
-        with contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(driver.main(["--state-dir", self.dir, "soak", "T1", "--until",
-                                          "2999-01-01T00:00:00+00:00", "--reason", "24 h window"]), 0)
-            self.assertIsNotNone(driver.soak_until(self.dir, "T1"))
-            self.assertEqual(driver.main(["--state-dir", self.dir, "unsoak", "T1"]), 0)
-        self.assertIsNone(driver.soak_until(self.dir, "T1"))
+        rc, out = self._run("soak", "T1", "--until", self._soon(20), "--reason", "24 h window")
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(driver.soak_phase(self.dir, "T1"), "soaking")
+        rc, out = self._run("resume", "T1")
+        self.assertEqual(rc, 0, out)
+        self.assertIsNone(driver.soak_phase(self.dir, "T1"))
+
+    def test_only_t1_and_t2_declare_a_soak_window(self):
+        declared = {t["id"]: t["soak_window_hours"] for t in PLAN["tasks"] if "soak_window_hours" in t}
+        self.assertEqual(declared, {"T1": 24, "T2": 72})
 
     def _verify_t11_deps(self):
         for tid in ("T0", "T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9", "T10"):

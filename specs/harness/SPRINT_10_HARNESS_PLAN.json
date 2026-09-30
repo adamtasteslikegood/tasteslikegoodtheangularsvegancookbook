@@ -141,7 +141,8 @@
       ],
       "done_when": "Backend fix merged, promoted, pinned, released; RCP-98 ACs evidenced",
       "max_attempts": 3,
-      "status": "pending"
+      "status": "pending",
+      "soak_window_hours": 24
     },
     {
       "id": "T2",
@@ -184,7 +185,8 @@
       ],
       "done_when": "RUM live behind consent for >= 72 consecutive hours, evidenced on RCP-101",
       "max_attempts": 3,
-      "status": "pending"
+      "status": "pending",
+      "soak_window_hours": 72
     },
     {
       "id": "T3",
@@ -819,7 +821,7 @@
       ],
       "skill": "senior-backend",
       "skill_path": "engineering-skills:senior-backend",
-      "objective": "Express resolves the visitor IP behind the external ALB: TRUST_PROXY_HOPS = 2 (server/trust-proxy.ts), exact only while express-frontend ingress is internal-and-cloud-load-balancing. Before it, req.ip was the LB address (34.8.251.224) for every request, so every rate limiter was one shared bucket and RUM geolocated every session to the LB. Added mid-sprint by Adam, 2026-09-30.",
+      "objective": "Express resolves the visitor IP behind the external ALB without trusting a direct internal caller's X-Forwarded-For: server/trust-proxy.ts trustProxyFor() trusts hop 0 (Cloud Run's front end) and hop 1 only when it is the LB frontend address (34.8.251.224, TRUST_PROXY_LB_IP overrides). A plain hop count of 2 was rejected in review on #3549: ingress internal-and-cloud-load-balancing also admits internal callers whose chain is one hop shorter. Before the fix req.ip was the LB address for every request, so every rate limiter was one shared bucket and RUM geolocated every session to the LB. Added mid-sprint by Adam, 2026-09-30.",
       "suggested_tools": [
         "gh pr view 3549",
         "gcloud run services describe express-frontend --region=us-central1"
@@ -836,9 +838,15 @@
           "kind": "artifact"
         },
         {
-          "cmd": "git show origin/dev:server/trust-proxy.ts | grep -q 'TRUST_PROXY_HOPS = 2'",
+          "cmd": "git show origin/dev:server/trust-proxy.ts | grep -q 'export function trustProxyFor'",
           "expect_exit": 0,
           "kind": "content"
+        },
+        {
+          "cmd": "npx vitest run server/trust-proxy.test.ts",
+          "expect_exit": 0,
+          "kind": "behaviour",
+          "note": "covers the ALB path, a client-supplied prefix, and the direct internal caller resolving to its own address"
         },
         {
           "cmd": "MANUAL: the release tag carrying #3549; a production RUM session after it whose session.ip is a real visitor address, not 34.8.251.224; express-frontend ingress still internal-and-cloud-load-balancing.",
@@ -948,7 +956,7 @@
   ],
   "loop": {
     "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
-    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; the mark lapses at its deadline. S17/S18 (T18/T19, lane E) added mid-sprint the same day.",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; only tasks declaring soak_window_hours (T1 24, T2 72) may soak, a marked task never counts, and it re-enters only via a locked `resume` when a slot is free (new starts wait behind it), so WIP never exceeds 3. S17/S18 (T18/T19, lane E) added mid-sprint the same day.",
     "max_loop_iterations": 12,
     "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
     "escalate_on": [
