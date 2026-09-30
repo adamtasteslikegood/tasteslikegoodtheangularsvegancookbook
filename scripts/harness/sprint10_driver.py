@@ -19,6 +19,10 @@ How it maps D6
   ``start`` refuses until every dependency's state is verified.
 * **WIP <= 3.** ``start`` refuses while 3 task states are open (started and not
   verified; an escalated task still occupies its slot until a human resolves it).
+  A task that is only waiting out a time window holds no slot (Adam,
+  2026-09-30): ``soak T1 --until <iso> --reason ...`` marks it, and the mark is
+  honoured only while the controller status is ``verifying`` and the deadline
+  has not passed. ``unsoak`` clears it.
 * **Irreversible starts.** A task with ``requires_done`` (T11, the launch post)
   refuses unless every listed Jira row is exactly ``Done``. ``In Review`` is not
   enough: the post cannot be taken back, so the check runs before the work, not
@@ -43,6 +47,7 @@ import json
 import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -90,9 +95,37 @@ def task_state(state_dir, task_id):
     return "escalated" if status == "escalated" else "open"
 
 
-def snapshot(plan, state_dir):
+def raw_status(state_dir, task_id):
+    """The controller's own task status (pending, verifying, ...), or None."""
+    path = Path(state_dir) / ("%s.state.json" % task_id)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text())["tasks"][0]["status"]
+
+
+def soak_until(state_dir, task_id, now=None):
+    """The soak deadline if ``task_id`` is soaking right now, else None.
+
+    Soaking (Adam, 2026-09-30): a task whose work is done and whose only
+    remaining evidence is a time window (T1's 24 h Datadog window, T2's 72 h
+    RUM window) holds no WIP slot. It is honoured only while the controller
+    status is ``verifying`` and the deadline has not passed: once the window
+    ends, collecting the evidence is active work again, and a task sent back
+    to execute was never just waiting.
+    """
+    path = Path(state_dir) / ("%s.soak.json" % task_id)
+    if not path.exists() or raw_status(state_dir, task_id) != "verifying":
+        return None
+    until = datetime.fromisoformat(json.loads(path.read_text())["until"])
+    now = now or datetime.now(timezone.utc)
+    return until if now < until else None
+
+
+def snapshot(plan, state_dir, now=None):
     states = {t["id"]: task_state(state_dir, t["id"]) for t in plan["tasks"]}
-    wip = sorted(k for k, v in states.items() if v in ("open", "escalated"))
+    wip = sorted(k for k, v in states.items()
+                 if v == "escalated"
+                 or (v == "open" and soak_until(state_dir, k, now) is None))
     return states, wip
 
 
@@ -177,6 +210,9 @@ def cmd_status(args):
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])
+            until = soak_until(args.state_dir, t["id"])
+            if until is not None:
+                note = "soaking until %s (no WIP slot)" % until.isoformat()
             print("%-4s %-8s %-2s %-12s %s" % (
                 t["id"], t.get("si", "-"), t.get("lane", "-"),
                 states[t["id"]], note))
@@ -220,6 +256,33 @@ def cmd_start(args):
         return 2
 
 
+def cmd_soak(args):
+    try:
+        state_dir = Path(args.state_dir)
+        path = state_dir / ("%s.soak.json" % args.task)
+        if args.cmd == "unsoak":
+            path.unlink(missing_ok=True)
+            print("UNSOAKED %s — it counts toward WIP again" % args.task)
+            return 0
+        status = raw_status(state_dir, args.task)
+        if status != "verifying":
+            print("SOAK REFUSED — %s is %s; only a task whose work is recorded "
+                  "(controller status verifying) can wait out a window" % (args.task, status))
+            return REFUSED
+        until = datetime.fromisoformat(args.until)
+        if until.tzinfo is None:
+            print("SOAK REFUSED — --until needs a timezone, e.g. 2026-10-01T00:10:00+00:00")
+            return REFUSED
+        path.write_text(json.dumps({"until": until.isoformat(), "reason": args.reason,
+                                    "set_at": datetime.now(timezone.utc).isoformat()},
+                                   indent=2) + "\n")
+        print("SOAKING %s until %s — no WIP slot while it waits" % (args.task, until.isoformat()))
+        return 0
+    except (Exception, SystemExit) as exc:
+        print("CONFIG/API ERROR: %s" % exc, file=sys.stderr)
+        return 2
+
+
 def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -233,6 +296,12 @@ def build_parser():
     s.add_argument("--controller", default=CONTROLLER)
     s.add_argument("--dry-run", action="store_true",
                    help="run every start check, initialize nothing")
+    k = sub.add_parser("soak", help="mark a verifying task as only waiting out a time window")
+    k.add_argument("task")
+    k.add_argument("--until", required=True, help="ISO 8601 with timezone")
+    k.add_argument("--reason", required=True)
+    u = sub.add_parser("unsoak", help="clear a soak mark")
+    u.add_argument("task")
     return p
 
 
@@ -240,6 +309,8 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.state_dir is None:
         args.state_dir = str(default_state_dir())
+    if args.cmd in ("soak", "unsoak"):
+        return cmd_soak(args)
     return cmd_status(args) if args.cmd == "status" else cmd_start(args)
 
 

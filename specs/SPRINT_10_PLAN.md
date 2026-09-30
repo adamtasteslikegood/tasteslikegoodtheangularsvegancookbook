@@ -26,29 +26,45 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 16 SIs (11 chartered + S12–S16 added 2026-09-29)
+## Committed scope — 18 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30)
 
-| SI      | Grill # | Lane           | Summary                                                                                  | KAN     | Acceptance |
-| ------- | ------- | -------------- | ---------------------------------------------------------------------------------------- | ------- | ---------- |
-| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                            | KAN-268 | RCP-98     |
-| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 7 days before launch                       | KAN-292 | RCP-101    |
-| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                              | KAN-293 | RCP-102    |
-| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                      | KAN-181 | RCP-103    |
-| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                          | KAN-294 | RCP-104    |
-| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                           | KAN-295 | RCP-105    |
-| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                            | KAN-296 | RCP-106    |
-| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                                  | KAN-297 | RCP-107    |
-| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`              | KAN-298 | RCP-108    |
-| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric      | KAN-277 | RCP-109    |
-| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates                                         | KAN-299 | RCP-110    |
-| **S12** | —       | Process        | Workflow `secrets.*` references gated against `gh secret list`, wired into `pr-gate.yml` | KAN-300 | RCP-111    |
-| **S13** | —       | Process        | CLAUDE.md PR lifecycle: read `pulls/<n>/reviews` bodies in full (suppressed findings)    | KAN-301 | RCP-112    |
-| **S14** | —       | Process        | Delete the copied required-checks list from CLAUDE.md; name the live rulesets command    | KAN-302 | RCP-113    |
-| **S15** | —       | Process        | Pre-work branch preflight: commits-behind `origin/dev` + Backend-pointer ancestry        | KAN-303 | RCP-114    |
-| **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                     | KAN-304 | RCP-115    |
+| SI      | Grill # | Lane           | Summary                                                                                   | KAN     | Acceptance |
+| ------- | ------- | -------------- | ----------------------------------------------------------------------------------------- | ------- | ---------- |
+| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                             | KAN-268 | RCP-98     |
+| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 72 h before launch (was 7 days, 2026-09-30) | KAN-292 | RCP-101    |
+| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                               | KAN-293 | RCP-102    |
+| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                       | KAN-181 | RCP-103    |
+| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                           | KAN-294 | RCP-104    |
+| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                            | KAN-295 | RCP-105    |
+| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                             | KAN-296 | RCP-106    |
+| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                                   | KAN-297 | RCP-107    |
+| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`               | KAN-298 | RCP-108    |
+| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric       | KAN-277 | RCP-109    |
+| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates                                          | KAN-299 | RCP-110    |
+| **S12** | —       | Process        | Workflow `secrets.*` references gated against `gh secret list`, wired into `pr-gate.yml`  | KAN-300 | RCP-111    |
+| **S13** | —       | Process        | CLAUDE.md PR lifecycle: read `pulls/<n>/reviews` bodies in full (suppressed findings)     | KAN-301 | RCP-112    |
+| **S14** | —       | Process        | Delete the copied required-checks list from CLAUDE.md; name the live rulesets command     | KAN-302 | RCP-113    |
+| **S15** | —       | Process        | Pre-work branch preflight: commits-behind `origin/dev` + Backend-pointer ancestry         | KAN-303 | RCP-114    |
+| **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                      | KAN-304 | RCP-115    |
+| **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)             | KAN-307 | RCP-116    |
+| **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars                               | KAN-309 | RCP-117    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
+
+### Mid-sprint changes — 2026-09-30 (Adam)
+
+- **S17 (KAN-307)** added: a production defect found by S2's RUM capture. Behind the ALB,
+  `req.ip` was the load balancer for every request, so every rate limiter was one shared
+  bucket and RUM geolocated every session to the LB.
+- **S18 (KAN-309)** added: Pinterest pins show blurred 2:3 padding; the pin variant becomes a
+  1:1 centre crop. The Pinterest profile and UTM-tagged pin links went into S10 (KAN-277).
+- **S2's live window is 72 h, not 7 days.** With no traffic yet it proves the instrument works
+  rather than collecting a baseline. It starts once the KAN-307 / KAN-292 User-Agent patch is
+  live, so sessions carry geo and device.
+- **WIP soak rule.** A task whose work is recorded and whose only remaining evidence is a time
+  window (S1's 24 h Datadog window, S2's 72 h) holds no WIP slot while it waits
+  (`sprint10_driver.py soak`). WIP stays 3 for active work.
 
 ### S12–S16 were added at charter — 2026-09-29
 
