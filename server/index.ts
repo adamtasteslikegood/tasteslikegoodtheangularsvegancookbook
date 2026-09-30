@@ -15,6 +15,7 @@ import {
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
+import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
@@ -25,9 +26,10 @@ export const app = express();
 const port = Number.parseInt(process.env.PORT || '8080', 10);
 const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
-// Trust the first proxy (Cloud Run / GFE load balancer) so express-rate-limit
-// uses the real client IP from X-Forwarded-For instead of the proxy's IP.
-app.set('trust proxy', 1);
+// Trust the external load balancer's hops so req.ip (rate-limit keys, RUM geo)
+// is the visitor, not the LB, without trusting a direct internal caller's
+// X-Forwarded-For. Policy and reasoning: ./trust-proxy.ts.
+applyTrustProxy(app);
 
 // Module-level reference so the graceful-shutdown handler can close it.
 let server: Server | null = null;
