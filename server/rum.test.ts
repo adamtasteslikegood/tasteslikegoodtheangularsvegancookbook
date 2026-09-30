@@ -227,9 +227,32 @@ describe('RUM router', () => {
       const headers = init.headers as Record<string, string>;
       expect(headers['Content-Type']).toBe('text/plain;charset=UTF-8');
       expect(headers['X-Forwarded-For']).toBe('203.0.113.7');
-      // Only the two headers above: no cookies or auth leak to Datadog.
-      expect(Object.keys(headers).sort()).toEqual(['Content-Type', 'X-Forwarded-For']);
+      // Only these headers: no cookies or auth leak to Datadog. (Node's fetch
+      // sends its own User-Agent here; the browser case is tested below.)
+      expect(Object.keys(headers).sort()).toEqual([
+        'Content-Type',
+        'User-Agent',
+        'X-Forwarded-For',
+      ]);
       expect(cancel).toHaveBeenCalledOnce();
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("forwards the visitor's User-Agent so Datadog can parse browser and device (KAN-292)", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 202 }));
+    const srv = await boot(CONFIG, fetchImpl as unknown as typeof fetch);
+    const ua =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1';
+    try {
+      const res = await fetch(
+        `${srv.url}/rum/intake?ddforward=${forwardParam('ddsource=browser&dd-api-key=pub-token')}`,
+        { method: 'POST', headers: { 'Content-Type': 'text/plain', 'User-Agent': ua }, body: '{}' }
+      );
+      expect(res.status).toBe(202);
+      const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['User-Agent']).toBe(ua);
     } finally {
       await srv.close();
     }
