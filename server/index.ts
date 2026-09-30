@@ -15,6 +15,7 @@ import {
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
+import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
@@ -25,9 +26,10 @@ export const app = express();
 const port = Number.parseInt(process.env.PORT || '8080', 10);
 const flaskUrl = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
-// Trust the first proxy (Cloud Run / GFE load balancer) so express-rate-limit
-// uses the real client IP from X-Forwarded-For instead of the proxy's IP.
-app.set('trust proxy', 1);
+// Trust the external load balancer's hops so req.ip (rate-limit keys, RUM geo)
+// is the visitor, not the LB, without trusting a direct internal caller's
+// X-Forwarded-For. Policy and reasoning: ./trust-proxy.ts.
+applyTrustProxy(app);
 
 // Module-level reference so the graceful-shutdown handler can close it.
 let server: Server | null = null;
@@ -214,18 +216,22 @@ export const ready = (async () => {
   // Source tests execute from server/, while production runs the compiled file
   // from server/dist/. Resolve the checked-in server/public directory in both
   // modes so standalone pages are testable through the real Express route.
+  // Every sendFile below passes `root` instead of an absolute path: `send`
+  // refuses any absolute path with a dot-segment (dotfiles: 'ignore'), so a
+  // checkout under e.g. .claude/worktrees/ 404'd /favicon.ico and /about. With
+  // `root`, only the requested name is checked for dotfiles.
   const publicPath =
     path.basename(__dirname) === 'dist'
       ? path.resolve(__dirname, '..', 'public')
       : path.resolve(__dirname, 'public');
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
-    res.sendFile(path.join(publicPath, 'privacy-policy.html'));
+    res.sendFile('privacy-policy.html', { root: publicPath });
   });
 
   // About page (KAN-272, SEO audit C5): who makes the site and why, with the
   // author's Person schema. Static, like the privacy policy.
   app.get('/about', staticPageLimiter, (_req, res) => {
-    res.sendFile(path.join(publicPath, 'about.html'));
+    res.sendFile('about.html', { root: publicPath });
   });
 
   // /favicon.ico — browsers and crawlers request this path unconditionally,
@@ -240,7 +246,7 @@ export const ready = (async () => {
     // Express's `send` defaults to Cache-Control: public, max-age=0, so every
     // page navigation re-fetches the favicon and counts toward
     // staticPageLimiter's 300 req / 15 min per-IP budget. Cache it for a day.
-    res.sendFile(path.join(publicPath, 'favicon.svg'), { maxAge: '1d' });
+    res.sendFile('favicon.svg', { root: publicPath, maxAge: '1d' });
   });
 
   // /apple-touch-icon.png + /apple-touch-icon-precomposed.png — iOS Safari
@@ -336,7 +342,7 @@ export const ready = (async () => {
     // and home metadata; express.static normally answers "/" first, so this
     // is a safety net. Every other route gets the route-neutral shell.
     if (routePath === '/') {
-      res.sendFile(spaIndexPath);
+      res.sendFile('index.html', { root: distPath });
       return;
     }
     let neutralShell: string;
@@ -347,7 +353,7 @@ export const ready = (async () => {
       // take every non-home route down with a 500. Fall back to the full
       // shell: the pre-KAN-272 behaviour, a flash of home copy at worst.
       console.warn('[spa] serving the full shell; route-neutral shell unavailable:', err);
-      res.sendFile(spaIndexPath);
+      res.sendFile('index.html', { root: distPath });
       return;
     }
     // Mirror the Cache-Control the / sendFile branch inherits from Express's

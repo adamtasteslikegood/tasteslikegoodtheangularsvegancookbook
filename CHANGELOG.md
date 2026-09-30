@@ -8,6 +8,43 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-30
+
+Backend submodule pointer unchanged at **`5f8964bf3e8b`** (Backend `main`); cookbook-only
+release, no migration changes. Ships the Sprint 10 fixes the 72 h RUM readout (RCP-101)
+depends on: real visitor IPs (KAN-307) and parsed browser/device (KAN-292). The RUM
+clock starts once this build is verified live.
+
+### Added
+
+- `scripts/git/branch-preflight.sh` fails a branch that is behind `origin/dev`, or whose
+  Backend gitlink (committed or staged) is not `origin/dev`'s pointer or a descendant of
+  it, so a stale branch can no longer roll the submodule back on merge. Referenced from
+  the CLAUDE.md session-start steps (KAN-303).
+
+### Fixed
+
+- `/favicon.ico`, `/about`, `/privacy-policy` and the SPA shell now use `sendFile` with a
+  `root`, so they no longer 404 in a checkout under a dot-directory (every agent worktree
+  under `.claude/worktrees/`). Production was unaffected; the two local test failures
+  written off as environment noise are gone (KAN-308).
+
+- The RUM intake proxy now forwards the visitor's `User-Agent`, so Datadog can parse
+  browser, OS and device. Before, it saw Node's fetch UA and every session read "Other",
+  which left no mobile/desktop split for the launch readout (KAN-292).
+
+- Express trusted one proxy hop behind the external load balancer, so `req.ip` was the
+  LB's own address for every request. Every rate limiter was one bucket shared by all
+  visitors, and every RUM session was geolocated to the LB. Express now trusts Cloud Run's
+  front end and, behind it, only the LB's own address (`server/trust-proxy.ts`), so a
+  direct internal caller cannot pick its `req.ip` by writing `X-Forwarded-For` (KAN-307).
+
+### Security
+
+- Transitive npm bumps landed on `dev` during the release freeze (Dependabot):
+  `brace-expansion` 5.0.9 → 5.0.12 and `ip-address` 10.4.0 → 10.7.2 (the latter is used by
+  `express-rate-limit`'s IP key generator). Lockfile only; closes the moderate alerts on those two packages.
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion

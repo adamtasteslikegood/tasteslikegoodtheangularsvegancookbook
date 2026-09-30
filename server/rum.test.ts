@@ -24,6 +24,7 @@ import {
   createRumConfigLimiter,
   createRumIntakeLimiter,
 } from './security.js';
+import { applyTrustProxy } from './trust-proxy.js';
 
 const CONFIG: RumConfig = {
   enabled: true,
@@ -44,7 +45,7 @@ async function boot(
   configLimiter: RequestHandler = passThrough
 ) {
   const app = express();
-  app.set('trust proxy', 1);
+  applyTrustProxy(app);
   app.use(createRumRouter({ config, intakeLimiter, configLimiter, fetchImpl }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -213,7 +214,11 @@ describe('RUM router', () => {
         `${srv.url}/rum/intake?ddforward=${forwardParam('ddsource=browser&dd-api-key=pub-token')}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8', 'X-Forwarded-For': '203.0.113.7' },
+          // Production shape (KAN-307): client-supplied value, client, then the LB.
+          headers: {
+            'Content-Type': 'text/plain;charset=UTF-8',
+            'X-Forwarded-For': '198.51.100.9, 203.0.113.7, 34.8.251.224',
+          },
           body,
         }
       );
@@ -227,9 +232,32 @@ describe('RUM router', () => {
       const headers = init.headers as Record<string, string>;
       expect(headers['Content-Type']).toBe('text/plain;charset=UTF-8');
       expect(headers['X-Forwarded-For']).toBe('203.0.113.7');
-      // Only the two headers above: no cookies or auth leak to Datadog.
-      expect(Object.keys(headers).sort()).toEqual(['Content-Type', 'X-Forwarded-For']);
+      // Only these headers: no cookies or auth leak to Datadog. (Node's fetch
+      // sends its own User-Agent here; the browser case is tested below.)
+      expect(Object.keys(headers).sort()).toEqual([
+        'Content-Type',
+        'User-Agent',
+        'X-Forwarded-For',
+      ]);
       expect(cancel).toHaveBeenCalledOnce();
+    } finally {
+      await srv.close();
+    }
+  });
+
+  it("forwards the visitor's User-Agent so Datadog can parse browser and device (KAN-292)", async () => {
+    const fetchImpl = vi.fn(async () => new Response(null, { status: 202 }));
+    const srv = await boot(CONFIG, fetchImpl as unknown as typeof fetch);
+    const ua =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.2 Mobile/15E148 Safari/604.1';
+    try {
+      const res = await fetch(
+        `${srv.url}/rum/intake?ddforward=${forwardParam('ddsource=browser&dd-api-key=pub-token')}`,
+        { method: 'POST', headers: { 'Content-Type': 'text/plain', 'User-Agent': ua }, body: '{}' }
+      );
+      expect(res.status).toBe(202);
+      const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+      expect((init.headers as Record<string, string>)['User-Agent']).toBe(ua);
     } finally {
       await srv.close();
     }
