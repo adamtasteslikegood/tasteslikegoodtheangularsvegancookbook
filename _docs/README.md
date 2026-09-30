@@ -1,67 +1,123 @@
-[Documentation Home](README.md)
+# 📚 tasteslikegoodtheangularsvegancookbook Documentation
+
+Welcome to the complete documentation for this repository. This documentation is automatically generated and maintained by Woden Docbot.
+
+![Files Documented: 4](https://img.shields.io/badge/Files_Documented-4-blue) ![Coverage: 2%](https://img.shields.io/badge/Coverage-2%-orange) ![Last Updated: 2026-09-30](https://img.shields.io/badge/Last_Updated-2026--09--30-gray)
+
+## 🔗 Quick Links
+
+[📂 server](./server/README.md)
+[📋 Dependencies](./DEPENDENCIES.md)
+
 
 ---
 
-# 📁 _docs
-
-> **Purpose:** Documentation and developer orientation for runtime server wiring, proxy-trust decisions, and related server-side tests contained under the docs directory.
-> 
-
-![Organization: Hierarchical](https://img.shields.io/badge/Organization-Hierarchical-blue)
-
-## 📑 Table of Contents
+> An Angular + TypeScript application with an Express-based server runtime and Datadog RUM/CSP proxy plumbing, including tests for trust-proxy and observability.
 
 
-- [Overview](#overview)
-- [Subdirectories](#subdirectories)
-- [Dependencies](#dependencies)
-- [Architecture Notes](#architecture-notes)
+
+## 📖 Overview
+
+This repository contains a TypeScript/Angular codebase together with an Express-based server runtime and test coverage focused on observability and proxy/trust decisions. The server directory hosts the runtime entry point, a trust-proxy policy module, and tests that exercise Datadog RUM plumbing, same-origin intake proxy behavior, and Content Security Policy invariants.
+
+The project is built with Angular and TypeScript on the frontend side (as indicated by dependencies) and Node.js + Express on the server side. Tooling and dependencies in the manifest include Datadog RUM, Express, TypeScript, Vite, Tailwind CSS and other build/test utilities; the server directory wires startup/shutdown, proxy-trust decisions, and test suites to validate HTTP and RUM behavior.
+
+
+### 🧩 Key Components
+
+| Component | Purpose | Technologies |
+| --- | --- | --- |
+| **server** | Provides the Express-based HTTP runtime entry point and focused policy/test modules: server startup/shutdown wiring, a trust-proxy decision module, and tests for Datadog RUM plumbing and proxy/CSP invariants. | `Express`, `TypeScript`, `Node.js` |
+
+
+
+### 🏗️ Architecture
+
+A TypeScript/Angular frontend paired with a Node.js Express server. The server directory contains runtime wiring, a trust-proxy policy, and tests ensuring correct RUM and proxy behavior.
+
+### 💡 Use Cases
+
+- ✦ Boot and run an Express-based HTTP server with TypeScript
+- ✦ Validate client IP resolution and trust-proxy behavior
+- ✦ Exercise Datadog RUM intake and Content Security Policy invariants in tests
+
+
+
+### 🔧 Technologies
+
+
+**Languages:** ![TypeScript: ](https://img.shields.io/badge/TypeScript--blue) ![Python: ](https://img.shields.io/badge/Python--blue)
+
+**Frameworks:** ![Angular: ](https://img.shields.io/badge/Angular--blue) ![Express: ](https://img.shields.io/badge/Express--blue)
+![Node.js: ](https://img.shields.io/badge/Node.js--blue) ![Datadog RUM: ](https://img.shields.io/badge/Datadog_RUM--blue) ![Tailwind CSS: ](https://img.shields.io/badge/Tailwind_CSS--blue) ![RxJS: ](https://img.shields.io/badge/RxJS--blue) ![Vite: ](https://img.shields.io/badge/Vite--blue)
+
+### 📦 External Dependencies
+
+The following external packages are used across the project:
+
+- `@angular/core`
+- `@datadog/browser-rum-slim`
+- `@google-cloud/secret-manager`
+- `dd-trace`
+- `express`
+- `express-rate-limit`
+- `ioredis`
+- `rxjs`
+- `tailwindcss`
+- `typescript`
+- `vite`
+
+
 
 ---
 
-## Overview
+## 📑 Documentation Sections
 
-This directory contains documentation and an index-level guide for the repository's server-side startup/shutdown wiring, proxy-trust decision logic, and test suites that validate Express-based HTTP server behaviors and RUM/CSP plumbing. At the top level there are no source files; the primary actionable contents live in the server/ subdirectory which groups the modules and tests responsible for bootstrapping and validating server HTTP behavior. Developers will find the server entry wiring, the central decision module for proxy-trust, and tests that exercise the Express-based HTTP server and RUM/CSP integrations.
+### [server](./server/README.md)
+Contains server-side startup/shutdown wiring, proxy-trust decisions, and test suites for Express-based HTTP server behaviors and RUM/CSP plumbing.
 
-The server/ subdirectory consolidates runtime concerns (startup and graceful shutdown), configuration decisions around trusting proxies, and unit/integration tests that ensure correct HTTP and security-related behaviors. Together, the root-level documentation in this directory and the server/ modules provide a coherent picture of how server process lifecycle and HTTP plumbing are implemented and validated. This docs directory's role in the larger system is to orient contributors to those server responsibilities and point them to the server/ implementation and its tests for hands-on changes and verification.
 
-
-### File Organization
-
-This directory is primarily documentary and points into a hierarchical code layout: there are no root files here; the server/ subdirectory holds four files that implement server startup/shutdown wiring, a proxy-trust decision module, and test suites. The organization keeps documentation separate from executable server modules and tests so developers can quickly find implementation (server/) versus higher-level guidance (this README).
-
-## 📂 Subdirectories
-
-This directory contains the following subdirectories:
-
-### [📁 server/](./server//README.md)
-
-**Purpose:** Contains server-side startup/shutdown wiring, a module centralizing proxy-trust decisions, and test suites for Express-based HTTP server behaviors and RUM/CSP plumbing.
+This directory groups the code and tests responsible for bootstrapping and validating server-side HTTP behavior.
 
 ![Files: 4](https://img.shields.io/badge/Files-4-blue)
 
 ---
-## Dependencies
 
-### External Dependencies
+## 📊 Documentation Statistics
 
-| Dependency | Usage |
-| --- | --- |
-| `Express` | Used as the HTTP server framework referenced by the server-side wiring and tests in the server/ subdirectory. |
-
-## Architecture Notes
-
-- Server responsibilities are separated into a dedicated subdirectory (server/) that contains both bootstrapping/wiring and its tests, keeping implementation and verification co-located.
-- A single module centralizes proxy-trust decisions to ensure consistent handling of X-Forwarded-* headers and related security decisions across server startup and request processing.
-- Tests for Express behaviors and RUM/CSP plumbing are included alongside implementation to enable rapid verification of runtime and security-related changes.
+- **Files Documented**: 4
+- **Directories**: 2
+- **Coverage**: 2%
+- **Eligible Source Files**: 186
+- **Last Updated**: 2026-09-30
 
 ---
 
-## Navigation
+## 🧭 How to Navigate
 
-**↑ Parent Directory:** [Go up](../README.md)
-**🔗 Related:** [server/](./server//README.md)
+> ℹ️ **INFO**
+> Each directory has its own README.md with detailed information about that section. Use the breadcrumb navigation at the top of each page to navigate back to parent directories.
+
+### Navigation Features
+
+- **Breadcrumbs** - At the top of each page, showing your current location
+- **Directory READMEs** - Each folder has a comprehensive overview
+- **File Documentation** - Click through to individual file documentation
+- **Search** - Use GitHub's search or your IDE's search functionality
 
 ---
 
-*Generated by Woden Docbot*
+## 🤖 About Woden DocBot
+
+This documentation is automatically generated and kept up-to-date by Woden DocBot, an AI-powered documentation assistant. DocBot analyzes code on every pull request and updates documentation to reflect changes.
+
+### Features
+
+- **Automatic Updates** - Documentation updates on every PR
+- **Comprehensive Coverage** - Files, functions, classes, and directories
+- **Smart Navigation** - Breadcrumbs, related files, and parent links
+- **AI-Powered** - Uses Azure GPT models for intelligent documentation generation
+
+---
+
+*Generated by Woden DocBot for tasteslikegoodtheangularsvegancookbook*
