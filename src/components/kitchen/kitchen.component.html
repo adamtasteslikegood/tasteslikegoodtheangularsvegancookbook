@@ -231,6 +231,9 @@
         </div>
       }
     } @else {
+      <!-- KAN-295: Home → My Kitchen [→ the selected cookbook]. -->
+      <app-breadcrumb [crumbs]="breadcrumbs()" />
+
       <!-- Main Kitchen Header with Import/Export -->
       <div class="mb-6 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>

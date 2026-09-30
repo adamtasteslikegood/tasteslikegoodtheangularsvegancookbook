@@ -706,4 +706,110 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       );
     });
   });
+
+  // KAN-295: the visible breadcrumb. A published recipe's trail is its SSR
+  // BreadcrumbList, read from the public API; a private one runs through
+  // My Kitchen.
+  describe('breadcrumb trail (KAN-295)', () => {
+    const row = (extra: Record<string, unknown> = {}) => ({
+      id: 'r-1',
+      status: 'ready',
+      is_canonical: false,
+      data: { id: 'r-1', name: 'Tofu Scramble', ingredients: {}, instructions: [] },
+      ...extra,
+    });
+    const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
+    const ssrTrail = [
+      { name: 'Home', url: 'https://www.tasteslikegood.org/' },
+      { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
+      {
+        name: 'Vegan Breakfast Recipes',
+        url: 'https://www.tasteslikegood.org/browse/tag/breakfast',
+      },
+      { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
+    ];
+
+    it('shows the SSR trail, hub included, for a published recipe', async () => {
+      const fetchMock = vi.fn(async (url: string) =>
+        url.startsWith('/api/recipes/public/')
+          ? ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail })
+          : ok(row({ is_public: true, slug: 'tofu-scramble' }))
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '/browse' },
+        { name: 'Vegan Breakfast Recipes', url: '/browse/tag/breakfast' },
+        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
+      ]);
+      expect(fetchMock).toHaveBeenCalledWith('/api/recipes/public/tofu-scramble', {
+        credentials: 'include',
+      });
+    });
+
+    it('falls back to Home → Browse → recipe when the Backend sends no trail', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          url.startsWith('/api/recipes/public/')
+            ? ok({ slug: 'tofu-scramble' })
+            : ok(row({ is_public: true, slug: 'tofu-scramble' }))
+        )
+      );
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '/browse' },
+        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
+      ]);
+    });
+
+    it('keeps the fallback when the public trail request fails', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (url.startsWith('/api/recipes/public/')) throw new TypeError('Failed to fetch');
+          return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+        })
+      );
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.loadState()).toBe('ready');
+      expect(component.breadcrumbs().map((c) => c.name)).toEqual([
+        'Home',
+        'Browse',
+        'Tofu Scramble',
+      ]);
+    });
+
+    it('runs a private recipe through My Kitchen without asking the public API', async () => {
+      const fetchMock = vi.fn(async () => ok(row({ is_public: false, slug: null })));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'My Kitchen', url: '/kitchen' },
+        { name: 'Tofu Scramble', url: '/recipe/r-1' },
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
 });

@@ -5,6 +5,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
+import { BreadcrumbComponent } from '../shared/breadcrumb.component';
+import {
+  privateRecipeTrail,
+  publicRecipeFallbackTrail,
+  trailFromApi,
+  type Crumb,
+} from '../../utils/breadcrumbs';
+import type { Recipe } from '../../recipe.types';
 
 /**
  * What the route is showing right now (KAN-257).
@@ -36,7 +44,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 @Component({
   selector: 'app-recipe-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, UnpublishConfirmComponent],
+  imports: [CommonModule, FormsModule, UnpublishConfirmComponent, BreadcrumbComponent],
   templateUrl: './recipe-detail.component.html',
 })
 export class RecipeDetailComponent extends RecipeViewBase {
@@ -80,6 +88,27 @@ export class RecipeDetailComponent extends RecipeViewBase {
   private requestSeq = 0;
   private currentId: string | null = null;
 
+  /**
+   * KAN-295 — the SSR trail for a published recipe, keyed by the slug it was
+   * fetched for, so a stale answer for another slug is never shown.
+   */
+  private readonly publicTrail = signal<{ slug: string; crumbs: Crumb[] } | null>(null);
+  private publicTrailRequestedFor: string | null = null;
+
+  /**
+   * The visible breadcrumb. A published recipe matches its /r/<slug> page's
+   * BreadcrumbList; until that trail arrives (or when the Backend predates it)
+   * it shows the same trail without the hub step. A private recipe has no SSR
+   * page, so it runs through My Kitchen.
+   */
+  readonly breadcrumbs = computed<Crumb[]>(() => {
+    const r = this.recipe();
+    if (!r) return [];
+    if (!r.is_public || !r.slug) return privateRecipeTrail(r);
+    const fetched = this.publicTrail();
+    return fetched?.slug === r.slug ? fetched.crumbs : publicRecipeFallbackTrail(r);
+  });
+
   constructor() {
     super();
     inject(DestroyRef).onDestroy(() => {
@@ -111,7 +140,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
         // analytics view after Kitchen reset the deduplication boundary (for
         // example, Kitchen → browser Back to the same recipe).
         this.recipeState.viewRecipe(cachedRecipe, this.isSaved());
-        this.loadState.set('ready');
+        this.markReady();
         return;
       }
       void this.load(id);
@@ -125,6 +154,41 @@ export class RecipeDetailComponent extends RecipeViewBase {
 
   goBack() {
     this.router.navigate(['/kitchen']);
+  }
+
+  /** Publishing mints the slug the public trail is keyed by (KAN-295). */
+  override async togglePublic(recipe: Recipe, confirmed = false) {
+    await super.togglePublic(recipe, confirmed);
+    void this.syncPublicTrail();
+  }
+
+  private markReady() {
+    this.loadState.set('ready');
+    void this.syncPublicTrail();
+  }
+
+  /**
+   * KAN-295 — fetch the published recipe's SSR trail once per slug. Any
+   * failure leaves the fallback trail in place: the breadcrumb is navigation,
+   * never a reason to show an error.
+   */
+  private async syncPublicTrail() {
+    const r = this.recipe();
+    if (!r?.is_public || !r.slug) return;
+    const slug = r.slug;
+    if (this.publicTrailRequestedFor === slug) return;
+    this.publicTrailRequestedFor = slug;
+    try {
+      const resp = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) return;
+      const body = (await resp.json()) as { breadcrumbs?: unknown } | null;
+      const crumbs = trailFromApi(body?.breadcrumbs);
+      if (crumbs) this.publicTrail.set({ slug, crumbs });
+    } catch {
+      // Keep the fallback trail.
+    }
   }
 
   private async load(id: string) {
@@ -158,7 +222,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
     const saved = this.authService.currentUser()?.savedRecipes.find((r) => r.id === id);
     if (!saved) return false;
     this.recipeState.viewRecipe(saved);
-    this.loadState.set('ready');
+    this.markReady();
     return true;
   }
 
@@ -246,7 +310,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
       const recipe = recipeFromRow(row);
       // Not in the user's cookbook (cold deep link) — keep Save enabled (#3210).
       this.recipeState.viewRecipe(recipe, false);
-      this.loadState.set('ready');
+      this.markReady();
 
       if (status === 'generating_image') this.joinPendingImage(id, recipe.ai_image_url);
       return;

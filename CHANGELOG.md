@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Visible breadcrumbs in the SPA recipe detail and Kitchen views (KAN-295). A published
+  recipe shows its `/r/<slug>` page's `BreadcrumbList` trail (Home → Browse → hub →
+  recipe), read from `/api/recipes/public/<slug>`. It falls back to Home → Browse → recipe
+  until the Backend field ships (Backend #342). Private recipes and cookbooks run through
+  My Kitchen. The markup is `nav[aria-label="Breadcrumb"] > ol`, and the current page
+  carries `aria-current="page"`.
+
 ## [0.5.4] - 2026-09-30
 
 Backend submodule pointer unchanged at **`5f8964bf3e8b`** (Backend `main`); cookbook-only
