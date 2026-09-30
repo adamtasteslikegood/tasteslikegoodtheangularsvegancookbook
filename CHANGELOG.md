@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-09-30
+
+Backend submodule pointer unchanged at **`5f8964bf3e8b`** (Backend `main`); cookbook-only
+release, no migration changes. Ships the Sprint 10 fixes the 72 h RUM readout (RCP-101)
+depends on: real visitor IPs (KAN-307) and parsed browser/device (KAN-292). The RUM
+clock starts once this build is verified live.
+
 ### Added
 
 - `scripts/git/branch-preflight.sh` fails a branch that is behind `origin/dev`, or whose
