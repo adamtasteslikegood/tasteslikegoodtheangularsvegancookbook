@@ -8,13 +8,25 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/git/branch-preflight.sh` fails a branch that is behind `origin/dev`, or whose
+  Backend gitlink (committed or staged) is not `origin/dev`'s pointer or a descendant of
+  it, so a stale branch can no longer roll the submodule back on merge. Referenced from
+  the CLAUDE.md session-start steps (KAN-303).
+
 ### Fixed
+
+- `/favicon.ico`, `/about`, `/privacy-policy` and the SPA shell now use `sendFile` with a
+  `root`, so they no longer 404 in a checkout under a dot-directory (every agent worktree
+  under `.claude/worktrees/`). Production was unaffected; the two local test failures
+  written off as environment noise are gone (KAN-308).
 
 - Express trusted one proxy hop behind the external load balancer, so `req.ip` was the
   LB's own address for every request. Every rate limiter was one bucket shared by all
-  visitors, and every RUM session was geolocated to the LB. Now two hops
-  (`server/trust-proxy.ts`), which is exact because Cloud Run ingress only admits the LB
-  (KAN-307).
+  visitors, and every RUM session was geolocated to the LB. Express now trusts Cloud Run's
+  front end and, behind it, only the LB's own address (`server/trust-proxy.ts`), so a
+  direct internal caller cannot pick its `req.ip` by writing `X-Forwarded-For` (KAN-307).
 
 ## [0.5.3] - 2026-09-29
 
