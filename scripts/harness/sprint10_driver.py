@@ -112,9 +112,18 @@ def soak_until(state_dir, task_id, now=None):
     status is ``verifying`` and the deadline has not passed: once the window
     ends, collecting the evidence is active work again, and a task sent back
     to execute was never just waiting.
+
+    A soak mark written during an earlier ``verifying`` spell is stale after a
+    ``verifying → other → verifying`` bounce: the docstring says "sent back to
+    execute was never just waiting", so re-entry into ``verifying`` requires a
+    fresh operator ``soak`` call. Detected by mtime: if the state file was
+    modified after the soak file, some transition happened in between.
     """
     path = Path(state_dir) / ("%s.soak.json" % task_id)
+    state_path = Path(state_dir) / ("%s.state.json" % task_id)
     if not path.exists() or raw_status(state_dir, task_id) != "verifying":
+        return None
+    if state_path.stat().st_mtime > path.stat().st_mtime:
         return None
     until = datetime.fromisoformat(json.loads(path.read_text())["until"])
     now = now or datetime.now(timezone.utc)

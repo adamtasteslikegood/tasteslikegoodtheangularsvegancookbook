@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import os
 import sys
 import tempfile
 import threading
@@ -225,6 +226,23 @@ class StartRuleTests(unittest.TestCase):
     def test_a_soak_mark_on_a_task_back_in_execution_is_ignored(self):
         self._three_open()
         self._soak("T5")  # T5 is in_progress, not verifying
+        reasons = driver.refusals(PLAN, "T10", self.dir)
+        self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
+
+    def test_stale_soak_from_prior_verifying_spell_does_not_re_free_slot(self):
+        """Cycle verifying → in_progress → verifying: the earlier soak mark
+        must not silently free the slot again (Adam's docstring: 'a task sent
+        back to execute was never just waiting'). Without the mtime check, the
+        stale mark would honour an ``until`` from the first spell and could
+        collapse T2's 72 h RUM window to a fraction of that."""
+        self._three_open()
+        self._soak("T1")
+        # Force state file mtime to be after the soak file (a real bounce would
+        # rewrite the state file; force it here so the test is time-independent).
+        soak_path = Path(self.dir) / "T1.soak.json"
+        state_path = Path(self.dir) / "T1.state.json"
+        soak_mtime = soak_path.stat().st_mtime
+        os.utime(state_path, (soak_mtime + 1, soak_mtime + 1))
         reasons = driver.refusals(PLAN, "T10", self.dir)
         self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
 
