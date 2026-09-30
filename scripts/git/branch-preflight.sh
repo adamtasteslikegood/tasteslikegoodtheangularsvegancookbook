@@ -41,7 +41,7 @@ while [[ $# -gt 0 ]]; do
       BASE="$2"; shift 2 ;;
     --max-behind)
       [[ $# -ge 2 && "$2" =~ ^[0-9]+$ ]] || { echo "Error: --max-behind requires a non-negative integer" >&2; exit 2; }
-      MAX_BEHIND="$2"; shift 2 ;;
+      MAX_BEHIND="$((10#$2))"; shift 2 ;;
     --no-fetch) FETCH=false; shift ;;
     *) echo "Error: unknown argument $1" >&2; exit 2 ;;
   esac
