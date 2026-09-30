@@ -26,6 +26,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   browser, OS and device. Before, it saw Node's fetch UA and every session read "Other",
   which left no mobile/desktop split for the launch readout (KAN-292).
 
+- Express trusted one proxy hop behind the external load balancer, so `req.ip` was the
+  LB's own address for every request. Every rate limiter was one bucket shared by all
+  visitors, and every RUM session was geolocated to the LB. Express now trusts Cloud Run's
+  front end and, behind it, only the LB's own address (`server/trust-proxy.ts`), so a
+  direct internal caller cannot pick its `req.ip` by writing `X-Forwarded-For` (KAN-307).
+
 ## [0.5.3] - 2026-09-29
 
 Backend submodule pointer: **`03e6cdaa70f0` → `5f8964bf3e8b`** (Backend `main`, promotion
