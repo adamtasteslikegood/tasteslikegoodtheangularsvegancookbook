@@ -24,7 +24,7 @@ import {
   createRumConfigLimiter,
   createRumIntakeLimiter,
 } from './security.js';
-import { TRUST_PROXY_HOPS } from './trust-proxy.js';
+import { applyTrustProxy } from './trust-proxy.js';
 
 const CONFIG: RumConfig = {
   enabled: true,
@@ -45,7 +45,7 @@ async function boot(
   configLimiter: RequestHandler = passThrough
 ) {
   const app = express();
-  app.set('trust proxy', TRUST_PROXY_HOPS);
+  applyTrustProxy(app);
   app.use(createRumRouter({ config, intakeLimiter, configLimiter, fetchImpl }));
   const server = http.createServer(app);
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
