@@ -347,8 +347,17 @@ def cmd_soak(args):
             print("SOAK REFUSED — --until %s is beyond %s's declared %d h window"
                   % (until.isoformat(), task["id"], window))
             return REFUSED
-        path.write_text(json.dumps({"until": until.isoformat(), "reason": args.reason,
-                                    "set_at": now.isoformat()}, indent=2) + "\n")
+        # One soak per mark: a second call must never move the deadline or turn
+        # reentry back into soaking (review on #3555). Check and write under the
+        # same lock resume holds, so the existence test cannot race a writer.
+        with (state_dir / ".start.lock").open("a") as lock:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            if path.exists():
+                print("SOAK REFUSED — %s is already marked (%s); `resume %s` first"
+                      % (task["id"], soak_phase(state_dir, task["id"]), task["id"]))
+                return REFUSED
+            path.write_text(json.dumps({"until": until.isoformat(), "reason": args.reason,
+                                        "set_at": now.isoformat()}, indent=2) + "\n")
         print("SOAKING %s until %s — no WIP slot while it waits; `resume %s` to re-enter"
               % (task["id"], until.isoformat(), task["id"]))
         return 0
