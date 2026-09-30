@@ -110,12 +110,39 @@
         color: var(--muted);
         font-size: 0.85rem;
       }
+      /* Site nav: the canonical header set in src/site-nav.json (KAN-294). */
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1.25rem;
+        margin-bottom: 1.25rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+      .site-nav a {
+        text-decoration: none;
+      }
+      /* This page's --light-green (#40916c) is 3.65:1 on --bg, under WCAG AA at
+         nav/footer sizes; the chrome uses --green (#2d6a4f), as dark as /about's. */
+      .site-nav a,
+      footer a {
+        color: var(--green);
+      }
+      .site-nav a:first-child {
+        margin-right: auto;
+      }
     </style>
   </head>
   <body>
     <header>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="/" aria-label="VeganGenius Chef home">VeganGenius Chef</a>
+        <a href="/generate">Generator</a>
+        <a href="/kitchen">My Kitchen</a>
+        <a href="https://www.tasteslikegood.org/browse">Browse</a>
+      </nav>
       <h1>Privacy Policy</h1>
-      <p>tasteslikegood.org &mdash; Vegangenius Chef &nbsp;|&nbsp; Last updated: April 13, 2026</p>
+      <p>tasteslikegood.org &mdash; Vegangenius Chef &nbsp;|&nbsp; Last updated: September 29, 2026</p>
     </header>
 
     <main>
@@ -214,6 +241,24 @@
         Pages viewed, features used, recipes generated, and timestamps of activity. This data is
         used to operate and improve the service.
       </p>
+      <p>
+        <strong>Optional performance analytics (opt-in).</strong> If, and only if, you choose
+        &ldquo;Allow analytics&rdquo; in the analytics banner, we measure page load speed and
+        errors, the pages you view, which recipes are viewed and saved, and how you arrived (the
+        referring site and the standard campaign tags in the link: <code>utm_source</code>,
+        <code>utm_medium</code>, <code>utm_campaign</code>, <code>utm_content</code> and
+        <code>utm_term</code>), using Datadog Real User Monitoring. Until you allow it, the Datadog
+        code is not loaded and nothing is sent. Page addresses are sent without their query strings,
+        apart from those five campaign tags. We do
+        not record your screen (no session replay), we do not record what you type or the text of
+        what you click, and we do not use this data for advertising.
+      </p>
+      <p>
+        With that opt-in, the measurements are relayed through our servers to Datadog together with
+        your IP address (used by Datadog to derive an approximate location: country and city) and
+        your browser, operating system and device type. None of this is shared with Datadog if
+        you do not allow analytics.
+      </p>
 
       <h3>3.5 Device and Browser Information</h3>
       <p>
@@ -225,6 +270,21 @@
       <p>
         We use essential session cookies to maintain your login state. We may use preference cookies
         to remember your settings. We do not use third-party advertising cookies.
+      </p>
+      <p>
+        Your analytics choice is remembered in your browser&rsquo;s <code>localStorage</code>
+        (<code>tlg.analytics-consent</code>). Before you allow analytics, how you arrived is not sent
+        to Datadog. If you follow a recipe&rsquo;s save link before choosing, only those five campaign
+        tags already in the page address are copied into the same-origin destination address to
+        preserve attribution; our server receives that address as part of the ordinary navigation.
+        If you allow analytics, the sanitized landing context (the page path, external referrer
+        reduced to its origin and path, and those five campaign tags) is stored for this browser
+        session in <code>sessionStorage</code>
+        (<code>tlg.analytics-landing</code>) and sent to Datadog. Consented recipe actions waiting
+        for the analytics code may also be stored temporarily in <code>sessionStorage</code>
+        (<code>tlg.analytics-pending-actions</code>) and are removed after delivery or when you
+        withdraw consent. Datadog also keeps an anonymous session identifier in
+        <code>localStorage</code> (<code>_dd_s_v2</code>). Datadog sets no cookies here.
       </p>
 
       <hr />
@@ -311,11 +371,16 @@
         profile picture) is included in those requests.
       </p>
 
-      <h3>7.2 Hosting and Infrastructure</h3>
+      <h3>7.2 Hosting, Infrastructure, and Analytics Providers</h3>
       <p>
         Your data is processed on Google Cloud Platform (Cloud Run, Cloud SQL) infrastructure
         located in the United States (us-central1). Google Cloud acts as a data processor on our
         behalf under Google's standard data processing terms.
+      </p>
+      <p>
+        If you allow analytics (section 3.4), the measurements are relayed through our own servers
+        to Datadog, Inc. (United States, US5 region), which acts as a data processor on our behalf
+        under its data processing terms.
       </p>
 
       <h3>7.3 No Sale of Personal Data</h3>
@@ -382,10 +447,14 @@
         retained unless you also request account deletion.
       </p>
 
-      <h3>10.3 Opting Out of Analytics</h3>
+      <h3 id="analytics">10.3 Analytics Choice</h3>
       <p>
-        You may opt out of analytics data collection by using the application in guest mode (without
-        signing in) or by using browser tools to block tracking.
+        Performance analytics is off unless you allow it. While it is available, an
+        &ldquo;Analytics choice&rdquo; button in the site footer lets you change your choice at
+        any time.
+        <button type="button" hidden data-analytics-settings>Change analytics choice</button>
+        Turning it off stops the analytics session and reloads the page without the Datadog code.
+        Browser tools that block tracking also prevent it.
       </p>
 
       <h3>10.4 GDPR and UK GDPR Rights</h3>
@@ -473,8 +542,12 @@
     <footer>
       <p>
         &copy; 2026 Tasteslikegood.org &mdash; Vegangenius Chef. All rights reserved.<br />
-        <a href="/">Return to app</a>
+        <a href="https://www.tasteslikegood.org/browse">Browse recipes</a> &middot;
+        <a href="https://www.tasteslikegood.org/about">About</a> &middot;
+        <a href="https://www.tasteslikegood.org/privacy-policy">Privacy Policy</a>
       </p>
     </footer>
+    <!-- Analytics consent gate (KAN-292): powers the "Change analytics choice" button. -->
+    <script defer src="/rum/consent.js"></script>
   </body>
 </html>

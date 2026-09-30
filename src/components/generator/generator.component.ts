@@ -1,10 +1,15 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
+import {
+  saveOutcomeForAnalytics,
+  trackRecipeSaveOutcome,
+  trackRecipeView,
+} from '../../utils/analytics';
 import {
   LANDING_FAQ,
   LANDING_H1,
@@ -39,6 +44,11 @@ export class GeneratorComponent extends RecipeViewBase {
   prompt = signal('');
   isRecipeLoading = signal(false);
   error = signal<string | null>(null);
+  private readonly savingRecipeIds = signal<ReadonlySet<string>>(new Set());
+  readonly isCurrentRecipeSaving = computed(() => {
+    const recipeId = this.recipe()?.id;
+    return Boolean(recipeId && this.savingRecipeIds().has(recipeId));
+  });
 
   /**
    * KAN-256 — the generator resets on ROUTE ENTRY, not on submit.
@@ -90,9 +100,24 @@ export class GeneratorComponent extends RecipeViewBase {
         // AI-mediated content from manual entry.
         origin: 'generated',
       };
-      this.recipe.set(generatedRecipe);
-      this.isSaved.set(true);
-      await this.persistenceService.saveRecipe(generatedRecipe);
+      // Display and count the view immediately; persistence can be slow or
+      // fail, and a rendered recipe is still a view. Start unsaved, then let
+      // the detailed outcome below reconcile the Save control (KAN-292).
+      this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
+      trackRecipeView(generatedRecipe, false);
+      if (this.beginRecipeSave(generatedRecipe.id)) {
+        try {
+          const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+          if (this.recipe()?.id === generatedRecipe.id) {
+            this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
+          }
+          // KAN-292: already_saved / saved / saved_offline from the detailed
+          // outcome; ownership and duplicate refusals keep nothing and emit nothing.
+          trackRecipeSaveOutcome('generated', outcome);
+        } finally {
+          this.finishRecipeSave(generatedRecipe.id);
+        }
+      }
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
       void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
@@ -107,9 +132,31 @@ export class GeneratorComponent extends RecipeViewBase {
 
   async onSaveRecipe() {
     const currentRecipe = this.recipe();
-    if (!currentRecipe) return;
-    await this.persistenceService.saveRecipe(currentRecipe);
-    this.isSaved.set(true);
+    if (!currentRecipe || !this.beginRecipeSave(currentRecipe.id)) return;
+    try {
+      const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
+      if (this.recipe()?.id === currentRecipe.id) {
+        this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
+      }
+      trackRecipeSaveOutcome('generator_save', outcome);
+    } finally {
+      this.finishRecipeSave(currentRecipe.id);
+    }
+  }
+
+  private beginRecipeSave(recipeId: string): boolean {
+    const current = this.savingRecipeIds();
+    if (current.has(recipeId)) return false;
+    const next = new Set(current);
+    next.add(recipeId);
+    this.savingRecipeIds.set(next);
+    return true;
+  }
+
+  private finishRecipeSave(recipeId: string): void {
+    const next = new Set(this.savingRecipeIds());
+    next.delete(recipeId);
+    this.savingRecipeIds.set(next);
   }
 
   openAddToCookbookModal() {

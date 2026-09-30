@@ -2,6 +2,7 @@ import { Injectable, signal, WritableSignal } from '@angular/core';
 import { Cookbook, User } from '../auth.types';
 import { Recipe } from '../recipe.types';
 import { environment } from '../environments/environment';
+import { resetRecipeViewTracking } from '../utils/analytics';
 
 /**
  * Authentication service that orchestrates both:
@@ -185,6 +186,7 @@ export class AuthService {
 
     this.currentUser.set(null);
     localStorage.removeItem(this.STORAGE_KEY_SESSION);
+    resetRecipeViewTracking();
   }
 
   // ─── Guest Session ────────────────────────────────────────────

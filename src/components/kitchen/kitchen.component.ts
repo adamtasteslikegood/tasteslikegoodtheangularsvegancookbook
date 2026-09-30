@@ -16,7 +16,8 @@ import { DialogFocusDirective } from '../shared/dialog-focus.directive';
  * 'published' — live on the site. Deleting is refused outright (the server
  *               answers 409 too). The dialog only says to unpublish first:
  *               no link or shortcut to do it, by design (Adam, 2026-09-28).
- * 'retiring'  — unpublished, but it once had a public page. Deleting retires
+ * 'retiring'  — unpublished, but it once had a public page, or its slug is
+ *               reserved (KAN-291: a KAN-288 owner marker). Deleting retires
  *               that /r/<slug> for good (410, never reused), so the user types
  *               the slug to confirm.
  * 'bin'       — never published: the ordinary recycle-bin confirmation.
@@ -25,7 +26,7 @@ export type DeleteMode = 'published' | 'retiring' | 'bin';
 
 export function deleteModeFor(recipe: Recipe): DeleteMode {
   if (recipe.is_public) return 'published';
-  return hasEverBeenPublished(recipe) ? 'retiring' : 'bin';
+  return hasEverBeenPublished(recipe) || recipe.slug_reserved ? 'retiring' : 'bin';
 }
 
 /** What the user must type to confirm a 'retiring' delete. */
@@ -59,6 +60,10 @@ export class KitchenComponent {
   }
 
   constructor() {
+    // Entering the recipe list ends the prior detail-page analytics view.
+    // Keep the cached recipe for fast return navigation, but allow selecting
+    // the same recipe again to count as a new view.
+    this.recipeState.leaveRecipeView();
     this.authService.ensureGuestSession();
   }
 
@@ -121,7 +126,9 @@ export class KitchenComponent {
   }
 
   viewRecipe(r: Recipe) {
-    this.recipeState.viewRecipe(r);
+    // Stage the fast-path state now; RecipeDetailComponent records the view
+    // only after the detail route actually activates.
+    this.recipeState.stageRecipeForNavigation(r);
     this.router.navigate(['/recipe', r.id]);
   }
 

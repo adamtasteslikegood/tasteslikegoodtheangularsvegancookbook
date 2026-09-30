@@ -1,10 +1,10 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.5.2",
+  "version": "0.5.3",
   "type": "module",
   "scripts": {
-    "dev": "ng serve",
+    "dev": "tsc -p server/tsconfig.server.json && node scripts/dev.mjs",
     "build": "ng build && tsc -p server/tsconfig.server.json && node server/dist/check-spa-shell.js",
     "preview": "ng serve --configuration=production",
     "start": "node server/dist/index.js",
@@ -59,6 +59,7 @@
     "@angular-eslint/eslint-plugin-template": "22.5.0",
     "@angular-eslint/schematics": "22.5.0",
     "@angular-eslint/template-parser": "22.5.0",
+    "@datadog/browser-rum-slim": "7.15.0",
     "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.2",

@@ -28,12 +28,30 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     vi.restoreAllMocks();
   });
 
-  const createComponent = (opts: { isGuest?: boolean } = {}) => {
+  const createComponent = (
+    opts: {
+      isGuest?: boolean;
+      saveResult?: boolean;
+      saveOutcome?: {
+        ok: boolean;
+        refusal?: string;
+        alreadySaved?: boolean;
+        noSession?: boolean;
+      };
+    } = {}
+  ) => {
     const recipeState = runInInjectionContext(
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
+    // One double for saveRecipe and saveRecipeDetailed (the publish tests
+    // override it per case), resolving to a detailed SaveOutcome.
+    const persistenceSaveRecipe = vi
+      .fn()
+      .mockResolvedValue(
+        opts.saveOutcome ??
+          (opts.saveResult === false ? { ok: false, refusal: 'sync' } : { ok: true })
+      );
     const authUser = { isGuest: opts.isGuest ?? true, savedRecipes: [] as unknown[] };
 
     const injector = Injector.create({
@@ -58,7 +76,18 @@ describe('GeneratorComponent shared recipe behaviour', () => {
             publishStateSync: () => 'synced',
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: {
+            generateRecipe: vi.fn().mockResolvedValue({
+              id: 'gen-1',
+              name: 'Vegan Cornbread',
+              ingredients: { wet: [], dry: [], other: [] },
+              instructions: [],
+            }),
+            generateImage: vi.fn().mockResolvedValue('/api/recipes/gen-1/image'),
+          },
+        },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
         { provide: ModalService, useValue: { openAuth, openAddToCookbook: vi.fn() } },
@@ -68,9 +97,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     return { component, persistenceSaveRecipe, authUser, recipeState, injector };
   };
 
-  const draftRecipe = () =>
+  const draftRecipe = (id = 'gen-1') =>
     ({
-      id: 'gen-1',
+      id,
       name: 'Vegan Cornbread',
       ingredients: { wet: [], dry: [], other: [] },
       instructions: [],
@@ -221,6 +250,240 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(component.formatAmount(2)).toBe('2');
     expect(component.formatAmount([1, 2])).toBe('1 - 2');
   });
+
+  it('routes generated recipes through the shared view event and reports offline saves', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component, recipeState } = createComponent({ saveResult: false });
+    component.prompt.set('vegan cornbread');
+
+    await component.onGenerate();
+
+    expect(recipeState.currentRecipe()?.id).toBe('gen-1');
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: false,
+      slug: null,
+    });
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generated',
+      outcome: 'saved_offline',
+      slug: null,
+    });
+    expect(component.isSaved()).toBe(true);
+  });
+
+  it('records a generated view before persistence settles', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: false,
+      slug: null,
+    });
+    expect(component.isSaved()).toBe(false);
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.isSaved()).toBe(true);
+  });
+
+  it('blocks a manual save while the generated recipe save is still pending', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+    expect(component.isCurrentRecipeSaving()).toBe(true);
+
+    await component.onSaveRecipe();
+    expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.isCurrentRecipeSaving()).toBe(false);
+    expect(action.mock.calls.filter(([name]) => name === 'recipe_saved')).toHaveLength(1);
+  });
+
+  it('coalesces rapid repeated manual saves for the same recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    recipeState.stageRecipeForNavigation(draftRecipe(), false);
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    const first = component.onSaveRecipe();
+    const second = component.onSaveRecipe();
+    await second;
+    expect(component.isCurrentRecipeSaving()).toBe(true);
+    expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+
+    resolveSave({ ok: true });
+    await first;
+    expect(component.isCurrentRecipeSaving()).toBe(false);
+    expect(action.mock.calls.filter(([name]) => name === 'recipe_saved')).toHaveLength(1);
+  });
+
+  it('does not let a stale generated-save result update a newly selected recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+    recipeState.stageRecipeForNavigation(draftRecipe('gen-2'), false);
+
+    resolveSave({ ok: true });
+    await generating;
+    expect(component.recipe()?.id).toBe('gen-2');
+    expect(component.isSaved()).toBe(false);
+    expect(action).toHaveBeenCalledWith('recipe_saved', expect.anything());
+  });
+
+  it('does not let a stale manual-save result update a newly selected recipe', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState } = createComponent();
+    recipeState.stageRecipeForNavigation(draftRecipe(), false);
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+
+    const saving = component.onSaveRecipe();
+    recipeState.stageRecipeForNavigation(draftRecipe('gen-2'), false);
+    resolveSave({ ok: true });
+    await saving;
+
+    expect(component.recipe()?.id).toBe('gen-2');
+    expect(component.isSaved()).toBe(false);
+    expect(action).toHaveBeenCalledWith('recipe_saved', expect.anything());
+  });
+
+  it('reports a manual generator save as offline when API sync fails', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveResult: false });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generator_save',
+      outcome: 'saved_offline',
+      slug: null,
+    });
+  });
+
+  it.each([
+    [{ ok: true, alreadySaved: true }, 'already_saved'],
+    [{ ok: true }, 'saved'],
+    [{ ok: false, refusal: 'sync' }, 'saved_offline'],
+  ])('maps a manual save outcome %o to recipe_saved %s', async (saveOutcome, outcome) => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(action).toHaveBeenCalledWith('recipe_saved', {
+      surface: 'spa',
+      source: 'generator_save',
+      outcome,
+      slug: null,
+    });
+    expect(component.isSaved()).toBe(true);
+  });
+
+  it.each([
+    { ok: true, noSession: true },
+    { ok: false, refusal: 'ownership' },
+    { ok: false, refusal: 'duplicate' },
+  ])('keeps manual Save enabled when persistence is unconfirmed (%o)', async (saveOutcome) => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(component.isSaved()).toBe(false);
+    expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+  });
+
+  it('emits no recipe_saved when there was no session, so nothing was saved', async () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
+    component.prompt.set('vegan cornbread');
+
+    await component.onGenerate();
+
+    expect(action).toHaveBeenCalledWith('recipe_view', {
+      surface: 'spa',
+      saved: false,
+      slug: null,
+    });
+    expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+    expect(component.isSaved()).toBe(false);
+  });
+
+  it.each(['duplicate', 'ownership', 'OWNERSHIP_OTHER_ACCOUNT'])(
+    'emits no recipe_saved when a generated save is refused (%s)',
+    async (refusal) => {
+      const action = vi.fn();
+      vi.stubGlobal('tlgAnalytics', { action });
+      const { component } = createComponent({ saveOutcome: { ok: false, refusal } });
+      component.prompt.set('vegan cornbread');
+
+      await component.onGenerate();
+
+      expect(action).toHaveBeenCalledWith('recipe_view', {
+        surface: 'spa',
+        saved: false,
+        slug: null,
+      });
+      expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
+      expect(component.isSaved()).toBe(false);
+    }
+  );
 
   // KAN-256: `clearRecipe()` fired inside onGenerate() — submit-time, not
   // entry-time. The recipe lives on RecipeStateService (a root singleton) so

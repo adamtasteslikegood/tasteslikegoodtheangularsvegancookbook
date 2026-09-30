@@ -1,0 +1,875 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Drive Sprint 10 to close: every committed SI in specs/SPRINT_10_PLAN.md is Done on its acceptance row with AC-by-AC evidence, or escalated to Adam and dropped by a charter update. Hard gate: no committed Sprint 10 item sits in To Do.",
+  "domain": "project-management",
+  "compiled_at": "2026-09-29",
+  "authored_by": "hand-authored against specs/SPRINT_10_PLAN.md, like Sprint 9's: goal_compiler.py emits one generic task per matched skill and cannot carry per-SI acceptance or lane boundaries",
+  "charter": "specs/SPRINT_10_PLAN.md",
+  "jira": {
+    "epic": "RCP-100",
+    "sprint": "Sprint 10",
+    "sprint_id": 85,
+    "board": 168,
+    "board_name": "RCP Scrum Board"
+  },
+  "hard_gate": {
+    "cmd": "python3 scripts/harness/sprint10_hard_gate.py",
+    "charter_cmd": "python3 scripts/harness/sprint10_hard_gate.py --charter",
+    "rule": "no committed Sprint 10 item may sit in the To Do status category (close form); --charter proves membership + board-rendered acceptance rows on an active sprint",
+    "observed_failing": "2026-09-29: --charter exit 1 with no sprint, exit 1 with the sprint future; close form exit 1 with 21 items in To Do on day 1",
+    "note": "Status alone is weak evidence: every SI task also carries an artifact or content check and a named-evidence requirement."
+  },
+  "repo_scope": {
+    "backend_repo": "adamtasteslikegood/tasteslikegood.com",
+    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. T1 (KAN-268), T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), and the Backend-template halves of T7/T9 do; cookbook-only tasks search this repo."
+  },
+  "lanes": {
+    "A": {
+      "owns": "S1 -> S3 -> S4, S2 in parallel (gates)",
+      "must_not_touch": [
+        "CLAUDE.md",
+        ".github/workflows/"
+      ]
+    },
+    "B": {
+      "owns": "S5 -> S6 -> S7 -> S8 -> S9 (UI, serial)",
+      "must_not_touch": [
+        "Backend/services/",
+        ".github/workflows/"
+      ]
+    },
+    "C": {
+      "owns": "S10 through the sprint, S11 last (distribution)",
+      "must_not_touch": [
+        "src/",
+        "Backend/"
+      ]
+    },
+    "D": {
+      "owns": "S15 first, then S12; S14 -> S13 -> S16 on CLAUDE.md (process)",
+      "must_not_touch": [
+        "src/",
+        "Backend/"
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "si": "board",
+      "jira": [
+        "RCP-100",
+        "RCP-99"
+      ],
+      "lane": "PM",
+      "depends_on": [],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Board honesty before any SI runs. Sprint 10 (id 85, board 168) was created and started at charter on 2026-09-29 with every committed item; this task re-proves it and moves RCP-100 to In Progress as the sprint's own start evidence. Do not re-create the sprint.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint10_hard_gate.py --charter",
+        "bash scripts/pm/check_sprint_lane.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --charter",
+          "expect_exit": 0,
+          "kind": "board-wiring"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane"
+        },
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues RCP-100",
+          "expect_exit": 0,
+          "kind": "board"
+        }
+      ],
+      "done_when": "--charter and the lane gate exit 0, and RCP-100 is out of To Do",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T1",
+      "si": "S1",
+      "jira": [
+        "KAN-268",
+        "RCP-98"
+      ],
+      "lane": "A",
+      "depends_on": [
+        "T0"
+      ],
+      "anchor": true,
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "ANCHOR, non-droppable. Flask Valkey client fails IAM auth on ~51% of connects (~4.4 s each); image p95 9.6-11 s. The fix is BACKEND work: PR into Backend dev, promote to main, back-sync, then pin Backend MAIN's own SHA in a cookbook PR and release (scripts/release/RUNBOOK.md). Write the root cause on KAN-268 before the fix merges. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. LANE A: do not touch src/.",
+      "suggested_tools": [
+        "gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-268 in:title'",
+        "scripts/git/ahead-behind.sh --base dev . Backend",
+        "./scripts/release/train-verify.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-268",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-268 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-268 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: paste the Datadog production 24 h evidence named on RCP-98 (redis.command error rate < 1 %, PING p50 < 50 ms, image p95 < 2 s), the Backend PR numbers and pinned SHA, and the root-cause note on KAN-268. All listed ACs must be satisfied; if the release is not live or any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Backend fix merged, promoted, pinned, released; RCP-98 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T2",
+      "si": "S2",
+      "jira": [
+        "KAN-292",
+        "RCP-101"
+      ],
+      "lane": "A",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. CSP: server/security.ts pins connect-src 'self' and script-src 'self'+hash, so RUM is blocked until this task changes it narrowly (same-origin intake proxy, or only the exact us5 intake host in connect-src; SDK bundled or same-origin; no third-party script-src, no 'unsafe-inline'). Custom actions for recipe view and save-to-Kitchen plus launch-referral attribution (referrer/UTM) must exist before the 7-day clock starts, because that week is the readout baseline. Starts day 1: its 7-day clock is the long pole for S11.",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-292 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-292",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-292 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-292 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the consent-gate unit test, a production network capture with zero RUM intake requests before consent, a real-browser production capture with zero CSP violations after consent on one SPA and one SSR route, the RUM explorer link for SPA and SSR views, the view / save-to-Kitchen custom actions and referral attribution seen in the explorer before the clock starts, and the daily session counts for 7 consecutive days.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RUM live behind consent for >= 7 consecutive days, evidenced on RCP-101",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T3",
+      "si": "S3",
+      "jira": [
+        "KAN-293",
+        "RCP-102"
+      ],
+      "lane": "A",
+      "depends_on": [
+        "T1"
+      ],
+      "skill": "benchmark",
+      "skill_path": "~/.claude/skills/benchmark",
+      "objective": "Mobile LCP <= 2.5 s on /r/<slug>, /browse, / (Lighthouse 12, simulated slow-4G; now 3.1/3.1/1.2 s). Measured on the release that includes S1. Pre-stated flip: if S1 alone meets it, close evidence-only.",
+      "suggested_tools": [
+        "npx lighthouse https://www.tasteslikegood.org/browse --form-factor=mobile --throttling-method=simulate --only-categories=performance --output=json"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-293",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the Lighthouse summary for all three URLs with LCP <= 2.5 s, and the release tag it was measured on.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "LCP <= 2.5 s on all three URLs, evidenced on RCP-102",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T4",
+      "si": "S4",
+      "jira": [
+        "KAN-181",
+        "RCP-103"
+      ],
+      "lane": "A",
+      "depends_on": [
+        "T3"
+      ],
+      "skill": "qa-only",
+      "skill_path": "~/.claude/skills/qa-only",
+      "objective": "Re-walk KAN-181 INV-1..INV-9 on the current production revision (after the v0.5.2 delete/unpublish confirmations). Report pass/fail per invariant on KAN-181; file any failure as its own bug. Guests cannot publish: test through the app/API, never the ORM.",
+      "suggested_tools": [
+        "/browse (gstack) against https://www.tasteslikegood.org"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-181",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: per-invariant pass/fail with evidence for INV-1..INV-9, the production revision walked, and links to any bugs filed.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "all nine invariants walked and recorded; no failing invariant left without its own bug",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T5",
+      "si": "S5",
+      "jira": [
+        "KAN-294",
+        "RCP-104"
+      ],
+      "lane": "B",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Header and footer nav parity across the SPA shell and the SSR base template (base_public.html). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-294 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-294",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-294 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-294 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the parity test output and production evidence on /, /kitchen, /r/<slug>, /browse, /browse/tag/<tag>, /about.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-104 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T6",
+      "si": "S6",
+      "jira": [
+        "KAN-295",
+        "RCP-105"
+      ],
+      "lane": "B",
+      "depends_on": [
+        "T5"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Visible breadcrumbs in the SPA, matching the SSR BreadcrumbList (KAN-273). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-295 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-295",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-295 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the component tests and production screenshots of both the SPA recipe-detail and collection views, each showing a visible breadcrumb trail matching the corresponding SSR JSON-LD.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-105 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T7",
+      "si": "S7",
+      "jira": [
+        "KAN-296",
+        "RCP-106"
+      ],
+      "lane": "B",
+      "depends_on": [
+        "T6"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Numbered SSR pagination (?page=N anchors, self-canonical per page, out-of-range behaviour decided and tested) on /browse and tag hubs. Backend templates + cookbook pointer. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-296 in:title'",
+        "gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-296 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-296",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-296 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-296 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Backend page-boundary tests and a production curl of page 2 on /browse and one tag hub.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-106 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T8",
+      "si": "S8",
+      "jira": [
+        "KAN-297",
+        "RCP-107"
+      ],
+      "lane": "B",
+      "depends_on": [
+        "T7"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Mobile 2-up recipe cards on /browse, tag hubs and /kitchen. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-297 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-297",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-297 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-297 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: screenshots at 360 and 414 px on all three surfaces explicitly showing exactly two cards per row and no horizontal overflow at either width, plus a Lighthouse re-run on /browse showing S3 not regressed.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-107 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T9",
+      "si": "S9",
+      "jira": [
+        "KAN-298",
+        "RCP-108"
+      ],
+      "lane": "B",
+      "depends_on": [
+        "T8"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Kitchen client-side filter/sort; /browse?sort&tag with rel=canonical to /browse; /browse/tag/<tag> keeps its own canonical. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
+      "suggested_tools": [
+        "gh pr list --state all --search 'KAN-298 in:title'",
+        "gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-298 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-298",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-298 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-298 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the component test, the Backend canonical test, a production curl of filtered /browse showing canonical /browse, and a production curl of /browse/tag/<tag> showing that tag hub's own canonical.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-108 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T10",
+      "si": "S10",
+      "jira": [
+        "KAN-277",
+        "RCP-109"
+      ],
+      "lane": "C",
+      "depends_on": [
+        "T0"
+      ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
+      ],
+      "skill": "marketing-skills:content-strategy",
+      "skill_path": "marketing-skills:content-strategy",
+      "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each. Starts only when a WIP slot frees after T1, T2 and T5 open on day 1 (Adam, 2026-09-29: WIP stays 3; T10 waits).",
+      "suggested_tools": [
+        "JQL: issue in linkedIssues(RCP-109) AND project = KAN"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-277",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane"
+        },
+        {
+          "cmd": "MANUAL: the owned-property audit list; per child row: the child is labelled sprint-10 and Relates-linked to both KAN-277 and RCP-109, source contains the link, link resolves 200 to the canonical URL, and articles carry the completed Q6 rubric; JQL issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done returning nothing.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "audit complete, every missing link shipped or dispositioned, 3-5 articles pass Q6, RCP-109 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T11",
+      "si": "S11",
+      "jira": [
+        "KAN-299",
+        "RCP-110"
+      ],
+      "lane": "C",
+      "depends_on": [
+        "T1",
+        "T2",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10"
+      ],
+      "requires_done": [
+        "RCP-98",
+        "RCP-101",
+        "RCP-103",
+        "RCP-104",
+        "RCP-105",
+        "RCP-106",
+        "RCP-107",
+        "RCP-108"
+      ],
+      "skill": "marketing-skills:launch-strategy",
+      "skill_path": "marketing-skills:launch-strategy",
+      "objective": "Launch post (Show HN / Product Hunt / r/vegan), LAST. Do not start until the four gates are Done: S1, S2 live >= 7 days, S4, and S5-S9. Enforced before the work, not after it: sprint10_driver.py start T11 refuses unless every requires_done row is exactly Done (In Review is not enough; the post cannot be taken back). The 7-day readout is already pre-registered in specs/SPRINT_10_PLAN.md (incl. the >= 100-view minimum sample); do not change it after posting. If its due date falls after the sprint box, record the roll with owner, due date, and the unchanged pre-registered table so close-out can proceed without pretending the readout exists.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-268 KAN-292 KAN-181 KAN-294 KAN-295 KAN-296 KAN-297 KAN-298"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-299",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues RCP-98 RCP-101 RCP-103 RCP-104 RCP-105 RCP-106 RCP-107 RCP-108",
+          "expect_exit": 0,
+          "kind": "gates-out-of-todo"
+        },
+        {
+          "cmd": "MANUAL: the four gate rows Done with their evidence and the post URL(s) and date; then either (a) the readout written 7 days later against the pre-registered table, inconclusive below the minimum sample, or (b) when that due date falls after the sprint box, an explicit evidenced roll naming the owner, due date, post baseline, and unchanged pre-registered table.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "post published after all four gates, with either the completed seven-day readout or an explicit evidenced roll when the readout is due after the sprint box",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T12",
+      "si": "S12",
+      "jira": [
+        "KAN-300",
+        "RCP-111"
+      ],
+      "lane": "D",
+      "depends_on": [
+        "T15"
+      ],
+      "skill": "senior-devops",
+      "skill_path": "engineering-skills:senior-devops",
+      "objective": "A check that extracts .github/workflows references with the authoritative pattern secrets\\.[A-Za-z0-9_]+, diffs them against gh secret list, and explicitly exempts only the built-in GITHUB_TOKEN (which gh secret list does not return); wire it into pr-gate.yml and gate.needs, and observe it fail once for the reason it exists. LANE D: .github/workflows/ and scripts only.",
+      "suggested_tools": [
+        "gh secret list",
+        "grep -rhoE 'secrets\\.[A-Za-z0-9_]+' .github/workflows | sort -u | grep -vx 'secrets\\.GITHUB_TOKEN'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-300",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-300 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: tests proving the exact secrets\\.[A-Za-z0-9_]+ extraction accepts lowercase and digits, GITHUB_TOKEN is the explicit built-in exemption, the run log where the check failed on a deliberately missing secret then passed, and the pr-gate.yml gate.needs line.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "check live in pr-gate.yml, observed failing for its reason, RCP-111 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T13",
+      "si": "S13",
+      "jira": [
+        "KAN-301",
+        "RCP-112"
+      ],
+      "lane": "D",
+      "depends_on": [
+        "T14"
+      ],
+      "skill": "claude-md-drift-audit",
+      "skill_path": "~/.claude/skills/claude-md-drift-audit",
+      "objective": "Write the suppressed-comment sweep into the CLAUDE.md PR lifecycle: pulls/<n>/reviews bodies are read in full before any PR is declared review-debt-zero. LANE D runs the CLAUDE.md items serially (S14 -> S13 -> S16).",
+      "suggested_tools": [
+        "git show origin/dev:CLAUDE.md | grep -n 'pulls/<n>'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-301",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-301 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -q 'pulls/<n>/reviews'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qi 'bodies in full'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qiE 'review-debt[- ]zero'",
+          "expect_exit": 0,
+          "kind": "content"
+        }
+      ],
+      "done_when": "the step is on origin/dev CLAUDE.md, RCP-112 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T14",
+      "si": "S14",
+      "jira": [
+        "KAN-302",
+        "RCP-113"
+      ],
+      "lane": "D",
+      "depends_on": [
+        "T15"
+      ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
+      ],
+      "skill": "claude-md-drift-audit",
+      "skill_path": "~/.claude/skills/claude-md-drift-audit",
+      "objective": "Delete the copied required-checks list from CLAUDE.md; name gh api repos/{owner}/{repo}/rulesets (plus branch protection) as the source of truth.",
+      "suggested_tools": [
+        "gh api repos/{owner}/{repo}/rulesets"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-302",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-302 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "! git show origin/dev:CLAUDE.md | sed -n '/^### Branch protection — what it means for you$/,/^### Run checks locally before pushing$/p' | grep -qE 'Gate — all checks passed|Analyze \\(javascript-typescript\\)|Dependency Review|Frontend — lint \\+ format|Frontend / main repo checks|GitGuardian Security Checks|SEO — canonical recipes|CodeQL|Independent Claude review'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -q 'gh api repos/{owner}/{repo}/rulesets'",
+          "expect_exit": 0,
+          "kind": "content"
+        }
+      ],
+      "done_when": "no enumerated check list on origin/dev CLAUDE.md; the live command named; RCP-113 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T15",
+      "si": "S15",
+      "jira": [
+        "KAN-303",
+        "RCP-114"
+      ],
+      "lane": "D",
+      "depends_on": [
+        "T0"
+      ],
+      "after_started": [
+        "T1",
+        "T2",
+        "T5"
+      ],
+      "skill": "git-worktree-manager",
+      "skill_path": "engineering-advanced-skills:git-worktree-manager",
+      "objective": "One scripts/git/ preflight (the filename must contain \"preflight\") reporting commits-behind origin/dev and failing when the branch's Backend gitlink is not a descendant of origin/dev's (pointer rollback). Seen to fail on a stale/rolled-back branch and pass on a fresh one; referenced from the CLAUDE.md session-start steps. Goes first in Lane D: it protects every later branch.",
+      "suggested_tools": [
+        "scripts/git/ahead-behind.sh --base dev . Backend",
+        "git merge-base --is-ancestor"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-303",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-303 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "git ls-tree -r --name-only origin/dev | grep -qiE '^scripts/git/[^/]*preflight'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qE 'scripts/git/[^[:space:]]*preflight'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "MANUAL: separate failing outputs from (1) a deliberately stale branch showing commits-behind and (2) a branch whose Backend gitlink is rolled back, plus passing output on a fresh branch.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "preflight on origin/dev, observed failing and passing, RCP-114 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T16",
+      "si": "S16",
+      "jira": [
+        "KAN-304",
+        "RCP-115"
+      ],
+      "lane": "D",
+      "depends_on": [
+        "T13"
+      ],
+      "skill": "claude-md-drift-audit",
+      "skill_path": "~/.claude/skills/claude-md-drift-audit",
+      "objective": "Document the platform-vs-code discriminator in CLAUDE.md's CI section: read a run's jobs before its logs; all jobs queued = outage, action_required = never started. Include the two API calls.",
+      "suggested_tools": [
+        "gh api repos/{owner}/{repo}/actions/runs/<id>/jobs",
+        "gh run view <id> --json status,conclusion"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-304",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-304 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -q 'action_required'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -Fq 'gh api repos/{owner}/{repo}/actions/runs/<id>/jobs'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -Fq 'gh run view <id> --json status,conclusion'",
+          "expect_exit": 0,
+          "kind": "content"
+        },
+        {
+          "cmd": "git show origin/dev:CLAUDE.md | grep -qiE 'all jobs.*queued.*outage'",
+          "expect_exit": 0,
+          "kind": "content"
+        }
+      ],
+      "done_when": "discriminator on origin/dev CLAUDE.md with both calls, RCP-115 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T17",
+      "si": "close",
+      "jira": [
+        "RCP-100"
+      ],
+      "lane": "PM",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). Before closing, update every row in the charter's \"Process lane (no SI slot)\" table to closed or explicitly carried with a linked reason; the hard gate does not cover those rows. The Actions for Next Sprint table is the point.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint10_hard_gate.py --json",
+        "bash scripts/pm/check_sprint_lane.sh",
+        "npm run pm:status"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane"
+        },
+        {
+          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-115) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the close gate exits 0, every process-lane row is closed or explicitly carried with a linked reason, AND the retrospective page exists with its actions table",
+      "max_attempts": 3,
+      "status": "pending"
+    }
+  ],
+  "loop": {
+    "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15.",
+    "max_loop_iterations": 12,
+    "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
+    "escalate_on": [
+      "attempts_exhausted",
+      "no_verification_available",
+      "timebox_expired"
+    ]
+  },
+  "close": {
+    "requires": "every task verified, or explicitly waived by Adam with a reason. Sprint 10 pre-authorises no drops: waiving any task requires a charter update.",
+    "definition_of_done": "Every Sprint 10 acceptance row is Done with AC-by-AC evidence, or the SI is dropped by a written charter update. The close hard gate's no-To-Do result is necessary but not sufficient; T17's evidence check enforces final Done statuses.",
+    "handoff": "python3 scripts/harness/sprint10_hard_gate.py --json, plus the controller's evidence log"
+  }
+}

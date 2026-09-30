@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import type { Recipe } from '../recipe.types';
+import { resetRecipeViewTracking, trackRecipeView } from '../utils/analytics';
 
 /**
  * Set/replace a `_t=<epoch>` cache-buster on an image URL, preserving any
@@ -125,14 +126,31 @@ export class RecipeStateService {
   // saved=false is the cold deep-link path (GH #3210): the recipe came from
   // the API, not the user's cookbook, so the Save button must stay live.
   viewRecipe(r: Recipe, saved = true) {
+    this.stageRecipeForNavigation(r, saved);
+    // KAN-292: RUM custom action (a no-op without analytics consent).
+    trackRecipeView(r, saved);
+  }
+
+  /**
+   * Cache a selected recipe before routing without claiming that its detail
+   * page displayed. RecipeDetailComponent calls `viewRecipe` after the route
+   * activates, which is the analytics boundary.
+   */
+  stageRecipeForNavigation(r: Recipe, saved = true) {
     this.currentRecipe.set(r);
     this.generatedImageUrl.set(this.imageDisplayUrl(r.id, r.ai_image_url));
     this.isSaved.set(saved);
+  }
+
+  /** Start a new analytics view boundary without discarding cached recipe state. */
+  leaveRecipeView() {
+    resetRecipeViewTracking();
   }
 
   clearRecipe() {
     this.currentRecipe.set(null);
     this.generatedImageUrl.set(null);
     this.isSaved.set(false);
+    resetRecipeViewTracking();
   }
 }

@@ -307,6 +307,12 @@ steps:
       # scripts/gcloud/setup_valkey_ca.sh. Without it TLS verification of the
       # Valkey endpoint fails and rate limiting falls back to in-memory (#163).
       - --set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest,DD_API_KEY=DD_API_KEY:latest
+      # KAN-292: Datadog RUM behind consent (server/rum.ts). The application id
+      # and client token are public by design (they ship to every consenting
+      # browser), so they live here as config, not in Secret Manager.
+      # SESSION_SAMPLE_RATE is the cost lever for the launch spike. Update, not
+      # set: --set-env-vars would wipe env vars this file does not manage.
+      - --update-env-vars=DATADOG_RUM_APPLICATION_ID=016bb477-73b3-4009-b251-bba30913eb39,DATADOG_RUM_CLIENT_TOKEN=pub57e8b9a4278395e990884a84a70e4b22,DATADOG_RUM_SERVICE=vegangenius-chef-web,DATADOG_RUM_SESSION_SAMPLE_RATE=100,DATADOG_RUM_ENV=prod
       - --labels=service=express-frontend,dd_sls_mcp_tool=true
       - --allow-unauthenticated
       - --quiet

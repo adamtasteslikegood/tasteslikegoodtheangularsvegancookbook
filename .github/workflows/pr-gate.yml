@@ -107,6 +107,19 @@ jobs:
           PUBSUB_EMULATOR_HOST: localhost:8085
         run: uv run pytest
 
+  harness-tests:
+    name: Sprint harness — gate unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      # Stdlib only; Jira is mocked, so no secrets are needed. These tests guard
+      # the sprint hard gates against vacuous passes (KAN-260).
+      - name: Run sprint hard-gate unit tests
+        run: python3 -m unittest scripts/harness/test_sprint9_harness.py scripts/harness/test_sprint10_hard_gate.py scripts/harness/test_sprint10_driver.py
+
   monitoring-mcp:
     name: Monitoring MCP — unit tests + image build
     runs-on: ubuntu-latest
@@ -387,6 +400,7 @@ jobs:
       - frontend-build
       - frontend-test
       - backend-test
+      - harness-tests
       - monitoring-mcp
       - alembic-heads
       - submodule-sync

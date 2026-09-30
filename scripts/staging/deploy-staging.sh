@@ -337,7 +337,7 @@ echo ""
 #   - X-Robots-Tag: noindex, nofollow header on every response
 #   - /robots.txt deny-all
 #   - No Valkey (rate limiting falls back to in-memory)
-#   - No Datadog
+#   - Datadog RUM behind the same opt-in consent gate as production
 # Express is purely a proxy — Gemini, Pub/Sub, GCS are all Flask-side.
 
 echo "--- Step 3: Deploy ${EXPRESS_SERVICE} ---"
@@ -349,7 +349,7 @@ run_cmd gcloud run deploy "${EXPRESS_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=2 \
-  --set-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=${FLASK_STAGING_URL}" \
+  --update-env-vars="NODE_ENV=staging,FLASK_BACKEND_URL=${FLASK_STAGING_URL},DATADOG_RUM_APPLICATION_ID=016bb477-73b3-4009-b251-bba30913eb39,DATADOG_RUM_CLIENT_TOKEN=pub57e8b9a4278395e990884a84a70e4b22,DATADOG_RUM_SERVICE=vegangenius-chef-web,DATADOG_RUM_SESSION_SAMPLE_RATE=100,DATADOG_RUM_ENV=staging" \
   --clear-secrets \
   --no-invoker-iam-check \
   --quiet

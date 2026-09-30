@@ -94,7 +94,7 @@
           <div class="flex flex-wrap items-center gap-2 min-w-0">
             <button
               (click)="onSaveRecipe()"
-              [disabled]="isSaved()"
+              [disabled]="isSaved() || isCurrentRecipeSaving()"
               class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 text-sm"
               [class.bg-stone-100]="!isSaved()"
               [class.text-stone-600]="!isSaved()"
@@ -131,7 +131,7 @@
                     d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
                   />
                 </svg>
-                <span>Save</span>
+                <span>{{ isCurrentRecipeSaving() ? 'Saving…' : 'Save' }}</span>
               }
             </button>
 

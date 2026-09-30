@@ -57,6 +57,10 @@ export interface SaveOutcome {
    *  a failure. Callers should surface "you already have this" rather than
    *  "saved to your cookbook" or an error. */
   alreadySaved?: boolean;
+  /** True when there was no session, so nothing was saved (not even locally).
+   *  `ok` stays true for the existing boolean callers; analytics must not
+   *  count it as a kept recipe (KAN-292). */
+  noSession?: boolean;
 }
 
 /** Minimal shape of what `interpretSaveResponse` needs from a `Response`. */
@@ -205,6 +209,8 @@ export const DELETE_SYNC_FAILURE =
   "Couldn't delete this recipe. Check your connection and try again; it is still in your cookbook.";
 export const DELETE_PUBLISHED_REFUSAL =
   'This recipe is published. Unpublish it before deleting it: deleting permanently retires its public page.';
+export const DELETE_CANONICAL_LOCK_REFUSAL =
+  "This is a canonical public recipe, so it can't be deleted. It is still in your cookbook.";
 
 /**
  * KAN-289 — decide what a DELETE /api/recipes/:id response means.
@@ -218,7 +224,9 @@ export const DELETE_PUBLISHED_REFUSAL =
 export async function interpretDeleteResponse(res: SaveResponseLike): Promise<DeleteOutcome> {
   if (res.ok || res.status === 404) return { ok: true };
   if (res.status === 409 || res.status === 400) {
-    let message = res.status === 409 ? DELETE_PUBLISHED_REFUSAL : DELETE_SYNC_FAILURE;
+    // Both are deliberate server refusals: a retry-shaped "check your
+    // connection" fallback would invite a retry that can never succeed (KAN-291).
+    let message = res.status === 409 ? DELETE_PUBLISHED_REFUSAL : DELETE_CANONICAL_LOCK_REFUSAL;
     try {
       const body = (await res.json()) as { error?: unknown } | null;
       if (body && typeof body.error === 'string' && body.error) message = body.error;
@@ -307,7 +315,7 @@ export class PersistenceService {
    *  and none of them should have to care about refusal reasons. */
   async saveRecipeDetailed(recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return { ok: true };
+    if (!user) return { ok: true, noSession: true };
 
     // Whether this id was ALREADY a saved row before the optimistic write
     // below. Must be sampled first: auth.saveRecipe dedups by id, so after it

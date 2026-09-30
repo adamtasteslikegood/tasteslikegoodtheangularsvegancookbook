@@ -1,6 +1,7 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 import { RecipeStateService } from './recipe-state.service';
 import type { Recipe } from '../recipe.types';
+import { resetAnalyticsForTest } from '../utils/analytics';
 
 const recipe = (over: Partial<Recipe> = {}): Recipe =>
   ({
@@ -24,8 +25,13 @@ describe('RecipeStateService.viewRecipe', () => {
   let service: RecipeStateService;
 
   beforeEach(() => {
+    resetAnalyticsForTest();
     // No deps — construct directly, same as recipe-detail.component.test.ts.
     service = new RecipeStateService();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('marks the recipe saved by default (cookbook navigation path)', () => {
@@ -38,6 +44,44 @@ describe('RecipeStateService.viewRecipe', () => {
     service.viewRecipe(recipe(), false);
     expect(service.isSaved()).toBe(false);
     expect(service.currentRecipe()?.id).toBe('r1');
+  });
+
+  it('counts the same recipe again after clearRecipe starts a new view boundary', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+    service.clearRecipe();
+
+    service.viewRecipe(recipe());
+    service.clearRecipe();
+    service.viewRecipe(recipe());
+
+    expect(action).toHaveBeenCalledTimes(2);
+  });
+
+  it('counts a Kitchen revisit without discarding cached recipe state', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+
+    service.viewRecipe(recipe());
+    service.leaveRecipeView();
+    expect(service.currentRecipe()?.id).toBe('r1');
+    service.viewRecipe(recipe());
+
+    expect(action).toHaveBeenCalledTimes(2);
+  });
+
+  it('stages Kitchen navigation without tracking until the detail route displays', () => {
+    const action = vi.fn();
+    vi.stubGlobal('tlgAnalytics', { action });
+
+    service.stageRecipeForNavigation(recipe());
+
+    expect(service.currentRecipe()?.id).toBe('r1');
+    expect(service.isSaved()).toBe(true);
+    expect(action).not.toHaveBeenCalled();
+
+    service.viewRecipe(recipe());
+    expect(action).toHaveBeenCalledOnce();
   });
 
   it('clearRecipe resets the saved flag', () => {
