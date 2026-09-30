@@ -137,11 +137,18 @@ def soak_phase(state_dir, task_id, now=None):
 
 
 def soak_until(state_dir, task_id, now=None):
-    """The deadline while ``task_id`` is actively soaking, else None."""
+    """The deadline while ``task_id`` is actively soaking, else None.
+
+    Tolerates a concurrent ``resume`` unlinking the mark between the phase
+    check and this read (cmd_status is a read-mostly hot path with no lock).
+    """
     if soak_phase(state_dir, task_id, now) != "soaking":
         return None
     path = Path(state_dir) / ("%s.soak.json" % task_id)
-    return datetime.fromisoformat(json.loads(path.read_text())["until"])
+    try:
+        return datetime.fromisoformat(json.loads(path.read_text())["until"])
+    except (FileNotFoundError, ValueError, KeyError, json.JSONDecodeError):
+        return None
 
 
 def snapshot(plan, state_dir, now=None):
@@ -250,8 +257,10 @@ def cmd_status(args):
                         t["requires_done"])
             phase = soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
-                note = "soaking until %s (no WIP slot)" % soak_until(
-                    args.state_dir, t["id"]).isoformat()
+                until = soak_until(args.state_dir, t["id"])
+                note = ("soaking until %s (no WIP slot)" % until.isoformat()
+                        if until else
+                        "soak ended — awaiting a slot: resume %s" % t["id"])
             elif phase == "reentry":
                 note = "soak ended — awaiting a slot: resume %s" % t["id"]
             elif phase == "violation":
@@ -312,11 +321,15 @@ def cmd_soak(args):
         state_dir = Path(args.state_dir)
         path = state_dir / ("%s.soak.json" % task["id"])
         if args.cmd in ("resume", "unsoak"):
-            if not path.exists():
-                print("RESUME REFUSED — %s is not soaked" % task["id"])
-                return REFUSED
+            # Re-check existence, WIP, and unlink inside the same critical
+            # section so two concurrent `resume` calls on the same task do not
+            # both pass the exists check and race to unlink the mark.
+            state_dir.mkdir(parents=True, exist_ok=True)
             with (state_dir / ".start.lock").open("a") as lock:
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+                if not path.exists():
+                    print("RESUME REFUSED — %s is not soaked" % task["id"])
+                    return REFUSED
                 _, wip = snapshot(plan, state_dir)
                 if len(wip) >= WIP_LIMIT:
                     print("RESUME REFUSED — WIP is %d (%s); %s re-enters when a slot frees"
@@ -335,7 +348,11 @@ def cmd_soak(args):
             print("SOAK REFUSED — %s is %s; only a task whose work is recorded "
                   "(controller status verifying) can wait out a window" % (task["id"], status))
             return REFUSED
-        until = datetime.fromisoformat(args.until)
+        # ``datetime.fromisoformat`` on Python < 3.11 rejects the ``Z`` UTC
+        # suffix; normalise it so a correctly-formed UTC timestamp is accepted
+        # instead of falling through to the broad CONFIG/API ERROR handler.
+        until_arg = args.until[:-1] + "+00:00" if args.until.endswith("Z") else args.until
+        until = datetime.fromisoformat(until_arg)
         if until.tzinfo is None:
             print("SOAK REFUSED — --until needs a timezone, e.g. 2026-10-01T00:10:00+00:00")
             return REFUSED
