@@ -80,6 +80,13 @@ import base64, json, os, re, sys, urllib.error, urllib.parse, urllib.request
 
 site = os.environ["ATLASSIAN_SITE"]
 label = os.environ.get("SPRINT_LANE_LABEL", "")
+# The label is interpolated into JQL string literals below. Accept only a plain
+# label token, so a quote in an explicit argument cannot rewrite the query and
+# turn PASS/FAIL into whatever Jira makes of it. A bad argument is a usage error
+# (exit 2), not a lane finding (exit 1). Derived labels (`sprint-N`) always match.
+if label and not re.fullmatch(r"[A-Za-z0-9_-]+", label):
+    print(f"FAIL(2): sprint label {label!r} must match [A-Za-z0-9_-]+", file=sys.stderr)
+    sys.exit(2)
 auth = f'{os.environ["ATLASSIAN_EMAIL"]}:{os.environ["ATLASSIAN_API_TOKEN"]}'
 hdr = {"Authorization": "Basic " + base64.b64encode(auth.encode()).decode(),
        "Accept": "application/json"}
