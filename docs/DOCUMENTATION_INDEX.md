@@ -113,7 +113,7 @@
 | [SEO_AUDIT_2026-09-13.md](./seo/SEO_AUDIT_2026-09-13.md)                                         | Full audit: strategy vs reality, findings with tickets, keyword targets, backlink plan, GSC monitoring                            |
 | [MCP_GCP_MONITORING.md § 6.5](./MCP_GCP_MONITORING.md)                                           | Search Console tools on the gcp-monitor connector (`gsc_*`) and the `/seo-weekly-check` routine                                   |
 | [pinterest-research.md](./seo/pinterest-research.md)                                             | Pinterest Rich Pins and pin research (2026-07-18 AI dump; unverified except the checked items in its header, KAN-284)             |
-| [google-recipe-structured-data-2026-10-01.md](./seo/google-recipe-structured-data-2026-10-01.md) | Google Search Central Recipe structured-data guide (reference copy, 2026-10-01), checked against live markup in KAN-319 / KAN-320 |
+| [google-recipe-structured-data-2026-10-01.md](./seo/google-recipe-structured-data-2026-10-01.md) | Google Search Central Recipe structured-data guide (reference copy, 2026-10-01), used to scope KAN-319 / KAN-320 |
 
 ### 🐧 Reference — `Label: reference`
 
