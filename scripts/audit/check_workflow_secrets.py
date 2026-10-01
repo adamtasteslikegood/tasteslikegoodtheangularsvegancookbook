@@ -53,9 +53,37 @@ REFERENCE_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\.([A-Za-z0-9_]+)")
 # GITHUB_TOKEN_X or GH_AW_GITHUB_TOKEN are ordinary secrets and must exist.
 BUILTIN_EXEMPT = "GITHUB_TOKEN"
 
-# Referenced secrets that may legitimately be unset, with the reason. Empty on
-# purpose: an entry here is a product decision (Adam's), not a way to go green.
-OPTIONAL_SECRETS: dict[str, str] = {}
+# Referenced secrets that may legitimately be unset, each with the guard that
+# makes absence safe. An entry here is a product decision (Adam's, 2026-10-01 for
+# these six), not a way to go green. An absent optional secret is reported as a
+# notice; an entry nothing references any more fails, so the list cannot rot.
+OPTIONAL_SECRETS: dict[str, str] = {
+    "ANTHROPIC_API_KEY": (
+        "claude-review.yml: fallback to CLAUDE_CODE_OAUTH_TOKEN; the 'Check for a Claude"
+        " credential' step skips the review with a warning when neither is set"
+    ),
+    "GCP_WORKLOAD_IDENTITY_PROVIDER": (
+        "gc-build-deploy.yml: pre-deploy-gate names it as missing and cloud-build (the only"
+        " auth use) needs predeploy_status == success; the gate fails only when deployment"
+        " is enabled, which needs AUTHORIZED_DEPLOYERS (unset)"
+    ),
+    "GCP_SERVICE_ACCOUNT": (
+        "gc-build-deploy.yml: same pre-deploy-gate guard as GCP_WORKLOAD_IDENTITY_PROVIDER"
+    ),
+    "QODANA_CONFIGURATIONS_TOKEN": (
+        "upload-global-configuration.yml: every working step has"
+        " if: env.QODANA_CONFIGURATIONS_TOKEN != '' and an explain step runs otherwise"
+    ),
+    "GH_AW_GITHUB_TOKEN": (
+        "gh-aw *.lock.yml optional override: every authenticating use falls back to"
+        " GITHUB_TOKEN; direct uses only detect presence (check_oauth_tokens,"
+        " determine_automatic_lockdown) or redact"
+    ),
+    "GH_AW_GITHUB_MCP_SERVER_TOKEN": (
+        "gh-aw *.lock.yml optional override: same fallback-to-GITHUB_TOKEN pattern as"
+        " GH_AW_GITHUB_TOKEN"
+    ),
+}
 
 BLOCK_BEGIN = "# secret-presence: begin"
 BLOCK_END = "# secret-presence: end"
@@ -152,6 +180,8 @@ def static_problems(referenced: set[str], presence: set[str] | None, env_files: 
     for name in sorted(OPTIONAL_SECRETS):
         if not OPTIONAL_SECRETS[name].strip():
             problems.append(f"{name}: optional-secret entry has no reason")
+        if name not in referenced:
+            problems.append(f"{name}: listed in OPTIONAL_SECRETS but no workflow references it")
     if env_files:
         problems.append(
             "job-level 'environment:' found in "
@@ -167,6 +197,14 @@ def missing_problems(referenced: set[str], configured: set[str]) -> list[str]:
         f"{name}: referenced by a workflow but not configured"
         for name in sorted(referenced - configured)
         if name not in OPTIONAL_SECRETS
+    ]
+
+
+def optional_notices(referenced: set[str], configured: set[str]) -> list[str]:
+    return [
+        f"{name}: optional and not configured ({OPTIONAL_SECRETS[name]})"
+        for name in sorted(referenced - configured)
+        if name in OPTIONAL_SECRETS
     ]
 
 
@@ -222,15 +260,22 @@ def main(argv: list[str] | None = None) -> int:
             print(emit_block(referenced))
             return 0
         problems = static_problems(referenced, presence, env_files)
+        notices: list[str] = []
+        configured: set[str] | None = None
         if args.env:
-            problems += missing_problems(referenced, configured_from_env(referenced, dict(os.environ)))
+            configured = configured_from_env(referenced, dict(os.environ))
         elif args.gh:
-            problems += missing_problems(referenced, configured_from_gh())
+            configured = configured_from_gh()
+        if configured is not None:
+            problems += missing_problems(referenced, configured)
+            notices = optional_notices(referenced, configured)
     except InspectError as exc:
         print(f"::error::cannot inspect workflow secrets: {exc}")
         return 2
 
     print(f"{len(referenced)} secret name(s) referenced (excluding {BUILTIN_EXEMPT}): " + ", ".join(sorted(referenced)))
+    for n in notices:
+        print(f"::notice::{n}")
     if problems:
         for p in problems:
             print(f"::error::{p}")

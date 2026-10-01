@@ -10,6 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -80,6 +81,12 @@ class ExemptionTest(unittest.TestCase):
 class DriftTest(unittest.TestCase):
     """The presence block must equal the referenced set, in both directions."""
 
+    def setUp(self):
+        # Temp trees do not reference the real optional names; isolate from them.
+        patcher = mock.patch.dict(cws.OPTIONAL_SECRETS, {}, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def scan_tree(self, files: dict[str, str]):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -131,6 +138,24 @@ class DriftTest(unittest.TestCase):
         self.assertIn("environment:", problems[0])
         self.assertIn("deploy.yml", problems[0])
 
+    def test_stale_optional_entry_fails(self):
+        cws.OPTIONAL_SECRETS["GONE"] = "was optional once"
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
+        self.assertEqual(
+            cws.static_problems(*scanned),
+            ["GONE: listed in OPTIONAL_SECRETS but no workflow references it"],
+        )
+
+    def test_referenced_optional_entry_passes(self):
+        cws.OPTIONAL_SECRETS["A"] = "guarded by an if:"
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
+        self.assertEqual(cws.static_problems(*scanned), [])
+
+    def test_optional_entry_without_reason_fails(self):
+        cws.OPTIONAL_SECRETS["A"] = "  "
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
+        self.assertEqual(cws.static_problems(*scanned), ["A: optional-secret entry has no reason"])
+
     def test_emit_block_round_trips(self):
         names = {"A", "B_2"}
         lines = cws.emit_block(names).splitlines()
@@ -153,6 +178,20 @@ class PresenceTest(unittest.TestCase):
             ["NOPE: referenced by a workflow but not configured"],
         )
 
+    def test_missing_optional_secret_is_a_notice_not_a_failure(self):
+        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": "guarded"}, clear=True):
+            env = {"SECRET_PRESENT_A": "true", "SECRET_PRESENT_OPT": "false"}
+            configured = cws.configured_from_env({"A", "OPT"}, env)
+            self.assertEqual(cws.missing_problems({"A", "OPT"}, configured), [])
+            self.assertEqual(
+                cws.optional_notices({"A", "OPT"}, configured),
+                ["OPT: optional and not configured (guarded)"],
+            )
+
+    def test_present_optional_secret_gives_no_notice(self):
+        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": "guarded"}, clear=True):
+            self.assertEqual(cws.optional_notices({"OPT"}, {"OPT"}), [])
+
     def test_unexported_presence_variable_is_an_inspect_error(self):
         with self.assertRaises(cws.InspectError):
             cws.configured_from_env({"A"}, {})
@@ -167,6 +206,19 @@ class RepositoryTest(unittest.TestCase):
 
     def test_real_presence_block_matches_real_references(self):
         self.assertEqual(cws.static_problems(*cws.scan(cws.WORKFLOWS, cws.GATE_FILE)), [])
+
+    def test_the_six_agreed_optional_secrets_are_listed(self):
+        self.assertEqual(
+            set(cws.OPTIONAL_SECRETS),
+            {
+                "ANTHROPIC_API_KEY",
+                "GCP_WORKLOAD_IDENTITY_PROVIDER",
+                "GCP_SERVICE_ACCOUNT",
+                "QODANA_CONFIGURATIONS_TOKEN",
+                "GH_AW_GITHUB_TOKEN",
+                "GH_AW_GITHUB_MCP_SERVER_TOKEN",
+            },
+        )
 
     def test_gate_needs_the_job(self):
         text = cws.GATE_FILE.read_text()
