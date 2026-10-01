@@ -166,13 +166,25 @@ export class RecipeDetailComponent extends RecipeViewBase {
    */
   async goBack() {
     const seq = this.requestSeq;
-    if (this.cookbookParam() && !this.sourceCookbook()) {
+    const cookbookId = this.cookbookParam();
+    if (cookbookId && !this.sourceCookbook()) {
       try {
-        await this.persistenceService.firstSyncSettled;
+        await this.authService.ready;
       } catch {
-        // Judge by whatever state we have.
+        // Judge by whatever auth state we have.
       }
-      if (seq !== this.requestSeq) return;
+      if (seq !== this.requestSeq || this.cookbookParam() !== cookbookId) return;
+
+      // Persistence never starts an API sync without a user, so its settlement
+      // promise cannot resolve in that state. There is no cookbook to recover.
+      if (this.authService.currentUser()) {
+        try {
+          await this.persistenceService.firstSyncSettled;
+        } catch {
+          // Judge by whatever state we have.
+        }
+      }
+      if (seq !== this.requestSeq || this.cookbookParam() !== cookbookId) return;
     }
     const cookbook = this.sourceCookbook();
     this.router.navigate(cookbook ? ['/kitchen', cookbook.id] : ['/kitchen']);
