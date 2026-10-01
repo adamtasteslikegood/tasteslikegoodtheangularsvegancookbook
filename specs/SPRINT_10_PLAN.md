@@ -2,8 +2,8 @@
 
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
-_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · charter row **RCP-99**
-_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
+_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · charter row **RCP-99**
+_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
 _Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
@@ -26,7 +26,7 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 18 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30)
+## Committed scope — 19 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30 + S19 added 2026-10-01)
 
 | SI      | Grill # | Lane           | Summary                                                                                   | KAN     | Acceptance |
 | ------- | ------- | -------------- | ----------------------------------------------------------------------------------------- | ------- | ---------- |
@@ -48,6 +48,7 @@ between the site and a launch post is now narrow and measurable:
 | **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                      | KAN-304 | RCP-115    |
 | **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)             | KAN-307 | RCP-116    |
 | **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars                               | KAN-309 | RCP-117    |
+| **S19** | —       | Added          | Valkey IAM token refresh on the request path, not a CPU-starved background thread         | KAN-318 | RCP-118    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
@@ -63,11 +64,23 @@ product grill's scope table, kept so either document can be read against the oth
   rather than collecting a baseline. It starts once the KAN-307 / KAN-292 User-Agent patch is
   live, so sessions carry geo and device.
 - **WIP soak rule.** A task whose work is recorded and whose only remaining evidence is a time
-  window (S1's 24 h Datadog window, S2's 72 h) holds no WIP slot while it waits
-  (`sprint10_driver.py soak`). Only tasks the plan declares time-window-only
-  (`soak_window_hours`: T1, T2) may soak, and never past that window. A soaked task never
+  window (S1's 24 h Datadog window, S2's 72 h, or S19's 24 h Datadog window) holds no
+  WIP slot while it waits (`sprint10_driver.py soak`). Only tasks the plan declares
+  time-window-only (`soak_window_hours`: T1, T2, T20) may soak, and never past that window. A soaked task never
   counts; when its window ends it re-enters only through a locked `resume` when a slot is
   free, and new starts wait behind it. WIP stays 3 for active work and can never exceed it.
+
+### Mid-sprint change — 2026-10-01 (Adam)
+
+- **S19 (KAN-318)** added: the v0.5.5 diagnostics (Backend #346, on KAN-268) show the
+  scheduled Valkey token refresh took 5,500 ms wall for 27 ms thread CPU. Backend #348
+  documents that child I/O spans and `_lock` contention must be removed before attributing the
+  remaining wall-time residual to CPU starvation; closing local sockets alone took 299 ms. The
+  refresh moves onto the request path (request CPU, milliseconds), and the background thread
+  stays only as an idle safety net. Always-on CPU stays rejected.
+- **Scope frozen after S19 (Adam, 2026-10-01).** Anything new goes to the next sprint. The
+  only exception is a level-1 production service interruption (site or a core flow down for
+  visitors), which is fixed in-sprint and recorded here as a mid-sprint change.
 
 ### S12–S16 were added at charter — 2026-09-29
 
@@ -205,6 +218,7 @@ WIP ≤ 3, one session per lane:
 | B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
 | C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                                         |
 | D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
+| E — Mid-sprint    | S17, S18, S19                                           | Backend service and release train                                   |
 
 ## Execution order
 
@@ -236,6 +250,7 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.
 - **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
 - **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
+- **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: for request-triggered `valkey.token_refresh` spans, the `wall_ms - thread_cpu_ms` gap is explained by the `valkey.token_fetch`, `valkey.pool_disconnect`, and `valkey.ping` child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
 
 ## Sprint 9 retro actions — row-by-row disposition
 

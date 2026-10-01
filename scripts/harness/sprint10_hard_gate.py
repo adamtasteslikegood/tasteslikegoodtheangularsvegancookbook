@@ -115,6 +115,8 @@ REQUIRED = {
     # S17-S18: added mid-sprint by Adam on 2026-09-30.
     "KAN-307": "S17 — Express trusts the ALB hops: req.ip is the visitor",
     "KAN-309": "S18 — Pinterest pin variant as a 1:1 centre crop",
+    # S19: added mid-sprint by Adam on 2026-10-01 (v0.5.5 #346 diagnostics).
+    "KAN-318": "S19 — Valkey IAM token refresh on the request path",
 }
 
 # Sprint items -> the execution rows that carry them.
@@ -141,6 +143,7 @@ SI_EXECUTION = {
     "S16": ["KAN-304"],
     "S17": ["KAN-307"],
     "S18": ["KAN-309"],
+    "S19": ["KAN-318"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -165,6 +168,7 @@ ACCEPTANCE = {
     "S16": "RCP-115",
     "S17": "RCP-116",
     "S18": "RCP-117",
+    "S19": "RCP-118",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
