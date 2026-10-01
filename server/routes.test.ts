@@ -301,6 +301,12 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
     expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
+  it('answers a nested Kitchen path (/kitchen/<id>/extra) with the 404 shell (KAN-321)', async () => {
+    const res = await fetch(`${baseUrl}/kitchen/3f2a9c1e-cookbook/extra`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
   it('serves the shell for unknown non-asset paths, but with status 404 (KAN-276)', async () => {
     const res = await fetch(`${baseUrl}/some/unknown/page`);
     expect(res.status).toBe(404);

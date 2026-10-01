@@ -82,13 +82,17 @@ export const ROUTE_MANIFEST = {
     ],
   },
   /**
-   * Angular SPA routes — catch-all serves index.html. `/kitchen/<cookbookId>`
-   * is a Kitchen cookbook view (KAN-321); without the prefix a reload or deep
-   * link there would answer the shell with a 404.
+   * Angular SPA routes — catch-all serves index.html.
+   *
+   * `singleSegment` routes take exactly one segment after the prefix, matching
+   * the Angular route: `/kitchen/<cookbookId>` is a Kitchen cookbook view
+   * (KAN-321, `kitchenMatcher`), while `/kitchen/<id>/extra` stays unknown and
+   * keeps the 404 + no-store shell policy.
    */
   spa: {
     paths: ['/', '/generate', '/kitchen', '/chunk-error'],
-    prefixes: ['/recipe/', '/kitchen/'],
+    prefixes: ['/recipe/'],
+    singleSegment: ['/kitchen/'],
   },
 } as const;
 
@@ -185,6 +189,13 @@ export function classifyRoute(path: string): RouteClass {
   // Prefix routes require content after the slash: /recipe/<id> is valid,
   // while the collection-like /recipe/ path is not a known SPA page.
   if (spa.prefixes.some((prefix) => path.startsWith(prefix) && path.length > prefix.length)) {
+    return 'spa';
+  }
+  if (
+    spa.singleSegment.some(
+      (prefix) => /^[^/]+$/.test(path.slice(prefix.length)) && path.startsWith(prefix)
+    )
+  ) {
     return 'spa';
   }
   return 'unknown';

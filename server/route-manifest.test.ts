@@ -238,6 +238,8 @@ describe('classifyRoute', () => {
     // KAN-321: a Kitchen cookbook view reloads as the SPA, not a 404 shell.
     ['/kitchen/3f2a9c1e-cookbook', 'spa'],
     ['/kitchen/', 'unknown'],
+    // Exactly one segment, like `kitchenMatcher`: deeper paths keep the 404 policy.
+    ['/kitchen/3f2a9c1e-cookbook/extra', 'unknown'],
     // Unrecognized non-asset paths fall through to the shell (Angular 404)
     ['/some/unknown/page', 'unknown'],
     ['/apiary', 'unknown'], // prefix check must not treat /apiary as /api
