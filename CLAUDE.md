@@ -264,9 +264,9 @@ gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100
 ```
 
 - **All jobs `queued`, none started** means no code ran: an Actions outage or runner shortage, or a scheduling limit (repository concurrency, unavailable runner labels, account or billing limits). It is not a code failure. Check githubstatus.com, repository concurrency, runner availability, and account limits; wait when GitHub or runner capacity is the cause. Re-pushing or editing code does not diagnose a job that never ran.
-- **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval (a first-time contributor or a bot-authored PR). It has no logs because nothing ran. Approve the run in the Actions tab; don't debug it.
+- **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval (a first-time contributor or a bot-authored PR). It has no logs because nothing ran. Identify the workflow and whether it is required or blocking; approve it in the Actions tab only when it is, and otherwise leave the non-required held run alone.
 
-Only when at least one job actually ran and failed is it a code failure. Then read that job's logs.
+For the two states above, diagnose the listed platform, scheduling, or approval causes. For any other conclusion where no job started, read the run annotations and inspect the workflow configuration first; startup and configuration errors can fail before a job exists. When a job did run and fail, read that job's logs.
 
 For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/deployment/DEPLOYMENT_CHECKLIST.md
 
