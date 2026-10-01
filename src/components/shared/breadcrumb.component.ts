@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
 
@@ -29,13 +29,17 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
                 @if (isSpaPath(crumb.url)) {
                   <a
                     [routerLink]="crumb.url"
+                    (click)="crumbClick.emit(crumb)"
                     class="hover:text-stone-800 underline underline-offset-2"
                     >{{ crumb.name }}</a
                   >
                 } @else {
-                  <a [href]="crumb.url" class="hover:text-stone-800 underline underline-offset-2">{{
-                    crumb.name
-                  }}</a>
+                  <a
+                    [href]="crumb.url"
+                    (click)="crumbClick.emit(crumb)"
+                    class="hover:text-stone-800 underline underline-offset-2"
+                    >{{ crumb.name }}</a
+                  >
                 }
                 <span aria-hidden="true" class="text-stone-300">/</span>
               }
@@ -48,5 +52,6 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
 })
 export class BreadcrumbComponent {
   readonly crumbs = input.required<Crumb[]>();
+  readonly crumbClick = output<Crumb>();
   protected readonly isSpaPath = isSpaPath;
 }
