@@ -16,7 +16,11 @@ How it maps D6
   record) and a failed attempt at most 3, so 3 attempts fit inside 12. This is a
   reading of "goal", named in the plan and README so Adam can overrule it.
 * **Order.** Each task in ``SPRINT_10_HARNESS_PLAN.json`` carries ``depends_on``;
-  ``start`` refuses until every dependency's state is verified.
+  ``start`` refuses until every dependency is verified or carried.
+* **Carried.** A task with ``carried_to`` in the tracked plan (T10, T11, T19:
+  carried to RCP-119 by Adam on 2026-10-01) is refused by ``start`` on any
+  checkout, holds no WIP slot, and satisfies the dependencies of tasks that
+  wait on it (T17).
 * **WIP <= 3.** ``start`` refuses while 3 task states are open (started and not
   verified; an escalated task still occupies its slot until a human resolves it).
   A task the plan declares time-window-only (``soak_window_hours``) holds no
@@ -24,8 +28,9 @@ How it maps D6
   A marked task never counts toward WIP; leaving the soak is a locked
   ``resume`` that admits it only when a slot is free, and new starts wait
   behind a task whose soak has ended, so WIP can never exceed 3.
-* **Irreversible starts.** A task with ``requires_done`` (T11, the launch post)
-  refuses unless every listed Jira row is exactly ``Done``. ``In Review`` is not
+* **Irreversible starts.** A task with ``requires_done`` refuses unless every
+  listed Jira row is exactly ``Done`` (T11, the launch post, carries it; T11 is
+  now carried, so ``start`` refuses it before this check runs). ``In Review`` is not
   enough: the post cannot be taken back, so the check runs before the work, not
   in verification after it.
 
@@ -37,7 +42,7 @@ Usage
 -----
     python3 scripts/harness/sprint10_driver.py status
     python3 scripts/harness/sprint10_driver.py start T1
-    python3 scripts/harness/sprint10_driver.py start T11 --dry-run
+    python3 scripts/harness/sprint10_driver.py start T12 --dry-run
 
 Exit codes: 0 ok · 2 configuration or API error · 3 start refused.
 """
