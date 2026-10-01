@@ -21,7 +21,7 @@
   },
   "repo_scope": {
     "backend_repo": "adamtasteslikegood/tasteslikegood.com",
-    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. T1 (KAN-268), T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), and the Backend-template halves of T7/T9 do; cookbook-only tasks search this repo."
+    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. T1 (KAN-268), T2 (KAN-292), T5 (KAN-294), T8 (KAN-297), T20 (KAN-318), and the Backend-template halves of T7/T9 do; cookbook-only tasks search this repo."
   },
   "lanes": {
     "A": {
@@ -53,7 +53,7 @@
       ]
     },
     "E": {
-      "owns": "S17, S18 — added mid-sprint by Adam on 2026-09-30 (KAN-307 visitor IP, KAN-309 pin crop)",
+      "owns": "S17, S18, S19 — added mid-sprint by Adam on 2026-09-30/2026-10-01 (KAN-307 visitor IP, KAN-309 pin crop, KAN-318 request-path token refresh)",
       "must_not_touch": [
         ".github/workflows/"
       ]
@@ -897,6 +897,45 @@
       "status": "pending"
     },
     {
+      "id": "T20",
+      "si": "S19",
+      "jira": [
+        "KAN-318",
+        "RCP-118"
+      ],
+      "lane": "E",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-backend",
+      "skill_path": "engineering-skills:senior-backend",
+      "objective": "Move the Valkey IAM token refresh onto the request path (Backend utils/valkey_auth.py): when a request uses Valkey and the token is within _EXPIRY_MARGIN, refresh inline, single-flight under _lock, with request CPU; keep the background thread only as an idle safety net; preserve the #344/#348 unchanged-verified-token and failed-PING semantics. Always-on CPU is out of scope. Ships through the release train. Added mid-sprint by Adam, 2026-10-01, from the v0.5.5 #346 diagnostics on KAN-268 (5,500 ms wall vs 27 ms CPU).",
+      "suggested_tools": [
+        "gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-318 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-318",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search 'KAN-318 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Backend PR, promotion, cookbook pointer PR and release tag; paste a Backend test/CI link or command output on RCP-118 proving inline refresh within _EXPIRY_MARGIN, single-flight under concurrent callers, the background-thread idle safety net, and the #344/#348 unchanged-verified-token and failed-PING semantics; Datadog production 24 h after release: for request-triggered valkey.token_refresh spans, the wall_ms - thread_cpu_ms gap is explained by valkey.token_fetch, valkey.pool_disconnect and valkey.ping child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; in-request redis.command GET p95 < 50 ms over >= 200 GETs and error rate < 1 % (links and counts pasted on RCP-118); results written on KAN-268.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-118 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending",
+      "soak_window_hours": 24
+    },
+    {
       "id": "T17",
       "si": "close",
       "jira": [
@@ -922,7 +961,8 @@
         "T15",
         "T16",
         "T18",
-        "T19"
+        "T19",
+        "T20"
       ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
@@ -944,7 +984,7 @@
           "kind": "lane"
         },
         {
-          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-117) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
+          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-118) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -956,7 +996,7 @@
   ],
   "loop": {
     "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
-    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; only tasks declaring soak_window_hours (T1 24, T2 72) may soak, a marked task never counts, and it re-enters only via a locked `resume` when a slot is free (new starts wait behind it), so WIP never exceeds 3. S17/S18 (T18/T19, lane E) added mid-sprint the same day.",
+    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; only tasks declaring soak_window_hours (T1 24, T2 72, T20 24) may soak, a marked task never counts, and it re-enters only via a locked `resume` when a slot is free (new starts wait behind it), so WIP never exceeds 3. S17/S18 (T18/T19) were added to lane E on 2026-09-30; S19 (T20) joined lane E on 2026-10-01.",
     "max_loop_iterations": 12,
     "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
     "escalate_on": [

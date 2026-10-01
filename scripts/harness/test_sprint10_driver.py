@@ -352,9 +352,10 @@ class StartRuleTests(unittest.TestCase):
         self.assertEqual(rc, driver.REFUSED, out)
         self.assertEqual(driver.soak_phase(self.dir, "T2"), "reentry")
 
-    def test_only_t1_and_t2_declare_a_soak_window(self):
+    def test_only_time_window_tasks_declare_a_soak_window(self):
         declared = {t["id"]: t["soak_window_hours"] for t in PLAN["tasks"] if "soak_window_hours" in t}
-        self.assertEqual(declared, {"T1": 24, "T2": 72})
+        # T20 (S19) added 2026-10-01: its last evidence is a 24 h Datadog window, like T1.
+        self.assertEqual(declared, {"T1": 24, "T2": 72, "T20": 24})
 
     def _verify_t11_deps(self):
         for tid in ("T0", "T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9", "T10"):
