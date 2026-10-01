@@ -16,7 +16,11 @@ How it maps D6
   record) and a failed attempt at most 3, so 3 attempts fit inside 12. This is a
   reading of "goal", named in the plan and README so Adam can overrule it.
 * **Order.** Each task in ``SPRINT_10_HARNESS_PLAN.json`` carries ``depends_on``;
-  ``start`` refuses until every dependency's state is verified.
+  ``start`` refuses until every dependency is verified or carried.
+* **Carried.** A task with ``carried_to`` in the tracked plan (T10, T11, T19:
+  carried to RCP-119 by Adam on 2026-10-01) is refused by ``start`` on any
+  checkout, holds no WIP slot, and satisfies the dependencies of tasks that
+  wait on it (T17).
 * **WIP <= 3.** ``start`` refuses while 3 task states are open (started and not
   verified; an escalated task still occupies its slot until a human resolves it).
   A task the plan declares time-window-only (``soak_window_hours``) holds no
@@ -24,8 +28,9 @@ How it maps D6
   A marked task never counts toward WIP; leaving the soak is a locked
   ``resume`` that admits it only when a slot is free, and new starts wait
   behind a task whose soak has ended, so WIP can never exceed 3.
-* **Irreversible starts.** A task with ``requires_done`` (T11, the launch post)
-  refuses unless every listed Jira row is exactly ``Done``. ``In Review`` is not
+* **Irreversible starts.** A task with ``requires_done`` refuses unless every
+  listed Jira row is exactly ``Done`` (T11, the launch post, carries it; T11 is
+  now carried, so ``start`` refuses it before this check runs). ``In Review`` is not
   enough: the post cannot be taken back, so the check runs before the work, not
   in verification after it.
 
@@ -37,7 +42,7 @@ Usage
 -----
     python3 scripts/harness/sprint10_driver.py status
     python3 scripts/harness/sprint10_driver.py start T1
-    python3 scripts/harness/sprint10_driver.py start T11 --dry-run
+    python3 scripts/harness/sprint10_driver.py start T12 --dry-run
 
 Exit codes: 0 ok · 2 configuration or API error · 3 start refused.
 """
@@ -82,6 +87,18 @@ def default_state_dir():
 
 def load_plan(path=PLAN):
     return json.loads(Path(path).read_text())
+
+
+# A task counts as done for dependencies once verified, or once carried out of
+# the sprint (Adam, 2026-10-01: S10, S11, S18 -> RCP-119). The carry is read from
+# the tracked plan's ``carried_to``, not from the gitignored state dir, so a
+# clean checkout can never start carried work again.
+DONE = ("verified", "carried")
+
+
+def carried(plan):
+    """{task id: epic} for every task carried out of Sprint 10."""
+    return {t["id"]: t["carried_to"] for t in plan["tasks"] if t.get("carried_to")}
 
 
 def task_state(state_dir, task_id):
@@ -146,7 +163,9 @@ def soak_until(state_dir, task_id, now=None):
 
 def snapshot(plan, state_dir, now=None):
     """(states, wip). A task with a soak mark never counts, in any phase."""
-    states = {t["id"]: task_state(state_dir, t["id"]) for t in plan["tasks"]}
+    out = carried(plan)
+    states = {t["id"]: "carried" if t["id"] in out else task_state(state_dir, t["id"])
+              for t in plan["tasks"]}
     wip = sorted(k for k, v in states.items()
                  if v in ("open", "escalated")
                  and soak_phase(state_dir, k, now) is None)
@@ -166,12 +185,15 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
     if task_id not in tasks:
         return ["unknown task %s" % task_id]
     task = tasks[task_id]
+    if task.get("carried_to"):
+        return ["%s was carried out of Sprint 10 to %s — it is not sprint work; "
+                "do not start it" % (task_id, task["carried_to"])]
     states, wip = snapshot(plan, state_dir)
     reasons = []
     if states[task_id] != "not-started":
         reasons.append("%s is already %s — drive it with the controller, do not "
                        "re-initialize it" % (task_id, states[task_id]))
-    waiting = [d for d in task.get("depends_on", []) if states[d] != "verified"]
+    waiting = [d for d in task.get("depends_on", []) if states[d] not in DONE]
     if waiting:
         reasons.append("%s depends on %s, not yet verified"
                        % (task_id, ", ".join(waiting)))
@@ -238,16 +260,22 @@ def cmd_status(args):
                                (" — " + ", ".join(wip)) if wip else ""))
         for t in plan["tasks"]:
             deps = t.get("depends_on", [])
-            ready = all(states[d] == "verified" for d in deps)
+            ready = all(states[d] in DONE for d in deps)
             note = ""
             if states[t["id"]] == "not-started":
                 note = "startable" if ready and len(wip) < WIP_LIMIT else (
                     "waiting on " + ", ".join(
-                        d for d in deps if states[d] != "verified")
+                        d for d in deps if states[d] not in DONE)
                     if not ready else "WIP full")
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])
+            # A waived task counts as done for WIP and dependencies, but say so:
+            # "verified" alone would hide a waived SI.
+            if t.get("carried_to"):
+                note = "carried to %s — not Sprint 10 work" % t["carried_to"]
+            elif raw_status(args.state_dir, t["id"]) == "waived":
+                note = "counts as done, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
                 note = "soaking until %s (no WIP slot)" % soak_until(
@@ -256,9 +284,13 @@ def cmd_status(args):
                 note = "soak ended — awaiting a slot: resume %s" % t["id"]
             elif phase == "violation":
                 note = "DRIVEN WHILE SOAKED — resume %s before any new start" % t["id"]
+            # Internally a waived task is "verified" (dependency-complete);
+            # display it as waived so the line cannot contradict itself.
+            shown = ("waived" if states[t["id"]] == "verified"
+                     and raw_status(args.state_dir, t["id"]) == "waived"
+                     else states[t["id"]])
             print("%-4s %-8s %-2s %-12s %s" % (
-                t["id"], t.get("si", "-"), t.get("lane", "-"),
-                states[t["id"]], note))
+                t["id"], t.get("si", "-"), t.get("lane", "-"), shown, note))
         return 0
     except (Exception, SystemExit) as exc:
         print("CONFIG/API ERROR: %s" % exc, file=sys.stderr)
