@@ -254,16 +254,16 @@ PR gate (`.github/workflows/pr-gate.yml`): lint, TypeScript, build, Vitest+cover
 
 **A stuck or red run: platform or code? Read the jobs before the logs.** Two platform states look exactly like code failures from the PR view, and both cost real time in Sprint 8 (KAN-304):
 
-The endpoint forms are `gh run view <id> --json status,conclusion` and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs`. For a copyable command, prompt once for the run ID and paginate the jobs endpoint:
+The endpoint forms are `gh run view <id> --json status,conclusion` and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs`. Copyable, with no prompt (set `run_id` from the run's URL, or take the newest run on your branch as below), and paginated so "every job" is true:
 
 ```bash
-read -r -p "Run ID: " run_id
+run_id=$(gh run list --branch "$(git branch --show-current)" --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run view "$run_id" --json status,conclusion # the run as a whole
 gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100" \
   --jq '.jobs[] | "\(.status) \(.conclusion) \(.name)"' # every job in it
 ```
 
-- **All jobs `queued`, none started** is a platform or scheduling state, not a code failure. Check githubstatus.com, repository concurrency, runner availability, and account limits; wait when GitHub or runner capacity is the cause. Re-pushing or editing code does not diagnose a job that never ran.
+- **All jobs `queued`, none started** means no code ran: an Actions outage or runner shortage, or a scheduling limit (repository concurrency, unavailable runner labels, account or billing limits). It is not a code failure. Check githubstatus.com, repository concurrency, runner availability, and account limits; wait when GitHub or runner capacity is the cause. Re-pushing or editing code does not diagnose a job that never ran.
 - **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval (a first-time contributor or a bot-authored PR). It has no logs because nothing ran. Approve the run in the Actions tab; don't debug it.
 
 Only when at least one job actually ran and failed is it a code failure. Then read that job's logs.
