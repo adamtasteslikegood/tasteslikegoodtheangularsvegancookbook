@@ -217,6 +217,7 @@ WIP ≤ 3, one session per lane:
 | B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
 | C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                                         |
 | D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
+| E — Mid-sprint    | S17, S18, S19                                           | Backend service and release train                                   |
 
 ## Execution order
 
@@ -248,7 +249,7 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.
 - **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
 - **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
-- **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: request-triggered `valkey.token_refresh` spans show `wall_ms` close to `thread_cpu_ms`, and the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
+- **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: for request-triggered `valkey.token_refresh` spans, the `wall_ms - thread_cpu_ms` gap is explained by the `valkey.token_fetch`, `valkey.pool_disconnect`, and `valkey.ping` child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
 
 ## Sprint 9 retro actions — row-by-row disposition
 
