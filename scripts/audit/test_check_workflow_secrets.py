@@ -1,0 +1,191 @@
+"""Tests for check_workflow_secrets.py (KAN-300). Stdlib only, no network.
+
+Run: python3 -m unittest scripts/audit/test_check_workflow_secrets.py
+"""
+
+from __future__ import annotations
+
+import re
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import check_workflow_secrets as cws  # noqa: E402
+
+PRESENCE = "SECRET_PRESENT_{n}: ${{{{ secrets.{n} != '' }}}}"
+
+
+def gate_text(names: list[str], extra: str = "") -> str:
+    block = "\n".join("          " + PRESENCE.format(n=n) for n in names)
+    return (
+        "jobs:\n  workflow-secrets:\n    steps:\n      - env:\n"
+        f"          {cws.BLOCK_BEGIN}\n{block}\n          {cws.BLOCK_END}\n" + extra
+    )
+
+
+class ExtractionTest(unittest.TestCase):
+    def test_accepts_lowercase_letters_and_digits(self):
+        text = "a: ${{ secrets.foo_1 }}\nb: ${{ secrets.ABC9 }}\nc: ${{ secrets.x9y }}"
+        self.assertEqual(cws.extract_names(text), {"FOO_1", "ABC9", "X9Y"})
+
+    def test_pattern_is_the_authoritative_character_class(self):
+        self.assertIn("secrets\\.([A-Za-z0-9_]+)", cws.REFERENCE_RE.pattern)
+
+    def test_names_compare_case_insensitively(self):
+        self.assertEqual(cws.extract_names("${{ secrets.Gemini_Api_Key }}"), {"GEMINI_API_KEY"})
+
+    def test_every_reference_in_an_expression_is_found(self):
+        text = "t: ${{ secrets.A || secrets.B || secrets.GITHUB_TOKEN }}"
+        self.assertEqual(cws.extract_names(text), {"A", "B", "GITHUB_TOKEN"})
+
+    def test_filenames_containing_secrets_are_not_references(self):
+        text = (
+            "require('/tmp/gh-aw/actions/redact_secrets.cjs')\n"
+            "cat redact-secrets.json path/secrets.yml"
+        )
+        self.assertEqual(cws.extract_names(text), set())
+
+
+class ExemptionTest(unittest.TestCase):
+    def test_github_token_is_the_builtin_exemption(self):
+        self.assertEqual(cws.BUILTIN_EXEMPT, "GITHUB_TOKEN")
+        self.assertTrue(cws.is_exempt("GITHUB_TOKEN"))
+        self.assertTrue(cws.is_exempt("github_token"))
+
+    def test_exemption_is_exact_name_only(self):
+        for name in ("GITHUB_TOKEN_X", "GH_AW_GITHUB_TOKEN", "MY_GITHUB_TOKEN", "GITHUB_TOKEN2", "GITHUB"):
+            with self.subTest(name=name):
+                self.assertFalse(cws.is_exempt(name))
+
+    def test_scan_drops_only_github_token(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "w.yml").write_text(
+                "x: ${{ secrets.GITHUB_TOKEN }}\ny: ${{ secrets.GITHUB_TOKEN_X }}\n"
+                "z: ${{ secrets.GH_AW_GITHUB_TOKEN }}\n"
+            )
+            referenced, _, _ = cws.scan(root, root / "pr-gate.yml")
+        self.assertEqual(referenced, {"GITHUB_TOKEN_X", "GH_AW_GITHUB_TOKEN"})
+
+    def test_no_optional_secret_lacks_a_reason_or_shadows_the_exemption(self):
+        self.assertNotIn(cws.BUILTIN_EXEMPT, cws.OPTIONAL_SECRETS)
+        for name, reason in cws.OPTIONAL_SECRETS.items():
+            with self.subTest(name=name):
+                self.assertTrue(reason.strip())
+
+
+class DriftTest(unittest.TestCase):
+    """The presence block must equal the referenced set, in both directions."""
+
+    def scan_tree(self, files: dict[str, str]):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        for name, text in files.items():
+            (root / name).write_text(text)
+        return cws.scan(root, root / "pr-gate.yml")
+
+    def test_matching_block_passes(self):
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.a }}"})
+        self.assertEqual(cws.static_problems(*scanned), [])
+
+    def test_reference_without_presence_line_fails(self):
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }} ${{ secrets.NEW }}"})
+        problems = cws.static_problems(*scanned)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("NEW: referenced by a workflow but has no presence line", problems[0])
+
+    def test_stale_presence_line_fails(self):
+        # The line itself mentions the secret; it must not count as a reference.
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A", "OLD"]), "w.yml": "${{ secrets.A }}"})
+        problems = cws.static_problems(*scanned)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("OLD: presence line in pr-gate.yml but no workflow references it", problems[0])
+
+    def test_missing_block_fails(self):
+        scanned = self.scan_tree({"pr-gate.yml": "jobs: {}\n", "w.yml": "${{ secrets.A }}"})
+        self.assertTrue(any("no presence block" in p for p in cws.static_problems(*scanned)))
+
+    def test_presence_key_must_match_its_secret(self):
+        bad = gate_text([]).replace(
+            cws.BLOCK_END, "SECRET_PRESENT_A: ${{ secrets.B != '' }}\n          " + cws.BLOCK_END
+        )
+        with self.assertRaises(cws.InspectError):
+            self.scan_tree({"pr-gate.yml": bad})
+
+    def test_unrecognised_block_line_is_an_inspect_error(self):
+        bad = gate_text([]).replace(cws.BLOCK_END, "SECRET_PRESENT_A: ${{ secrets.A }}\n          " + cws.BLOCK_END)
+        with self.assertRaises(cws.InspectError):
+            self.scan_tree({"pr-gate.yml": bad})
+
+    def test_environment_scoped_job_is_flagged(self):
+        scanned = self.scan_tree({
+            "pr-gate.yml": gate_text(["A"]),
+            "deploy.yml": "jobs:\n  d:\n    environment: production\n    env:\n      K: ${{ secrets.A }}\n",
+        })
+        problems = cws.static_problems(*scanned)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("environment:", problems[0])
+        self.assertIn("deploy.yml", problems[0])
+
+    def test_emit_block_round_trips(self):
+        names = {"A", "B_2"}
+        lines = cws.emit_block(names).splitlines()
+        self.assertEqual(lines[0].strip(), cws.BLOCK_BEGIN)
+        self.assertEqual(lines[-1].strip(), cws.BLOCK_END)
+        self.assertEqual(cws.parse_presence_block(lines[1:-1]), names)
+
+
+class PresenceTest(unittest.TestCase):
+    def test_all_true_passes(self):
+        env = {"SECRET_PRESENT_A": "true", "SECRET_PRESENT_B": "true"}
+        configured = cws.configured_from_env({"A", "B"}, env)
+        self.assertEqual(cws.missing_problems({"A", "B"}, configured), [])
+
+    def test_deliberately_missing_secret_fails(self):
+        env = {"SECRET_PRESENT_A": "true", "SECRET_PRESENT_NOPE": "false"}
+        configured = cws.configured_from_env({"A", "NOPE"}, env)
+        self.assertEqual(
+            cws.missing_problems({"A", "NOPE"}, configured),
+            ["NOPE: referenced by a workflow but not configured"],
+        )
+
+    def test_unexported_presence_variable_is_an_inspect_error(self):
+        with self.assertRaises(cws.InspectError):
+            cws.configured_from_env({"A"}, {})
+
+    def test_presence_value_must_be_a_boolean_string(self):
+        with self.assertRaises(cws.InspectError):
+            cws.configured_from_env({"A"}, {"SECRET_PRESENT_A": "hunter2"})
+
+
+class RepositoryTest(unittest.TestCase):
+    """Against the real .github/workflows tree."""
+
+    def test_real_presence_block_matches_real_references(self):
+        self.assertEqual(cws.static_problems(*cws.scan(cws.WORKFLOWS, cws.GATE_FILE)), [])
+
+    def test_gate_needs_the_job(self):
+        text = cws.GATE_FILE.read_text()
+        gate = text[text.index("\n  gate:\n"):]
+        needs = gate[gate.index("needs:"):gate.index("if: always()")]
+        self.assertRegex(needs, r"(?m)^\s+- workflow-secrets$")
+
+    def test_presence_step_skips_dependabot_and_fork_prs(self):
+        text = cws.GATE_FILE.read_text()
+        step = text[text.index("- name: Every referenced secret is configured"):text.index(cws.BLOCK_BEGIN)]
+        condition = re.sub(r"\s+", " ", step)
+        for clause in (
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            "github.actor != 'dependabot[bot]'",
+            "github.event.pull_request.user.login != 'dependabot[bot]'",
+        ):
+            with self.subTest(clause=clause):
+                self.assertIn(clause, condition)
+
+
+if __name__ == "__main__":
+    unittest.main()
