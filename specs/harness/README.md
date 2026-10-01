@@ -3,18 +3,19 @@
 ## Sprint 10 (current)
 
 The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
-SI (S1–S16), plus T0 (board honesty) and T17 (close-out).
+SI (S1–S19; S17–S19 added mid-sprint are tasks T18–T20), plus T0 (board honesty) and T17
+(close-out).
 
 | File                                                                                         | Role                                                                            |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 18 tasks, each with its lane, its checks, and its skill              |
+| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 21 tasks, each with its lane, its checks, and its skill              |
 | [`../../scripts/harness/sprint10_hard_gate.py`](../../scripts/harness/sprint10_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
 | [`../../scripts/harness/sprint10_driver.py`](../../scripts/harness/sprint10_driver.py)       | **The PM driver.** Starts one task per controller state, in charter order       |
 
 ### How the run is driven
 
 The pinned `loop_controller.py` runs one plan strictly in list order, drops lane and
-gate metadata at `init`, and keeps one global iteration counter. A single 18-task state
+gate metadata at `init`, and keeps one global iteration counter. A single 21-task state
 could not run the lanes in parallel or enforce charter D6 (3 attempts per task, 12
 iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions** and
 `sprint10_driver.py` decides what may start:
