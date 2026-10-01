@@ -193,7 +193,7 @@ export function classifyRoute(path: string): RouteClass {
   }
   if (
     spa.singleSegment.some(
-      (prefix) => /^[^/]+$/.test(path.slice(prefix.length)) && path.startsWith(prefix)
+      (prefix) => path.startsWith(prefix) && /^[^/]+$/.test(path.slice(prefix.length))
     )
   ) {
     return 'spa';

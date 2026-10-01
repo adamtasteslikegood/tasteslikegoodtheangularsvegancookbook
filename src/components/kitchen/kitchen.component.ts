@@ -1,4 +1,5 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -62,6 +63,8 @@ export class KitchenComponent {
     return this.recipeState.imageDisplayUrl(r.id, r.ai_image_url);
   }
 
+  private destroyed = false;
+
   constructor() {
     // Entering the recipe list ends the prior detail-page analytics view.
     // Keep the cached recipe for fast return navigation, but allow selecting
@@ -69,9 +72,16 @@ export class KitchenComponent {
     this.recipeState.leaveRecipeView();
     this.authService.ensureGuestSession();
 
+    // Mirror the awaited-after-destroy guard so applyRouteCookbook cannot
+    // navigate the user away from a different page they moved to while
+    // firstSyncSettled was still in flight.
+    inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
+    });
+
     // KAN-321: the selected cookbook lives in the URL (/kitchen/<id>), so
     // back/forward, reload and deep links all land on the same view.
-    this.route.paramMap.subscribe((params) => {
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyRouteCookbook(params.get('cookbookId'));
     });
   }
@@ -96,7 +106,10 @@ export class KitchenComponent {
     } catch {
       // Fall through and judge by whatever state we have.
     }
-    // The user may have moved on while we waited.
+    // The user may have moved on while we waited — including off the Kitchen
+    // entirely. Firing router.navigate in that case replaces the user's
+    // current page with /kitchen.
+    if (this.destroyed) return;
     if (this.activeCookbookId() !== id || this.ownsCookbook(id)) return;
     void this.router.navigate(['/kitchen'], { replaceUrl: true });
   }
@@ -199,8 +212,11 @@ export class KitchenComponent {
 
   toggleRecycleBin() {
     this.showRecycleBin.update((v) => !v);
-    // The bin is a view of /kitchen, not of a cookbook (KAN-321).
-    if (this.activeCookbookId()) void this.router.navigate(['/kitchen']);
+    // The bin is a view of /kitchen, not of a cookbook (KAN-321). Replace the
+    // /kitchen/<id> entry rather than pushing a new one, matching
+    // deleteCookbook — otherwise Back has to pop the implicit /kitchen entry
+    // before it can leave the Kitchen at all.
+    if (this.activeCookbookId()) void this.router.navigate(['/kitchen'], { replaceUrl: true });
   }
 
   promptDeleteRecipe(recipe: Recipe, event: Event) {

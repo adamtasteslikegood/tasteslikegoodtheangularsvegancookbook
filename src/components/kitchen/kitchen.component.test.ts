@@ -203,7 +203,8 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     const { kitchen, navigate, emitCookbook } = createKitchen({ cookbookId: 'cb-1' });
     kitchen.toggleRecycleBin();
     expect(kitchen.showRecycleBin()).toBe(true);
-    expect(navigate).toHaveBeenLastCalledWith(['/kitchen']);
+    // replaceUrl so Back doesn't have to pop an implicit /kitchen entry first.
+    expect(navigate).toHaveBeenLastCalledWith(['/kitchen'], { replaceUrl: true });
     emitCookbook(null); // the navigation lands
     expect(kitchen.showRecycleBin()).toBe(true);
 
