@@ -113,6 +113,7 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertFalse(carried_rows & set(hard_gate.ACCEPTANCE.values()))
         t17 = next(t for t in plan["tasks"] if t["id"] == "T17")
         manual = next(v["cmd"] for v in t17["verification"] if v["kind"] == "manual-evidence")
+        self.assertIn("except RCP-109, RCP-110 and RCP-117", t17["objective"])
         self.assertIn("EXCEPT RCP-109, RCP-110 and RCP-117", manual)
 
     def test_charter_refuses_a_missing_member(self):
