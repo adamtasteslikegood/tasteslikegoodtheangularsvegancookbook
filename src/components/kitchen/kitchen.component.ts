@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { GeminiService } from '../../services/gemini.service';
 import { PersistenceService } from '../../services/persistence.service';
@@ -10,7 +10,7 @@ import { hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
-import { KITCHEN_CRUMB, kitchenTrail, type Crumb } from '../../utils/breadcrumbs';
+import { kitchenTrail } from '../../utils/breadcrumbs';
 
 /**
  * KAN-289 — which confirmation the delete button opens.
@@ -44,6 +44,7 @@ export function retiringConfirmationText(recipe: Recipe): string {
 })
 export class KitchenComponent {
   private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
   readonly authService = inject(AuthService);
   private readonly geminiService = inject(GeminiService);
   private readonly persistenceService = inject(PersistenceService);
@@ -67,6 +68,41 @@ export class KitchenComponent {
     // the same recipe again to count as a new view.
     this.recipeState.leaveRecipeView();
     this.authService.ensureGuestSession();
+
+    // KAN-321: the selected cookbook lives in the URL (/kitchen/<id>), so
+    // back/forward, reload and deep links all land on the same view.
+    this.route.paramMap.subscribe((params) => {
+      void this.applyRouteCookbook(params.get('cookbookId'));
+    });
+  }
+
+  /**
+   * Select the route's cookbook. An id that is not one of this user's (or
+   * guest's) cookbooks falls back to /kitchen, replacing the dead entry.
+   *
+   * Not on first sight: the signed-in user's cookbooks are seeded from
+   * localStorage and merged from the API afterwards, so a cookbook made on
+   * another device is absent until the first sync settles. Bouncing before
+   * then would throw away a legitimate deep link.
+   */
+  private async applyRouteCookbook(id: string | null) {
+    this.activeCookbookId.set(id);
+    if (!id) return;
+    this.showRecycleBin.set(false);
+    if (this.ownsCookbook(id)) return;
+    try {
+      await this.authService.ready;
+      await this.persistenceService.firstSyncSettled;
+    } catch {
+      // Fall through and judge by whatever state we have.
+    }
+    // The user may have moved on while we waited.
+    if (this.activeCookbookId() !== id || this.ownsCookbook(id)) return;
+    void this.router.navigate(['/kitchen'], { replaceUrl: true });
+  }
+
+  private ownsCookbook(id: string): boolean {
+    return !!this.authService.currentUser()?.cookbooks.some((cb) => cb.id === id);
   }
 
   activeCookbookId = signal<string | null>(null);
@@ -109,7 +145,7 @@ export class KitchenComponent {
   });
 
   /** KAN-295: the visible trail; a selected cookbook is its last crumb. */
-  breadcrumbs = computed(() => kitchenTrail(this.activeCookbook()?.name));
+  breadcrumbs = computed(() => kitchenTrail(this.activeCookbook()));
 
   displayedKitchenRecipes = computed(() => {
     const user = this.authService.currentUser();
@@ -121,14 +157,14 @@ export class KitchenComponent {
     return user.savedRecipes;
   });
 
+  /**
+   * KAN-321: selecting is navigating; the route handler applies it. The bin
+   * closes here because "All Recipes" from the bin at /kitchen is a same-URL
+   * navigation, which the router ignores.
+   */
   selectCookbook(id: string | null) {
-    this.activeCookbookId.set(id);
     this.showRecycleBin.set(false);
-  }
-
-  /** The My Kitchen crumb links to /kitchen, already open: the router ignores it. */
-  onCrumb(crumb: Crumb) {
-    if (crumb.url === KITCHEN_CRUMB.url) this.selectCookbook(null);
+    void this.router.navigate(id ? ['/kitchen', id] : ['/kitchen']);
   }
 
   switchView(view: 'generator' | 'kitchen') {
@@ -139,7 +175,13 @@ export class KitchenComponent {
     // Stage the fast-path state now; RecipeDetailComponent records the view
     // only after the detail route actually activates.
     this.recipeState.stageRecipeForNavigation(r);
-    this.router.navigate(['/recipe', r.id]);
+    // KAN-321: carry the cookbook so the recipe's trail and "Back to Kitchen"
+    // return to it. The recipe page checks membership before trusting it.
+    const cookbookId = this.activeCookbookId();
+    this.router.navigate(
+      ['/recipe', r.id],
+      cookbookId ? { queryParams: { cookbook: cookbookId } } : undefined
+    );
   }
 
   async deleteCookbook(id: string, event: Event) {
@@ -149,14 +191,16 @@ export class KitchenComponent {
     ) {
       await this.persistenceService.deleteCookbook(id);
       if (this.activeCookbookId() === id) {
-        this.activeCookbookId.set(null);
+        // The /kitchen/<id> entry now points at nothing: replace it.
+        void this.router.navigate(['/kitchen'], { replaceUrl: true });
       }
     }
   }
 
   toggleRecycleBin() {
     this.showRecycleBin.update((v) => !v);
-    this.activeCookbookId.set(null);
+    // The bin is a view of /kitchen, not of a cookbook (KAN-321).
+    if (this.activeCookbookId()) void this.router.navigate(['/kitchen']);
   }
 
   promptDeleteRecipe(recipe: Recipe, event: Event) {

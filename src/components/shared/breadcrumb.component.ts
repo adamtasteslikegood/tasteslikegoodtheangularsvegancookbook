@@ -1,19 +1,18 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
+import { isInAppCrumbPath, type Crumb } from '../../utils/breadcrumbs';
 
 /**
- * KAN-295 — the visible breadcrumb, the SPA counterpart of the SSR trail
- * (Backend `templates/public/*.html`, `nav.public-breadcrumb`).
+ * KAN-295 — the visible breadcrumb in the SPA.
  *
  * The last crumb is the current page: plain text with `aria-current="page"`,
- * never a link. Earlier crumbs are real anchors. Router-owned paths use
- * `routerLink`; Flask-served ones (/browse, /browse/tag/…, /r/…) use a plain
- * `href`, because the SPA's `**` route would send a routerLink to them home.
+ * never a link. Earlier crumbs are `routerLink`s.
  *
- * `navigate` fires for in-app crumbs. A crumb that points at the URL already
- * open is a router no-op (`onSameUrlNavigation: 'ignore'`), so a view whose
- * state is not in the URL (Kitchen's selected cookbook) resets it from here.
+ * KAN-321: breadcrumbs stay on their own side of auth. This component links
+ * only in-app destinations (`isInAppCrumbPath`: /kitchen, /kitchen/<id>,
+ * /recipe/<id>); a crumb pointing anywhere else renders as plain text rather
+ * than as an exit to the public SSR pages. The public trail is the SSR
+ * template's job (Backend `templates/public/*.html`).
  */
 @Component({
   selector: 'app-breadcrumb',
@@ -30,17 +29,14 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
                   crumb.name
                 }}</span>
               } @else {
-                @if (isSpaPath(crumb.url)) {
+                @if (isInAppCrumbPath(crumb.url)) {
                   <a
                     [routerLink]="crumb.url"
-                    (click)="onNavigate($event, crumb)"
                     class="hover:text-stone-800 underline underline-offset-2"
                     >{{ crumb.name }}</a
                   >
                 } @else {
-                  <a [href]="crumb.url" class="hover:text-stone-800 underline underline-offset-2">{{
-                    crumb.name
-                  }}</a>
+                  <span>{{ crumb.name }}</span>
                 }
                 <span aria-hidden="true" class="text-stone-300">/</span>
               }
@@ -53,15 +49,5 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
 })
 export class BreadcrumbComponent {
   readonly crumbs = input.required<Crumb[]>();
-  readonly navigate = output<Crumb>();
-  protected readonly isSpaPath = isSpaPath;
-
-  protected onNavigate(event: MouseEvent, crumb: Crumb): void {
-    // Preserve normal anchor semantics: opening a crumb in another tab/window
-    // must not mutate the currently open Kitchen view.
-    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
-      return;
-    }
-    this.navigate.emit(crumb);
-  }
+  protected readonly isInAppCrumbPath = isInAppCrumbPath;
 }

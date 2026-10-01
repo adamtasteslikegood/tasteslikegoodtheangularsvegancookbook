@@ -338,6 +338,14 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
   });
 
+  it('serves a Kitchen cookbook view (/kitchen/<id>) as a 200 noindex shell (KAN-321)', async () => {
+    // A reload or deep link on a cookbook must land in the SPA, not a 404 shell.
+    const res = await fetch(`${baseUrl}/kitchen/3f2a9c1e-cookbook`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
+  });
+
   it('marks /recipe/<id> noindex — /r/<slug> is the indexable copy', async () => {
     const res = await fetch(`${baseUrl}/recipe/abc`);
     expect(res.status).toBe(200);

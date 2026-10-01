@@ -6,13 +6,7 @@ import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
-import {
-  privateRecipeTrail,
-  publicRecipeFallbackTrail,
-  trailFromApi,
-  type Crumb,
-} from '../../utils/breadcrumbs';
-import type { Recipe } from '../../recipe.types';
+import { recipeTrail, type Crumb } from '../../utils/breadcrumbs';
 
 /**
  * What the route is showing right now (KAN-257).
@@ -88,33 +82,44 @@ export class RecipeDetailComponent extends RecipeViewBase {
   private requestSeq = 0;
   private currentId: string | null = null;
 
-  /**
-   * KAN-295 — the SSR trail for a published recipe, keyed by the slug it was
-   * fetched for, so a stale answer for another slug is never shown.
-   */
-  private readonly publicTrail = signal<{ slug: string; crumbs: Crumb[] } | null>(null);
-  private publicTrailRequestedFor: string | null = null;
-  private publicTrailRequestSeq = 0;
+  /** KAN-321: `?cookbook=<id>`, the Kitchen view this recipe was opened from. */
+  private readonly cookbookParam = signal<string | null>(null);
 
   /**
-   * The visible breadcrumb. A published recipe matches its /r/<slug> page's
-   * BreadcrumbList; until that trail arrives (or when the Backend predates it)
-   * it shows the same trail without the hub step. A private recipe has no SSR
-   * page, so it runs through My Kitchen.
+   * The source cookbook, only when it is one of this user's cookbooks AND
+   * actually holds this recipe; a stale, foreign or made-up id is ignored.
+   * Computed over the user, so it settles once the cookbooks hydrate.
+   */
+  readonly sourceCookbook = computed(() => {
+    const id = this.cookbookParam();
+    const r = this.recipe();
+    if (!id || !r) return null;
+    return (
+      this.authService
+        .currentUser()
+        ?.cookbooks.find((cb) => cb.id === id && cb.recipeIds.includes(r.id)) ?? null
+    );
+  });
+
+  /**
+   * The visible breadcrumb: My Kitchen [→ cookbook] → recipe (KAN-321).
+   * Published or not, this is the Kitchen's view of the recipe, so the trail
+   * stays in-app; the public /r/<slug> page has its own SSR trail, reached
+   * through the "View ↗" link.
    */
   readonly breadcrumbs = computed<Crumb[]>(() => {
     const r = this.recipe();
-    if (!r) return [];
-    if (!r.is_public || !r.slug) return privateRecipeTrail(r);
-    const fetched = this.publicTrail();
-    return fetched?.slug === r.slug ? fetched.crumbs : publicRecipeFallbackTrail(r);
+    return r ? recipeTrail(r, this.sourceCookbook()) : [];
   });
 
   constructor() {
     super();
     inject(DestroyRef).onDestroy(() => {
       this.requestSeq++;
-      this.publicTrailRequestSeq++;
+    });
+
+    this.route.queryParamMap.subscribe((params) => {
+      this.cookbookParam.set(params.get('cookbook'));
     });
 
     this.route.paramMap.subscribe((params) => {
@@ -154,75 +159,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
     if (this.currentId) void this.load(this.currentId);
   }
 
+  /** Back to the Kitchen view the recipe was opened from, when there was one. */
   goBack() {
-    this.router.navigate(['/kitchen']);
-  }
-
-  /** Publishing mints the slug the public trail is keyed by (KAN-295). */
-  override async togglePublic(recipe: Recipe, confirmed = false) {
-    await super.togglePublic(recipe, confirmed);
-    void this.syncPublicTrail();
+    const cookbook = this.sourceCookbook();
+    this.router.navigate(cookbook ? ['/kitchen', cookbook.id] : ['/kitchen']);
   }
 
   private markReady() {
     this.loadState.set('ready');
-    void this.syncPublicTrail();
-  }
-
-  /**
-   * KAN-295 — fetch the published recipe's SSR trail once per slug. Any
-   * failure leaves the fallback trail in place: the breadcrumb is navigation,
-   * never a reason to show an error.
-   *
-   * Two guards keep the trail correct across navigation:
-   *   1. Before writing, re-read `this.recipe()?.slug` — a late answer for a
-   *      slug the user has already navigated away from must not overwrite the
-   *      trail a newer fetch already applied.
-   *   2. The "requested" mark is only kept when the fetch actually applied a
-   *      trail; a transient failure clears it so a later markReady() /
-   *      togglePublic() can retry, and so does unpublishing.
-   */
-  private async syncPublicTrail() {
-    const r = this.recipe();
-    if (!r?.is_public || !r.slug) {
-      // Unpublished (or never published): forget both the cached trail and any
-      // request for it. KAN-291 preserves the slug across republish, so a
-      // string-only guard cannot distinguish the old publication from the new
-      // one; the sequence also invalidates an older in-flight response.
-      this.publicTrailRequestSeq++;
-      this.publicTrailRequestedFor = null;
-      this.publicTrail.set(null);
-      return;
-    }
-    const slug = r.slug;
-    if (this.publicTrailRequestedFor === slug) return;
-    const requestSeq = ++this.publicTrailRequestSeq;
-    this.publicTrailRequestedFor = slug;
-    let applied = false;
-    try {
-      const resp = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`, {
-        credentials: 'include',
-      });
-      if (!resp.ok) return;
-      const body = (await resp.json()) as { breadcrumbs?: unknown } | null;
-      const crumbs = trailFromApi(body?.breadcrumbs);
-      if (!crumbs) return;
-      const current = this.recipe();
-      if (requestSeq !== this.publicTrailRequestSeq || !current?.is_public || current.slug !== slug)
-        return;
-      this.publicTrail.set({ slug, crumbs });
-      applied = true;
-    } catch {
-      // Keep the fallback trail.
-    } finally {
-      if (
-        !applied &&
-        requestSeq === this.publicTrailRequestSeq &&
-        this.publicTrailRequestedFor === slug
-      ) {
-        this.publicTrailRequestedFor = null;
-      }
-    }
   }
 
   private async load(id: string) {

@@ -1,18 +1,20 @@
 import siteNav from '../site-nav.json';
+import type { Cookbook } from '../auth.types';
 import type { Recipe } from '../recipe.types';
 
 /**
- * KAN-295 — the SPA's visible breadcrumb trails.
+ * KAN-295 / KAN-321 — the SPA's visible breadcrumb trails.
  *
- * A published recipe's trail is the SSR page's `BreadcrumbList`
- * (Backend `public_bp._breadcrumbs`): Home → Browse → [first indexable hub] →
- * recipe. The hub step depends on live catalog counts only Flask knows, so the
- * SPA reads the trail from `GET /api/recipes/public/<slug>` (`breadcrumbs`) and
- * shows `publicRecipeFallbackTrail` until it arrives, or when the Backend
- * predates the field.
+ * Breadcrumbs stay on their own side of auth (KAN-321, Adam). The in-app
+ * trails start at My Kitchen and link only to in-app routes (/kitchen,
+ * /kitchen/<cookbookId>, /recipe/<id>). The public SSR trail
+ * (Backend `public_bp._breadcrumbs`: Home → Browse → [hub] → recipe) belongs
+ * to the /r/<slug> page alone; showing it on the signed-in recipe page sent
+ * users into /browse hubs that never lead back to the Kitchen. The recipe
+ * page's "View ↗" link is the one deliberate exit to the public side.
  *
- * Private recipes and the Kitchen have no SSR counterpart; their trails run
- * through My Kitchen, where the page's "Back to Kitchen" already points.
+ * No Home crumb in-app: the SPA "/" is the Generator landing, the indexable
+ * public-facing page, not the root of the Kitchen.
  *
  * URLs are same-origin paths: the SPA only uses relative URLs.
  */
@@ -21,61 +23,42 @@ export interface Crumb {
   url: string;
 }
 
-/** Labels as the SSR trail spells them. */
-export const HOME_CRUMB: Crumb = { name: 'Home', url: '/' };
-export const BROWSE_CRUMB: Crumb = { name: 'Browse', url: '/browse' };
-
 /** The header's label, so the trail and the nav agree (KAN-294). */
 export const KITCHEN_CRUMB: Crumb = {
   name: siteNav.header.find((link) => link.href === '/kitchen')?.label ?? 'My Kitchen',
   url: '/kitchen',
 };
 
-/** Paths the Angular router owns. Everything else (/browse, /r/…) is Flask SSR. */
-export function isSpaPath(url: string): boolean {
-  return url === '/' || url === '/kitchen' || url === '/generate' || url.startsWith('/recipe/');
-}
-
-/** `https://www.tasteslikegood.org/r/x` → `/r/x`. Returns null for anything unparseable. */
-export function toSameOriginPath(url: string): string | null {
-  try {
-    return new URL(url, 'http://localhost').pathname;
-  } catch {
-    return null;
-  }
+/** `/kitchen/<id>`: a cookbook is a route (KAN-321), so back/forward and reload keep it. */
+export function cookbookUrl(cookbookId: string): string {
+  return `${KITCHEN_CRUMB.url}/${encodeURIComponent(cookbookId)}`;
 }
 
 /**
- * The Backend's trail (absolute canonical URLs, SSR shape) as SPA crumbs, or
- * null when the payload is missing or malformed, so the caller falls back.
+ * The rule as a predicate: the only destinations an in-app crumb may have.
+ * The breadcrumb component links nothing else.
  */
-export function trailFromApi(raw: unknown): Crumb[] | null {
-  if (!Array.isArray(raw) || raw.length < 2) return null;
-  const crumbs: Crumb[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') return null;
-    const { name, url } = item as { name?: unknown; url?: unknown };
-    if (typeof name !== 'string' || !name || typeof url !== 'string' || !url) return null;
-    const path = toSameOriginPath(url);
-    if (!path) return null;
-    crumbs.push({ name, url: path });
-  }
-  return crumbs;
+export function isInAppCrumbPath(url: string): boolean {
+  return url === KITCHEN_CRUMB.url || /^\/(kitchen|recipe)\/[^/]+$/.test(url);
 }
 
-/** Home → Browse → recipe: the SSR trail minus a hub the SPA cannot know. */
-export function publicRecipeFallbackTrail(recipe: Pick<Recipe, 'name' | 'slug'>): Crumb[] {
-  return [HOME_CRUMB, BROWSE_CRUMB, { name: recipe.name, url: `/r/${recipe.slug}` }];
+/** My Kitchen [→ cookbook]. */
+export function kitchenTrail(cookbook?: Pick<Cookbook, 'id' | 'name'> | null): Crumb[] {
+  return cookbook
+    ? [KITCHEN_CRUMB, { name: cookbook.name, url: cookbookUrl(cookbook.id) }]
+    : [KITCHEN_CRUMB];
 }
 
-/** Home → My Kitchen → recipe, for a recipe with no public page. */
-export function privateRecipeTrail(recipe: Pick<Recipe, 'id' | 'name'>): Crumb[] {
-  return [HOME_CRUMB, KITCHEN_CRUMB, { name: recipe.name, url: `/recipe/${recipe.id}` }];
-}
-
-/** Home → My Kitchen [→ cookbook]. A cookbook is Kitchen state, not a route. */
-export function kitchenTrail(cookbookName?: string | null): Crumb[] {
-  return cookbookName
-    ? [HOME_CRUMB, KITCHEN_CRUMB, { name: cookbookName, url: KITCHEN_CRUMB.url }]
-    : [HOME_CRUMB, KITCHEN_CRUMB];
+/**
+ * My Kitchen [→ cookbook] → recipe. Published or not: the recipe page is the
+ * Kitchen's view of the recipe, so its trail never names a public hub.
+ */
+export function recipeTrail(
+  recipe: Pick<Recipe, 'id' | 'name'>,
+  cookbook?: Pick<Cookbook, 'id' | 'name'> | null
+): Crumb[] {
+  return [
+    ...kitchenTrail(cookbook),
+    { name: recipe.name, url: `/recipe/${encodeURIComponent(recipe.id)}` },
+  ];
 }

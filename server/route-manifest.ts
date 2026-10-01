@@ -57,7 +57,7 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   ssrStatic   — Flask SSR static assets (/static/*)
  *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html)
  *                 and the Express-local RUM endpoints (/rum/config, /rum/intake)
- *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
+ *   spa         — Angular client-side routes (/, /kitchen, /kitchen/:cookbookId, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
@@ -81,8 +81,15 @@ export const ROUTE_MANIFEST = {
       '/rum/intake',
     ],
   },
-  /** Angular SPA routes — catch-all serves index.html */
-  spa: { paths: ['/', '/generate', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
+  /**
+   * Angular SPA routes — catch-all serves index.html. `/kitchen/<cookbookId>`
+   * is a Kitchen cookbook view (KAN-321); without the prefix a reload or deep
+   * link there would answer the shell with a 404.
+   */
+  spa: {
+    paths: ['/', '/generate', '/kitchen', '/chunk-error'],
+    prefixes: ['/recipe/', '/kitchen/'],
+  },
 } as const;
 
 // ── Classification functions ─────────────────────────────────────────────
