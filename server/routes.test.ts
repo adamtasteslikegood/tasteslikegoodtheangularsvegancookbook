@@ -301,6 +301,12 @@ describe('SPA catch-all never serves HTML for unknown asset-like paths (RCP-77 A
     expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
+  it('answers a nested Kitchen path (/kitchen/<id>/extra) with the 404 shell (KAN-321)', async () => {
+    const res = await fetch(`${baseUrl}/kitchen/3f2a9c1e-cookbook/extra`);
+    expect(res.status).toBe(404);
+    expect(res.headers.get('cache-control')).toBe('no-store');
+  });
+
   it('serves the shell for unknown non-asset paths, but with status 404 (KAN-276)', async () => {
     const res = await fetch(`${baseUrl}/some/unknown/page`);
     expect(res.status).toBe(404);
@@ -336,6 +342,14 @@ describe('SPA shell index control (KAN-276)', () => {
     const res = await fetch(`${baseUrl}/kitchen/`);
     expect(res.status).toBe(200);
     expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
+  });
+
+  it('serves a Kitchen cookbook view (/kitchen/<id>) as a 200 noindex shell (KAN-321)', async () => {
+    // A reload or deep link on a cookbook must land in the SPA, not a 404 shell.
+    const res = await fetch(`${baseUrl}/kitchen/3f2a9c1e-cookbook`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-robots-tag')).toBe('noindex, follow');
+    expect(await res.text()).toBe(STUB_ROUTE_NEUTRAL_SHELL);
   });
 
   it('marks /recipe/<id> noindex — /r/<slug> is the indexable copy', async () => {

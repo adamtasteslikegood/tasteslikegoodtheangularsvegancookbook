@@ -75,7 +75,7 @@
   </div>
 } @else if (recipe(); as r) {
   <article class="animate-[fadeIn_0.5s_ease-out]" itemscope itemtype="https://schema.org/Recipe">
-    <!-- KAN-295: the visible trail; for a published recipe, its SSR BreadcrumbList. -->
+    <!-- KAN-295/KAN-321: My Kitchen [→ cookbook] → recipe; never the public SSR trail. -->
     <app-breadcrumb [crumbs]="breadcrumbs()" />
 
     <!-- Back Navigation -->

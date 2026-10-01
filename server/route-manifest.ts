@@ -57,7 +57,7 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   ssrStatic   — Flask SSR static assets (/static/*)
  *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html)
  *                 and the Express-local RUM endpoints (/rum/config, /rum/intake)
- *   spa         — Angular client-side routes (/, /kitchen, /recipe/:id, etc.)
+ *   spa         — Angular client-side routes (/, /kitchen, /kitchen/:cookbookId, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
@@ -81,8 +81,19 @@ export const ROUTE_MANIFEST = {
       '/rum/intake',
     ],
   },
-  /** Angular SPA routes — catch-all serves index.html */
-  spa: { paths: ['/', '/generate', '/kitchen', '/chunk-error'], prefixes: ['/recipe/'] },
+  /**
+   * Angular SPA routes — catch-all serves index.html.
+   *
+   * `singleSegment` routes take exactly one segment after the prefix, matching
+   * the Angular route: `/kitchen/<cookbookId>` is a Kitchen cookbook view
+   * (KAN-321, `kitchenMatcher`), while `/kitchen/<id>/extra` stays unknown and
+   * keeps the 404 + no-store shell policy.
+   */
+  spa: {
+    paths: ['/', '/generate', '/kitchen', '/chunk-error'],
+    prefixes: ['/recipe/'],
+    singleSegment: ['/kitchen/'],
+  },
 } as const;
 
 // ── Classification functions ─────────────────────────────────────────────
@@ -178,6 +189,13 @@ export function classifyRoute(path: string): RouteClass {
   // Prefix routes require content after the slash: /recipe/<id> is valid,
   // while the collection-like /recipe/ path is not a known SPA page.
   if (spa.prefixes.some((prefix) => path.startsWith(prefix) && path.length > prefix.length)) {
+    return 'spa';
+  }
+  if (
+    spa.singleSegment.some(
+      (prefix) => path.startsWith(prefix) && /^[^/]+$/.test(path.slice(prefix.length))
+    )
+  ) {
     return 'spa';
   }
   return 'unknown';

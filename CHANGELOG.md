@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- SPA breadcrumbs stay on their own side of auth (KAN-321). The signed-in recipe page no longer
+  shows a published recipe's public SSR trail (Home → Browse → hub), whose crumbs led into `/browse`
+  pages that never return to the Kitchen. In-app trails are now `My Kitchen [→ cookbook] → recipe`
+  and link only to `/kitchen`, `/kitchen/<cookbookId>` and `/recipe/<id>`; the "View ↗" link stays
+  the one deliberate exit to the public page. Cookbooks are routable (`/kitchen/<cookbookId>`), so
+  back/forward, reload and deep links keep the selected cookbook, and "Back to Kitchen" returns to
+  the cookbook the recipe was opened from. Public SSR trails and their JSON-LD are unchanged.
+
 ## [0.5.5] - 2026-10-01
 
 Backend submodule pointer moves `5f8964bf3e8b` → **`52c652e0c3e4`** (Backend `main`, promotion #347);
