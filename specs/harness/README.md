@@ -4,7 +4,8 @@
 
 The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
 SI (S1–S19; S17–S19 added mid-sprint are tasks T18–T20), plus T0 (board honesty) and T17
-(close-out).
+(close-out). T10, T11 and T19 (S10, S11, S18) were carried to epic RCP-119 on
+2026-10-01 and are waived in their driver states; `status` prints them as waived.
 
 | File                                                                                         | Role                                                                            |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |

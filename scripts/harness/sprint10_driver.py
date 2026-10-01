@@ -248,6 +248,10 @@ def cmd_status(args):
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])
+            # A waived task counts as done for WIP and dependencies, but say so:
+            # "verified" alone would hide a carried or waived SI.
+            if raw_status(args.state_dir, t["id"]) == "waived":
+                note = "waived, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
                 note = "soaking until %s (no WIP slot)" % soak_until(

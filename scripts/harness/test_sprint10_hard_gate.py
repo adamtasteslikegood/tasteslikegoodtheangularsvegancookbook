@@ -100,16 +100,16 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertEqual(rc, 1)
 
     def test_charter_refuses_a_missing_member(self):
-        members = self._members() - {"KAN-299"}
+        members = self._members() - {"KAN-298"}
         rc, output = self._run_gate(members, charter=True)
         self.assertEqual(rc, 1)
-        self.assertIn("KAN-299 is not in Sprint 10", output)
+        self.assertIn("KAN-298 is not in Sprint 10", output)
 
     def test_charter_refuses_an_unrendered_acceptance_row(self):
-        rendered = set(hard_gate.ACCEPTANCE.values()) - {"RCP-110"}
+        rendered = set(hard_gate.ACCEPTANCE.values()) - {"RCP-108"}
         rc, output = self._run_gate(self._members(), charter=True, rendered=rendered)
         self.assertEqual(rc, 1)
-        self.assertIn("RCP-110 is not rendered by board 168", output)
+        self.assertIn("RCP-108 is not rendered by board 168", output)
 
     def test_charter_pair_is_a_gated_unit(self):
         self.assertIn("KAN-269", hard_gate.REQUIRED)

@@ -103,8 +103,6 @@ REQUIRED = {
     "KAN-296": "S7  — numbered pagination on /browse and tag hubs",
     "KAN-297": "S8  — mobile 2-up card layout",
     "KAN-298": "S9  — filter/sort, /browse?sort&tag canonical to /browse",
-    "KAN-277": "S10 — owned-property links + 3-5 articles",
-    "KAN-299": "S11 — launch post, last, behind the four gates",
     # S12-S16: the five Sprint 8 retro carry-overs, ticketed into Sprint 10 by
     # Adam on 2026-09-29 (Sprint 9 retro action c).
     "KAN-300": "S12 — workflow secrets.* references gated against gh secret list",
@@ -112,9 +110,8 @@ REQUIRED = {
     "KAN-302": "S14 — delete the copied required-checks list from CLAUDE.md",
     "KAN-303": "S15 — pre-work branch preflight incl. Backend-pointer ancestry",
     "KAN-304": "S16 — CLAUDE.md platform-vs-code CI discriminator",
-    # S17-S18: added mid-sprint by Adam on 2026-09-30.
+    # S17: added mid-sprint by Adam on 2026-09-30 (S18 was added with it, then carried).
     "KAN-307": "S17 — Express trusts the ALB hops: req.ip is the visitor",
-    "KAN-309": "S18 — Pinterest pin variant as a 1:1 centre crop",
     # S19: added mid-sprint by Adam on 2026-10-01 (v0.5.5 #346 diagnostics).
     "KAN-318": "S19 — Valkey IAM token refresh on the request path",
 }
@@ -134,15 +131,12 @@ SI_EXECUTION = {
     "S7": ["KAN-296"],
     "S8": ["KAN-297"],
     "S9": ["KAN-298"],
-    "S10": ["KAN-277"],
-    "S11": ["KAN-299"],
     "S12": ["KAN-300"],
     "S13": ["KAN-301"],
     "S14": ["KAN-302"],
     "S15": ["KAN-303"],
     "S16": ["KAN-304"],
     "S17": ["KAN-307"],
-    "S18": ["KAN-309"],
     "S19": ["KAN-318"],
 }
 
@@ -159,15 +153,12 @@ ACCEPTANCE = {
     "S7": "RCP-106",
     "S8": "RCP-107",
     "S9": "RCP-108",
-    "S10": "RCP-109",
-    "S11": "RCP-110",
     "S12": "RCP-111",
     "S13": "RCP-112",
     "S14": "RCP-113",
     "S15": "RCP-114",
     "S16": "RCP-115",
     "S17": "RCP-116",
-    "S18": "RCP-117",
     "S19": "RCP-118",
 }
 
@@ -175,6 +166,17 @@ ACCEPTANCE = {
 # closes, not whether it is in the sprint. Dropping anything is a charter update.
 DROPPABLE_SIS = set()
 DROPPABLE = {}
+
+# Carried out of Sprint 10 by Adam on 2026-10-01 to epic RCP-119 (distribution and
+# launch) so the sprint can focus on Valkey, the soak/data windows and the process
+# rows. They left sprint 85 and the sprint-10 label, so no rule here may require
+# them. Kept as a record only; the harness tasks T10, T11 and T19 are waived with
+# the same reason (specs/SPRINT_10_PLAN.md, "Split").
+CARRIED = {
+    "S10": ("KAN-277", "RCP-109"),
+    "S11": ("KAN-299", "RCP-110"),
+    "S18": ("KAN-309", "RCP-117"),
+}
 
 COMMITTED = dict(REQUIRED, **DROPPABLE)
 TODO_CATEGORY_KEYS = {"new", "undefined"}
