@@ -202,10 +202,15 @@ export class KitchenComponent {
     if (
       confirm('Are you sure you want to delete this cookbook? Recipes will remain in "All Saved".')
     ) {
-      await this.persistenceService.deleteCookbook(id);
-      if (this.activeCookbookId() === id) {
-        // The /kitchen/<id> entry now points at nothing: replace it.
-        void this.router.navigate(['/kitchen'], { replaceUrl: true });
+      const wasOpen = this.activeCookbookId() === id;
+      try {
+        await this.persistenceService.deleteCookbook(id);
+      } finally {
+        // The cookbook leaves local state before the DELETE is sent, so even a
+        // failed request leaves /kitchen/<id> pointing at nothing: replace it.
+        if (wasOpen && this.activeCookbookId() === id) {
+          void this.router.navigate(['/kitchen'], { replaceUrl: true });
+        }
       }
     }
   }

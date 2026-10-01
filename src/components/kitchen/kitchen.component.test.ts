@@ -230,6 +230,18 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     expect(kitchen.showRecycleBin()).toBe(false);
   });
 
+  it('replaces /kitchen/<id> even when the DELETE request fails', async () => {
+    vi.stubGlobal('confirm', () => true);
+    const { kitchen, navigate, injector } = createKitchen({ cookbookId: 'cb-1' });
+    const persistence = injector.get(PersistenceService) as unknown as {
+      deleteCookbook: ReturnType<typeof vi.fn>;
+    };
+    persistence.deleteCookbook.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await expect(kitchen.deleteCookbook('cb-1', new Event('click'))).rejects.toThrow();
+    expect(navigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
+    vi.unstubAllGlobals();
+  });
+
   it('replaces /kitchen/<id> when the open cookbook is deleted', async () => {
     vi.stubGlobal('confirm', () => true);
     const { kitchen, navigate } = createKitchen({ cookbookId: 'cb-1' });

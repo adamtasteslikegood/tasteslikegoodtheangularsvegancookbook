@@ -159,8 +159,19 @@ export class RecipeDetailComponent extends RecipeViewBase {
     if (this.currentId) void this.load(this.currentId);
   }
 
-  /** Back to the Kitchen view the recipe was opened from, when there was one. */
-  goBack() {
+  /**
+   * Back to the Kitchen view the recipe was opened from, when there was one.
+   * A cookbook that has not hydrated yet (cold load, made on another device)
+   * is not judged invalid until the first API sync settles.
+   */
+  async goBack() {
+    if (this.cookbookParam() && !this.sourceCookbook()) {
+      try {
+        await this.persistenceService.firstSyncSettled;
+      } catch {
+        // Judge by whatever state we have.
+      }
+    }
     const cookbook = this.sourceCookbook();
     this.router.navigate(cookbook ? ['/kitchen', cookbook.id] : ['/kitchen']);
   }

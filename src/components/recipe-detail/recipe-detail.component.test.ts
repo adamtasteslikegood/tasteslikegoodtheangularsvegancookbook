@@ -1,5 +1,5 @@
 import '@angular/compiler';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -42,6 +42,8 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       isGuest?: boolean;
       authReady?: Promise<void>;
       generateImage?: () => Promise<string>;
+      /** KAN-321: a reactive user, for hydration-order tests. */
+      currentUser?: () => unknown;
     } = {}
   ) => {
     const recipeState = runInInjectionContext(
@@ -66,7 +68,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
         {
           provide: AuthService,
           useValue: {
-            currentUser: () => authUser,
+            currentUser: opts.currentUser ?? (() => authUser),
             saveRecipe: vi.fn(),
             updateRecipeField: vi.fn(),
             // KAN-257: the route waits for the startup auth check before it
@@ -94,7 +96,15 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
     const geminiService = injector.get(GeminiService);
     const authService = injector.get(AuthService);
-    return { component, persistenceSaveRecipe, authUser, recipeState, geminiService, authService };
+    return {
+      component,
+      persistenceSaveRecipe,
+      authUser,
+      recipeState,
+      geminiService,
+      authService,
+      injector,
+    };
   };
 
   const emitId = (id: string) => {
@@ -827,14 +837,42 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
 
     it('returns "Back to Kitchen" to the cookbook view it came from', async () => {
       const { component } = await load({ cookbook: 'cb-1' });
-      component.goBack();
+      await component.goBack();
       expect(routerNavigate).toHaveBeenCalledWith(['/kitchen', 'cb-1']);
     });
 
     it('returns "Back to Kitchen" to All Recipes without a valid cookbook', async () => {
       const { component } = await load({ cookbook: 'cb-2' });
-      component.goBack();
+      await component.goBack();
       expect(routerNavigate).toHaveBeenCalledWith(['/kitchen']);
+    });
+
+    it('waits for the first sync before dropping a not-yet-hydrated cookbook', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      const user = signal({
+        isGuest: false,
+        savedRecipes: [] as unknown[],
+        cookbooks: [] as unknown[],
+      });
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: user });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      expect(component.sourceCookbook()).toBeNull();
+
+      const back = component.goBack();
+      // The cookbook arrives with the API merge, then the sync settles.
+      user.update((u) => ({ ...u, cookbooks: [weeknights] }));
+      settle();
+      await back;
+      expect(routerNavigate).toHaveBeenCalledWith(['/kitchen', 'cb-1']);
     });
   });
 });
