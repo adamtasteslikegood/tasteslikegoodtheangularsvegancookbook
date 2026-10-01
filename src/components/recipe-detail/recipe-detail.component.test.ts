@@ -852,6 +852,65 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       expect(component.breadcrumbs()[3].url).toBe('/r/tofu-scramble');
     });
 
+    it('invalidates an older trail request across same-slug unpublish and republish', async () => {
+      let releaseFirstTrail: (value: unknown) => void = () => {};
+      let publicCalls = 0;
+      const republishedTrail = [
+        { name: 'Home', url: 'https://www.tasteslikegood.org/' },
+        { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
+        {
+          name: 'Updated Hub',
+          url: 'https://www.tasteslikegood.org/browse/tag/updated',
+        },
+        { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
+      ];
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.startsWith('/api/recipes/public/')) {
+          publicCalls += 1;
+          if (publicCalls === 1) {
+            return new Promise((resolve) => {
+              releaseFirstTrail = resolve;
+            });
+          }
+          return ok({ slug: 'tofu-scramble', breadcrumbs: republishedTrail });
+        }
+        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(publicCalls).toBe(1));
+
+      const syncPublicTrail = () =>
+        (
+          component as unknown as {
+            syncPublicTrail: () => Promise<void>;
+          }
+        ).syncPublicTrail();
+
+      component.recipe.set({ ...component.recipe()!, is_public: false });
+      await syncPublicTrail();
+      expect(component.breadcrumbs().map((crumb) => crumb.name)).toEqual([
+        'Home',
+        'My Kitchen',
+        'Tofu Scramble',
+      ]);
+
+      component.recipe.set({ ...component.recipe()!, is_public: true });
+      await syncPublicTrail();
+      expect(publicCalls).toBe(2);
+      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
+
+      // The response from the publication that existed before unpublish must
+      // not overwrite the freshly fetched trail for the republished recipe.
+      releaseFirstTrail(ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
+    });
+
     // Independent Claude review: a transient failure must not lock the
     // slug into fallback forever — a re-navigation to the same slug retries.
     it('retries the public-trail fetch after a transient failure', async () => {
