@@ -26,47 +26,30 @@
   "lanes": {
     "A": {
       "owns": "S1 -> S3 -> S4, S2 in parallel (gates)",
-      "must_not_touch": [
-        "CLAUDE.md",
-        ".github/workflows/"
-      ]
+      "must_not_touch": ["CLAUDE.md", ".github/workflows/"]
     },
     "B": {
       "owns": "S5 -> S6 -> S7 -> S8 -> S9 (UI, serial)",
-      "must_not_touch": [
-        "Backend/services/",
-        ".github/workflows/"
-      ]
+      "must_not_touch": ["Backend/services/", ".github/workflows/"]
     },
     "C": {
-      "owns": "S10 through the sprint, S11 last (distribution)",
-      "must_not_touch": [
-        "src/",
-        "Backend/"
-      ]
+      "owns": "S10 and S11 carried to RCP-119 (distribution; do not start in Sprint 10)",
+      "must_not_touch": ["src/", "Backend/"]
     },
     "D": {
       "owns": "S15 first, then S12; S14 -> S13 -> S16 on CLAUDE.md (process)",
-      "must_not_touch": [
-        "src/",
-        "Backend/"
-      ]
+      "must_not_touch": ["src/", "Backend/"]
     },
     "E": {
-      "owns": "S17, S18, S19 — added mid-sprint by Adam on 2026-09-30/2026-10-01 (KAN-307 visitor IP, KAN-309 pin crop, KAN-318 request-path token refresh)",
-      "must_not_touch": [
-        ".github/workflows/"
-      ]
+      "owns": "S17 and S19; S18 carried to RCP-119 — added mid-sprint by Adam on 2026-09-30/2026-10-01 (KAN-307 visitor IP, KAN-309 pin crop, KAN-318 request-path token refresh)",
+      "must_not_touch": [".github/workflows/"]
     }
   },
   "tasks": [
     {
       "id": "T0",
       "si": "board",
-      "jira": [
-        "RCP-100",
-        "RCP-99"
-      ],
+      "jira": ["RCP-100", "RCP-99"],
       "lane": "PM",
       "depends_on": [],
       "skill": "pm-skills",
@@ -100,14 +83,9 @@
     {
       "id": "T1",
       "si": "S1",
-      "jira": [
-        "KAN-268",
-        "RCP-98"
-      ],
+      "jira": ["KAN-268", "RCP-98"],
       "lane": "A",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "anchor": true,
       "skill": "investigate",
       "skill_path": "~/.claude/skills/investigate",
@@ -147,20 +125,13 @@
     {
       "id": "T2",
       "si": "S2",
-      "jira": [
-        "KAN-292",
-        "RCP-101"
-      ],
+      "jira": ["KAN-292", "RCP-101"],
       "lane": "A",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Datadog RUM (us5) on the SPA and the SSR pages, loaded only after consent. Cost accepted by Adam 2026-09-29 (RUM Measure only; no Investigate, no Session Replay). Pre-stated flip: if the consent UI exceeds half a day, ship analytics opt-in only. CSP: server/security.ts pins connect-src 'self' and script-src 'self'+hash, so RUM is blocked until this task changes it narrowly (same-origin intake proxy, or only the exact us5 intake host in connect-src; SDK bundled or same-origin; no third-party script-src, no 'unsafe-inline'). Custom actions for recipe view and save-to-Kitchen plus launch-referral attribution (referrer/UTM) must exist before the clock starts. The live window is 72 consecutive hours (Adam, 2026-09-30, was 7 days: with no traffic yet it proves the instrument works rather than collecting a baseline) and starts once the KAN-307 visitor-IP and KAN-292 User-Agent fixes are live, so sessions carry geo and device. It is the long pole for S11.",
-      "suggested_tools": [
-        "gh pr list --state all --search 'KAN-292 in:title'"
-      ],
+      "suggested_tools": ["gh pr list --state all --search 'KAN-292 in:title'"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-292",
@@ -191,14 +162,9 @@
     {
       "id": "T3",
       "si": "S3",
-      "jira": [
-        "KAN-293",
-        "RCP-102"
-      ],
+      "jira": ["KAN-293", "RCP-102"],
       "lane": "A",
-      "depends_on": [
-        "T1"
-      ],
+      "depends_on": ["T1"],
       "skill": "benchmark",
       "skill_path": "~/.claude/skills/benchmark",
       "objective": "Mobile LCP <= 2.5 s on /r/<slug>, /browse, / (Lighthouse 12, simulated slow-4G; now 3.1/3.1/1.2 s). Measured on the release that includes S1. Pre-stated flip: if S1 alone meets it, close evidence-only.",
@@ -224,20 +190,13 @@
     {
       "id": "T4",
       "si": "S4",
-      "jira": [
-        "KAN-181",
-        "RCP-103"
-      ],
+      "jira": ["KAN-181", "RCP-103"],
       "lane": "A",
-      "depends_on": [
-        "T3"
-      ],
+      "depends_on": ["T3"],
       "skill": "qa-only",
       "skill_path": "~/.claude/skills/qa-only",
       "objective": "Re-walk KAN-181 INV-1..INV-9 on the current production revision (after the v0.5.2 delete/unpublish confirmations). Report pass/fail per invariant on KAN-181; file any failure as its own bug. Guests cannot publish: test through the app/API, never the ORM.",
-      "suggested_tools": [
-        "/browse (gstack) against https://www.tasteslikegood.org"
-      ],
+      "suggested_tools": ["/browse (gstack) against https://www.tasteslikegood.org"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-181",
@@ -257,20 +216,13 @@
     {
       "id": "T5",
       "si": "S5",
-      "jira": [
-        "KAN-294",
-        "RCP-104"
-      ],
+      "jira": ["KAN-294", "RCP-104"],
       "lane": "B",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Header and footer nav parity across the SPA shell and the SSR base template (base_public.html). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": [
-        "gh pr list --state all --search 'KAN-294 in:title'"
-      ],
+      "suggested_tools": ["gh pr list --state all --search 'KAN-294 in:title'"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-294",
@@ -300,20 +252,13 @@
     {
       "id": "T6",
       "si": "S6",
-      "jira": [
-        "KAN-295",
-        "RCP-105"
-      ],
+      "jira": ["KAN-295", "RCP-105"],
       "lane": "B",
-      "depends_on": [
-        "T5"
-      ],
+      "depends_on": ["T5"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Visible breadcrumbs in the SPA, matching the SSR BreadcrumbList (KAN-273). LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": [
-        "gh pr list --state all --search 'KAN-295 in:title'"
-      ],
+      "suggested_tools": ["gh pr list --state all --search 'KAN-295 in:title'"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-295",
@@ -338,14 +283,9 @@
     {
       "id": "T7",
       "si": "S7",
-      "jira": [
-        "KAN-296",
-        "RCP-106"
-      ],
+      "jira": ["KAN-296", "RCP-106"],
       "lane": "B",
-      "depends_on": [
-        "T6"
-      ],
+      "depends_on": ["T6"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Numbered SSR pagination (?page=N anchors, self-canonical per page, out-of-range behaviour decided and tested) on /browse and tag hubs. Backend templates + cookbook pointer. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
@@ -382,20 +322,13 @@
     {
       "id": "T8",
       "si": "S8",
-      "jira": [
-        "KAN-297",
-        "RCP-107"
-      ],
+      "jira": ["KAN-297", "RCP-107"],
       "lane": "B",
-      "depends_on": [
-        "T7"
-      ],
+      "depends_on": ["T7"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Mobile 2-up recipe cards on /browse, tag hubs and /kitchen. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
-      "suggested_tools": [
-        "gh pr list --state all --search 'KAN-297 in:title'"
-      ],
+      "suggested_tools": ["gh pr list --state all --search 'KAN-297 in:title'"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-297",
@@ -425,14 +358,9 @@
     {
       "id": "T9",
       "si": "S9",
-      "jira": [
-        "KAN-298",
-        "RCP-108"
-      ],
+      "jira": ["KAN-298", "RCP-108"],
       "lane": "B",
-      "depends_on": [
-        "T8"
-      ],
+      "depends_on": ["T8"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
       "objective": "Kitchen client-side filter/sort; /browse?sort&tag with rel=canonical to /browse; /browse/tag/<tag> keeps its own canonical. LANE B runs S5 -> S9 serially: every item touches the SPA shell and the SSR templates. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero. Where the change lands in Backend templates, the Backend PR title carries the key too (checked with -R).",
@@ -470,25 +398,14 @@
       "id": "T10",
       "si": "S10",
       "carried_to": "RCP-119",
-      "jira": [
-        "KAN-277",
-        "RCP-109"
-      ],
+      "jira": ["KAN-277", "RCP-109"],
       "lane": "C",
-      "depends_on": [
-        "T0"
-      ],
-      "after_started": [
-        "T1",
-        "T2",
-        "T5"
-      ],
+      "depends_on": ["T0"],
+      "after_started": ["T1", "T2", "T5"],
       "skill": "marketing-skills:content-strategy",
       "skill_path": "marketing-skills:content-strategy",
       "objective": "Owned-property links + 3-5 articles. KAN-277 is the PARENT: each missing link and each article is its own child KAN row labelled sprint-10 and Relates-linked to KAN-277 and RCP-109. The README link (v0.5.0) does not count. Articles are off-site only and pass the grill Q6 rubric; Adam signs off each. Starts only when a WIP slot frees after T1, T2 and T5 open on day 1 (Adam, 2026-09-29: WIP stays 3; T10 waits).",
-      "suggested_tools": [
-        "JQL: issue in linkedIssues(RCP-109) AND project = KAN"
-      ],
+      "suggested_tools": ["JQL: issue in linkedIssues(RCP-109) AND project = KAN"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-277",
@@ -514,22 +431,9 @@
       "id": "T11",
       "si": "S11",
       "carried_to": "RCP-119",
-      "jira": [
-        "KAN-299",
-        "RCP-110"
-      ],
+      "jira": ["KAN-299", "RCP-110"],
       "lane": "C",
-      "depends_on": [
-        "T1",
-        "T2",
-        "T4",
-        "T5",
-        "T6",
-        "T7",
-        "T8",
-        "T9",
-        "T10"
-      ],
+      "depends_on": ["T1", "T2", "T4", "T5", "T6", "T7", "T8", "T9", "T10"],
       "requires_done": [
         "RCP-98",
         "RCP-101",
@@ -570,14 +474,9 @@
     {
       "id": "T12",
       "si": "S12",
-      "jira": [
-        "KAN-300",
-        "RCP-111"
-      ],
+      "jira": ["KAN-300", "RCP-111"],
       "lane": "D",
-      "depends_on": [
-        "T15"
-      ],
+      "depends_on": ["T15"],
       "skill": "senior-devops",
       "skill_path": "engineering-skills:senior-devops",
       "objective": "A check that extracts .github/workflows references with the authoritative pattern secrets\\.[A-Za-z0-9_]+, diffs them against gh secret list, and explicitly exempts only the built-in GITHUB_TOKEN (which gh secret list does not return); wire it into pr-gate.yml and gate.needs, and observe it fail once for the reason it exists. LANE D: .github/workflows/ and scripts only.",
@@ -609,20 +508,13 @@
     {
       "id": "T13",
       "si": "S13",
-      "jira": [
-        "KAN-301",
-        "RCP-112"
-      ],
+      "jira": ["KAN-301", "RCP-112"],
       "lane": "D",
-      "depends_on": [
-        "T14"
-      ],
+      "depends_on": ["T14"],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Write the suppressed-comment sweep into the CLAUDE.md PR lifecycle: pulls/<n>/reviews bodies are read in full before any PR is declared review-debt-zero. LANE D runs the CLAUDE.md items serially (S14 -> S13 -> S16).",
-      "suggested_tools": [
-        "git show origin/dev:CLAUDE.md | grep -n 'pulls/<n>'"
-      ],
+      "suggested_tools": ["git show origin/dev:CLAUDE.md | grep -n 'pulls/<n>'"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-301",
@@ -657,25 +549,14 @@
     {
       "id": "T14",
       "si": "S14",
-      "jira": [
-        "KAN-302",
-        "RCP-113"
-      ],
+      "jira": ["KAN-302", "RCP-113"],
       "lane": "D",
-      "depends_on": [
-        "T15"
-      ],
-      "after_started": [
-        "T1",
-        "T2",
-        "T5"
-      ],
+      "depends_on": ["T15"],
+      "after_started": ["T1", "T2", "T5"],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Delete the copied required-checks list from CLAUDE.md; name gh api repos/{owner}/{repo}/rulesets (plus branch protection) as the source of truth.",
-      "suggested_tools": [
-        "gh api repos/{owner}/{repo}/rulesets"
-      ],
+      "suggested_tools": ["gh api repos/{owner}/{repo}/rulesets"],
       "verification": [
         {
           "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-302",
@@ -705,19 +586,10 @@
     {
       "id": "T15",
       "si": "S15",
-      "jira": [
-        "KAN-303",
-        "RCP-114"
-      ],
+      "jira": ["KAN-303", "RCP-114"],
       "lane": "D",
-      "depends_on": [
-        "T0"
-      ],
-      "after_started": [
-        "T1",
-        "T2",
-        "T5"
-      ],
+      "depends_on": ["T0"],
+      "after_started": ["T1", "T2", "T5"],
       "skill": "git-worktree-manager",
       "skill_path": "engineering-advanced-skills:git-worktree-manager",
       "objective": "One scripts/git/ preflight (the filename must contain \"preflight\") reporting commits-behind origin/dev and failing when the branch's Backend gitlink is not a descendant of origin/dev's (pointer rollback). Seen to fail on a stale/rolled-back branch and pass on a fresh one; referenced from the CLAUDE.md session-start steps. Goes first in Lane D: it protects every later branch.",
@@ -759,14 +631,9 @@
     {
       "id": "T16",
       "si": "S16",
-      "jira": [
-        "KAN-304",
-        "RCP-115"
-      ],
+      "jira": ["KAN-304", "RCP-115"],
       "lane": "D",
-      "depends_on": [
-        "T13"
-      ],
+      "depends_on": ["T13"],
       "skill": "claude-md-drift-audit",
       "skill_path": "~/.claude/skills/claude-md-drift-audit",
       "objective": "Document the platform-vs-code discriminator in CLAUDE.md's CI section: read a run's jobs before its logs; all jobs queued = outage, action_required = never started. Include the two API calls.",
@@ -813,14 +680,9 @@
     {
       "id": "T18",
       "si": "S17",
-      "jira": [
-        "KAN-307",
-        "RCP-116"
-      ],
+      "jira": ["KAN-307", "RCP-116"],
       "lane": "E",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "skill": "senior-backend",
       "skill_path": "engineering-skills:senior-backend",
       "objective": "Express resolves the visitor IP behind the external ALB without trusting a direct internal caller's X-Forwarded-For: server/trust-proxy.ts trustProxyFor() trusts hop 0 (Cloud Run's front end) and hop 1 only when it is the LB frontend address (34.8.251.224, TRUST_PROXY_LB_IP overrides). A plain hop count of 2 was rejected in review on #3549: ingress internal-and-cloud-load-balancing also admits internal callers whose chain is one hop shorter. Before the fix req.ip was the LB address for every request, so every rate limiter was one shared bucket and RUM geolocated every session to the LB. Added mid-sprint by Adam, 2026-09-30.",
@@ -864,14 +726,9 @@
       "id": "T19",
       "si": "S18",
       "carried_to": "RCP-119",
-      "jira": [
-        "KAN-309",
-        "RCP-117"
-      ],
+      "jira": ["KAN-309", "RCP-117"],
       "lane": "E",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "skill": "senior-backend",
       "skill_path": "engineering-skills:senior-backend",
       "objective": "Pinterest pin variant becomes a 1000x1000 centre crop instead of the 1000x1500 blurred pad (Backend services/image_variants.py make_pin_variant; PIN_SIZE, PIN_BACKGROUND_BLUR). Keep the variant URL stable; update the Backend tests asserting 1000x1500. Ships through the release train (Backend dev -> main -> cookbook pointer). Added mid-sprint by Adam, 2026-09-30.",
@@ -902,14 +759,9 @@
     {
       "id": "T20",
       "si": "S19",
-      "jira": [
-        "KAN-318",
-        "RCP-118"
-      ],
+      "jira": ["KAN-318", "RCP-118"],
       "lane": "E",
-      "depends_on": [
-        "T0"
-      ],
+      "depends_on": ["T0"],
       "skill": "senior-backend",
       "skill_path": "engineering-skills:senior-backend",
       "objective": "Move the Valkey IAM token refresh onto the request path (Backend utils/valkey_auth.py): when a request uses Valkey and the token is within _EXPIRY_MARGIN, refresh inline, single-flight under _lock, with request CPU; keep the background thread only as an idle safety net; preserve the #344/#348 unchanged-verified-token and failed-PING semantics. Always-on CPU is out of scope. Ships through the release train. Added mid-sprint by Adam, 2026-10-01, from the v0.5.5 #346 diagnostics on KAN-268 (5,500 ms wall vs 27 ms CPU).",
@@ -941,9 +793,7 @@
     {
       "id": "T17",
       "si": "close",
-      "jira": [
-        "RCP-100"
-      ],
+      "jira": ["RCP-100"],
       "lane": "PM",
       "depends_on": [
         "T0",
@@ -987,7 +837,7 @@
           "kind": "lane"
         },
         {
-          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-118, EXCEPT RCP-109, RCP-110 and RCP-117, carried to RCP-119 on 2026-10-01: leave those open and do not close them here) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
+          "cmd": "MANUAL: link the Sprint 10 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 10 acceptance row (RCP-99, RCP-98, and RCP-101 through RCP-118) is Done and links its AC-by-AC closing evidence, every ticked close-out box links its evidence, the aging table carries final dispositions; and every charter \"Process lane (no SI slot)\" row is closed or explicitly carried with a linked reason. Name the non-SI obligations individually: KAN-271/272/273/274/276; KAN-250; RCP-58; deletion of Confluence page 67108866; the harness T9 `-R` scope; KAN-259's overdue NAT measurements; PR #3537 / KAN-291 follow-ups; and the outside-sprint KAN-275/KAN-290 state-report audits. The S12-S16 process rows are evidenced by their acceptance rows above.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -999,14 +849,10 @@
   ],
   "loop": {
     "order": "dependency-driven: scripts/harness/sprint10_driver.py starts one task per controller state",
-    "sequencing_note": "Each task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T0 first; T1, T2, T5 (Lane B head), T10, T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T11 after T1, T2, T4, T5-T9 and its requires_done rows exactly Done. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T10 waits for the first free slot (it has the whole sprint), and so do T14/T15. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; only tasks declaring soak_window_hours (T1 24, T2 72, T20 24) may soak, a marked task never counts, and it re-enters only via a locked `resume` when a slot is free (new starts wait behind it), so WIP never exceeds 3. S17/S18 (T18/T19) were added to lane E on 2026-09-30; S19 (T20) joined lane E on 2026-10-01.",
+    "sequencing_note": "Each active task carries depends_on; sprint10_driver.py start refuses until every dependency is verified and while WIP is 3 (charter D6). T10, T11 and T19 are carried to RCP-119 and start refuses them on every checkout. T0 first; T1, T2, T5 (Lane B head), T14 and T15 become startable after T0, subject to WIP <= 3. T3 after T1; T4 after T3. Lane B serial T5 -> T9. Lane D: T15 -> T12, T14 -> T13 -> T16. T17 last. Day-1 WIP ruling (Adam, 2026-09-29): WIP stays 3 as written. After T0, open T1, T2 and T5; T14/T15 wait for a free slot. Soak ruling (Adam, 2026-09-30): a task whose work is recorded (controller status verifying) and whose only remaining evidence is a time window holds no WIP slot while `sprint10_driver.py soak` marks it; only tasks declaring soak_window_hours (T1 24, T2 72, T20 24) may soak, a marked task never counts, and it re-enters only via a locked `resume` when a slot is free (new starts wait behind it), so WIP never exceeds 3. S17/S18 (T18/T19) were added to lane E on 2026-09-30; S19 (T20) joined lane E on 2026-10-01. S18 was later carried to RCP-119.",
     "max_loop_iterations": 12,
     "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI: the driver initializes each task in its own controller state capped at 12 iterations. A happy-path task costs 3 iterations (execute record, verify run, manual-evidence record) and a failed attempt at most 3, so 3 attempts fit inside 12. The pinned controller keeps one global counter per state, so the cap is enforced per SI rather than claimed.",
-    "escalate_on": [
-      "attempts_exhausted",
-      "no_verification_available",
-      "timebox_expired"
-    ]
+    "escalate_on": ["attempts_exhausted", "no_verification_available", "timebox_expired"]
   },
   "close": {
     "requires": "every task verified, or explicitly waived by Adam with a reason. Sprint 10 pre-authorises no drops: waiving any task requires a charter update.",
