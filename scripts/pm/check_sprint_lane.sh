@@ -216,6 +216,22 @@ if expected_label and label == expected_label:
         sys.exit(1)
     print(f"lane census: all {len(members)} sprint member(s) carry {label}")
 
+    # THE REVERSE ASSERTION. The census above proves every member carries the label;
+    # nothing proved every open labelled row is a member. KAN-306 sat labelled
+    # `sprint-10` and linked to RCP-101 for 30 hours outside sprint 85 while this gate
+    # printed PASS: labelled + RCP-linked satisfies the orphan query below, and the
+    # census never looks past the members it was handed. Caught on the board artifact.
+    outside = sorted(i["key"] for i in jql(
+        f'project in (KAN, RCP) AND labels = "{label}" AND statusCategory != Done',
+        "status") if i["key"] not in members)
+    if outside:
+        print(f"\nFAIL(1): {len(outside)} open issue(s) labelled {label!r} are not in "
+              f"sprint {sprint['name']!r}:")
+        for k in outside:
+            print(f"  OUTSIDE {k}")
+        print(f"\nAdd each to sprint {sprint['id']}, or drop {label!r} if it is not sprint scope.")
+        sys.exit(1)
+
 # NOTE: Jira's `labels` field does NOT support wildcard matching — `labels ~ "sprint-*"`
 # silently returns zero rows, which made an earlier version of this script report PASS
 # while three sprint-4 rows sat right there. Enumerate labelled rows and filter here.
