@@ -26,7 +26,7 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 18 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30)
+## Committed scope — 19 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30 + S19 added 2026-10-01)
 
 | SI      | Grill # | Lane           | Summary                                                                                   | KAN     | Acceptance |
 | ------- | ------- | -------------- | ----------------------------------------------------------------------------------------- | ------- | ---------- |
@@ -48,6 +48,7 @@ between the site and a launch post is now narrow and measurable:
 | **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                      | KAN-304 | RCP-115    |
 | **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)             | KAN-307 | RCP-116    |
 | **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars                               | KAN-309 | RCP-117    |
+| **S19** | —       | Added          | Valkey IAM token refresh on the request path, not a CPU-starved background thread         | KAN-318 | RCP-118    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
@@ -68,6 +69,14 @@ product grill's scope table, kept so either document can be read against the oth
   (`soak_window_hours`: T1, T2) may soak, and never past that window. A soaked task never
   counts; when its window ends it re-enters only through a locked `resume` when a slot is
   free, and new starts wait behind it. WIP stays 3 for active work and can never exceed it.
+
+### Mid-sprint change — 2026-10-01 (Adam)
+
+- **S19 (KAN-318)** added: the v0.5.5 diagnostics (Backend #346, on KAN-268) show the
+  scheduled Valkey token refresh is CPU-starved, not network-bound. A refresh that changed the
+  token took 5,500 ms wall for 27 ms thread CPU, and closing local sockets took 299 ms. The
+  refresh moves onto the request path (request CPU, milliseconds), and the background thread
+  stays only as an idle safety net. Always-on CPU stays rejected.
 
 ### S12–S16 were added at charter — 2026-09-29
 
@@ -236,6 +245,7 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.
 - **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
 - **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
+- **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: request-triggered `valkey.token_refresh` spans show `wall_ms` close to `thread_cpu_ms`, and the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
 
 ## Sprint 9 retro actions — row-by-row disposition
 

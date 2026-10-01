@@ -897,6 +897,44 @@
       "status": "pending"
     },
     {
+      "id": "T20",
+      "si": "S19",
+      "jira": [
+        "KAN-318",
+        "RCP-118"
+      ],
+      "lane": "E",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-backend",
+      "skill_path": "engineering-skills:senior-backend",
+      "objective": "Move the Valkey IAM token refresh onto the request path (Backend utils/valkey_auth.py): when a request uses Valkey and the token is within _EXPIRY_MARGIN, refresh inline, single-flight under _lock, with request CPU; keep the background thread only as an idle safety net; preserve the #344/#348 unchanged-verified-token and failed-PING semantics. Always-on CPU is out of scope. Ships through the release train. Added mid-sprint by Adam, 2026-10-01, from the v0.5.5 #346 diagnostics on KAN-268 (5,500 ms wall vs 27 ms CPU).",
+      "suggested_tools": [
+        "gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-318 in:title'"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-318",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search 'KAN-318 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Backend PR, promotion, cookbook pointer PR and release tag; Datadog production 24 h after release: request-triggered valkey.token_refresh spans with wall_ms close to thread_cpu_ms, in-request redis.command GET p95 < 50 ms over >= 200 GETs and error rate < 1 % (links and counts pasted on RCP-118); results written on KAN-268.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-118 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
       "id": "T17",
       "si": "close",
       "jira": [
@@ -922,7 +960,8 @@
         "T15",
         "T16",
         "T18",
-        "T19"
+        "T19",
+        "T20"
       ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
