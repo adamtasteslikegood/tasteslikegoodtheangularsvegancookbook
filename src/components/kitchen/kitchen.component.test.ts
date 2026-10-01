@@ -98,7 +98,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     const kitchen = runInInjectionContext(injector, () => new KitchenComponent());
     const emitCookbook = (id: string | null) =>
       params.next(asParamMap(id ? { cookbookId: id } : {}));
-    return { kitchen, navigate, user, emitCookbook, stageRecipeForNavigation };
+    return { kitchen, navigate, user, emitCookbook, stageRecipeForNavigation, injector };
   };
 
   it('routes /kitchen and /kitchen/<id> through one config, so the view is reused', () => {
@@ -186,6 +186,16 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     expect(navigate).not.toHaveBeenCalled();
   });
 
+  it('does not navigate after the Kitchen is destroyed mid-wait', async () => {
+    let settle: () => void = () => {};
+    const firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+    const { navigate, injector } = createKitchen({ cookbookId: 'nope', firstSyncSettled });
+    (injector as unknown as { destroy(): void }).destroy(); // the user left the Kitchen
+    settle();
+    await flush();
+    expect(navigate).not.toHaveBeenCalled();
+  });
+
   it('carries the cookbook to the recipe page, and nothing from All Recipes', () => {
     const recipe = { id: 'r-1', name: 'Tofu Scramble' } as Recipe;
     const { kitchen, navigate, emitCookbook } = createKitchen({ cookbookId: 'cb-1' });
@@ -203,10 +213,17 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     const { kitchen, navigate, emitCookbook } = createKitchen({ cookbookId: 'cb-1' });
     kitchen.toggleRecycleBin();
     expect(kitchen.showRecycleBin()).toBe(true);
-    // replaceUrl so Back doesn't have to pop an implicit /kitchen entry first.
-    expect(navigate).toHaveBeenLastCalledWith(['/kitchen'], { replaceUrl: true });
+    // A push, not a replace: /kitchen/cb-1 stays in history as a live view.
+    expect(navigate).toHaveBeenLastCalledWith(['/kitchen']);
     emitCookbook(null); // the navigation lands
     expect(kitchen.showRecycleBin()).toBe(true);
+
+    // Browser Back to /kitchen/cb-1 returns to the cookbook and closes the bin.
+    emitCookbook('cb-1');
+    expect(kitchen.activeCookbookId()).toBe('cb-1');
+    expect(kitchen.showRecycleBin()).toBe(false);
+    emitCookbook(null);
+    kitchen.toggleRecycleBin();
 
     // "All Recipes" from the bin is a same-URL navigation: close it directly.
     kitchen.selectCookbook(null);

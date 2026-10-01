@@ -212,11 +212,11 @@ export class KitchenComponent {
 
   toggleRecycleBin() {
     this.showRecycleBin.update((v) => !v);
-    // The bin is a view of /kitchen, not of a cookbook (KAN-321). Replace the
-    // /kitchen/<id> entry rather than pushing a new one, matching
-    // deleteCookbook — otherwise Back has to pop the implicit /kitchen entry
-    // before it can leave the Kitchen at all.
-    if (this.activeCookbookId()) void this.router.navigate(['/kitchen'], { replaceUrl: true });
+    // The bin is a view of /kitchen, not of a cookbook (KAN-321). Push, don't
+    // replace: the /kitchen/<id> entry is still a live view (unlike after
+    // deleteCookbook), so Back from the bin returns to that cookbook, and the
+    // route handler closes the bin when it lands.
+    if (this.activeCookbookId()) void this.router.navigate(['/kitchen']);
   }
 
   promptDeleteRecipe(recipe: Recipe, event: Event) {
