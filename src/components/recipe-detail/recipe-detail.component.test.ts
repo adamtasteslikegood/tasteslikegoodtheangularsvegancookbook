@@ -816,6 +816,14 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     // response for the previous slug overwriting the freshly-loaded one.
     it('ignores a late public-trail response for the recipe the user has left', async () => {
       let releaseTrailA: (value: unknown) => void = () => {};
+      const trailA = [
+        ...ssrTrail.slice(0, -1),
+        { name: 'Stale Recipe A', url: 'https://www.tasteslikegood.org/r/slug-a' },
+      ];
+      const trailB = [
+        ...ssrTrail.slice(0, -1),
+        { name: 'Fresh Recipe B', url: 'https://www.tasteslikegood.org/r/slug-b' },
+      ];
       const fetchMock = vi.fn(async (url: string) => {
         if (url === '/api/recipes/public/slug-a') {
           return new Promise((resolve) => {
@@ -823,7 +831,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
           });
         }
         if (url === '/api/recipes/public/slug-b') {
-          return ok({ slug: 'slug-b', breadcrumbs: ssrTrail });
+          return ok({ slug: 'slug-b', breadcrumbs: trailB });
         }
         if (url === '/api/recipes/r-a') {
           return ok(row({ id: 'r-a', is_public: true, slug: 'slug-a' }));
@@ -839,17 +847,20 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       emitId('r-b');
       await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
       expect(component.breadcrumbs()[3]).toEqual({
-        name: 'Tofu Scramble',
-        url: '/r/tofu-scramble',
+        name: 'Fresh Recipe B',
+        url: '/r/slug-b',
       });
 
       // Late answer for slug-a arrives after we've moved to slug-b.
-      releaseTrailA(ok({ slug: 'slug-a', breadcrumbs: ssrTrail }));
+      releaseTrailA(ok({ slug: 'slug-a', breadcrumbs: trailA }));
       await new Promise((resolve) => setTimeout(resolve, 0));
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       expect(component.breadcrumbs()).toHaveLength(4);
-      expect(component.breadcrumbs()[3].url).toBe('/r/tofu-scramble');
+      expect(component.breadcrumbs()[3]).toEqual({
+        name: 'Fresh Recipe B',
+        url: '/r/slug-b',
+      });
     });
 
     it('invalidates an older trail request across same-slug unpublish and republish', async () => {
