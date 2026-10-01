@@ -17,6 +17,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   My Kitchen. The markup is `nav[aria-label="Breadcrumb"] > ol`, and the current page
   carries `aria-current="page"`.
 
+### Fixed
+
+- The homepage now names the site **TastesLikeGood** in `og:site_name` and in the `WebSite` and
+  `WebApplication` JSON-LD (was `Tasteslikegood.org`), with `alternateName`
+  `["VeganGenius Chef", "tasteslikegood.org"]`, so Google can show a brand instead of the domain. The SSR
+  pages already used `TastesLikeGood` (KAN-317).
+
 ## [0.5.4] - 2026-09-30
 
 Backend submodule pointer unchanged at **`5f8964bf3e8b`** (Backend `main`); cookbook-only
