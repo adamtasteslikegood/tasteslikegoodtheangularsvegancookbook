@@ -130,6 +130,20 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertEqual(rc, 1, output)
         self.assertIn("RCP-117 (S18) was carried to RCP-119", output)
 
+    def test_carried_children_and_kan_306_back_in_the_sprint_fail(self):
+        self.assertEqual(set(hard_gate.CARRIED_EXTRA),
+                         {"KAN-311", "KAN-312", "KAN-313", "KAN-306"})
+        for key in sorted(hard_gate.CARRIED_EXTRA):
+            rc, output = self._run_gate(self._members() | {key}, charter=True)
+            self.assertEqual(rc, 1, (key, output))
+            self.assertIn("%s (" % key, output)
+            self.assertIn("was carried to RCP-119", output)
+
+    def test_shipped_s10_children_stay_in_the_sprint(self):
+        rc, output = self._run_gate(self._members() | {"KAN-314", "KAN-315"},
+                                    charter=True)
+        self.assertEqual(rc, 0, output)
+
     def test_the_split_sprint_passes_the_charter_gate(self):
         rc, output = self._run_gate(self._members(), charter=True)
         self.assertEqual(rc, 0, output)

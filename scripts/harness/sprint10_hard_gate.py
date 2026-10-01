@@ -179,6 +179,15 @@ CARRIED = {
     "S18": ("KAN-309", "RCP-117"),
 }
 
+# Rows carried with them that are not an SI's own execution/acceptance pair.
+# KAN-314 and KAN-315 (S10 children) shipped in Sprint 10 and stay in it.
+CARRIED_EXTRA = {
+    "KAN-311": "S10 child — Docker Hub link",
+    "KAN-312": "S10 child — YouTube About link",
+    "KAN-313": "S10 child — Meta profile link",
+    "KAN-306": "Generator save during deferred auth (orphaned, no SI)",
+}
+
 COMMITTED = dict(REQUIRED, **DROPPABLE)
 TODO_CATEGORY_KEYS = {"new", "undefined"}
 
@@ -255,13 +264,14 @@ def main():
             # The split is enforced, not just recorded: a carried execution or
             # acceptance row back in the sprint or on the board reintroduces
             # work Adam moved to RCP-119.
-            for si, rows in sorted(CARRIED.items()):
-                for key in rows:
-                    if key in members or key in rendered:
-                        report["violations"].append(
-                            "%s (%s) was carried to RCP-119 on 2026-10-01 but is "
-                            "back in Sprint 10 — remove it from sprint %s, or "
-                            "record a charter update" % (key, si, sprint["id"]))
+            carried_rows = {key: si for si, rows in CARRIED.items() for key in rows}
+            carried_rows.update(CARRIED_EXTRA)
+            for key, what in sorted(carried_rows.items()):
+                if key in members or key in rendered:
+                    report["violations"].append(
+                        "%s (%s) was carried to RCP-119 on 2026-10-01 but is "
+                        "back in Sprint 10 — remove it from sprint %s, or "
+                        "record a charter update" % (key, what, sprint["id"]))
             report["acceptance"] = {}
             active_acceptance = {}
             for si in sorted(SI_EXECUTION):
