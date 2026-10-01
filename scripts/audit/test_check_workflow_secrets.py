@@ -68,7 +68,7 @@ class ExemptionTest(unittest.TestCase):
                 "x: ${{ secrets.GITHUB_TOKEN }}\ny: ${{ secrets.GITHUB_TOKEN_X }}\n"
                 "z: ${{ secrets.GH_AW_GITHUB_TOKEN }}\n"
             )
-            referenced, _, _ = cws.scan(root, root / "pr-gate.yml")
+            referenced = cws.scan(root, root / "pr-gate.yml")[0]
         self.assertEqual(referenced, {"GITHUB_TOKEN_X", "GH_AW_GITHUB_TOKEN"})
 
     def test_no_optional_secret_lacks_a_reason_or_shadows_the_exemption(self):
@@ -155,6 +155,32 @@ class DriftTest(unittest.TestCase):
         cws.OPTIONAL_SECRETS["A"] = "  "
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(cws.static_problems(*scanned), ["A: optional-secret entry has no reason"])
+
+    def test_nested_environment_input_is_not_flagged(self):
+        scanned = self.scan_tree({
+            "pr-gate.yml": gate_text(["A"]),
+            "w.yml": (
+                "jobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n"
+                "      - uses: some/action@v1\n        with:\n          environment: production\n"
+                "        env:\n          K: ${{ secrets.A }}\n"
+            ),
+        })
+        self.assertEqual(cws.static_problems(*scanned), [])
+
+    def test_job_level_environment_is_found_per_job(self):
+        text = (
+            "on: push\njobs:\n  build:\n    runs-on: x\n    with:\n      environment: no\n"
+            "  deploy:\n    environment:\n      name: production\n"
+        )
+        self.assertEqual(cws.job_level_environment_jobs(text), ["deploy"])
+
+    def test_bracket_access_is_rejected(self):
+        for ref in ("${{ secrets['FOO'] }}", '${{ secrets["FOO"] }}', "${{ secrets[matrix.name] }}"):
+            with self.subTest(ref=ref):
+                scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }} " + ref})
+                problems = cws.static_problems(*scanned)
+                self.assertEqual(len(problems), 1)
+                self.assertIn("w.yml: index access to the secrets context", problems[0])
 
     def test_emit_block_round_trips(self):
         names = {"A", "B_2"}

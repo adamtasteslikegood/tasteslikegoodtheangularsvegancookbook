@@ -63,9 +63,10 @@ OPTIONAL_SECRETS: dict[str, str] = {
         " credential' step skips the review with a warning when neither is set"
     ),
     "GCP_WORKLOAD_IDENTITY_PROVIDER": (
-        "gc-build-deploy.yml: pre-deploy-gate names it as missing and cloud-build (the only"
-        " auth use) needs predeploy_status == success; the gate fails only when deployment"
-        " is enabled, which needs AUTHORIZED_DEPLOYERS (unset)"
+        "gc-build-deploy.yml: cloud-build (the only auth use) needs predeploy_status =="
+        " success, so it never runs with an empty value; deployment is enabled only by an"
+        " owner/authorized push to dev whose commit message carries a gcbuild/gcdeploy tag,"
+        " and then pre-deploy-gate fails loudly naming the missing secret"
     ),
     "GCP_SERVICE_ACCOUNT": (
         "gc-build-deploy.yml: same pre-deploy-gate guard as GCP_WORKLOAD_IDENTITY_PROVIDER"
@@ -92,9 +93,41 @@ PRESENCE_LINE_RE = re.compile(
     r"^\s*" + PRESENCE_PREFIX + r"([A-Za-z0-9_]+):\s*"
     r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*!=\s*''\s*\}\}\s*$"
 )
-# A job-level ``environment:`` key means some secrets may live in that
-# environment's store, which the pr-gate presence step cannot see.
-ENVIRONMENT_RE = re.compile(r"^\s+environment\s*:", re.MULTILINE)
+# Index syntax (``secrets['NAME']``, or a computed key) is valid in GitHub
+# expressions but invisible to the dot-form pattern, so it is rejected outright.
+BRACKET_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\s*\[")
+KEY_RE = re.compile(r"^( *)([A-Za-z0-9_-]+)\s*:")
+
+
+def job_level_environment_jobs(text: str) -> list[str]:
+    """Jobs that declare ``environment:`` as a direct key (not inside ``with:``).
+
+    Line-based, stdlib only: under the top-level ``jobs:`` key, a job id sits at
+    one indent and its own keys at the first deeper indent seen in that job.
+    """
+    found: list[str] = []
+    in_jobs = False
+    job_indent: int | None = None
+    key_indent: int | None = None
+    job = ""
+    for line in text.splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        m = KEY_RE.match(line)
+        indent = len(line) - len(line.lstrip(" "))
+        if indent == 0:
+            in_jobs = bool(m) and m.group(2) == "jobs"
+            job_indent = key_indent = None
+            continue
+        if not in_jobs or not m:
+            continue
+        if job_indent is None or indent <= job_indent:
+            job_indent, key_indent, job = indent, None, m.group(2)
+        elif key_indent is None or indent < key_indent:
+            key_indent = indent
+        if indent == key_indent and m.group(2) == "environment":
+            found.append(job)
+    return found
 
 
 class InspectError(Exception):
@@ -151,11 +184,13 @@ def workflow_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*") if p.is_file())
 
 
-def scan(root: Path, gate_file: Path) -> tuple[set[str], set[str] | None, list[str]]:
-    """Return (referenced names minus the exemption, presence names, env files)."""
+def scan(root: Path, gate_file: Path) -> tuple[set[str], set[str] | None, list[str], list[str]]:
+    """Return (referenced names minus the exemption, presence names,
+    environment-scoped jobs as 'file:job', files using bracket access)."""
     referenced: set[str] = set()
     presence: set[str] | None = None
-    env_files: list[str] = []
+    env_jobs: list[str] = []
+    bracket_files: list[str] = []
     for path in workflow_files(root):
         text = path.read_text(encoding="utf-8", errors="replace")
         if path.resolve() == gate_file.resolve():
@@ -163,13 +198,25 @@ def scan(root: Path, gate_file: Path) -> tuple[set[str], set[str] | None, list[s
             if block is not None:
                 presence = parse_presence_block(block)
         referenced |= extract_names(text)
-        if path.suffix in (".yml", ".yaml") and ENVIRONMENT_RE.search(text):
-            env_files.append(path.name)
-    return {n for n in referenced if not is_exempt(n)}, presence, env_files
+        if BRACKET_RE.search(text):
+            bracket_files.append(path.name)
+        if path.suffix in (".yml", ".yaml"):
+            env_jobs += [f"{path.name}:{job}" for job in job_level_environment_jobs(text)]
+    return {n for n in referenced if not is_exempt(n)}, presence, env_jobs, bracket_files
 
 
-def static_problems(referenced: set[str], presence: set[str] | None, env_files: list[str]) -> list[str]:
+def static_problems(
+    referenced: set[str],
+    presence: set[str] | None,
+    env_files: list[str],
+    bracket_files: list[str] | None = None,
+) -> list[str]:
     problems = []
+    for name in bracket_files or []:
+        problems.append(
+            f"{name}: index access to the secrets context (secrets[...]) cannot be audited;"
+            " use the dot form"
+        )
     if presence is None:
         problems.append(f"no presence block ('{BLOCK_BEGIN}' ... '{BLOCK_END}') in pr-gate.yml")
         presence = set()
@@ -255,11 +302,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        referenced, presence, env_files = scan(WORKFLOWS, GATE_FILE)
+        referenced, presence, env_files, bracket_files = scan(WORKFLOWS, GATE_FILE)
         if args.emit_block:
             print(emit_block(referenced))
             return 0
-        problems = static_problems(referenced, presence, env_files)
+        problems = static_problems(referenced, presence, env_files, bracket_files)
         notices: list[str] = []
         configured: set[str] | None = None
         if args.env:
