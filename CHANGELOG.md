@@ -8,6 +8,58 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-10-01
+
+Backend submodule pointer moves `5f8964bf3e8b` → **`52c652e0c3e4`** (Backend `main`, promotion #347);
+no migration changes. Ships the Sprint 10 KAN-268 Valkey and image-path work that the RCP-98 T1
+window measures against, plus breadcrumbs, a brand-name fix and two security bumps. The fresh 24 h
+T1 window starts once this build is verified live.
+
+### Security
+
+- Angular framework packages 22.1.7 → 22.2.0 together (`common`, `compiler`, `compiler-cli`, `core`,
+  `forms`, `platform-browser`, `router`): fixes the high-severity SSR denial of service via numeric URL in
+  `@angular/router` (Dependabot #743, KAN-316). Transitive `@grpc/grpc-js` 1.14.4 → 1.14.5 (#742 high, #741 low).
+  Supersedes Dependabot #3563, which bumped `@angular/router` alone against exact-version peers.
+- `fast-uri` 3.1.7 → 3.1.8 (Dependabot #3562): fixes medium-severity GHSA-hrr3-gc8f-f4qj, inconsistent
+  host case normalization via percent-encoded octets.
+
+### Added
+
+- Visible breadcrumbs in the SPA recipe detail and Kitchen views (KAN-295). A published
+  recipe shows its `/r/<slug>` page's `BreadcrumbList` trail (Home → Browse → hub →
+  recipe), read from `/api/recipes/public/<slug>`; that field ships in this release
+  (Backend #342), and without it the trail falls back to Home → Browse → recipe. Private recipes and cookbooks run through
+  My Kitchen. The markup is `nav[aria-label="Breadcrumb"] > ol`, and the current page
+  carries `aria-current="page"`. From a selected cookbook, the My Kitchen crumb returns to all recipes; a
+  recipe republished under the same slug refetches its trail; an empty crumb URL from the API
+  falls back instead of linking home.
+
+### Fixed
+
+- The homepage now names the site **TastesLikeGood** in `og:site_name` and in the `WebSite` and
+  `WebApplication` JSON-LD (was `Tasteslikegood.org`), with `alternateName`
+  `["VeganGenius Chef", "tasteslikegood.org"]`, so Google can show a brand instead of the domain. The SSR
+  pages already used `TastesLikeGood` (KAN-317).
+
+### Backend
+
+- **Valkey pool kept when the token is unchanged** (Backend #344, KAN-268): a scheduled refresh that
+  gets back the IAM token the pool already uses republishes the expiry and keeps the pooled
+  connections instead of tearing them down and re-dialling TCP+TLS+AUTH.
+- **Unverified tokens are re-checked** (Backend #348, KAN-268): a new token whose PING failed is no
+  longer trusted on the retry just because the metadata server returns it again; the shortcut above
+  now requires a token that has passed a PING.
+- **Image path** (Backend #345, KAN-268): GCS image reads drop the separate `exists()` metadata round
+  trip and download directly (a missing object still returns 404). Image serving is traced end to end
+  (`image.cache_read`, `image.gcs_fetch`, `image.variant_build`).
+- **Refresh diagnostics** (Backend #346, KAN-268): each scheduled token refresh runs in a
+  `valkey.token_refresh` root span with `wall_ms`, `thread_cpu_ms` and `token_changed`, and child spans
+  for the token fetch, pool disconnect and PING, to tell CPU throttling apart from I/O.
+- **Breadcrumbs field** (Backend #342, KAN-295): `/api/recipes/public/<slug>` returns the
+  `breadcrumbs` trail the SPA renders.
+- **Security:** `oauthlib` 3.3.1 → 4.0.0 (Backend #343, Dependabot).
+
 ## [0.5.4] - 2026-09-30
 
 Backend submodule pointer unchanged at **`5f8964bf3e8b`** (Backend `main`); cookbook-only

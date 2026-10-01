@@ -80,6 +80,13 @@ import base64, json, os, re, sys, urllib.error, urllib.parse, urllib.request
 
 site = os.environ["ATLASSIAN_SITE"]
 label = os.environ.get("SPRINT_LANE_LABEL", "")
+# The label is interpolated into JQL string literals below. Accept only a plain
+# label token, so a quote in an explicit argument cannot rewrite the query and
+# turn PASS/FAIL into whatever Jira makes of it. A bad argument is a usage error
+# (exit 2), not a lane finding (exit 1). Derived labels (`sprint-N`) always match.
+if label and not re.fullmatch(r"[A-Za-z0-9_-]+", label):
+    print(f"FAIL(2): sprint label {label!r} must match [A-Za-z0-9_-]+", file=sys.stderr)
+    sys.exit(2)
 auth = f'{os.environ["ATLASSIAN_EMAIL"]}:{os.environ["ATLASSIAN_API_TOKEN"]}'
 hdr = {"Authorization": "Basic " + base64.b64encode(auth.encode()).decode(),
        "Accept": "application/json"}
@@ -215,6 +222,22 @@ if expected_label and label == expected_label:
         print("dark board and two green gates. Label every member, then re-run.")
         sys.exit(1)
     print(f"lane census: all {len(members)} sprint member(s) carry {label}")
+
+    # THE REVERSE ASSERTION. The census above proves every member carries the label;
+    # nothing proved every open labelled row is a member. KAN-306 sat labelled
+    # `sprint-10` and linked to RCP-101 for 30 hours outside sprint 85 while this gate
+    # printed PASS: labelled + RCP-linked satisfies the orphan query below, and the
+    # census never looks past the members it was handed. Caught on the board artifact.
+    outside = sorted(i["key"] for i in jql(
+        f'project in (KAN, RCP) AND labels = "{label}" AND statusCategory != Done',
+        "status") if i["key"] not in members)
+    if outside:
+        print(f"\nFAIL(1): {len(outside)} open issue(s) labelled {label!r} are not in "
+              f"sprint {sprint['name']!r}:")
+        for k in outside:
+            print(f"  OUTSIDE {k}")
+        print(f"\nAdd each to sprint {sprint['id']}, or drop {label!r} if it is not sprint scope.")
+        sys.exit(1)
 
 # NOTE: Jira's `labels` field does NOT support wildcard matching — `labels ~ "sprint-*"`
 # silently returns zero rows, which made an earlier version of this script report PASS

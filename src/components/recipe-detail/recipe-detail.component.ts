@@ -5,6 +5,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
+import { BreadcrumbComponent } from '../shared/breadcrumb.component';
+import {
+  privateRecipeTrail,
+  publicRecipeFallbackTrail,
+  trailFromApi,
+  type Crumb,
+} from '../../utils/breadcrumbs';
+import type { Recipe } from '../../recipe.types';
 
 /**
  * What the route is showing right now (KAN-257).
@@ -36,7 +44,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 @Component({
   selector: 'app-recipe-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, UnpublishConfirmComponent],
+  imports: [CommonModule, FormsModule, UnpublishConfirmComponent, BreadcrumbComponent],
   templateUrl: './recipe-detail.component.html',
 })
 export class RecipeDetailComponent extends RecipeViewBase {
@@ -80,10 +88,33 @@ export class RecipeDetailComponent extends RecipeViewBase {
   private requestSeq = 0;
   private currentId: string | null = null;
 
+  /**
+   * KAN-295 — the SSR trail for a published recipe, keyed by the slug it was
+   * fetched for, so a stale answer for another slug is never shown.
+   */
+  private readonly publicTrail = signal<{ slug: string; crumbs: Crumb[] } | null>(null);
+  private publicTrailRequestedFor: string | null = null;
+  private publicTrailRequestSeq = 0;
+
+  /**
+   * The visible breadcrumb. A published recipe matches its /r/<slug> page's
+   * BreadcrumbList; until that trail arrives (or when the Backend predates it)
+   * it shows the same trail without the hub step. A private recipe has no SSR
+   * page, so it runs through My Kitchen.
+   */
+  readonly breadcrumbs = computed<Crumb[]>(() => {
+    const r = this.recipe();
+    if (!r) return [];
+    if (!r.is_public || !r.slug) return privateRecipeTrail(r);
+    const fetched = this.publicTrail();
+    return fetched?.slug === r.slug ? fetched.crumbs : publicRecipeFallbackTrail(r);
+  });
+
   constructor() {
     super();
     inject(DestroyRef).onDestroy(() => {
       this.requestSeq++;
+      this.publicTrailRequestSeq++;
     });
 
     this.route.paramMap.subscribe((params) => {
@@ -111,7 +142,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
         // analytics view after Kitchen reset the deduplication boundary (for
         // example, Kitchen → browser Back to the same recipe).
         this.recipeState.viewRecipe(cachedRecipe, this.isSaved());
-        this.loadState.set('ready');
+        this.markReady();
         return;
       }
       void this.load(id);
@@ -125,6 +156,73 @@ export class RecipeDetailComponent extends RecipeViewBase {
 
   goBack() {
     this.router.navigate(['/kitchen']);
+  }
+
+  /** Publishing mints the slug the public trail is keyed by (KAN-295). */
+  override async togglePublic(recipe: Recipe, confirmed = false) {
+    await super.togglePublic(recipe, confirmed);
+    void this.syncPublicTrail();
+  }
+
+  private markReady() {
+    this.loadState.set('ready');
+    void this.syncPublicTrail();
+  }
+
+  /**
+   * KAN-295 — fetch the published recipe's SSR trail once per slug. Any
+   * failure leaves the fallback trail in place: the breadcrumb is navigation,
+   * never a reason to show an error.
+   *
+   * Two guards keep the trail correct across navigation:
+   *   1. Before writing, re-read `this.recipe()?.slug` — a late answer for a
+   *      slug the user has already navigated away from must not overwrite the
+   *      trail a newer fetch already applied.
+   *   2. The "requested" mark is only kept when the fetch actually applied a
+   *      trail; a transient failure clears it so a later markReady() /
+   *      togglePublic() can retry, and so does unpublishing.
+   */
+  private async syncPublicTrail() {
+    const r = this.recipe();
+    if (!r?.is_public || !r.slug) {
+      // Unpublished (or never published): forget both the cached trail and any
+      // request for it. KAN-291 preserves the slug across republish, so a
+      // string-only guard cannot distinguish the old publication from the new
+      // one; the sequence also invalidates an older in-flight response.
+      this.publicTrailRequestSeq++;
+      this.publicTrailRequestedFor = null;
+      this.publicTrail.set(null);
+      return;
+    }
+    const slug = r.slug;
+    if (this.publicTrailRequestedFor === slug) return;
+    const requestSeq = ++this.publicTrailRequestSeq;
+    this.publicTrailRequestedFor = slug;
+    let applied = false;
+    try {
+      const resp = await fetch(`/api/recipes/public/${encodeURIComponent(slug)}`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) return;
+      const body = (await resp.json()) as { breadcrumbs?: unknown } | null;
+      const crumbs = trailFromApi(body?.breadcrumbs);
+      if (!crumbs) return;
+      const current = this.recipe();
+      if (requestSeq !== this.publicTrailRequestSeq || !current?.is_public || current.slug !== slug)
+        return;
+      this.publicTrail.set({ slug, crumbs });
+      applied = true;
+    } catch {
+      // Keep the fallback trail.
+    } finally {
+      if (
+        !applied &&
+        requestSeq === this.publicTrailRequestSeq &&
+        this.publicTrailRequestedFor === slug
+      ) {
+        this.publicTrailRequestedFor = null;
+      }
+    }
   }
 
   private async load(id: string) {
@@ -158,7 +256,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
     const saved = this.authService.currentUser()?.savedRecipes.find((r) => r.id === id);
     if (!saved) return false;
     this.recipeState.viewRecipe(saved);
-    this.loadState.set('ready');
+    this.markReady();
     return true;
   }
 
@@ -246,7 +344,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
       const recipe = recipeFromRow(row);
       // Not in the user's cookbook (cold deep link) — keep Save enabled (#3210).
       this.recipeState.viewRecipe(recipe, false);
-      this.loadState.set('ready');
+      this.markReady();
 
       if (status === 'generating_image') this.joinPendingImage(id, recipe.ai_image_url);
       return;

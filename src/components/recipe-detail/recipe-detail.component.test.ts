@@ -706,4 +706,238 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       );
     });
   });
+
+  // KAN-295: the visible breadcrumb. A published recipe's trail is its SSR
+  // BreadcrumbList, read from the public API; a private one runs through
+  // My Kitchen.
+  describe('breadcrumb trail (KAN-295)', () => {
+    const row = (extra: Record<string, unknown> = {}) => ({
+      id: 'r-1',
+      status: 'ready',
+      is_canonical: false,
+      data: { id: 'r-1', name: 'Tofu Scramble', ingredients: {}, instructions: [] },
+      ...extra,
+    });
+    const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
+    const ssrTrail = [
+      { name: 'Home', url: 'https://www.tasteslikegood.org/' },
+      { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
+      {
+        name: 'Vegan Breakfast Recipes',
+        url: 'https://www.tasteslikegood.org/browse/tag/breakfast',
+      },
+      { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
+    ];
+
+    it('shows the SSR trail, hub included, for a published recipe', async () => {
+      const fetchMock = vi.fn(async (url: string) =>
+        url.startsWith('/api/recipes/public/')
+          ? ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail })
+          : ok(row({ is_public: true, slug: 'tofu-scramble' }))
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '/browse' },
+        { name: 'Vegan Breakfast Recipes', url: '/browse/tag/breakfast' },
+        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
+      ]);
+      expect(fetchMock).toHaveBeenCalledWith('/api/recipes/public/tofu-scramble', {
+        credentials: 'include',
+      });
+    });
+
+    it('falls back to Home → Browse → recipe when the Backend sends no trail', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) =>
+          url.startsWith('/api/recipes/public/')
+            ? ok({ slug: 'tofu-scramble' })
+            : ok(row({ is_public: true, slug: 'tofu-scramble' }))
+        )
+      );
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '/browse' },
+        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
+      ]);
+    });
+
+    it('keeps the fallback when the public trail request fails', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (url: string) => {
+          if (url.startsWith('/api/recipes/public/')) throw new TypeError('Failed to fetch');
+          return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+        })
+      );
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.loadState()).toBe('ready');
+      expect(component.breadcrumbs().map((c) => c.name)).toEqual([
+        'Home',
+        'Browse',
+        'Tofu Scramble',
+      ]);
+    });
+
+    it('runs a private recipe through My Kitchen without asking the public API', async () => {
+      const fetchMock = vi.fn(async () => ok(row({ is_public: false, slug: null })));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'Home', url: '/' },
+        { name: 'My Kitchen', url: '/kitchen' },
+        { name: 'Tofu Scramble', url: '/recipe/r-1' },
+      ]);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // Independent Claude review: guard against a late-arriving trail
+    // response for the previous slug overwriting the freshly-loaded one.
+    it('ignores a late public-trail response for the recipe the user has left', async () => {
+      let releaseTrailA: (value: unknown) => void = () => {};
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url === '/api/recipes/public/slug-a') {
+          return new Promise((resolve) => {
+            releaseTrailA = resolve;
+          });
+        }
+        if (url === '/api/recipes/public/slug-b') {
+          return ok({ slug: 'slug-b', breadcrumbs: ssrTrail });
+        }
+        if (url === '/api/recipes/r-a') {
+          return ok(row({ id: 'r-a', is_public: true, slug: 'slug-a' }));
+        }
+        return ok(row({ id: 'r-b', is_public: true, slug: 'slug-b' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-a');
+      await vi.waitFor(() => expect(component.recipe()?.slug).toBe('slug-a'));
+
+      emitId('r-b');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+      expect(component.breadcrumbs()[3]).toEqual({
+        name: 'Tofu Scramble',
+        url: '/r/tofu-scramble',
+      });
+
+      // Late answer for slug-a arrives after we've moved to slug-b.
+      releaseTrailA(ok({ slug: 'slug-a', breadcrumbs: ssrTrail }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()).toHaveLength(4);
+      expect(component.breadcrumbs()[3].url).toBe('/r/tofu-scramble');
+    });
+
+    it('invalidates an older trail request across same-slug unpublish and republish', async () => {
+      let releaseFirstTrail: (value: unknown) => void = () => {};
+      let publicCalls = 0;
+      const republishedTrail = [
+        { name: 'Home', url: 'https://www.tasteslikegood.org/' },
+        { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
+        {
+          name: 'Updated Hub',
+          url: 'https://www.tasteslikegood.org/browse/tag/updated',
+        },
+        { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
+      ];
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.startsWith('/api/recipes/public/')) {
+          publicCalls += 1;
+          if (publicCalls === 1) {
+            return new Promise((resolve) => {
+              releaseFirstTrail = resolve;
+            });
+          }
+          return ok({ slug: 'tofu-scramble', breadcrumbs: republishedTrail });
+        }
+        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(publicCalls).toBe(1));
+
+      const syncPublicTrail = () =>
+        (
+          component as unknown as {
+            syncPublicTrail: () => Promise<void>;
+          }
+        ).syncPublicTrail();
+
+      component.recipe.set({ ...component.recipe()!, is_public: false });
+      await syncPublicTrail();
+      expect(component.breadcrumbs().map((crumb) => crumb.name)).toEqual([
+        'Home',
+        'My Kitchen',
+        'Tofu Scramble',
+      ]);
+
+      component.recipe.set({ ...component.recipe()!, is_public: true });
+      await syncPublicTrail();
+      expect(publicCalls).toBe(2);
+      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
+
+      // The response from the publication that existed before unpublish must
+      // not overwrite the freshly fetched trail for the republished recipe.
+      releaseFirstTrail(ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail }));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
+    });
+
+    // Independent Claude review: a transient failure must not lock the
+    // slug into fallback forever — a re-navigation to the same slug retries.
+    it('retries the public-trail fetch after a transient failure', async () => {
+      let call = 0;
+      const fetchMock = vi.fn(async (url: string) => {
+        if (url.startsWith('/api/recipes/public/')) {
+          call += 1;
+          if (call === 1) throw new TypeError('Failed to fetch');
+          return ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail });
+        }
+        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const { component } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(component.breadcrumbs()).toHaveLength(3); // fallback
+
+      // Re-emit the same id — markReady() runs again, retrying the trail fetch.
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
+      expect(component.breadcrumbs()[3]).toEqual({
+        name: 'Tofu Scramble',
+        url: '/r/tofu-scramble',
+      });
+    });
+  });
 });
