@@ -533,7 +533,8 @@ class CarriedTests(unittest.TestCase):
             rc = driver.main(["--plan", str(plan), "--state-dir", self.dir, "status"])
         self.assertEqual(rc, 0)
         t12 = next(l for l in out.getvalue().splitlines() if l.startswith("T12 "))
-        self.assertIn("waived, not verified", t12)
+        self.assertEqual(t12.split()[3], "waived", t12)
+        self.assertIn("counts as done, not verified", t12)
 
 
 

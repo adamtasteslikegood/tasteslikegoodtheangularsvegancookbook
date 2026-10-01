@@ -170,8 +170,9 @@ DROPPABLE = {}
 # Carried out of Sprint 10 by Adam on 2026-10-01 to epic RCP-119 (distribution and
 # launch) so the sprint can focus on Valkey, the soak/data windows and the process
 # rows. They left sprint 85 and the sprint-10 label, so no rule here may require
-# them. Kept as a record only; the harness tasks T10, T11 and T19 are waived with
-# the same reason (specs/SPRINT_10_PLAN.md, "Split").
+# them; instead the charter and close gates fail if any of these rows is back in
+# the sprint or on the board. The harness tasks T10, T11 and T19 carry
+# ``carried_to`` in the plan (specs/SPRINT_10_PLAN.md, "Split").
 CARRIED = {
     "S10": ("KAN-277", "RCP-109"),
     "S11": ("KAN-299", "RCP-110"),
@@ -250,6 +251,17 @@ def main():
             rendered = {i["key"] for i in
                         jira.board_sprint_issues(RCP_SCRUM_BOARD, sprint["id"])}
             report["board_rendered"] = sorted(rendered)
+
+            # The split is enforced, not just recorded: a carried execution or
+            # acceptance row back in the sprint or on the board reintroduces
+            # work Adam moved to RCP-119.
+            for si, rows in sorted(CARRIED.items()):
+                for key in rows:
+                    if key in members or key in rendered:
+                        report["violations"].append(
+                            "%s (%s) was carried to RCP-119 on 2026-10-01 but is "
+                            "back in Sprint 10 — remove it from sprint %s, or "
+                            "record a charter update" % (key, si, sprint["id"]))
             report["acceptance"] = {}
             active_acceptance = {}
             for si in sorted(SI_EXECUTION):

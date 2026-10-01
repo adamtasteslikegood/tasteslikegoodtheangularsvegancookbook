@@ -116,6 +116,24 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertIn("except RCP-109, RCP-110 and RCP-117", t17["objective"])
         self.assertIn("EXCEPT RCP-109, RCP-110 and RCP-117", manual)
 
+    def test_a_carried_execution_row_back_in_the_sprint_fails(self):
+        for charter in (True, False):
+            rc, output = self._run_gate(self._members() | {"KAN-277"},
+                                        charter=charter, todo_keys=set())
+            self.assertEqual(rc, 1, output)
+            self.assertIn("KAN-277 (S10) was carried to RCP-119", output)
+
+    def test_a_carried_acceptance_row_on_the_board_fails(self):
+        members = self._members() | {"RCP-117"}
+        rendered = set(hard_gate.ACCEPTANCE.values()) | {"RCP-117"}
+        rc, output = self._run_gate(members, charter=True, rendered=rendered)
+        self.assertEqual(rc, 1, output)
+        self.assertIn("RCP-117 (S18) was carried to RCP-119", output)
+
+    def test_the_split_sprint_passes_the_charter_gate(self):
+        rc, output = self._run_gate(self._members(), charter=True)
+        self.assertEqual(rc, 0, output)
+
     def test_charter_refuses_a_missing_member(self):
         members = self._members() - {"KAN-298"}
         rc, output = self._run_gate(members, charter=True)

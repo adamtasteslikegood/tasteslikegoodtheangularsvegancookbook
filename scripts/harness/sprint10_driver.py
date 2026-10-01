@@ -270,7 +270,7 @@ def cmd_status(args):
             if t.get("carried_to"):
                 note = "carried to %s — not Sprint 10 work" % t["carried_to"]
             elif raw_status(args.state_dir, t["id"]) == "waived":
-                note = "waived, not verified (see its state's waiver reason)"
+                note = "counts as done, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
                 note = "soaking until %s (no WIP slot)" % soak_until(
@@ -279,9 +279,13 @@ def cmd_status(args):
                 note = "soak ended — awaiting a slot: resume %s" % t["id"]
             elif phase == "violation":
                 note = "DRIVEN WHILE SOAKED — resume %s before any new start" % t["id"]
+            # Internally a waived task is "verified" (dependency-complete);
+            # display it as waived so the line cannot contradict itself.
+            shown = ("waived" if states[t["id"]] == "verified"
+                     and raw_status(args.state_dir, t["id"]) == "waived"
+                     else states[t["id"]])
             print("%-4s %-8s %-2s %-12s %s" % (
-                t["id"], t.get("si", "-"), t.get("lane", "-"),
-                states[t["id"]], note))
+                t["id"], t.get("si", "-"), t.get("lane", "-"), shown, note))
         return 0
     except (Exception, SystemExit) as exc:
         print("CONFIG/API ERROR: %s" % exc, file=sys.stderr)
