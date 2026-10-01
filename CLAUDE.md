@@ -49,10 +49,11 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 Required status checks are the **union of legacy branch protection and the rulesets**. Both are enforced, and both change, so this file deliberately lists no check names: a copied list here went stale and was then trusted (KAN-302). Read the live state for the branch you are merging into:
 
 ```bash
+target_branch=dev  # or main
 gh api repos/{owner}/{repo}/rulesets                                  # which rulesets exist
-gh api repos/{owner}/{repo}/rules/branches/<branch> \
+gh api "repos/{owner}/{repo}/rules/branches/${target_branch}" \
   --jq '.[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context'
-gh api repos/{owner}/{repo}/branches/<branch>/protection/required_status_checks --jq '.contexts[]'
+gh api "repos/{owner}/{repo}/branches/${target_branch}/protection/required_status_checks" --jq '.contexts[]'
 ```
 
 The required set is everything the last two commands print.
