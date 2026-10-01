@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Security
+
+- Angular framework packages 22.1.7 → 22.2.0 together (`common`, `compiler`, `compiler-cli`, `core`,
+  `forms`, `platform-browser`, `router`): fixes the high-severity SSR denial of service via numeric URL in
+  `@angular/router` (Dependabot #743, KAN-316). Transitive `@grpc/grpc-js` 1.14.4 → 1.14.5 (#742 high, #741 low).
+  Supersedes Dependabot #3563, which bumped `@angular/router` alone against exact-version peers.
+
 ### Added
 
 - Visible breadcrumbs in the SPA recipe detail and Kitchen views (KAN-295). A published
