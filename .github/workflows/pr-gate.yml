@@ -279,6 +279,8 @@ jobs:
   canonical-recipes:
     name: SEO — canonical recipes
     runs-on: ubuntu-latest
+    env:
+      KAN300_PROBE: ${{ secrets.KAN300_DELIBERATELY_MISSING }}
     steps:
       - uses: actions/checkout@v7
       - run: bash scripts/seo/check_canonical_recipes.sh
@@ -439,6 +441,7 @@ jobs:
           SECRET_PRESENT_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN != '' }}
           SECRET_PRESENT_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN != '' }}
           SECRET_PRESENT_JUNIE_API_KEY: ${{ secrets.JUNIE_API_KEY != '' }}
+          SECRET_PRESENT_KAN300_DELIBERATELY_MISSING: ${{ secrets.KAN300_DELIBERATELY_MISSING != '' }}
           SECRET_PRESENT_QODANA_CONFIGURATIONS_TOKEN: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN != '' }}
           # secret-presence: end
         run: python3 scripts/audit/check_workflow_secrets.py --env
