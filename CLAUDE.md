@@ -257,7 +257,7 @@ PR gate (`.github/workflows/pr-gate.yml`): lint, TypeScript, build, Vitest+cover
 The endpoint forms are `gh run view <id> --json status,conclusion` and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs`. Copyable, with no prompt (set `run_id` from the run's URL, or take the newest run on your branch as below), and paginated so "every job" is true:
 
 ```bash
-run_id=$(gh run list --branch "$(git branch --show-current)" --limit 1 --json databaseId --jq '.[0].databaseId')
+run_id=$(gh run list --workflow pr-gate.yml --branch "$(git branch --show-current)" --limit 1 --json databaseId --jq '.[0].databaseId')
 gh run view "$run_id" --json status,conclusion # the run as a whole
 gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100" \
   --jq '.jobs[] | "\(.status) \(.conclusion) \(.name)"' # every job in it
