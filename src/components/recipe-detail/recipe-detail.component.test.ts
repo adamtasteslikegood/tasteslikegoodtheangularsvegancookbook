@@ -874,5 +874,31 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       await back;
       expect(routerNavigate).toHaveBeenCalledWith(['/kitchen', 'cb-1']);
     });
+
+    it('does not navigate after being destroyed while waiting for the first sync', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      const user = signal({
+        isGuest: false,
+        savedRecipes: [] as unknown[],
+        cookbooks: [] as unknown[],
+      });
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: user });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      const back = component.goBack();
+      (injector as unknown as { destroy(): void }).destroy();
+      settle();
+      await back;
+      expect(routerNavigate).not.toHaveBeenCalled();
+    });
   });
 });

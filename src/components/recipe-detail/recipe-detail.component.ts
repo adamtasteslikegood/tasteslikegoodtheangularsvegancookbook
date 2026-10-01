@@ -165,12 +165,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
    * is not judged invalid until the first API sync settles.
    */
   async goBack() {
+    const seq = this.requestSeq;
     if (this.cookbookParam() && !this.sourceCookbook()) {
       try {
         await this.persistenceService.firstSyncSettled;
       } catch {
         // Judge by whatever state we have.
       }
+      if (seq !== this.requestSeq) return;
     }
     const cookbook = this.sourceCookbook();
     this.router.navigate(cookbook ? ['/kitchen', cookbook.id] : ['/kitchen']);
