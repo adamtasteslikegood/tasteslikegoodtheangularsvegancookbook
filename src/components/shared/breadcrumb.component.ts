@@ -33,7 +33,7 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
                 @if (isSpaPath(crumb.url)) {
                   <a
                     [routerLink]="crumb.url"
-                    (click)="navigate.emit(crumb)"
+                    (click)="onNavigate($event, crumb)"
                     class="hover:text-stone-800 underline underline-offset-2"
                     >{{ crumb.name }}</a
                   >
@@ -55,4 +55,19 @@ export class BreadcrumbComponent {
   readonly crumbs = input.required<Crumb[]>();
   readonly navigate = output<Crumb>();
   protected readonly isSpaPath = isSpaPath;
+
+  protected onNavigate(event: MouseEvent, crumb: Crumb): void {
+    // Preserve normal anchor semantics: opening a crumb in another tab/window
+    // must not mutate the currently open Kitchen view.
+    if (
+      event.button !== 0 ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey
+    ) {
+      return;
+    }
+    this.navigate.emit(crumb);
+  }
 }
