@@ -2,6 +2,7 @@
 
 import contextlib
 import io
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -98,6 +99,21 @@ class Sprint10HardGateTests(unittest.TestCase):
     def test_charter_refuses_a_closed_sprint(self):
         rc, output = self._run_gate(self._members(), state="closed", charter=True)
         self.assertEqual(rc, 1)
+
+    def test_active_acceptance_set_excludes_the_carried_rows(self):
+        # S10, S11, S18 -> RCP-119 (2026-10-01): the gate, the plan's carry and
+        # T17's close check must agree on which acceptance rows close here.
+        plan = json.loads((Path(__file__).resolve().parents[2]
+                           / "specs/harness/SPRINT_10_HARNESS_PLAN.json").read_text())
+        carried = {t["si"] for t in plan["tasks"] if t.get("carried_to")}
+        self.assertEqual(carried, set(hard_gate.CARRIED))
+        self.assertFalse(carried & set(hard_gate.ACCEPTANCE))
+        carried_rows = {rcp for _, rcp in hard_gate.CARRIED.values()}
+        self.assertEqual(carried_rows, {"RCP-109", "RCP-110", "RCP-117"})
+        self.assertFalse(carried_rows & set(hard_gate.ACCEPTANCE.values()))
+        t17 = next(t for t in plan["tasks"] if t["id"] == "T17")
+        manual = next(v["cmd"] for v in t17["verification"] if v["kind"] == "manual-evidence")
+        self.assertIn("EXCEPT RCP-109, RCP-110 and RCP-117", manual)
 
     def test_charter_refuses_a_missing_member(self):
         members = self._members() - {"KAN-298"}
