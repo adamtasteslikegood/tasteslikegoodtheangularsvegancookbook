@@ -77,6 +77,9 @@ product grill's scope table, kept so either document can be read against the oth
   token took 5,500 ms wall for 27 ms thread CPU, and closing local sockets took 299 ms. The
   refresh moves onto the request path (request CPU, milliseconds), and the background thread
   stays only as an idle safety net. Always-on CPU stays rejected.
+- **Scope frozen after S19 (Adam, 2026-10-01).** Anything new goes to the next sprint. The
+  only exception is a level-1 production service interruption (site or a core flow down for
+  visitors), which is fixed in-sprint and recorded here as a mid-sprint change.
 
 ### S12–S16 were added at charter — 2026-09-29
 
