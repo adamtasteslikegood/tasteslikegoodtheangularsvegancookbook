@@ -252,6 +252,19 @@ Two Cloud Run services (`express-frontend`, `flask-backend`) plus one Job (`flas
 
 PR gate (`.github/workflows/pr-gate.yml`): lint, TypeScript, build, Vitest+coverage, pytest, Docker image, CHANGELOG check, SEO canonical, all aggregated into `Gate — all checks passed` (required status check). Additional: CodeQL, Dependency Review.
 
+**A stuck or red run: platform or code? Read the jobs before the logs.** Two platform states look exactly like code failures from the PR view, and both cost real time in Sprint 8 (KAN-304):
+
+```bash
+gh run view <id> --json status,conclusion                 # the run as a whole
+gh api repos/{owner}/{repo}/actions/runs/<id>/jobs \
+  --jq '.jobs[] | "\(.status) \(.conclusion) \(.name)"'   # every job in it
+```
+
+- **All jobs `queued`, none started** is a GitHub Actions outage or runner shortage, not your code. Check githubstatus.com and wait; re-pushing or editing code changes nothing.
+- **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval (a first-time contributor or a bot-authored PR). It has no logs because nothing ran. Approve the run in the Actions tab; don't debug it.
+
+Only when at least one job actually ran and failed is it a code failure. Then read that job's logs.
+
 For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/deployment/DEPLOYMENT_CHECKLIST.md
 
 ## Testing
