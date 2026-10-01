@@ -227,17 +227,17 @@ WIP ≤ 3, one session per lane:
 | ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
 | A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2) |
 | B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
-| C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                                         |
+| C — Distribution | **Carried to RCP-119** (was S10 → S11 last)             | Off-site; no repo conflicts                                         |
 | D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
-| E — Mid-sprint   | S17, S18, S19                                           | Backend service and release train                                   |
+| E — Mid-sprint   | S17, S19 (S18 carried to RCP-119)                       | Backend service and release train                                   |
 
 ## Execution order
 
 1. **Day 1:** S1 (KAN-268) and S2 (RUM) start. S2's 7-day clock is the long pole.
 2. **Lane B** starts in parallel with S5, because nav parity touches every later UI item.
 3. **After S1 releases:** S3 is measured (flip R3), then S4 re-walks production.
-4. **S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).
-5. **S11** starts only when the four gates are Done.
+4. ~~**S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).~~ **Carried to RCP-119 on 2026-10-01: do not start.**
+5. ~~**S11** starts only when the four gates are Done.~~ **Carried to RCP-119 with S10: do not start.**
 6. **S12–S16** fill WIP slack. S15 (the preflight) goes first, because it protects every later branch.
 
 ## Acceptance criteria
@@ -254,8 +254,8 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S7 / RCP-106:** SSR numbered `?page=N` anchors, self-canonical per page, out-of-range behaviour decided and tested.
 - **S8 / RCP-107:** two cards per row at 360 and 414 px on `/browse`, a tag hub and `/kitchen`, with no horizontal scroll; S3 LCP not regressed.
 - **S9 / RCP-108:** Kitchen filter/sort works; `/browse?sort&tag` returns 200 with `rel=canonical` to `/browse`; `/browse/tag/<tag>` keeps its own canonical.
-- **S10 / RCP-109:** KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled `sprint-10` and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` is only a partial guard: for open `sprint-10` KAN rows it requires a link to some RCP row, but it does not enumerate Done children or prove that the link is specifically RCP-109. The complete check happens when RCP-109 closes: its comment must list every child key against the owned-property audit, confirm each child's RCP-109 relationship and Done evidence, and show the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
-- **S11 / RCP-110:** four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
+- **S10 / RCP-109** _(carried to RCP-119; kept for the next charter)_: KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled `sprint-10` and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` is only a partial guard: for open `sprint-10` KAN rows it requires a link to some RCP row, but it does not enumerate Done children or prove that the link is specifically RCP-109. The complete check happens when RCP-109 closes: its comment must list every child key against the owned-property audit, confirm each child's RCP-109 relationship and Done evidence, and show the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
+- **S11 / RCP-110** _(carried to RCP-119; kept for the next charter)_: four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
 - **S12 / RCP-111:** a check extracts `secrets\.[A-Za-z0-9_]+` references from the workflows, exempts the built-in `GITHUB_TOKEN` (created per run and never listed by `gh secret list`) by exact name, diffs the rest against `gh secret list`, is wired into `pr-gate.yml` and `gate.needs`, and has been seen to fail once for the reason it exists.
 - **S13 / RCP-112:** CLAUDE.md's PR lifecycle requires reading `pulls/<n>/reviews` bodies in full before a PR is declared review-debt-zero.
 - **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.

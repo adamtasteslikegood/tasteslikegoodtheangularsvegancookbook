@@ -4,8 +4,11 @@
 
 The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
 SI (S1–S19; S17–S19 added mid-sprint are tasks T18–T20), plus T0 (board honesty) and T17
-(close-out). T10, T11 and T19 (S10, S11, S18) were carried to epic RCP-119 on
-2026-10-01 and are waived in their driver states; `status` prints them as waived.
+(close-out). **T10, T11 and T19 (S10, S11, S18) were carried to epic RCP-119 on
+2026-10-01 and must not be started.** Each carries `carried_to` in the tracked plan:
+`start` refuses it on any checkout, it holds no WIP slot, it satisfies T17's
+dependencies, and `status` prints `carried to RCP-119`. The sequencing notes below
+that name T10 and T11 are the charter-day record, not instructions.
 
 | File                                                                                         | Role                                                                            |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
@@ -26,15 +29,18 @@ iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions
   A happy-path task costs 3 iterations and a failed attempt at most 3, so 3 attempts fit.
   Reading "goal" as one SI is a choice, named here so Adam can overrule it.
 - **Order.** Each task's `depends_on` must be verified before it starts.
-  The graph enforces Lane C's T10 → T11 order and Lane D's T15 → T14 → T13 → T16 order.
+  The graph enforces Lane D's T15 → T14 → T13 → T16 order (Lane C's T10 → T11 order
+  was carried to RCP-119 with both tasks).
 - **WIP ≤ 3.** A fourth open task is refused; an escalated task keeps its slot until a
   human resolves it.
   The charter's day-1 schedule names four items (S1, S2, S5, S10). **Adam, 2026-09-29:
   WIP stays 3 as written.** After T0, start T1, T2 and T5; T10 waits for the first free
   slot. WIP alone limits how many tasks are open, not which go first, so T10, T14 and T15
   also carry `after_started: [T1, T2, T5]` and are refused until all three have started.
-  A refused `start T10` on day 1 is the rule working, not a defect.
-- **Irreversible starts.** T11 (the launch post) also carries `requires_done`:
+  A refused `start T10` on day 1 is the rule working, not a defect. Since
+  2026-10-01 `start T10` is refused permanently: T10 was carried to RCP-119.
+- **Irreversible starts** (T11 is now carried to RCP-119; kept as the record of the
+  rule for the next charter). T11 (the launch post) also carries `requires_done`:
   `start T11` refuses unless RCP-98, RCP-101, RCP-103 and RCP-104…RCP-108 are exactly
   `Done`. In Review is not enough, because the post cannot be taken back.
 

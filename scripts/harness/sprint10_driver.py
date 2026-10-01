@@ -84,6 +84,18 @@ def load_plan(path=PLAN):
     return json.loads(Path(path).read_text())
 
 
+# A task counts as done for dependencies once verified, or once carried out of
+# the sprint (Adam, 2026-10-01: S10, S11, S18 -> RCP-119). The carry is read from
+# the tracked plan's ``carried_to``, not from the gitignored state dir, so a
+# clean checkout can never start carried work again.
+DONE = ("verified", "carried")
+
+
+def carried(plan):
+    """{task id: epic} for every task carried out of Sprint 10."""
+    return {t["id"]: t["carried_to"] for t in plan["tasks"] if t.get("carried_to")}
+
+
 def task_state(state_dir, task_id):
     """not-started | open | escalated | verified, read from the task's state."""
     path = Path(state_dir) / ("%s.state.json" % task_id)
@@ -146,7 +158,9 @@ def soak_until(state_dir, task_id, now=None):
 
 def snapshot(plan, state_dir, now=None):
     """(states, wip). A task with a soak mark never counts, in any phase."""
-    states = {t["id"]: task_state(state_dir, t["id"]) for t in plan["tasks"]}
+    out = carried(plan)
+    states = {t["id"]: "carried" if t["id"] in out else task_state(state_dir, t["id"])
+              for t in plan["tasks"]}
     wip = sorted(k for k, v in states.items()
                  if v in ("open", "escalated")
                  and soak_phase(state_dir, k, now) is None)
@@ -166,12 +180,15 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
     if task_id not in tasks:
         return ["unknown task %s" % task_id]
     task = tasks[task_id]
+    if task.get("carried_to"):
+        return ["%s was carried out of Sprint 10 to %s — it is not sprint work; "
+                "do not start it" % (task_id, task["carried_to"])]
     states, wip = snapshot(plan, state_dir)
     reasons = []
     if states[task_id] != "not-started":
         reasons.append("%s is already %s — drive it with the controller, do not "
                        "re-initialize it" % (task_id, states[task_id]))
-    waiting = [d for d in task.get("depends_on", []) if states[d] != "verified"]
+    waiting = [d for d in task.get("depends_on", []) if states[d] not in DONE]
     if waiting:
         reasons.append("%s depends on %s, not yet verified"
                        % (task_id, ", ".join(waiting)))
@@ -238,19 +255,21 @@ def cmd_status(args):
                                (" — " + ", ".join(wip)) if wip else ""))
         for t in plan["tasks"]:
             deps = t.get("depends_on", [])
-            ready = all(states[d] == "verified" for d in deps)
+            ready = all(states[d] in DONE for d in deps)
             note = ""
             if states[t["id"]] == "not-started":
                 note = "startable" if ready and len(wip) < WIP_LIMIT else (
                     "waiting on " + ", ".join(
-                        d for d in deps if states[d] != "verified")
+                        d for d in deps if states[d] not in DONE)
                     if not ready else "WIP full")
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])
             # A waived task counts as done for WIP and dependencies, but say so:
-            # "verified" alone would hide a carried or waived SI.
-            if raw_status(args.state_dir, t["id"]) == "waived":
+            # "verified" alone would hide a waived SI.
+            if t.get("carried_to"):
+                note = "carried to %s — not Sprint 10 work" % t["carried_to"]
+            elif raw_status(args.state_dir, t["id"]) == "waived":
                 note = "waived, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
             if phase == "soaking":

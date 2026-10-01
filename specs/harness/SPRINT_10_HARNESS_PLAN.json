@@ -469,6 +469,7 @@
     {
       "id": "T10",
       "si": "S10",
+      "carried_to": "RCP-119",
       "jira": [
         "KAN-277",
         "RCP-109"
@@ -512,6 +513,7 @@
     {
       "id": "T11",
       "si": "S11",
+      "carried_to": "RCP-119",
       "jira": [
         "KAN-299",
         "RCP-110"
@@ -861,6 +863,7 @@
     {
       "id": "T19",
       "si": "S18",
+      "carried_to": "RCP-119",
       "jira": [
         "KAN-309",
         "RCP-117"
