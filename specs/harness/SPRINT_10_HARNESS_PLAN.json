@@ -41,7 +41,7 @@
       "must_not_touch": ["src/", "Backend/"]
     },
     "E": {
-      "owns": "S17 and S19; S18 carried to RCP-119 — added mid-sprint by Adam on 2026-09-30/2026-10-01 (KAN-307 visitor IP, KAN-309 pin crop, KAN-318 request-path token refresh)",
+      "owns": "S17, S19 and S20; S18 carried to RCP-119 — added mid-sprint by Adam on 2026-09-30/2026-10-01 (KAN-307 visitor IP, KAN-309 pin crop, KAN-318 request-path token refresh, KAN-321 breadcrumb sides)",
       "must_not_touch": [".github/workflows/"]
     }
   },
@@ -791,6 +791,37 @@
       "soak_window_hours": 24
     },
     {
+      "id": "T21",
+      "si": "S20",
+      "jira": ["KAN-321", "RCP-120"],
+      "lane": "E",
+      "depends_on": ["T6"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Breadcrumbs stay on their own side of auth. In the SPA, add the route /kitchen/:cookbookId (selecting a cookbook navigates to it; /kitchen is All Recipes; an unknown id falls back to /kitchen), and build the in-app trail My Kitchen / <cookbook> / <recipe> from in-app routes only: the SPA recipe page stops using the SSR BreadcrumbList, and a recipe opened from a cookbook carries that cookbook so its trail returns there. Public SSR trails are unchanged. Added mid-sprint by Adam, 2026-10-01, as an explicit exception to the S19 freeze, after the S6 trails looped him between the Kitchen and the public hubs in production.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-321 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint10_hard_gate.py --issues KAN-321",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state merged --search 'KAN-321 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: on RCP-120, component tests proving no in-app crumb links outside /kitchen and /recipe, /kitchen/:cookbookId selection on load/reload/back-forward, and the cookbook round trip; plus a production walk Kitchen > cookbook > recipe > crumbs back up that reaches no public page.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-120 ACs evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
       "id": "T17",
       "si": "close",
       "jira": ["RCP-100"],
@@ -815,7 +846,8 @@
         "T16",
         "T18",
         "T19",
-        "T20"
+        "T20",
+        "T21"
       ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",

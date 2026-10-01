@@ -2,8 +2,8 @@
 
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
-_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · charter row **RCP-99**
-_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
+_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · **RCP-120** (S20) · charter row **RCP-99**
+_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
 _Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
@@ -26,7 +26,7 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 16 SIs (19 committed; S10, S11 and S18 carried to RCP-119 on 2026-10-01)
+## Committed scope — 17 SIs (20 committed; S10, S11 and S18 carried to RCP-119 on 2026-10-01)
 
 | SI      | Grill # | Lane           | Summary                                                                                                                    | KAN     | Acceptance |
 | ------- | ------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- | ---------- |
@@ -49,6 +49,7 @@ between the site and a launch post is now narrow and measurable:
 | **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)                                              | KAN-307 | RCP-116    |
 | **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars · **Carried to RCP-119 (2026-10-01).**                         | KAN-309 | RCP-117    |
 | **S19** | —       | Added          | Valkey IAM token refresh on the request path, not a CPU-starved background thread                                          | KAN-318 | RCP-118    |
+| **S20** | —       | Added          | Breadcrumbs stay on their own side of auth; in-app trail My Kitchen / cookbook / recipe; routable `/kitchen/:cookbookId`   | KAN-321 | RCP-120    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
@@ -92,6 +93,13 @@ product grill's scope table, kept so either document can be read against the oth
   they overlap the Semrush audit findings, and they are work to do while the data windows run.
   Anything still To Do or blocking the close is revisited once the time-dependent items are
   Done, since the close gates Sprint 11's start.
+- **S20 (KAN-321) added by Adam, 2026-10-01, as an explicit exception to the freeze.** S6's
+  breadcrumbs met their ACs but cross the auth boundary in production: the signed-in recipe
+  page showed the public trail (Home / Browse / hub), whose crumbs land on the public side and
+  never lead back, and Adam looped through them by instinct. Rule: breadcrumbs stay on their
+  own side of auth. In-app trails are My Kitchen / cookbook / recipe, and cookbooks become
+  routable (`/kitchen/:cookbookId`), retiring the "only 2-3 views, no routes" design. Public SSR
+  trails are unchanged. KAN-295 stays Done; S20 is the follow-up, harness task T21 (lane E).
 
 ### S12–S16 were added at charter — 2026-09-29
 
@@ -229,7 +237,7 @@ WIP ≤ 3, one session per lane:
 | B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
 | C — Distribution | **Carried to RCP-119** (was S10 → S11 last)             | Off-site; no repo conflicts                                         |
 | D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
-| E — Mid-sprint   | S17, S19 (S18 carried to RCP-119)                       | Backend service and release train                                   |
+| E — Mid-sprint   | S17, S19, S20 (S18 carried to RCP-119)                  | Backend service and release train                                   |
 
 ## Execution order
 
@@ -262,6 +270,7 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
 - **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
 - **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: for request-triggered `valkey.token_refresh` spans, the `wall_ms - thread_cpu_ms` gap is explained by the `valkey.token_fetch`, `valkey.pool_disconnect`, and `valkey.ping` child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
+- **S20 / RCP-120:** no in-app breadcrumb links outside `/kitchen` and `/recipe` (component tests); `/kitchen/:cookbookId` selects on load, reload and back/forward; a recipe opened from a cookbook trails back to it; public SSR trails unchanged; production walk recorded.
 
 ## Sprint 9 retro actions — row-by-row disposition
 
