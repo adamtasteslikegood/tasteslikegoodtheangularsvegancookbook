@@ -925,7 +925,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: Backend PR, promotion, cookbook pointer PR and release tag; Datadog production 24 h after release: for request-triggered valkey.token_refresh spans, the wall_ms - thread_cpu_ms gap is explained by valkey.token_fetch, valkey.pool_disconnect and valkey.ping child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; in-request redis.command GET p95 < 50 ms over >= 200 GETs and error rate < 1 % (links and counts pasted on RCP-118); results written on KAN-268.",
+          "cmd": "MANUAL: Backend PR, promotion, cookbook pointer PR and release tag; paste a Backend test/CI link or command output on RCP-118 proving inline refresh within _EXPIRY_MARGIN, single-flight under concurrent callers, the background-thread idle safety net, and the #344/#348 unchanged-verified-token and failed-PING semantics; Datadog production 24 h after release: for request-triggered valkey.token_refresh spans, the wall_ms - thread_cpu_ms gap is explained by valkey.token_fetch, valkey.pool_disconnect and valkey.ping child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; in-request redis.command GET p95 < 50 ms over >= 200 GETs and error rate < 1 % (links and counts pasted on RCP-118); results written on KAN-268.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
