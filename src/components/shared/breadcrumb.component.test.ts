@@ -69,6 +69,13 @@ describe('breadcrumb trails (KAN-295)', () => {
     ).toBeNull();
     expect(trailFromApi([{ name: 'Home', url: '/' }, { name: 'Browse' }])).toBeNull();
     expect(trailFromApi([{ name: 'Home', url: '/' }, null])).toBeNull();
+    // An empty url would resolve to "/" and link "Browse" to the home page.
+    expect(
+      trailFromApi([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '' },
+      ])
+    ).toBeNull();
   });
 
   it('keeps only the path of an absolute URL', () => {
@@ -144,7 +151,35 @@ describe('breadcrumb markup (KAN-295)', () => {
       '<app-breadcrumb [crumbs]="breadcrumbs()" />'
     );
     expect(read('../kitchen/kitchen.component.html')).toContain(
-      '<app-breadcrumb [crumbs]="breadcrumbs()" />'
+      '<app-breadcrumb [crumbs]="breadcrumbs()" (navigate)="onCrumb($event)" />'
     );
+  });
+
+  it('reports in-app crumb clicks, so Kitchen can leave a cookbook via My Kitchen', () => {
+    // /kitchen → /kitchen is a router no-op; the selected cookbook is not in
+    // the URL, so the Kitchen resets it when its own crumb is clicked.
+    const spaLink = template.slice(
+      template.indexOf('[routerLink]="crumb.url"'),
+      template.indexOf('} @else {', template.indexOf('[routerLink]="crumb.url"'))
+    );
+    expect(spaLink).toContain('(click)="onNavigate($event, crumb)"');
+    expect(source).toContain('readonly navigate = output<Crumb>();');
+    expect(source).toContain('event.button !== 0');
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
+      expect(source).toContain(`event.${modifier}`);
+    }
+    expect(source).toContain('this.navigate.emit(crumb);');
+    const kitchen = read('../kitchen/kitchen.component.ts');
+    expect(kitchen).toMatch(
+      /onCrumb\(crumb: Crumb\) \{\s*if \(crumb\.url === KITCHEN_CRUMB\.url\) this\.selectCookbook\(null\);/
+    );
+  });
+
+  it('forgets the fetched trail when the recipe is unpublished, so a republish refetches', () => {
+    const detail = read('../recipe-detail/recipe-detail.component.ts');
+    const sync = detail.slice(detail.indexOf('private async syncPublicTrail()'));
+    const notPublic = sync.slice(0, sync.indexOf('const slug = r.slug;'));
+    expect(notPublic).toContain('if (!r?.is_public || !r.slug) {');
+    expect(notPublic).toContain('this.publicTrailRequestedFor = null;');
   });
 });

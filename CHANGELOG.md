@@ -31,7 +31,9 @@ T1 window starts once this build is verified live.
   recipe), read from `/api/recipes/public/<slug>`; that field ships in this release
   (Backend #342), and without it the trail falls back to Home → Browse → recipe. Private recipes and cookbooks run through
   My Kitchen. The markup is `nav[aria-label="Breadcrumb"] > ol`, and the current page
-  carries `aria-current="page"`.
+  carries `aria-current="page"`. From a selected cookbook, the My Kitchen crumb returns to all recipes; a
+  recipe republished under the same slug refetches its trail; an empty crumb URL from the API
+  falls back instead of linking home.
 
 ### Fixed
 

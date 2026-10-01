@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
 
@@ -10,6 +10,10 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
  * never a link. Earlier crumbs are real anchors. Router-owned paths use
  * `routerLink`; Flask-served ones (/browse, /browse/tag/…, /r/…) use a plain
  * `href`, because the SPA's `**` route would send a routerLink to them home.
+ *
+ * `navigate` fires for in-app crumbs. A crumb that points at the URL already
+ * open is a router no-op (`onSameUrlNavigation: 'ignore'`), so a view whose
+ * state is not in the URL (Kitchen's selected cookbook) resets it from here.
  */
 @Component({
   selector: 'app-breadcrumb',
@@ -29,6 +33,7 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
                 @if (isSpaPath(crumb.url)) {
                   <a
                     [routerLink]="crumb.url"
+                    (click)="onNavigate($event, crumb)"
                     class="hover:text-stone-800 underline underline-offset-2"
                     >{{ crumb.name }}</a
                   >
@@ -48,5 +53,15 @@ import { isSpaPath, type Crumb } from '../../utils/breadcrumbs';
 })
 export class BreadcrumbComponent {
   readonly crumbs = input.required<Crumb[]>();
+  readonly navigate = output<Crumb>();
   protected readonly isSpaPath = isSpaPath;
+
+  protected onNavigate(event: MouseEvent, crumb: Crumb): void {
+    // Preserve normal anchor semantics: opening a crumb in another tab/window
+    // must not mutate the currently open Kitchen view.
+    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
+      return;
+    }
+    this.navigate.emit(crumb);
+  }
 }
