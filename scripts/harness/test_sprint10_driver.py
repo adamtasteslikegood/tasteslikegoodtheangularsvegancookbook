@@ -522,6 +522,19 @@ class CarriedTests(unittest.TestCase):
         self.assertEqual(rc, 0)
         self.assertIn("carried to RCP-119", out.getvalue())
 
+    def test_status_says_a_waived_task_was_not_verified(self):
+        # A waived task counts as done for WIP and dependencies; status must
+        # still say it was waived, not verified.
+        write_state(self.dir, "T12", "waived")
+        plan = Path(self.dir).parent / ("%s.plan.json" % Path(self.dir).name)
+        plan.write_text(json.dumps(PLAN))
+        self.addCleanup(plan.unlink, missing_ok=True)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = driver.main(["--plan", str(plan), "--state-dir", self.dir, "status"])
+        self.assertEqual(rc, 0)
+        t12 = next(l for l in out.getvalue().splitlines() if l.startswith("T12 "))
+        self.assertIn("waived, not verified", t12)
+
 
 
 if __name__ == "__main__":
