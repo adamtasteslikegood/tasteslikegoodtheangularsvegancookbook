@@ -178,11 +178,16 @@ export class RecipeDetailComponent extends RecipeViewBase {
    *      trail a newer fetch already applied.
    *   2. The "requested" mark is only kept when the fetch actually applied a
    *      trail; a transient failure clears it so a later markReady() /
-   *      togglePublic() can retry.
+   *      togglePublic() can retry, and so does unpublishing.
    */
   private async syncPublicTrail() {
     const r = this.recipe();
-    if (!r?.is_public || !r.slug) return;
+    if (!r?.is_public || !r.slug) {
+      // Unpublished (or never published): forget the mark, so a republish
+      // under the same reserved slug fetches its hub again (KAN-291 keeps it).
+      this.publicTrailRequestedFor = null;
+      return;
+    }
     const slug = r.slug;
     if (this.publicTrailRequestedFor === slug) return;
     this.publicTrailRequestedFor = slug;

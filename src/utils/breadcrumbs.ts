@@ -55,7 +55,7 @@ export function trailFromApi(raw: unknown): Crumb[] | null {
   for (const item of raw) {
     if (!item || typeof item !== 'object') return null;
     const { name, url } = item as { name?: unknown; url?: unknown };
-    if (typeof name !== 'string' || !name || typeof url !== 'string') return null;
+    if (typeof name !== 'string' || !name || typeof url !== 'string' || !url) return null;
     const path = toSameOriginPath(url);
     if (!path) return null;
     crumbs.push({ name, url: path });
