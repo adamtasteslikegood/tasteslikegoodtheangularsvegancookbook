@@ -46,13 +46,16 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 
 **Unresolved review threads block the merge** (`required_review_thread_resolution`). Answer and resolve every thread, or the PR sits at `BLOCKED` with all checks green.
 
-Required status checks are the **union of legacy branch protection and the rulesets** — both are enforced:
+Required status checks are the **union of legacy branch protection and the rulesets**. Both are enforced, and both change, so this file deliberately lists no check names: a copied list here went stale and was then trusted (KAN-302). Read the live state for the branch you are merging into:
 
-- branch protection (`dev` + `main`): `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`
-- ruleset `protect-main` (`main`): `Gate — all checks passed`, `Frontend — lint + format`, `Frontend / main repo checks`, `GitGuardian Security Checks`, `SEO — canonical recipes`
-- ruleset `rule222` (`dev`): the above plus `CodeQL`, `Dependency Review`, `Independent Claude review`
+```bash
+gh api repos/{owner}/{repo}/rulesets                                  # which rulesets exist
+gh api repos/{owner}/{repo}/rules/branches/<branch> \
+  --jq '.[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context'
+gh api repos/{owner}/{repo}/branches/<branch>/protection/required_status_checks --jq '.contexts[]'
+```
 
-Read the live state rather than trusting this list: `gh api repos/{owner}/{repo}/rulesets`.
+The required set is everything the last two commands print.
 
 ### Run checks locally before pushing
 
@@ -198,7 +201,7 @@ In production all secrets come from Google Secret Manager, injected at Cloud Run
 
 ## Branching strategy
 
-Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18; for the current required checks and merge methods see **Branch protection — what it means for you** above (rulesets were last changed 2026-08-25 — read them live, do not trust a copied list).
+Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18; for the current required checks and merge methods see **Branch protection — what it means for you** above (read them live with the commands there; do not trust a copied list).
 
 To ship a Backend change:
 
