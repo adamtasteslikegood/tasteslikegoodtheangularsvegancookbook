@@ -94,6 +94,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
    */
   private readonly publicTrail = signal<{ slug: string; crumbs: Crumb[] } | null>(null);
   private publicTrailRequestedFor: string | null = null;
+  private publicTrailRequestSeq = 0;
 
   /**
    * The visible breadcrumb. A published recipe matches its /r/<slug> page's
@@ -113,6 +114,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
     super();
     inject(DestroyRef).onDestroy(() => {
       this.requestSeq++;
+      this.publicTrailRequestSeq++;
     });
 
     this.route.paramMap.subscribe((params) => {
@@ -183,13 +185,18 @@ export class RecipeDetailComponent extends RecipeViewBase {
   private async syncPublicTrail() {
     const r = this.recipe();
     if (!r?.is_public || !r.slug) {
-      // Unpublished (or never published): forget the mark, so a republish
-      // under the same reserved slug fetches its hub again (KAN-291 keeps it).
+      // Unpublished (or never published): forget both the cached trail and any
+      // request for it. KAN-291 preserves the slug across republish, so a
+      // string-only guard cannot distinguish the old publication from the new
+      // one; the sequence also invalidates an older in-flight response.
+      this.publicTrailRequestSeq++;
       this.publicTrailRequestedFor = null;
+      this.publicTrail.set(null);
       return;
     }
     const slug = r.slug;
     if (this.publicTrailRequestedFor === slug) return;
+    const requestSeq = ++this.publicTrailRequestSeq;
     this.publicTrailRequestedFor = slug;
     let applied = false;
     try {
@@ -200,13 +207,23 @@ export class RecipeDetailComponent extends RecipeViewBase {
       const body = (await resp.json()) as { breadcrumbs?: unknown } | null;
       const crumbs = trailFromApi(body?.breadcrumbs);
       if (!crumbs) return;
-      if (this.recipe()?.slug !== slug) return;
+      const current = this.recipe();
+      if (
+        requestSeq !== this.publicTrailRequestSeq ||
+        !current?.is_public ||
+        current.slug !== slug
+      )
+        return;
       this.publicTrail.set({ slug, crumbs });
       applied = true;
     } catch {
       // Keep the fallback trail.
     } finally {
-      if (!applied && this.publicTrailRequestedFor === slug) {
+      if (
+        !applied &&
+        requestSeq === this.publicTrailRequestSeq &&
+        this.publicTrailRequestedFor === slug
+      ) {
         this.publicTrailRequestedFor = null;
       }
     }
