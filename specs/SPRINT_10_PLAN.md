@@ -233,13 +233,13 @@ _"It is three weeks from now and Sprint 10 failed. Why?"_
 
 WIP ≤ 3, one session per lane:
 
-| Lane             | SIs, in order                                           | Surface                                                             |
-| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
-| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2) |
-| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
-| C — Distribution | **Carried to RCP-119** (was S10 → S11 last)             | Off-site; no repo conflicts                                         |
-| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
-| E — Mid-sprint   | S17, S19, S20 (S18 carried to RCP-119)                  | Backend service and release train                                   |
+| Lane             | SIs, in order                                           | Surface                                                              |
+| ---------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2)  |
+| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                          |
+| C — Distribution | **Carried to RCP-119** (was S10 → S11 last)             | Off-site; no repo conflicts                                          |
+| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                             |
+| E — Mid-sprint   | S17, S19, S20 (S18 carried to RCP-119)                  | Backend service and release train; SPA routing and breadcrumbs (S20) |
 
 ## Execution order
 

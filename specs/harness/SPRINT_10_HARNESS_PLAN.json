@@ -812,7 +812,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: on RCP-120, component tests proving no in-app crumb links outside /kitchen and /recipe, /kitchen/:cookbookId selection on load/reload/back-forward, and the cookbook round trip; plus a production walk Kitchen > cookbook > recipe > crumbs back up that reaches no public page.",
+          "cmd": "MANUAL: on RCP-120, link tests proving each T21 outcome: (1) no in-app crumb links outside /kitchen and /recipe, including for a published recipe (no /browse or /browse/tag links); (2) selecting a cookbook navigates to /kitchen/<id> and selecting All Recipes to /kitchen; (3) bare /kitchen selects All Recipes; (4) /kitchen/<id> selects that cookbook on load, reload and back/forward; (5) an unknown or foreign cookbook id falls back to /kitchen; (6) a recipe opened from a cookbook trails back to /kitchen/<id>, otherwise to /kitchen; (7) public SSR breadcrumb tests are unchanged and green. Plus a production walk: Kitchen > cookbook > recipe, then crumbs back up, reaching no public page.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
