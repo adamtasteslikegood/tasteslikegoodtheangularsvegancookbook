@@ -114,6 +114,9 @@ REQUIRED = {
     "KAN-307": "S17 — Express trusts the ALB hops: req.ip is the visitor",
     # S19: added mid-sprint by Adam on 2026-10-01 (v0.5.5 #346 diagnostics).
     "KAN-318": "S19 — Valkey IAM token refresh on the request path",
+    # S20: added mid-sprint by Adam on 2026-10-01 as an explicit exception to
+    # the S19 freeze (breadcrumbs crossed the auth boundary in production).
+    "KAN-321": "S20 — breadcrumbs stay on their own side of auth; routable cookbooks",
 }
 
 # Sprint items -> the execution rows that carry them.
@@ -138,6 +141,7 @@ SI_EXECUTION = {
     "S16": ["KAN-304"],
     "S17": ["KAN-307"],
     "S19": ["KAN-318"],
+    "S20": ["KAN-321"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -160,6 +164,7 @@ ACCEPTANCE = {
     "S16": "RCP-115",
     "S17": "RCP-116",
     "S19": "RCP-118",
+    "S20": "RCP-120",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
