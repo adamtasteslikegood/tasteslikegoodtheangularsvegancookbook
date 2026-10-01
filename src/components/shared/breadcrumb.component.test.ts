@@ -68,6 +68,12 @@ describe('breadcrumb trails (KAN-295)', () => {
       ])
     ).toBeNull();
     expect(trailFromApi([{ name: 'Home', url: '/' }, { name: 'Browse' }])).toBeNull();
+    expect(
+      trailFromApi([
+        { name: 'Home', url: '/' },
+        { name: 'Browse', url: '' },
+      ])
+    ).toBeNull();
     expect(trailFromApi([{ name: 'Home', url: '/' }, null])).toBeNull();
   });
 
@@ -136,6 +142,7 @@ describe('breadcrumb markup (KAN-295)', () => {
     expect(linkBranch).toContain('@if (isSpaPath(crumb.url))');
     expect(linkBranch).toContain('[routerLink]="crumb.url"');
     expect(linkBranch).toContain('[href]="crumb.url"');
+    expect(linkBranch.match(/\(click\)="crumbClick\.emit\(crumb\)"/g)).toHaveLength(2);
     expect(linkBranch).toContain('aria-hidden="true"');
   });
 
@@ -144,7 +151,7 @@ describe('breadcrumb markup (KAN-295)', () => {
       '<app-breadcrumb [crumbs]="breadcrumbs()" />'
     );
     expect(read('../kitchen/kitchen.component.html')).toContain(
-      '<app-breadcrumb [crumbs]="breadcrumbs()" />'
+      '<app-breadcrumb [crumbs]="breadcrumbs()" (crumbClick)="onBreadcrumbClick($event)" />'
     );
   });
 });
