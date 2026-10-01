@@ -21,6 +21,8 @@ T1 window starts once this build is verified live.
   `forms`, `platform-browser`, `router`): fixes the high-severity SSR denial of service via numeric URL in
   `@angular/router` (Dependabot #743, KAN-316). Transitive `@grpc/grpc-js` 1.14.4 → 1.14.5 (#742 high, #741 low).
   Supersedes Dependabot #3563, which bumped `@angular/router` alone against exact-version peers.
+- `fast-uri` 3.1.7 → 3.1.8 (Dependabot #3562): fixes medium-severity GHSA-hrr3-gc8f-f4qj, inconsistent
+  host case normalization via percent-encoded octets.
 
 ### Added
 
