@@ -99,7 +99,9 @@ product grill's scope table, kept so either document can be read against the oth
   never lead back, and Adam looped through them by instinct. Rule: breadcrumbs stay on their
   own side of auth. In-app trails are My Kitchen / cookbook / recipe, and cookbooks become
   routable (`/kitchen/:cookbookId`), retiring the "only 2-3 views, no routes" design. Public SSR
-  trails are unchanged. KAN-295 stays Done; S20 is the follow-up, harness task T21 (lane E).
+  trails are unchanged. KAN-295 stays Done; S20 is the follow-up, harness task T21 (lane E,
+  after T6). Because S8 also changes `/kitchen`, T8 waits for T21 rather than overlapping it;
+  S20 goes first because Adam asked for it as soon as possible.
 
 ### S12–S16 were added at charter — 2026-09-29
 

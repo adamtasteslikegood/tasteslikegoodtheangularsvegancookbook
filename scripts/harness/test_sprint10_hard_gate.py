@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -147,6 +148,26 @@ class Sprint10HardGateTests(unittest.TestCase):
     def test_the_split_sprint_passes_the_charter_gate(self):
         rc, output = self._run_gate(self._members(), charter=True)
         self.assertEqual(rc, 0, output)
+
+    def test_t17_close_out_names_every_active_acceptance_row(self):
+        # Rows RCP-101..RCP-118 are covered by the range; any active row outside
+        # it (S20's RCP-120) must be named, so close-out cannot skip it.
+        plan = json.loads((Path(__file__).resolve().parents[2]
+                           / "specs/harness/SPRINT_10_HARNESS_PLAN.json").read_text())
+        t17 = next(t for t in plan["tasks"] if t["id"] == "T17")
+        manual = next(v["cmd"] for v in t17["verification"] if v["kind"] == "manual-evidence")
+        self.assertIn("RCP-101 through RCP-118", manual)
+        for row in hard_gate.ACCEPTANCE.values():
+            n = int(re.sub(r"\D", "", row))
+            if not 101 <= n <= 118:
+                self.assertIn(row, manual, "%s missing from T17's close-out list" % row)
+
+    def test_kitchen_ui_work_does_not_overlap_s20(self):
+        plan = json.loads((Path(__file__).resolve().parents[2]
+                           / "specs/harness/SPRINT_10_HARNESS_PLAN.json").read_text())
+        deps = {t["id"]: t["depends_on"] for t in plan["tasks"]}
+        self.assertIn("T6", deps["T21"])
+        self.assertIn("T21", deps["T8"])
 
     def test_charter_refuses_a_missing_member(self):
         members = self._members() - {"KAN-298"}
