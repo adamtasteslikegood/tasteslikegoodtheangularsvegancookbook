@@ -17,6 +17,13 @@ import sprint10_driver as driver  # noqa: E402
 PLAN = driver.load_plan()
 IDS = [t["id"] for t in PLAN["tasks"]]
 
+# The WIP, order and soak tests below use T10 and T11 as ordinary tasks. Those
+# two were carried out of Sprint 10 (RCP-119), so the mechanics tests run on a
+# copy without the carry; the carry itself is tested on PLAN in CarriedTests.
+MECH = json.loads(json.dumps(PLAN))
+for _t in MECH["tasks"]:
+    _t.pop("carried_to", None)
+
 
 def write_state(state_dir, task_id, status):
     (Path(state_dir) / ("%s.state.json" % task_id)).write_text(
@@ -164,7 +171,7 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T0", "verified")
         write_state(self.dir, "T1", "in_progress")
         for tid in ("T10", "T14", "T15"):
-            reasons = driver.refusals(PLAN, tid, self.dir)
+            reasons = driver.refusals(MECH, tid, self.dir)
             self.assertTrue(any("waits until T2, T5 have started" in r
                                 for r in reasons), (tid, reasons))
 
@@ -173,7 +180,7 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T1", "verified")
         write_state(self.dir, "T2", "in_progress")
         write_state(self.dir, "T5", "verified")
-        self.assertEqual(driver.refusals(PLAN, "T10", self.dir), [])
+        self.assertEqual(driver.refusals(MECH, "T10", self.dir), [])
 
     def test_day_one_tasks_carry_no_start_order_hold(self):
         for tid in ("T1", "T2", "T5"):
@@ -184,7 +191,7 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T0", "verified")
         for tid in ("T1", "T2", "T5"):
             write_state(self.dir, tid, "in_progress")
-        reasons = driver.refusals(PLAN, "T10", self.dir)
+        reasons = driver.refusals(MECH, "T10", self.dir)
         self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
 
     def test_escalated_task_still_occupies_a_wip_slot(self):
@@ -192,7 +199,7 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T1", "escalated")
         write_state(self.dir, "T2", "verifying")
         write_state(self.dir, "T5", "pending")
-        reasons = driver.refusals(PLAN, "T10", self.dir)
+        reasons = driver.refusals(MECH, "T10", self.dir)
         self.assertTrue(any("WIP is 3" in r for r in reasons), reasons)
 
     def test_refuses_to_reinitialize_a_started_task(self):
@@ -220,8 +227,11 @@ class StartRuleTests(unittest.TestCase):
         write_state(self.dir, "T5", "in_progress")
 
     def _run(self, *argv):
+        plan = Path(self.dir).parent / ("%s.mech-plan.json" % Path(self.dir).name)
+        plan.write_text(json.dumps(MECH))
+        self.addCleanup(plan.unlink, missing_ok=True)
         with contextlib.redirect_stdout(io.StringIO()) as out:
-            rc = driver.main(["--state-dir", self.dir, *argv])
+            rc = driver.main(["--plan", str(plan), "--state-dir", self.dir, *argv])
         return rc, out.getvalue()
 
     def _soon(self, hours):
@@ -231,7 +241,7 @@ class StartRuleTests(unittest.TestCase):
     def test_a_soaking_task_frees_its_wip_slot(self):
         self._three_open()
         self._soak("T1")
-        reasons = driver.refusals(PLAN, "T10", self.dir)
+        reasons = driver.refusals(MECH, "T10", self.dir)
         self.assertFalse(any("WIP is" in r for r in reasons), reasons)
 
     def test_expiry_after_the_freed_slot_is_refilled_never_makes_wip_four(self):
@@ -239,14 +249,14 @@ class StartRuleTests(unittest.TestCase):
         self._soak("T1")
         write_state(self.dir, "T10", "in_progress")  # T10 took T1's slot
         later = driver.datetime(3000, 1, 1, tzinfo=driver.timezone.utc)
-        _, wip = driver.snapshot(PLAN, self.dir, now=later)
+        _, wip = driver.snapshot(MECH, self.dir, now=later)
         self.assertEqual(wip, ["T10", "T2", "T5"])
         self.assertEqual(driver.soak_phase(self.dir, "T1", later), "reentry")
 
     def test_an_ended_soak_takes_the_next_slot_before_new_starts(self):
         self._three_open()
         self._soak("T1", until=self.PAST)
-        reasons = driver.refusals(PLAN, "T10", self.dir)
+        reasons = driver.refusals(MECH, "T10", self.dir)
         self.assertTrue(any("resume T1" in r for r in reasons), reasons)
 
     def test_resume_is_refused_while_wip_is_full_and_admits_when_a_slot_frees(self):
@@ -276,7 +286,7 @@ class StartRuleTests(unittest.TestCase):
         mark = Path(self.dir) / "T1.soak.json"
         os.utime(state, (mark.stat().st_mtime + 5, mark.stat().st_mtime + 5))
         self.assertEqual(driver.soak_phase(self.dir, "T1"), "violation")
-        reasons = driver.refusals(PLAN, "T10", self.dir)
+        reasons = driver.refusals(MECH, "T10", self.dir)
         self.assertTrue(any("driven while soaked" in r for r in reasons), reasons)
 
     def test_a_verifying_bounce_does_not_revive_an_old_mark(self):
@@ -363,14 +373,14 @@ class StartRuleTests(unittest.TestCase):
 
     def test_launch_post_refuses_a_gate_row_in_review(self):
         self._verify_t11_deps()
-        reasons = driver.refusals(PLAN, "T11", self.dir,
+        reasons = driver.refusals(MECH, "T11", self.dir,
                                   jira_with({"RCP-104": "In Review"}))
         self.assertEqual(len(reasons), 1, reasons)
         self.assertIn("RCP-104 is 'In Review'", reasons[0])
 
     def test_launch_post_starts_when_every_gate_row_is_done(self):
         self._verify_t11_deps()
-        self.assertEqual(driver.refusals(PLAN, "T11", self.dir, jira_with({})), [])
+        self.assertEqual(driver.refusals(MECH, "T11", self.dir, jira_with({})), [])
 
     def test_start_initializes_only_the_task_plan_via_the_controller(self):
         with (
@@ -475,6 +485,57 @@ class SharedStateDirTests(unittest.TestCase):
         ):
             driver.main(["status"])
         self.assertEqual(status.call_args[0][0].state_dir, shared)
+
+
+class CarriedTests(unittest.TestCase):
+    """S10, S11 and S18 were carried to RCP-119 (Adam, 2026-10-01). The carry
+    lives in the tracked plan, so it holds on a clean checkout with no state."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+
+    def test_the_carry_is_recorded_in_the_tracked_plan(self):
+        self.assertEqual(driver.carried(PLAN),
+                         {"T10": "RCP-119", "T11": "RCP-119", "T19": "RCP-119"})
+
+    def test_a_carried_task_is_refused_on_a_clean_checkout(self):
+        for tid in ("T10", "T11", "T19"):
+            reasons = driver.refusals(PLAN, tid, self.dir)
+            self.assertEqual(len(reasons), 1, (tid, reasons))
+            self.assertIn("carried out of Sprint 10 to RCP-119", reasons[0])
+
+    def test_a_carried_task_holds_no_wip_slot_and_satisfies_dependencies(self):
+        states, wip = driver.snapshot(PLAN, self.dir)
+        self.assertEqual({k for k, v in states.items() if v == "carried"},
+                         {"T10", "T11", "T19"})
+        self.assertEqual(wip, [])
+        for tid in set(IDS) - {"T10", "T11", "T19", "T17"}:
+            write_state(self.dir, tid, "verified")
+        self.assertEqual(driver.refusals(PLAN, "T17", self.dir), [])
+
+    def test_status_names_the_carry(self):
+        plan = Path(self.dir).parent / ("%s.plan.json" % Path(self.dir).name)
+        plan.write_text(json.dumps(PLAN))
+        self.addCleanup(plan.unlink, missing_ok=True)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = driver.main(["--plan", str(plan), "--state-dir", self.dir, "status"])
+        self.assertEqual(rc, 0)
+        self.assertIn("carried to RCP-119", out.getvalue())
+
+    def test_status_says_a_waived_task_was_not_verified(self):
+        # A waived task counts as done for WIP and dependencies; status must
+        # still say it was waived, not verified.
+        write_state(self.dir, "T12", "waived")
+        plan = Path(self.dir).parent / ("%s.plan.json" % Path(self.dir).name)
+        plan.write_text(json.dumps(PLAN))
+        self.addCleanup(plan.unlink, missing_ok=True)
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = driver.main(["--plan", str(plan), "--state-dir", self.dir, "status"])
+        self.assertEqual(rc, 0)
+        t12 = next(l for l in out.getvalue().splitlines() if l.startswith("T12 "))
+        self.assertEqual(t12.split()[3], "waived", t12)
+        self.assertIn("counts as done, not verified", t12)
+
 
 
 if __name__ == "__main__":
