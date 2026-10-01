@@ -208,7 +208,10 @@ export class KitchenComponent {
       } finally {
         // The cookbook leaves local state before the DELETE is sent, so even a
         // failed request leaves /kitchen/<id> pointing at nothing: replace it.
-        if (wasOpen && this.activeCookbookId() === id) {
+        // Mirror the applyRouteCookbook destroy guard — if the user moved off
+        // Kitchen while the DELETE was in flight, firing navigate() replaces
+        // their current page with /kitchen.
+        if (!this.destroyed && wasOpen && this.activeCookbookId() === id) {
           void this.router.navigate(['/kitchen'], { replaceUrl: true });
         }
       }

@@ -249,4 +249,21 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     expect(navigate).toHaveBeenCalledWith(['/kitchen'], { replaceUrl: true });
     vi.unstubAllGlobals();
   });
+
+  it('does not navigate after the Kitchen is destroyed mid-delete', async () => {
+    vi.stubGlobal('confirm', () => true);
+    let settle: () => void = () => {};
+    const pending = new Promise<void>((resolve) => (settle = resolve));
+    const { kitchen, navigate, injector } = createKitchen({ cookbookId: 'cb-1' });
+    const persistence = injector.get(PersistenceService) as unknown as {
+      deleteCookbook: ReturnType<typeof vi.fn>;
+    };
+    persistence.deleteCookbook.mockReturnValueOnce(pending);
+    const inFlight = kitchen.deleteCookbook('cb-1', new Event('click'));
+    (injector as unknown as { destroy(): void }).destroy(); // user left Kitchen
+    settle();
+    await inFlight;
+    expect(navigate).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
 });
