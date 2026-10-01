@@ -208,11 +208,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
       const crumbs = trailFromApi(body?.breadcrumbs);
       if (!crumbs) return;
       const current = this.recipe();
-      if (
-        requestSeq !== this.publicTrailRequestSeq ||
-        !current?.is_public ||
-        current.slug !== slug
-      )
+      if (requestSeq !== this.publicTrailRequestSeq || !current?.is_public || current.slug !== slug)
         return;
       this.publicTrail.set({ slug, crumbs });
       applied = true;
