@@ -819,7 +819,7 @@
       ],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
-      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions, close every acceptance row AC by AC with its evidence (retro action a), state any roll in writing (the 7-day post-launch readout may land after the box), and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). Before closing, update every row in the charter's \"Process lane (no SI slot)\" table to closed or explicitly carried with a linked reason; the hard gate does not cover those rows. The Actions for Next Sprint table is the point.",
+      "objective": "Sprint 10 close-out. Run the full (close) hard gate. Update the aging table in specs/SPRINT_10_PLAN.md with final dispositions; close every active acceptance row AC by AC with its evidence (retro action a), except RCP-109, RCP-110 and RCP-117, which were carried to RCP-119 and must remain open; state any roll in writing (the 7-day post-launch readout may land after the box); and create the retrospective page under Confluence parent 50298881 titled \"Sprint 10 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day (retro action b). Before closing, update every row in the charter's \"Process lane (no SI slot)\" table to closed or explicitly carried with a linked reason; the hard gate does not cover those rows. The Actions for Next Sprint table is the point.",
       "suggested_tools": [
         "python3 scripts/harness/sprint10_hard_gate.py --json",
         "bash scripts/pm/check_sprint_lane.sh",
