@@ -116,7 +116,7 @@
               "statement": "Expiry-aware token refresh plus refresh-and-retry-once on AuthenticationError, and no redis-py retry on a dead credential (KAN-268)",
               "tests": [
                 {
-                  "assumption": "redis.command error rate < 1% and PING p50 < 50 ms over 24 h in prod; image endpoint p95 < 2 s",
+                  "assumption": "redis.command error rate < 1% and in-request redis.command GET p95 < 50 ms over 24 h in prod (AC 2 amended 2026-10-01, Adam option B); image endpoint p95 < 2 s",
                   "type": "Datadog APM aggregate, production"
                 }
               ]
