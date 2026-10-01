@@ -1,10 +1,10 @@
-> copied from `https://developers.google.com/search/docs/appearance/structured-data/recipe` at 7:02am us-west-portland on 01-oct-2026
-> pasted not typed-checked
+> Copied from [Google Search Central's Recipe structured-data guide](https://developers.google.com/search/docs/appearance/structured-data/recipe) at 7:02 a.m. Pacific time on 2026-10-01.
+> Pasted and converted to Markdown; not type-checked
 > -aps
 >
-> Reference copy of Google Search Central's Recipe structured-data guide (content © Google, licensed
-> CC BY 4.0; code samples Apache 2.0). Checked against our live markup on 2026-10-01: see KAN-320
-> (recommended fields) and KAN-319 (crawl discovery). Re-check the source before relying on details.
+> Reference copy of Google Search Central's Recipe structured-data guide. Checked against our live
+> markup on 2026-10-01: see KAN-320 (recommended fields) and KAN-319 (crawl discovery). Re-check
+> the source before relying on details.
 
 # Recipe (`Recipe`, `HowTo`, `ItemList`) structured data
 
@@ -13,13 +13,13 @@ When you provide information such as reviewer ratings, cooking and
 preparation times, and nutrition information, Google can better understand your recipe and
 present it to users in interesting ways. Recipes can appear in Google Search results and
 Google Images.
-![An illustration of how recipe rich results can appear in Google Search. It contains 4 rich results from different websites, with details about how long it takes to cook the recipe, an image, and review information.](https://developers.google.com/static/search/docs/images/recipe-rich-result-google-search.png) ![An illustration of how a recipes can appear in Google Images. There are 6 images results showing different food items, with 3 results containing a recipe badge that tells the user it's a recipe](https://developers.google.com/static/search/docs/images/recipes-in-google-images.png)
+[Source image: An illustration of how recipe rich results can appear in Google Search. It contains 4 rich results from different websites, with details about how long it takes to cook the recipe, an image, and review information.](https://developers.google.com/static/search/docs/images/recipe-rich-result-google-search.png) [Source image: An illustration of how a recipes can appear in Google Images. There are 6 images results showing different food items, with 3 results containing a recipe badge that tells the user it's a recipe](https://developers.google.com/static/search/docs/images/recipes-in-google-images.png)
 
 Based on how you mark up your content, your recipes can be eligible for the following enhancements:
 
 | **Recipe enhancements**                                                                                                                                                                                     |                                                                                                                                                                                                                                                                                                         |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Recipe host carousel** : Enable users to explore your recipe gallery pages by adding [`ItemList` structured data](https://developers.google.com/search/docs/appearance/structured-data/recipe#item-list). | ![An illustration of how a recipe host carousel can appear in Google Search. It shows 3 different recipes from the same website in a carousel format that users can explore and select a specific recipe](https://developers.google.com/static/search/docs/images/recipe-host-carousel-rich-result.png) |
+| **Recipe host carousel** : Enable users to explore your recipe gallery pages by adding [`ItemList` structured data](https://developers.google.com/search/docs/appearance/structured-data/recipe#item-list). | [Source image: An illustration of how a recipe host carousel can appear in Google Search. It shows 3 different recipes from the same website in a carousel format that users can explore and select a specific recipe](https://developers.google.com/static/search/docs/images/recipe-host-carousel-rich-result.png) |
 
 ## How to add structured data
 
@@ -54,7 +54,6 @@ Here are some examples of recipes using JSON-LD code.
 ### Recipe on Search
 
 Here's an example of a page that's eligible to be displayed on Search.
-\<html\> \<head\> \<title\>Non-Alcoholic Piña Colada\</title\> \<script type="application/ld+json"\> { "@context": "https://schema.org/", "@type": "Recipe", "name": "Non-Alcoholic Piña Colada", "image": \[ "https://example.com/photos/1x1/photo.jpg", "https://example.com/photos/4x3/photo.jpg", "https://example.com/photos/16x9/photo.jpg" \], "author": { "@type": "Person", "name": "Mary Stone" }, "datePublished": "2024-03-10", "description": "This non-alcoholic pina colada is everyone's favorite!", "recipeCuisine": "American", "prepTime": "PT1M", "cookTime": "PT2M", "totalTime": "PT3M", "keywords": "non-alcoholic", "recipeYield": "4 servings", "recipeCategory": "Drink", "nutrition": { "@type": "NutritionInformation", "calories": "120 calories" }, "aggregateRating": { "@type": "AggregateRating", "ratingValue": 5, "ratingCount": 18 }, "recipeIngredient": \[ "400ml of pineapple juice", "100ml cream of coconut", "ice" \], "recipeInstructions": \[ { "@type": "HowToStep", "name": "Blend", "text": "Blend 400ml of pineapple juice and 100ml cream of coconut until smooth.", "url": "https://example.com/non-alcoholic-pina-colada#step1", "image": "https://example.com/photos/non-alcoholic-pina-colada/step1.jpg" }, { "@type": "HowToStep", "name": "Fill", "text": "Fill a glass with ice.", "url": "https://example.com/non-alcoholic-pina-colada#step2", "image": "https://example.com/photos/non-alcoholic-pina-colada/step2.jpg" }, { "@type": "HowToStep", "name": "Pour", "text": "Pour the pineapple juice and coconut mixture over ice.", "url": "https://example.com/non-alcoholic-pina-colada#step3", "image": "https://example.com/photos/non-alcoholic-pina-colada/step3.jpg" } \], "video": { "@type": "VideoObject", "name": "How to Make a Non-Alcoholic Piña Colada", "description": "This is how you make a non-alcoholic piña colada.", "thumbnailUrl": \[ "https://example.com/photos/1x1/photo.jpg", "https://example.com/photos/4x3/photo.jpg", "https://example.com/photos/16x9/photo.jpg" \], "contentUrl": "https://www.example.com/video123.mp4", "embedUrl": "https://www.example.com/videoplayer?video=123", "uploadDate": "2024-02-05T08:00:00+08:00", "duration": "PT1M33S", "interactionStatistic": { "@type": "InteractionCounter", "interactionType": { "@type": "WatchAction" }, "userInteractionCount": 2347 }, "expires": "2024-02-05T08:00:00+08:00" } } \</script\> \</head\> \<body\> \</body\> \</html\>
 
 ```
 <html>
@@ -151,7 +150,6 @@ Here's an example of a page that's eligible to be displayed on Search.
 ### Carousel
 
 Here's an example of a recipe summary page (a page with a list of recipes) with `https://developers.google.com/search/docs/appearance/structured-data/recipe#item-list` structured data. This content may be eligible to be displayed in a grid in Search results.
-\<html\> \<head\> \<title\>Grandma's Best Pie Recipes\</title\> \<script type="application/ld+json"\> { "@context": "https://schema.org", "@type": "ItemList", "itemListElement": \[ { "@type": "ListItem", "position": 1, "url": "https://example.com/apple-pie.html" }, { "@type": "ListItem", "position": 2, "url": "https://example.com/blueberry-pie.html" }, { "@type": "ListItem", "position": 3, "url": "https://example.com/cherry-pie.html" }\] } \</script\> \</head\> \<body\> \</body\> \</html\>
 
 ```
 <html>
@@ -367,3 +365,13 @@ may help you.
 - Structured data issues can affect how your site's content appears in search results. Use this [Troubleshoot missing rich results / drop in total rich results](https://support.google.com/webmasters/answer/13300208) guide to review a step-by-step approach to identify, fix, and validate these issues in Search Console.
 - Allow time for re-crawling and re-indexing. Remember that it may take several days after publishing a page for Google to find and crawl it. For general questions about crawling and indexing, check the [Google Search crawling and indexing FAQ](https://developers.google.com/search/help/crawling-index-faq).
 - Post a question in the [Google Search Central forum](https://support.google.com/webmasters/community).
+
+## Attribution and license
+
+Portions of this page are modifications based on work created and
+[shared by Google](https://developers.google.com/terms/site-policies) and used according to terms
+described in the [Creative Commons 4.0 Attribution License](https://creativecommons.org/licenses/by/4.0/).
+Code samples are licensed under the
+[Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0). Refer to the
+[original Google Search Central page](https://developers.google.com/search/docs/appearance/structured-data/recipe)
+for the current version. The original page was last updated 2026-09-08 UTC.
