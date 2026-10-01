@@ -64,9 +64,9 @@ product grill's scope table, kept so either document can be read against the oth
   rather than collecting a baseline. It starts once the KAN-307 / KAN-292 User-Agent patch is
   live, so sessions carry geo and device.
 - **WIP soak rule.** A task whose work is recorded and whose only remaining evidence is a time
-  window (S1's 24 h Datadog window, S2's 72 h) holds no WIP slot while it waits
-  (`sprint10_driver.py soak`). Only tasks the plan declares time-window-only
-  (`soak_window_hours`: T1, T2) may soak, and never past that window. A soaked task never
+  window (S1's 24 h Datadog window, S2's 72 h, or S19's 24 h Datadog window) holds no
+  WIP slot while it waits (`sprint10_driver.py soak`). Only tasks the plan declares
+  time-window-only (`soak_window_hours`: T1, T2, T20) may soak, and never past that window. A soaked task never
   counts; when its window ends it re-enters only through a locked `resume` when a slot is
   free, and new starts wait behind it. WIP stays 3 for active work and can never exceed it.
 
