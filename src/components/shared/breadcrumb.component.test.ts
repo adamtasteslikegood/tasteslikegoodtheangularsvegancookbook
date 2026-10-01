@@ -162,8 +162,13 @@ describe('breadcrumb markup (KAN-295)', () => {
       template.indexOf('[routerLink]="crumb.url"'),
       template.indexOf('} @else {', template.indexOf('[routerLink]="crumb.url"'))
     );
-    expect(spaLink).toContain('(click)="navigate.emit(crumb)"');
+    expect(spaLink).toContain('(click)="onNavigate($event, crumb)"');
     expect(source).toContain('readonly navigate = output<Crumb>();');
+    expect(source).toContain('event.button !== 0');
+    for (const modifier of ['altKey', 'ctrlKey', 'metaKey', 'shiftKey']) {
+      expect(source).toContain(`event.${modifier}`);
+    }
+    expect(source).toContain('this.navigate.emit(crumb);');
     const kitchen = read('../kitchen/kitchen.component.ts');
     expect(kitchen).toMatch(
       /onCrumb\(crumb: Crumb\) \{\s*if \(crumb\.url === KITCHEN_CRUMB\.url\) this\.selectCookbook\(null\);/
