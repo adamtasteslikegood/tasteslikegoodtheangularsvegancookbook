@@ -3,7 +3,7 @@
 ## Sprint 10 (current)
 
 The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
-SI (S1–S19; S17–S19 added mid-sprint are tasks T18–T20), plus T0 (board honesty) and T17
+SI (S1–S20; S17–S20 added mid-sprint are tasks T18–T21), plus T0 (board honesty) and T17
 (close-out). **T10, T11 and T19 (S10, S11, S18) were carried to epic RCP-119 on
 2026-10-01 and must not be started.** Each carries `carried_to` in the tracked plan:
 `start` refuses it on any checkout, it holds no WIP slot, it satisfies T17's
@@ -12,7 +12,7 @@ that name T10 and T11 are the charter-day record, not instructions.
 
 | File                                                                                         | Role                                                                            |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 21 tasks, each with its lane, its checks, and its skill              |
+| [`SPRINT_10_HARNESS_PLAN.json`](./SPRINT_10_HARNESS_PLAN.json)                               | The plan — 22 tasks, each with its lane, its checks, and its skill              |
 | [`../../scripts/harness/sprint10_hard_gate.py`](../../scripts/harness/sprint10_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
 | [`../../scripts/harness/sprint10_driver.py`](../../scripts/harness/sprint10_driver.py)       | **The PM driver.** Starts one task per controller state, in charter order       |
 
