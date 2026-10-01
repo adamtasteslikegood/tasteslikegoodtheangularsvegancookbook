@@ -59,13 +59,7 @@ export class BreadcrumbComponent {
   protected onNavigate(event: MouseEvent, crumb: Crumb): void {
     // Preserve normal anchor semantics: opening a crumb in another tab/window
     // must not mutate the currently open Kitchen view.
-    if (
-      event.button !== 0 ||
-      event.altKey ||
-      event.ctrlKey ||
-      event.metaKey ||
-      event.shiftKey
-    ) {
+    if (event.button !== 0 || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
       return;
     }
     this.navigate.emit(crumb);
