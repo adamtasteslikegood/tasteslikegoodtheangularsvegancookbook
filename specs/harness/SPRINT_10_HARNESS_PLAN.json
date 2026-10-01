@@ -134,7 +134,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: paste the Datadog production 24 h evidence named on RCP-98 (redis.command error rate < 1 %, in-request redis.command GET p95 < 50 ms (AC 2 amended 2026-10-01, Adam option B), image p95 < 2 s), the Backend PR numbers and pinned SHA, and the root-cause note on KAN-268. All listed ACs must be satisfied; if the release is not live or any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "cmd": "MANUAL: paste the Datadog production 24 h evidence named on RCP-98 (redis.command error rate < 1 %, in-request redis.command GET p95 < 50 ms over at least 200 GETs in the window (AC 2 amended 2026-10-01, Adam option B; 200-GET minimum added 2026-10-01, a shorter sample extends the window rather than passing or failing it), image p95 < 2 s), the Backend PR numbers and pinned SHA, and the root-cause note on KAN-268. All listed ACs must be satisfied; if the release is not live or any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
