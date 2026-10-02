@@ -183,6 +183,27 @@ class DriftTest(unittest.TestCase):
         )
         self.assertEqual(cws.job_level_environment_jobs(text), ["deploy"])
 
+    def test_flow_style_job_environment_fails_closed(self):
+        text = "jobs:\n  deploy: { runs-on: x, environment: production }\n"
+        self.assertEqual(cws.job_level_environment_jobs(text), ["<flow>"])
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": text + "# ${{ secrets.A }}\n"})
+        problems = cws.static_problems(*scanned)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("w.yml:<flow>", problems[0])
+
+    def test_quoted_job_id_and_key_are_detected(self):
+        text = 'jobs:\n  "deploy":\n    runs-on: x\n    "environment": production\n'
+        self.assertEqual(cws.job_level_environment_jobs(text), ["deploy"])
+
+    def test_nested_workflow_files_are_not_scanned(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        (root / "examples").mkdir()
+        (root / "examples" / "disabled.yml").write_text("${{ secrets.DEAD }}")
+        (root / "w.yml").write_text("${{ secrets.LIVE }}")
+        self.assertEqual(set(cws.scan(root, root / "pr-gate.yml").where), {"LIVE"})
+
     def test_bracket_access_is_rejected(self):
         for ref in (
             "${{ secrets['FOO'] }}",
@@ -334,6 +355,15 @@ class MainTest(unittest.TestCase):
         )
         self.assertEqual(code, 2)
         self.assertIn("1 secret name(s) referenced (excluding GITHUB_TOKEN): A", out)
+
+    def test_emit_block_works_with_corrupt_markers(self):
+        broken = gate_text(["A", "OLD"]).replace("          " + cws.BLOCK_END + "\n", "")
+        code, out = self.run_main({"pr-gate.yml": broken, "w.yml": "${{ secrets.A }}"}, ["--emit-block"], {})
+        self.assertEqual(code, 0)
+        self.assertIn("SECRET_PRESENT_A:", out)
+        self.assertNotIn("SECRET_PRESENT_OLD", out)
+        code, _ = self.run_main({"pr-gate.yml": broken, "w.yml": "${{ secrets.A }}"}, ["--static"], {})
+        self.assertEqual(code, 2)
 
     def test_gh_mode_counts_repository_secrets_only(self):
         calls = []

@@ -25,12 +25,15 @@ between two marker comments (the "presence block"), and this script checks:
 * ``--gh`` - for a human with admin credentials: ``--static``, then the diff
   against the repository-scoped ``gh secret list``. Environment secrets are not
   counted: they reach only jobs that declare that environment, and ``--static``
-  already rejects such jobs.
+  already rejects such jobs. The repository is user-owned, so there are no
+  organization secrets; if it ever moves to an organization, org secrets visible
+  to it would have to be added here.
 * ``--emit-block`` - print the presence block for the current references, so
   regenerating it is mechanical.
 
-Scope and matching: only ``*.yml``/``*.yaml`` files are scanned (gh-aw ``.md``
-prompts compile into ``.lock.yml``, which is scanned). Any ``secrets.NAME``
+Scope and matching: only top-level ``*.yml``/``*.yaml`` files are scanned, the
+files GitHub actually loads (gh-aw ``.md`` prompts compile into ``.lock.yml``,
+which is scanned). Any ``secrets.NAME``
 sequence counts as a reference, in comments and ``run:`` bodies too. That is
 deliberate: a false positive fails loudly and is fixed by rewording, whereas an
 inline "not a reference" marker would be a bypass. Access that names no secret
@@ -130,7 +133,10 @@ BRACKET_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\s*\[", re.IGNORECASE)
 EXPRESSION_RE = re.compile(r"\$\{\{(.*?)\}\}", re.DOTALL)
 STRING_LITERAL_RE = re.compile(r"'(?:[^']|'')*'")
 BARE_CONTEXT_RE = re.compile(r"(?<![A-Za-z0-9_.-])secrets(?![A-Za-z0-9_])(?!\s*[.\[])", re.IGNORECASE)
-KEY_RE = re.compile(r"^( *)([A-Za-z0-9_-]+)\s*:")
+KEY_RE = re.compile(r"""^( *)["']?([A-Za-z0-9_-]+)["']?\s*:""")
+# ``environment`` as a key inside a flow mapping (``{ environment: x }``). The
+# line scanner cannot tell whether that mapping is a job, so it fails closed.
+FLOW_ENVIRONMENT_RE = re.compile(r"""[{,]\s*["']?environment["']?\s*:""")
 
 
 def job_level_environment_jobs(text: str) -> list[str]:
@@ -138,9 +144,11 @@ def job_level_environment_jobs(text: str) -> list[str]:
 
     Line-based, stdlib only: under the top-level ``jobs:`` key, a job id sits at
     one indent and its own keys at the first deeper indent seen in that job.
-    Block-scalar content cannot be mistaken for a job key, because YAML indents
-    it deeper than the key that introduces it. Not detected: a job written in
-    flow style (``deploy: { environment: production, ... }``).
+    Job ids and keys may be quoted. Block-scalar content cannot be mistaken for
+    a job key, because YAML indents it deeper than the key that introduces it.
+    A job written in flow style (``deploy: { environment: production }``) is not
+    parsed; any ``environment`` key inside a flow mapping under ``jobs:`` is
+    reported instead (as ``<flow>``), so that form fails closed.
     """
     found: list[str] = []
     in_jobs = False
@@ -156,6 +164,8 @@ def job_level_environment_jobs(text: str) -> list[str]:
             in_jobs = bool(m) and m.group(2) == "jobs"
             job_indent = key_indent = None
             continue
+        if in_jobs and FLOW_ENVIRONMENT_RE.search(line):
+            found.append("<flow>")
         if not in_jobs or not m:
             continue
         if job_indent is None or indent <= job_indent:
@@ -225,7 +235,8 @@ def parse_presence_block(block: list[str]) -> set[str]:
 
 
 def workflow_files(root: Path) -> list[Path]:
-    return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in (".yml", ".yaml"))
+    # GitHub loads only top-level workflow files; nested ones never run.
+    return sorted(p for p in root.iterdir() if p.is_file() and p.suffix in (".yml", ".yaml"))
 
 
 class Scan(NamedTuple):
@@ -354,6 +365,19 @@ def configured_from_gh() -> set[str]:
     return {normalize(s["name"]) for s in _gh_json(["secret", "list", "--json", "name"])}
 
 
+def referenced_for_emit(root: Path, gate_file: Path) -> set[str]:
+    """Referenced names without relying on the block markers, so --emit-block can
+    repair a block whose markers are missing or out of order: presence-shaped
+    lines in pr-gate.yml are dropped wherever they are."""
+    names: set[str] = set()
+    for path in workflow_files(root):
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if path.resolve() == gate_file.resolve():
+            text = "\n".join(line for line in text.splitlines() if not PRESENCE_LINE_RE.match(line))
+        names |= {n for n in extract_names(text) if not is_exempt(n)}
+    return names
+
+
 def current_block_indent(gate_file: Path, default: str = "          ") -> str:
     """Indent of the existing BLOCK_BEGIN line, so regeneration tracks the file."""
     try:
@@ -391,12 +415,12 @@ def main(argv: list[str] | None = None) -> int:
     referenced: set[str] | None = None
     problems: list[str] = []
     notices: list[str] = []
+    if args.emit_block:
+        print(emit_block(referenced_for_emit(WORKFLOWS, GATE_FILE), current_block_indent(GATE_FILE)))
+        return 0
     try:
         scanned = scan(WORKFLOWS, GATE_FILE)
         referenced = set(scanned.where)
-        if args.emit_block:
-            print(emit_block(referenced, current_block_indent(GATE_FILE)))
-            return 0
         problems = static_problems(*scanned)
         configured: set[str] | None = None
         if args.env:
