@@ -30,6 +30,8 @@
   var CONSENT_KEY = 'tlg.analytics-consent';
   var LANDING_KEY = 'tlg.analytics-landing';
   var PENDING_ACTIONS_KEY = 'tlg.analytics-pending-actions';
+  // One-shot confirmation that survives the reload a withdrawal triggers.
+  var NOTICE_KEY = 'tlg.analytics-notice';
   var CONFIG_URL = '/rum/config';
   var SDK_URL = '/rum/datadog-rum-slim.js';
   var INTAKE_PATH = '/rum/intake';
@@ -433,13 +435,46 @@
     closeBanner(true);
     if (state === 'granted') {
       applyGrant(previous);
+      showNotice(state);
       return;
     }
     shutDown();
     // Reload only when denial is safely persisted (or a stale grant was
     // removed). If both operations are blocked, stay on this stopped,
     // fail-closed page instead of reactivating a stale grant on reload.
-    if (sdkState !== 'idle' && stored) window.location.reload();
+    if (sdkState !== 'idle' && stored) {
+      writeStore(sessionStore, NOTICE_KEY, state);
+      window.location.reload();
+      return;
+    }
+    showNotice(state);
+  }
+
+  // Confirm the choice after the banner closes, so a click is never silent.
+  // A polite status region, removed after a few seconds; it holds no controls,
+  // so it needs no focus management.
+  var notice = null;
+  function showNotice(state) {
+    if (!document.body) return;
+    if (notice && notice.parentNode) notice.parentNode.removeChild(notice);
+    notice = document.createElement('div');
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('data-analytics-notice', '');
+    notice.style.cssText =
+      'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;max-width:420px;' +
+      'margin:0 auto;padding:10px 14px;background:#1c1917;color:#fafaf9;border-radius:10px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.18);font:14px/1.4 system-ui,sans-serif;text-align:center;';
+    notice.textContent =
+      (state === 'granted' ? 'Analytics allowed.' : 'Analytics off.') +
+      ' Change it any time from "Analytics choice" in the footer.';
+    document.body.appendChild(notice);
+    var shown = notice;
+    if (typeof window.setTimeout === 'function') {
+      window.setTimeout(function () {
+        if (shown.parentNode) shown.parentNode.removeChild(shown);
+        if (notice === shown) notice = null;
+      }, 5000);
+    }
   }
 
   function applyGrant(previous) {
@@ -509,7 +544,9 @@
     window.addEventListener('storage', onStorage);
   }
 
-  function makeButton(label, onClick, primary) {
+  // `selected` is null before any choice; otherwise true for the button
+  // matching the stored choice, which gets aria-pressed and a visible ring.
+  function makeButton(label, onClick, primary, selected) {
     var b = document.createElement('button');
     b.type = 'button';
     b.textContent = label;
@@ -517,7 +554,9 @@
       'margin:0 0 0 8px;padding:6px 14px;border-radius:6px;font:inherit;cursor:pointer;' +
       (primary
         ? 'background:#166534;color:#fff;border:1px solid #166534;'
-        : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;');
+        : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;') +
+      (selected ? 'outline:3px solid #ca8a04;outline-offset:2px;font-weight:600;' : '');
+    if (selected !== null) b.setAttribute('aria-pressed', selected ? 'true' : 'false');
     if (!primary) b.setAttribute('data-analytics-deny', '');
     b.addEventListener('click', onClick);
     return b;
@@ -526,8 +565,7 @@
   function showBanner() {
     if (!config || !config.enabled || banner || !document.body) return;
     var state = consentState();
-    var status =
-      state === 'granted' ? ' Analytics is on.' : state === 'denied' ? ' Analytics is off.' : '';
+    var chosen = state === 'granted' || state === 'denied';
     banner = document.createElement('div');
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', 'Analytics choice');
@@ -542,9 +580,7 @@
     text.appendChild(
       document.createTextNode(
         'May we measure page speed and which recipes get saved? Via Datadog, only if you allow it: ' +
-          'no ads, no screen recording.' +
-          status +
-          ' '
+          'no ads, no screen recording. '
       )
     );
     var link = document.createElement('a');
@@ -565,7 +601,8 @@
         function () {
           choose('denied');
         },
-        false
+        false,
+        chosen ? state === 'denied' : null
       )
     );
     actions.appendChild(
@@ -574,9 +611,21 @@
         function () {
           choose('granted');
         },
-        true
+        true,
+        chosen ? state === 'granted' : null
       )
     );
+    if (chosen) {
+      // Reopened from "Analytics choice": say plainly what is in effect, on
+      // its own line, not only through the button styling.
+      var current = document.createElement('p');
+      current.setAttribute('data-analytics-current', '');
+      current.style.cssText = 'margin:0;flex:1 1 100%;font-weight:600;';
+      current.textContent =
+        'Your current choice: ' +
+        (state === 'granted' ? 'analytics allowed.' : 'no analytics ("No thanks").');
+      banner.appendChild(current);
+    }
     banner.appendChild(text);
     banner.appendChild(actions);
     document.body.appendChild(banner);
@@ -698,6 +747,12 @@
           return;
         }
         revealSettingsControls();
+        var pendingNotice = readStore(sessionStore, NOTICE_KEY);
+        if (pendingNotice) {
+          removeStore(sessionStore, NOTICE_KEY);
+          // Only a withdrawal reloads, so 'denied' is the one value written.
+          if (pendingNotice === 'denied') showNotice('denied');
+        }
         var state = consentState();
         if (state === 'granted') {
           if (grantPendingConfig) {

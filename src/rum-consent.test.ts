@@ -1056,3 +1056,74 @@ describe('RUM consent gate — restoring pending actions', () => {
     expect(names).not.toContain('injected_action');
   });
 });
+
+describe('RUM consent gate — the current choice is visible (KAN-322)', () => {
+  const notice = (h: Harness) => h.body.children.find((c) => 'data-analytics-notice' in c.attrs);
+  const current = (h: Harness) => h.banner()?.querySelector('[data-analytics-current]') ?? null;
+  const reopen = (h: Harness) => {
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+  };
+
+  it('the first banner marks no choice', async () => {
+    const h = await run({});
+    expect(current(h)).toBeNull();
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBeUndefined();
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBeUndefined();
+  });
+
+  it('reopening after a grant states it and marks "Allow analytics" pressed', async () => {
+    const h = await run({ consent: 'granted' });
+    reopen(h);
+    expect(current(h)!.textContent).toBe('Your current choice: analytics allowed.');
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBe('true');
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBe('false');
+  });
+
+  it('reopening after a denial states it and marks "No thanks" pressed', async () => {
+    const h = await run({ consent: 'denied' });
+    reopen(h);
+    expect(current(h)!.textContent).toBe('Your current choice: no analytics ("No thanks").');
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBe('true');
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBe('false');
+  });
+
+  it('confirms a grant in a status message once the banner closes', async () => {
+    const h = await run({});
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.banner()).toBeUndefined();
+    expect(notice(h)!.attrs.role).toBe('status');
+    expect(notice(h)!.textContent).toMatch(/^Analytics allowed\./);
+  });
+
+  it('confirms a first-visit denial without reloading', async () => {
+    const h = await run({});
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    expect(notice(h)!.textContent).toMatch(/^Analytics off\./);
+  });
+
+  it('carries the withdrawal confirmation across the reload, once', async () => {
+    const h = await run({ consent: 'granted' });
+    h.loadSdk();
+    reopen(h);
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).toHaveBeenCalledOnce();
+
+    const next = await run({ localStorage: h.localStorage, sessionStorage: h.sessionStorage });
+    expect(notice(next)!.textContent).toMatch(/^Analytics off\./);
+    expect(rumTraffic(next)).toEqual({ sdkScripts: [], fetches: [] });
+
+    const after = await run({ localStorage: h.localStorage, sessionStorage: h.sessionStorage });
+    expect(notice(after)).toBeUndefined();
+  });
+
+  it('ignores a tampered confirmation value', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'granted');
+    const h = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(h)).toBeUndefined();
+    expect(session.getItem('tlg.analytics-notice')).toBeNull();
+  });
+});

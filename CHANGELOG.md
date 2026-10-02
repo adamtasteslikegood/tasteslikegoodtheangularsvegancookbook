@@ -18,6 +18,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   back/forward, reload and deep links keep the selected cookbook, and "Back to Kitchen" returns to
   the cookbook the recipe was opened from. Public SSR trails and their JSON-LD are unchanged.
 
+### Changed
+
+- The analytics-choice banner shows the visitor's current choice (KAN-322). Reopened from "Analytics
+  choice", it states the choice in effect on its own line and marks the matching button
+  `aria-pressed`; either button now confirms the choice in a short status message, carried across the
+  reload a withdrawal triggers (one-shot `sessionStorage` key `tlg.analytics-notice`, documented in
+  the privacy policy). The consent gate is unchanged.
+
 ## [0.5.5] - 2026-10-01
 
 Backend submodule pointer moves `5f8964bf3e8b` → **`52c652e0c3e4`** (Backend `main`, promotion #347);
