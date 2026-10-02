@@ -5,8 +5,11 @@ Run: python3 -m unittest scripts/audit/test_check_workflow_secrets.py
 
 from __future__ import annotations
 
+import io
 import re
+import subprocess
 import sys
+from contextlib import redirect_stdout
 import tempfile
 import unittest
 from pathlib import Path
@@ -32,8 +35,14 @@ class ExtractionTest(unittest.TestCase):
         text = "a: ${{ secrets.foo_1 }}\nb: ${{ secrets.ABC9 }}\nc: ${{ secrets.x9y }}"
         self.assertEqual(cws.extract_names(text), {"FOO_1", "ABC9", "X9Y"})
 
-    def test_pattern_is_the_authoritative_character_class(self):
-        self.assertIn("secrets\\.([A-Za-z0-9_]+)", cws.REFERENCE_RE.pattern)
+    def test_pattern_keeps_the_authoritative_name_class(self):
+        self.assertIn("([A-Za-z0-9_]+)", cws.REFERENCE_RE.pattern)
+        self.assertIn("secrets", cws.REFERENCE_RE.pattern)
+
+    def test_context_name_is_case_insensitive_and_whitespace_tolerant(self):
+        for ref in ("${{ SeCrEtS.NEW_TOKEN }}", "${{ SECRETS . NEW_TOKEN }}", "${{ secrets .new_token }}"):
+            with self.subTest(ref=ref):
+                self.assertEqual(cws.extract_names(ref), {"NEW_TOKEN"})
 
     def test_names_compare_case_insensitively(self):
         self.assertEqual(cws.extract_names("${{ secrets.Gemini_Api_Key }}"), {"GEMINI_API_KEY"})
@@ -83,9 +92,10 @@ class DriftTest(unittest.TestCase):
 
     def setUp(self):
         # Temp trees do not reference the real optional names; isolate from them.
-        patcher = mock.patch.dict(cws.OPTIONAL_SECRETS, {}, clear=True)
-        patcher.start()
-        self.addCleanup(patcher.stop)
+        for table in (cws.OPTIONAL_SECRETS, cws.OPTIONAL_FILES):
+            patcher = mock.patch.dict(table, {}, clear=True)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def scan_tree(self, files: dict[str, str]):
         tmp = tempfile.TemporaryDirectory()
@@ -140,6 +150,7 @@ class DriftTest(unittest.TestCase):
 
     def test_stale_optional_entry_fails(self):
         cws.OPTIONAL_SECRETS["GONE"] = "was optional once"
+        cws.OPTIONAL_FILES["GONE"] = ("w.yml",)
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(
             cws.static_problems(*scanned),
@@ -148,11 +159,13 @@ class DriftTest(unittest.TestCase):
 
     def test_referenced_optional_entry_passes(self):
         cws.OPTIONAL_SECRETS["A"] = "guarded by an if:"
+        cws.OPTIONAL_FILES["A"] = ("w.yml",)
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(cws.static_problems(*scanned), [])
 
     def test_optional_entry_without_reason_fails(self):
         cws.OPTIONAL_SECRETS["A"] = "  "
+        cws.OPTIONAL_FILES["A"] = ("w.yml",)
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(cws.static_problems(*scanned), ["A: optional-secret entry has no reason"])
 
@@ -175,12 +188,53 @@ class DriftTest(unittest.TestCase):
         self.assertEqual(cws.job_level_environment_jobs(text), ["deploy"])
 
     def test_bracket_access_is_rejected(self):
-        for ref in ("${{ secrets['FOO'] }}", '${{ secrets["FOO"] }}', "${{ secrets[matrix.name] }}"):
+        for ref in (
+            "${{ secrets['FOO'] }}",
+            '${{ secrets["FOO"] }}',
+            "${{ secrets[matrix.name] }}",
+            "${{ SECRETS ['FOO'] }}",
+        ):
             with self.subTest(ref=ref):
                 scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }} " + ref})
                 problems = cws.static_problems(*scanned)
                 self.assertEqual(len(problems), 1)
                 self.assertIn("w.yml: index access to the secrets context", problems[0])
+
+    def test_optional_name_referenced_outside_its_files_fails(self):
+        cws.OPTIONAL_SECRETS["A"] = "guarded in w.yml"
+        cws.OPTIONAL_FILES["A"] = ("w.yml",)
+        scanned = self.scan_tree({
+            "pr-gate.yml": gate_text(["A"]),
+            "w.yml": "${{ secrets.A }}",
+            "unguarded.yml": "${{ secrets.A }}",
+        })
+        problems = cws.static_problems(*scanned)
+        self.assertEqual(len(problems), 1)
+        self.assertIn("A: optional only in w.yml, but also referenced in unguarded.yml", problems[0])
+
+    def test_optional_entry_without_files_fails(self):
+        cws.OPTIONAL_SECRETS["A"] = "guarded"
+        scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
+        self.assertEqual(
+            cws.static_problems(*scanned),
+            ["A: optional-secret entry names no files (OPTIONAL_FILES)"],
+        )
+
+    def test_only_yaml_files_are_scanned(self):
+        scanned = self.scan_tree({
+            "pr-gate.yml": gate_text(["A"]),
+            "w.yml": "${{ secrets.A }}",
+            "prompt.md": "Example: ${{ secrets.ONLY_IN_PROSE }}",
+        })
+        self.assertEqual(cws.static_problems(*scanned), [])
+
+    def test_emit_block_reuses_the_existing_indent(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        gate = Path(tmp.name) / "pr-gate.yml"
+        gate.write_text("jobs:\n" + "      " + cws.BLOCK_BEGIN + "\n      " + cws.BLOCK_END + "\n")
+        self.assertEqual(cws.current_block_indent(gate), "      ")
+        self.assertEqual(cws.current_block_indent(Path(tmp.name) / "missing.yml"), "          ")
 
     def test_emit_block_round_trips(self):
         names = {"A", "B_2"}
@@ -227,11 +281,60 @@ class PresenceTest(unittest.TestCase):
             cws.configured_from_env({"A"}, {"SECRET_PRESENT_A": "hunter2"})
 
 
+class MainTest(unittest.TestCase):
+    def run_main(self, files: dict[str, str], argv: list[str], environ: dict[str, str]):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        for name, text in files.items():
+            (root / name).write_text(text)
+        out = io.StringIO()
+        with mock.patch.object(cws, "WORKFLOWS", root), \
+                mock.patch.object(cws, "GATE_FILE", root / "pr-gate.yml"), \
+                mock.patch.dict(cws.OPTIONAL_SECRETS, {}, clear=True), \
+                mock.patch.dict(cws.os.environ, environ, clear=True), \
+                redirect_stdout(out):
+            code = cws.main(argv)
+        return code, out.getvalue()
+
+    def test_env_inspect_failure_still_reports_static_drift(self):
+        code, out = self.run_main(
+            {"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }} ${{ secrets.NEW }}"},
+            ["--env"],
+            {"SECRET_PRESENT_A": "true"},
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("NEW: referenced by a workflow but has no presence line", out)
+
+    def test_env_mode_fails_on_a_missing_secret(self):
+        code, out = self.run_main(
+            {"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"},
+            ["--env"],
+            {"SECRET_PRESENT_A": "false"},
+        )
+        self.assertEqual(code, 1)
+        self.assertIn("A: referenced by a workflow but not configured", out)
+
+    def test_gh_non_json_output_is_an_inspect_error(self):
+        done = subprocess.CompletedProcess(["gh"], 0, stdout="warning: banner\n", stderr="")
+        with mock.patch.object(cws.subprocess, "run", return_value=done):
+            with self.assertRaises(cws.InspectError):
+                cws.configured_from_gh()
+
+
 class RepositoryTest(unittest.TestCase):
     """Against the real .github/workflows tree."""
 
     def test_real_presence_block_matches_real_references(self):
         self.assertEqual(cws.static_problems(*cws.scan(cws.WORKFLOWS, cws.GATE_FILE)), [])
+
+    def test_every_optional_secret_is_scoped_to_files(self):
+        self.assertEqual(set(cws.OPTIONAL_FILES), set(cws.OPTIONAL_SECRETS))
+        for name, files in cws.OPTIONAL_FILES.items():
+            with self.subTest(name=name):
+                self.assertTrue(files)
+                for f in files:
+                    self.assertTrue((cws.WORKFLOWS / f).is_file(), f)
 
     def test_the_six_agreed_optional_secrets_are_listed(self):
         self.assertEqual(

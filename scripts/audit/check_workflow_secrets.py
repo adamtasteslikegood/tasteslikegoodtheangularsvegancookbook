@@ -27,6 +27,12 @@ between two marker comments (the "presence block"), and this script checks:
 * ``--emit-block`` - print the presence block for the current references, so
   regenerating it is mechanical.
 
+Scope and matching: only ``*.yml``/``*.yaml`` files are scanned (gh-aw ``.md``
+prompts compile into ``.lock.yml``, which is scanned). Any ``secrets.NAME``
+sequence counts as a reference, in comments and ``run:`` bodies too. That is
+deliberate: a false positive fails loudly and is fixed by rewording, whereas an
+inline "not a reference" marker would be a bypass.
+
 Exit codes: 0 pass, 1 check failed, 2 could not inspect.
 """
 
@@ -44,10 +50,12 @@ ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
 GATE_FILE = WORKFLOWS / "pr-gate.yml"
 
-# The authoritative pattern is ``secrets\.[A-Za-z0-9_]+``. The left boundary is
-# a deliberate refinement: without it ``redact_secrets.cjs`` (a filename in the
-# gh-aw lock files) yields a phantom secret called ``cjs``.
-REFERENCE_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\.([A-Za-z0-9_]+)")
+# The authoritative pattern is ``secrets\.[A-Za-z0-9_]+``. Two deliberate
+# refinements: a left boundary, without which ``redact_secrets.cjs`` (a filename
+# in the gh-aw lock files) yields a phantom secret called ``cjs``; and GitHub's
+# own expression rules, under which context names are case-insensitive and
+# whitespace around ``.`` is allowed (``${{ SeCrEtS . X }}`` is a valid reference).
+REFERENCE_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\s*\.\s*([A-Za-z0-9_]+)", re.IGNORECASE)
 
 # GitHub creates it for every run and never lists it. Exact name only:
 # GITHUB_TOKEN_X or GH_AW_GITHUB_TOKEN are ordinary secrets and must exist.
@@ -86,16 +94,36 @@ OPTIONAL_SECRETS: dict[str, str] = {
     ),
 }
 
+# Each optional name is optional only in the files whose guard was verified. A
+# new reference elsewhere is an ordinary required reference until reviewed.
+OPTIONAL_FILES: dict[str, tuple[str, ...]] = {
+    "ANTHROPIC_API_KEY": ("claude-review.yml",),
+    "GCP_WORKLOAD_IDENTITY_PROVIDER": ("gc-build-deploy.yml",),
+    "GCP_SERVICE_ACCOUNT": ("gc-build-deploy.yml",),
+    "QODANA_CONFIGURATIONS_TOKEN": ("upload-global-configuration.yml",),
+    "GH_AW_GITHUB_TOKEN": (
+        "daily-repo-status.lock.yml",
+        "issue-arborist.lock.yml",
+        "relevance-summary.lock.yml",
+    ),
+    "GH_AW_GITHUB_MCP_SERVER_TOKEN": (
+        "daily-repo-status.lock.yml",
+        "issue-arborist.lock.yml",
+        "relevance-summary.lock.yml",
+    ),
+}
+
 BLOCK_BEGIN = "# secret-presence: begin"
 BLOCK_END = "# secret-presence: end"
 PRESENCE_PREFIX = "SECRET_PRESENT_"
 PRESENCE_LINE_RE = re.compile(
     r"^\s*" + PRESENCE_PREFIX + r"([A-Za-z0-9_]+):\s*"
-    r"\$\{\{\s*secrets\.([A-Za-z0-9_]+)\s*!=\s*''\s*\}\}\s*$"
+    r"\$\{\{\s*secrets\s*\.\s*([A-Za-z0-9_]+)\s*!=\s*''\s*\}\}\s*$",
+    re.IGNORECASE,
 )
 # Index syntax (``secrets['NAME']``, or a computed key) is valid in GitHub
 # expressions but invisible to the dot-form pattern, so it is rejected outright.
-BRACKET_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\s*\[")
+BRACKET_RE = re.compile(r"(?<![A-Za-z0-9_./-])secrets\s*\[", re.IGNORECASE)
 KEY_RE = re.compile(r"^( *)([A-Za-z0-9_-]+)\s*:")
 
 
@@ -181,13 +209,16 @@ def parse_presence_block(block: list[str]) -> set[str]:
 
 
 def workflow_files(root: Path) -> list[Path]:
-    return sorted(p for p in root.rglob("*") if p.is_file())
+    return sorted(p for p in root.rglob("*") if p.is_file() and p.suffix in (".yml", ".yaml"))
 
 
-def scan(root: Path, gate_file: Path) -> tuple[set[str], set[str] | None, list[str], list[str]]:
+def scan(
+    root: Path, gate_file: Path
+) -> tuple[set[str], set[str] | None, list[str], list[str], dict[str, set[str]]]:
     """Return (referenced names minus the exemption, presence names,
-    environment-scoped jobs as 'file:job', files using bracket access)."""
-    referenced: set[str] = set()
+    environment-scoped jobs as 'file:job', files using bracket access,
+    name -> files referencing it)."""
+    where: dict[str, set[str]] = {}
     presence: set[str] | None = None
     env_jobs: list[str] = []
     bracket_files: list[str] = []
@@ -197,12 +228,13 @@ def scan(root: Path, gate_file: Path) -> tuple[set[str], set[str] | None, list[s
             text, block = split_presence_block(text)
             if block is not None:
                 presence = parse_presence_block(block)
-        referenced |= extract_names(text)
+        for name in extract_names(text):
+            if not is_exempt(name):
+                where.setdefault(name, set()).add(path.name)
         if BRACKET_RE.search(text):
             bracket_files.append(path.name)
-        if path.suffix in (".yml", ".yaml"):
-            env_jobs += [f"{path.name}:{job}" for job in job_level_environment_jobs(text)]
-    return {n for n in referenced if not is_exempt(n)}, presence, env_jobs, bracket_files
+        env_jobs += [f"{path.name}:{job}" for job in job_level_environment_jobs(text)]
+    return set(where), presence, env_jobs, bracket_files, where
 
 
 def static_problems(
@@ -210,8 +242,20 @@ def static_problems(
     presence: set[str] | None,
     env_files: list[str],
     bracket_files: list[str] | None = None,
+    where: dict[str, set[str]] | None = None,
 ) -> list[str]:
     problems = []
+    for name in sorted(OPTIONAL_SECRETS):
+        allowed = set(OPTIONAL_FILES.get(name, ()))
+        if not allowed:
+            problems.append(f"{name}: optional-secret entry names no files (OPTIONAL_FILES)")
+            continue
+        outside = sorted((where or {}).get(name, set()) - allowed)
+        if outside:
+            problems.append(
+                f"{name}: optional only in {', '.join(sorted(allowed))}, but also referenced in"
+                f" {', '.join(outside)}; verify that guard and extend OPTIONAL_FILES, or configure it"
+            )
     for name in bracket_files or []:
         problems.append(
             f"{name}: index access to the secrets context (secrets[...]) cannot be audited;"
@@ -273,7 +317,10 @@ def _gh_json(args: list[str]) -> object:
         out = subprocess.run(["gh", *args], check=True, capture_output=True, text=True).stdout
     except (OSError, subprocess.CalledProcessError) as exc:
         raise InspectError(f"gh {' '.join(args)} failed: {exc}") from exc
-    return json.loads(out or "[]")
+    try:
+        return json.loads(out or "[]")
+    except json.JSONDecodeError as exc:
+        raise InspectError(f"gh {' '.join(args)} printed non-JSON output: {exc}") from exc
 
 
 def configured_from_gh() -> set[str]:
@@ -283,6 +330,17 @@ def configured_from_gh() -> set[str]:
     for env in envs or []:
         names |= {normalize(s["name"]) for s in _gh_json(["secret", "list", "--env", env, "--json", "name"])}
     return names
+
+
+def current_block_indent(gate_file: Path, default: str = "          ") -> str:
+    """Indent of the existing BLOCK_BEGIN line, so regeneration tracks the file."""
+    try:
+        for line in gate_file.read_text(encoding="utf-8").splitlines():
+            if line.strip() == BLOCK_BEGIN:
+                return line[: len(line) - len(line.lstrip())]
+    except OSError:
+        pass
+    return default
 
 
 def emit_block(referenced: set[str], indent: str = "          ") -> str:
@@ -301,12 +359,13 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--emit-block", action="store_true")
     args = parser.parse_args(argv)
 
+    problems: list[str] = []
     try:
-        referenced, presence, env_files, bracket_files = scan(WORKFLOWS, GATE_FILE)
+        referenced, presence, env_files, bracket_files, where = scan(WORKFLOWS, GATE_FILE)
         if args.emit_block:
-            print(emit_block(referenced))
+            print(emit_block(referenced, current_block_indent(GATE_FILE)))
             return 0
-        problems = static_problems(referenced, presence, env_files, bracket_files)
+        problems = static_problems(referenced, presence, env_files, bracket_files, where)
         notices: list[str] = []
         configured: set[str] | None = None
         if args.env:
@@ -317,6 +376,10 @@ def main(argv: list[str] | None = None) -> int:
             problems += missing_problems(referenced, configured)
             notices = optional_notices(referenced, configured)
     except InspectError as exc:
+        # Static drift (e.g. a reference with no presence line) is usually the
+        # real cause of an inspect failure in --env; show it, not just the symptom.
+        for p in problems:
+            print(f"::error::{p}")
         print(f"::error::cannot inspect workflow secrets: {exc}")
         return 2
 
