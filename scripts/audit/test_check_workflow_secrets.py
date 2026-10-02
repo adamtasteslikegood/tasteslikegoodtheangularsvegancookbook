@@ -77,14 +77,14 @@ class ExemptionTest(unittest.TestCase):
                 "x: ${{ secrets.GITHUB_TOKEN }}\ny: ${{ secrets.GITHUB_TOKEN_X }}\n"
                 "z: ${{ secrets.GH_AW_GITHUB_TOKEN }}\n"
             )
-            referenced = cws.scan(root, root / "pr-gate.yml")[0]
+            referenced = set(cws.scan(root, root / "pr-gate.yml").where)
         self.assertEqual(referenced, {"GITHUB_TOKEN_X", "GH_AW_GITHUB_TOKEN"})
 
     def test_no_optional_secret_lacks_a_reason_or_shadows_the_exemption(self):
         self.assertNotIn(cws.BUILTIN_EXEMPT, cws.OPTIONAL_SECRETS)
-        for name, reason in cws.OPTIONAL_SECRETS.items():
+        for name, entry in cws.OPTIONAL_SECRETS.items():
             with self.subTest(name=name):
-                self.assertTrue(reason.strip())
+                self.assertTrue(entry.reason.strip())
 
 
 class DriftTest(unittest.TestCase):
@@ -92,10 +92,9 @@ class DriftTest(unittest.TestCase):
 
     def setUp(self):
         # Temp trees do not reference the real optional names; isolate from them.
-        for table in (cws.OPTIONAL_SECRETS, cws.OPTIONAL_FILES):
-            patcher = mock.patch.dict(table, {}, clear=True)
-            patcher.start()
-            self.addCleanup(patcher.stop)
+        patcher = mock.patch.dict(cws.OPTIONAL_SECRETS, {}, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def scan_tree(self, files: dict[str, str]):
         tmp = tempfile.TemporaryDirectory()
@@ -149,8 +148,7 @@ class DriftTest(unittest.TestCase):
         self.assertIn("deploy.yml", problems[0])
 
     def test_stale_optional_entry_fails(self):
-        cws.OPTIONAL_SECRETS["GONE"] = "was optional once"
-        cws.OPTIONAL_FILES["GONE"] = ("w.yml",)
+        cws.OPTIONAL_SECRETS["GONE"] = cws.OptionalSecret("was optional once", ("w.yml",))
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(
             cws.static_problems(*scanned),
@@ -158,14 +156,12 @@ class DriftTest(unittest.TestCase):
         )
 
     def test_referenced_optional_entry_passes(self):
-        cws.OPTIONAL_SECRETS["A"] = "guarded by an if:"
-        cws.OPTIONAL_FILES["A"] = ("w.yml",)
+        cws.OPTIONAL_SECRETS["A"] = cws.OptionalSecret("guarded by an if:", ("w.yml",))
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(cws.static_problems(*scanned), [])
 
     def test_optional_entry_without_reason_fails(self):
-        cws.OPTIONAL_SECRETS["A"] = "  "
-        cws.OPTIONAL_FILES["A"] = ("w.yml",)
+        cws.OPTIONAL_SECRETS["A"] = cws.OptionalSecret("  ", ("w.yml",))
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(cws.static_problems(*scanned), ["A: optional-secret entry has no reason"])
 
@@ -201,8 +197,7 @@ class DriftTest(unittest.TestCase):
                 self.assertIn("w.yml: index access to the secrets context", problems[0])
 
     def test_optional_name_referenced_outside_its_files_fails(self):
-        cws.OPTIONAL_SECRETS["A"] = "guarded in w.yml"
-        cws.OPTIONAL_FILES["A"] = ("w.yml",)
+        cws.OPTIONAL_SECRETS["A"] = cws.OptionalSecret("guarded in w.yml", ("w.yml",))
         scanned = self.scan_tree({
             "pr-gate.yml": gate_text(["A"]),
             "w.yml": "${{ secrets.A }}",
@@ -213,11 +208,11 @@ class DriftTest(unittest.TestCase):
         self.assertIn("A: optional only in w.yml, but also referenced in unguarded.yml", problems[0])
 
     def test_optional_entry_without_files_fails(self):
-        cws.OPTIONAL_SECRETS["A"] = "guarded"
+        cws.OPTIONAL_SECRETS["A"] = cws.OptionalSecret("guarded", ())
         scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"})
         self.assertEqual(
             cws.static_problems(*scanned),
-            ["A: optional-secret entry names no files (OPTIONAL_FILES)"],
+            ["A: optional-secret entry names no files"],
         )
 
     def test_only_yaml_files_are_scanned(self):
@@ -235,6 +230,22 @@ class DriftTest(unittest.TestCase):
         gate.write_text("jobs:\n" + "      " + cws.BLOCK_BEGIN + "\n      " + cws.BLOCK_END + "\n")
         self.assertEqual(cws.current_block_indent(gate), "      ")
         self.assertEqual(cws.current_block_indent(Path(tmp.name) / "missing.yml"), "          ")
+
+    def test_bare_secrets_context_is_rejected(self):
+        for ref in ("${{ toJSON(secrets) }}", "${{ SECRETS }}", "${{ fromJSON(toJSON( secrets )) }}"):
+            with self.subTest(ref=ref):
+                scanned = self.scan_tree({"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}\nx: " + ref})
+                problems = cws.static_problems(*scanned)
+                self.assertEqual(len(problems), 1)
+                self.assertIn("w.yml: the whole secrets context is used", problems[0])
+
+    def test_word_secrets_outside_expressions_or_in_literals_is_fine(self):
+        text = (
+            "# forks see no secrets at all\n"
+            "run: echo \"rotate secrets weekly\"\n"
+            "x: ${{ contains(github.event.head_commit.message, 'secrets') }}\n"
+        )
+        self.assertFalse(cws.uses_bare_context(text))
 
     def test_emit_block_round_trips(self):
         names = {"A", "B_2"}
@@ -259,7 +270,7 @@ class PresenceTest(unittest.TestCase):
         )
 
     def test_missing_optional_secret_is_a_notice_not_a_failure(self):
-        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": "guarded"}, clear=True):
+        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": cws.OptionalSecret("guarded", ("w.yml",))}, clear=True):
             env = {"SECRET_PRESENT_A": "true", "SECRET_PRESENT_OPT": "false"}
             configured = cws.configured_from_env({"A", "OPT"}, env)
             self.assertEqual(cws.missing_problems({"A", "OPT"}, configured), [])
@@ -269,7 +280,7 @@ class PresenceTest(unittest.TestCase):
             )
 
     def test_present_optional_secret_gives_no_notice(self):
-        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": "guarded"}, clear=True):
+        with mock.patch.dict(cws.OPTIONAL_SECRETS, {"OPT": cws.OptionalSecret("guarded", ("w.yml",))}, clear=True):
             self.assertEqual(cws.optional_notices({"OPT"}, {"OPT"}), [])
 
     def test_unexported_presence_variable_is_an_inspect_error(self):
@@ -315,6 +326,26 @@ class MainTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("A: referenced by a workflow but not configured", out)
 
+    def test_env_inspect_failure_prints_the_referenced_names(self):
+        code, out = self.run_main(
+            {"pr-gate.yml": gate_text(["A"]), "w.yml": "${{ secrets.A }}"},
+            ["--env"],
+            {},
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("1 secret name(s) referenced (excluding GITHUB_TOKEN): A", out)
+
+    def test_gh_mode_counts_repository_secrets_only(self):
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, 0, stdout='[{"name": "foo"}]', stderr="")
+
+        with mock.patch.object(cws.subprocess, "run", side_effect=fake_run):
+            self.assertEqual(cws.configured_from_gh(), {"FOO"})
+        self.assertEqual(calls, [["gh", "secret", "list", "--json", "name"]])
+
     def test_gh_non_json_output_is_an_inspect_error(self):
         done = subprocess.CompletedProcess(["gh"], 0, stdout="warning: banner\n", stderr="")
         with mock.patch.object(cws.subprocess, "run", return_value=done):
@@ -329,11 +360,10 @@ class RepositoryTest(unittest.TestCase):
         self.assertEqual(cws.static_problems(*cws.scan(cws.WORKFLOWS, cws.GATE_FILE)), [])
 
     def test_every_optional_secret_is_scoped_to_files(self):
-        self.assertEqual(set(cws.OPTIONAL_FILES), set(cws.OPTIONAL_SECRETS))
-        for name, files in cws.OPTIONAL_FILES.items():
+        for name, entry in cws.OPTIONAL_SECRETS.items():
             with self.subTest(name=name):
-                self.assertTrue(files)
-                for f in files:
+                self.assertTrue(entry.files)
+                for f in entry.files:
                     self.assertTrue((cws.WORKFLOWS / f).is_file(), f)
 
     def test_the_six_agreed_optional_secrets_are_listed(self):
