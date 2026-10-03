@@ -167,6 +167,9 @@ interface Harness {
   storage(key: string | null, newValue: string | null): void;
   setActiveElement(el: FakeEl | null): void;
   reload: ReturnType<typeof vi.fn>;
+  /** Callbacks queued on window.setTimeout when run with `timers: true`. */
+  timers: Array<{ fn: () => void; ms: number }>;
+  runNextTimer(): void;
   docClick(target: FakeEl): void;
   sdkScripts(): FakeEl[];
   loadSdk(): void;
@@ -188,6 +191,8 @@ async function run(opts: {
   localStorage?: FakeStorage;
   sessionStorage?: FakeStorage;
   throwOnStorageAccess?: boolean;
+  /** Expose a manual window.setTimeout (default: none, as before). */
+  timers?: boolean;
 }): Promise<Harness> {
   const head = makeEl('head');
   const body = makeEl('body');
@@ -267,6 +272,13 @@ async function run(opts: {
   win.URL = URL;
   win.URLSearchParams = URLSearchParams;
   win.JSON = JSON;
+  const timers: Array<{ fn: () => void; ms: number }> = [];
+  if (opts.timers) {
+    win.setTimeout = (fn: () => void, ms: number) => {
+      timers.push({ fn, ms });
+      return timers.length;
+    };
+  }
   vm.runInNewContext(SOURCE, win);
   await settle();
 
@@ -288,6 +300,10 @@ async function run(opts: {
       document.activeElement = el ?? body;
     },
     reload,
+    timers,
+    runNextTimer() {
+      timers.shift()?.fn();
+    },
     docClick(target) {
       for (const fn of docListeners) fn({ target, preventDefault() {} });
     },
@@ -1054,5 +1070,215 @@ describe('RUM consent gate — restoring pending actions', () => {
     expect(names).toContain('recipe_view');
     expect(names).toContain('recipe_saved');
     expect(names).not.toContain('injected_action');
+  });
+});
+
+describe('RUM consent gate — the current choice is visible (KAN-322)', () => {
+  const notice = (h: Harness) => h.body.children.find((c) => 'data-analytics-notice' in c.attrs);
+  const current = (h: Harness) => h.banner()?.querySelector('[data-analytics-current]') ?? null;
+  const reopen = (h: Harness) => {
+    const settings = makeEl('button');
+    settings.setAttribute('data-analytics-settings', '');
+    h.docClick(settings);
+  };
+
+  const selectedTag = (h: Harness, label: string) =>
+    h.buttonByLabel(label).children.find((c) => 'data-analytics-selected' in c.attrs) ?? null;
+
+  it('the first banner marks no choice', async () => {
+    const h = await run({});
+    expect(selectedTag(h, 'No thanks')).toBeNull();
+    expect(selectedTag(h, 'Allow analytics')).toBeNull();
+    expect(current(h)).toBeNull();
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBeUndefined();
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBeUndefined();
+  });
+
+  it('reopening after a grant states it and marks "Allow analytics" pressed', async () => {
+    const h = await run({ consent: 'granted' });
+    reopen(h);
+    expect(current(h)!.textContent).toBe('Your current choice: analytics allowed.');
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBe('true');
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBe('false');
+    expect(selectedTag(h, 'Allow analytics')!.textContent).toBe(' \u2713 current');
+    expect(selectedTag(h, 'Allow analytics')!.attrs['aria-hidden']).toBe('true');
+    expect(selectedTag(h, 'No thanks')).toBeNull();
+  });
+
+  it('reopening after a denial states it and marks "No thanks" pressed', async () => {
+    const h = await run({ consent: 'denied' });
+    reopen(h);
+    expect(current(h)!.textContent).toBe('Your current choice: no analytics ("No thanks").');
+    expect(h.buttonByLabel('No thanks').attrs['aria-pressed']).toBe('true');
+    expect(h.buttonByLabel('Allow analytics').attrs['aria-pressed']).toBe('false');
+    expect(selectedTag(h, 'No thanks')!.textContent).toBe(' \u2713 current');
+    expect(selectedTag(h, 'Allow analytics')).toBeNull();
+  });
+
+  it('confirms a grant in a status message once the banner closes', async () => {
+    const h = await run({});
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.banner()).toBeUndefined();
+    expect(notice(h)!.attrs.role).toBe('status');
+    expect(notice(h)!.textContent).toMatch(/^Analytics allowed\./);
+  });
+
+  it('confirms a first-visit denial without reloading', async () => {
+    const h = await run({});
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    expect(notice(h)!.textContent).toMatch(/^Analytics off\./);
+  });
+
+  it('carries the withdrawal confirmation across the reload, once', async () => {
+    const h = await run({ consent: 'granted' });
+    h.loadSdk();
+    reopen(h);
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).toHaveBeenCalledOnce();
+
+    const next = await run({ localStorage: h.localStorage, sessionStorage: h.sessionStorage });
+    expect(notice(next)!.textContent).toMatch(/^Analytics off\./);
+    expect(rumTraffic(next)).toEqual({ sdkScripts: [], fetches: [] });
+
+    const after = await run({ localStorage: h.localStorage, sessionStorage: h.sessionStorage });
+    expect(notice(after)).toBeUndefined();
+  });
+
+  it('mounts the status region empty and fills it in a later task (#3587 review)', async () => {
+    const h = await run({ timers: true });
+    h.buttonByLabel('Allow analytics').click();
+    const region = notice(h)!;
+    expect(region.attrs.role).toBe('status');
+    expect(region.textContent).toBe(''); // in the DOM before any text
+    h.runNextTimer();
+    expect(region.textContent).toMatch(/^Analytics allowed\. Change it any time/);
+    h.runNextTimer(); // the 5 s removal is scheduled only after the fill
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('stays on the stopped page and confirms when the confirmation cannot be stored', async () => {
+    const session = new FaultyStorage();
+    const h = await run({ consent: 'granted', sessionStorage: session });
+    h.loadSdk();
+    reopen(h);
+    session.failWrites = true;
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('not-granted');
+    expect(notice(h)!.textContent).toMatch(/^Analytics off\./);
+  });
+
+  it('consumes the confirmation when config is disabled, without the footer hint', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    const h = await run({ consent: 'denied', sessionStorage: session, config: { enabled: false } });
+    expect(session.getItem('tlg.analytics-notice')).toBeNull();
+    expect(notice(h)!.textContent).toBe('Analytics off.');
+  });
+
+  it('consumes the confirmation when the config request fails', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    const configPromise = Promise.reject(new Error('offline'));
+    configPromise.catch(() => {}); // handled by consent.js's .catch
+    const h = await run({ consent: 'denied', sessionStorage: session, configPromise });
+    expect(session.getItem('tlg.analytics-notice')).toBeNull();
+    expect(notice(h)!.textContent).toBe('Analytics off.'); // no hint: control hidden
+  });
+
+  it('does not replay "Analytics off." if another tab granted before config resolved', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    let resolveConfig: (v: unknown) => void = () => {};
+    const configPromise = new Promise((r) => (resolveConfig = r));
+    const local = new FakeStorage();
+    local.setItem('tlg.analytics-consent', 'denied');
+    const h = await run({ localStorage: local, sessionStorage: session, configPromise });
+    expect(session.getItem('tlg.analytics-notice')).toBeNull(); // read before config
+    local.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    resolveConfig(ENABLED);
+    for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0));
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('a load cancelled by a withdrawal restarts on a later grant (#3587 review)', async () => {
+    const session = new FaultyStorage();
+    const h = await run({ consent: 'granted', sessionStorage: session });
+    expect(h.sdkScripts()).toHaveLength(1); // SDK in flight
+    reopen(h);
+    session.failWrites = true; // the notice cannot be stored: no reload
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    h.loadSdk(); // the script finishes loading while denied
+    expect(h.rum.init).not.toHaveBeenCalled();
+    reopen(h);
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.rum.init).toHaveBeenCalledOnce();
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
+    expect(h.sdkScripts()).toHaveLength(1); // initialized, not refetched
+    (h.win as unknown as { tlgAnalytics: { action: (n: string) => void } }).tlgAnalytics.action(
+      'recipe_view'
+    );
+    expect(h.accepted.map(([name]) => name)).toContain('recipe_view');
+  });
+
+  it('drops a pending "Analytics off." if another tab grants before the fill (#3587 review)', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    const local = new FakeStorage();
+    local.setItem('tlg.analytics-consent', 'denied');
+    const h = await run({ localStorage: local, sessionStorage: session, timers: true });
+    expect(notice(h)).toBeDefined(); // mounted empty, fill pending
+    local.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    h.runNextTimer();
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('drops a pending "Analytics allowed." if another tab withdraws before the fill (#3587 review)', async () => {
+    const local = new FakeStorage();
+    const h = await run({ localStorage: local, timers: true });
+    h.buttonByLabel('Allow analytics').click();
+    expect(notice(h)).toBeDefined(); // mounted empty, fill pending
+    local.setItem('tlg.analytics-consent', 'denied');
+    h.storage('tlg.analytics-consent', 'denied');
+    h.runNextTimer();
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('marks the selection with box-shadow, leaving the native focus outline alone', async () => {
+    const h = await run({ consent: 'granted' });
+    reopen(h);
+    const css = h.buttonByLabel('Allow analytics').style.cssText;
+    expect(css).toContain('box-shadow');
+    expect(css).not.toContain('outline');
+  });
+
+  it('does not replay the confirmation when it cannot be removed (#3587 review)', async () => {
+    const session = new FaultyStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    session.failRemovals = true;
+    const h = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(h)).toBeUndefined();
+    const again = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(again)).toBeUndefined(); // never repeated on later loads
+  });
+
+  it('removes an empty confirmation value', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', '');
+    const h = await run({ consent: 'denied', sessionStorage: session });
+    expect(session.getItem('tlg.analytics-notice')).toBeNull();
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('ignores a tampered confirmation value', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'granted');
+    const h = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(h)).toBeUndefined();
+    expect(session.getItem('tlg.analytics-notice')).toBeNull();
   });
 });
