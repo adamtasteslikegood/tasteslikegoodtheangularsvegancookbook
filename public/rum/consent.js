@@ -496,9 +496,10 @@
     }
     window.setTimeout(function () {
       if (!shown.parentNode) return;
-      // Another tab may have granted analytics since the region was mounted:
-      // never announce a stale "Analytics off.".
-      if (state === 'denied' && consentState() === 'granted') {
+      // Another tab may have changed consent since the region was mounted:
+      // never announce a choice that is no longer in effect, either way.
+      var nowGranted = consentState() === 'granted';
+      if ((state === 'granted') !== nowGranted) {
         shown.parentNode.removeChild(shown);
         if (notice === shown) notice = null;
         return;

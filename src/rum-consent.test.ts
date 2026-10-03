@@ -1237,6 +1237,17 @@ describe('RUM consent gate — the current choice is visible (KAN-322)', () => {
     expect(notice(h)).toBeUndefined();
   });
 
+  it('drops a pending "Analytics allowed." if another tab withdraws before the fill (#3587 review)', async () => {
+    const local = new FakeStorage();
+    const h = await run({ localStorage: local, timers: true });
+    h.buttonByLabel('Allow analytics').click();
+    expect(notice(h)).toBeDefined(); // mounted empty, fill pending
+    local.setItem('tlg.analytics-consent', 'denied');
+    h.storage('tlg.analytics-consent', 'denied');
+    h.runNextTimer();
+    expect(notice(h)).toBeUndefined();
+  });
+
   it('marks the selection with box-shadow, leaving the native focus outline alone', async () => {
     const h = await run({ consent: 'granted' });
     reopen(h);
