@@ -1203,6 +1203,48 @@ describe('RUM consent gate — the current choice is visible (KAN-322)', () => {
     expect(notice(h)).toBeUndefined();
   });
 
+  it('a load cancelled by a withdrawal restarts on a later grant (#3587 review)', async () => {
+    const session = new FaultyStorage();
+    const h = await run({ consent: 'granted', sessionStorage: session });
+    expect(h.sdkScripts()).toHaveLength(1); // SDK in flight
+    reopen(h);
+    session.failWrites = true; // the notice cannot be stored: no reload
+    h.buttonByLabel('No thanks').click();
+    expect(h.reload).not.toHaveBeenCalled();
+    h.loadSdk(); // the script finishes loading while denied
+    expect(h.rum.init).not.toHaveBeenCalled();
+    reopen(h);
+    h.buttonByLabel('Allow analytics').click();
+    expect(h.rum.init).toHaveBeenCalledOnce();
+    expect(h.rum.setTrackingConsent).toHaveBeenLastCalledWith('granted');
+    expect(h.sdkScripts()).toHaveLength(1); // initialized, not refetched
+    (h.win as unknown as { tlgAnalytics: { action: (n: string) => void } }).tlgAnalytics.action(
+      'recipe_view'
+    );
+    expect(h.accepted.map(([name]) => name)).toContain('recipe_view');
+  });
+
+  it('drops a pending "Analytics off." if another tab grants before the fill (#3587 review)', async () => {
+    const session = new FakeStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    const local = new FakeStorage();
+    local.setItem('tlg.analytics-consent', 'denied');
+    const h = await run({ localStorage: local, sessionStorage: session, timers: true });
+    expect(notice(h)).toBeDefined(); // mounted empty, fill pending
+    local.setItem('tlg.analytics-consent', 'granted');
+    h.storage('tlg.analytics-consent', 'granted');
+    h.runNextTimer();
+    expect(notice(h)).toBeUndefined();
+  });
+
+  it('marks the selection with box-shadow, leaving the native focus outline alone', async () => {
+    const h = await run({ consent: 'granted' });
+    reopen(h);
+    const css = h.buttonByLabel('Allow analytics').style.cssText;
+    expect(css).toContain('box-shadow');
+    expect(css).not.toContain('outline');
+  });
+
   it('removes an empty confirmation value', async () => {
     const session = new FakeStorage();
     session.setItem('tlg.analytics-notice', '');

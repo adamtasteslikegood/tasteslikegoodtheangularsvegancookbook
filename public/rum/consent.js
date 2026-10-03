@@ -44,7 +44,9 @@
   var SSR_RECIPE_PATH = /^\/r\/([a-z0-9-]{1,200})$/;
 
   var config = null;
-  var sdkState = 'idle'; // idle | loading | ready | failed
+  // 'cancelled': the script loaded while consent was withdrawn, so it was
+  // not initialized; a later grant initializes it without refetching.
+  var sdkState = 'idle'; // idle | loading | cancelled | ready | failed
   var queue = [];
   var banner = null;
   var returnFocus = null;
@@ -347,53 +349,65 @@
   }
 
   function loadSdk() {
-    if (sdkState !== 'idle' || !config || !config.enabled) return;
+    if (!config || !config.enabled) return;
+    if (sdkState === 'cancelled') {
+      // Granted again after a load that finished during a withdrawal.
+      if (consentState() === 'granted') initSdk();
+      return;
+    }
+    if (sdkState !== 'idle') return;
     sdkState = 'loading';
     var script = document.createElement('script');
     script.src = SDK_URL;
     script.async = true;
     script.onload = function () {
-      // Consent can be withdrawn while the SDK script is in flight.
+      // Consent can be withdrawn while the SDK script is in flight: keep the
+      // loaded script uninitialized and recoverable (#3587 review), not
+      // 'failed', so a later grant on this page can still start it.
       if (consentState() !== 'granted') {
-        sdkState = 'failed';
+        sdkState = 'cancelled';
         clearQueue();
         return;
       }
-      var rum = window.DD_RUM;
-      if (!rum) {
-        sdkState = 'failed';
-        clearQueue();
-        return;
-      }
-      rum.init({
-        applicationId: config.applicationId,
-        clientToken: config.clientToken,
-        site: SITE,
-        service: config.service,
-        env: config.env,
-        version: config.version,
-        proxy: window.location.origin + INTAKE_PATH,
-        sessionSampleRate: config.sessionSampleRate,
-        sessionReplaySampleRate: 0,
-        // Automatic click actions are named from element text, which here
-        // includes user-owned values (profile name, recipe and cookbook
-        // names). The readout needs only the explicit custom actions.
-        trackUserInteractions: false,
-        trackResources: true,
-        trackLongTasks: true,
-        defaultPrivacyLevel: 'mask',
-        sessionPersistence: 'local-storage',
-        beforeSend: beforeSend,
-      });
-      rum.setGlobalContextProperty('launch', landing);
-      sdkState = 'ready';
-      flushQueue();
+      initSdk();
     };
     script.onerror = function () {
       sdkState = 'failed';
       clearQueue();
     };
     document.head.appendChild(script);
+  }
+
+  function initSdk() {
+    var rum = window.DD_RUM;
+    if (!rum) {
+      sdkState = 'failed';
+      clearQueue();
+      return;
+    }
+    rum.init({
+      applicationId: config.applicationId,
+      clientToken: config.clientToken,
+      site: SITE,
+      service: config.service,
+      env: config.env,
+      version: config.version,
+      proxy: window.location.origin + INTAKE_PATH,
+      sessionSampleRate: config.sessionSampleRate,
+      sessionReplaySampleRate: 0,
+      // Automatic click actions are named from element text, which here
+      // includes user-owned values (profile name, recipe and cookbook
+      // names). The readout needs only the explicit custom actions.
+      trackUserInteractions: false,
+      trackResources: true,
+      trackLongTasks: true,
+      defaultPrivacyLevel: 'mask',
+      sessionPersistence: 'local-storage',
+      beforeSend: beforeSend,
+    });
+    rum.setGlobalContextProperty('launch', landing);
+    sdkState = 'ready';
+    flushQueue();
   }
 
   // Actions raised before /rum/config answers (config === null) are queued
@@ -482,6 +496,13 @@
     }
     window.setTimeout(function () {
       if (!shown.parentNode) return;
+      // Another tab may have granted analytics since the region was mounted:
+      // never announce a stale "Analytics off.".
+      if (state === 'denied' && consentState() === 'granted') {
+        shown.parentNode.removeChild(shown);
+        if (notice === shown) notice = null;
+        return;
+      }
       shown.textContent = text;
       window.setTimeout(function () {
         if (shown.parentNode) shown.parentNode.removeChild(shown);
@@ -492,7 +513,8 @@
 
   function applyGrant(previous) {
     writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
-    if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
+    var sdkPresent = sdkState === 'ready' || sdkState === 'cancelled';
+    if (sdkPresent && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
       // Re-allowed on a page where it was withdrawn without a reload. Restore
       // SDK consent FIRST: actions added while it is 'not-granted' are dropped.
       window.DD_RUM.setTrackingConsent('granted');
@@ -568,7 +590,9 @@
       (primary
         ? 'background:#166534;color:#fff;border:1px solid #166534;'
         : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;') +
-      (selected ? 'outline:3px solid #ca8a04;outline-offset:2px;font-weight:600;' : '');
+      // Selection ring as box-shadow, not outline: an inline outline would
+      // replace the native focus outline on the selected button.
+      (selected ? 'box-shadow:0 0 0 2px #fafaf9,0 0 0 5px #ca8a04;font-weight:600;' : '');
     if (selected !== null) b.setAttribute('aria-pressed', selected ? 'true' : 'false');
     if (selected) {
       // A visible text marker, not only a ring: on reopen, focus goes to
