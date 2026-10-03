@@ -1256,6 +1256,16 @@ describe('RUM consent gate — the current choice is visible (KAN-322)', () => {
     expect(css).not.toContain('outline');
   });
 
+  it('does not replay the confirmation when it cannot be removed (#3587 review)', async () => {
+    const session = new FaultyStorage();
+    session.setItem('tlg.analytics-notice', 'denied');
+    session.failRemovals = true;
+    const h = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(h)).toBeUndefined();
+    const again = await run({ consent: 'denied', sessionStorage: session });
+    expect(notice(again)).toBeUndefined(); // never repeated on later loads
+  });
+
   it('removes an empty confirmation value', async () => {
     const session = new FakeStorage();
     session.setItem('tlg.analytics-notice', '');

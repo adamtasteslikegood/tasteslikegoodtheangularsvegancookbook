@@ -785,11 +785,13 @@
     // anything can return early (no fetch, config failed or disabled), and
     // whatever its value, so it never lingers for a later visit.
     var pendingNotice = readStore(sessionStore, NOTICE_KEY);
-    if (pendingNotice !== null) removeStore(sessionStore, NOTICE_KEY);
+    // One-shot means it must actually be gone: if removal fails, do not replay,
+    // or every later page load in this tab would repeat it.
+    var consumed = pendingNotice !== null && removeStore(sessionStore, NOTICE_KEY);
     // Only a withdrawal reloads, so 'denied' is the one value honoured, and
     // only while consent is still not granted (another tab may have granted
     // it since).
-    var replayDenial = pendingNotice === 'denied';
+    var replayDenial = consumed && pendingNotice === 'denied';
     function confirmWithdrawal(withHint) {
       if (replayDenial && consentState() !== 'granted') showNotice('denied', withHint);
     }
