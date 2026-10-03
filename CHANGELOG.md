@@ -8,6 +8,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-02
+
+Backend submodule pointer moves `52c652e0c3e4` → **`8230544ca863`** (Backend `main`, promotions #355 and #358,
+back-syncs #356 and #359); no migration changes. Ships Sprint 10 S7 (numbered SSR pagination), S20 (breadcrumbs
+stay on their own side of auth) and S12 (workflow-secrets gate), plus dependency bumps. No Valkey
+change: the Flask redeploy restarts the RCP-98 T1 production window.
+
+### Added
+
+- Numbered SSR pagination on `/browse` and the tag hubs (KAN-296, Backend #350). `?page=N` pages are
+  self-canonical with numbered links; `?page=1` 301s to the bare URL; a page past the last, a
+  non-canonical spelling (`?page=02`, `?page=+2`) or a repeated `page` key is a 404; `?page=N` survives
+  the hub trailing-slash 301; an emptied later hub page is `noindex`.
+
 ### Fixed
 
 - SPA breadcrumbs stay on their own side of auth (KAN-321). The signed-in recipe page no longer
@@ -17,6 +31,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   the one deliberate exit to the public page. Cookbooks are routable (`/kitchen/<cookbookId>`), so
   back/forward, reload and deep links keep the selected cookbook, and "Back to Kitchen" returns to
   the cookbook the recipe was opened from. Public SSR trails and their JSON-LD are unchanged.
+
+### Fixed (Backend)
+
+- SQLAlchemy capped below 2.1 (KAN-324, Backend #357). Dependabot locked 2.1.1, which maps `postgresql://`
+  to psycopg v3; the image ships psycopg2, so the staging migrate job failed on the first v0.5.6 pin
+  (`9ed5402`). Backend CI now loads the Postgres DBAPI from the built image.
+
+### CI
+
+- PR gate fails when a workflow references a required secret that is not configured (KAN-300, #3585).
+  `GITHUB_TOKEN` is the built-in exemption; six secrets on an explicit optional allowlist
+  (`OPTIONAL_SECRETS`, each with its verified guard) report a notice instead of failing.
+
+### Dependencies
+
+- `dd-trace` 6.16.0 → 6.17.0, `@google-cloud/secret-manager` 7.1.0 → 7.1.1, `vite`, `@types/node`,
+  and the linting group (3). GitHub Actions `actions-all` group (5, #3593).
+- Backend: python-production group (4), `flake8`, `astral-sh/uv` base image, Backend actions group (3).
 
 ## [0.5.5] - 2026-10-01
 

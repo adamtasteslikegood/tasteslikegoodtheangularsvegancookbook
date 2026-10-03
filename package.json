@@ -1,7 +1,7 @@
 {
   "name": "vegangenius-chef",
   "private": true,
-  "version": "0.5.5",
+  "version": "0.5.6",
   "type": "module",
   "scripts": {
     "dev": "tsc -p server/tsconfig.server.json && node scripts/dev.mjs",
