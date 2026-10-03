@@ -30,6 +30,8 @@
   var CONSENT_KEY = 'tlg.analytics-consent';
   var LANDING_KEY = 'tlg.analytics-landing';
   var PENDING_ACTIONS_KEY = 'tlg.analytics-pending-actions';
+  // One-shot confirmation that survives the reload a withdrawal triggers.
+  var NOTICE_KEY = 'tlg.analytics-notice';
   var CONFIG_URL = '/rum/config';
   var SDK_URL = '/rum/datadog-rum-slim.js';
   var INTAKE_PATH = '/rum/intake';
@@ -42,7 +44,9 @@
   var SSR_RECIPE_PATH = /^\/r\/([a-z0-9-]{1,200})$/;
 
   var config = null;
-  var sdkState = 'idle'; // idle | loading | ready | failed
+  // 'cancelled': the script loaded while consent was withdrawn, so it was
+  // not initialized; a later grant initializes it without refetching.
+  var sdkState = 'idle'; // idle | loading | cancelled | ready | failed
   var queue = [];
   var banner = null;
   var returnFocus = null;
@@ -345,53 +349,65 @@
   }
 
   function loadSdk() {
-    if (sdkState !== 'idle' || !config || !config.enabled) return;
+    if (!config || !config.enabled) return;
+    if (sdkState === 'cancelled') {
+      // Granted again after a load that finished during a withdrawal.
+      if (consentState() === 'granted') initSdk();
+      return;
+    }
+    if (sdkState !== 'idle') return;
     sdkState = 'loading';
     var script = document.createElement('script');
     script.src = SDK_URL;
     script.async = true;
     script.onload = function () {
-      // Consent can be withdrawn while the SDK script is in flight.
+      // Consent can be withdrawn while the SDK script is in flight: keep the
+      // loaded script uninitialized and recoverable (#3587 review), not
+      // 'failed', so a later grant on this page can still start it.
       if (consentState() !== 'granted') {
-        sdkState = 'failed';
+        sdkState = 'cancelled';
         clearQueue();
         return;
       }
-      var rum = window.DD_RUM;
-      if (!rum) {
-        sdkState = 'failed';
-        clearQueue();
-        return;
-      }
-      rum.init({
-        applicationId: config.applicationId,
-        clientToken: config.clientToken,
-        site: SITE,
-        service: config.service,
-        env: config.env,
-        version: config.version,
-        proxy: window.location.origin + INTAKE_PATH,
-        sessionSampleRate: config.sessionSampleRate,
-        sessionReplaySampleRate: 0,
-        // Automatic click actions are named from element text, which here
-        // includes user-owned values (profile name, recipe and cookbook
-        // names). The readout needs only the explicit custom actions.
-        trackUserInteractions: false,
-        trackResources: true,
-        trackLongTasks: true,
-        defaultPrivacyLevel: 'mask',
-        sessionPersistence: 'local-storage',
-        beforeSend: beforeSend,
-      });
-      rum.setGlobalContextProperty('launch', landing);
-      sdkState = 'ready';
-      flushQueue();
+      initSdk();
     };
     script.onerror = function () {
       sdkState = 'failed';
       clearQueue();
     };
     document.head.appendChild(script);
+  }
+
+  function initSdk() {
+    var rum = window.DD_RUM;
+    if (!rum) {
+      sdkState = 'failed';
+      clearQueue();
+      return;
+    }
+    rum.init({
+      applicationId: config.applicationId,
+      clientToken: config.clientToken,
+      site: SITE,
+      service: config.service,
+      env: config.env,
+      version: config.version,
+      proxy: window.location.origin + INTAKE_PATH,
+      sessionSampleRate: config.sessionSampleRate,
+      sessionReplaySampleRate: 0,
+      // Automatic click actions are named from element text, which here
+      // includes user-owned values (profile name, recipe and cookbook
+      // names). The readout needs only the explicit custom actions.
+      trackUserInteractions: false,
+      trackResources: true,
+      trackLongTasks: true,
+      defaultPrivacyLevel: 'mask',
+      sessionPersistence: 'local-storage',
+      beforeSend: beforeSend,
+    });
+    rum.setGlobalContextProperty('launch', landing);
+    sdkState = 'ready';
+    flushQueue();
   }
 
   // Actions raised before /rum/config answers (config === null) are queued
@@ -433,18 +449,73 @@
     closeBanner(true);
     if (state === 'granted') {
       applyGrant(previous);
+      showNotice(state, true);
       return;
     }
     shutDown();
     // Reload only when denial is safely persisted (or a stale grant was
     // removed). If both operations are blocked, stay on this stopped,
     // fail-closed page instead of reactivating a stale grant on reload.
-    if (sdkState !== 'idle' && stored) window.location.reload();
+    // Reload also needs the one-shot confirmation stored, or the withdrawal
+    // would go unconfirmed; shutDown() has already stopped collection, so
+    // staying on this page and confirming here is just as safe.
+    if (sdkState !== 'idle' && stored && writeStore(sessionStore, NOTICE_KEY, state)) {
+      window.location.reload();
+      return;
+    }
+    showNotice(state, true);
+  }
+
+  // Confirm the choice after the banner closes, so a click is never silent.
+  // A polite status region, removed after a few seconds; it holds no controls,
+  // so it needs no focus management. The region is mounted EMPTY and filled in
+  // a later task: screen readers announce changes to a live region that
+  // already exists, and can miss text present when the region is inserted.
+  // `withHint` adds the footer instruction, which only makes sense while the
+  // "Analytics choice" control is shown (RUM enabled).
+  var NOTICE_FILL_DELAY = 100;
+  var notice = null;
+  function showNotice(state, withHint) {
+    if (!document.body) return;
+    if (notice && notice.parentNode) notice.parentNode.removeChild(notice);
+    notice = document.createElement('div');
+    notice.setAttribute('role', 'status');
+    notice.setAttribute('data-analytics-notice', '');
+    notice.style.cssText =
+      'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;max-width:420px;' +
+      'margin:0 auto;padding:10px 14px;background:#1c1917;color:#fafaf9;border-radius:10px;' +
+      'box-shadow:0 4px 16px rgba(0,0,0,.18);font:14px/1.4 system-ui,sans-serif;text-align:center;';
+    var text =
+      (state === 'granted' ? 'Analytics allowed.' : 'Analytics off.') +
+      (withHint ? ' Change it any time from "Analytics choice" in the footer.' : '');
+    document.body.appendChild(notice);
+    var shown = notice;
+    if (typeof window.setTimeout !== 'function') {
+      shown.textContent = text;
+      return;
+    }
+    window.setTimeout(function () {
+      if (!shown.parentNode) return;
+      // Another tab may have changed consent since the region was mounted:
+      // never announce a choice that is no longer in effect, either way.
+      var nowGranted = consentState() === 'granted';
+      if ((state === 'granted') !== nowGranted) {
+        shown.parentNode.removeChild(shown);
+        if (notice === shown) notice = null;
+        return;
+      }
+      shown.textContent = text;
+      window.setTimeout(function () {
+        if (shown.parentNode) shown.parentNode.removeChild(shown);
+        if (notice === shown) notice = null;
+      }, 5000);
+    }, NOTICE_FILL_DELAY);
   }
 
   function applyGrant(previous) {
     writeStore(sessionStore, LANDING_KEY, JSON.stringify(landing));
-    if (sdkState === 'ready' && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
+    var sdkPresent = sdkState === 'ready' || sdkState === 'cancelled';
+    if (sdkPresent && window.DD_RUM && window.DD_RUM.setTrackingConsent) {
       // Re-allowed on a page where it was withdrawn without a reload. Restore
       // SDK consent FIRST: actions added while it is 'not-granted' are dropped.
       window.DD_RUM.setTrackingConsent('granted');
@@ -509,7 +580,9 @@
     window.addEventListener('storage', onStorage);
   }
 
-  function makeButton(label, onClick, primary) {
+  // `selected` is null before any choice; otherwise true for the button
+  // matching the stored choice, which gets aria-pressed and a visible ring.
+  function makeButton(label, onClick, primary, selected) {
     var b = document.createElement('button');
     b.type = 'button';
     b.textContent = label;
@@ -517,7 +590,23 @@
       'margin:0 0 0 8px;padding:6px 14px;border-radius:6px;font:inherit;cursor:pointer;' +
       (primary
         ? 'background:#166534;color:#fff;border:1px solid #166534;'
-        : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;');
+        : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;') +
+      // Selection ring as box-shadow, not outline: an inline outline would
+      // replace the native focus outline on the selected button.
+      (selected ? 'box-shadow:0 0 0 2px #fafaf9,0 0 0 5px #ca8a04;font-weight:600;' : '');
+    if (selected !== null) b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    if (selected) {
+      // A visible text marker, not only a ring: on reopen, focus goes to
+      // "No thanks" (fail-closed), so after a grant two buttons carry rings and
+      // the ring alone cannot say which one is the choice. Hidden from screen
+      // readers, which already hear "pressed" from aria-pressed.
+      var tag = document.createElement('span');
+      tag.setAttribute('aria-hidden', 'true');
+      tag.setAttribute('data-analytics-selected', '');
+      tag.textContent = ' \u2713 current';
+      tag.style.cssText = 'font-size:12px;font-weight:700;';
+      b.appendChild(tag);
+    }
     if (!primary) b.setAttribute('data-analytics-deny', '');
     b.addEventListener('click', onClick);
     return b;
@@ -526,8 +615,7 @@
   function showBanner() {
     if (!config || !config.enabled || banner || !document.body) return;
     var state = consentState();
-    var status =
-      state === 'granted' ? ' Analytics is on.' : state === 'denied' ? ' Analytics is off.' : '';
+    var chosen = state === 'granted' || state === 'denied';
     banner = document.createElement('div');
     banner.setAttribute('role', 'region');
     banner.setAttribute('aria-label', 'Analytics choice');
@@ -542,9 +630,7 @@
     text.appendChild(
       document.createTextNode(
         'May we measure page speed and which recipes get saved? Via Datadog, only if you allow it: ' +
-          'no ads, no screen recording.' +
-          status +
-          ' '
+          'no ads, no screen recording. '
       )
     );
     var link = document.createElement('a');
@@ -565,7 +651,8 @@
         function () {
           choose('denied');
         },
-        false
+        false,
+        chosen ? state === 'denied' : null
       )
     );
     actions.appendChild(
@@ -574,9 +661,21 @@
         function () {
           choose('granted');
         },
-        true
+        true,
+        chosen ? state === 'granted' : null
       )
     );
+    if (chosen) {
+      // Reopened from "Analytics choice": say plainly what is in effect, on
+      // its own line, not only through the button styling.
+      var current = document.createElement('p');
+      current.setAttribute('data-analytics-current', '');
+      current.style.cssText = 'margin:0;flex:1 1 100%;font-weight:600;';
+      current.textContent =
+        'Your current choice: ' +
+        (state === 'granted' ? 'analytics allowed.' : 'no analytics ("No thanks").');
+      banner.appendChild(current);
+    }
     banner.appendChild(text);
     banner.appendChild(actions);
     document.body.appendChild(banner);
@@ -682,7 +781,24 @@
   }
 
   function start() {
-    if (typeof window.fetch !== 'function') return;
+    // The withdrawal confirmation is one-shot: read and delete it before
+    // anything can return early (no fetch, config failed or disabled), and
+    // whatever its value, so it never lingers for a later visit.
+    var pendingNotice = readStore(sessionStore, NOTICE_KEY);
+    // One-shot means it must actually be gone: if removal fails, do not replay,
+    // or every later page load in this tab would repeat it.
+    var consumed = pendingNotice !== null && removeStore(sessionStore, NOTICE_KEY);
+    // Only a withdrawal reloads, so 'denied' is the one value honoured, and
+    // only while consent is still not granted (another tab may have granted
+    // it since).
+    var replayDenial = consumed && pendingNotice === 'denied';
+    function confirmWithdrawal(withHint) {
+      if (replayDenial && consentState() !== 'granted') showNotice('denied', withHint);
+    }
+    if (typeof window.fetch !== 'function') {
+      confirmWithdrawal(false);
+      return;
+    }
     window
       .fetch(CONFIG_URL, { credentials: 'same-origin' })
       .then(function (res) {
@@ -695,9 +811,12 @@
         config = cfg && cfg.enabled ? cfg : { enabled: false };
         if (!config.enabled) {
           clearQueue();
+          // The footer control stays hidden, so no instruction to use it.
+          confirmWithdrawal(false);
           return;
         }
         revealSettingsControls();
+        confirmWithdrawal(true);
         var state = consentState();
         if (state === 'granted') {
           if (grantPendingConfig) {

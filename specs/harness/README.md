@@ -19,7 +19,7 @@ that name T10 and T11 are the charter-day record, not instructions.
 ### How the run is driven
 
 The pinned `loop_controller.py` runs one plan strictly in list order, drops lane and
-gate metadata at `init`, and keeps one global iteration counter. A single 21-task state
+gate metadata at `init`, and keeps one global iteration counter. A single 22-task state
 could not run the lanes in parallel or enforce charter D6 (3 attempts per task, 12
 iterations per goal, WIP ≤ 3). So the plan is the **source of task definitions** and
 `sprint10_driver.py` decides what may start:
