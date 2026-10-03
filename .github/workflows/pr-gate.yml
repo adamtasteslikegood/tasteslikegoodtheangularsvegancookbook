@@ -389,6 +389,60 @@ jobs:
       - name: Assert the KAN/RCP sprint lane
         run: bash scripts/pm/check_sprint_lane.sh
 
+  # Every secret a workflow references must exist (KAN-300). A missing one does
+  # not fail at review time: the expression silently evaluates to an empty
+  # string and the workflow breaks later, or quietly does less.
+  #
+  # The workflow token cannot list secret names, so presence is tested per name:
+  # each line in the marked block below exports only 'true' or 'false', never a
+  # value. scripts/audit/check_workflow_secrets.py fails if the block and the
+  # workflow references ever disagree, in either direction; regenerate the block
+  # with its --emit-block mode. GITHUB_TOKEN is the one exemption, by exact name.
+  workflow-secrets:
+    name: Workflow secrets — referenced names are configured
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Unit tests for the secrets check
+        run: python3 -m unittest scripts/audit/test_check_workflow_secrets.py
+      # Needs no secrets, so it runs on every PR, Dependabot and forks included.
+      - name: Presence block matches the workflow references
+        run: python3 scripts/audit/check_workflow_secrets.py --static
+      # Skipped where presence cannot be observed. A Dependabot-triggered run
+      # sees the Dependabot secret store (empty here) instead of the Actions
+      # store, and a fork PR sees no secrets at all, so every name would read
+      # 'false' and block the PR for a reason that has nothing to do with it.
+      # Both Dependabot tests are kept for the re-run reason given on sprint-lane.
+      - name: Every referenced secret is configured
+        if: >-
+          github.event.pull_request.head.repo.full_name == github.repository
+          && github.actor != 'dependabot[bot]'
+          && github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          # secret-presence: begin
+          SECRET_PRESENT_ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          SECRET_PRESENT_ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN != '' }}
+          SECRET_PRESENT_ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL != '' }}
+          SECRET_PRESENT_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+          SECRET_PRESENT_COPILOT_GITHUB_TOKEN: ${{ secrets.COPILOT_GITHUB_TOKEN != '' }}
+          SECRET_PRESENT_GCP_POSTURE_SERVICE_ACCOUNT: ${{ secrets.GCP_POSTURE_SERVICE_ACCOUNT != '' }}
+          SECRET_PRESENT_GCP_POSTURE_WIF_PROVIDER: ${{ secrets.GCP_POSTURE_WIF_PROVIDER != '' }}
+          SECRET_PRESENT_GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID != '' }}
+          SECRET_PRESENT_GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT != '' }}
+          SECRET_PRESENT_GCP_STAGING_SERVICE_ACCOUNT: ${{ secrets.GCP_STAGING_SERVICE_ACCOUNT != '' }}
+          SECRET_PRESENT_GCP_STAGING_WIF_PROVIDER: ${{ secrets.GCP_STAGING_WIF_PROVIDER != '' }}
+          SECRET_PRESENT_GCP_WORKLOAD_IDENTITY_PROVIDER: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER != '' }}
+          SECRET_PRESENT_GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY != '' }}
+          SECRET_PRESENT_GH_AW_GITHUB_MCP_SERVER_TOKEN: ${{ secrets.GH_AW_GITHUB_MCP_SERVER_TOKEN != '' }}
+          SECRET_PRESENT_GH_AW_GITHUB_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN != '' }}
+          SECRET_PRESENT_JUNIE_API_KEY: ${{ secrets.JUNIE_API_KEY != '' }}
+          SECRET_PRESENT_QODANA_CONFIGURATIONS_TOKEN: ${{ secrets.QODANA_CONFIGURATIONS_TOKEN != '' }}
+          # secret-presence: end
+        run: python3 scripts/audit/check_workflow_secrets.py --env
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -411,6 +465,7 @@ jobs:
       - posture-check-self-test
       - release-train
       - sprint-lane
+      - workflow-secrets
     if: always()
     runs-on: ubuntu-latest
     steps:

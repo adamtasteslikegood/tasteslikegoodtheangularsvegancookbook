@@ -2,8 +2,8 @@
 
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
-_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · charter row **RCP-99**
-_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
+_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · **RCP-120** (S20) · charter row **RCP-99**
+_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
 _Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
@@ -26,28 +26,30 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 18 SIs (11 chartered + S12–S16 added 2026-09-29 + S17–S18 added 2026-09-30)
+## Committed scope — 17 SIs (20 committed; S10, S11 and S18 carried to RCP-119 on 2026-10-01)
 
-| SI      | Grill # | Lane           | Summary                                                                                   | KAN     | Acceptance |
-| ------- | ------- | -------------- | ----------------------------------------------------------------------------------------- | ------- | ---------- |
-| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                             | KAN-268 | RCP-98     |
-| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 72 h before launch (was 7 days, 2026-09-30) | KAN-292 | RCP-101    |
-| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                               | KAN-293 | RCP-102    |
-| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                       | KAN-181 | RCP-103    |
-| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                           | KAN-294 | RCP-104    |
-| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                            | KAN-295 | RCP-105    |
-| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                             | KAN-296 | RCP-106    |
-| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                                   | KAN-297 | RCP-107    |
-| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`               | KAN-298 | RCP-108    |
-| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric       | KAN-277 | RCP-109    |
-| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates                                          | KAN-299 | RCP-110    |
-| **S12** | —       | Process        | Workflow `secrets.*` references gated against `gh secret list`, wired into `pr-gate.yml`  | KAN-300 | RCP-111    |
-| **S13** | —       | Process        | CLAUDE.md PR lifecycle: read `pulls/<n>/reviews` bodies in full (suppressed findings)     | KAN-301 | RCP-112    |
-| **S14** | —       | Process        | Delete the copied required-checks list from CLAUDE.md; name the live rulesets command     | KAN-302 | RCP-113    |
-| **S15** | —       | Process        | Pre-work branch preflight: commits-behind `origin/dev` + Backend-pointer ancestry         | KAN-303 | RCP-114    |
-| **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                      | KAN-304 | RCP-115    |
-| **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)             | KAN-307 | RCP-116    |
-| **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars                               | KAN-309 | RCP-117    |
+| SI      | Grill # | Lane           | Summary                                                                                                                    | KAN     | Acceptance |
+| ------- | ------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- | ---------- |
+| **S1**  | 1       | Gates          | Flask Valkey IAM auth fix · **non-droppable**                                                                              | KAN-268 | RCP-98     |
+| **S2**  | 2       | Gates          | Datadog RUM behind consent, SPA + SSR; live ≥ 72 h before launch (was 7 days, 2026-09-30)                                  | KAN-292 | RCP-101    |
+| **S3**  | 3       | Gates          | Mobile LCP ≤ 2.5 s on `/r` and `/browse`, measured after S1                                                                | KAN-293 | RCP-102    |
+| **S4**  | 5       | Gates          | KAN-181 INV-1…INV-9 re-walked on current production                                                                        | KAN-181 | RCP-103    |
+| **S5**  | 6       | UI consistency | Header and footer nav parity across SPA and SSR                                                                            | KAN-294 | RCP-104    |
+| **S6**  | 7       | UI consistency | Visible breadcrumbs in the SPA                                                                                             | KAN-295 | RCP-105    |
+| **S7**  | 8       | UI consistency | Numbered pagination on `/browse` and tag hubs                                                                              | KAN-296 | RCP-106    |
+| **S8**  | 9       | UI consistency | Mobile 2-up card layout                                                                                                    | KAN-297 | RCP-107    |
+| **S9**  | 10      | UI consistency | Filter/sort: Kitchen client-side; `/browse?sort&tag` canonical to `/browse`                                                | KAN-298 | RCP-108    |
+| **S10** | 13      | Distribution   | Owned-property links audited and completed + 3–5 articles under the grill Q6 rubric · **Carried to RCP-119 (2026-10-01).** | KAN-277 | RCP-109    |
+| **S11** | 14      | Distribution   | Launch post — last, behind the four launch gates · **Carried to RCP-119 (2026-10-01).**                                    | KAN-299 | RCP-110    |
+| **S12** | —       | Process        | Workflow `secrets.*` references gated against `gh secret list`, wired into `pr-gate.yml`                                   | KAN-300 | RCP-111    |
+| **S13** | —       | Process        | CLAUDE.md PR lifecycle: read `pulls/<n>/reviews` bodies in full (suppressed findings)                                      | KAN-301 | RCP-112    |
+| **S14** | —       | Process        | Delete the copied required-checks list from CLAUDE.md; name the live rulesets command                                      | KAN-302 | RCP-113    |
+| **S15** | —       | Process        | Pre-work branch preflight: commits-behind `origin/dev` + Backend-pointer ancestry                                          | KAN-303 | RCP-114    |
+| **S16** | —       | Process        | CLAUDE.md CI section: platform-vs-code discriminator                                                                       | KAN-304 | RCP-115    |
+| **S17** | —       | Added          | Express trusts the ALB hops: `req.ip` is the visitor (rate limiters, RUM geo)                                              | KAN-307 | RCP-116    |
+| **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars · **Carried to RCP-119 (2026-10-01).**                         | KAN-309 | RCP-117    |
+| **S19** | —       | Added          | Valkey IAM token refresh on the request path, not a CPU-starved background thread                                          | KAN-318 | RCP-118    |
+| **S20** | —       | Added          | Breadcrumbs stay on their own side of auth; in-app trail My Kitchen / cookbook / recipe; routable `/kitchen/:cookbookId`   | KAN-321 | RCP-120    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
@@ -63,11 +65,43 @@ product grill's scope table, kept so either document can be read against the oth
   rather than collecting a baseline. It starts once the KAN-307 / KAN-292 User-Agent patch is
   live, so sessions carry geo and device.
 - **WIP soak rule.** A task whose work is recorded and whose only remaining evidence is a time
-  window (S1's 24 h Datadog window, S2's 72 h) holds no WIP slot while it waits
-  (`sprint10_driver.py soak`). Only tasks the plan declares time-window-only
-  (`soak_window_hours`: T1, T2) may soak, and never past that window. A soaked task never
+  window (S1's 24 h Datadog window, S2's 72 h, or S19's 24 h Datadog window) holds no
+  WIP slot while it waits (`sprint10_driver.py soak`). Only tasks the plan declares
+  time-window-only (`soak_window_hours`: T1, T2, T20) may soak, and never past that window. A soaked task never
   counts; when its window ends it re-enters only through a locked `resume` when a slot is
   free, and new starts wait behind it. WIP stays 3 for active work and can never exceed it.
+
+### Mid-sprint change — 2026-10-01 (Adam)
+
+- **S19 (KAN-318)** added: the v0.5.5 diagnostics (Backend #346, on KAN-268) show the
+  scheduled Valkey token refresh took 5,500 ms wall for 27 ms thread CPU. Backend #348
+  documents that child I/O spans and `_lock` contention must be removed before attributing the
+  remaining wall-time residual to CPU starvation; closing local sockets alone took 299 ms. The
+  refresh moves onto the request path (request CPU, milliseconds), and the background thread
+  stays only as an idle safety net. Always-on CPU stays rejected.
+- **Scope frozen after S19 (Adam, 2026-10-01).** Anything new goes to the next sprint. The
+  only exception is a level-1 production service interruption (site or a core flow down for
+  visitors), which is fixed in-sprint and recorded here as a mid-sprint change.
+- **Split (Adam, 2026-10-01): S10, S11 and S18 carried to epic RCP-119.** Articles, the
+  owned-property links (KAN-311/312/313) and the Pinterest pin move to a later sprint, and the
+  launch post (S11) goes with them because it depends on S10. KAN-306, the orphaned
+  Generator-save bug, goes too, back to To Do. All left sprint 85 and the `sprint-10` label;
+  the hard gate's `CARRIED` map records them and the harness tasks T10, T11 and T19 are
+  waived with this reason. Sprint 10 keeps **16 SIs** and puts its effort on the Valkey work
+  (S1, S19), the soak and data windows (S1, S2, S3) and the process rows (S12–S16), the work
+  the retros show deferred almost every sprint. The UI rows (S7–S9) stay: they are small,
+  they overlap the Semrush audit findings, and they are work to do while the data windows run.
+  Anything still To Do or blocking the close is revisited once the time-dependent items are
+  Done, since the close gates Sprint 11's start.
+- **S20 (KAN-321) added by Adam, 2026-10-01, as an explicit exception to the freeze.** S6's
+  breadcrumbs met their ACs but cross the auth boundary in production: the signed-in recipe
+  page showed the public trail (Home / Browse / hub), whose crumbs land on the public side and
+  never lead back, and Adam looped through them by instinct. Rule: breadcrumbs stay on their
+  own side of auth. In-app trails are My Kitchen / cookbook / recipe, and cookbooks become
+  routable (`/kitchen/:cookbookId`), retiring the "only 2-3 views, no routes" design. Public SSR
+  trails are unchanged. KAN-295 stays Done; S20 is the follow-up, harness task T21 (lane E,
+  after T6). Because S8 also changes `/kitchen`, T8 waits for T21 rather than overlapping it;
+  S20 goes first because Adam asked for it as soon as possible.
 
 ### S12–S16 were added at charter — 2026-09-29
 
@@ -199,20 +233,21 @@ _"It is three weeks from now and Sprint 10 failed. Why?"_
 
 WIP ≤ 3, one session per lane:
 
-| Lane             | SIs, in order                                           | Surface                                                             |
-| ---------------- | ------------------------------------------------------- | ------------------------------------------------------------------- |
-| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2) |
-| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                         |
-| C — Distribution | S10 through the sprint → S11 last                       | Off-site; no repo conflicts                                         |
-| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                            |
+| Lane             | SIs, in order                                           | Surface                                                              |
+| ---------------- | ------------------------------------------------------- | -------------------------------------------------------------------- |
+| A — Gates        | S1 → S3 → S4; S2 in parallel                            | Backend (S1), `index.html`/SSR base + `server/security.ts` CSP (S2)  |
+| B — UI           | S5 → S6 → S7 → S8 → S9                                  | SPA shell + SSR templates, serial by design                          |
+| C — Distribution | **Carried to RCP-119** (was S10 → S11 last)             | Off-site; no repo conflicts                                          |
+| D — Process      | S14 → S13 → S16 (CLAUDE.md, serial); S15, S12 (scripts) | CLAUDE.md, `scripts/git/`, `pr-gate.yml`                             |
+| E — Mid-sprint   | S17, S19, S20 (S18 carried to RCP-119)                  | Backend service and release train; SPA routing and breadcrumbs (S20) |
 
 ## Execution order
 
 1. **Day 1:** S1 (KAN-268) and S2 (RUM) start. S2's 7-day clock is the long pole.
 2. **Lane B** starts in parallel with S5, because nav parity touches every later UI item.
 3. **After S1 releases:** S3 is measured (flip R3), then S4 re-walks production.
-4. **S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).
-5. **S11** starts only when the four gates are Done.
+4. ~~**S10** ships deliverables as they are ready. KAN-277 is the parent; **every owned-property link and every article gets its own child KAN row** (see S10 acceptance below).~~ **Carried to RCP-119 on 2026-10-01: do not start.**
+5. ~~**S11** starts only when the four gates are Done.~~ **Carried to RCP-119 with S10: do not start.**
 6. **S12–S16** fill WIP slack. S15 (the preflight) goes first, because it protects every later branch.
 
 ## Acceptance criteria
@@ -220,7 +255,7 @@ WIP ≤ 3, one session per lane:
 Each SI's acceptance lives on its RCP row, which is authoritative. The summaries below
 are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 
-- **S1 / RCP-98:** Backend fix merged, promoted, pinned, released; Datadog production 24 h: `redis.command` error rate < 1 %, in-request `redis.command` GET p95 < 50 ms (amended 2026-10-01 from PING p50 < 50 ms: every PING is a background token-refresh root span, CPU-throttled between requests; Adam chose this over always-on CPU), image p95 < 2 s; root cause written on KAN-268.
+- **S1 / RCP-98:** Backend fix merged, promoted, pinned, released; Datadog production 24 h: `redis.command` error rate < 1 %, in-request `redis.command` GET p95 < 50 ms over **at least 200 GETs** in the window (amended 2026-10-01 from PING p50 < 50 ms: every PING is a background token-refresh root span, CPU-throttled between requests; Adam chose this over always-on CPU. 200-GET minimum added 2026-10-01 by Adam: the prior 24 h had 32 GETs, where p95 is the second-slowest sample; a window short of 200 is extended, not graded), image p95 < 2 s; root cause written on KAN-268.
 - **S2 / RCP-101:** zero RUM requests before consent (unit test + production network capture); RUM sessions visible for SPA and SSR views; **CSP admits RUM narrowly:** today `server/security.ts` pins `connect-src` to `'self'` and `script-src` to `'self'` plus one hash, so RUM is blocked until S2 changes it. Either route intake through a same-origin proxy (Datadog's `proxy` option, `connect-src` stays `'self'`) or add only the exact us5 intake host to `connect-src`; the SDK is bundled or served same-origin (no third-party `script-src`, no `'unsafe-inline'`). A real-browser production capture shows zero CSP violations after consent on one SPA and one SSR route. On SSR pages RUM is a single same-origin script, the only JS those pages carry. **Custom actions:** recipe view and save-to-Kitchen (the recipes-kept and view → save numerators) plus launch-referral attribution (referrer/UTM on the session), each seen in the RUM explorer **before the 7-day clock starts**, since that week is the readout baseline. ≥ 7 consecutive days live before S11.
 - **S3 / RCP-102:** Lighthouse 12 mobile slow-4G LCP ≤ 2.5 s on `/r/<slug>`, `/browse`, `/`, measured on the release that includes S1.
 - **S4 / RCP-103:** INV-1…INV-9 each walked on current production, with pass/fail and evidence per invariant on KAN-181; any failure filed as its own bug.
@@ -229,13 +264,15 @@ are for reading, not for closing. A row closes AC by AC, with evidence per AC.
 - **S7 / RCP-106:** SSR numbered `?page=N` anchors, self-canonical per page, out-of-range behaviour decided and tested.
 - **S8 / RCP-107:** two cards per row at 360 and 414 px on `/browse`, a tag hub and `/kitchen`, with no horizontal scroll; S3 LCP not regressed.
 - **S9 / RCP-108:** Kitchen filter/sort works; `/browse?sort&tag` returns 200 with `rel=canonical` to `/browse`; `/browse/tag/<tag>` keeps its own canonical.
-- **S10 / RCP-109:** KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled `sprint-10` and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` is only a partial guard: for open `sprint-10` KAN rows it requires a link to some RCP row, but it does not enumerate Done children or prove that the link is specifically RCP-109. The complete check happens when RCP-109 closes: its comment must list every child key against the owned-property audit, confirm each child's RCP-109 relationship and Done evidence, and show the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
-- **S11 / RCP-110:** four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
+- **S10 / RCP-109** _(carried to RCP-119; kept for the next charter)_: KAN-277 is the **parent**. The owned-property audit lists every property, and **each missing link and each article gets its own child KAN row**, labelled with the destination sprint's label once RCP-119 is chartered (not `sprint-10`) and Relates-linked to both KAN-277 and RCP-109. The README link shipped in v0.5.0 does not count. Per child: the source contains the link and the link resolves 200 to the canonical URL; articles also carry the completed Q6 rubric. S10 is complete only when the audit is complete, every missing link is shipped or explicitly dispositioned, and 3–5 articles pass Q6. **How the child set is verified:** `check_sprint_lane.sh` is only a partial guard: for open `sprint-10` KAN rows it requires a link to some RCP row, but it does not enumerate Done children or prove that the link is specifically RCP-109. The complete check happens when RCP-109 closes: its comment must list every child key against the owned-property audit, confirm each child's RCP-109 relationship and Done evidence, and show the JQL `issue in linkedIssues(RCP-109) AND project = KAN AND statusCategory != Done` returning nothing (KAN-277 included). The hard gate sees only the parent, so it is not the check for children.
+- **S11 / RCP-110** _(carried to RCP-119; kept for the next charter)_: four gate rows Done before posting; post URL(s) recorded; readout written 7 days later against the table above.
 - **S12 / RCP-111:** a check extracts `secrets\.[A-Za-z0-9_]+` references from the workflows, exempts the built-in `GITHUB_TOKEN` (created per run and never listed by `gh secret list`) by exact name, diffs the rest against `gh secret list`, is wired into `pr-gate.yml` and `gate.needs`, and has been seen to fail once for the reason it exists.
 - **S13 / RCP-112:** CLAUDE.md's PR lifecycle requires reading `pulls/<n>/reviews` bodies in full before a PR is declared review-debt-zero.
 - **S14 / RCP-113:** CLAUDE.md enumerates no required-check list; it names `gh api repos/{owner}/{repo}/rulesets` as the source of truth.
 - **S15 / RCP-114:** one `scripts/git/` preflight reports commits-behind `origin/dev` and fails on a Backend-pointer rollback; seen to fail on a stale branch and pass on a fresh one; referenced from the session-start steps.
 - **S16 / RCP-115:** CLAUDE.md's CI section documents the platform-vs-code discriminator with its two API calls.
+- **S19 / RCP-118:** Backend PR merged, promoted, pinned, released, with tests for the inline refresh within the margin, single-flight under concurrency, the idle safety net, and the #344/#348 unchanged/failed-PING semantics; Datadog production 24 h: for request-triggered `valkey.token_refresh` spans, the `wall_ms - thread_cpu_ms` gap is explained by the `valkey.token_fetch`, `valkey.pool_disconnect`, and `valkey.ping` child-span durations, lock contention/concurrent refresh is ruled out, and any remaining residual is small; the RCP-98 bar holds (in-request GET p95 < 50 ms over ≥ 200 GETs, error rate < 1 %); results on KAN-268.
+- **S20 / RCP-120:** no in-app breadcrumb links outside `/kitchen` and `/recipe` (component tests); `/kitchen/:cookbookId` selects on load, reload and back/forward; a recipe opened from a cookbook trails back to it; public SSR trails unchanged; production walk recorded.
 
 ## Sprint 9 retro actions — row-by-row disposition
 

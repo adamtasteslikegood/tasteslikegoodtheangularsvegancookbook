@@ -46,13 +46,17 @@ Both options base the branch on `origin/dev` (not local `dev`) to guarantee fres
 
 **Unresolved review threads block the merge** (`required_review_thread_resolution`). Answer and resolve every thread, or the PR sits at `BLOCKED` with all checks green.
 
-Required status checks are the **union of legacy branch protection and the rulesets** — both are enforced:
+Required status checks are the **union of legacy branch protection and the rulesets**. Both are enforced, and both change, so this file deliberately lists no check names: a copied list here went stale and was then trusted (KAN-302). Read the live state for the branch you are merging into:
 
-- branch protection (`dev` + `main`): `Gate — all checks passed`, `Analyze (javascript-typescript)`, `Dependency Review`
-- ruleset `protect-main` (`main`): `Gate — all checks passed`, `Frontend — lint + format`, `Frontend / main repo checks`, `GitGuardian Security Checks`, `SEO — canonical recipes`
-- ruleset `rule222` (`dev`): the above plus `CodeQL`, `Dependency Review`, `Independent Claude review`
+```bash
+target_branch=dev  # or main
+gh api repos/{owner}/{repo}/rulesets                                  # which rulesets exist
+gh api "repos/{owner}/{repo}/rules/branches/${target_branch}" \
+  --jq '.[] | select(.type=="required_status_checks") | .parameters.required_status_checks[].context'
+gh api "repos/{owner}/{repo}/branches/${target_branch}/protection/required_status_checks" --jq '.contexts[]'
+```
 
-Read the live state rather than trusting this list: `gh api repos/{owner}/{repo}/rulesets`.
+The required set is everything the last two commands print.
 
 ### Run checks locally before pushing
 
@@ -198,7 +202,7 @@ In production all secrets come from Google Secret Manager, injected at Cloud Run
 
 ## Branching strategy
 
-Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18; for the current required checks and merge methods see **Branch protection — what it means for you** above (rulesets were last changed 2026-08-25 — read them live, do not trust a copied list).
+Both this repo and the `Backend/` submodule follow: `main` (release) ← `dev` (integration) ← `feat/*`/`fix/*`/`chore/*` (short-lived). Never commit directly to `main` or `dev`. Branch protection enforced since 2026-07-18; for the current required checks and merge methods see **Branch protection — what it means for you** above (read them live with the commands there; do not trust a copied list).
 
 To ship a Backend change:
 
@@ -220,6 +224,7 @@ Opening a PR is not the end of the task. Every PR you author, or are actively wo
 
 - **Jira key in the title (REQUIRED).** Every PR title — in this repo AND in `Backend/` — must contain the Jira issue key (`KAN-###` or `RCP-###`), e.g. `feat(seo): SSR crawlable links on home shell (TAS-2896) [KAN-114]`. Jira's GitHub integration links PRs/branches/commits to an issue by scanning for the key in the PR title; a Linear `TAS-####` key alone does NOT create the Jira link. Put the key in the branch name and commit messages too where practical. If no Jira issue exists for the work, file one first.
 - **Monitor it.** While the PR is open, check for new review comments, inline comments, and failing checks (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`, `gh pr checks <n>`). Re-check whenever you return to the PR and before declaring any related work done — a PR with unaddressed feedback is not finished.
+- **Read review bodies in full before calling a PR review-debt zero.** Before you merge, or report a PR as having no unanswered feedback, read every review body in full, not only the inline threads: `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | "\(.user.login) \(.submitted_at)\n\(.body)\n"'`. Keep `--paginate`: the endpoint returns 30 reviews per page, so without it a busy PR's older bodies are never read. Copilot puts real findings only in the review body, under **Suppressed comments** or **Previously missed**. Those never become threads, so `required_review_thread_resolution` goes green with them unanswered, and `gh pr view --comments` does not show them either. Treat each one like an inline comment: push a fix or post a rebuttal, as a PR comment, since there is no thread to reply in. On Sprint 10's #3577 and #3579, three real findings appeared only in review bodies.
 - **Answer every comment.** For each piece of reviewer feedback, do one of two things: push a fix commit and reply confirming what changed, or reply with a concrete technical rebuttal explaining why no change is needed. Never leave feedback unanswered or silently ignored. When you receive review feedback on a PR you own, you MUST invoke the `superpowers:receiving-code-review` skill BEFORE responding — verify each claim against the code first, so replies are grounded in the code rather than performative agreement (the superpowers plugin is enabled in `.claude/settings.json`). A non-blocking PreToolUse hook (`.claude/hooks/pretooluse-pr-review-nudge.sh`) reinforces this by reminding you right before you post a PR reply, but the skill invocation is on you — the hook is a backstop, not the gate.
 - **Persist review insights to Discussions.** When a PR review thread surfaces a non-trivial insight — a design trade-off, a recurring pattern, a "we should do X next" — search the repo's GitHub Discussions (`gh discussion list -R {owner}/{repo}`) for an existing thread on that topic. If one exists, add a comment linking back to the PR thread. If none exists, create a new Discussion (`gh discussion create -R {owner}/{repo} --category Ideas --title "..." --body "..."`) capturing the insight with a link to the PR for context. This ensures learnings outlive the PR merge — PR threads become invisible after merge, Discussions do not.
 - **Never write a bot's command text in a comment, not even in backticks.** Comments posted as Adam are commands to every bot that listens to the repo owner, and Woden DocBot matches its approval command anywhere in the text, code spans included. Three PR summaries that said DocBot was "waiting on" its command, quoting it in backticks, each started an unreviewed doc run that committed a `_docs/` tree onto the PR branch (#3546, #3549, #3552; on #3549 it rewrote `===` into `=`). Say "DocBot's approval command" instead, and do the same for any other bot's slash commands (KAN-310).
@@ -246,6 +251,22 @@ For full migration details: @Backend/DATABASE_SETUP.md
 Two Cloud Run services (`express-frontend`, `flask-backend`) plus one Job (`flask-backend-migrate`) in `us-central1`. Release flow: PR to `dev` → PR `dev`→`main` (bumps version + CHANGELOG) → `release.yml` creates tag → Cloud Build trigger (`^v[0-9]+\.[0-9]+\.[0-9]+$`) runs `cloudbuild.yaml`.
 
 PR gate (`.github/workflows/pr-gate.yml`): lint, TypeScript, build, Vitest+coverage, pytest, Docker image, CHANGELOG check, SEO canonical, all aggregated into `Gate — all checks passed` (required status check). Additional: CodeQL, Dependency Review.
+
+**A stuck or red run: platform or code? Read the jobs before the logs.** Two platform states look exactly like code failures from the PR view, and both cost real time in Sprint 8 (KAN-304):
+
+The endpoint forms are `gh run view <id> --json status,conclusion` and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs`. Set `run_id` to the affected run's ID, the number after `/actions/runs/` in its URL. Don't take "the newest run": a PR starts several workflows (PR Gate, CodeQL, Dependency Review, Prettier) and the newest may be an unrelated one. The jobs call is paginated so "every job" is true:
+
+```bash
+run_id=36901421963   # replace with the affected run's ID
+gh run view "$run_id" --json status,conclusion # the run as a whole
+gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100" \
+  --jq '.jobs[] | "\(.status) \(.conclusion) \(.name)"' # every job in it
+```
+
+- **All jobs `queued`, none started** means no code ran: an Actions outage or runner shortage, or a scheduling limit (repository concurrency, unavailable runner labels, account or billing limits). It is not a code failure. Check githubstatus.com, repository concurrency, runner availability, and account limits; wait when GitHub or runner capacity is the cause. Re-pushing or editing code does not diagnose a job that never ran.
+- **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval because the workflow's triggering actor is not a collaborator (here, Copilot review events triggering the Junie workflow; the policy holds any non-collaborator actor). Who authored the PR does not decide it. It has no logs because nothing ran. Identify the workflow and whether it is required or blocking; approve it in the Actions tab only when it is, and otherwise leave the non-required held run alone.
+
+For the two states above, diagnose the listed platform, scheduling, or approval causes. For any other conclusion where no job started, read the run annotations and inspect the workflow configuration first; startup and configuration errors can fail before a job exists. When a job did run and fail, read that job's logs.
 
 For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/deployment/DEPLOYMENT_CHECKLIST.md
 

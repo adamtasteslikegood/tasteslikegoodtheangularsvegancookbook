@@ -1,7 +1,7 @@
 import '@angular/compiler';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RecipeDetailComponent } from './recipe-detail.component';
 import { AuthService } from '../../services/auth.service';
@@ -11,15 +11,25 @@ import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
 import { ModalService } from '../../services/modal.service';
 
+const asParamMap = (params: Map<string, string>) =>
+  ({
+    keys: [...params.keys()],
+    has: (k: string) => params.has(k),
+    get: (k: string) => params.get(k) ?? null,
+    getAll: (k: string) => (params.has(k) ? [params.get(k)!] : []),
+  }) as unknown as Map<string, string>;
+
 describe('RecipeDetailComponent route load states (KAN-257)', () => {
   let toastShow: ReturnType<typeof vi.fn>;
   let routerNavigate: ReturnType<typeof vi.fn>;
   let paramSubject: Subject<Map<string, string>>;
+  let queryParamSubject: BehaviorSubject<Map<string, string>>;
 
   beforeEach(() => {
     toastShow = vi.fn();
     routerNavigate = vi.fn().mockResolvedValue(true);
     paramSubject = new Subject();
+    queryParamSubject = new BehaviorSubject(asParamMap(new Map()));
   });
 
   afterEach(() => {
@@ -32,6 +42,8 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       isGuest?: boolean;
       authReady?: Promise<void>;
       generateImage?: () => Promise<string>;
+      /** KAN-321: a reactive user, for hydration-order tests. */
+      currentUser?: () => unknown;
     } = {}
   ) => {
     const recipeState = runInInjectionContext(
@@ -47,13 +59,16 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       providers: [
         {
           provide: ActivatedRoute,
-          useValue: { paramMap: paramSubject.asObservable() },
+          useValue: {
+            paramMap: paramSubject.asObservable(),
+            queryParamMap: queryParamSubject.asObservable(),
+          },
         },
         { provide: Router, useValue: { navigate: routerNavigate } },
         {
           provide: AuthService,
           useValue: {
-            currentUser: () => authUser,
+            currentUser: opts.currentUser ?? (() => authUser),
             saveRecipe: vi.fn(),
             updateRecipeField: vi.fn(),
             // KAN-257: the route waits for the startup auth check before it
@@ -81,18 +96,26 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
     const geminiService = injector.get(GeminiService);
     const authService = injector.get(AuthService);
-    return { component, persistenceSaveRecipe, authUser, recipeState, geminiService, authService };
+    return {
+      component,
+      persistenceSaveRecipe,
+      authUser,
+      recipeState,
+      geminiService,
+      authService,
+      injector,
+    };
   };
 
   const emitId = (id: string) => {
-    const params = new Map([['id', id]]);
-    const paramMap = {
-      keys: ['id'],
-      has: (k: string) => params.has(k),
-      get: (k: string) => params.get(k) ?? null,
-      getAll: (k: string) => (params.has(k) ? [params.get(k)!] : []),
-    };
-    paramSubject.next(paramMap as unknown as Map<string, string>);
+    paramSubject.next(asParamMap(new Map([['id', id]])));
+  };
+
+  /** KAN-321: `?cookbook=<id>` from the Kitchen. */
+  const emitCookbookParam = (cookbookId: string | null) => {
+    queryParamSubject.next(
+      asParamMap(cookbookId ? new Map([['cookbook', cookbookId]]) : new Map())
+    );
   };
 
   // KAN-257: every one of these used to end in
@@ -707,10 +730,12 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     });
   });
 
-  // KAN-295: the visible breadcrumb. A published recipe's trail is its SSR
-  // BreadcrumbList, read from the public API; a private one runs through
-  // My Kitchen.
-  describe('breadcrumb trail (KAN-295)', () => {
+  // KAN-321: breadcrumbs stay on their own side of auth. The recipe page is
+  // the Kitchen's view of the recipe — published or not, its trail is
+  // My Kitchen [→ cookbook] → recipe and never the public SSR trail. These
+  // replace the KAN-295 tests that pinned Home / Browse / hub here: they
+  // encoded the bug (crumbs that led into /browse and never back).
+  describe('in-app breadcrumb trail (KAN-321)', () => {
     const row = (extra: Record<string, unknown> = {}) => ({
       id: 'r-1',
       status: 'ready',
@@ -719,225 +744,208 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       ...extra,
     });
     const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
-    const ssrTrail = [
-      { name: 'Home', url: 'https://www.tasteslikegood.org/' },
-      { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
-      {
-        name: 'Vegan Breakfast Recipes',
-        url: 'https://www.tasteslikegood.org/browse/tag/breakfast',
-      },
-      { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
-    ];
+    const IN_APP = /^\/kitchen(\/[^/]+)?$|^\/recipe\/[^/]+$/;
+    const weeknights = { id: 'cb-1', name: 'Weeknights', description: '', recipeIds: ['r-1'] };
+    const otherBook = { id: 'cb-2', name: 'Desserts', description: '', recipeIds: ['r-9'] };
 
-    it('shows the SSR trail, hub included, for a published recipe', async () => {
-      const fetchMock = vi.fn(async (url: string) =>
-        url.startsWith('/api/recipes/public/')
-          ? ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail })
-          : ok(row({ is_public: true, slug: 'tofu-scramble' }))
-      );
-      vi.stubGlobal('fetch', fetchMock);
-
-      const { component } = createComponent();
-      emitId('r-1');
-      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
-
-      expect(component.breadcrumbs()).toEqual([
-        { name: 'Home', url: '/' },
-        { name: 'Browse', url: '/browse' },
-        { name: 'Vegan Breakfast Recipes', url: '/browse/tag/breakfast' },
-        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
-      ]);
-      expect(fetchMock).toHaveBeenCalledWith('/api/recipes/public/tofu-scramble', {
-        credentials: 'include',
-      });
-    });
-
-    it('falls back to Home → Browse → recipe when the Backend sends no trail', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (url: string) =>
-          url.startsWith('/api/recipes/public/')
-            ? ok({ slug: 'tofu-scramble' })
-            : ok(row({ is_public: true, slug: 'tofu-scramble' }))
+    const load = async (opts: { published?: boolean; cookbook?: string | null } = {}) => {
+      const fetchMock = vi.fn(async (_url: string) =>
+        ok(
+          opts.published
+            ? row({ is_public: true, slug: 'tofu-scramble' })
+            : row({ is_public: false, slug: null })
         )
       );
-
-      const { component } = createComponent();
-      emitId('r-1');
-      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(component.breadcrumbs()).toEqual([
-        { name: 'Home', url: '/' },
-        { name: 'Browse', url: '/browse' },
-        { name: 'Tofu Scramble', url: '/r/tofu-scramble' },
-      ]);
-    });
-
-    it('keeps the fallback when the public trail request fails', async () => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn(async (url: string) => {
-          if (url.startsWith('/api/recipes/public/')) throw new TypeError('Failed to fetch');
-          return ok(row({ is_public: true, slug: 'tofu-scramble' }));
-        })
-      );
-
-      const { component } = createComponent();
-      emitId('r-1');
-      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(component.loadState()).toBe('ready');
-      expect(component.breadcrumbs().map((c) => c.name)).toEqual([
-        'Home',
-        'Browse',
-        'Tofu Scramble',
-      ]);
-    });
-
-    it('runs a private recipe through My Kitchen without asking the public API', async () => {
-      const fetchMock = vi.fn(async () => ok(row({ is_public: false, slug: null })));
       vi.stubGlobal('fetch', fetchMock);
-
-      const { component } = createComponent();
+      const ctx = createComponent();
+      (ctx.authUser as Record<string, unknown>).cookbooks = [weeknights, otherBook];
+      emitCookbookParam(opts.cookbook ?? null);
       emitId('r-1');
-      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await vi.waitFor(() => expect(ctx.component.loadState()).toBe('ready'));
+      return { ...ctx, fetchMock };
+    };
 
+    it('runs a recipe opened from All Recipes through My Kitchen', async () => {
+      const { component } = await load();
       expect(component.breadcrumbs()).toEqual([
-        { name: 'Home', url: '/' },
         { name: 'My Kitchen', url: '/kitchen' },
         { name: 'Tofu Scramble', url: '/recipe/r-1' },
       ]);
-      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    // Independent Claude review: guard against a late-arriving trail
-    // response for the previous slug overwriting the freshly-loaded one.
-    it('ignores a late public-trail response for the recipe the user has left', async () => {
-      let releaseTrailA: (value: unknown) => void = () => {};
-      const fetchMock = vi.fn(async (url: string) => {
-        if (url === '/api/recipes/public/slug-a') {
-          return new Promise((resolve) => {
-            releaseTrailA = resolve;
-          });
-        }
-        if (url === '/api/recipes/public/slug-b') {
-          return ok({ slug: 'slug-b', breadcrumbs: ssrTrail });
-        }
-        if (url === '/api/recipes/r-a') {
-          return ok(row({ id: 'r-a', is_public: true, slug: 'slug-a' }));
-        }
-        return ok(row({ id: 'r-b', is_public: true, slug: 'slug-b' }));
-      });
-      vi.stubGlobal('fetch', fetchMock);
-
-      const { component } = createComponent();
-      emitId('r-a');
-      await vi.waitFor(() => expect(component.recipe()?.slug).toBe('slug-a'));
-
-      emitId('r-b');
-      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
-      expect(component.breadcrumbs()[3]).toEqual({
-        name: 'Tofu Scramble',
-        url: '/r/tofu-scramble',
-      });
-
-      // Late answer for slug-a arrives after we've moved to slug-b.
-      releaseTrailA(ok({ slug: 'slug-a', breadcrumbs: ssrTrail }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(component.breadcrumbs()).toHaveLength(4);
-      expect(component.breadcrumbs()[3].url).toBe('/r/tofu-scramble');
+    it('names the source cookbook, linked to /kitchen/<id>', async () => {
+      const { component } = await load({ cookbook: 'cb-1' });
+      expect(component.breadcrumbs()).toEqual([
+        { name: 'My Kitchen', url: '/kitchen' },
+        { name: 'Weeknights', url: '/kitchen/cb-1' },
+        { name: 'Tofu Scramble', url: '/recipe/r-1' },
+      ]);
     });
 
-    it('invalidates an older trail request across same-slug unpublish and republish', async () => {
-      let releaseFirstTrail: (value: unknown) => void = () => {};
-      let publicCalls = 0;
-      const republishedTrail = [
-        { name: 'Home', url: 'https://www.tasteslikegood.org/' },
-        { name: 'Browse', url: 'https://www.tasteslikegood.org/browse' },
-        {
-          name: 'Updated Hub',
-          url: 'https://www.tasteslikegood.org/browse/tag/updated',
-        },
-        { name: 'Tofu Scramble', url: 'https://www.tasteslikegood.org/r/tofu-scramble' },
-      ];
-      const fetchMock = vi.fn(async (url: string) => {
-        if (url.startsWith('/api/recipes/public/')) {
-          publicCalls += 1;
-          if (publicCalls === 1) {
-            return new Promise((resolve) => {
-              releaseFirstTrail = resolve;
-            });
-          }
-          return ok({ slug: 'tofu-scramble', breadcrumbs: republishedTrail });
-        }
-        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
-      });
-      vi.stubGlobal('fetch', fetchMock);
+    it('ignores a cookbook param that does not hold this recipe', async () => {
+      const { component } = await load({ cookbook: 'cb-2' });
+      expect(component.sourceCookbook()).toBeNull();
+      expect(component.breadcrumbs().map((c) => c.url)).toEqual(['/kitchen', '/recipe/r-1']);
+    });
 
-      const { component } = createComponent();
-      emitId('r-1');
-      await vi.waitFor(() => expect(publicCalls).toBe(1));
+    it("ignores a cookbook param that is not one of the user's cookbooks", async () => {
+      const { component } = await load({ cookbook: 'someone-elses-book' });
+      expect(component.sourceCookbook()).toBeNull();
+      expect(component.breadcrumbs().map((c) => c.url)).toEqual(['/kitchen', '/recipe/r-1']);
+    });
 
-      const syncPublicTrail = () =>
-        (
-          component as unknown as {
-            syncPublicTrail: () => Promise<void>;
-          }
-        ).syncPublicTrail();
+    it('keeps a published recipe in-app: no /browse or /browse/tag crumbs, no trail fetch', async () => {
+      const { component, fetchMock } = await load({ published: true, cookbook: 'cb-1' });
+      await new Promise((resolve) => setTimeout(resolve, 0));
 
-      component.recipe.set({ ...component.recipe()!, is_public: false });
-      await syncPublicTrail();
-      expect(component.breadcrumbs().map((crumb) => crumb.name)).toEqual([
-        'Home',
+      expect(component.breadcrumbs().map((c) => c.name)).toEqual([
         'My Kitchen',
+        'Weeknights',
         'Tofu Scramble',
       ]);
-
-      component.recipe.set({ ...component.recipe()!, is_public: true });
-      await syncPublicTrail();
-      expect(publicCalls).toBe(2);
-      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
-
-      // The response from the publication that existed before unpublish must
-      // not overwrite the freshly fetched trail for the republished recipe.
-      releaseFirstTrail(ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(component.breadcrumbs()[2].name).toBe('Updated Hub');
+      for (const crumb of component.breadcrumbs()) {
+        expect(crumb.url).toMatch(IN_APP);
+        expect(crumb.url).not.toMatch(/^\/browse|^\/r\//);
+      }
+      // Only the row read; the SSR trail is never requested.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock.mock.calls.some(([url]) => String(url).includes('/public/'))).toBe(false);
     });
 
-    // Independent Claude review: a transient failure must not lock the
-    // slug into fallback forever — a re-navigation to the same slug retries.
-    it('retries the public-trail fetch after a transient failure', async () => {
-      let call = 0;
-      const fetchMock = vi.fn(async (url: string) => {
-        if (url.startsWith('/api/recipes/public/')) {
-          call += 1;
-          if (call === 1) throw new TypeError('Failed to fetch');
-          return ok({ slug: 'tofu-scramble', breadcrumbs: ssrTrail });
+    it('never links outside /kitchen or /recipe, whatever the entry point', async () => {
+      for (const opts of [
+        {},
+        { cookbook: 'cb-1' },
+        { cookbook: 'cb-2' },
+        { cookbook: 'bogus' },
+        { published: true },
+        { published: true, cookbook: 'cb-1' },
+      ]) {
+        const { component } = await load(opts);
+        for (const crumb of component.breadcrumbs()) {
+          expect(crumb.url, JSON.stringify(opts)).toMatch(IN_APP);
         }
-        return ok(row({ is_public: true, slug: 'tofu-scramble' }));
-      });
-      vi.stubGlobal('fetch', fetchMock);
+      }
+    });
 
-      const { component } = createComponent();
+    it('follows a cookbook param that changes on the same component', async () => {
+      const { component } = await load({ cookbook: 'cb-1' });
+      expect(component.sourceCookbook()?.id).toBe('cb-1');
+      emitCookbookParam(null);
+      expect(component.sourceCookbook()).toBeNull();
+    });
+
+    it('returns "Back to Kitchen" to the cookbook view it came from', async () => {
+      const { component } = await load({ cookbook: 'cb-1' });
+      await component.goBack();
+      expect(routerNavigate).toHaveBeenCalledWith(['/kitchen', 'cb-1']);
+    });
+
+    it('returns "Back to Kitchen" to All Recipes without a valid cookbook', async () => {
+      const { component } = await load({ cookbook: 'cb-2' });
+      await component.goBack();
+      expect(routerNavigate).toHaveBeenCalledWith(['/kitchen']);
+    });
+
+    it('waits for the first sync before dropping a not-yet-hydrated cookbook', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      const user = signal({
+        isGuest: false,
+        savedRecipes: [] as unknown[],
+        cookbooks: [] as unknown[],
+      });
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: user });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
       emitId('r-1');
       await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(component.breadcrumbs()).toHaveLength(3); // fallback
+      expect(component.sourceCookbook()).toBeNull();
 
-      // Re-emit the same id — markReady() runs again, retrying the trail fetch.
-      emitId('r-1');
-      await vi.waitFor(() => expect(component.breadcrumbs()).toHaveLength(4));
-      expect(component.breadcrumbs()[3]).toEqual({
-        name: 'Tofu Scramble',
-        url: '/r/tofu-scramble',
+      const back = component.goBack();
+      // The cookbook arrives with the API merge, then the sync settles.
+      user.update((u) => ({ ...u, cookbooks: [weeknights] }));
+      settle();
+      await back;
+      expect(routerNavigate).toHaveBeenCalledWith(['/kitchen', 'cb-1']);
+    });
+
+    it('does not navigate after being destroyed while waiting for the first sync', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      const user = signal({
+        isGuest: false,
+        savedRecipes: [] as unknown[],
+        cookbooks: [] as unknown[],
       });
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: user });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      const back = component.goBack();
+      (injector as unknown as { destroy(): void }).destroy();
+      settle();
+      await back;
+      expect(routerNavigate).not.toHaveBeenCalled();
+    });
+
+    it('does not wait for a sync that cannot start when auth yields no user', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: () => null });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      const back = component.goBack();
+      await vi.waitFor(() => expect(routerNavigate).toHaveBeenCalledWith(['/kitchen']));
+      settle();
+      await back;
+    });
+
+    it('does not navigate for a cookbook param that changed during the sync wait', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ok(row({ is_public: false, slug: null })))
+      );
+      const user = signal({
+        isGuest: false,
+        savedRecipes: [] as unknown[],
+        cookbooks: [] as unknown[],
+      });
+      let settle: () => void = () => {};
+      const { component, injector } = createComponent({ currentUser: user });
+      (
+        injector.get(PersistenceService) as unknown as { firstSyncSettled: Promise<void> }
+      ).firstSyncSettled = new Promise<void>((resolve) => (settle = resolve));
+      emitCookbookParam('cb-1');
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      const back = component.goBack();
+      await Promise.resolve();
+      emitCookbookParam('cb-2');
+      settle();
+      await back;
+      expect(routerNavigate).not.toHaveBeenCalled();
     });
   });
 });
