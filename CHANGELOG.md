@@ -33,7 +33,7 @@ T1 production window.
   filled a moment later so screen readers announce it, and carried across the reload a withdrawal
   triggers (one-shot `sessionStorage` key `tlg.analytics-notice`, documented in the privacy policy).
   The page reloads only if that confirmation was stored. On the next page the key is consumed even
-  when analytics config is off or fails; it is replayed only once actually removed, and not if
+  when analytics config is off or fails; it is shown once, and only after it was successfully removed, and not if
   another tab has since changed the choice. A script that finishes loading after
   a withdrawal stays recoverable, so a later "Allow analytics" on the same page starts it. The consent
   gate is unchanged.
