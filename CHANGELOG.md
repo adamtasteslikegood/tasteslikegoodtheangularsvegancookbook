@@ -12,9 +12,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - The analytics-choice banner shows the visitor's current choice (KAN-322). Reopened from "Analytics
   choice", it states the choice in effect on its own line and marks the matching button
-  `aria-pressed`; either button now confirms the choice in a short status message, carried across the
-  reload a withdrawal triggers (one-shot `sessionStorage` key `tlg.analytics-notice`, documented in
-  the privacy policy). The consent gate is unchanged.
+  `aria-pressed` with a visible "✓ current" tag (a ring alone was ambiguous next to the focus ring on
+  "No thanks"); either button now confirms the choice in a short status message, mounted empty and
+  filled a moment later so screen readers announce it, and carried across the reload a withdrawal
+  triggers (one-shot `sessionStorage` key `tlg.analytics-notice`, documented in the privacy policy).
+  The page reloads only if that confirmation was stored; the key is consumed on the next page even
+  when analytics config is off or fails, and is not replayed if another tab has since allowed
+  analytics. The consent gate is unchanged.
 
 ## [0.5.6] - 2026-10-02
 

@@ -435,26 +435,33 @@
     closeBanner(true);
     if (state === 'granted') {
       applyGrant(previous);
-      showNotice(state);
+      showNotice(state, true);
       return;
     }
     shutDown();
     // Reload only when denial is safely persisted (or a stale grant was
     // removed). If both operations are blocked, stay on this stopped,
     // fail-closed page instead of reactivating a stale grant on reload.
-    if (sdkState !== 'idle' && stored) {
-      writeStore(sessionStore, NOTICE_KEY, state);
+    // Reload also needs the one-shot confirmation stored, or the withdrawal
+    // would go unconfirmed; shutDown() has already stopped collection, so
+    // staying on this page and confirming here is just as safe.
+    if (sdkState !== 'idle' && stored && writeStore(sessionStore, NOTICE_KEY, state)) {
       window.location.reload();
       return;
     }
-    showNotice(state);
+    showNotice(state, true);
   }
 
   // Confirm the choice after the banner closes, so a click is never silent.
   // A polite status region, removed after a few seconds; it holds no controls,
-  // so it needs no focus management.
+  // so it needs no focus management. The region is mounted EMPTY and filled in
+  // a later task: screen readers announce changes to a live region that
+  // already exists, and can miss text present when the region is inserted.
+  // `withHint` adds the footer instruction, which only makes sense while the
+  // "Analytics choice" control is shown (RUM enabled).
+  var NOTICE_FILL_DELAY = 100;
   var notice = null;
-  function showNotice(state) {
+  function showNotice(state, withHint) {
     if (!document.body) return;
     if (notice && notice.parentNode) notice.parentNode.removeChild(notice);
     notice = document.createElement('div');
@@ -464,17 +471,23 @@
       'position:fixed;left:12px;right:12px;bottom:12px;z-index:2147483000;max-width:420px;' +
       'margin:0 auto;padding:10px 14px;background:#1c1917;color:#fafaf9;border-radius:10px;' +
       'box-shadow:0 4px 16px rgba(0,0,0,.18);font:14px/1.4 system-ui,sans-serif;text-align:center;';
-    notice.textContent =
+    var text =
       (state === 'granted' ? 'Analytics allowed.' : 'Analytics off.') +
-      ' Change it any time from "Analytics choice" in the footer.';
+      (withHint ? ' Change it any time from "Analytics choice" in the footer.' : '');
     document.body.appendChild(notice);
     var shown = notice;
-    if (typeof window.setTimeout === 'function') {
+    if (typeof window.setTimeout !== 'function') {
+      shown.textContent = text;
+      return;
+    }
+    window.setTimeout(function () {
+      if (!shown.parentNode) return;
+      shown.textContent = text;
       window.setTimeout(function () {
         if (shown.parentNode) shown.parentNode.removeChild(shown);
         if (notice === shown) notice = null;
       }, 5000);
-    }
+    }, NOTICE_FILL_DELAY);
   }
 
   function applyGrant(previous) {
@@ -557,6 +570,18 @@
         : 'background:#fff;color:#1c1917;border:1px solid #a8a29e;') +
       (selected ? 'outline:3px solid #ca8a04;outline-offset:2px;font-weight:600;' : '');
     if (selected !== null) b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    if (selected) {
+      // A visible text marker, not only a ring: on reopen, focus goes to
+      // "No thanks" (fail-closed), so after a grant two buttons carry rings and
+      // the ring alone cannot say which one is the choice. Hidden from screen
+      // readers, which already hear "pressed" from aria-pressed.
+      var tag = document.createElement('span');
+      tag.setAttribute('aria-hidden', 'true');
+      tag.setAttribute('data-analytics-selected', '');
+      tag.textContent = ' \u2713 current';
+      tag.style.cssText = 'font-size:12px;font-weight:700;';
+      b.appendChild(tag);
+    }
     if (!primary) b.setAttribute('data-analytics-deny', '');
     b.addEventListener('click', onClick);
     return b;
@@ -731,7 +756,22 @@
   }
 
   function start() {
-    if (typeof window.fetch !== 'function') return;
+    // The withdrawal confirmation is one-shot: read and delete it before
+    // anything can return early (no fetch, config failed or disabled), and
+    // whatever its value, so it never lingers for a later visit.
+    var pendingNotice = readStore(sessionStore, NOTICE_KEY);
+    if (pendingNotice !== null) removeStore(sessionStore, NOTICE_KEY);
+    // Only a withdrawal reloads, so 'denied' is the one value honoured, and
+    // only while consent is still not granted (another tab may have granted
+    // it since).
+    var replayDenial = pendingNotice === 'denied';
+    function confirmWithdrawal(withHint) {
+      if (replayDenial && consentState() !== 'granted') showNotice('denied', withHint);
+    }
+    if (typeof window.fetch !== 'function') {
+      confirmWithdrawal(false);
+      return;
+    }
     window
       .fetch(CONFIG_URL, { credentials: 'same-origin' })
       .then(function (res) {
@@ -744,15 +784,12 @@
         config = cfg && cfg.enabled ? cfg : { enabled: false };
         if (!config.enabled) {
           clearQueue();
+          // The footer control stays hidden, so no instruction to use it.
+          confirmWithdrawal(false);
           return;
         }
         revealSettingsControls();
-        var pendingNotice = readStore(sessionStore, NOTICE_KEY);
-        if (pendingNotice) {
-          removeStore(sessionStore, NOTICE_KEY);
-          // Only a withdrawal reloads, so 'denied' is the one value written.
-          if (pendingNotice === 'denied') showNotice('denied');
-        }
+        confirmWithdrawal(true);
         var state = consentState();
         if (state === 'granted') {
           if (grantPendingConfig) {
