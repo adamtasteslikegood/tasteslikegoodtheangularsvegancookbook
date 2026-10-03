@@ -10,8 +10,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.5.6] - 2026-10-02
 
-Backend submodule pointer moves `52c652e0c3e4` → **`9ed5402b94ea`** (Backend `main`, promotion #355,
-back-sync #356); no migration changes. Ships Sprint 10 S7 (numbered SSR pagination), S20 (breadcrumbs
+Backend submodule pointer moves `52c652e0c3e4` → **`8230544ca863`** (Backend `main`, promotions #355 and #358,
+back-syncs #356 and #359); no migration changes. Ships Sprint 10 S7 (numbered SSR pagination), S20 (breadcrumbs
 stay on their own side of auth) and S12 (workflow-secrets gate), plus dependency bumps. No Valkey
 change: the Flask redeploy restarts the RCP-98 T1 production window.
 
@@ -31,6 +31,12 @@ change: the Flask redeploy restarts the RCP-98 T1 production window.
   the one deliberate exit to the public page. Cookbooks are routable (`/kitchen/<cookbookId>`), so
   back/forward, reload and deep links keep the selected cookbook, and "Back to Kitchen" returns to
   the cookbook the recipe was opened from. Public SSR trails and their JSON-LD are unchanged.
+
+### Fixed (Backend)
+
+- SQLAlchemy capped below 2.1 (KAN-324, Backend #357). Dependabot locked 2.1.1, which maps `postgresql://`
+  to psycopg v3; the image ships psycopg2, so the staging migrate job failed on the first v0.5.6 pin
+  (`9ed5402`). Backend CI now loads the Postgres DBAPI from the built image.
 
 ### CI
 
