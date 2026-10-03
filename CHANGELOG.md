@@ -8,6 +8,22 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-02
+
+Backend submodule pointer moves `8230544ca863` → **`cd8ac887ea09`** (Backend `main`, promotion #361,
+back-sync #362); no migration changes. Ships Sprint 10 S19 (Valkey IAM token refresh on the request
+path, KAN-318) and the analytics-choice banner fix (KAN-322). The Flask redeploy restarts the RCP-98
+T1 production window.
+
+### Fixed (Backend)
+
+- Valkey IAM token refresh moves onto the request path (KAN-318, Backend #360). Inside the 5-minute
+  expiry margin, the next request that touches the cache refreshes the token on its own CPU,
+  single-flight; the background thread is only the idle safety net. A token swap no longer closes
+  connections other requests are reading: the swap runs under redis-py's pool lock, idle
+  connections are dropped and in-use ones are marked to reconnect on release. This removes the
+  "I/O operation on closed file" errors behind the only cache failures since v0.5.5.
+
 ### Changed
 
 - The analytics-choice banner shows the visitor's current choice (KAN-322). Reopened from "Analytics
@@ -16,9 +32,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   "No thanks"); either button now confirms the choice in a short status message, mounted empty and
   filled a moment later so screen readers announce it, and carried across the reload a withdrawal
   triggers (one-shot `sessionStorage` key `tlg.analytics-notice`, documented in the privacy policy).
-  The page reloads only if that confirmation was stored; the key is consumed on the next page even
-  when analytics config is off or fails, and is not replayed if another tab has since allowed
-  analytics. The consent gate is unchanged.
+  The page reloads only if that confirmation was stored. On the next page the key is consumed even
+  when analytics config is off or fails; it is shown once, and only after it was successfully removed, and not if
+  another tab has since changed the choice. A script that finishes loading after
+  a withdrawal stays recoverable, so a later "Allow analytics" on the same page starts it. The consent
+  gate is unchanged.
 
 ## [0.5.6] - 2026-10-02
 
