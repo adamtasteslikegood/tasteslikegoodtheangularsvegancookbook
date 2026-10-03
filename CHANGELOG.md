@@ -40,8 +40,9 @@ change: the Flask redeploy restarts the RCP-98 T1 production window.
 
 ### CI
 
-- PR gate fails when a workflow references a secret that is not configured (KAN-300, #3585).
-  `GITHUB_TOKEN` is the only exemption.
+- PR gate fails when a workflow references a required secret that is not configured (KAN-300, #3585).
+  `GITHUB_TOKEN` is the built-in exemption; six secrets on an explicit optional allowlist
+  (`OPTIONAL_SECRETS`, each with its verified guard) report a notice instead of failing.
 
 ### Dependencies
 
