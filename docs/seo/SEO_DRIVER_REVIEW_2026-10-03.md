@@ -114,7 +114,7 @@ HOUR 6+ (polish)       Nothing shows a result for 1 to 4 weeks. Without E2 there
 
 Effort: rank 1 human ~3 days / CC ~2 hours. Rank 2 human ~1 to 2 weeks, mostly not code. E1 human ~2 weeks of cooking / CC ~1 hour. E2 human ~1 day / CC ~30 min. E5 is unsized until designed (T13).
 
-Feasibility: KAN-319, recipe tag links, authority and KAN-320 have no blockers. E3 has a real design constraint: every render option cuts something (Express is proxy-only by architecture; a build-time list goes stale between releases; proxying `/` to Flask breaks the drift-tested `index.html` mirror), and "newest" has no defined ordering key (only `created_at` exists, so a recipe created in July and published today would not surface). E3 needs a design decision before it can be chartered (ledger A1). E2 needs its source and filter chosen (ledger S1). E5 needs a design pass before it can be chartered (T13).
+Feasibility: KAN-319, recipe tag links, authority and KAN-320 have no blockers. E3 has a real design constraint: every render option cuts something (Express is proxy-only by architecture; a build-time list goes stale between releases; proxying `/` to Flask breaks the drift-tested `index.html` mirror), and "newest" must order by `first_published_at` (`Backend/models/recipe.py`), not `created_at`, or a recipe created in July and published today would not surface. E3 needs a design decision before it can be chartered (ledger A1). E2 needs its source and filter chosen (ledger S1). E5 needs a design pass before it can be chartered (T13).
 
 ## Section 1: Architecture
 
