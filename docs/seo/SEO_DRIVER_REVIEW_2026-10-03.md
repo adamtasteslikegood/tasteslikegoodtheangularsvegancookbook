@@ -5,10 +5,10 @@ Mode: SELECTIVE EXPANSION (Adam, D1) · Depth: strategy-only · Destination: cha
 
 ## Inputs reconciled
 
-Inputs 1 and 2 were uncommitted working files on Adam's checkout when this was written; they are cited by the names they had there.
+Inputs 1 and 2 were Adam's working files; they are committed alongside this review under the names below.
 
-1. `SEO Audit Improvements and Next Steps.md` (ChatGPT / GSC Wizard, 6 items)
-2. `docs/seo/TastesLikeGood — SEO Next Steps (Indexing Focus).md` (2026-09-30, 7 items)
+1. [`SEO_GSC_WIZARD_REVIEW_2026-10-03.md`](./SEO_GSC_WIZARD_REVIEW_2026-10-03.md) (ChatGPT / GSC Wizard transcript, 6 items; called "the ChatGPT doc" below)
+2. [`SEO_NEXT_STEPS_INDEXING_2026-09-30.md`](./SEO_NEXT_STEPS_INDEXING_2026-09-30.md) (indexing focus, 7 items; called "the Sep 30 doc" below)
 3. `docs/seo/SEO_AUDIT_2026-09-13.md` (KAN-270 audit, action plan)
 4. Open Jira rows: KAN-319, 320, 275, 277 (+311/312/313), 284, 309, 299, 298; In Review: KAN-271/272/273/274/276
 5. Live Search Console via gcp-monitor `gsc_*`, 2026-10-03
@@ -254,7 +254,7 @@ RECIPE: breadcrumb → title → [Tested badge] → hero → tag chips (all) →
 - **WARNING D1.** The tested marker and notes are where "no life story" can erode. Set a hard cap (for example 80 words, substitutions and texture cues only) before any copy is written.
 - States for the newest row: loading is not applicable (server HTML), empty hides the section, error falls back to static links.
 - Mobile: category links must not push the generator input below the fold.
-- Recommend `/plan-design-review` before building E1 and E3.
+- Recommend `/plan-design-review` before building E1, E3 and E5.
 
 ## NOT in scope
 
@@ -370,7 +370,7 @@ Approval readiness: PASS. Checked rows and answers: MODE (D1), E1 (D2), E2 (D3),
 ## Independent review
 
 - Spec review (in-host subagent, 1 pass): 6/10, 16 issues. 13 applied as factual or structural corrections (hypothesis framing, falsification branch, `/about` exists, measure alignment, E3 feasibility, E2 spoof filter, capacity note, T3/T4 order). 3 went to Adam: E4 disposition (D6, deferred), real photos (D7, accepted), proof before launch (D8, declined).
-- Outside voice: Codex unavailable (configured model id invalid). No external or cross-model review this run.
+- Outside voice: Codex did not run: the gstack Codex probe failed to resolve its own helper script under zsh, right after the gstack upgrade. This is a tooling fault, not a model or account setting. No external or cross-model review this run.
 
 ## Completion Summary
 
@@ -412,15 +412,15 @@ Approval readiness: PASS. Checked rows and answers: MODE (D1), E1 (D2), E2 (D3),
 
 ## GSTACK REVIEW REPORT
 
-| Review         | Trigger               | Why                             | Runs              | Status                                    | Findings                                             |
-| -------------- | --------------------- | ------------------------------- | ----------------- | ----------------------------------------- | ---------------------------------------------------- |
-| CEO Review     | `/plan-ceo-review`    | Scope & strategy                | 1                 | ISSUES OPEN                               | 5 proposals, 4 accepted, 1 deferred; 2 critical gaps |
-| Outside Review | codex (plan review)   | Independent 2nd opinion         | 0 this run        | unavailable                               | Codex model id invalid; no completed external review |
-| Eng Review     | `/plan-eng-review`    | Architecture & tests (required) | 2 (Jul 7, Jul 23) | stale (older than 7 days, different plan) | 17 and 12 issues on earlier plans                    |
-| Design Review  | `/plan-design-review` | UI/UX gaps                      | 0                 | not run                                   | recommended before E1, E3, E5                        |
-| DX Review      | `/plan-devex-review`  | Developer experience gaps       | 0                 | not run                                   | not applicable                                       |
+| Review         | Trigger               | Why                             | Runs              | Status                                    | Findings                                                          |
+| -------------- | --------------------- | ------------------------------- | ----------------- | ----------------------------------------- | ----------------------------------------------------------------- |
+| CEO Review     | `/plan-ceo-review`    | Scope & strategy                | 1                 | ISSUES OPEN                               | 5 proposals, 4 accepted, 1 deferred; 2 critical gaps              |
+| Outside Review | codex (plan review)   | Independent 2nd opinion         | 0 this run        | unavailable                               | gstack Codex probe failed under zsh; no completed external review |
+| Eng Review     | `/plan-eng-review`    | Architecture & tests (required) | 2 (Jul 7, Jul 23) | stale (older than 7 days, different plan) | 17 and 12 issues on earlier plans                                 |
+| Design Review  | `/plan-design-review` | UI/UX gaps                      | 0                 | not run                                   | recommended before E1, E3, E5                                     |
+| DX Review      | `/plan-devex-review`  | Developer experience gaps       | 0                 | not run                                   | not applicable                                                    |
 
-- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable (model id invalid, no call made). An in-host spec review completed with 16 findings; it does not count as outside coverage.
+- **OUTSIDE COVERAGE:** codex, plan-review phase, unavailable (gstack probe failure, no call made). An in-host spec review completed with 16 findings; it does not count as outside coverage.
 - **VERDICT:** CEO review complete with issues open. Strategy input for the RCP-119 charter, not cleared to build. E3 and E5 need design; eng review required before implementation.
 
 **UNRESOLVED DECISIONS:**
