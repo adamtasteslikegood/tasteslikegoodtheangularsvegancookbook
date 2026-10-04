@@ -267,3 +267,18 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('Kitchen recipe grids on phones (KAN-297)', () => {
+  it('start at two cards per row, with no single-column base', async () => {
+    const { readFileSync } = await import('node:fs');
+    const html = readFileSync(new URL('./kitchen.component.html', import.meta.url), 'utf8');
+    const cardGrids = [...html.matchAll(/class="(grid [^"]*lg:grid-cols-3[^"]*)"/g)];
+    expect(cardGrids).toHaveLength(2);
+    for (const [, classes] of cardGrids) {
+      // Whole tokens: `sm:grid-cols-2` alone would leave phones on one column.
+      const tokens = classes.split(/\s+/);
+      expect(tokens).toContain('grid-cols-2');
+      expect(tokens).not.toContain('grid-cols-1');
+    }
+  });
+});
