@@ -87,7 +87,7 @@ Entry and identity
 
 Eligibility, checked on the server at submission
 
-- A cook (non-author) must be signed in, have an account at least 24 hours old, and have a saved copy of the recipe.
+- A cook (non-author) must be signed in, have an account at least 24 hours old, and have a saved copy of the recipe. **The saved copy is required. Only the wait changed, from 14 days to 24 hours** (Adam, at approval: "the save copy still applies - just the wait is 24hrs not 14 days - super important").
 - An author needs only to be signed in with an account at least 24 hours old. No saved copy applies.
 - A signed-in cook who has saved the recipe but is not yet eligible sees the control disabled, with the date it opens.
 
