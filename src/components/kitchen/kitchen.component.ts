@@ -214,7 +214,7 @@ export class KitchenComponent {
     const sort = this.kitchenSort();
     if (sort === 'name') {
       return [...matching].sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
+        String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' })
       );
     }
     if (sort === 'quickest') {

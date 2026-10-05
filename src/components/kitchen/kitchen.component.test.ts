@@ -323,6 +323,14 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       expect(shown()).toEqual(['r-2', 'r-3', 'r-4', 'r-1']);
     });
 
+    it('sorts an imported recipe whose name is a number without throwing', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      const numeric = { id: 'r-8', name: 42, tags: [] } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, numeric] }));
+      kitchen.setKitchenSort('name');
+      expect(shown()).toEqual(['r-8', 'r-2', 'r-3', 'r-4', 'r-1']);
+    });
+
     it('sorts quickest first, with untimed recipes last', () => {
       const { kitchen, shown } = kitchenWith();
       kitchen.setKitchenSort('quickest');
