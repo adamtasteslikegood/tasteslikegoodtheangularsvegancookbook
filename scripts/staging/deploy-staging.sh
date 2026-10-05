@@ -33,6 +33,8 @@
 #                   (default: comdottasteslikegood — the prod registry)
 #   REGION        — Cloud Run region (default: us-central1)
 #   IMAGE_TAG     — Image tag to deploy (default: latest release tag)
+#   STAGING_PUBLIC_URL — public origin browsers use for staging; becomes
+#                   Flask's FRONTEND_URL (default: https://staging.tasteslikegood.xyz)
 
 set -euo pipefail
 
@@ -43,6 +45,9 @@ IMAGE_REGISTRY="${IMAGE_REGISTRY:-${REGION}-docker.pkg.dev/${IMAGE_PROJECT}/vega
 
 FLASK_SERVICE="flask-backend-staging"
 EXPRESS_SERVICE="express-frontend-staging"
+# No trailing slash: Flask appends paths to FRONTEND_URL.
+STAGING_PUBLIC_URL="${STAGING_PUBLIC_URL:-https://staging.tasteslikegood.xyz}"
+STAGING_PUBLIC_URL="${STAGING_PUBLIC_URL%/}"
 
 DRY_RUN=true
 IMAGE_TAG="${IMAGE_TAG:-}"
@@ -274,19 +279,14 @@ echo ""
 
 echo "--- Step 1: Deploy ${FLASK_SERVICE} ---"
 
-# FRONTEND_URL is where the OAuth callback 302s the browser after login.
-# The Express staging URL is stable across revisions, so resolve it from the
-# existing service. On the very first deploy it doesn't exist yet — deploy
-# once, then re-run this script (idempotent) to wire it in.
-# SESSION_COOKIE_DOMAIN stays unset on purpose: run.app is on the Public
-# Suffix List, so host-only session cookies are the only shape that works.
-EXPRESS_EXISTING_URL="$(gcloud run services describe "${EXPRESS_SERVICE}" \
-  --region="${REGION}" --project="${PROJECT_ID}" \
-  --format='value(status.url)' 2>/dev/null || true)"
-if [[ -n "$OAUTH_SECRETS" && -z "$EXPRESS_EXISTING_URL" ]]; then
-  echo "NOTE: OAuth secrets exist but ${EXPRESS_SERVICE} has no URL yet;"
-  echo "      re-run after this deploy so FRONTEND_URL gets wired in."
-fi
+# FRONTEND_URL is where the OAuth callback 302s the browser after login. It
+# must be the host the visitor signed in on (KAN-326): session cookies are
+# host-only, so sending the browser to the service's run.app URL after a
+# sign-in on the staging domain would land it there signed out.
+# SESSION_COOKIE_DOMAIN stays unset on purpose: host-only session cookies
+# work on the staging domain and on run.app, which is on the Public Suffix
+# List and allows no other shape.
+echo "FRONTEND_URL: ${STAGING_PUBLIC_URL}"
 
 run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --image="${FLASK_IMAGE}" \
@@ -296,7 +296,7 @@ run_cmd gcloud run deploy "${FLASK_SERVICE}" \
   --memory=512Mi \
   --min-instances=0 \
   --max-instances=1 \
-  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${EXPRESS_EXISTING_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image" \
+  --set-env-vars="FLASK_ENV=staging,FLASK_APP=app.py,FRONTEND_URL=${STAGING_PUBLIC_URL},GCS_BUCKET_NAME=tasteslikegood-recipe-images-staging,GCP_PROJECT_ID=${PROJECT_ID},PUBSUB_INVOKER_SA=pubsub-pusher@${PROJECT_ID}.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image" \
   --set-secrets="FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest${GEMINI_SECRET}${OAUTH_SECRETS}" \
   --set-cloudsql-instances="${PROJECT_ID}:${REGION}:vegangenius-staging-db" \
   --network=default \
@@ -363,7 +363,8 @@ if ! $DRY_RUN; then
     --format='value(status.url)')"
   echo ""
   echo "=== Staging deployed ==="
-  echo "Express (public): ${EXPRESS_STAGING_URL}"
+  echo "Public:           ${STAGING_PUBLIC_URL}"
+  echo "Express (run.app): ${EXPRESS_STAGING_URL}"
   echo "Flask (private):  ${FLASK_STAGING_URL}"
   echo ""
   echo "Verify (machine-checkable S3 acceptance, exits 0/1):"
