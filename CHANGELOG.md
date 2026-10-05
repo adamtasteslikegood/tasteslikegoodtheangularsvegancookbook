@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Kitchen recipe grids show two cards per row on phones (KAN-297). The recipe list and the Recycle
+  Bin start at two columns instead of one, with a tighter gap, shorter card images and smaller
+  titles below the `sm` breakpoint; the Recycle Bin's Restore and Delete buttons stack there. The
+  public `/browse` and tag-hub half is Backend #363 and reaches production with the next pointer
+  bump.
+
 ## [0.5.7] - 2026-10-02
 
 Backend submodule pointer moves `8230544ca863` → **`cd8ac887ea09`** (Backend `main`, promotion #361,
