@@ -47,6 +47,8 @@ Datadog APM, Googlebot user agent, 2026-09-03 to 2026-10-03 (sampled traces, so 
 | 404 spikes (Sep 30: 37, Oct 2: 214) | secret-file scanners spoofing the Googlebot UA against the bare load-balancer IP |
 | Live timings today                  | HTML 180 to 300 ms; `?w=800` image 0.5 s; unsized original image 1.0 MB in 1.6 s |
 
+Update 2026-10-04 (Adam, Search Console): the Page indexing report defines the status as "Typically, Google wanted to crawl the URL but this was expected to overload the site; therefore Google rescheduled the crawl." That confirms the sentence is the report's definition of the status. A live URL Inspection test of `/r/peach-raspberry-raw-sorbet` the same day returned: URL is available to Google, page fetch successful, crawl and indexing allowed, Breadcrumbs 1 valid item, Recipes 1 valid item with non-critical issues only. So on that page the Recipe "issues" are warnings, not errors, and the breadcrumb markup added in v0.5.x is recognised.
+
 Reading: in the window that can still be observed, the server gave Googlebot no reason to slow down. Googlebot is choosing to fetch about one page a day. That is low crawl demand, which fits the authority diagnosis, not capacity. Not ruled out: what Googlebot saw in late August and the first days of September (outside trace retention), and image fetches during the KAN-268 period. Search Console → Settings → Crawl stats → Host status is the one place that still holds that answer (T4).
 
 Side finding **S2**: the page rate limiter exempts crawlers by user-agent string (KAN-218), and scanners are already sending that string. Some scanner paths on the bare IP also returned 200 from the SPA catch-all. Flagged for Adam; not in this plan's scope.
