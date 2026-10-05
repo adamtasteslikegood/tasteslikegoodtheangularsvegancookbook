@@ -37,6 +37,27 @@ export function retiringConfirmationText(recipe: Recipe): string {
   return recipe.slug || recipe.name;
 }
 
+/** KAN-298: the Kitchen's sort orders. Saved recipes carry no date, so there is no "newest". */
+export type KitchenSort = 'saved' | 'name' | 'quickest';
+
+const KITCHEN_SORT_OPTIONS: readonly { value: KitchenSort; label: string }[] = [
+  { value: 'saved', label: 'Order saved' },
+  { value: 'name', label: 'Name A to Z' },
+  { value: 'quickest', label: 'Quickest first' },
+];
+
+/**
+ * Prep plus cook time; a recipe with no usable time sorts last. Imported JSON
+ * may lack either field, so each is read on its own.
+ */
+function totalMinutes(recipe: Recipe): number {
+  const minutes = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  return minutes(recipe.prepTime) + minutes(recipe.cookTime) || Number.POSITIVE_INFINITY;
+}
+
 @Component({
   selector: 'app-kitchen',
   standalone: true,
@@ -160,7 +181,13 @@ export class KitchenComponent {
   /** KAN-295: the visible trail; a selected cookbook is its last crumb. */
   breadcrumbs = computed(() => kitchenTrail(this.activeCookbook()));
 
-  displayedKitchenRecipes = computed(() => {
+  /** KAN-298: what the list is narrowed to and ordered by; both stay client-side. */
+  kitchenFilter = signal('');
+  kitchenSort = signal<KitchenSort>('saved');
+  readonly kitchenSortOptions = KITCHEN_SORT_OPTIONS;
+
+  /** The open cookbook's recipes, or every saved recipe, before filter and sort. */
+  cookbookRecipes = computed(() => {
     const user = this.authService.currentUser();
     if (!user) return [];
     const cookbook = this.activeCookbook();
@@ -169,6 +196,38 @@ export class KitchenComponent {
     }
     return user.savedRecipes;
   });
+
+  /**
+   * KAN-298: `cookbookRecipes` narrowed by the filter text, then sorted. Every
+   * word typed must appear in the recipe's name or one of its tags, in any
+   * order and any case. `saved` keeps the order the recipes were saved in.
+   */
+  displayedKitchenRecipes = computed(() => {
+    const words = this.kitchenFilter().toLowerCase().split(/\s+/).filter(Boolean);
+    const matching = words.length
+      ? this.cookbookRecipes().filter((r) => {
+          const tags = Array.isArray(r.tags) ? r.tags : [];
+          const haystack = [r.name, ...tags].join(' ').toLowerCase();
+          return words.every((word) => haystack.includes(word));
+        })
+      : this.cookbookRecipes();
+    const sort = this.kitchenSort();
+    if (sort === 'name') {
+      return [...matching].sort((a, b) =>
+        String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' })
+      );
+    }
+    if (sort === 'quickest') {
+      return [...matching].sort((a, b) => totalMinutes(a) - totalMinutes(b));
+    }
+    return matching;
+  });
+
+  setKitchenSort(value: string) {
+    if (KITCHEN_SORT_OPTIONS.some((option) => option.value === value)) {
+      this.kitchenSort.set(value as KitchenSort);
+    }
+  }
 
   /**
    * KAN-321: selecting is navigating; the route handler applies it. The bin

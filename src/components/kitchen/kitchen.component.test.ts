@@ -266,6 +266,125 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     expect(navigate).not.toHaveBeenCalled();
     vi.unstubAllGlobals();
   });
+
+  describe('filter and sort (KAN-298)', () => {
+    const recipe = (id: string, name: string, extra: Partial<Recipe> = {}): Recipe =>
+      ({ id, name, prepTime: 10, cookTime: 10, tags: [], ...extra }) as Recipe;
+
+    const saved = [
+      recipe('r-1', 'Zucchini Fritters', { tags: ['Dinner'], prepTime: 15, cookTime: 30 }),
+      recipe('r-2', 'apple crumble', { tags: ['dessert', 'baking'], prepTime: 5, cookTime: 5 }),
+      recipe('r-3', 'Banana Bread', { tags: ['Dessert'], prepTime: 0, cookTime: 0 }),
+      recipe('r-4', 'Chocolate Mousse', { tags: ['dessert'], prepTime: 20, cookTime: 0 }),
+    ];
+
+    const kitchenWith = (opts: { cookbookId?: string; cookbooks?: Cookbook[] } = {}) => {
+      const made = createKitchen(opts);
+      made.user.update((u) => ({ ...u!, savedRecipes: saved }));
+      const shown = () => made.kitchen.displayedKitchenRecipes().map((r) => r.id);
+      return { ...made, shown };
+    };
+
+    it('lists every recipe in saved order until a filter or sort is chosen', () => {
+      const { shown } = kitchenWith();
+      expect(shown()).toEqual(['r-1', 'r-2', 'r-3', 'r-4']);
+    });
+
+    it('filters by name or tag, ignoring case, with every word required', () => {
+      const { kitchen, shown } = kitchenWith();
+
+      kitchen.kitchenFilter.set('DESSERT');
+      expect(shown()).toEqual(['r-2', 'r-3', 'r-4']);
+
+      kitchen.kitchenFilter.set('  bread ');
+      expect(shown()).toEqual(['r-3']);
+
+      kitchen.kitchenFilter.set('dessert baking');
+      expect(shown()).toEqual(['r-2']);
+
+      kitchen.kitchenFilter.set('no such thing');
+      expect(shown()).toEqual([]);
+
+      kitchen.kitchenFilter.set('');
+      expect(shown()).toEqual(['r-1', 'r-2', 'r-3', 'r-4']);
+    });
+
+    it('filters an imported recipe whose tags are not a list by its name', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      const odd = { id: 'r-7', name: 'Odd Import', tags: { a: 1 } } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, odd] }));
+      kitchen.kitchenFilter.set('odd');
+      expect(shown()).toEqual(['r-7']);
+    });
+
+    it('sorts by name without regard to case', () => {
+      const { kitchen, shown } = kitchenWith();
+      kitchen.setKitchenSort('name');
+      expect(shown()).toEqual(['r-2', 'r-3', 'r-4', 'r-1']);
+    });
+
+    it('sorts an imported recipe whose name is a number without throwing', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      const numeric = { id: 'r-8', name: 42, tags: [] } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, numeric] }));
+      kitchen.setKitchenSort('name');
+      expect(shown()).toEqual(['r-8', 'r-2', 'r-3', 'r-4', 'r-1']);
+    });
+
+    it('sorts quickest first, with untimed recipes last', () => {
+      const { kitchen, shown } = kitchenWith();
+      kitchen.setKitchenSort('quickest');
+      expect(shown()).toEqual(['r-2', 'r-4', 'r-1', 'r-3']);
+    });
+
+    it('ranks a recipe with only one of its two times by the time it has', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      // Imported JSON may carry prepTime or cookTime alone.
+      const cookOnly = { id: 'r-5', name: 'Toast', cookTime: 3, tags: [] } as unknown as Recipe;
+      const prepOnly = { id: 'r-6', name: 'Salad', prepTime: 12, tags: [] } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, cookOnly, prepOnly] }));
+      kitchen.setKitchenSort('quickest');
+      expect(shown()).toEqual(['r-5', 'r-2', 'r-6', 'r-4', 'r-1', 'r-3']);
+    });
+
+    it('ignores a sort it does not offer', () => {
+      const { kitchen, shown } = kitchenWith();
+      kitchen.setKitchenSort('name');
+      kitchen.setKitchenSort('sideways');
+      expect(kitchen.kitchenSort()).toBe('name');
+      expect(shown()).toEqual(['r-2', 'r-3', 'r-4', 'r-1']);
+    });
+
+    it('filters and sorts inside the open cookbook only', () => {
+      const { kitchen, shown } = kitchenWith({
+        cookbookId: 'cb-1',
+        cookbooks: [cookbook('cb-1', 'Sweets', ['r-4', 'r-2', 'r-1'])],
+      });
+      expect(shown()).toEqual(['r-1', 'r-2', 'r-4']);
+
+      kitchen.kitchenFilter.set('dessert');
+      kitchen.setKitchenSort('name');
+      expect(shown()).toEqual(['r-2', 'r-4']);
+      expect(kitchen.cookbookRecipes().map((r) => r.id)).toEqual(['r-1', 'r-2', 'r-4']);
+    });
+
+    it('never reorders the saved list itself', () => {
+      const { kitchen, user } = kitchenWith();
+      kitchen.setKitchenSort('name');
+      kitchen.displayedKitchenRecipes();
+      expect(user()!.savedRecipes.map((r) => r.id)).toEqual(['r-1', 'r-2', 'r-3', 'r-4']);
+    });
+
+    it('offers the controls only when there is something to filter', async () => {
+      const { readFile } = await import('node:fs/promises');
+      const html = await readFile(new URL('./kitchen.component.html', import.meta.url), 'utf8');
+      expect(html).toContain('(input)="kitchenFilter.set($any($event.target).value)"');
+      expect(html).toContain('(change)="setKitchenSort($any($event.target).value)"');
+      expect(html).toContain(
+        '@if (cookbookRecipes().length > 0 && displayedKitchenRecipes().length === 0)'
+      );
+    });
+  });
 });
 
 describe('Kitchen recipe grids on phones (KAN-297)', () => {

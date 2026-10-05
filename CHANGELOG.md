@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Kitchen filter and sort (KAN-298). A filter box narrows the open cookbook, or All Recipes, to the
+  recipes whose name or tags contain every word typed, and a sort menu orders them as saved, by
+  name, or quickest first. Both work on the list already loaded; nothing is fetched. The public
+  half, `/browse?sort=` and `/browse?tag=` as views that declare `rel=canonical` to `/browse`, is
+  Backend #365 and reaches production with the next pointer bump.
+
 ### Changed
 
 - Kitchen recipe grids show two cards per row on phones (KAN-297). The recipe list and the Recycle

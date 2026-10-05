@@ -297,7 +297,56 @@
         </div>
       </div>
 
-      @if (displayedKitchenRecipes().length === 0) {
+      <!-- KAN-298: filter and sort the loaded list; nothing is fetched. -->
+      @if (cookbookRecipes().length > 0) {
+        <div class="mb-6 flex flex-col sm:flex-row gap-3">
+          <label class="flex-1">
+            <span class="sr-only">Filter recipes by name or tag</span>
+            <input
+              type="search"
+              class="w-full px-3 py-2 border border-stone-300 rounded-lg text-sm text-stone-800 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-green-600"
+              placeholder="Filter by name or tag"
+              autocomplete="off"
+              [value]="kitchenFilter()"
+              (input)="kitchenFilter.set($any($event.target).value)"
+            />
+          </label>
+          <label class="flex items-center gap-2 text-sm text-stone-600">
+            Sort
+            <select
+              class="px-3 py-2 border border-stone-300 rounded-lg text-sm text-stone-800 bg-white focus:outline-none focus:ring-2 focus:ring-green-600"
+              (change)="setKitchenSort($any($event.target).value)"
+            >
+              @for (option of kitchenSortOptions; track option.value) {
+                <option [value]="option.value" [selected]="option.value === kitchenSort()">
+                  {{ option.label }}
+                </option>
+              }
+            </select>
+          </label>
+        </div>
+        <p class="sr-only" aria-live="polite">
+          {{ displayedKitchenRecipes().length }} of {{ cookbookRecipes().length }} recipes shown
+        </p>
+      }
+
+      @if (cookbookRecipes().length > 0 && displayedKitchenRecipes().length === 0) {
+        <div
+          class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed"
+        >
+          <h3 class="text-xl font-bold text-stone-600 mb-2">No recipes match</h3>
+          <p class="text-stone-400 max-w-xs mx-auto mb-6">
+            Nothing here has &ldquo;{{ kitchenFilter() }}&rdquo; in its name or tags.
+          </p>
+          <button
+            type="button"
+            (click)="kitchenFilter.set('')"
+            class="px-6 py-2 bg-green-600 text-white font-medium rounded-full hover:bg-green-700 transition-colors"
+          >
+            Clear filter
+          </button>
+        </div>
+      } @else if (displayedKitchenRecipes().length === 0) {
         <div
           class="text-center py-12 bg-stone-50 rounded-2xl border border-stone-100 border-dashed"
         >
