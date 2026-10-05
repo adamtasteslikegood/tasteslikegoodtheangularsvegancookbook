@@ -196,8 +196,8 @@ scoped to one).
 `--verify-only` runs a **staging health gate first**: it checks that the staging
 Cloud Run pair returns 200 and that `/api/health` reports `environment=staging`
 (guarding against `STAGING_URL` accidentally pointing at production). The default
-URL is hardcoded to the known staging service; override with `STAGING_URL` if the
-service is redeployed to a new URL.
+URL is hardcoded to the staging domain, `https://staging.tasteslikegood.xyz`
+(KAN-326); override with `STAGING_URL` if staging moves to a new URL.
 
 > **PRECONDITION — promote to staging before you read staging as evidence.**
 > The gate proves staging is **up**. It does not prove staging is **current**.
