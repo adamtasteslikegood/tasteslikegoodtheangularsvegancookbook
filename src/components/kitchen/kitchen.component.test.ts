@@ -309,6 +309,14 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       expect(shown()).toEqual(['r-1', 'r-2', 'r-3', 'r-4']);
     });
 
+    it('filters an imported recipe whose tags are not a list by its name', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      const odd = { id: 'r-7', name: 'Odd Import', tags: { a: 1 } } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, odd] }));
+      kitchen.kitchenFilter.set('odd');
+      expect(shown()).toEqual(['r-7']);
+    });
+
     it('sorts by name without regard to case', () => {
       const { kitchen, shown } = kitchenWith();
       kitchen.setKitchenSort('name');

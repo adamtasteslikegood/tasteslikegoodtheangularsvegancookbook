@@ -206,7 +206,8 @@ export class KitchenComponent {
     const words = this.kitchenFilter().toLowerCase().split(/\s+/).filter(Boolean);
     const matching = words.length
       ? this.cookbookRecipes().filter((r) => {
-          const haystack = [r.name, ...(r.tags ?? [])].join(' ').toLowerCase();
+          const tags = Array.isArray(r.tags) ? r.tags : [];
+          const haystack = [r.name, ...tags].join(' ').toLowerCase();
           return words.every((word) => haystack.includes(word));
         })
       : this.cookbookRecipes();
