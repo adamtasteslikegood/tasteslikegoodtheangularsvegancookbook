@@ -1,7 +1,7 @@
 # SEO driver review — what the site needs to fulfil the v0.2 "Anti-Recipe Site" driver
 
 _Ticket:_ [KAN-325](https://tasteslikegood.atlassian.net/browse/KAN-325) · Reviewed by `/plan-ceo-review` on 2026-10-03 · `dev` @ 528a8b3 · v0.5.7 live · Author: Claude Code for Adam
-Mode: SELECTIVE EXPANSION (Adam, D1) · Depth: strategy-only · Destination: charter input for RCP-119 (Sprint 10 is frozen; nothing here starts before that charter)
+Mode: SELECTIVE EXPANSION (Adam, D1) · Depth: strategy-only · Destination: charter input for RCP-119 (Sprint 10 is frozen; no build work here starts before that charter. The actions allowed before it are listed under Implementation Tasks)
 
 ## Inputs reconciled
 
@@ -24,7 +24,7 @@ Inputs 1 and 2 were Adam's working files; they are committed alongside this revi
 | "vegan recipe generator"                  | position ~112 (28d), ~94 (90d)                                                                      |
 | 90d queries                               | catalog long-tail (onion rings, kimchi, english breakfast, corn dogs) at positions 50 to 90         |
 | Oldest 25 sitemap URLs                    | 25/25 indexed, last crawls mostly Aug 20 to 30                                                      |
-| Newest 15 sitemap URLs                    | 2/15 indexed; all sampled tag hubs + 5 recipes "Discovered, never crawled"; 1 "unknown to Google"   |
+| Newest 15 sitemap URLs (by `lastmod`)     | 2/15 indexed; all sampled tag hubs + 5 recipes "Discovered, never crawled"; 1 "unknown to Google"   |
 | `/browse` last crawl                      | 2026-07-25 (before hubs existed)                                                                    |
 | Home last crawl                           | 2026-10-01; links to `/browse` + 8 recipes, 0 hubs                                                  |
 | Hub inbound links                         | `/browse` (10 hubs), 1 tag per recipe page, sitemap                                                 |
@@ -36,7 +36,7 @@ Inputs 1 and 2 were Adam's working files; they are committed alongside this revi
 
 Adam's observation: by hand in Search Console, at least 6 unindexed recipes carried the explanation that crawling "was expected to overload the site". That sentence is Google's standard description of the "Discovered – currently not indexed" status, shown for every URL in that state, so it is not a per-URL measurement. It is still a hypothesis worth testing, because KAN-268 had the image endpoint at ~10 s p95 from early September until v0.5.7.
 
-Datadog APM, Googlebot user agent, 2026-09-03 to 2026-10-03 (sampled traces, so counts are indicative):
+Datadog APM, Googlebot user agent, 2026-09-03 to 2026-10-03 (sampled traces matched on user agent only, source IP not verified, so counts are indicative):
 
 | Observation                         | Value                                                                            |
 | ----------------------------------- | -------------------------------------------------------------------------------- |
@@ -55,18 +55,18 @@ Side finding **S2**: the page rate limiter exempts crawlers by user-agent string
 
 ## Driver scorecard
 
-| Driver bullet              | State               | Evidence                                                                                                                       |
-| -------------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| Speed <500ms full render   | Shipped, unmeasured | KAN-271 live: `?w=400/800/1200` variants, preload, `fetchpriority=high`. No Lighthouse run since 2026-09-13 (LCP was 6 to 8 s) |
-| Honest URLs                | Done                | `/r/<slug>`; retired slugs return 410                                                                                          |
-| One photo per recipe       | Done                |                                                                                                                                |
-| Save-to-cookbook CTA       | Done                | conversion unmeasured                                                                                                          |
-| Perfect Recipe JSON-LD     | Mostly              | KAN-320 in progress; issue list unclassified                                                                                   |
-| (implied) Strangers arrive | **Not met**         | 27 impressions, 0 brand, 0 measured external links                                                                             |
+| Driver bullet              | State                      | Evidence                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Speed <500ms full render   | Shipped, target unverified | KAN-271 live: `?w=400/800/1200` variants, preload, `fetchpriority=high`. Mobile Lighthouse on 2026-09-29 (v0.5.0, `specs/discovery/sprint10/product-grill-2026-09-29.md`): LCP 1.2 s on home, 3.1 s on the sampled recipe and `/browse` (was 6 to 8 s). No run since v0.5.1, and LCP is not the full-render measure, so the <500ms target is unverified |
+| Honest URLs                | Done                       | `/r/<slug>`; retired slugs return 410                                                                                                                                                                                                                                                                                                                   |
+| One photo per recipe       | Done                       |                                                                                                                                                                                                                                                                                                                                                         |
+| Save-to-cookbook CTA       | Done                       | conversion instrumented behind opt-in analytics, not yet reported                                                                                                                                                                                                                                                                                       |
+| Perfect Recipe JSON-LD     | Mostly                     | KAN-320 in progress; issue list unclassified                                                                                                                                                                                                                                                                                                            |
+| (implied) Strangers arrive | **Not met**                | 27 impressions, 0 brand, 0 measured external links                                                                                                                                                                                                                                                                                                      |
 
 ## Core finding
 
-The on-page half of the driver is shipped. **Working hypothesis, pending T4:** the binding constraint is crawl demand and authority. Google has not fetched anything published since late August, and nothing outside the site is known to link to it.
+The on-page half of the driver is shipped. **Working hypothesis:** the binding constraint is crawl demand and authority. In the newest-15 sample, 13 URLs have no indexed crawl, and nothing outside the site is known to link to it. The sample picks URLs by sitemap `lastmod`, which is not publication date, so it does not show that every recipe published since late August is uncrawled. T4 tests H3 only.
 
 Three explanations fit "Discovered, never crawled", and the evidence does not yet separate them:
 
@@ -151,18 +151,18 @@ Findings:
 
 ## Section 2: Error and rescue map (capability level)
 
-| Capability               | What can go wrong                                                                                   | Known safeguard                                                 | User / Google sees                  | Owner must prove                                                                                          |
-| ------------------------ | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Hub links on home/footer | Link to a hub that is noindex (<3 recipes) or removed                                               | allow-list exists for hubs                                      | wasted crawl, soft dead end         | links generated from the same allow-list as the sitemap                                                   |
-| Recipe → all tags        | Tag with no hub renders as link                                                                     | unknown                                                         | 404 from a recipe page              | only allow-listed tags link                                                                               |
-| E3 newest row            | Flask down or slow at render                                                                        | unknown                                                         | home blank or slow                  | static fallback, timeout, cache                                                                           |
-| E3 newest row            | Recipe unpublished after listing                                                                    | tombstones return 410                                           | link to 410 from home               | list excludes non-public at read time; cache TTL bounded                                                  |
-| Request Indexing         | Quota (~10/day) exhausted; request ignored                                                          | none                                                            | nothing                             | dated log of what was requested                                                                           |
-| E2 crawl evidence        | No log permission; logs expired; UA spoofed (scanners outnumber real fetches ~200 to 1 on bad days) | none yet                                                        | tool error or inflated counts       | actionable error like `gsc_*`; count only canonical-host 200/304 page fetches, or verify Google IP ranges |
-| E1 tested marker         | Marker shown on a recipe nobody cooked                                                              | none                                                            | false claim to readers and Google   | marker is an explicit per-recipe field only the owner sets                                                |
-| E5 feedback              | Spam, abuse, false "cooked it" reports; feedback orphaned by unpublish                              | none                                                            | junk or false proof on public pages | moderation and identity model from T13                                                                    |
-| Launch post              | Traffic spike meets rate limit or Valkey auth errors                                                | KAN-318 fix live in v0.5.7; four launch gates in Sprint 10 plan | errors for first visitors           | the four gates are Done before posting                                                                    |
-| Weekly report            | Striking-distance threshold (≥10 impressions) hides everything at this volume                       | none                                                            | "no rows" every week                | run with `min_impressions=3` until volume grows                                                           |
+| Capability               | What can go wrong                                                                                   | Known safeguard                                                 | User / Google sees                  | Owner must prove                                                                                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Hub links on home/footer | Link to a hub that is noindex (<3 recipes) or removed                                               | allow-list exists for hubs                                      | wasted crawl, soft dead end         | links generated from the same allow-list as the sitemap                                                                                                                                                                                                      |
+| Recipe → all tags        | Tag with no hub renders as link                                                                     | unknown                                                         | 404 from a recipe page              | only allow-listed tags link                                                                                                                                                                                                                                  |
+| E3 newest row            | Flask down or slow at render                                                                        | unknown                                                         | home blank or slow                  | static fallback, timeout, cache                                                                                                                                                                                                                              |
+| E3 newest row            | Recipe unpublished after listing                                                                    | tombstones return 410                                           | link to 410 from home               | list excludes non-public at read time; cache TTL bounded                                                                                                                                                                                                     |
+| Request Indexing         | Quota (~10/day) exhausted; request ignored                                                          | none                                                            | nothing                             | dated log of what was requested                                                                                                                                                                                                                              |
+| E2 crawl evidence        | No log permission; logs expired; UA spoofed (scanners outnumber real fetches ~200 to 1 on bad days) | none yet                                                        | tool error or inflated counts       | actionable error like `gsc_*`; verify the source IP against Google's published ranges before a count is used as evidence of Google crawling; label user-agent-only counts as unverified (a scanner can fetch the home page with that user agent and get 200) |
+| E1 tested marker         | Marker shown on a recipe nobody cooked                                                              | none                                                            | false claim to readers and Google   | marker is an explicit per-recipe field only the owner sets                                                                                                                                                                                                   |
+| E5 feedback              | Spam, abuse, false "cooked it" reports; feedback orphaned by unpublish                              | none                                                            | junk or false proof on public pages | moderation and identity model from T13                                                                                                                                                                                                                       |
+| Launch post              | Traffic spike meets rate limit or Valkey auth errors                                                | KAN-318 fix live in v0.5.7; four launch gates in Sprint 10 plan | errors for first visitors           | the four gates are Done before posting                                                                                                                                                                                                                       |
+| Weekly report            | Striking-distance threshold (≥10 impressions) hides everything at this volume                       | none                                                            | "no rows" every week                | also run `gsc_striking_distance(min_impressions=3)` until volume grows; the weekly report takes only `days`                                                                                                                                                  |
 
 ## Section 3: Security
 
@@ -210,15 +210,15 @@ Release verification by content: grep served home HTML for `/browse/tag/` after 
 ## Section 7: Performance
 
 - E3 adds one query to the home path. Cache it; home TTFB must not regress. Owner must prove.
-- Driver bullet 1 is unverified since KAN-271. Re-run mobile Lighthouse on home, `/browse`, one recipe before claiming it.
+- Driver bullet 1: the last mobile Lighthouse run is 2026-09-29 on v0.5.0 (LCP 1.2 s home, 3.1 s recipe and `/browse`). Re-run on home, `/browse` and one recipe on the current release before claiming the bullet; LCP alone does not prove the <500ms full-render target.
 - Hubs and recipe chips: no new queries of note.
 
 ## Section 8: Observability
 
-- Today the only instruments are Search Console (2-day lag) and URL Inspection. There is no crawl signal and no funnel signal.
+- Search-side instruments today are Search Console (2-day lag) and URL Inspection. Crawl: Datadog APM traces give sampled, user-agent-only evidence (used in the host-load section); there is no dedicated crawl report. Funnel: the instrumentation is shipped. With consent, Datadog RUM records recipe views, save outcomes (`src/utils/analytics.ts`, `src/services/ssr-entry.service.ts`) and how the visitor arrived (privacy policy § 3.4). What is missing is a reported search arrival → save number.
 - E2 supplies crawl. Weekly report should add the newest-15 coverage count as a trend line.
 - **WARNING O1.** The Sep 1 cliff may already be past recovery: default Cloud Logging retention is 30 days. Search Console → Settings → Crawl stats keeps 90 days and is UI-only. Adam should look at it this week.
-- Search arrival → Save CTA conversion is unmeasured. Not in scope here; opt-in RUM exists.
+- Reporting the search arrival → Save CTA conversion from that RUM data is not in scope here.
 
 ## Section 9: Deployment and rollout
 
@@ -266,7 +266,7 @@ Rejected or not adopted, with reason:
 
 - `aggregateRating` (Sep 30 #5): no real ratings exist; fabricated ratings violate Google policy.
 - `nutrition.calories` (Sep 30 #5): generator estimates are unverified. Not proposed by KAN-320.
-- GA4 linkage (ChatGPT #5): the site ships no client-side analytics by design (privacy policy § 10.3).
+- GA4 linkage (ChatGPT #5): the site's only analytics is opt-in Datadog RUM, relayed through its own servers (privacy policy § 3.4; the choice is § 10.3). GA4 would add a second, third-party analytics stack that the policy does not describe. Client-side analytics is not banned; GA4 is simply not adopted.
 - Organization logo and "13-character description" warnings (ChatGPT): tool errors, per that doc.
 - Brand-name schema fix (Sep 30 #4): already live.
 - RSS feed, IndexNow, Bing Webmaster submission: noted as follow-ons, not proposed for decision.
@@ -278,7 +278,7 @@ KAN-319 (scoped), KAN-320 (in progress), KAN-277 tree, Pinterest rows, tag hubs,
 
 ## Dream state delta
 
-After this plan: new recipes and hubs are one click from the home page, a handful of external links exist, 10 to 15 recipes carry human proof, and crawl behaviour is visible. Still missing versus the 12-month ideal: measured search → save funnel, hub rankings for category queries, and evidence that anyone returns.
+After this plan: new recipes and hubs are one click from the home page, a handful of external links exist, 10 to 15 recipes carry human proof, and crawl behaviour is visible. Still missing versus the 12-month ideal: a reported search → save funnel number, hub rankings for category queries, and evidence that anyone returns.
 
 ## Failure modes registry
 
@@ -299,7 +299,10 @@ Critical gaps (Rescued=N, Test=N, Silent): 2. **Request Indexing has no record**
 
 ## Implementation Tasks
 
-Strategy-only: each task is the next research, chartering or verification action. Nothing starts before the RCP-119 charter; each SI needs its RCP acceptance row.
+Strategy-only: each task is the next research, chartering or verification action. The tasks fall into two groups.
+
+- **Before the charter** (no code, no deploy, no sprint scope): Adam's manual Search Console actions (T4, and the first pass of T3 for `/browse` and the hubs); design and decisions the charter needs as input (T13, the E3 render-path decision A1, the E2 source decision in T5); Jira filing (T2, T11).
+- **At or after the charter:** T1 is the chartering act itself. All build work waits for it, and each SI needs its RCP acceptance row. This covers the build half of T5 and the second pass of T3 (newest recipes, after rank 1 deploys).
 
 - [ ] **T1 (P1, human: ~2h / CC: ~15min)** — Charter — Put KAN-319, the recipe→all-tags row and E3 in one RCP-119 lane as rank 1
   - Surfaced by: Section 1 A2; live evidence (hubs never crawled)
@@ -309,23 +312,23 @@ Strategy-only: each task is the next research, chartering or verification action
   - Surfaced by: Sep 30 doc #3; live probe (1 tag link per recipe)
   - Files: to be determined
   - Verify: KAN row exists, linked to its RCP acceptance row
-- [ ] **T3 (P1, human: ~20min/day for 3 days)** — Adam — Request Indexing now for `/browse` and the 10 hubs (needs no deploy; the pages are live and index-ready); repeat for newest recipes after rank 1 deploys; record dates on a KAN row
+- [ ] **T3 (P1, human: ~20min/day for 3 days)** — Adam — Request Indexing for `/browse` and the 10 hubs before the charter (needs no deploy; the pages are live and index-ready); repeat for newest recipes after rank 1 deploys; record each URL and date on a KAN row
   - Surfaced by: Failure modes registry (critical gap); spec review (ranking)
-  - Verify: `gsc_index_coverage_sample newest 15` shows crawl dates within 14 days
-- [ ] **T4 (P1, do first, human: ~1h)** — Adam — Open Search Console → Settings → Crawl stats → Host status and the crawl-requests chart for late August to mid September; record what it shows. This is the only check that separates H3 from H1/H2
+  - Verify: `gsc_inspect_url` on every URL in the dated request log shows a crawl date within 14 days of its request. The newest-15 sample is a separate coverage trend: it picks URLs by sitemap `lastmod`, so it may not contain the requested URLs
+- [ ] **T4 (P1, do first, human: ~1h)** — Adam — Open Search Console → Settings → Crawl stats → Host status and the crawl-requests chart for late August to mid September; record what it shows. This is the only check that tests H3
   - Surfaced by: Section 8 O1; Adam's overload observation; spec review
-  - Verify: screenshot or numbers attached to the E2 row; Core finding updated from hypothesis to finding
+  - Verify: screenshot or numbers attached to the E2 row; Core finding records what the report supports or weakens about H3. A healthy host report does not separate H1 from H2; those stay hypotheses until their own discriminators are read
 - [ ] **T5 (P1, human: ~1 day / CC: ~30min)** — E2 — Decide the log source; prefer a log-based metric over `logging.viewer`
   - Surfaced by: Section 3 S1
   - Files: `scripts/monitoring/` (to be determined)
-  - Verify: service account roles unchanged; metric returns Googlebot counts by path prefix
+  - Verify: service account roles unchanged; metric returns Googlebot counts by path prefix, labelled as user-agent-only (unverified) unless the source IP is checked against Google's published ranges
 - [ ] **T6 (P1, human: ~1 to 2 weeks)** — Authority — Charter KAN-277 children, Pinterest verification and the launch post in RCP-119, launch gated on T1 verified live
   - Surfaced by: Core finding; Section 9
   - Verify: each owned property resolves 200 to the canonical URL; Search Console Links shows referring domains
 - [ ] **T7 (P2, human: ~2 weeks / CC: ~1h)** — E1 — Choose 10 to 15 recipes (start with those already drawing impressions), set the notes word cap, define the tested field, and extend the existing `/about` page (already served by Express and linked in the SSR footer) with authorship, `Person.sameAs` and which recipes are tested
   - Surfaced by: D2; Section 11 D1
   - Verify: marker absent on untested recipes; About linked from footer
-- [ ] **T8 (P2, human: ~2h / CC: ~20min)** — Measurement — Re-run mobile Lighthouse on three templates; run Rich Results Test on three recipes and classify the issues; schedule `/seo-weekly-check` with `min_impressions=3` and the newest-15 sample
+- [ ] **T8 (P2, human: ~2h / CC: ~20min)** — Measurement — Re-run mobile Lighthouse on three templates; run Rich Results Test on three recipes and classify the issues; schedule `/seo-weekly-check` plus a separate `gsc_striking_distance(min_impressions=3)` call and the newest-15 sample (`gsc_weekly_report` takes only `days` and keeps its 10-impression threshold)
   - Surfaced by: Driver scorecard; Section 2
   - Verify: numbers recorded against driver bullet 1; issues labelled error or warning
 - [ ] **T9 (P2, human: ~1h)** — Process — Close KAN-271/272/273/274/276 AC by AC on v0.5.x evidence
@@ -337,9 +340,10 @@ Strategy-only: each task is the next research, chartering or verification action
 - [ ] **T11 (P3, human: ~10min)** — Jira — Record E4 "veganize" pages as a `next-sprint-candidate` row with its trigger (hubs indexed and drawing category impressions)
   - Surfaced by: D6
   - Verify: row exists and is not in RCP-119
-- [ ] **T13 (P1, human: ~1h / CC: ~30min)** — E5 — Run `/office-hours` on recipe feedback before chartering it. It must settle: who may leave feedback (signed-in only, or guests), what is shown publicly, how spam and false reports are handled, whether it produces a rating, and how it sits with the no-tracking stance
+- [x] **T13 (P1, human: ~1h / CC: ~30min)** — E5 — Run `/office-hours` on recipe feedback before chartering it. It must settle: who may leave feedback (signed-in only, or guests), what is shown publicly, how spam and false reports are handled, whether it produces a rating, and how it sits with the no-tracking stance
   - Surfaced by: D8 (Adam); Failure modes registry (critical gap)
   - Verify: design doc exists; RCP-119 acceptance row names its evidence
+  - Done 2026-10-04: [`docs/designs/recipe-feedback.md`](../designs/recipe-feedback.md), approved by Adam. The acceptance row is still owed at charter time
 - [ ] **T12 (P2, human: ~30min)** — Adam — Decide KAN-275 joke-title handling before hubs and the newest row surface those titles
   - Surfaced by: Section 4; audit C3
   - Verify: decision recorded on KAN-275
@@ -428,3 +432,4 @@ Approval readiness: PASS. Checked rows and answers: MODE (D1), E1 (D2), E2 (D3),
 **UNRESOLVED DECISIONS:**
 
 - E5 recipe feedback is accepted in direction but undesigned: who may leave feedback, what is public, moderation, ratings. Owner: Adam via `/office-hours` (T13).
+  - Update 2026-10-04: resolved. Adam approved [`docs/designs/recipe-feedback.md`](../designs/recipe-feedback.md), which settles eligibility, public display, moderation and ratings. Next step for the charter owner: `/plan-eng-review` on that design, starting from its open reviewer concerns R3-3 to R3-8 and its open questions. Statements above that call E5 undesigned describe the 2026-10-03 snapshot.
