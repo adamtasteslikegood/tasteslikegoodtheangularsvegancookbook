@@ -159,8 +159,11 @@ To enable real login:
    authorized redirect URI:
 
    ```
-   https://<express-staging-url>/api/auth/callback
+   https://staging.tasteslikegood.xyz/api/auth/callback
    ```
+
+   The redirect URI must be on the host visitors sign in on. If
+   `STAGING_PUBLIC_URL` is overridden for the deploy, use that host here.
 
 2. Store both halves as staging secrets:
 
@@ -172,8 +175,8 @@ To enable real login:
    ```
 
 3. Re-run `./scripts/staging/deploy-staging.sh --apply --version <tag>`. The
-   script detects the secrets, wires them plus `FRONTEND_URL` (resolved from
-   the existing Express service URL) into Flask, and login turns on. Without
+   script detects the secrets, wires them plus `FRONTEND_URL` (`STAGING_PUBLIC_URL`,
+   default `https://staging.tasteslikegood.xyz`) into Flask, and login turns on. Without
    the secrets the same deploy keeps login off — presence is the switch.
 
 **Owning the seeded cookbook:** imports land under the synthetic
