@@ -321,6 +321,16 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       expect(shown()).toEqual(['r-2', 'r-4', 'r-1', 'r-3']);
     });
 
+    it('ranks a recipe with only one of its two times by the time it has', () => {
+      const { kitchen, user, shown } = kitchenWith();
+      // Imported JSON may carry prepTime or cookTime alone.
+      const cookOnly = { id: 'r-5', name: 'Toast', cookTime: 3, tags: [] } as unknown as Recipe;
+      const prepOnly = { id: 'r-6', name: 'Salad', prepTime: 12, tags: [] } as unknown as Recipe;
+      user.update((u) => ({ ...u!, savedRecipes: [...saved, cookOnly, prepOnly] }));
+      kitchen.setKitchenSort('quickest');
+      expect(shown()).toEqual(['r-5', 'r-2', 'r-6', 'r-4', 'r-1', 'r-3']);
+    });
+
     it('ignores a sort it does not offer', () => {
       const { kitchen, shown } = kitchenWith();
       kitchen.setKitchenSort('name');

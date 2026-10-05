@@ -46,10 +46,16 @@ const KITCHEN_SORT_OPTIONS: readonly { value: KitchenSort; label: string }[] = [
   { value: 'quickest', label: 'Quickest first' },
 ];
 
-/** Prep plus cook time; a recipe with no usable time sorts last. */
+/**
+ * Prep plus cook time; a recipe with no usable time sorts last. Imported JSON
+ * may lack either field, so each is read on its own.
+ */
 function totalMinutes(recipe: Recipe): number {
-  const total = Number(recipe.prepTime) + Number(recipe.cookTime);
-  return Number.isFinite(total) && total > 0 ? total : Number.POSITIVE_INFINITY;
+  const minutes = (value: unknown) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  };
+  return minutes(recipe.prepTime) + minutes(recipe.cookTime) || Number.POSITIVE_INFINITY;
 }
 
 @Component({
