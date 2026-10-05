@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
 ## [0.5.8] - 2026-10-05
 
 Backend pointer pinned at `6fe78936f803` (Backend `main`, promotion #367).
@@ -33,8 +35,6 @@ Backend pointer pinned at `6fe78936f803` (Backend `main`, promotion #367).
   (Backend #363).
 - Staging tooling defaults to `https://staging.tasteslikegood.xyz` (KAN-326): `STAGING_URL` in the
   release train's verify step and `FRONTEND_URL` in `deploy-staging.sh`.
-
-## [Unreleased]
 
 ## [0.5.7] - 2026-10-02
 
