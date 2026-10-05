@@ -8,21 +8,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.8] - 2026-10-05
+
+Backend pointer pinned at `6fe78936f803` (Backend `main`, promotion #367).
+
 ### Added
 
 - Kitchen filter and sort (KAN-298). A filter box narrows the open cookbook, or All Recipes, to the
   recipes whose name or tags contain every word typed, and a sort menu orders them as saved, by
-  name, or quickest first. Both work on the list already loaded; nothing is fetched. The public
-  half, `/browse?sort=` and `/browse?tag=` as views that declare `rel=canonical` to `/browse`, is
-  Backend #365 and reaches production with the next pointer bump.
+  name, or quickest first. Both work on the list already loaded; nothing is fetched.
+- `/browse?sort=` and `/browse?tag=` (KAN-298, Backend #365). `sort` takes `newest`, `oldest` or
+  `name`; `tag` narrows the listing to recipes carrying that tag. Every URL with either key declares
+  `rel=canonical` to the bare `/browse`, on every page, so filtered views are not indexed as
+  duplicates. Tag hubs at `/browse/tag/<slug>` and unfiltered `?page=N` keep their own canonical. A
+  Sort and Tag form sits above the grid and works without JavaScript; on phones it lines up on the
+  same two columns as the cards, and Apply is a filled button with a visible keyboard focus state
+  (Backend #366, #368, #369).
 
 ### Changed
 
-- Kitchen recipe grids show two cards per row on phones (KAN-297). The recipe list and the Recycle
-  Bin start at two columns instead of one, with a tighter gap, shorter card images and smaller
-  titles below the `sm` breakpoint; the Recycle Bin's Restore and Delete buttons stack there. The
-  public `/browse` and tag-hub half is Backend #363 and reaches production with the next pointer
-  bump.
+- Two recipe cards per row on phones (KAN-297). In the Kitchen, the recipe list and the Recycle Bin
+  start at two columns instead of one, with a tighter gap, shorter card images and smaller titles
+  below the `sm` breakpoint; the Recycle Bin's Restore and Delete buttons stack there. On the public
+  site, `/browse`, the tag hubs and the related recipes on `/r/<slug>` keep two columns below
+  768 px, descriptions clamp to three lines, and card images request the half-width variant
+  (Backend #363).
+- Staging tooling defaults to `https://staging.tasteslikegood.xyz` (KAN-326): `STAGING_URL` in the
+  release train's verify step and `FRONTEND_URL` in `deploy-staging.sh`.
 
 ## [0.5.7] - 2026-10-02
 
