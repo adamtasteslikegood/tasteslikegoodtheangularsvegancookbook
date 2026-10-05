@@ -42,12 +42,13 @@ STATE="$STATE_DIR/train-state.json"
 BACKEND_REPO="adamtasteslikegood/tasteslikegood.com"
 PROD="https://www.tasteslikegood.org"
 
-# Staging URL. Overridable via STAGING_URL env. Defaults to the known
-# Cloud Run URL so --verify-only works without gcloud credentials. If the
-# service is redeployed to a new URL, either export STAGING_URL or update
-# this constant — there is deliberately no gcloud fallback (would require
-# auth in every operator's shell).
-STAGING="${STAGING_URL:-https://express-frontend-staging-g24svmewaa-uc.a.run.app}"
+# Staging URL. Overridable via STAGING_URL env. Defaults to the staging
+# custom domain (KAN-326; it fronts the express-frontend-staging service) so
+# --verify-only works without gcloud credentials. If staging moves to a new
+# URL, either export STAGING_URL or update this constant — there is
+# deliberately no gcloud fallback (would require auth in every operator's
+# shell).
+STAGING="${STAGING_URL:-https://staging.tasteslikegood.xyz}"
 
 DRY_RUN=0
 MODE="walk"

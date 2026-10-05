@@ -18,10 +18,10 @@ grant that the deploy script wires idempotently.
 
 ## Services
 
-| Service                    | Purpose                              | Access                      |
-| -------------------------- | ------------------------------------ | --------------------------- |
-| `express-frontend-staging` | SPA + proxy                          | Public (`*.run.app`)        |
-| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check |
+| Service                    | Purpose                              | Access                                                         |
+| -------------------------- | ------------------------------------ | -------------------------------------------------------------- |
+| `express-frontend-staging` | SPA + proxy                          | Public: `https://staging.tasteslikegood.xyz` (and `*.run.app`) |
+| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check                                    |
 
 `flask-backend-staging` mirrors prod's posture (KAN-170): the invoker IAM
 check is ON, and Express authenticates with a Google-signed ID token
