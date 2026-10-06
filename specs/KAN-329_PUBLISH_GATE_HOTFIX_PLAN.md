@@ -283,7 +283,15 @@ Run revision each way. Order:
    up to ten minutes and would otherwise show the old state.
 5. Re-run the listing **before lifting the pause**: every public row has origin
    `generated`, a matching fingerprint, and passes the eligibility check. Fix anything
-   that does not, still under the pause.
+   that does not, still under the pause. **The order inside step 3 matters for this:**
+   the re-bless window is only open _before_ `--apply`. Under the pause, run `list` again
+   and a dry `cutover`; a `keep` row in the second-look list for "content changed since
+   the listing" is still public at that point, so it is in the fresh listing with its new
+   fingerprint — Adam re-reads it, updates the manifest, and only then `--apply`. After
+   `--apply` that row is private, `list` no longer shows it and there is no re-bless path
+   (regenerate, per "Known consequences"). Expect this: any image regeneration on a public
+   row between listing day and cutover day changes `ai_image_gcs` and fails the
+   fingerprint by design (D10).
 6. Lift the pause (new Express revision with the switch off). The app has no version
    check and no service worker, so a tab left open keeps the old bundle, with a stale
    local `is_public`/`origin`, until its next full page load. That is accepted: an old
@@ -324,6 +332,10 @@ first time. Prepared for Adam to run — a job in the production project is a pr
 change, not run by an agent:
 
 ```bash
+# 0. The listing carries owner emails, so the bucket it lands in must be private. Both
+#    buckets; each command must print nothing.
+gsutil iam get gs://tasteslikegood-recipe-images | grep -E 'allUsers|allAuthenticatedUsers'
+gsutil iam get gs://tasteslikegood-recipe-images-staging | grep -E 'allUsers|allAuthenticatedUsers'
 # 1. Backend image from the advisory branch into the private registry (no code leaves GCP).
 cd /path/to/tasteslikegood.com-ghsa-48gm-m2wj-96xh && git switch advisory-fix-1
 gcloud builds submit --project comdottasteslikegood --region us-central1 \
@@ -332,8 +344,12 @@ gcloud builds submit --project comdottasteslikegood --region us-central1 \
 gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export \
   | sed -e 's/flask-backend-image-repair/flask-backend-publish-audit/' \
         -e 's#flask-backend:[^"]*#flask-backend:kan-329-audit#' \
-        -e 's#scripts/repair_missing_images.py#scripts/publish_audit.py#' > /tmp/audit-job.yaml
-# review /tmp/audit-job.yaml: command python, args [scripts/publish_audit.py, --help], no IMAGE_REPAIR_LIMIT
+        -e 's#scripts/repair_missing_images.py#scripts/publish_audit.py#' \
+        -e 's/memory: 1Gi/memory: 4Gi/' > /tmp/audit-job.yaml
+# review /tmp/audit-job.yaml: command python, args [scripts/publish_audit.py] (a bare run
+# prints usage and exits 2, nothing else), memory 4Gi — legacy rows carry base64 image
+# bytes in data and the cutover loads every generated or public row — and drop
+# IMAGE_REPAIR_LIMIT from the env.
 gcloud run jobs replace /tmp/audit-job.yaml --region us-central1
 # 3. The listing.
 BUCKET=tasteslikegood-recipe-images

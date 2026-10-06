@@ -231,7 +231,11 @@ steps:
       - --max-retries=0
       - --task-timeout=900
       - --cpu=1
-      - --memory=1Gi
+      # The cutover loads every generated or public row as an ORM object, and
+      # rows from before the GCS migration still carry base64 image bytes in
+      # data["ai_image_data"] (see utils/cache_utils.py), so 1Gi is an OOM
+      # mid-transaction on production.
+      - --memory=4Gi
       - --parallelism=1
       - --tasks=1
       - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
