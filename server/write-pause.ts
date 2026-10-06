@@ -32,9 +32,21 @@ export function isRecipeWritePaused(
   return env['RECIPE_WRITE_PAUSE'] === '1';
 }
 
+// req.path is the raw pathname, and the proxy forwards the URL verbatim to
+// Flask, which decodes it before routing: /api/%72ecipes is served as
+// /api/recipes. Match on the decoded spelling; a path that does not decode is
+// treated as paused rather than guessed at.
+function isPausedPath(path: string): boolean {
+  try {
+    return PAUSED_PATHS.test(decodeURIComponent(path));
+  } catch {
+    return true;
+  }
+}
+
 export function createWritePause(isPaused: () => boolean = isRecipeWritePaused): RequestHandler {
   return (req, res, next) => {
-    if (!isPaused() || !MUTATING_METHODS.has(req.method) || !PAUSED_PATHS.test(req.path)) {
+    if (!isPaused() || !MUTATING_METHODS.has(req.method) || !isPausedPath(req.path)) {
       next();
       return;
     }

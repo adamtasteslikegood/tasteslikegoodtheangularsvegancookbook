@@ -65,6 +65,26 @@ describe('createWritePause', () => {
     });
   });
 
+  it('stops percent-encoded spellings of the paused paths', async () => {
+    // The proxy forwards originalUrl verbatim and Flask decodes it before
+    // routing, so /api/%72ecipes IS /api/recipes by the time it is served.
+    await withApp(true, async (baseUrl, hits) => {
+      const encoded = [
+        ['PUT', '/api/%72ecipes/r1'],
+        ['POST', '/api/recipe%73'],
+        ['POST', '/api/%67enerate'],
+        ['POST', '/api/generate%5Fimage'],
+        ['DELETE', '/api/recipes%2Fr1'],
+        ['POST', '/api/%E0%A4%A'],
+      ] as const;
+      for (const [method, url] of encoded) {
+        const res = await fetch(`${baseUrl}${url}`, { method });
+        expect(res.status, `${method} ${url}`).toBe(503);
+      }
+      expect(hits).toEqual([]);
+    });
+  });
+
   it('lets reads and other API routes through while paused', async () => {
     await withApp(true, async (baseUrl, hits) => {
       const passThrough = [

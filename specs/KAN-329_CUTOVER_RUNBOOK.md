@@ -1,6 +1,8 @@
 # KAN-329 hotfix — cutover runbook
 
-**Owner:** Adam. **Written:** 2026-10-06 against cookbook fork `2c3ed0d` and Backend fork `51720c5`.
+**Owner:** Adam. **Written:** 2026-10-06 against cookbook fork `2c3ed0d` and Backend fork `51720c5`;
+both forks moved later that day (Backend `4737533`: the listing and fingerprint now cover tags,
+servings and times; cookbook: the write pause matches percent-encoded paths).
 **Companion:** `specs/KAN-329_PUBLISH_GATE_HOTFIX_PLAN.md` (the plan; this file is the procedure).
 
 **Scope:** from "T6 complete in both advisory forks" to "pause lifted, production verified by
@@ -93,7 +95,7 @@ gh api repos/$BACKEND/branches/dev --jq .commit.sha
 
 Expected: `## advisory-fix-1...origin/advisory-fix-1` with no `[ahead` and no modified files in
 either fork (the cookbook fork's `Backend` submodule is uninitialized, see D.1 — that is not a
-modification); tips `2c3ed0d` (cookbook) and `51720c5` (Backend) or later; public `dev` tips
+modification); tips `b674ab5` (cookbook) and `4737533` (Backend) or later; public `dev` tips
 `534ac17` (cookbook) and `0506f0f` (Backend), which are the forks' merge bases (verified
 2026-10-06).
 
@@ -109,7 +111,7 @@ cd $BACKEND_FORK && uv run black --check . && uv run flake8 && uv run mypy . && 
 cd $COOKBOOK_FORK && npm run lint && npm run format:check && npm run type-check && npm test 2>&1 | tail -5 && npm run build 2>&1 | tail -3
 ```
 
-Expected: Backend `785 passed` (last run), cookbook `829 passed` (last run), build exit 0.
+Expected: Backend `790 passed` (last run), cookbook `830 passed` (last run), build exit 0.
 Fail → fix in the fork, commit, push, re-run. Do not proceed on a red gate; there is no CI
 behind the advisory merge.
 
@@ -196,7 +198,7 @@ Expected: `flask-backend-image-repair`. Everything below assumes this works.
 
 Order: staging first (B.1–B.4 with `P=$STAGE_PROJECT`), production second. The staging run is
 the evidence the job and the script work on real wiring. Both listings must come from an
-image built from the exact Backend fork tip that Phase C merges (`51720c5` or later): the
+image built from the exact Backend fork tip that Phase C merges (`4737533` or later): the
 fingerprint in `list` (pre-release image) and in `cutover` (release image) must be the same
 code. **Any later Backend fork commit → rebuild the image and re-run `list`.**
 
@@ -317,11 +319,12 @@ matters: Phase H re-runs `list` and must not overwrite the audit record.
 
 `prod-<date>-pre.md`: `# Publish audit listing`, `N public rows.`, then `## <owner email>`
 sections, one `### <name> — /r/<slug>` per row with id, fingerprint, origin column / blob,
-status, canonical, flags, eligibility, media identity, full description, ingredients,
-instructions, notes.
+status, canonical, flags, eligibility, media identity, full description, tags, servings and
+times, ingredients, instructions, notes.
 
 - Rows under Adam's and Allison's accounts (two accounts each per the plan): quick pass.
-- Every other owner: full read of text and ingredients/steps.
+- Every other owner: full read of text, tags and ingredients/steps (tags reach the page,
+  JSON-LD keywords and the pin text).
 - Flags in bold decide by themselves: `STATUS <x>` (not `ready`) → `unpublish` (the script
   would refuse a `keep` anyway); `column/blob disagree: …` → read with suspicion;
   `CANONICAL` → keep only after the full read; `slug not normalized` → `unpublish` unless
@@ -576,11 +579,13 @@ traffic back to the previous revision (`gcloud run services update-traffic expre
 curl -s -o /dev/null -w '%{http_code}\n' -X POST $PROD/api/recipes -H 'content-type: application/json' -d '{}'
 curl -s -i -X POST $PROD/api/recipes -H 'content-type: application/json' -d '{}' | grep -iE '^(HTTP|retry-after)|RECIPE_WRITE_PAUSE'
 curl -s -o /dev/null -w '%{http_code}\n' -X POST $PROD/api/generate -H 'content-type: application/json' -d '{}'
+curl -s -o /dev/null -w '%{http_code}\n' -X PUT $PROD/api/%72ecipes/x -H 'content-type: application/json' -d '{}'
 curl -s -o /dev/null -w '%{http_code}\n' $PROD/api/recipes
 for p in / /browse /sitemap.xml /api/health; do printf '%s ' $p; curl -s -o /dev/null -w '%{http_code}\n' $PROD$p; done
 ```
 
-Expected: `503` twice, `Retry-After: 120` and `"code":"RECIPE_WRITE_PAUSE"` in the body;
+Expected: `503` three times (the encoded `PUT` included — Flask would decode `%72ecipes` to
+`recipes`, so the pause matches the decoded path), `Retry-After: 120` and `"code":"RECIPE_WRITE_PAUSE"` in the body;
 `GET /api/recipes` → anything but 503 (401/200 depending on session); the four reads → `200`.
 A POST that is not 503 → the variable is not `1` on the serving revision (`gcloud run
 services describe … --format='value(spec.template.spec.containers[0].env)'`) or traffic is
@@ -1006,7 +1011,7 @@ plan text, production is already fixed and cut over.
 | Backend advisory              | `GHSA-48gm-m2wj-96xh`, draft, high, fork `tasteslikegood.com-ghsa-48gm-m2wj-96xh`                                                            | yes                              |
 | Fork PRs                      | none open in either fork                                                                                                                     | yes (A.3 creates them)           |
 | Cookbook fork tip / base      | `2c3ed0d` on `advisory-fix-1` / public `dev` `534ac17`                                                                                       | yes                              |
-| Backend fork tip / base       | `51720c5` on `advisory-fix-1` / public `dev` `0506f0f`                                                                                       | yes                              |
+| Backend fork tip / base       | `4737533` on `advisory-fix-1` / public `dev` `0506f0f`                                                                                       | yes                              |
 | Backend `main`                | `6fe7893` (= current cookbook pin, named in `## [0.5.8]`)                                                                                    | yes                              |
 | Cookbook `main`               | `6136fb1` (v0.5.7)                                                                                                                           | yes                              |
 | Release PR                    | #3612 `dev → main`, OPEN, CLEAN, MERGEABLE                                                                                                   | yes                              |
@@ -1029,8 +1034,8 @@ plan text, production is already fixed and cut over.
 | Prod health                   | `/api/health` 200, `environment production`, `rateLimitStore valkey`                                                                         | yes                              |
 | Served index asset            | `main-OA6KSVBS.js` (pre-release)                                                                                                             | yes                              |
 | Markers                       | `RECIPE_WRITE_PAUSE`; `Only recipes generated here can have a public page`                                                                   | in fork source; asset `[VERIFY]` |
-| Audit script tests            | `tests/test_publish_audit.py` 33 passed (Backend fork)                                                                                       | yes                              |
-| Local gates, last run         | Backend 785 passed; cookbook 829 passed, build exit 0                                                                                        | caller-reported                  |
+| Audit script tests            | `tests/test_publish_audit.py` 38 passed (Backend fork)                                                                                       | yes                              |
+| Local gates, last run         | Backend 790 passed; cookbook 830 passed, build exit 0                                                                                        | run 2026-10-06 on the new tips   |
 | Image-repair scheduler        | `flask-backend-image-repair-daily`, `0 3 * * *` (03:00 UTC), ENABLED, `us-central1`                                                          | verified 2026-10-06 (E.4)        |
 | Load balancer backend         | `vegangenius-backend`, `enableCDN: False`                                                                                                    | verified 2026-10-06 (H.3)        |
 | Image-repair job export keys  | `memory: 1Gi`, `maxRetries: 1`, `timeoutSeconds: '600'`, Cloud SQL + VPC annotations                                                         | verified 2026-10-06 (B.2)        |
