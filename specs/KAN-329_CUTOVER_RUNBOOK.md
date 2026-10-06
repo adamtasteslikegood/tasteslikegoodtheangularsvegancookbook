@@ -95,7 +95,7 @@ gh api repos/$BACKEND/branches/dev --jq .commit.sha
 
 Expected: `## advisory-fix-1...origin/advisory-fix-1` with no `[ahead` and no modified files in
 either fork (the cookbook fork's `Backend` submodule is uninitialized, see D.1 — that is not a
-modification); tips `b674ab5` (cookbook) and `4737533` (Backend) or later; public `dev` tips
+modification); tips `a30ac84` (cookbook) and `4737533` (Backend) or later; public `dev` tips
 `534ac17` (cookbook) and `0506f0f` (Backend), which are the forks' merge bases (verified
 2026-10-06).
 
@@ -1010,7 +1010,7 @@ plan text, production is already fixed and cut over.
 | Cookbook advisory             | `GHSA-8744-3qm2-c4x8`, draft, high, fork `…cookbook-ghsa-8744-3qm2-c4x8`                                                                     | yes                              |
 | Backend advisory              | `GHSA-48gm-m2wj-96xh`, draft, high, fork `tasteslikegood.com-ghsa-48gm-m2wj-96xh`                                                            | yes                              |
 | Fork PRs                      | none open in either fork                                                                                                                     | yes (A.3 creates them)           |
-| Cookbook fork tip / base      | `2c3ed0d` on `advisory-fix-1` / public `dev` `534ac17`                                                                                       | yes                              |
+| Cookbook fork tip / base      | `a30ac84` on `advisory-fix-1` / public `dev` `534ac17`                                                                                       | yes                              |
 | Backend fork tip / base       | `4737533` on `advisory-fix-1` / public `dev` `0506f0f`                                                                                       | yes                              |
 | Backend `main`                | `6fe7893` (= current cookbook pin, named in `## [0.5.8]`)                                                                                    | yes                              |
 | Cookbook `main`               | `6136fb1` (v0.5.7)                                                                                                                           | yes                              |
