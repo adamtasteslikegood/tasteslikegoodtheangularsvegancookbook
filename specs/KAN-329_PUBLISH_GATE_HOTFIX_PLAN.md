@@ -1,8 +1,9 @@
-# KAN-329 / KAN-330: publish gate hotfix plan (v3)
+# KAN-329 / KAN-330: publish gate hotfix plan (v4)
 
-**Status:** v3, 2026-10-05. Revised after the second Codex adversarial pass on v2
-(`specs/KAN-329_CODEX_ADVERSARIAL_REVIEW_PASS2.md`; first pass on v1 in
-`specs/KAN-329_CODEX_ADVERSARIAL_REVIEW.md`). Not yet implemented.
+**Status:** v4, 2026-10-05. Revised after the third Codex adversarial pass on v3
+(`specs/KAN-329_CODEX_ADVERSARIAL_REVIEW_PASS3.md`; pass 2 on v2 in
+`..._PASS2.md`, pass 1 on v1 in `KAN-329_CODEX_ADVERSARIAL_REVIEW.md`). T1 and T2 are
+implemented in the Backend fork (`638d250`); the rest is not.
 
 **Tickets:** KAN-329 (Backend), KAN-330 (SPA), KAN-328 (content lock, part of this
 hotfix). Outside the hotfix: KAN-327, KAN-331, and the two follow-ups at the end.
@@ -82,6 +83,7 @@ What v2 missed (Codex pass 2, verified):
 | D7  | Old client-written `generated` labels           | **Reset on every row not approved in the audit, private and guest too** |
 | D8  | Cutover                                         | **Short write pause** while the reset and the approved list are applied |
 | D9  | Google display name on public bylines           | Follow-up ticket, not the hotfix                                        |
+| D10 | Media on approved public rows at cutover        | **Human re-review per row** (content-credentials icon), not regenerate  |
 | —   | Release                                         | Rides v0.5.8                                                            |
 
 D7 is cheap now: the site has no user base yet (the friends-and-family campaign has not
@@ -199,11 +201,14 @@ the private → public transition only; it never unpublishes.
 15. **Write-pause switch** in Express (`server/`): when `RECIPE_WRITE_PAUSE=1`, mutating
     requests to `/api/recipes*` and `/api/generate*` get a 503 JSON response before the
     proxy; everything else is untouched. Vitest covers both states.
-16. **Legacy notes.** `saveNotes` (`recipe-view.base.ts:295`) clears `notes` when it
-    adopts legacy notes into `personalNotes`. On a generated row the lock ignores that
-    clear (`notes` is public content), so the app would render the same text twice for
-    the approved rows that still have legacy notes. Stop clearing `notes`; hide the
-    read-only copy client-side when it equals `personalNotes`.
+16. **Maintenance 503.** The SPA writes localStorage first and the notes editor closes
+    before the save result is read (`recipe-view.base.ts:298-299`); collection
+    membership is posted even when the recipe save failed
+    (`persistence.service.ts:555-558`). Recognise the pause response explicitly: show
+    "not saved yet" for notes, and skip the membership write when the recipe save
+    failed. Publish/unpublish already reverts with an error.
+17. (v3 item on legacy notes dropped: that migration runs only for manual recipes,
+    `recipe-view.base.ts:272-273`, which the lock does not touch.)
 
 ## Audit and cutover (blocking, before the advisories are published)
 
@@ -214,19 +219,27 @@ old label (D7).
 **Listing** (production through Cloud SQL Studio; staging the same way). One row per public
 recipe, with enough to judge it without opening the site:
 
-- id, slug, name, owner email, origin column, origin in the blob, `is_public` in the
-  column and in the blob (flag any disagreement), status, `source_slug`, created and
-  updated timestamps, whether it has stored image bytes;
-- a content preview (description and the first few ingredients and steps);
-- a content fingerprint: a hash over the publicly rendered text only, the fields
-  `public_bp.py` and the public templates read (`name`, description, ingredients,
-  instructions, `notes`, times, servings, tags). Image fields, `ai_metadata`,
-  `personalNotes`, `is_public`, `slug` and timestamps are excluded, so an allowed notes
-  edit or an image regeneration between audit and cutover does not unpublish an approved
-  row. This is the "approved as of" marker; it has nothing to do with image content
-  credentials.
+- id, slug, name column, owner email, origin column, origin in the blob, `is_public` in
+  the column and in the blob (flag any disagreement), status, `source_slug`,
+  `source_recipe_id`, created and updated timestamps;
+- media identity: `ai_image_gcs`, a hash of `ai_image_data` when present,
+  `stock_image_url`, `image_keywords`;
+- the full public text (description, every ingredient and step, `notes`), not a preview;
+- a fingerprint over all of the above except the timestamps and the owner: name column,
+  slug, the public text, and the media identity. `ai_metadata`, `personalNotes`,
+  `is_public` and timestamps are excluded, so a notes edit between audit and cutover
+  does not fail an approved row. An image swap does, by design (D10).
+
+The listing is grouped by owner. Rows owned by Adam's and Allison's accounts (two each,
+four in all) get a quick pass; every other owner's rows get the full read.
 
 Production shows 101 `/r/` URLs in the sitemap, staging 35.
+
+**Media review (D10).** Every image on the site carries Gemini's content credentials, and
+Adam's browser extension marks them with an icon. Adam walks the public pages once with
+it (5–15 minutes); a row whose image has no credential, or whose stock image is not the
+one he expects, is marked unpublish. The fingerprint then binds that reviewed media to
+the approval. (Automated credential verification is the follow-up below.)
 
 **Decision.** Adam marks each row keep or unpublish and the list is saved with the
 advisory as the audit record (ids, decision, fingerprint).
@@ -237,33 +250,53 @@ in the cookbook advisory (item 15): with `RECIPE_WRITE_PAUSE=1` set on the
 return 503 with a short JSON message; reads keep serving. Flipping the env var is a Cloud
 Run revision each way. Order:
 
-1. Deploy the new Backend revision (the code already refuses to trust client labels).
-2. Reset: `UPDATE recipe SET origin = NULL` on every row whose origin is `generated` and
-   whose id is not in the approved list, and remove `origin` from those rows' blobs. This
-   includes private rows, guest rows and `error` rows.
-3. Apply the approved list: for each keep row, recompute the fingerprint; if it matches,
-   set `origin = 'generated'` in the column and the blob. If it does not match, the row
-   is unpublished instead and listed for a second look.
-4. Unpublish rows: `is_public = false` in the column and the blob, as
-   `scripts/unpublish_slugs.py` does. Never delete: a deleted published slug is retired
-   for good (KAN-288).
-5. Delete the image cache keys of unpublished rows (`vgc:img:<id>`). Public pages are not
-   response-cached; the Flask cache holds image bytes only.
-6. Lift the pause, re-run the listing, confirm every public row has origin `generated`
-   and a matching fingerprint.
+1. Deploy the Express revision that carries the pause switch, with the pause **on**, to
+   100% of traffic. Wait for in-flight text and image workers to finish (no row in
+   `processing` or `generating_image` with a claim token), since the switch does not
+   stop Pub/Sub deliveries and an old worker would still merge over the blob.
+2. Deploy the new Backend revision behind the pause.
+3. One transaction, rows locked, from Cloud SQL Studio:
+   a. Reset: `origin = NULL` in the column and the blob on every row whose origin is
+   `generated`, approved or not, private, guest and `error` rows included.
+   b. For each row in the approved manifest: recompute the fingerprint inside the
+   transaction and check eligibility — signed-in owner, `source_slug` and
+   `source_recipe_id` both NULL, status `ready`. Only a row that passes both gets
+   `origin = 'generated'` back in the column and the blob. A row that fails stays
+   origin-less and is unpublished; it goes on the second-look list.
+   c. Default deny: unpublish every row that is public and not in the set that passed
+   b, including rows published after the listing was taken. `is_public = false` in the
+   column and the blob, as `scripts/unpublish_slugs.py` does. Never delete: a deleted
+   published slug is retired for good (KAN-288).
+   d. Set `updated_at = now()` on every row touched, so an image queue or patch write
+   holding an older timestamp cannot restore a stale blob (`:885`, `:1368`).
+4. Invalidate the owner-scoped recipe caches for every row touched and the image cache
+   keys of unpublished rows (`utils/cache_utils.py`); owned GET responses are cached for
+   up to ten minutes and would otherwise show the old state.
+5. Re-run the listing **before lifting the pause**: every public row has origin
+   `generated`, a matching fingerprint, and passes the eligibility check. Fix anything
+   that does not, still under the pause.
+6. Lift the pause (new Express revision with the switch off). The app has no version
+   check and no service worker, so a tab left open keeps the old bundle, with a stale
+   local `is_public`/`origin`, until its next full page load. That is accepted: an old
+   bundle can only create private rows and cannot change locked content; what it cannot
+   do is reconcile its own local flags. Compatibility is claimed for persistence, not for
+   old-client state.
 
-Steps 2 to 4 are one SQL script committed with the advisory and run from Cloud SQL
-Studio, with the approved manifest inlined. Staging first, production second.
+The transaction in step 3 is one committed SQL script with the approved manifest inlined,
+tested against a fixture (approved and unchanged, approved but changed, forged private,
+forged public, published after listing, saved copy, guest-owned, error row). Staging
+first, production second; the staging run is the evidence that the script works.
 
 After cutover a private row with no worker-written origin can never be published,
 including every private recipe generated before this fix.
 
 **Staging seed and canonical rows.** `scripts/staging/seed-data.py` writes public rows
-directly (`:94-110`). After this fix those rows refuse a publish transition unless blessed
-in the staging audit; the seed script sets `origin = 'generated'` itself for the public
-fixtures, which is fine because it writes through the ORM, not the client path. Canonical
-recipe text can no longer be updated through the client API once locked; it goes through
-the same ORM-level admin path. Document both in the script headers.
+directly (`:94-110`) and its import mode honours `is_public`/`origin` from an export
+(`:249-251`). After this fix both modes write private rows with no origin by default; a
+public staging fixture is blessed through the same reviewed manifest step as production,
+never stamped by the script. Canonical recipe text can no longer be updated through the
+client API once locked; it goes through an ORM-level admin path documented in the script
+header as the one approved exception.
 
 ## Tests
 
@@ -334,31 +367,39 @@ and `npm run lint && npm run format:check && npm run type-check && npm test`.
    back-sync.
 4. In the cookbook advisory, pin Backend `main`'s SHA and update the `## [0.5.8]`
    CHANGELOG section; publish the advisory (merges to cookbook `dev`).
-5. Merge #3612; the tag deploys. The Backend revision goes live before the Express one,
-   so old bundles must work against the new API (item 14).
-6. Cutover on staging, then production, as above.
+5. Merge #3612; the tag deploys both services. `cloudbuild.yaml` deploys Backend before
+   Express, so the pause must already be on **before this merge**: deploy the
+   pause-capable Express revision first (cutover step 1) from the cookbook advisory,
+   then merge. Old bundles must still work against the new API (item 14).
+6. Cutover steps 2–6 on staging, then production.
 7. Verify by content on production; re-run the listing.
 
 There is no schema migration in this hotfix. The data change is the cutover script.
 
 ## Tasks
 
-- [ ] **T1 (P1)** Backend: stamp origin at the worker's text write; stop accepting
-      `generated` from payloads.
-- [ ] **T2 (P1)** Backend: content lock on generated rows and placeholders, filtering the
-      payload to `{is_public, personalNotes}` before any downstream read; image URL
-      server-owned; data-URL promotion removed.
+- [x] **T1 (P1)** Backend: stamp origin at the worker's text write; stop accepting
+      `generated` from payloads; text write replaces the blob and drops media,
+      publication and provenance keys from the model's output. (`638d250`)
+- [x] **T2 (P1)** Backend: content lock on generated rows and on placeholders whose text
+      generation is in flight, filtering the payload to `{is_public, personalNotes}`
+      before any downstream read; data-URL promotion removed. Origin-less rows having
+      only an image regenerated stay editable. (`638d250`, 18 tests in
+      `tests/test_generated_content_lock.py`)
 - [ ] **T3 (P1)** Backend: publish rule (transition-only status check; new row → private;
       ineligible transition → 400; unpublish always allowed); `origin` + `is_public` in
       every response; `migrate_file_to_db`.
 - [ ] **T4 (P1)** Backend tests as listed.
 - [ ] **T5 (P1)** SPA: remove import and its copy; export field drop at both call sites;
-      mirror origin/is_public; toggle; stop sending origin; legacy-notes dedupe; Express
-      write-pause switch with tests.
-- [ ] **T6 (P1)** Audit listing query, cutover SQL script with manifest, staging seed
-      change; run the audit with Adam; saved record.
+      mirror origin/is_public; toggle; stop sending origin; maintenance-503 handling;
+      Express write-pause switch with tests.
+- [ ] **T6 (P1)** Audit listing query (grouped by owner, media identity, full text,
+      fingerprint); transactional cutover script with manifest, eligibility and default
+      deny, tested on the fixture; cache invalidation; staging seed private by default;
+      run the audit and media review with Adam; saved record.
 - [ ] **T7 (P1)** Release: CHANGELOG, pin, advisories published in order, #3612 held,
-      write pause and cutover on staging then production.
+      pause-capable Express deployed and on before the release merge, drain, cutover on
+      staging then production.
 
 T1–T4 and T5 are independent. T6's listing query can be written now.
 
