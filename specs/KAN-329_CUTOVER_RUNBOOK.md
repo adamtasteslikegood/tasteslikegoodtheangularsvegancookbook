@@ -8,9 +8,10 @@ content, `verify` clean, advisories published, close-out done".
 
 Every step is: command → expected output → check → what to do when the check fails. Anything
 not verified while writing is marked `[VERIFY]` with the command that verifies it; the full
-list is in the appendix. `gcloud` could not be read while writing (token refresh needs an
-interactive login), so every Cloud Run / Cloud Build / Scheduler fact below is `[VERIFY]`
-unless it comes from `cloudbuild.yaml` or `scripts/staging/deploy-staging.sh`.
+list is in the appendix. The Cloud Run, Cloud Build, Scheduler and bucket facts were read
+live on 2026-10-06 (read-only `gcloud`); the items still marked `[VERIFY]` need an execution
+or a deployed build to answer. `gsutil` is not installed on the operator machine — every
+storage command here is `gcloud storage`.
 
 ## Abort rules (the three that decide the day)
 
@@ -158,23 +159,26 @@ Expected now: plain run clean; `--for-release` exit 0 **before** Phase C (pointe
 Backend `main`, `## [0.5.8]` names it, untagged). It will go to exit 1 after C.2 until D lands
 (D.4 explains). Exit 2 = could not inspect; treat as a failure.
 
-### A.6 Bucket IAM (plan bootstrap step 0) `[VERIFY]`
+### A.6 Bucket IAM (plan bootstrap step 0) — verified 2026-10-06
 
 The listing carries owner emails and lands in these buckets. Each policy must have no
-`allUsers` / `allAuthenticatedUsers` binding.
+`allUsers` / `allAuthenticatedUsers` binding. The production bucket lives in
+`comdottasteslikegood`, the staging bucket in `gen-lang-client-0491022701`.
 
 ```bash
-gsutil iam get gs://$PROD_BUCKET
-gsutil iam get gs://$STAGE_BUCKET
-gsutil iam get gs://$PROD_BUCKET | grep -cE 'allUsers|allAuthenticatedUsers'
-gsutil iam get gs://$STAGE_BUCKET | grep -cE 'allUsers|allAuthenticatedUsers'
+gcloud storage buckets get-iam-policy gs://$PROD_BUCKET --project $PROD_PROJECT --format=json
+gcloud storage buckets get-iam-policy gs://$STAGE_BUCKET --project $STAGE_PROJECT --format=json
+gcloud storage buckets get-iam-policy gs://$PROD_BUCKET --project $PROD_PROJECT --format=json | grep -cE 'allUsers|allAuthenticatedUsers'
+gcloud storage buckets get-iam-policy gs://$STAGE_BUCKET --project $STAGE_PROJECT --format=json | grep -cE 'allUsers|allAuthenticatedUsers'
 ```
 
-Expected: the first two print a JSON policy (`bindings`, `etag`); the counts print `0`.
-**Empty output from `iam get` means the command failed (auth), not that the bucket is
-private** — on 2026-10-06 the command printed nothing, so this is unverified. A count above
-0 → do not run `list` into that bucket; use a local `--out` path (the job cannot write
-locally — create a private bucket first) or fix the policy.
+Expected: the first two print a JSON policy with five role bindings each
+(`legacyBucketOwner`, `legacyBucketReader`, `legacyObjectOwner`, `legacyObjectReader`,
+`objectAdmin`) and an `etag`; the counts print `0`. That is what both buckets showed on
+2026-10-06. Re-run on the day: a count above 0 → do not run `list` into that bucket; fix the
+policy first (the job cannot write locally). `gsutil` is not installed on this machine and
+prints nothing, not even an error, when invoked — which is why an earlier pass read "empty"
+as unverified.
 
 ### A.7 gcloud auth
 
@@ -226,6 +230,13 @@ The root `.gcloudignore` excludes `Backend/` and the root `Dockerfile` does not 
 three values that differ from the release's `Deploy Publish Audit Job` step
 (`cloudbuild.yaml:218-247`): memory `4Gi`, `maxRetries: 0`, `timeoutSeconds: 900`:
 
+The export's spellings were read on 2026-10-06: `memory: 1Gi`, `maxRetries: 1`,
+`timeoutSeconds: '600'` (a quoted string), `image: us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius/flask-backend:6136fb1`,
+annotations `run.googleapis.com/cloudsql-instances: comdottasteslikegood:us-central1:vegangenius-db`,
+`run.googleapis.com/network-interfaces: [{"network": "default", "subnetwork": …}]`,
+`run.googleapis.com/vpc-access-egress: private-ranges-only`, and `command:` / `args:` as list
+entries. The sed lines match those spellings exactly:
+
 ```bash
 gcloud run jobs describe flask-backend-image-repair --region $REGION --project $PROD_PROJECT --format=export > /tmp/audit-job.yaml
 sed -i -e 's/flask-backend-image-repair/flask-backend-publish-audit/' \
@@ -233,16 +244,19 @@ sed -i -e 's/flask-backend-image-repair/flask-backend-publish-audit/' \
        -e 's#scripts/repair_missing_images.py#scripts/publish_audit.py#' \
        -e 's/memory: 1Gi/memory: 4Gi/' \
        -e 's/maxRetries: 1/maxRetries: 0/' \
-       -e 's/timeoutSeconds: 600/timeoutSeconds: 900/' /tmp/audit-job.yaml
-grep -n -E 'name: flask-backend|image:|command|args|memory|maxRetries|timeoutSeconds|IMAGE_REPAIR_LIMIT' /tmp/audit-job.yaml
+       -e "s/timeoutSeconds: '600'/timeoutSeconds: '900'/" /tmp/audit-job.yaml
+grep -n -E 'name: flask-backend|image:|command|args|memory|maxRetries|timeoutSeconds|IMAGE_REPAIR_LIMIT|cloudsql-instances|vpc-access-egress' /tmp/audit-job.yaml
 ```
 
-Review the grep: `command: [python]`, `args: [scripts/publish_audit.py]` (a bare run prints
-usage and exits 2, nothing else), `memory: 4Gi`, `maxRetries: 0`, `timeoutSeconds: 900`,
-image `…/flask-backend:kan-329-audit`. Delete the `IMAGE_REPAIR_LIMIT` env entry by hand
-(two lines, `name:`/`value:`). `[VERIFY]` the exact YAML keys on your export — the sed
-patterns assume `memory: 1Gi`, `maxRetries: 1`, `timeoutSeconds: 600`; a non-matching sed is
-silent, which is why the grep is the check.
+Review the grep: `command:` with `- python`, `args:` with `- scripts/publish_audit.py` (a bare
+run prints usage and exits 2, nothing else), `memory: 4Gi`, `maxRetries: 0`,
+`timeoutSeconds: '900'`, image `…/flask-backend:kan-329-audit`, the Cloud SQL annotation and
+`private-ranges-only` unchanged. Delete the `IMAGE_REPAIR_LIMIT` env entry by hand (two
+lines, `name:`/`value:`). A non-matching sed is silent, which is why the grep is the check;
+if the export's spelling has drifted since 2026-10-06, fix the sed before `replace`. The
+`GOOGLE_API_KEY` secret comes along in the copy; `create_app()` does not require it
+(`config.py:36` reads it with `os.getenv`, and the only consumer is a lazy getter at
+`config.py:124`), so the audit job neither needs nor is harmed by it.
 
 ```bash
 gcloud run jobs replace /tmp/audit-job.yaml --region $REGION --project $PROD_PROJECT
@@ -272,8 +286,10 @@ Expected: the bare execution prints the script's usage and **fails** (exit 2 fro
 — that proves image pull (cross-project read on the prod registry is bound by
 `deploy-staging.sh` step 0 for the service agent; `[VERIFY]` the job pulls with the same
 agent), secrets and Cloud SQL wiring. An `ImagePullBackOff` or a secret error here is a
-wiring problem, not a script problem. `[VERIFY]` that `GOOGLE_API_KEY_STAGING` is not needed
-by `create_app()` for this script (the staging service passes it only when present).
+wiring problem, not a script problem. `GOOGLE_API_KEY` is not required by `create_app()`
+(`config.py:36` is a plain `os.getenv`; the only consumer is a lazy getter at `config.py:124`),
+so the staging job is created without `GOOGLE_API_KEY_STAGING` on purpose — verified
+2026-10-06 in the Backend fork.
 
 ### B.3 Run the listing
 
@@ -282,12 +298,13 @@ by `create_app()` for this script (the staging service passes it only when prese
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $PROD_PROJECT --wait \
   --args=scripts/publish_audit.py,list,--out,gs://$PROD_BUCKET/audit/prod-$(date +%F)-pre
 mkdir -p ~/kan-329-audit && cd ~/kan-329-audit
-gsutil cp "gs://$PROD_BUCKET/audit/prod-*-pre.*" .
+gcloud storage ls "gs://$PROD_BUCKET/audit/" --project $PROD_PROJECT
+gcloud storage cp "gs://$PROD_BUCKET/audit/prod-*-pre.*" . --project $PROD_PROJECT
 ls -l
 # staging
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $STAGE_PROJECT --wait \
   --args=scripts/publish_audit.py,list,--out,gs://$STAGE_BUCKET/audit/staging-$(date +%F)-pre
-gsutil cp "gs://$STAGE_BUCKET/audit/staging-*-pre.*" .
+gcloud storage cp "gs://$STAGE_BUCKET/audit/staging-*-pre.*" . --project $STAGE_PROJECT
 ```
 
 Expected (logs, see "Conventions"): `N public row(s) written to gs://…/prod-<date>-pre.{jsonl,md,manifest.json}`;
@@ -330,8 +347,8 @@ exit 2 refuses later.
 ### B.5 Upload and dry-run `cutover` (no pause needed for a dry run)
 
 ```bash
-gsutil cp prod.manifest.json gs://$PROD_BUCKET/audit/prod.manifest.json
-gsutil cp staging.manifest.json gs://$STAGE_BUCKET/audit/staging.manifest.json
+gcloud storage cp prod.manifest.json gs://$PROD_BUCKET/audit/prod.manifest.json --project $PROD_PROJECT
+gcloud storage cp staging.manifest.json gs://$STAGE_BUCKET/audit/staging.manifest.json --project $STAGE_PROJECT
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $STAGE_PROJECT --wait \
   --args=scripts/publish_audit.py,cutover,--manifest,gs://$STAGE_BUCKET/audit/staging.manifest.json
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $PROD_PROJECT --wait \
@@ -577,13 +594,18 @@ not go through Express, so it can create `generating_image` rows with claim toke
 the window (and change `ai_image_gcs` on a `keep` row — a fingerprint failure). Pause it
 for the day.
 
+The scheduler job is `flask-backend-image-repair-daily`, schedule `0 3 * * *` (03:00 UTC
+daily), state `ENABLED`, location `us-central1` (verified 2026-10-06; created out of band per
+`cloudbuild.yaml:173-174`, not in the repo). **Do not start the cutover within an hour of
+03:00 UTC unless the scheduler is already paused.**
+
 ```bash
-gcloud scheduler jobs list --location $REGION --project $PROD_PROJECT
-gcloud scheduler jobs pause <image-repair scheduler job name> --location $REGION --project $PROD_PROJECT
+gcloud scheduler jobs describe flask-backend-image-repair-daily --location $REGION --project $PROD_PROJECT --format='value(state,schedule)'
+gcloud scheduler jobs pause flask-backend-image-repair-daily --location $REGION --project $PROD_PROJECT
+gcloud scheduler jobs describe flask-backend-image-repair-daily --location $REGION --project $PROD_PROJECT --format='value(state)'
 ```
 
-`[VERIFY]` the scheduler job's name and schedule (created out of band per
-`cloudbuild.yaml:173-174`; not in the repo). Resume it in H.5.
+Expected: `ENABLED  0 3 * * *` before, `PAUSED` after. Resume it in H.5.
 
 Drain check in Cloud SQL Studio (instance `vegangenius-db`, database `vegangenius`, user
 `vegangenius-user`):
@@ -641,9 +663,12 @@ Expected: a build with `TAG_NAME v0.5.8` reaching `SUCCESS`; step ids `Init Subm
 builds, pushes, `Deploy Migrate Job`, `Execute Migrate Job` (no migration in this hotfix —
 `flask db upgrade` prints no-ops), `Deploy Image Repair Job`, `Deploy Publish Audit Job`,
 `Deploy Flask Backend`, `Deploy Express Frontend`, `Verify Valkey Health`. The build is
-regional: a global `gcloud builds list` shows nothing recent. `[VERIFY]` whether the
-trigger passes `_VERSION` (the staging README says `v*` image tags never appeared in the
-registry; the SHORT_SHA tag is the one to rely on).
+regional: a global `gcloud builds list` shows nothing recent. The trigger is
+`tlgangularsveaganchef-tagpush` (filename `cloudbuild.yaml`, tag regex `^v\d+\.\d+\.\d+$`, no
+substitutions — verified 2026-10-06), so `_VERSION` falls back to the file's default `latest`
+(`cloudbuild.yaml:22`): the `v0.5.8` image tags are never produced and the `:latest` tags are
+overwritten each release. Harmless; the `$SHORT_SHA` tags are the real ones and every check
+below uses them.
 
 ### F.4 What landed
 
@@ -693,7 +718,7 @@ and can only be regenerated — so finish this loop before G.3.
 ```bash
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $PROD_PROJECT --wait \
   --args=scripts/publish_audit.py,list,--out,gs://$PROD_BUCKET/audit/prod-$(date +%F)-rebless
-gsutil cp "gs://$PROD_BUCKET/audit/prod-*-rebless.*" ~/kan-329-audit/
+gcloud storage cp "gs://$PROD_BUCKET/audit/prod-*-rebless.*" ~/kan-329-audit/ --project $PROD_PROJECT
 ```
 
 For each `SECOND` id: find it in `prod-<date>-rebless.md`, re-read text and media (image
@@ -714,7 +739,7 @@ Expected log: the same counts as the last dry run with `[APPLIED]`. Exit 2 → t
 changed between G.1 and here (nothing applied); exit 3 → a worker claimed a row since E.4
 (nothing applied; re-check the drain, then retry). `--allow-busy` only for a claim you read
 in E.4 as abandoned. Save the log to `~/kan-329-audit/prod-cutover-applied.log` and
-`gsutil cp` it next to the manifest.
+`gcloud storage cp` it next to the manifest.
 
 ### G.4 Verify
 
@@ -792,10 +817,11 @@ kept `200`; gone `404`; sitemap count = keep count (was 101). A gone slug still 
 rule out a cache in front of Flask — `curl -s -I $PROD/r/$GONE | grep -iE '^(age|cache-control|x-cache)'`
 and retry with a cache-busting query (`$PROD/r/$GONE?x=$(date +%s)`). `public_bp.py` has no
 Flask-Caching decorator on `/r/<slug>` (grep for `cache.cached|cache_timeout` is empty in the
-Backend fork), so a 200 that survives the bust is served from the row and means it is still
-public — back to G.4. `[VERIFY]` whether the external load balancer has Cloud CDN enabled on
-the Express backend (`gcloud compute backend-services list --project $PROD_PROJECT
---format='table(name,enableCDN)'`); with CDN on, wait out the TTL before concluding.
+Backend fork), and the external load balancer's backend service `vegangenius-backend` has
+`enableCDN: False` (verified 2026-10-06), so a 200 that survives the bust is served from the
+row and means it is still public — back to G.4. (If CDN is ever enabled, wait out its TTL
+before concluding: `gcloud compute backend-services list --project $PROD_PROJECT
+--format='table(name,enableCDN)'`.)
 Candidate kept slug from the 2026-10-06 sitemap: `vegan-korean-bbq-rib-and-coleslaw-heros`
 (only if it is a `keep`).
 
@@ -806,7 +832,7 @@ gcloud run jobs execute $AUDIT_JOB --region $REGION --project $PROD_PROJECT --wa
   --args=scripts/publish_audit.py,list,--out,gs://$PROD_BUCKET/audit/prod-$(date +%F)-post
 gcloud run jobs execute $AUDIT_JOB --region $REGION --project $PROD_PROJECT --wait \
   --args=scripts/publish_audit.py,verify,--manifest,gs://$PROD_BUCKET/audit/prod.manifest.json
-gsutil cp "gs://$PROD_BUCKET/audit/prod-*-post.*" ~/kan-329-audit/
+gcloud storage cp "gs://$PROD_BUCKET/audit/prod-*-post.*" ~/kan-329-audit/ --project $PROD_PROJECT
 ```
 
 Expected: `K public row(s) written …` with K = keep count; `verify: 0 problem(s)`. Record on
@@ -816,8 +842,11 @@ rows), reset label count (R), `verify` 0.
 ### H.5 Resume the scheduler
 
 ```bash
-gcloud scheduler jobs resume <image-repair scheduler job name> --location $REGION --project $PROD_PROJECT
+gcloud scheduler jobs resume flask-backend-image-repair-daily --location $REGION --project $PROD_PROJECT
+gcloud scheduler jobs describe flask-backend-image-repair-daily --location $REGION --project $PROD_PROJECT --format='value(state)'
 ```
+
+Expected: `ENABLED`.
 
 Old open tabs keep the old bundle and their stale local `is_public`/`origin` until a full
 reload — accepted (plan cutover step 6).
@@ -969,52 +998,58 @@ plan text, production is already fixed and cut over.
 
 ## Appendix — environment values
 
-| Item                          | Value                                                                                                     | Verified 2026-10-06              |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| Cookbook public repo          | `adamtasteslikegood/tasteslikegoodtheangularsvegancookbook`, default branch `dev`                         | yes (`gh api`)                   |
-| Backend public repo           | `adamtasteslikegood/tasteslikegood.com`, default branch `dev`                                             | yes                              |
-| Cookbook advisory             | `GHSA-8744-3qm2-c4x8`, draft, high, fork `…cookbook-ghsa-8744-3qm2-c4x8`                                  | yes                              |
-| Backend advisory              | `GHSA-48gm-m2wj-96xh`, draft, high, fork `tasteslikegood.com-ghsa-48gm-m2wj-96xh`                         | yes                              |
-| Fork PRs                      | none open in either fork                                                                                  | yes (A.3 creates them)           |
-| Cookbook fork tip / base      | `2c3ed0d` on `advisory-fix-1` / public `dev` `534ac17`                                                    | yes                              |
-| Backend fork tip / base       | `51720c5` on `advisory-fix-1` / public `dev` `0506f0f`                                                    | yes                              |
-| Backend `main`                | `6fe7893` (= current cookbook pin, named in `## [0.5.8]`)                                                 | yes                              |
-| Cookbook `main`               | `6136fb1` (v0.5.7)                                                                                        | yes                              |
-| Release PR                    | #3612 `dev → main`, OPEN, CLEAN, MERGEABLE                                                                | yes                              |
-| Tag `v0.5.8`                  | absent (`v0.5.7` is the latest)                                                                           | yes                              |
-| `package.json` version (fork) | `0.5.8`                                                                                                   | yes                              |
-| Cloud Build trigger           | tag `^v[0-9]+\.[0-9]+\.[0-9]+$`, GCP-side                                                                 | from RUNBOOK; `[VERIFY]`         |
-| Prod project / region         | `comdottasteslikegood` / `us-central1`                                                                    | from `cloudbuild.yaml`           |
-| Registry                      | `us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius`                                             | from `cloudbuild.yaml`           |
-| Prod services                 | `express-frontend`, `flask-backend`                                                                       | from `cloudbuild.yaml`           |
-| Prod jobs                     | `flask-backend-migrate`, `flask-backend-image-repair`, `flask-backend-publish-audit` (new, 4Gi, `python`) | from `cloudbuild.yaml`           |
-| Express deploy env handling   | `--update-env-vars` (`cloudbuild.yaml:356`); pause variable survives the release                          | yes                              |
-| Prod DB                       | Cloud SQL `vegangenius-db`, db `vegangenius`, user `vegangenius-user`, private IP, Studio only            | from memory/plan                 |
-| Prod bucket                   | `tasteslikegood-recipe-images` (must be private)                                                          | `[VERIFY]` A.6                   |
-| Staging project               | `gen-lang-client-0491022701`                                                                              | from `deploy-staging.sh`         |
-| Staging services              | `express-frontend-staging`, `flask-backend-staging`; Cloud SQL `vegangenius-staging-db`; no Valkey        | from `deploy-staging.sh`         |
-| Staging jobs                  | `flask-staging-migrate` only; audit job created in B.2                                                    | `[VERIFY]`                       |
-| Staging bucket / URL          | `tasteslikegood-recipe-images-staging` / `https://staging.tasteslikegood.xyz`                             | URL yes; bucket `[VERIFY]`       |
-| Public `/r/` URLs             | production 101, staging 35                                                                                | yes (sitemaps)                   |
-| Prod health                   | `/api/health` 200, `environment production`, `rateLimitStore valkey`                                      | yes                              |
-| Served index asset            | `main-OA6KSVBS.js` (pre-release)                                                                          | yes                              |
-| Markers                       | `RECIPE_WRITE_PAUSE`; `Only recipes generated here can have a public page`                                | in fork source; asset `[VERIFY]` |
-| Audit script tests            | `tests/test_publish_audit.py` 33 passed (Backend fork)                                                    | yes                              |
-| Local gates, last run         | Backend 785 passed; cookbook 829 passed, build exit 0                                                     | caller-reported                  |
-| Image-repair scheduler        | name, schedule                                                                                            | `[VERIFY]` E.4                   |
+| Item                          | Value                                                                                                                                        | Verified 2026-10-06              |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Cookbook public repo          | `adamtasteslikegood/tasteslikegoodtheangularsvegancookbook`, default branch `dev`                                                            | yes (`gh api`)                   |
+| Backend public repo           | `adamtasteslikegood/tasteslikegood.com`, default branch `dev`                                                                                | yes                              |
+| Cookbook advisory             | `GHSA-8744-3qm2-c4x8`, draft, high, fork `…cookbook-ghsa-8744-3qm2-c4x8`                                                                     | yes                              |
+| Backend advisory              | `GHSA-48gm-m2wj-96xh`, draft, high, fork `tasteslikegood.com-ghsa-48gm-m2wj-96xh`                                                            | yes                              |
+| Fork PRs                      | none open in either fork                                                                                                                     | yes (A.3 creates them)           |
+| Cookbook fork tip / base      | `2c3ed0d` on `advisory-fix-1` / public `dev` `534ac17`                                                                                       | yes                              |
+| Backend fork tip / base       | `51720c5` on `advisory-fix-1` / public `dev` `0506f0f`                                                                                       | yes                              |
+| Backend `main`                | `6fe7893` (= current cookbook pin, named in `## [0.5.8]`)                                                                                    | yes                              |
+| Cookbook `main`               | `6136fb1` (v0.5.7)                                                                                                                           | yes                              |
+| Release PR                    | #3612 `dev → main`, OPEN, CLEAN, MERGEABLE                                                                                                   | yes                              |
+| Tag `v0.5.8`                  | absent (`v0.5.7` is the latest)                                                                                                              | yes                              |
+| `package.json` version (fork) | `0.5.8`                                                                                                                                      | yes                              |
+| Cloud Build trigger           | `tlgangularsveaganchef-tagpush`, file `cloudbuild.yaml`, tag `^v\d+\.\d+\.\d+$`, no substitutions (`_VERSION` → `latest`)                    | verified 2026-10-06              |
+| Deployed images (pre-release) | `flask-backend:6136fb1` and `express-frontend:6136fb1` (= cookbook `main`, v0.5.7) on both services and the image-repair job                 | verified 2026-10-06              |
+| Prod project / region         | `comdottasteslikegood` / `us-central1`                                                                                                       | from `cloudbuild.yaml`           |
+| Registry                      | `us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius`                                                                                | from `cloudbuild.yaml`           |
+| Prod services                 | `express-frontend`, `flask-backend`                                                                                                          | from `cloudbuild.yaml`           |
+| Prod jobs                     | `flask-backend-migrate`, `flask-backend-image-repair`, `flask-backend-publish-audit` (new, 4Gi, `python`)                                    | from `cloudbuild.yaml`           |
+| Express deploy env handling   | `--update-env-vars` (`cloudbuild.yaml:356`); pause variable survives the release                                                             | yes                              |
+| Prod DB                       | Cloud SQL `vegangenius-db`, db `vegangenius`, user `vegangenius-user`, private IP, Studio only                                               | from memory/plan                 |
+| Prod bucket                   | `tasteslikegood-recipe-images` (project `comdottasteslikegood`), private: 5 role bindings, no `allUsers`                                     | verified 2026-10-06 (A.6)        |
+| Staging project               | `gen-lang-client-0491022701`                                                                                                                 | from `deploy-staging.sh`         |
+| Staging services              | `express-frontend-staging`, `flask-backend-staging`; Cloud SQL `vegangenius-staging-db`; no Valkey                                           | from `deploy-staging.sh`         |
+| Staging jobs                  | `flask-staging-migrate` only; audit job created in B.2                                                                                       | `[VERIFY]`                       |
+| Staging bucket / URL          | `tasteslikegood-recipe-images-staging` (project `gen-lang-client-0491022701`, private, no `allUsers`) / `https://staging.tasteslikegood.xyz` | verified 2026-10-06              |
+| Public `/r/` URLs             | production 101, staging 35                                                                                                                   | yes (sitemaps)                   |
+| Prod health                   | `/api/health` 200, `environment production`, `rateLimitStore valkey`                                                                         | yes                              |
+| Served index asset            | `main-OA6KSVBS.js` (pre-release)                                                                                                             | yes                              |
+| Markers                       | `RECIPE_WRITE_PAUSE`; `Only recipes generated here can have a public page`                                                                   | in fork source; asset `[VERIFY]` |
+| Audit script tests            | `tests/test_publish_audit.py` 33 passed (Backend fork)                                                                                       | yes                              |
+| Local gates, last run         | Backend 785 passed; cookbook 829 passed, build exit 0                                                                                        | caller-reported                  |
+| Image-repair scheduler        | `flask-backend-image-repair-daily`, `0 3 * * *` (03:00 UTC), ENABLED, `us-central1`                                                          | verified 2026-10-06 (E.4)        |
+| Load balancer backend         | `vegangenius-backend`, `enableCDN: False`                                                                                                    | verified 2026-10-06 (H.3)        |
+| Image-repair job export keys  | `memory: 1Gi`, `maxRetries: 1`, `timeoutSeconds: '600'`, Cloud SQL + VPC annotations                                                         | verified 2026-10-06 (B.2)        |
 
 ### `[VERIFY]` list
 
-| #   | Item                                                                    | Command                                                                                                      |
-| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| 1   | Both buckets private                                                    | `gsutil iam get gs://tasteslikegood-recipe-images` / `…-staging` (A.6; empty output = auth failure)          |
-| 2   | Image-repair job export keys (`memory`, `maxRetries`, `timeoutSeconds`) | `gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export` (B.2)             |
-| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                             |
-| 4   | `GOOGLE_API_KEY` not required by `create_app()` for the script          | same execution; `grep -n GOOGLE_API_KEY Backend/app.py Backend/config.py`                                    |
-| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)                  |
-| 6   | Scheduler job name for image repair                                     | `gcloud scheduler jobs list --location us-central1 --project comdottasteslikegood` (E.4)                     |
-| 7   | Trigger passes `_VERSION` (`v*` image tags)                             | `gcloud builds describe <id> --region us-central1 --format='value(substitutions)'` (F.3)                     |
-| 8   | Non-503 code for an empty anonymous POST after the pause lifts          | H.1 curl                                                                                                     |
-| 9   | Which served asset carries each marker                                  | H.2 loops                                                                                                    |
-| 10  | Cloud Build trigger regex and tag-based firing                          | `gcloud builds triggers list --region us-central1 --project comdottasteslikegood`                            |
-| 11  | Cloud CDN on the external load balancer's Express backend               | `gcloud compute backend-services list --project comdottasteslikegood --format='table(name,enableCDN)'` (H.3) |
+Status column: `open` needs an execution or a deployed build; `resolved` was read live on
+2026-10-06 and the value is in the section named.
+
+| #   | Item                                                                    | Command                                                                                                      | Status                                                                        |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| 1   | Both buckets private                                                    | `gcloud storage buckets get-iam-policy gs://<bucket> --project <project> --format=json` (A.6)                | resolved 2026-10-06: private, 5 bindings each, no `allUsers`                  |
+| 2   | Image-repair job export keys (`memory`, `maxRetries`, `timeoutSeconds`) | `gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export` (B.2)             | resolved 2026-10-06: `1Gi` / `1` / `'600'` (quoted)                           |
+| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                             | open                                                                          |
+| 4   | `GOOGLE_API_KEY` not required by `create_app()` for the script          | `grep -n GOOGLE_API_KEY Backend/app.py Backend/config.py`                                                    | resolved 2026-10-06: `os.getenv` + lazy getter; moot for prod (secret copied) |
+| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)                  | open                                                                          |
+| 6   | Scheduler job name for image repair                                     | `gcloud scheduler jobs list --location us-central1 --project comdottasteslikegood` (E.4)                     | resolved 2026-10-06: `flask-backend-image-repair-daily`, `0 3 * * *`          |
+| 7   | Trigger passes `_VERSION` (`v*` image tags)                             | `gcloud builds triggers describe tlgangularsveaganchef-tagpush --region us-central1` (F.3)                   | resolved 2026-10-06: no substitutions, `_VERSION` → `latest`                  |
+| 8   | Non-503 code for an empty anonymous POST after the pause lifts          | H.1 curl                                                                                                     | open                                                                          |
+| 9   | Which served asset carries each marker                                  | H.2 loops                                                                                                    | open                                                                          |
+| 10  | Cloud Build trigger regex and tag-based firing                          | `gcloud builds triggers list --region us-central1 --project comdottasteslikegood`                            | resolved 2026-10-06: `^v\d+\.\d+\.\d+$`, file `cloudbuild.yaml`               |
+| 11  | Cloud CDN on the external load balancer's Express backend               | `gcloud compute backend-services list --project comdottasteslikegood --format='table(name,enableCDN)'` (H.3) | resolved 2026-10-06: `vegangenius-backend`, `enableCDN: False`                |
