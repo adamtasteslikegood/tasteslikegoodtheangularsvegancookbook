@@ -146,6 +146,15 @@ the private → public transition only; it never unpublishes.
    over `recipe.data` (`:806`), keeping only `id`, `user_id`, `guest_session_id`,
    `is_public` and `slug` from the row. Nothing a client managed to write before the
    stamp survives into a `generated` row. Image writes keep their merge.
+   The model's output is projected with a **denylist** (`_WORKER_TEXT_DROP_FIELDS`:
+   image URL, bytes and GCS pointer, stock image URL, `is_public`, `slug`, `origin`,
+   `sourceSlug`, `sourceRecipeId`, `is_canonical`, `first_published_at`,
+   `slug_reserved`, `personalNotes`) rather than Codex's allowlist of text fields: the
+   public templates render a fixed field set, the recipe schema validates the rest, and
+   a denylist cannot silently drop a legitimate model field the allowlist forgot.
+   `ai_metadata.recipe_generation.prompt` is the one piece of client text that lands on
+   a generated row; no public template or `public_bp.py` path renders `ai_metadata`
+   (checked 2026-10-05).
 2. **Clients cannot claim it.** `_resolve_origin` (`:177-187`) stops accepting `generated`
    from a payload; `manual` and `saved` remain. Covers `:995`, `:1030`, `:1202`. A payload
    cannot change the origin of a row that already has one.
@@ -390,7 +399,9 @@ There is no schema migration in this hotfix. The data change is the cutover scri
       ineligible transition → 400; unpublish always allowed); `origin` + `is_public` in
       every response (already in `to_dict` and the status blob, now tested);
       `migrate_file_to_db`. Backend fork commit after `638d250`.
-- [x] **T4 (P1)** Backend tests: 44 in `tests/test_generated_content_lock.py`; the four
+- [x] **T4 (P1)** Backend tests: 32 in `tests/test_generated_content_lock.py`, including
+      the guest-laundering flow through the login merge (the merge reassigns `user_id`
+      through the ORM, so origin carries over); the four
       files that published on create or through a client label now create private,
       stamp through the ORM (`mark_generated` in `conftest.py`) and publish through the
       ordinary save. Full suite 751 passed. One finding from the rework: a private row
