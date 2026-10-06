@@ -788,10 +788,16 @@ curl -s $PROD/sitemap.xml | grep -oE '/r/[^<"]+' | wc -l
 ```
 
 Expected: four `200`s; health `{"status":"ok",…,"environment":"production","rateLimitStore":"valkey"}`;
-kept `200`; gone `404`; sitemap count = keep count (was 101). A gone slug still `200` →
-SSR cache: the public page is served by Flask from the row, so a 200 means the row is still
-public — back to G.4. Candidate kept slug from the 2026-10-06 sitemap:
-`vegan-korean-bbq-rib-and-coleslaw-heros` (only if it is a `keep`).
+kept `200`; gone `404`; sitemap count = keep count (was 101). A gone slug still `200`: first
+rule out a cache in front of Flask — `curl -s -I $PROD/r/$GONE | grep -iE '^(age|cache-control|x-cache)'`
+and retry with a cache-busting query (`$PROD/r/$GONE?x=$(date +%s)`). `public_bp.py` has no
+Flask-Caching decorator on `/r/<slug>` (grep for `cache.cached|cache_timeout` is empty in the
+Backend fork), so a 200 that survives the bust is served from the row and means it is still
+public — back to G.4. `[VERIFY]` whether the external load balancer has Cloud CDN enabled on
+the Express backend (`gcloud compute backend-services list --project $PROD_PROJECT
+--format='table(name,enableCDN)'`); with CDN on, wait out the TTL before concluding.
+Candidate kept slug from the 2026-10-06 sitemap: `vegan-korean-bbq-rib-and-coleslaw-heros`
+(only if it is a `keep`).
 
 ### H.4 Re-list and verify once more, record counts
 
@@ -999,15 +1005,16 @@ plan text, production is already fixed and cut over.
 
 ### `[VERIFY]` list
 
-| #   | Item                                                                    | Command                                                                                             |
-| --- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| 1   | Both buckets private                                                    | `gsutil iam get gs://tasteslikegood-recipe-images` / `…-staging` (A.6; empty output = auth failure) |
-| 2   | Image-repair job export keys (`memory`, `maxRetries`, `timeoutSeconds`) | `gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export` (B.2)    |
-| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                    |
-| 4   | `GOOGLE_API_KEY` not required by `create_app()` for the script          | same execution; `grep -n GOOGLE_API_KEY Backend/app.py Backend/config.py`                           |
-| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)         |
-| 6   | Scheduler job name for image repair                                     | `gcloud scheduler jobs list --location us-central1 --project comdottasteslikegood` (E.4)            |
-| 7   | Trigger passes `_VERSION` (`v*` image tags)                             | `gcloud builds describe <id> --region us-central1 --format='value(substitutions)'` (F.3)            |
-| 8   | Non-503 code for an empty anonymous POST after the pause lifts          | H.1 curl                                                                                            |
-| 9   | Which served asset carries each marker                                  | H.2 loops                                                                                           |
-| 10  | Cloud Build trigger regex and tag-based firing                          | `gcloud builds triggers list --region us-central1 --project comdottasteslikegood`                   |
+| #   | Item                                                                    | Command                                                                                                      |
+| --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| 1   | Both buckets private                                                    | `gsutil iam get gs://tasteslikegood-recipe-images` / `…-staging` (A.6; empty output = auth failure)          |
+| 2   | Image-repair job export keys (`memory`, `maxRetries`, `timeoutSeconds`) | `gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export` (B.2)             |
+| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                             |
+| 4   | `GOOGLE_API_KEY` not required by `create_app()` for the script          | same execution; `grep -n GOOGLE_API_KEY Backend/app.py Backend/config.py`                                    |
+| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)                  |
+| 6   | Scheduler job name for image repair                                     | `gcloud scheduler jobs list --location us-central1 --project comdottasteslikegood` (E.4)                     |
+| 7   | Trigger passes `_VERSION` (`v*` image tags)                             | `gcloud builds describe <id> --region us-central1 --format='value(substitutions)'` (F.3)                     |
+| 8   | Non-503 code for an empty anonymous POST after the pause lifts          | H.1 curl                                                                                                     |
+| 9   | Which served asset carries each marker                                  | H.2 loops                                                                                                    |
+| 10  | Cloud Build trigger regex and tag-based firing                          | `gcloud builds triggers list --region us-central1 --project comdottasteslikegood`                            |
+| 11  | Cloud CDN on the external load balancer's Express backend               | `gcloud compute backend-services list --project comdottasteslikegood --format='table(name,enableCDN)'` (H.3) |
