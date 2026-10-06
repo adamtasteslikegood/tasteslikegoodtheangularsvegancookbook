@@ -29,9 +29,9 @@ function withCacheBuster(imageUrl: string, at: number): string {
   //
   // Resolving these against a placeholder base and reassembling from
   // pathname/search/hash silently rewrote them: `//host/a.jpg` lost its host
-  // and `a.jpg` was rebased to `/a.jpg`. Recipes imported from user JSON
-  // (`KitchenComponent.onImportFileSelected`) carry arbitrary `ai_image_url`
-  // values, so both forms are reachable.
+  // and `a.jpg` was rebased to `/a.jpg`. Rows saved through the JSON import
+  // that existed before KAN-330 carry arbitrary `ai_image_url` values, so
+  // both forms are still reachable.
   const hashAt = imageUrl.indexOf('#');
   const hash = hashAt === -1 ? '' : imageUrl.slice(hashAt);
   const beforeHash = hashAt === -1 ? imageUrl : imageUrl.slice(0, hashAt);

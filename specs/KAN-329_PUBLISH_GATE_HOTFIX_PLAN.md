@@ -409,9 +409,21 @@ There is no schema migration in this hotfix. The data change is the cutover scri
       path-shaped slugs. Unreachable for generated rows (placeholder has no slug, the
       worker drops it, the client cannot set it), noted here so the cutover listing
       flags any blessed legacy row whose slug is not already sanitized.
-- [ ] **T5 (P1)** SPA: remove import and its copy; export field drop at both call sites;
-      mirror origin/is_public; toggle; stop sending origin; maintenance-503 handling;
-      Express write-pause switch with tests.
+- [x] **T5 (P1)** SPA: import removed (kitchen input, `onImportFileSelected`,
+      `generateMissingImages`, `AuthService.importRecipes`, empty-state copy); both export
+      buttons go through `exportableRecipe`, which drops `is_public`, `slug`, `origin`,
+      `is_canonical`, `first_published_at`, `slug_reserved`; `recipeWithServerIdentity`
+      mirrors `origin` and `is_public` from the save response; `publishToggleKind` refuses
+      any private non-generated row (`'manual'`, server wording) ahead of the save; the
+      generator no longer labels the draft `generated` (the status poll needs no change:
+      the worker-written blob already carries `origin`); `SaveRefusal` gains `'paused'`
+      for a 503 whose body code is `RECIPE_WRITE_PAUSE` (a bare 503 stays `'sync'`),
+      surfaced in the publish toast and in `saveNotes`; cookbook membership is written only
+      after a saved or duplicate outcome. Express: `server/write-pause.ts`, mounted at
+      `/api` after the limiters and before validation and the proxy, reads
+      `RECIPE_WRITE_PAUSE=1` per request and answers 503 + `Retry-After: 120` for
+      POST/PUT/PATCH/DELETE on `/recipes*` and `/generate*` only. Cookbook fork commit
+      after `df5b0fa`; full gate green (lint, format, type-check, 828 tests).
 - [ ] **T6 (P1)** Audit listing query (grouped by owner, media identity, full text,
       fingerprint); transactional cutover script with manifest, eligibility and default
       deny, tested on the fixture; cache invalidation; staging seed private by default;

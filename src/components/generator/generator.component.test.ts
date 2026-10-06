@@ -97,12 +97,15 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     return { component, persistenceSaveRecipe, authUser, recipeState, injector };
   };
 
+  // The recipe as the status poll returns it once the worker's text has
+  // landed: the `generated` label is the server's (KAN-330).
   const draftRecipe = (id = 'gen-1') =>
     ({
       id,
       name: 'Vegan Cornbread',
       ingredients: { wet: [], dry: [], other: [] },
       instructions: [],
+      origin: 'generated',
     }) as never;
 
   // THE divergence from RecipeDetailComponent: the generator prompts a guest to

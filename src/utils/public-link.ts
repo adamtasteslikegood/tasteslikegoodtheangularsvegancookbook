@@ -82,17 +82,21 @@ export function publicLinkKind(recipe: {
  * 'locked' — canonical recipe: the server rejects unpublish/re-slug/delete
  *            with 400, so the toggle is disabled outright with an
  *            explanatory title.
- * 'manual' — a manually entered, unpublished recipe (KAN-140): the server
- *            rejects publishing it with 400, so the toggle is disabled.
- *            Published manual rows (legacy, pre-gate) fall through to
- *            'normal' — they must stay unpublishable-off but
- *            unpublish-able.
  * 'source' — a copy saved from a public recipe that is not itself
  *            published: rendered greyed and disabled (RCP-74). Publish
  *            state belongs to the source page; togglePublic() short-circuits
  *            with a toast, and the server rejects the change with 403 once
  *            the Backend guard lands (Backend #279).
+ * 'manual' — a private recipe the server did not generate (KAN-330, widening
+ *            KAN-140's manual-entry gate): the server publishes only rows
+ *            whose `origin` its own worker wrote, so a manual entry, a legacy
+ *            row with no label, or a generation that has not finished cannot
+ *            go public and the toggle says so. Published rows of any origin
+ *            fall through to 'normal' — they must stay unpublish-able.
  * 'normal' — everything else.
+ *
+ * Order matters: 'source' is checked before 'manual' so a saved copy keeps
+ * its own explanation, which points at the page that is already live.
  */
 export function publishToggleKind(recipe: {
   is_public?: boolean;
@@ -104,8 +108,11 @@ export function publishToggleKind(recipe: {
   if (recipe.is_canonical === true) {
     return 'locked';
   }
-  if (recipe.origin === 'manual' && recipe.is_public !== true) {
+  if (publicLinkKind(recipe) === 'source') {
+    return 'source';
+  }
+  if (recipe.origin !== 'generated' && recipe.is_public !== true) {
     return 'manual';
   }
-  return publicLinkKind(recipe) === 'source' ? 'source' : 'normal';
+  return 'normal';
 }

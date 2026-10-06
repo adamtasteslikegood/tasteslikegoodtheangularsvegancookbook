@@ -12,8 +12,12 @@ import {
   publishToggleKind,
 } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
-import { adoptImagePipelineFields } from '../../utils/recipe-row';
+import { adoptImagePipelineFields, exportableRecipe } from '../../utils/recipe-row';
 import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
+
+/** KAN-330: the server's own reason, so the toggle, the toast and the 400 agree. */
+export const NOT_GENERATED_PUBLISH_REFUSAL =
+  'Only recipes generated here can have a public page. Manually entered, imported or still-generating recipes can’t be published.';
 
 /** Carries the server's refusal reason through the existing throw/catch in
  *  `togglePublic`, so the catch can explain what happened instead of assuming
@@ -64,6 +68,10 @@ export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean)
       // 409 without a recognised code — an older Backend, or one newer than this
       // build. Refused for certain, specific reason unknown; say only that much.
       return `This recipe can’t be ${verb} from this account or session.`;
+    case 'paused':
+      // KAN-330: Express is holding recipe writes for a few minutes. The
+      // network is fine and a retry will work, so say that and nothing more.
+      return `Recipes are read-only for a few minutes while we finish some maintenance, so this wasn’t ${verb}. Please try again shortly.`;
     case 'sync':
     default:
       return publishing
@@ -295,8 +303,18 @@ export abstract class RecipeViewBase {
       // once read-only above the editor, once as "My notes (private)".
       if (this.migratesLegacyNotes(r)) updatedRecipe.notes = '';
       this.recipe.set(updatedRecipe);
-      await this.persistenceService.saveRecipe(updatedRecipe);
+      const outcome = await this.persistenceService.saveRecipeDetailed(updatedRecipe);
       this.isEditingNotes.set(false);
+      // KAN-330: the notes are already on this device (the save writes
+      // localStorage first), so a refused sync has to be said out loud or
+      // closing the editor reads as "synced".
+      if (!outcome.ok) {
+        this.toastService.show(
+          outcome.refusal === 'paused'
+            ? 'Your notes are saved on this device but not synced yet: recipes are read-only for a few minutes while we finish some maintenance. They’ll sync on your next save.'
+            : 'Your notes are saved on this device but not synced to your account yet. Check your connection and save again.'
+        );
+      }
     }
   }
 
@@ -349,26 +367,29 @@ export abstract class RecipeViewBase {
       return;
     }
 
-    // KAN-140: manually entered recipes cannot be published — the server
-    // rejects with 400; the template disables the toggle, this backstops it.
-    if (nextState && recipe.origin === 'manual') {
-      this.toastService.show("Manually entered recipes can't be published.");
-      return;
-    }
+    const kind = publishToggleKind(recipe);
 
     // RCP-74: saved copies cannot be published — the source page owns
     // publication. Templates mark the toggle disabled for this kind, but this
     // base is shared across surfaces and a template can forget (the generator
     // shipped ungated): this guard is the refusal, not a courtesy. The server
     // rejects the change with 403 once the Backend guard lands (Backend #279).
-    if (nextState && publishToggleKind(recipe) === 'source') {
+    if (nextState && kind === 'source') {
       // D1 copy: "This recipe is already live at [here]" — a different message
-      // class from the manual refusal above. It redirects rather than scolds:
+      // class from the refusal below. It redirects rather than scolds:
       // "here" is a real hyperlink to the source's public page (RCP-76 AC3).
       this.toastService.show('This recipe is already live at', null, 6000, {
         url: `/r/${recipe.sourceSlug}`,
         label: 'here',
       });
+      return;
+    }
+
+    // KAN-330 (widening KAN-140): only a recipe the server generated can go
+    // public — the server rejects everything else with 400; the template
+    // disables the toggle, this backstops it with the same reason.
+    if (nextState && kind === 'manual') {
+      this.toastService.show(NOT_GENERATED_PUBLISH_REFUSAL);
       return;
     }
 
@@ -451,7 +472,7 @@ export abstract class RecipeViewBase {
     if (this.publishTogglePending()) return 'Checking publish state…';
     const kind = publishToggleKind(recipe);
     if (kind === 'locked') return 'Canonical recipe — publish state is locked';
-    if (kind === 'manual') return "Manually entered recipes can't be published.";
+    if (kind === 'manual') return NOT_GENERATED_PUBLISH_REFUSAL;
     if (kind === 'source') {
       return `Saved copies can't be published — the original recipe at /r/${recipe.sourceSlug} owns the public page.`;
     }
@@ -460,7 +481,9 @@ export abstract class RecipeViewBase {
 
   exportRecipe(recipe: Recipe) {
     const fileName = `${recipe.name.replace(/\s+/g, '_')}.json`;
-    const blob = new Blob([JSON.stringify(recipe, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(exportableRecipe(recipe), null, 2)], {
+      type: 'application/json',
+    });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
