@@ -95,9 +95,12 @@ gcloud run jobs execute flask-staging-migrate \
 run:
 
 **Synthetic edge rows** (always): 3 users with `@example.test` emails,
-8 recipes covering the shapes acceptance criterion 3 needs — published and
-unpublished, saved copy with `source_slug` (the publish-guard path),
+8 recipes covering the shapes acceptance criterion 3 needs — private
+recipes, a saved copy with `source_slug` (the publish-guard path), an
 orphaned guest recipe, `generating` and `error` states — plus 1 cookbook.
+Since KAN-329 the seed writes no public row and no `generated` label in
+either mode: a staging row goes public only through the reviewed manifest
+(`Backend/scripts/publish_audit.py`), the same step production uses.
 
 **Real export import** (`--from-json`): imports an Export Cookbook JSON
 (the app's own export button, shipped since pre-0.1.0). The export carries

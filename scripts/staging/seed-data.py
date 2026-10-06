@@ -5,7 +5,13 @@ seed-data.py — Populate a staging database with sanitized test data.
 Creates realistic row shapes (users, recipes, cookbooks) using fake data
 so staging exercises the same code paths as production without exposing
 any real PII. Covers edge cases: orphaned guest rows, multi-account
-ownership, published/unpublished recipes, saved copies with source_slug.
+ownership, saved copies with source_slug, placeholder and error rows.
+
+KAN-329: this script never writes a public row, a `generated` label or a
+canonical flag — neither from its fixtures nor from an imported export. Only
+the worker's text write labels a row, and a staging row goes public through
+the same reviewed manifest as production (`Backend/scripts/publish_audit.py
+list` → decide → `cutover --apply`), never by being stamped here.
 
 Usage:
     # From the Backend/ directory with the staging DATABASE_URL set:
@@ -91,23 +97,28 @@ USERS = [
 # 'ready' (resting/complete), 'generating', 'generating_image', 'processing',
 # 'error'. There is no 'complete' status.
 RECIPES = [
-    # Published recipes (is_public=True)
+    # Rows that a staging audit may bless as public. KAN-329: the seed never
+    # writes a public row or a `generated` label itself — only the worker's
+    # text write labels a row, and only a reviewed manifest
+    # (Backend/scripts/publish_audit.py) makes one public. These three are the
+    # candidates for that manifest; until it runs, staging has no public
+    # pages from the seed.
     {
         "name": "Staging Vegan Pad Thai",
         "owner_idx": 0,
-        "is_public": True,
+        "is_public": False,
         "status": "ready",
     },
     {
         "name": "Staging Tofu Scramble",
         "owner_idx": 0,
-        "is_public": True,
+        "is_public": False,
         "status": "ready",
     },
     {
         "name": "Staging Mushroom Risotto",
         "owner_idx": 1,
-        "is_public": True,
+        "is_public": False,
         "status": "ready",
     },
     # Unpublished recipe (private to user)
@@ -117,7 +128,7 @@ RECIPES = [
         "is_public": False,
         "status": "ready",
     },
-    # Saved copy (has source_slug pointing to a published recipe). The slug
+    # Saved copy (has source_slug pointing to the Pad Thai above). The slug
     # column is globally unique, so saved copies cannot reuse the source slug —
     # leave slug NULL and let source_slug carry the identity, matching how the
     # app persists a save (Recipe._IDENTITY uses coalesce(source_slug, slug)).
@@ -209,7 +220,7 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
             continue
 
         if dry_run:
-            print(f"  [DRY RUN] Would import: {rec['name']} (public={rec.get('is_public')})")
+            print(f"  [DRY RUN] Would import: {rec['name']} (private, unlabelled)")
             continue
 
         rid = str(rec["id"]) if rec.get("id") else str(uuid.uuid4())
@@ -238,6 +249,12 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
                 continue
 
         data = {k: v for k, v in rec.items() if k not in EXPORT_COLUMN_KEYS and k not in EXPORT_STRIP_KEYS}
+        # KAN-329: a file is client content. Whatever it says about
+        # publication, provenance or canonical status is ignored: every
+        # imported row is private, unlabelled and not canonical; a row with a
+        # sourceSlug is a saved copy, which is the one label the app itself
+        # writes on a client save. Exports since KAN-330 carry none of these
+        # fields anyway.
         recipe = Recipe(
             id=rid,
             user_id=target.id,
@@ -246,9 +263,9 @@ def import_export_json(path, owner, saved_owner=None, dry_run=False):
             slug=slug,
             source_slug=rec.get("sourceSlug"),
             status="ready",
-            is_public=bool(rec.get("is_public")),
-            is_canonical=bool(rec.get("is_canonical")),
-            origin=rec.get("origin"),
+            is_public=False,
+            is_canonical=False,
+            origin="saved" if rec.get("sourceSlug") else None,
             created_at=now - timedelta(minutes=len(records) - i),
             updated_at=now - timedelta(minutes=len(records) - i),
         )

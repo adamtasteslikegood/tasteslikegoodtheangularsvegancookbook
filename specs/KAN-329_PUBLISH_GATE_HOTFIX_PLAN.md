@@ -291,10 +291,65 @@ Run revision each way. Order:
    do is reconcile its own local flags. Compatibility is claimed for persistence, not for
    old-client state.
 
-The transaction in step 3 is one committed SQL script with the approved manifest inlined,
-tested against a fixture (approved and unchanged, approved but changed, forged private,
-forged public, published after listing, saved copy, guest-owned, error row). Staging
-first, production second; the staging run is the evidence that the script works.
+The transaction in step 3 is one committed script with the approved manifest as its
+input, tested against a fixture (approved and unchanged, approved but changed, forged
+private, forged public, published after listing, saved copy, guest-owned, error row).
+Staging first, production second; the staging run is the evidence that the script works.
+
+**Amendment (T6, 2026-10-06) — the mechanism is a Cloud Run job, not SQL in Cloud SQL
+Studio.** The listing, the cutover and the step-5 re-check are the three subcommands of
+`Backend/scripts/publish_audit.py` (`list`, `cutover --manifest … [--apply]`, `verify`),
+run as the job `flask-backend-publish-audit` with the migrate job's env, secrets, Cloud SQL
+and VPC wiring and `python` as its command. Two reasons it is not a SQL script: the
+fingerprint has exactly one implementation, tested on the fixture in
+`tests/test_publish_audit.py` (a SQL twin could not be, and would have to reproduce
+Python's JSON canonicalisation), and step 4's cache invalidation reaches Valkey only from
+inside the VPC, so the job does steps 3, 4 and 5 in one place. What the plan asked for is
+kept: one transaction with `FOR UPDATE` on every row whose origin is `generated`, that is
+public, or that the manifest names (the lock set is read from the table, so a row
+published after the listing lands in the default deny); reset, restore, default deny,
+`updated_at = now()` on touched rows; nothing deleted; dry-run unless `--apply`. Two
+refusals the plan did not spell out: an undecided manifest row (decision not `keep` or
+`unpublish`, a `keep` without a fingerprint, an unknown or duplicate id) exits 2 and
+touches nothing, so a forgotten row is never silently unpublished; and a row still held
+by a worker (`processing` / `generating_image` with a claim token) exits 3 until the drain
+in step 1 is done (`--allow-busy` only after an abandoned claim is confirmed). `--out` and
+`--manifest` accept `gs://` paths in the recipe-images bucket, which is private. The
+manifest carries ids, slugs, names, fingerprints and decisions, no owner emails; the
+listing (`.md` / `.jsonl`) has the emails and is the audit record, kept with the advisory.
+
+**Bootstrap, before the release.** Step 2 of the release sequence runs the listing on
+production before the Backend promotion, so the job cannot come from the release build the
+first time. Prepared for Adam to run — a job in the production project is a production
+change, not run by an agent:
+
+```bash
+# 1. Backend image from the advisory branch into the private registry (no code leaves GCP).
+cd /path/to/tasteslikegood.com-ghsa-48gm-m2wj-96xh && git switch advisory-fix-1
+gcloud builds submit --project comdottasteslikegood --region us-central1 \
+  --tag us-central1-docker.pkg.dev/comdottasteslikegood/vegangenius/flask-backend:kan-329-audit .
+# 2. The job, copied from the image-repair job's wiring (same env, secrets, Cloud SQL, VPC).
+gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export \
+  | sed -e 's/flask-backend-image-repair/flask-backend-publish-audit/' \
+        -e 's#flask-backend:[^"]*#flask-backend:kan-329-audit#' \
+        -e 's#scripts/repair_missing_images.py#scripts/publish_audit.py#' > /tmp/audit-job.yaml
+# review /tmp/audit-job.yaml: command python, args [scripts/publish_audit.py, --help], no IMAGE_REPAIR_LIMIT
+gcloud run jobs replace /tmp/audit-job.yaml --region us-central1
+# 3. The listing.
+BUCKET=tasteslikegood-recipe-images
+gcloud run jobs execute flask-backend-publish-audit --region us-central1 --wait \
+  --args=scripts/publish_audit.py,list,--out,gs://$BUCKET/audit/prod-$(date +%F)
+gsutil cp "gs://$BUCKET/audit/prod-*" .
+```
+
+Staging (project `gen-lang-client-0491022701`) has no job to copy: create
+`flask-backend-publish-audit` there with `gcloud run jobs create --command=python
+--args=scripts/publish_audit.py,--help` and the env, secrets, Cloud SQL instance and VPC
+settings read off `gcloud run services describe flask-backend-staging --format=export`
+(`scripts/staging/deploy-staging.sh` is where those values come from), then the same
+`list` execution against `gs://tasteslikegood-recipe-images-staging/audit/…`. The
+`cloudbuild.yaml` step added in T6 redeploys the production job from the release image
+afterwards, so `verify` can be re-run at any time.
 
 After cutover a private row with no worker-written origin can never be published,
 including every private recipe generated before this fix.
@@ -424,10 +479,17 @@ There is no schema migration in this hotfix. The data change is the cutover scri
       `RECIPE_WRITE_PAUSE=1` per request and answers 503 + `Retry-After: 120` for
       POST/PUT/PATCH/DELETE on `/recipes*` and `/generate*` only. Cookbook fork commit
       after `df5b0fa`; full gate green (lint, format, type-check, 828 tests).
-- [ ] **T6 (P1)** Audit listing query (grouped by owner, media identity, full text,
-      fingerprint); transactional cutover script with manifest, eligibility and default
-      deny, tested on the fixture; cache invalidation; staging seed private by default;
-      run the audit and media review with Adam; saved record.
+- [x] **T6 (P1)** Backend fork `0962fd9`: `scripts/publish_audit.py` (`list` grouped by
+      owner with media identity, full text and fingerprint, plus Markdown and a manifest
+      skeleton; `cutover` in one locked transaction with manifest validation, eligibility,
+      default deny, `updated_at`, cache invalidation after commit, dry-run by default;
+      `verify`), 33 tests in `tests/test_publish_audit.py` covering the fixture matrix,
+      idempotency, dry-run, the busy-worker refusal, the undecided-manifest refusal and the
+      CLI exit codes; full suite 785 passed, black/flake8/mypy clean. Cookbook fork: the
+      `flask-backend-publish-audit` job in `cloudbuild.yaml` (deploy-only), the staging seed
+      writes private, unlabelled, non-canonical rows in both modes. Mechanism amended above
+      (job, not Cloud SQL Studio). **Still open, Adam's steps:** bootstrap the job and run
+      the listing on staging and production, media review, decisions, saved record.
 - [ ] **T7 (P1)** Release: CHANGELOG, pin, advisories published in order, #3612 held,
       pause-capable Express deployed and on before the release merge, drain, cutover on
       staging then production.

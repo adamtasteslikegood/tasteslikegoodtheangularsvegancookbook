@@ -205,6 +205,43 @@ steps:
       - --vpc-egress=private-ranges-only
       - --quiet
 
+  # KAN-329: publish-state audit Job. Deploy-only — builds never execute it.
+  # Each execution picks a subcommand with an args override
+  # (`gcloud run jobs execute flask-backend-publish-audit --args=...`):
+  # `list` writes the review listing, `cutover --manifest ...` applies the
+  # decided manifest in one locked transaction, `verify` re-checks the public
+  # set before the write pause is lifted. It needs Cloud SQL and Valkey in
+  # the same breath (the cutover drops cache entries after it commits), which
+  # is why this is a Job inside the VPC and not SQL in Cloud SQL Studio. The
+  # default args only print the script's usage, so an accidental bare
+  # execution changes nothing. Env/secrets mirror the image-repair Job above.
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: 'Deploy Publish Audit Job'
+    waitFor: ['Push Flask Backend Image']
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - flask-backend-publish-audit
+      - --image=$_IMAGE_REGISTRY/flask-backend:$SHORT_SHA
+      - --region=$_REGION
+      - --command=python
+      - --args=scripts/publish_audit.py,--help
+      - --max-retries=0
+      - --task-timeout=900
+      - --cpu=1
+      - --memory=1Gi
+      - --parallelism=1
+      - --tasks=1
+      - --set-env-vars=FLASK_APP=app.py,FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-3-pro-image
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET:latest,DATABASE_URL=DATABASE_URL:latest,VALKEY_CA_CERT=VALKEY_CA_CERT:latest
+      - --set-cloudsql-instances=comdottasteslikegood:us-central1:vegangenius-db
+      - --network=default
+      - --subnet=default
+      - --vpc-egress=private-ranges-only
+      - --quiet
+
   # ── Deploy ───────────────────────────────────────────────────────────────────
   # KAN-30: Flask backend deploys first; Express frontend waits on its completion
   # so the new frontend never serves against the old API during rollout.
