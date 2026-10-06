@@ -386,10 +386,18 @@ There is no schema migration in this hotfix. The data change is the cutover scri
       before any downstream read; data-URL promotion removed. Origin-less rows having
       only an image regenerated stay editable. (`638d250`, 18 tests in
       `tests/test_generated_content_lock.py`)
-- [ ] **T3 (P1)** Backend: publish rule (transition-only status check; new row → private;
+- [x] **T3 (P1)** Backend: publish rule (transition-only status check; new row → private;
       ineligible transition → 400; unpublish always allowed); `origin` + `is_public` in
-      every response; `migrate_file_to_db`.
-- [ ] **T4 (P1)** Backend tests as listed.
+      every response (already in `to_dict` and the status blob, now tested);
+      `migrate_file_to_db`. Backend fork commit after `638d250`.
+- [x] **T4 (P1)** Backend tests: 44 in `tests/test_generated_content_lock.py`; the four
+      files that published on create or through a client label now create private,
+      stamp through the ORM (`mark_generated` in `conftest.py`) and publish through the
+      ordinary save. Full suite 751 passed. One finding from the rework: a private row
+      still stores a raw payload slug, and the publish transition only repairs empty or
+      path-shaped slugs. Unreachable for generated rows (placeholder has no slug, the
+      worker drops it, the client cannot set it), noted here so the cutover listing
+      flags any blessed legacy row whose slug is not already sanitized.
 - [ ] **T5 (P1)** SPA: remove import and its copy; export field drop at both call sites;
       mirror origin/is_public; toggle; stop sending origin; maintenance-503 handling;
       Express write-pause switch with tests.
