@@ -135,7 +135,15 @@ the private → public transition only; it never unpublishes.
 1. **Stamp at the worker's text write.** `update_recipe_for_worker` (`:784-835`) adds
    `"origin": "generated"` to its column update and blob. The placeholder created at
    `generation_api_bp.py:99` carries no origin. Only this function ever writes
-   `generated`.
+   `generated`. It has one caller, the text completion (`worker_api_bp.py:528`); the
+   image-completion writes go through `patch_recipe_for_worker` (`:166`, `:697`), which
+   never touches origin, so requesting an image for a manual row cannot relabel it. The
+   text worker claims only `generating` rows (`:441`) and treats `error` as terminal
+   (`:229`), so a client-filled error row is never re-generated over.
+   Hardening in the same change: the text write **replaces** the blob instead of merging
+   over `recipe.data` (`:806`), keeping only `id`, `user_id`, `guest_session_id`,
+   `is_public` and `slug` from the row. Nothing a client managed to write before the
+   stamp survives into a `generated` row. Image writes keep their merge.
 2. **Clients cannot claim it.** `_resolve_origin` (`:177-187`) stops accepting `generated`
    from a payload; `manual` and `saved` remain. Covers `:995`, `:1030`, `:1202`. A payload
    cannot change the origin of a row that already has one.
@@ -188,6 +196,14 @@ the private → public transition only; it never unpublishes.
 14. Old bundles keep working: they still POST the full recipe (ignored fields), still send
     `origin` (ignored), and a new-row `is_public: true` comes back as a private row rather
     than an error.
+15. **Write-pause switch** in Express (`server/`): when `RECIPE_WRITE_PAUSE=1`, mutating
+    requests to `/api/recipes*` and `/api/generate*` get a 503 JSON response before the
+    proxy; everything else is untouched. Vitest covers both states.
+16. **Legacy notes.** `saveNotes` (`recipe-view.base.ts:295`) clears `notes` when it
+    adopts legacy notes into `personalNotes`. On a generated row the lock ignores that
+    clear (`notes` is public content), so the app would render the same text twice for
+    the approved rows that still have legacy notes. Stop clearing `notes`; hide the
+    read-only copy client-side when it equals `personalNotes`.
 
 ## Audit and cutover (blocking, before the advisories are published)
 
@@ -202,18 +218,24 @@ recipe, with enough to judge it without opening the site:
   column and in the blob (flag any disagreement), status, `source_slug`, created and
   updated timestamps, whether it has stored image bytes;
 - a content preview (description and the first few ingredients and steps);
-- a content fingerprint: a hash over `name` and the blob with `is_public`, `slug`,
-  `ai_image_url` and timestamps removed. This is the "approved as of" marker; it has
-  nothing to do with image content credentials.
+- a content fingerprint: a hash over the publicly rendered text only, the fields
+  `public_bp.py` and the public templates read (`name`, description, ingredients,
+  instructions, `notes`, times, servings, tags). Image fields, `ai_metadata`,
+  `personalNotes`, `is_public`, `slug` and timestamps are excluded, so an allowed notes
+  edit or an image regeneration between audit and cutover does not unpublish an approved
+  row. This is the "approved as of" marker; it has nothing to do with image content
+  credentials.
 
 Production shows 101 `/r/` URLs in the sitemap, staging 35.
 
 **Decision.** Adam marks each row keep or unpublish and the list is saved with the
 advisory as the audit record (ids, decision, fingerprint).
 
-**Cutover**, during the short write pause (D8). A pause here means the Express service
-returns 503 for `POST`/`PUT`/`DELETE` on `/api/recipes*` and `/api/generate*` for a few
-minutes; reads keep serving. Order:
+**Cutover**, during the short write pause (D8). The pause is an Express switch that ships
+in the cookbook advisory (item 15): with `RECIPE_WRITE_PAUSE=1` set on the
+`express-frontend` service, `POST`/`PUT`/`DELETE` on `/api/recipes*` and `/api/generate*`
+return 503 with a short JSON message; reads keep serving. Flipping the env var is a Cloud
+Run revision each way. Order:
 
 1. Deploy the new Backend revision (the code already refuses to trust client labels).
 2. Reset: `UPDATE recipe SET origin = NULL` on every row whose origin is `generated` and
@@ -252,7 +274,9 @@ Backend, all in the Backend fork:
   `test_publish_gate.py:74`.
 - Stamp: the worker's text write sets origin `generated` (both `ready` and
   `generating_image` paths); a placeholder has none; a row whose generation failed has
-  none and cannot publish.
+  none and cannot publish. The text write replaces the blob: a field planted in the
+  placeholder blob is gone after completion. Image completion on a `manual` row leaves
+  origin `manual` and publish → 400.
 - Placeholder takeover: generate, then POST own content to the returned id before the
   worker runs → content ignored; publish refused.
 - Content lock: PUT and same-id POST with changed `name`, `ingredients`, `instructions`,
@@ -329,7 +353,8 @@ There is no schema migration in this hotfix. The data change is the cutover scri
       every response; `migrate_file_to_db`.
 - [ ] **T4 (P1)** Backend tests as listed.
 - [ ] **T5 (P1)** SPA: remove import and its copy; export field drop at both call sites;
-      mirror origin/is_public; toggle; stop sending origin.
+      mirror origin/is_public; toggle; stop sending origin; legacy-notes dedupe; Express
+      write-pause switch with tests.
 - [ ] **T6 (P1)** Audit listing query, cutover SQL script with manifest, staging seed
       change; run the audit with Adam; saved record.
 - [ ] **T7 (P1)** Release: CHANGELOG, pin, advisories published in order, #3612 held,
