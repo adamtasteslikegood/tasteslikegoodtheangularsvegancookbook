@@ -17,6 +17,7 @@ import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
 import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
+import { createWritePause } from './write-pause.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 import { buildRouteNeutralSpaShell } from './spa-shell.js';
@@ -116,6 +117,12 @@ export const ready = (async () => {
   // responses, including proxied /api/* traffic.
   applySecurityMiddleware(app);
   app.use(createRequestLogger());
+
+  // ── Recipe write pause (KAN-330) ────────────────────────────────
+  // RECIPE_WRITE_PAUSE=1 answers every write to /api/recipes* and
+  // /api/generate* with a 503 before the body is buffered or proxied, so a
+  // publish-state audit can run against a database nothing is changing.
+  app.use('/api', createWritePause());
 
   // ── Input validation for AI endpoints ───────────────────────────
   // Buffers + validates JSON bodies for POST /api/generate and

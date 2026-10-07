@@ -581,9 +581,13 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       vi.stubGlobal('confirm', confirmMock);
       const { component, persistenceSaveRecipe } = createComponent({ isGuest: false });
 
-      const recipe = { ...(savedCopy() as object), sourceSlug: undefined } as {
-        is_public?: boolean;
-      };
+      // An own recipe: no sourceSlug, and the server's `generated` label
+      // (KAN-330: nothing else may go public).
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        origin: 'generated',
+      } as { is_public?: boolean };
       await component.togglePublic(recipe as never);
 
       expect(confirmMock).not.toHaveBeenCalled();
@@ -599,7 +603,11 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       vi.stubGlobal('confirm', vi.fn().mockReturnValue(true));
       const { component, persistenceSaveRecipe, authUser } = createComponent({ isGuest: false });
 
-      const recipe = { ...(savedCopy() as object), sourceSlug: undefined } as unknown as {
+      const recipe = {
+        ...(savedCopy() as object),
+        sourceSlug: undefined,
+        origin: 'generated',
+      } as unknown as {
         id: string;
         is_public?: boolean;
         slug?: string;
@@ -631,6 +639,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
         ...(savedCopy() as object),
         name: '🌮🌮🌮',
         sourceSlug: undefined,
+        origin: 'generated',
       } as { is_public?: boolean };
       await component.togglePublic(recipe as never);
 
@@ -650,6 +659,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       const recipe = {
         ...(savedCopy() as object),
         sourceSlug: undefined,
+        origin: 'generated',
       } as { is_public?: boolean };
       component.recipe.set(recipe as never);
       await component.togglePublic(recipe as never);

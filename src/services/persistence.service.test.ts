@@ -3,6 +3,7 @@ import {
   interpretSaveResponse,
   recipeWithServerIdentity,
   shouldUndoOptimisticSave,
+  shouldWriteCookbookMembership,
 } from './persistence.service';
 
 /**
@@ -111,6 +112,33 @@ describe('interpretSaveResponse (KAN-155)', () => {
     });
   });
 
+  // KAN-330: while the publish audit runs, Express answers every recipe write
+  // with a 503 that names itself. That one is a pause, not a broken network;
+  // any other 503 (an outage) keeps the connection advice.
+  it('recognises the recipe write pause by its code', async () => {
+    expect(
+      await interpretSaveResponse(
+        res(503, { error: 'Recipes are read-only for a few minutes.', code: 'RECIPE_WRITE_PAUSE' })
+      )
+    ).toEqual({ ok: false, refusal: 'paused' });
+  });
+
+  it('keeps a bare 503 as a sync failure', async () => {
+    expect(await interpretSaveResponse(res(503, { error: 'upstream unavailable' }))).toEqual({
+      ok: false,
+      refusal: 'sync',
+    });
+    expect(
+      await interpretSaveResponse({
+        ok: false,
+        status: 503,
+        json: async () => {
+          throw new SyntaxError('not json');
+        },
+      })
+    ).toEqual({ ok: false, refusal: 'sync' });
+  });
+
   it('returns null on success so the caller continues to the slug mirror-back', async () => {
     // KAN-149 (#3262): the server mints the slug and the caller must adopt it.
     // Short-circuiting a 201 here would silently break the View link.
@@ -168,9 +196,50 @@ describe('recipeWithServerIdentity (KAN-265/KAN-289)', () => {
   });
 
   it('ignores malformed response identity fields', () => {
-    expect(recipeWithServerIdentity(recipe, { slug: 42, source_recipe_id: { bad: true } })).toBe(
-      recipe
-    );
+    expect(
+      recipeWithServerIdentity(recipe, {
+        slug: 42,
+        source_recipe_id: { bad: true },
+        origin: 'forged',
+        is_public: 'yes',
+      })
+    ).toBe(recipe);
+  });
+
+  // KAN-330: the server decides both. A new row asked to be public comes back
+  // private, and the toggle must show that; a finished generation comes back
+  // labelled `generated`, which is what enables the toggle at all.
+  it('mirrors the server origin and publish state', () => {
+    expect(
+      recipeWithServerIdentity(
+        { ...recipe, is_public: true },
+        { id: 'guest-copy', origin: 'generated', is_public: false }
+      )
+    ).toMatchObject({ origin: 'generated', is_public: false });
+  });
+
+  it('clears a client-side origin label the server did not keep', () => {
+    expect(
+      recipeWithServerIdentity({ ...recipe, origin: 'generated' }, { origin: null }).origin
+    ).toBeUndefined();
+  });
+});
+
+// KAN-330: adding to a cookbook first saves the recipe, then posts the
+// membership. When the save never landed (connection, write pause) the
+// membership would reference a row the server does not have; when the server
+// already has the row (duplicate) the membership is exactly what was asked.
+describe('shouldWriteCookbookMembership', () => {
+  it('writes after a successful or no-op save', () => {
+    expect(shouldWriteCookbookMembership({ ok: true })).toBe(true);
+    expect(shouldWriteCookbookMembership({ ok: true, alreadySaved: true })).toBe(true);
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'duplicate' })).toBe(true);
+  });
+
+  it('skips when the row may not exist on the server', () => {
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'sync' })).toBe(false);
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'paused' })).toBe(false);
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'ownership' })).toBe(false);
   });
 });
 

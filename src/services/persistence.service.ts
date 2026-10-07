@@ -40,6 +40,11 @@ import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/rec
  *                                  would be a lie of exactly the kind KAN-155
  *                                  was filed about. Callers can still tell it
  *                                  apart from 'sync' (KAN-241).
+ *   paused                         a 503 with code RECIPE_WRITE_PAUSE — Express
+ *                                  is holding every recipe write for a few
+ *                                  minutes while a publish-state audit runs
+ *                                  (KAN-330). Nothing reached the server; the
+ *                                  local write stands and a retry will land.
  *   sync                           transport or non-409 server failure.
  */
 export type SaveRefusal =
@@ -48,6 +53,7 @@ export type SaveRefusal =
   | 'OWNERSHIP_ORPHANED_GUEST_ROW'
   | 'ownership'
   | 'duplicate'
+  | 'paused'
   | 'sync';
 
 export interface SaveOutcome {
@@ -90,10 +96,24 @@ export async function interpretSaveResponse(res: SaveResponseLike): Promise<Save
   if (res.status === 409) {
     return { ok: false, refusal: await classifyRefusal409(res) };
   }
+  // KAN-330: the write pause names itself. A 503 without the code is an
+  // outage, and the connection advice stays right for that.
+  if (res.status === 503 && (await isWritePauseBody(res))) {
+    return { ok: false, refusal: 'paused' };
+  }
   if (!res.ok) {
     return { ok: false, refusal: 'sync' };
   }
   return null;
+}
+
+async function isWritePauseBody(res: SaveResponseLike): Promise<boolean> {
+  try {
+    const body = (await res.json()) as { code?: unknown } | null;
+    return body?.code === 'RECIPE_WRITE_PAUSE';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -158,9 +178,30 @@ export function shouldUndoOptimisticSave(
 }
 
 /**
+ * KAN-330 — may a cookbook membership be posted after the recipe save?
+ *
+ * The membership names a row by id, so it only makes sense once the server
+ * has that row: after a successful save, or a duplicate refusal (the server
+ * already had it, which is what the user asked for). A save that never landed
+ * — connection, write pause — or that the server refused as not the caller's
+ * leaves no row for the membership to point at.
+ */
+export function shouldWriteCookbookMembership(outcome: SaveOutcome): boolean {
+  return outcome.ok || outcome.refusal === 'duplicate';
+}
+
+const SERVER_ORIGINS = new Set<Recipe['origin']>(['manual', 'generated', 'saved']);
+
+/**
  * Mirrors the server-owned identity fields returned by POST /api/recipes into
  * the local cache. The stable source id is required for hydrate-time dedup
  * after a public source recipe has been re-slugged (KAN-265).
+ *
+ * KAN-330: `origin` and `is_public` are mirrored too. The server writes
+ * `origin` only from its own worker, and it saves a new row private however
+ * the payload was flagged — so both come back as the server has them, and the
+ * publish toggle renders from the row the server holds, not the one the client
+ * proposed.
  */
 export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe {
   if (typeof body !== 'object' || body === null) return recipe;
@@ -168,6 +209,20 @@ export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe 
   let serverSlug = recipe.slug;
   if (typeof row['slug'] === 'string' && row['slug']) {
     serverSlug = row['slug'];
+  }
+
+  let serverOrigin = recipe.origin;
+  if ('origin' in row) {
+    const value = row['origin'];
+    if (value === null) serverOrigin = undefined;
+    else if (SERVER_ORIGINS.has(value as Recipe['origin'])) {
+      serverOrigin = value as Recipe['origin'];
+    }
+  }
+
+  let serverIsPublic = recipe.is_public;
+  if (typeof row['is_public'] === 'boolean') {
+    serverIsPublic = row['is_public'];
   }
 
   let serverSourceRecipeId = recipe.sourceRecipeId;
@@ -190,7 +245,9 @@ export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe 
   if (
     serverSlug === recipe.slug &&
     serverSourceRecipeId === recipe.sourceRecipeId &&
-    serverFirstPublishedAt === recipe.first_published_at
+    serverFirstPublishedAt === recipe.first_published_at &&
+    serverOrigin === recipe.origin &&
+    serverIsPublic === recipe.is_public
   ) {
     return recipe;
   }
@@ -199,6 +256,8 @@ export function recipeWithServerIdentity(recipe: Recipe, body: unknown): Recipe 
     ...(serverSlug ? { slug: serverSlug } : {}),
     sourceRecipeId: serverSourceRecipeId,
     ...(hasServerFirstPublishedAt ? { first_published_at: serverFirstPublishedAt } : {}),
+    origin: serverOrigin,
+    ...(serverIsPublic === undefined ? {} : { is_public: serverIsPublic }),
   };
 }
 
@@ -345,14 +404,6 @@ export class PersistenceService {
     // leaves behind until the next hydrate). Without the guard, the user's real
     // recipe is deleted from localStorage while saveNotes closes the editor and
     // reports success.
-    //
-    // Bulk import (kitchen.component.ts) is protected by the same guard but for
-    // a different reason: importRecipes() pre-inserts every id BEFORE the save
-    // loop, so wasAlreadySaved is always true there and the undo never fires.
-    // That is the right outcome — those are real imported rows, not ghosts —
-    // but it does not fix that caller's success count, which ignores the return
-    // value entirely and reports collisions as imported. Tracked separately in
-    // KAN-262; it is a pre-existing reporting bug, not data loss.
     if (shouldUndoOptimisticSave(outcome.refusal, wasAlreadySaved)) {
       this.auth.removeRecipeById(recipe.id);
       return { ok: true, alreadySaved: true };
@@ -552,7 +603,12 @@ export class PersistenceService {
 
     this.auth.addRecipeToCookbook(cookbookId, recipe);
 
-    await this._apiSaveRecipe(recipe); // ensure recipe exists in DB
+    // Ensure the recipe exists in the DB before naming it in a membership.
+    // KAN-330: when that save never landed (connection, write pause), the
+    // membership would reference a row the server does not have — skip it;
+    // the local cookbook keeps the recipe and the next sync carries both.
+    const saved = await this._apiSaveRecipe(recipe);
+    if (!shouldWriteCookbookMembership(saved)) return;
     await this._fetch(`/api/collections/${cookbookId}/recipes`, {
       method: 'POST',
       body: JSON.stringify({ recipe_id: recipe.id }),

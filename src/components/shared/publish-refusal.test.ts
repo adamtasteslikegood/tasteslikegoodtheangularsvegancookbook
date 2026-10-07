@@ -182,8 +182,14 @@ describe('togglePublic on a refused publish (KAN-155)', () => {
     };
   };
 
+  // KAN-330: only a server-labelled generated recipe reaches the save at all.
   const recipe = () =>
-    ({ id: 'r1', name: 'Vegan Cornbread', is_public: false }) as unknown as never;
+    ({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      is_public: false,
+      origin: 'generated',
+    }) as unknown as never;
 
   it('reverts the optimistic publish state when the server refuses', async () => {
     // The regression that mattered most: persistence.service used to treat 409

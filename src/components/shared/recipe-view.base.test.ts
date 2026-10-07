@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
-import { RecipeViewBase } from './recipe-view.base';
+import { publishFailureMessage, RecipeViewBase } from './recipe-view.base';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
@@ -107,7 +107,7 @@ describe('RecipeViewBase', () => {
   it('does not call the hook when the user can publish', async () => {
     const { host, persistenceSaveRecipe } = createHost({ isGuest: false });
 
-    await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread' } as never);
+    await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread', origin: 'generated' } as never);
 
     expect(denied).not.toHaveBeenCalled();
     expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
@@ -115,7 +115,9 @@ describe('RecipeViewBase', () => {
 
   it('flips publish state on a copy, never mutating the passed recipe', async () => {
     const { host, persistenceSaveRecipe } = createHost({ isGuest: false });
-    const recipe = { id: 'r1', name: 'Vegan Cornbread' } as unknown as { is_public?: boolean };
+    const recipe = { id: 'r1', name: 'Vegan Cornbread', origin: 'generated' } as unknown as {
+      is_public?: boolean;
+    };
 
     await host.togglePublic(recipe as never);
 
@@ -203,10 +205,106 @@ describe('RecipeViewBase', () => {
   it('says why the toggle is inert while the publish state is still syncing', async () => {
     const { host, persistenceSaveRecipe } = createHost({ publishStateSync: 'pending' });
 
-    await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread' } as never);
+    await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread', origin: 'generated' } as never);
 
     expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/checking publish state/i));
     expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+  });
+
+  // KAN-330: only a recipe the server generated can go public. Everything
+  // else private — manual entry, a legacy row with no label, a generation
+  // that has not finished — is refused here with the server's reason, before
+  // any round trip; unpublishing such a row still works.
+  describe('publishing needs the server-written generated label (KAN-330)', () => {
+    it.each([
+      ['a manually entered recipe', { origin: 'manual' }],
+      ['a recipe with no origin', {}],
+      ['a recipe labelled saved', { origin: 'saved' }],
+    ])('refuses to publish %s', async (_label, fields) => {
+      const { host, persistenceSaveRecipe } = createHost();
+
+      await host.togglePublic({ id: 'r1', name: 'Vegan Cornbread', ...fields } as never);
+
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/generated here/i));
+    });
+
+    it('still unpublishes a published recipe with no origin', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      await host.togglePublic({
+        id: 'r1',
+        name: 'Vegan Cornbread',
+        is_public: true,
+        slug: 'vegan-cornbread',
+      } as never);
+
+      await host.confirmUnpublish();
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'r1', is_public: false })
+      );
+    });
+
+    it('gives the toggle title the same reason', () => {
+      const { host } = createHost();
+      expect(host.publishToggleTitle({ id: 'r1', name: 'x' } as never)).toMatch(/generated here/i);
+    });
+  });
+
+  // KAN-330: the write pause is a 503 Express answers for a few minutes; the
+  // toast must say that rather than blame the connection.
+  it('explains a paused publish without blaming the network', () => {
+    expect(publishFailureMessage('paused', true)).toMatch(/maintenance|few minutes/i);
+    expect(publishFailureMessage('paused', true)).not.toMatch(/connection/i);
+    expect(publishFailureMessage('paused', false)).toMatch(/maintenance|few minutes/i);
+  });
+
+  // KAN-330: notes are written to this device before the save result is read,
+  // so a refused save has to be said out loud or the user believes it synced.
+  describe('saving notes while the server refuses (KAN-330)', () => {
+    const generated = () =>
+      ({ id: 'r1', name: 'Vegan Cornbread', origin: 'generated', notes: 'public' }) as never;
+
+    it('says the notes are not synced yet when the write is paused', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      persistenceSaveRecipe.mockResolvedValue({ ok: false, refusal: 'paused' });
+      host.recipe.set(generated());
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      expect(host.isEditingNotes()).toBe(false);
+      expect(toastShow).toHaveBeenCalledWith(
+        expect.stringMatching(/not (been )?synced|not saved/i)
+      );
+      expect(toastShow).toHaveBeenCalledWith(expect.stringMatching(/maintenance|few minutes/i));
+    });
+
+    it('says the notes are not synced yet on any failed save', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      persistenceSaveRecipe.mockResolvedValue({ ok: false, refusal: 'sync' });
+      host.recipe.set(generated());
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      expect(toastShow).toHaveBeenCalledWith(
+        expect.stringMatching(/not (been )?synced|not saved/i)
+      );
+    });
+
+    it('says nothing when the save lands', async () => {
+      const { host } = createHost();
+      host.recipe.set(generated());
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      expect(toastShow).not.toHaveBeenCalled();
+    });
   });
 
   // RCP-74 poison pill, owed since the "publishes the copy when confirmed"
