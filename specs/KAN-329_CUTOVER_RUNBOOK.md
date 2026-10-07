@@ -206,25 +206,33 @@ code. **Any later Backend fork commit → rebuild the image and re-run `list`.**
 
 ```bash
 cd $BACKEND_FORK && git switch advisory-fix-1 && git log --oneline -1
-gcloud builds submit --project $PROD_PROJECT --region $REGION --tag $REG/flask-backend:$TAG .
+CTX=$(mktemp -d) && git archive HEAD | tar -x -C $CTX && cd $CTX
+gcloud builds submit --project $PROD_PROJECT --region $REGION --ignore-file=.dockerignore --tag $REG/flask-backend:$TAG .
 gcloud artifacts docker images describe $REG/flask-backend:$TAG --project $PROD_PROJECT --format='value(image_summary.digest)'
 ```
 
-Expected: build `SUCCESS`; a `sha256:…` digest. `.gcloudignore` keeps `.git`, `.venv` out of
-the context. No code leaves GCP. Fail → read the build log (`gcloud builds log <id>`); the
-Dockerfile is the one the release uses, so a failure here is a failure the release would
-have too.
+Expected: build `SUCCESS`; a `sha256:…` digest. Build from a `git archive` with
+`--ignore-file=.dockerignore`, not from the working tree: the Backend `.gcloudignore` drops
+`scripts/`, `pyproject.toml` and `uv.lock`, so a plain `gcloud builds submit .` fails at the
+Dockerfile's first `COPY` (and an image without `scripts/` could not run the audit). The
+archive is what the release build sees (a clean checkout filtered by `.dockerignore`) and
+carries no untracked file. No code leaves GCP. Fail → read the build log
+(`gcloud builds log <id>`); the Dockerfile is the one the release uses, so a failure here is
+a failure the release would have too.
 
 Also build the Express image now (Phase E and the staging deploy need it; same tag so
 `deploy-staging.sh` can deploy both with one `--version`):
 
 ```bash
 cd $COOKBOOK_FORK && git switch advisory-fix-1 && git log --oneline -1
-gcloud builds submit --project $PROD_PROJECT --region $REGION --tag $REG/express-frontend:$TAG .
+CTX=$(mktemp -d) && git archive HEAD | tar -x -C $CTX && cd $CTX
+gcloud builds submit --project $PROD_PROJECT --region $REGION --ignore-file=.dockerignore --tag $REG/express-frontend:$TAG .
 gcloud artifacts docker images describe $REG/express-frontend:$TAG --project $PROD_PROJECT --format='value(image_summary.digest)'
 ```
 
-The root `.gcloudignore` excludes `Backend/` and the root `Dockerfile` does not need it.
+Same archive form, so a local `.env` in the fork directory can never reach the upload. The
+archive holds `Backend` as an empty directory (a gitlink) and the root `Dockerfile` does not
+need it.
 
 ### B.2 Create the job
 
@@ -284,8 +292,8 @@ gcloud run jobs create $AUDIT_JOB --project $STAGE_PROJECT --region $REGION \
 gcloud run jobs execute $AUDIT_JOB --project $STAGE_PROJECT --region $REGION --wait
 ```
 
-Expected: the bare execution prints the script's usage and **fails** (exit 2 from argparse)
-— that proves image pull (cross-project read on the prod registry is bound by
+Expected: the execution prints the script's usage and **succeeds** (`--help` exits 0; seen
+2026-10-06) — that proves image pull (cross-project read on the prod registry is bound by
 `deploy-staging.sh` step 0 for the service agent; `[VERIFY]` the job pulls with the same
 agent), secrets and Cloud SQL wiring. An `ImagePullBackOff` or a secret error here is a
 wiring problem, not a script problem. `GOOGLE_API_KEY` is not required by `create_app()`
@@ -1049,9 +1057,9 @@ Status column: `open` needs an execution or a deployed build; `resolved` was rea
 | --- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
 | 1   | Both buckets private                                                    | `gcloud storage buckets get-iam-policy gs://<bucket> --project <project> --format=json` (A.6)                | resolved 2026-10-06: private, 5 bindings each, no `allUsers`                  |
 | 2   | Image-repair job export keys (`memory`, `maxRetries`, `timeoutSeconds`) | `gcloud run jobs describe flask-backend-image-repair --region us-central1 --format=export` (B.2)             | resolved 2026-10-06: `1Gi` / `1` / `'600'` (quoted)                           |
-| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                             | open                                                                          |
+| 3   | Staging job pulls from the prod registry                                | first `gcloud run jobs execute` on staging (B.2)                                                             | resolved 2026-10-06: the staging job pulled and ran                           |
 | 4   | `GOOGLE_API_KEY` not required by `create_app()` for the script          | `grep -n GOOGLE_API_KEY Backend/app.py Backend/config.py`                                                    | resolved 2026-10-06: `os.getenv` + lazy getter; moot for prod (secret copied) |
-| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)                  | open                                                                          |
+| 5   | Log label key for an execution                                          | first `gcloud logging read` with `labels."run.googleapis.com/execution_name"` (Conventions)                  | resolved 2026-10-06: the label key filters correctly                          |
 | 6   | Scheduler job name for image repair                                     | `gcloud scheduler jobs list --location us-central1 --project comdottasteslikegood` (E.4)                     | resolved 2026-10-06: `flask-backend-image-repair-daily`, `0 3 * * *`          |
 | 7   | Trigger passes `_VERSION` (`v*` image tags)                             | `gcloud builds triggers describe tlgangularsveaganchef-tagpush --region us-central1` (F.3)                   | resolved 2026-10-06: no substitutions, `_VERSION` → `latest`                  |
 | 8   | Non-503 code for an empty anonymous POST after the pause lifts          | H.1 curl                                                                                                     | open                                                                          |
