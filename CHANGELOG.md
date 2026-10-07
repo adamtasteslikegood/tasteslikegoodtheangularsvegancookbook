@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.5.8] - 2026-10-05
 
-Backend pointer pinned at `6fe78936f803` (Backend `main`, promotion #367).
+Backend pointer pinned at `45eff2309d6f` (Backend `main`, promotion #371).
 
 ### Added
 
@@ -35,6 +35,15 @@ Backend pointer pinned at `6fe78936f803` (Backend `main`, promotion #367).
   (Backend #363).
 - Staging tooling defaults to `https://staging.tasteslikegood.xyz` (KAN-326): `STAGING_URL` in the
   release train's verify step and `FRONTEND_URL` in `deploy-staging.sh`.
+
+### Security
+
+- Publication and provenance of recipes are server-owned (KAN-329, KAN-328, KAN-330;
+  GHSA-48gm-m2wj-96xh, GHSA-8744-3qm2-c4x8). Only a recipe the generation worker finished can be
+  published, its generated content is locked against client rewrites, and the JSON import is
+  removed; export drops the server-owned fields. A publish-state audit job
+  (`flask-backend-publish-audit`) and a recipe write pause in Express (`RECIPE_WRITE_PAUSE=1`)
+  support the one-time cutover.
 
 ## [0.5.7] - 2026-10-02
 
