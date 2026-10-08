@@ -80,7 +80,7 @@ class Sprint10HardGateTests(unittest.TestCase):
             (), issues=("KAN-268",), todo_keys=())
         self.assertEqual(rc, 0, output)
         self.assertIn("SCOPED CHECK PASSED", output)
-        self.assertNotIn("every committed Sprint 10 item", output)
+        self.assertNotIn("HARD GATE PASSED", output)
         self.assertNotIn("acceptance row the board renders", output)
 
     def test_charter_passes_on_day_one_with_everything_in_todo(self):

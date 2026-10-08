@@ -117,12 +117,19 @@ REQUIRED = {
     # S20: added mid-sprint by Adam on 2026-10-01 as an explicit exception to
     # the S19 freeze (breadcrumbs crossed the auth boundary in production).
     "KAN-321": "S20 — breadcrumbs stay on their own side of auth; routable cookbooks",
-    # S21, S22: the v0.5.8 security hotfix, added by Adam on 2026-10-08 after the
-    # work was done so the sprint record shows where 10-05..10-08 went. They come
-    # in under the freeze's level-1 production exception. Detail stays on the tickets.
-    "KAN-329": "S21 — security hotfix, Backend half (v0.5.8)",
-    "KAN-330": "S22 — security hotfix, SPA half (v0.5.8)",
 }
+
+# Recorded, not committed. S21 and S22 are the v0.5.8 security hotfix, added by
+# Adam on 2026-10-08 after the work was done so the sprint record shows where
+# 10-05..10-08 went (the freeze's level-1 production exception). They were never
+# in the commitment or the forecast check. The gate holds them to the same rules
+# as a committed item: sprint member, out of To Do at close, a rendered
+# acceptance row. Detail stays on the tickets.
+RECORDED = {
+    "KAN-329": "S21 — security hotfix, Backend half (v0.5.8), recorded after the work",
+    "KAN-330": "S22 — security hotfix, SPA half (v0.5.8), recorded after the work",
+}
+REQUIRED.update(RECORDED)
 
 # Sprint items -> the execution rows that carry them.
 SI_EXECUTION = {
@@ -374,7 +381,7 @@ def finish(report, args):
         elif report["gate"] == "sprint10-scoped-status":
             print("\nSCOPED CHECK PASSED — every requested issue is out of To Do.")
         else:
-            print("\nHARD GATE PASSED — every committed Sprint 10 item is %s AND has an "
+            print("\nHARD GATE PASSED — every committed or recorded Sprint 10 item is %s AND has an "
                   "acceptance row the board renders." % (
                       "a member of the active sprint"
                       if report["gate"] == "sprint10-charter"
