@@ -1,4 +1,6 @@
 import '@angular/compiler';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { BehaviorSubject, Subject } from 'rxjs';
@@ -90,7 +92,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
         },
         { provide: RecipeStateService, useValue: recipeState },
         { provide: ToastService, useValue: { show: toastShow } },
-        { provide: ModalService, useValue: { openAuth: vi.fn() } },
+        { provide: ModalService, useValue: { openAuth: vi.fn(), openAddToCookbook: vi.fn() } },
       ],
     });
     const component = runInInjectionContext(injector, () => new RecipeDetailComponent());
@@ -745,6 +747,48 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
   // My Kitchen [→ cookbook] → recipe and never the public SSR trail. These
   // replace the KAN-295 tests that pinned Home / Browse / hub here: they
   // encoded the bug (crumbs that led into /browse and never back).
+  // KAN-341: the recipe view had no way to add the recipe to a cookbook; the
+  // only in-kitchen entry point was an icon on the kitchen card.
+  describe('Add to Cookbook (KAN-341)', () => {
+    it('opens the add-to-cookbook modal for the loaded recipe', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async () => ({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            id: 'r-1',
+            status: 'ready',
+            data: { id: 'r-1', name: 'Tofu Scramble', ingredients: {}, instructions: [] },
+          }),
+        }))
+      );
+      const { component, injector } = createComponent();
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      component.openAddToCookbookModal();
+
+      expect(injector.get(ModalService).openAddToCookbook).toHaveBeenCalledWith(component.recipe());
+    });
+
+    it('does nothing while no recipe is loaded', () => {
+      const { component, injector } = createComponent();
+      component.openAddToCookbookModal();
+      expect(injector.get(ModalService).openAddToCookbook).not.toHaveBeenCalled();
+    });
+
+    it('is a labelled button in the recipe view template', () => {
+      const html = readFileSync(
+        fileURLToPath(new URL('./recipe-detail.component.html', import.meta.url)),
+        'utf8'
+      );
+      expect(html).toMatch(
+        /\(click\)="openAddToCookbookModal\(\)"[\s\S]*?<span>Add to Cookbook<\/span>/
+      );
+    });
+  });
+
   describe('in-app breadcrumb trail (KAN-321)', () => {
     const row = (extra: Record<string, unknown> = {}) => ({
       id: 'r-1',

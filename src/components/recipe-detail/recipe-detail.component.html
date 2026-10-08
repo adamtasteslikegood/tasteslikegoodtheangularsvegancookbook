@@ -115,6 +115,29 @@
                on publish it overflowed the half-width grid column and
                painted behind the adjacent (position: relative) image. -->
           <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <!-- KAN-341: labelled and primary, so nobody has to hunt for it. -->
+            <button
+              (click)="openAddToCookbookModal()"
+              class="flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm bg-green-700 text-white hover:bg-green-800 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                class="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              <span>Add to Cookbook</span>
+            </button>
+
             <button
               (click)="exportRecipe(r)"
               class="flex items-center gap-2 px-3 py-2 rounded-lg font-medium text-sm bg-stone-100 text-stone-600 hover:bg-stone-200 transition-colors"
