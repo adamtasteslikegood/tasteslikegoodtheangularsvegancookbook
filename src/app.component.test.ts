@@ -1,10 +1,13 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
 import { PersistenceService } from './services/persistence.service';
 import { AppComponent } from './app.component';
+
+const inAppBrowser = vi.hoisted(() => vi.fn(() => false));
+vi.mock('./utils/in-app-browser', () => ({ isInAppBrowserEnvironment: inAppBrowser }));
 
 describe('ManualEntryModalComponent reopened session resets drafts', () => {
   it('starts a reopened manual-entry session with empty ingredient and instruction drafts', () => {
@@ -102,6 +105,10 @@ describe('CreateCookbookModalComponent in-flight guard', () => {
 // KAN-344: Switch user logs out first, so a sign-in that cannot start must not
 // strand the user on a logged-out page with no way forward.
 describe('AppComponent switch user (KAN-344)', () => {
+  afterEach(() => {
+    inAppBrowser.mockReturnValue(false);
+  });
+
   // The component's constructor registers an effect, which needs the full
   // Angular runtime; the handler only reads these four collaborators.
   const createApp = (switchUser: () => Promise<void>) => {
@@ -128,6 +135,19 @@ describe('AppComponent switch user (KAN-344)', () => {
     expect(clearRecipe).toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
     expect(openAuth).not.toHaveBeenCalled();
+  });
+
+  it('stays signed in and shows the browser instructions inside an in-app browser', async () => {
+    inAppBrowser.mockReturnValue(true);
+    const switchUser = vi.fn(async () => {});
+    const { component, navigate, openAuth, clearRecipe } = createApp(switchUser);
+
+    await component.onSwitchUser();
+
+    expect(switchUser).not.toHaveBeenCalled();
+    expect(clearRecipe).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(openAuth).toHaveBeenCalled();
   });
 
   it('goes home and reopens sign-in when the chooser sign-in cannot start', async () => {
