@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- "Add to Cookbook" in the recipe view (KAN-341). The recipe view had Export and Publish and no way
+  to add the recipe to a cookbook; the only route was an unlabelled icon on each kitchen card. It
+  is now a labelled green button, first in the recipe's action row, and opens the same cookbook
+  picker as the generator.
+
 ## [0.5.8] - 2026-10-05
 
 Backend pointer pinned at `96a27b98c426` (Backend `main`, promotions #371 and #373).
