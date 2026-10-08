@@ -63,12 +63,18 @@ class Sprint10HardGateTests(unittest.TestCase):
             set(hard_gate.COMMITTED) | set(hard_gate.RECORDED))
 
     def test_recorded_item_is_held_to_membership_and_close_status(self):
-        rc, output = self._run_gate(self._members() - {"KAN-329"}, charter=True)
-        self.assertEqual(rc, 1)
-        self.assertIn("KAN-329 is not in Sprint 10", output)
-        rc, output = self._run_gate(self._members(), todo_keys={"KAN-330"})
-        self.assertEqual(rc, 1)
-        self.assertIn("KAN-330 is in To Do", output)
+        # Literal keys: a fixture derived from the gate's own sets cannot
+        # notice the gate ceasing to require them.
+        for key in ("KAN-329", "KAN-330"):
+            with self.subTest(key=key):
+                self.assertIn(key, hard_gate.GATED)
+                members = self._members() | {key}
+                rc, output = self._run_gate(members - {key}, charter=True)
+                self.assertEqual(rc, 1)
+                self.assertIn("%s is not in Sprint 10" % key, output)
+                rc, output = self._run_gate(members, todo_keys={key})
+                self.assertEqual(rc, 1)
+                self.assertIn("%s is in To Do" % key, output)
 
     def test_charter_and_scoped_modes_are_mutually_exclusive(self):
         argv = [
