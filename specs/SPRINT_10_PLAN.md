@@ -2,7 +2,7 @@
 
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
-_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · **RCP-120** (S20) · charter row **RCP-99**
+_Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · **RCP-120** (S20) · **RCP-121** (S21) · **RCP-122** (S22) · charter row **RCP-99**
 _Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
@@ -26,7 +26,7 @@ between the site and a launch post is now narrow and measurable:
    breadcrumbs, unpaged lists, one-up cards on phones, no filter/sort.
 5. **Nobody outside the author knows the site exists** (SEO audit B1).
 
-## Committed scope — 17 SIs (20 committed; S10, S11 and S18 carried to RCP-119 on 2026-10-01)
+## Committed scope — 17 SIs (20 committed; S10, S11 and S18 carried to RCP-119 on 2026-10-01; S21 and S22 recorded after the work on 2026-10-08, not committed)
 
 | SI      | Grill # | Lane           | Summary                                                                                                                    | KAN     | Acceptance |
 | ------- | ------- | -------------- | -------------------------------------------------------------------------------------------------------------------------- | ------- | ---------- |
@@ -50,6 +50,8 @@ between the site and a launch post is now narrow and measurable:
 | **S18** | —       | Added          | Pinterest pin variant as a 1:1 centre crop, no blurred bars · **Carried to RCP-119 (2026-10-01).**                         | KAN-309 | RCP-117    |
 | **S19** | —       | Added          | Valkey IAM token refresh on the request path, not a CPU-starved background thread                                          | KAN-318 | RCP-118    |
 | **S20** | —       | Added          | Breadcrumbs stay on their own side of auth; in-app trail My Kitchen / cookbook / recipe; routable `/kitchen/:cookbookId`   | KAN-321 | RCP-120    |
+| **S21** | —       | Added          | Security hotfix, Backend half, shipped in v0.5.8 (added after the work, 2026-10-08)                                        | KAN-329 | RCP-121    |
+| **S22** | —       | Added          | Security hotfix, SPA half, shipped in v0.5.8 (added after the work, 2026-10-08)                                            | KAN-330 | RCP-122    |
 
 **No stretch items. No pre-authorised drops.** "Grill #" is the row number in the
 product grill's scope table, kept so either document can be read against the other.
@@ -102,6 +104,22 @@ product grill's scope table, kept so either document can be read against the oth
   trails are unchanged. KAN-295 stays Done; S20 is the follow-up, harness task T21 (lane E,
   after T6). Because S8 also changes `/kitchen`, T8 waits for T21 rather than overlapping it;
   S20 goes first because Adam asked for it as soon as possible.
+
+### Mid-sprint change — 2026-10-08 (Adam)
+
+- **S21 (KAN-329) and S22 (KAN-330) added after the work was done.** The security hotfix
+  released in v0.5.8 took the sprint's attention from 2026-10-05 to 2026-10-08. It was done in
+  private advisory forks and tracked on KAN only, so the board showed none of it. Adam added
+  both rows on 2026-10-08 so the throughput and WIP record reflects where that time went; they
+  come in under the freeze's exception for level-1 production work. Both were already Done,
+  and their acceptance rows (RCP-121, RCP-122) close on the evidence on the KAN tickets. The
+  detail stays there and is not repeated in this plan.
+- **No harness task for either.** The work ran outside the harness and there is nothing left
+  to execute. The hard gate covers both rows; the close-out (T17) names RCP-121 and RCP-122.
+- **Read the count with this in mind:** these two items were not committed scope and add
+  nothing to the forecast check. They are a record of unplanned work, not delivered commitment.
+- **S1 / S19 grading window:** GET p95 is graded over the first full UTC day after release
+  (#3617).
 
 ### S12–S16 were added at charter — 2026-09-29
 

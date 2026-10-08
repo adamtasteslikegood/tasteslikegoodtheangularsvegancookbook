@@ -117,6 +117,11 @@ REQUIRED = {
     # S20: added mid-sprint by Adam on 2026-10-01 as an explicit exception to
     # the S19 freeze (breadcrumbs crossed the auth boundary in production).
     "KAN-321": "S20 — breadcrumbs stay on their own side of auth; routable cookbooks",
+    # S21, S22: the v0.5.8 security hotfix, added by Adam on 2026-10-08 after the
+    # work was done so the sprint record shows where 10-05..10-08 went. They come
+    # in under the freeze's level-1 production exception. Detail stays on the tickets.
+    "KAN-329": "S21 — security hotfix, Backend half (v0.5.8)",
+    "KAN-330": "S22 — security hotfix, SPA half (v0.5.8)",
 }
 
 # Sprint items -> the execution rows that carry them.
@@ -142,6 +147,8 @@ SI_EXECUTION = {
     "S17": ["KAN-307"],
     "S19": ["KAN-318"],
     "S20": ["KAN-321"],
+    "S21": ["KAN-329"],
+    "S22": ["KAN-330"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -165,6 +172,8 @@ ACCEPTANCE = {
     "S17": "RCP-116",
     "S19": "RCP-118",
     "S20": "RCP-120",
+    "S21": "RCP-121",
+    "S22": "RCP-122",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
