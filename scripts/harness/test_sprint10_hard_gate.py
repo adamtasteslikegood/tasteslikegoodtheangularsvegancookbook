@@ -15,7 +15,7 @@ import sprint10_hard_gate as hard_gate  # noqa: E402
 
 class Sprint10HardGateTests(unittest.TestCase):
     def _members(self):
-        return set(hard_gate.REQUIRED) | set(hard_gate.ACCEPTANCE.values())
+        return set(hard_gate.GATED) | set(hard_gate.ACCEPTANCE.values())
 
     def _run_gate(self, members, state="active", charter=False, rendered=None,
                   todo_keys=None, issues=None):
@@ -54,6 +54,28 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertTrue(all(hard_gate.ACCEPTANCE.values()))
         self.assertEqual(hard_gate.DROPPABLE, {})
 
+    def test_recorded_items_are_gated_but_not_committed(self):
+        self.assertTrue(hard_gate.RECORDED)
+        self.assertFalse(set(hard_gate.RECORDED) & set(hard_gate.COMMITTED))
+        self.assertFalse(set(hard_gate.RECORDED) & set(hard_gate.REQUIRED))
+        self.assertEqual(
+            set(hard_gate.GATED),
+            set(hard_gate.COMMITTED) | set(hard_gate.RECORDED))
+
+    def test_recorded_item_is_held_to_membership_and_close_status(self):
+        # Literal keys: a fixture derived from the gate's own sets cannot
+        # notice the gate ceasing to require them.
+        for key in ("KAN-329", "KAN-330"):
+            with self.subTest(key=key):
+                self.assertIn(key, hard_gate.GATED)
+                members = self._members() | {key}
+                rc, output = self._run_gate(members - {key}, charter=True)
+                self.assertEqual(rc, 1)
+                self.assertIn("%s is not in Sprint 10" % key, output)
+                rc, output = self._run_gate(members, todo_keys={key})
+                self.assertEqual(rc, 1)
+                self.assertIn("%s is in To Do" % key, output)
+
     def test_charter_and_scoped_modes_are_mutually_exclusive(self):
         argv = [
             "sprint10_hard_gate.py", "--charter", "--issues", "KAN-268"]
@@ -80,7 +102,7 @@ class Sprint10HardGateTests(unittest.TestCase):
             (), issues=("KAN-268",), todo_keys=())
         self.assertEqual(rc, 0, output)
         self.assertIn("SCOPED CHECK PASSED", output)
-        self.assertNotIn("every committed Sprint 10 item", output)
+        self.assertNotIn("HARD GATE PASSED", output)
         self.assertNotIn("acceptance row the board renders", output)
 
     def test_charter_passes_on_day_one_with_everything_in_todo(self):

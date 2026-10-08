@@ -119,6 +119,17 @@ REQUIRED = {
     "KAN-321": "S20 — breadcrumbs stay on their own side of auth; routable cookbooks",
 }
 
+# Recorded, not committed. S21 and S22 are the v0.5.8 security hotfix, added by
+# Adam on 2026-10-08 after the work was done so the sprint record shows where
+# 10-05..10-08 went (the freeze's level-1 production exception). They were never
+# in the commitment or the forecast check. The gate holds them to the same rules
+# as a committed item: sprint member, out of To Do at close, a rendered
+# acceptance row. Detail stays on the tickets.
+RECORDED = {
+    "KAN-329": "S21 — security hotfix, Backend half (v0.5.8), recorded after the work",
+    "KAN-330": "S22 — security hotfix, SPA half (v0.5.8), recorded after the work",
+}
+
 # Sprint items -> the execution rows that carry them.
 SI_EXECUTION = {
     # The charter pair is gated like an SI: the plan names KAN-269/RCP-99 as a
@@ -142,6 +153,8 @@ SI_EXECUTION = {
     "S17": ["KAN-307"],
     "S19": ["KAN-318"],
     "S20": ["KAN-321"],
+    "S21": ["KAN-329"],
+    "S22": ["KAN-330"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -165,6 +178,8 @@ ACCEPTANCE = {
     "S17": "RCP-116",
     "S19": "RCP-118",
     "S20": "RCP-120",
+    "S21": "RCP-121",
+    "S22": "RCP-122",
 }
 
 # Sprint 10 pre-authorises no drops. S3's "evidence-only" flip changes how S3
@@ -194,6 +209,9 @@ CARRIED_EXTRA = {
 }
 
 COMMITTED = dict(REQUIRED, **DROPPABLE)
+# Everything the gate enforces: the commitment plus the recorded hotfix items.
+# REQUIRED and COMMITTED stay the commitment alone.
+GATED = dict(COMMITTED, **RECORDED)
 TODO_CATEGORY_KEYS = {"new", "undefined"}
 
 
@@ -232,7 +250,7 @@ def main():
         else "sprint10-no-todo"
     )
     report = {"gate": gate, "checks": [], "violations": [], "passed": False}
-    status_descriptions = dict(COMMITTED)
+    status_descriptions = dict(GATED)
 
     try:
         if args.issues:
@@ -252,7 +270,7 @@ def main():
                     "Sprint 10 is %r; expected %s" % (sprint["state"], " or ".join(allowed)))
             members = {i["key"] for i in jira.sprint_issues(sprint["id"])}
             report["member_count"] = len(members)
-            for key, what in sorted(REQUIRED.items()):
+            for key, what in sorted(dict(REQUIRED, **RECORDED).items()):
                 if key not in members:
                     report["violations"].append(
                         "%s is not in Sprint 10 (%s) — required items cannot be "
@@ -316,11 +334,11 @@ def main():
 
             # Acceptance rows are first-class committed sprint artifacts too;
             # rule 3 must reject one left in To Do just like its execution row.
-            # Use setdefault so a row already described by COMMITTED keeps its
+            # Use setdefault so a row already described by GATED keeps its
             # more specific charter/timebox context.
             for k, v in active_acceptance.items():
                 status_descriptions.setdefault(k, v)
-            scope = ({k for k in COMMITTED if k in members}
+            scope = ({k for k in GATED if k in members}
                      | {k for k in active_acceptance if k in members})
 
         if args.charter:
@@ -365,7 +383,7 @@ def finish(report, args):
         elif report["gate"] == "sprint10-scoped-status":
             print("\nSCOPED CHECK PASSED — every requested issue is out of To Do.")
         else:
-            print("\nHARD GATE PASSED — every committed Sprint 10 item is %s AND has an "
+            print("\nHARD GATE PASSED — every committed or recorded Sprint 10 item is %s AND has an "
                   "acceptance row the board renders." % (
                       "a member of the active sprint"
                       if report["gate"] == "sprint10-charter"
