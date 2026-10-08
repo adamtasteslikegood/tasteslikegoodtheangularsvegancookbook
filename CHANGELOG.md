@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Switching accounts (KAN-344). Logging out and signing in again landed on the same Google account,
+  because the sign-in request never asked Google which account to use. The profile menu has a new
+  "Switch user" link above Log Out: it logs out and then opens Google's account chooser. It needs
+  the Backend change in Backend #378; until the pointer carries it, the link signs in as before.
+
 ## [0.5.8] - 2026-10-05
 
 Backend pointer pinned at `96a27b98c426` (Backend `main`, promotions #371 and #373).

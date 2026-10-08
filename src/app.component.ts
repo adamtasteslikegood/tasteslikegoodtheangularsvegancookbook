@@ -68,6 +68,18 @@ export class AppComponent {
     this.router.navigate(['/']);
   }
 
+  /** KAN-344: on success the browser leaves for Google's account chooser. */
+  async onSwitchUser() {
+    this.recipeState.clearRecipe();
+    try {
+      await this.authService.switchUser();
+    } catch {
+      // Already logged out; the sign-in could not start. Offer it again.
+      this.router.navigate(['/']);
+      this.modalService.openAuth();
+    }
+  }
+
   viewRecipe(r: Recipe) {
     this.recipeState.viewRecipe(r);
     this.router.navigate(['/recipe', r.id]);
