@@ -15,7 +15,7 @@ import sprint10_hard_gate as hard_gate  # noqa: E402
 
 class Sprint10HardGateTests(unittest.TestCase):
     def _members(self):
-        return set(hard_gate.REQUIRED) | set(hard_gate.ACCEPTANCE.values())
+        return set(hard_gate.GATED) | set(hard_gate.ACCEPTANCE.values())
 
     def _run_gate(self, members, state="active", charter=False, rendered=None,
                   todo_keys=None, issues=None):
@@ -53,6 +53,22 @@ class Sprint10HardGateTests(unittest.TestCase):
         self.assertEqual(set(hard_gate.SI_EXECUTION), set(hard_gate.ACCEPTANCE))
         self.assertTrue(all(hard_gate.ACCEPTANCE.values()))
         self.assertEqual(hard_gate.DROPPABLE, {})
+
+    def test_recorded_items_are_gated_but_not_committed(self):
+        self.assertTrue(hard_gate.RECORDED)
+        self.assertFalse(set(hard_gate.RECORDED) & set(hard_gate.COMMITTED))
+        self.assertFalse(set(hard_gate.RECORDED) & set(hard_gate.REQUIRED))
+        self.assertEqual(
+            set(hard_gate.GATED),
+            set(hard_gate.COMMITTED) | set(hard_gate.RECORDED))
+
+    def test_recorded_item_is_held_to_membership_and_close_status(self):
+        rc, output = self._run_gate(self._members() - {"KAN-329"}, charter=True)
+        self.assertEqual(rc, 1)
+        self.assertIn("KAN-329 is not in Sprint 10", output)
+        rc, output = self._run_gate(self._members(), todo_keys={"KAN-330"})
+        self.assertEqual(rc, 1)
+        self.assertIn("KAN-330 is in To Do", output)
 
     def test_charter_and_scoped_modes_are_mutually_exclusive(self):
         argv = [
