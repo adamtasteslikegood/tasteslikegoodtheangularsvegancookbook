@@ -14,13 +14,23 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   to add the recipe to a cookbook; the only route was an unlabelled icon on each kitchen card. It
   is now a labelled green button, first in the recipe's action row, and opens the same cookbook
   picker as the generator.
+- Previous and Next links on public recipe pages (KAN-342). Each `/r/<slug>` page links the
+  recipes either side of it in the default `/browse` order, newest first, under the title and again
+  below the recipe. Backend #377 and #380.
+- Page numbers in the browse header (KAN-343). `/browse` and the tag hubs repeat the page numbers
+  as a small plain-text row in the header, so a reader does not have to scroll to the bottom to
+  change page. Backend #377 and #380.
+
+### Changed
+
+- Backend pointer moved to `d3c1f09` (Backend `main`), which carries Backend #377, #378 and #380.
 
 ### Fixed
 
 - Switching accounts (KAN-344). Logging out and signing in again landed on the same Google account,
   because the sign-in request never asked Google which account to use. The profile menu has a new
-  "Switch user" link above Log Out: it logs out and then opens Google's account chooser. It needs
-  the Backend change in Backend #378; until the pointer carries it, the link signs in as before.
+  "Switch user" link above Log Out: it logs out and then opens Google's account chooser, using the
+  Backend change in Backend #378.
 
 ## [0.5.8] - 2026-10-05
 
