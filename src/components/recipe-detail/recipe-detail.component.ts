@@ -154,6 +154,11 @@ export class RecipeDetailComponent extends RecipeViewBase {
     });
   }
 
+  openAddToCookbookModal() {
+    const r = this.recipe();
+    if (r) this.modalService.openAddToCookbook(r);
+  }
+
   /** The Retry affordance on the load-error state. */
   retryLoad() {
     if (this.currentId) void this.load(this.currentId);
