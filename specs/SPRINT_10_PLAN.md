@@ -3,7 +3,7 @@
 _Chartered:_ 2026-09-29 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-100** (delivery/acceptance)
 _Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **RCP-103** (S4) · **RCP-104** (S5) · **RCP-105** (S6) · **RCP-106** (S7) · **RCP-107** (S8) · **RCP-108** (S9) · **RCP-109** (S10) · **RCP-110** (S11) · **RCP-111** (S12) · **RCP-112** (S13) · **RCP-113** (S14) · **RCP-114** (S15) · **RCP-115** (S16) · **RCP-116** (S17) · **RCP-117** (S18) · **RCP-118** (S19) · **RCP-120** (S20) · **RCP-121** (S21) · **RCP-122** (S22) · charter row **RCP-99**
-_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
+_Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321 · KAN-329 · KAN-330** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
 _Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
