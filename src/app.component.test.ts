@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
 import { PersistenceService } from './services/persistence.service';
+import { AppComponent } from './app.component';
 
 describe('ManualEntryModalComponent reopened session resets drafts', () => {
   it('starts a reopened manual-entry session with empty ingredient and instruction drafts', () => {
@@ -97,3 +98,46 @@ describe('CreateCookbookModalComponent in-flight guard', () => {
 });
 
 // save-from-SSR dedup tests moved to src/services/ssr-entry.service.test.ts (T3)
+
+// KAN-344: Switch user logs out first, so a sign-in that cannot start must not
+// strand the user on a logged-out page with no way forward.
+describe('AppComponent switch user (KAN-344)', () => {
+  // The component's constructor registers an effect, which needs the full
+  // Angular runtime; the handler only reads these four collaborators.
+  const createApp = (switchUser: () => Promise<void>) => {
+    const navigate = vi.fn();
+    const openAuth = vi.fn();
+    const clearRecipe = vi.fn();
+    const self = {
+      router: { navigate },
+      authService: { switchUser: vi.fn(switchUser) },
+      recipeState: { clearRecipe },
+      modalService: { openAuth },
+    };
+    const component = {
+      onSwitchUser: () => AppComponent.prototype.onSwitchUser.call(self as unknown as AppComponent),
+    };
+    return { component, navigate, openAuth, clearRecipe };
+  };
+
+  it('leaves the page alone when the chooser sign-in starts', async () => {
+    const { component, navigate, openAuth, clearRecipe } = createApp(async () => {});
+
+    await component.onSwitchUser();
+
+    expect(clearRecipe).toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
+    expect(openAuth).not.toHaveBeenCalled();
+  });
+
+  it('goes home and reopens sign-in when the chooser sign-in cannot start', async () => {
+    const { component, navigate, openAuth } = createApp(async () => {
+      throw new Error('Failed to initiate login');
+    });
+
+    await component.onSwitchUser();
+
+    expect(navigate).toHaveBeenCalledWith(['/']);
+    expect(openAuth).toHaveBeenCalled();
+  });
+});
