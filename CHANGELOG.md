@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.5.8] - 2026-10-05
 
-Backend pointer pinned at `45eff2309d6f` (Backend `main`, promotion #371).
+Backend pointer pinned at `96a27b98c426` (Backend `main`, promotions #371 and #373).
 
 ### Added
 
