@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { adoptImagePipelineFields, recipeFromRow, type RecipeRow } from './recipe-row';
+import {
+  adoptImagePipelineFields,
+  exportableRecipe,
+  recipeFromRow,
+  type RecipeRow,
+} from './recipe-row';
 import type { Recipe } from '../recipe.types';
 
 const blob = (over: Partial<Recipe> = {}): Recipe =>
@@ -195,5 +200,45 @@ describe('adoptImagePipelineFields (KAN-255)', () => {
     adoptImagePipelineFields(l, s);
     expect((l as unknown as Record<string, never>)['ai_image_gcs']).toBeUndefined();
     expect(s.personalNotes).toBe('');
+  });
+});
+
+// KAN-330: an exported file is client content when it comes back in any form,
+// so it must carry none of the fields only the server may decide. Both export
+// buttons (kitchen bulk, recipe single) go through this one function.
+describe('exportableRecipe', () => {
+  const published = (): Recipe =>
+    blob({
+      slug: 'vegan-zucchini-poppers',
+      is_public: true,
+      is_canonical: false,
+      origin: 'generated',
+      first_published_at: '2026-08-12T10:00:00',
+      slug_reserved: true,
+      personalNotes: 'less salt',
+    } as Partial<Recipe>);
+
+  it('drops the six server-owned fields and keeps everything else', () => {
+    const exported = exportableRecipe(published()) as unknown as Record<string, unknown>;
+    for (const field of [
+      'is_public',
+      'slug',
+      'origin',
+      'is_canonical',
+      'first_published_at',
+      'slug_reserved',
+    ]) {
+      expect(field in exported, field).toBe(false);
+    }
+    expect(exported['name']).toBe('Vegan Zucchini Poppers');
+    expect(exported['instructions']).toEqual(['fry']);
+    expect(exported['personalNotes']).toBe('less salt');
+  });
+
+  it('does not mutate the recipe it is given', () => {
+    const recipe = published();
+    exportableRecipe(recipe);
+    expect(recipe.is_public).toBe(true);
+    expect(recipe.slug).toBe('vegan-zucchini-poppers');
   });
 });

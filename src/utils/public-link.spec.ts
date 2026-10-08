@@ -176,8 +176,9 @@ describe('publishToggleKind', () => {
   it('is manual for an unpublished manually entered recipe', () => {
     expect(publishToggleKind({ origin: 'manual' })).toBe('manual');
     expect(publishToggleKind({ origin: 'manual', is_public: false })).toBe('manual');
-    // Manual wins over the source rendering — the gate matters more.
-    expect(publishToggleKind({ origin: 'manual', sourceSlug: 'x' })).toBe('manual');
+    // KAN-330: a sourceSlug now wins — both kinds refuse to publish, and the
+    // source toast points at the page that is already live.
+    expect(publishToggleKind({ origin: 'manual', sourceSlug: 'x' })).toBe('source');
   });
 
   it('is normal for a legacy published manual recipe (so it can be unpublished)', () => {
@@ -188,18 +189,34 @@ describe('publishToggleKind', () => {
     expect(publishToggleKind({ origin: 'manual', is_canonical: true })).toBe('locked');
   });
 
-  it('is normal for generated and saved origins', () => {
+  it('is normal for a generated recipe', () => {
     expect(publishToggleKind({ origin: 'generated' })).toBe('normal');
+    expect(publishToggleKind({ origin: 'generated', is_public: false })).toBe('normal');
+  });
+
+  // KAN-330: the server publishes nothing it did not generate, so the toggle
+  // says so for every private recipe without the worker's label — a manual
+  // entry, a legacy row, a row whose generation has not finished. A saved copy
+  // keeps its own explanation, which points at the live source page.
+  it('is manual for any private recipe the server did not generate', () => {
+    expect(publishToggleKind({})).toBe('manual');
+    expect(publishToggleKind({ is_public: false, slug: 'a' })).toBe('manual');
+    expect(publishToggleKind({ origin: 'saved' })).toBe('manual');
+  });
+
+  it('is source for a saved copy before it is manual', () => {
     expect(publishToggleKind({ origin: 'saved', sourceSlug: 'x' })).toBe('source');
+    expect(publishToggleKind({ sourceSlug: 'x' })).toBe('source');
   });
 
   // KAN-212: 'source' greys the toggle because "its publish state belongs to
   // the source page". When the row IS the source, that reasoning inverts — the
   // publish state is its own, so the toggle must render normally. Adam
   // unpublished and republished exactly this row on live and the toggle worked.
-  it("is normal when sourceSlug is the recipe's own slug", () => {
+  it("is not source when sourceSlug is the recipe's own slug", () => {
     expect(
       publishToggleKind({
+        origin: 'generated',
         is_public: false,
         slug: 'english-breakfast',
         sourceSlug: 'english-breakfast',
@@ -207,10 +224,9 @@ describe('publishToggleKind', () => {
     ).toBe('normal');
   });
 
-  it('is normal for ordinary own recipes, published or not', () => {
-    expect(publishToggleKind({})).toBe('normal');
+  it('is normal for any published recipe, so it can be unpublished', () => {
     expect(publishToggleKind({ is_public: true, slug: 'a' })).toBe('normal');
-    expect(publishToggleKind({ is_public: false, slug: 'a' })).toBe('normal');
     expect(publishToggleKind({ is_canonical: false, is_public: true, slug: 'a' })).toBe('normal');
+    expect(publishToggleKind({ origin: 'saved', is_public: true, slug: 'a' })).toBe('normal');
   });
 });

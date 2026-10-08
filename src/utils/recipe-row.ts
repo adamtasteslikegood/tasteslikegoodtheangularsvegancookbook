@@ -70,6 +70,32 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
 }
 
 /**
+ * KAN-330 — the shape a recipe takes in an exported JSON file.
+ *
+ * A file is client content the moment it leaves the browser: whatever comes
+ * back from it is a client write, and the server decides publication and
+ * provenance on its own. So the six fields only the server may set are left
+ * out, and the file carries the recipe itself (personal notes included).
+ * Both export buttons go through here.
+ */
+const SERVER_OWNED_FIELDS = [
+  'is_public',
+  'slug',
+  'origin',
+  'is_canonical',
+  'first_published_at',
+  'slug_reserved',
+] as const;
+
+export type ExportableRecipe = Omit<Recipe, (typeof SERVER_OWNED_FIELDS)[number]>;
+
+export function exportableRecipe(recipe: Recipe): ExportableRecipe {
+  const exportable: Record<string, unknown> = { ...recipe };
+  for (const field of SERVER_OWNED_FIELDS) delete exportable[field];
+  return exportable as unknown as ExportableRecipe;
+}
+
+/**
  * KAN-289 — has this recipe ever had a public /r/<slug> page?
  *
  * Deleting such a recipe permanently retires its address (Backend KAN-288:

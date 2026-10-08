@@ -474,53 +474,6 @@ export class AuthService {
     });
   }
 
-  importRecipes(recipes: Recipe[], targetCookbookId?: string | null): number {
-    const user = this.currentUser();
-    if (!user) return 0;
-
-    const currentRecipes = [...user.savedRecipes];
-    const validRecipeIds: string[] = [];
-
-    recipes.forEach((r) => {
-      if (r.name && r.ingredients && r.instructions) {
-        if (!r.id) r.id = crypto.randomUUID();
-        if (!currentRecipes.some((existing) => existing.id === r.id)) {
-          currentRecipes.push(r as Recipe);
-        }
-        validRecipeIds.push(r.id);
-      }
-    });
-
-    let cookbooks = user.cookbooks;
-    if (targetCookbookId && validRecipeIds.length > 0) {
-      cookbooks = cookbooks.map((cb) => {
-        if (cb.id === targetCookbookId) {
-          const uniqueIds = Array.from(new Set([...cb.recipeIds, ...validRecipeIds]));
-          let coverImage = cb.coverImage;
-          if (!coverImage) {
-            const firstWithImage = currentRecipes.find(
-              (r) => validRecipeIds.includes(r.id) && (r.ai_image_url || r.stock_image_url)
-            );
-            if (firstWithImage) {
-              coverImage = firstWithImage.ai_image_url || firstWithImage.stock_image_url;
-            }
-          }
-          return { ...cb, recipeIds: uniqueIds, coverImage };
-        }
-        return cb;
-      });
-    }
-
-    if (validRecipeIds.length > 0) {
-      this.updateUserRecord({
-        ...user,
-        savedRecipes: currentRecipes,
-        cookbooks,
-      });
-    }
-    return validRecipeIds.length;
-  }
-
   // ─── Cookbook Management (localStorage) ────────────────────────
 
   createCookbook(name: string, description: string = '', id?: string): Cookbook | undefined {

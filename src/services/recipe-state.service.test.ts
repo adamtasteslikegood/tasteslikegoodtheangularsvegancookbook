@@ -273,8 +273,8 @@ describe('RecipeStateService image cache-busting', () => {
 
   // Review findings on #3437: resolving relative URLs against a placeholder
   // base and reassembling from pathname/search/hash silently rewrote them.
-  // Imported recipes (KitchenComponent.onImportFileSelected) carry arbitrary
-  // ai_image_url values, so both forms below are reachable.
+  // Rows saved through the JSON import that existed before KAN-330 carry
+  // arbitrary ai_image_url values, so both forms below are still reachable.
   it('preserves the host on protocol-relative URLs', () => {
     service.markImageRegenerated('r1', 99);
     expect(service.imageDisplayUrl('r1', '//cdn.example.com/img.jpg')).toBe(

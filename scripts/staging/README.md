@@ -18,10 +18,10 @@ grant that the deploy script wires idempotently.
 
 ## Services
 
-| Service                    | Purpose                              | Access                      |
-| -------------------------- | ------------------------------------ | --------------------------- |
-| `express-frontend-staging` | SPA + proxy                          | Public (`*.run.app`)        |
-| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check |
+| Service                    | Purpose                              | Access                                                         |
+| -------------------------- | ------------------------------------ | -------------------------------------------------------------- |
+| `express-frontend-staging` | SPA + proxy                          | Public: `https://staging.tasteslikegood.xyz` (and `*.run.app`) |
+| `flask-backend-staging`    | API (CloudSQL, Pub/Sub, GCS, Gemini) | Private — invoker IAM check                                    |
 
 `flask-backend-staging` mirrors prod's posture (KAN-170): the invoker IAM
 check is ON, and Express authenticates with a Google-signed ID token
@@ -95,9 +95,12 @@ gcloud run jobs execute flask-staging-migrate \
 run:
 
 **Synthetic edge rows** (always): 3 users with `@example.test` emails,
-8 recipes covering the shapes acceptance criterion 3 needs — published and
-unpublished, saved copy with `source_slug` (the publish-guard path),
+8 recipes covering the shapes acceptance criterion 3 needs — private
+recipes, a saved copy with `source_slug` (the publish-guard path), an
 orphaned guest recipe, `generating` and `error` states — plus 1 cookbook.
+Since KAN-329 the seed writes no public row and no `generated` label in
+either mode: a staging row goes public only through the reviewed manifest
+(`Backend/scripts/publish_audit.py`), the same step production uses.
 
 **Real export import** (`--from-json`): imports an Export Cookbook JSON
 (the app's own export button, shipped since pre-0.1.0). The export carries
@@ -159,8 +162,11 @@ To enable real login:
    authorized redirect URI:
 
    ```
-   https://<express-staging-url>/api/auth/callback
+   https://staging.tasteslikegood.xyz/api/auth/callback
    ```
+
+   The redirect URI must be on the host visitors sign in on. If
+   `STAGING_PUBLIC_URL` is overridden for the deploy, use that host here.
 
 2. Store both halves as staging secrets:
 
@@ -172,8 +178,8 @@ To enable real login:
    ```
 
 3. Re-run `./scripts/staging/deploy-staging.sh --apply --version <tag>`. The
-   script detects the secrets, wires them plus `FRONTEND_URL` (resolved from
-   the existing Express service URL) into Flask, and login turns on. Without
+   script detects the secrets, wires them plus `FRONTEND_URL` (`STAGING_PUBLIC_URL`,
+   default `https://staging.tasteslikegood.xyz`) into Flask, and login turns on. Without
    the secrets the same deploy keeps login off — presence is the switch.
 
 **Owning the seeded cookbook:** imports land under the synthetic

@@ -94,12 +94,10 @@ export class GeneratorComponent extends RecipeViewBase {
     this.servingsMultiplier.set(1);
 
     try {
-      const generatedRecipe: Recipe = {
-        ...(await this.geminiService.generateRecipe(this.prompt())),
-        // KAN-140: provenance label; lets the server distinguish
-        // AI-mediated content from manual entry.
-        origin: 'generated',
-      };
+      // KAN-330: the `generated` label is the server's to write — the worker
+      // stamps it when the text lands, and the status poll returns it. A
+      // client-sent label is ignored, so none is sent.
+      const generatedRecipe: Recipe = await this.geminiService.generateRecipe(this.prompt());
       // Display and count the view immediately; persistence can be slow or
       // fail, and a rendered recipe is still a view. Start unsaved, then let
       // the detailed outcome below reconcile the Save control (KAN-292).
