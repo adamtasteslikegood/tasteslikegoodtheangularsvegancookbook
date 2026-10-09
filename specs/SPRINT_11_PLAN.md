@@ -87,6 +87,9 @@ property.
 ### What is not in Sprint 11
 
 These stay under **RCP-119** for Sprint 12. The hard gate fails if one is in the sprint.
+Jira sprint **Sprint 12** (id **122**, board 168) exists as a future sprint, not started,
+and holds these rows, so work that does not finish in Sprint 11 has somewhere to land
+(Adam, 2026-10-09; Sprint 10 retro action 1).
 
 | Ticket            | What                                                                                                                                      |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
