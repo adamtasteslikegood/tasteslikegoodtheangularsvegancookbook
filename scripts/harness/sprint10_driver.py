@@ -272,6 +272,12 @@ def cmd_status(args):
                     "waiting on " + ", ".join(
                         d for d in deps if states[d] not in DONE)
                     if not ready else "WIP full")
+                # start refuses a task whose after_started tasks have not
+                # started; say so here, or status and start disagree.
+                unstarted = [d for d in t.get("after_started", [])
+                             if states[d] == "not-started"]
+                if unstarted and note == "startable":
+                    note = "waiting for %s to start" % ", ".join(unstarted)
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])

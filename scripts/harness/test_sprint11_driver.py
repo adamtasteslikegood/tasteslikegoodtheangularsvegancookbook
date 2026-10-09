@@ -90,7 +90,7 @@ class Sprint11PlanTests(unittest.TestCase):
     def test_only_the_process_lane_may_edit_workflows(self):
         for name, lane in self.plan["lanes"].items():
             with self.subTest(lane=name):
-                if name in ("Process", "SEO"):
+                if name == "Process":
                     self.assertNotIn(".github/workflows/", lane["must_not_touch"])
                 else:
                     self.assertIn(".github/workflows/", lane["must_not_touch"])
@@ -134,6 +134,19 @@ class Sprint11DriverTests(unittest.TestCase):
         _verify(self.state, "T0")
         self.assertIn("T27 waits until T25", self._refusals("T27")[0])
         self.assertIn("T15 waits until T16", self._refusals("T15")[0])
+
+    def test_status_does_not_call_a_task_startable_when_start_refuses_it(self):
+        _verify(self.state, "T0")
+        self.assertTrue(self._refusals("T2"))
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            rc = driver.main(["--state-dir", self.state, "status"])
+        self.assertEqual(rc, 0)
+        notes = {line.split()[0]: line for line in output.getvalue().splitlines()[1:]}
+        self.assertTrue(notes["T1"].endswith("startable"))
+        self.assertIn("waiting for T1 to start", notes["T2"])
+        self.assertIn("waiting for T16 to start", notes["T15"])
+        self.assertIn("waiting for T25 to start", notes["T27"])
 
     def test_the_walk_needs_the_stability_rows_exactly_done(self):
         _verify(self.state, "T0", "T4", "T5", "T6")

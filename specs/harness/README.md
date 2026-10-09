@@ -18,7 +18,7 @@ The driver's rules are Sprint 10's and are described under
 main checkout. What is specific to Sprint 11:
 
 - **The order of work is the charter's ordered list.** The driver enforces only part of
-  it: T0 first, T26 last before close, and the four waits below. WIP 3 and the ordered
+  it: T0 first, T28 last, the four waits below, and T26's exact-Done rule. WIP 3 and the ordered
   list decide the rest. There is no day-1 priority ruling for Sprint 11; Adam can add one.
 - **The crawl lane starts in order, without waiting for a release.** T2 is refused until
   T1 has started, and T3 until T2 has (`after_started`). They are not chained with

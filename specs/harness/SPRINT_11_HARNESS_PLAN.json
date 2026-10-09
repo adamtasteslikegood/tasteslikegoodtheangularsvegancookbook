@@ -38,7 +38,7 @@
     },
     "SEO": {
       "owns": "S16 then S15; S20; S17, S18, S19 (evidence only)",
-      "must_not_touch": []
+      "must_not_touch": [".github/workflows/"]
     },
     "Process": {
       "owns": "S21 (gh-aw; the one lane that edits .github/workflows/)",
