@@ -25,10 +25,15 @@ main checkout. What is specific to Sprint 11:
   `depends_on`, because the three share one session and one batched Backend release, and
   `depends_on` would force a release per SI. The cost is that the lane can hold all three
   WIP slots at once. That is a choice, named here so Adam can overrule it.
-- **T15 waits until T16 has started**, because Adam's fill-or-decline on the seven
-  rich-result warnings sets S15's scope. **T27 waits until T25 has started.** The real
-  condition for T27 is that both reviews are linked on RCP-148. The driver cannot read
-  that, so it is a human check, stated in T27's objective.
+- **T15 waits until T16 has started, and T27 until T25 has.** In both, the real condition
+  is something the driver cannot read: Adam's fill-or-decline on the seven rich-result
+  warnings (on RCP-140) sets S15's scope, and S27's build PR needs both reviews linked on
+  RCP-148. Those are human checks, stated in each task's objective. `after_started` only
+  keeps the later task from opening first.
+- **What Adam does first is not gated by the driver.** S22's profile edits, the staging
+  checks for S8 and S10, and the two conditions above live in objectives and manual
+  evidence. The driver reads task state and Jira status only. An enforced human start
+  gate would be a new rule, and is Adam's to add.
 - **The readiness walk needs exact Done.** `start T26` is refused until T4, T5 and T6 are
   verified and RCP-128, RCP-129 and RCP-130 are exactly `Done`.
 - **A dated item holds no WIP slot** (charter D6). A task that has not started holds no

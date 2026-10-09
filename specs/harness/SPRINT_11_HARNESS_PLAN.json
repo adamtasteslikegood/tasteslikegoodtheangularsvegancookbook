@@ -70,7 +70,7 @@
       "depends_on": [],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
-      "objective": "Board honesty before any SI runs. Sprint 11 (id 121, board 168) was created and started at charter on 2026-10-09 with every committed item; this task re-proves it and moves RCP-123 to In Progress as the sprint's own start evidence. Do not re-create the sprint. Never fix a board-visibility failure by removing KAN rows from the sprint.",
+      "objective": "Board honesty before any SI runs. Sprint 11 (id 121, board 168) was created and started at charter on 2026-10-09 with every committed item; this task re-proves it and moves RCP-123 out of To Do, to In Progress, as the sprint's own start evidence. The board check accepts any status outside To Do, so the status it was moved to is named in the manual evidence. Do not re-create the sprint. Never fix a board-visibility failure by removing KAN rows from the sprint.",
       "suggested_tools": [
         "python3 scripts/harness/sprint11_hard_gate.py --charter",
         "bash scripts/pm/check_sprint_lane.sh"
@@ -90,9 +90,14 @@
           "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues RCP-123 RCP-124 KAN-350",
           "expect_exit": 0,
           "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: name the status RCP-123 is in after this task and when it was moved. It must be In Progress; if it is anything else, leave the task pending and say why.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
         }
       ],
-      "done_when": "--charter and the lane gate exit 0, and RCP-123, RCP-124 and KAN-350 are out of To Do",
+      "done_when": "--charter and the lane gate exit 0, RCP-123 is In Progress, and RCP-124 and KAN-350 are out of To Do",
       "max_attempts": 3,
       "status": "pending"
     },
@@ -541,7 +546,7 @@
       "depends_on": ["T0"],
       "skill": "senior-frontend",
       "skill_path": "engineering-skills:senior-frontend",
-      "objective": "Recipe JSON-LD carries the Google-recommended fields. Scope is set by S16's fill-or-decline decision (Adam, dated 2026-10-12): build only the fields Adam chose to fill. Acceptance criteria are on RCP-139, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "objective": "Recipe JSON-LD carries the Google-recommended fields. Scope is set by S16's fill-or-decline decision (Adam, dated 2026-10-12): build only the fields Adam chose to fill. Do not open the build PR until that decision is on RCP-140; that is a human check, the driver only knows that T16 has started. Acceptance criteria are on RCP-139, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
       "suggested_tools": ["gh pr list --state all --search 'KAN-320 in:title'"],
       "verification": [
         {
