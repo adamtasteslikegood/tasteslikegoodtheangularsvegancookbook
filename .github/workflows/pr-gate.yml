@@ -118,7 +118,7 @@ jobs:
       # Stdlib only; Jira is mocked, so no secrets are needed. These tests guard
       # the sprint hard gates against vacuous passes (KAN-260).
       - name: Run sprint hard-gate unit tests
-        run: python3 -m unittest scripts/harness/test_sprint9_harness.py scripts/harness/test_sprint10_hard_gate.py scripts/harness/test_sprint10_driver.py scripts/harness/test_sprint11_hard_gate.py
+        run: python3 -m unittest scripts/harness/test_sprint9_harness.py scripts/harness/test_sprint10_hard_gate.py scripts/harness/test_sprint10_driver.py scripts/harness/test_sprint11_hard_gate.py scripts/harness/test_sprint11_driver.py
 
   monitoring-mcp:
     name: Monitoring MCP — unit tests + image build

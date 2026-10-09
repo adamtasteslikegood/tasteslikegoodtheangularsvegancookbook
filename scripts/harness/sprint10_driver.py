@@ -72,7 +72,7 @@ WIP_LIMIT = 3          # D6: WIP <= 3
 REFUSED = 3
 
 
-def default_state_dir():
+def default_state_dir(name="sprint10"):
     """The shared state dir in the MAIN checkout, even from a linked worktree.
 
     WIP, the start lock and D6 all depend on one state dir shared by every lane
@@ -82,7 +82,7 @@ def default_state_dir():
     does for ``.env``.
     """
     from _jira_client import repo_root
-    return repo_root() / ".agent-harness" / "sprint10"
+    return repo_root() / ".agent-harness" / name
 
 
 def load_plan(path=PLAN):
@@ -94,6 +94,11 @@ def load_plan(path=PLAN):
 # the tracked plan's ``carried_to``, not from the gitignored state dir, so a
 # clean checkout can never start carried work again.
 DONE = ("verified", "carried")
+
+
+def sprint_name(plan):
+    """The plan's own sprint name, so a later sprint's plan is named correctly."""
+    return plan.get("jira", {}).get("sprint", "Sprint 10")
 
 
 def carried(plan):
@@ -186,8 +191,8 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
         return ["unknown task %s" % task_id]
     task = tasks[task_id]
     if task.get("carried_to"):
-        return ["%s was carried out of Sprint 10 to %s — it is not sprint work; "
-                "do not start it" % (task_id, task["carried_to"])]
+        return ["%s was carried out of %s to %s — it is not sprint work; "
+                "do not start it" % (task_id, sprint_name(plan), task["carried_to"])]
     states, wip = snapshot(plan, state_dir)
     reasons = []
     if states[task_id] != "not-started":
@@ -273,7 +278,8 @@ def cmd_status(args):
             # A waived task counts as done for WIP and dependencies, but say so:
             # "verified" alone would hide a waived SI.
             if t.get("carried_to"):
-                note = "carried to %s — not Sprint 10 work" % t["carried_to"]
+                note = "carried to %s — not %s work" % (
+                    t["carried_to"], sprint_name(plan))
             elif raw_status(args.state_dir, t["id"]) == "waived":
                 note = "counts as done, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
@@ -421,10 +427,13 @@ def build_parser():
     return p
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def main(argv=None, plan=None, state_name="sprint10"):
+    parser = build_parser()
+    if plan is not None:
+        parser.set_defaults(plan=str(plan))
+    args = parser.parse_args(argv)
     if args.state_dir is None:
-        args.state_dir = str(default_state_dir())
+        args.state_dir = str(default_state_dir(state_name))
     if args.cmd in ("soak", "resume", "unsoak"):
         return cmd_soak(args)
     return cmd_status(args) if args.cmd == "status" else cmd_start(args)
