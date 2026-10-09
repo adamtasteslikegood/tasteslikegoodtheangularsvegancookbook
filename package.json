@@ -44,7 +44,7 @@
     "autoprefixer": "^10.6.1",
     "dd-trace": "^6.17.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
+    "express-rate-limit": "^8.7.1",
     "express-validator": "^7.3.2",
     "google-auth-library": "^11.1.0",
     "helmet": "^8.3.0",
