@@ -303,7 +303,7 @@ Rule 3 (nothing in To Do) is the close gate, so on day 1 it is expected red.
 | `sprint11_hard_gate.py --charter`    | **exit 0** — 28 acceptance rows board-rendered (27 SIs and the charter row)       |
 | `check_sprint_lane.sh`               | **exit 0** — all 59 sprint members carry `sprint-11`; 30 open KAN rows, 0 orphans |
 | `sprint11_hard_gate.py` (close form) | exit 1 — 49 rows in To Do (expected on day 1)                                     |
-| `test_sprint11_hard_gate.py`         | 16 tests pass; wired into `pr-gate.yml`'s harness-tests job                       |
+| `test_sprint11_hard_gate.py`         | 18 tests pass; wired into `pr-gate.yml`'s harness-tests job                       |
 
 ## Close-out
 

@@ -15,8 +15,17 @@ class Sprint11HardGateTests(unittest.TestCase):
     def _members(self):
         return set(hard_gate.GATED) | set(hard_gate.ACCEPTANCE.values())
 
+    def _row_fields(self, key):
+        """Board fields for a row: a conforming acceptance Story when it is one."""
+        for si, row in hard_gate.ACCEPTANCE.items():
+            if row == key:
+                return {"issuetype": {"name": "Story"},
+                        "summary": "S11 acceptance: test (%s)"
+                                   % ", ".join(hard_gate.SI_EXECUTION[si])}
+        return {"issuetype": {"name": "Story"}, "summary": "test"}
+
     def _run_gate(self, members, state="active", charter=False, rendered=None,
-                  todo_keys=None, issues=None):
+                  todo_keys=None, issues=None, row_fields=None):
         members = set(members)
         todo_keys = members if todo_keys is None else set(todo_keys)
         jira = Mock()
@@ -24,7 +33,10 @@ class Sprint11HardGateTests(unittest.TestCase):
         jira.sprint_issues.return_value = [{"key": k} for k in sorted(members)]
         if rendered is None:
             rendered = set(hard_gate.ACCEPTANCE.values()) & members
-        jira.board_sprint_issues.return_value = [{"key": k} for k in sorted(rendered)]
+        row_fields = row_fields or {}
+        jira.board_sprint_issues.return_value = [
+            {"key": k, "fields": row_fields.get(k, self._row_fields(k))}
+            for k in sorted(rendered)]
 
         def issue(key, fields):
             todo = key in todo_keys
@@ -125,6 +137,39 @@ class Sprint11HardGateTests(unittest.TestCase):
                 rc, output = self._run_gate(self._members(), charter=True, rendered=rendered)
                 self.assertEqual(rc, 1)
                 self.assertIn("%s is not rendered by board 168" % row, output)
+
+    def test_charter_fails_when_the_rendered_row_is_not_the_acceptance_story(self):
+        # RCP-146 is S22's row: one Story for KAN-311, KAN-312 and KAN-313.
+        story = {"name": "Story"}
+        cases = (
+            ("RCP-128", {"issuetype": {"name": "Epic"},
+                         "summary": "S11 acceptance: test (KAN-306)"},
+             "RCP-128 is type Epic, not a Story"),
+            ("RCP-128", {"issuetype": story, "summary": "Publish refusal (KAN-306)"},
+             "RCP-128 is not titled 'S11 acceptance: ...'"),
+            ("RCP-128", {"issuetype": story, "summary": "S10 acceptance: test (KAN-306)"},
+             "RCP-128 is not titled 'S11 acceptance: ...'"),
+            ("RCP-128", {"issuetype": story, "summary": "S11 acceptance: test (KAN-3060)"},
+             "RCP-128 does not name KAN-306 in its summary"),
+            ("RCP-146", {"issuetype": story,
+                         "summary": "S11 acceptance: test (KAN-311, KAN-313)"},
+             "RCP-146 does not name KAN-312 in its summary"),
+            ("RCP-128", {}, "RCP-128 is of unknown type, not a Story"),
+        )
+        for row, fields, expected in cases:
+            with self.subTest(expected=expected):
+                rc, output = self._run_gate(self._members(), charter=True,
+                                            row_fields={row: fields})
+                self.assertEqual(rc, 1)
+                self.assertIn(expected, output)
+
+    def test_an_acceptance_row_outside_rcp_is_named(self):
+        fields = {"issuetype": {"name": "Story"},
+                  "summary": "S11 acceptance: test (KAN-306)"}
+        self.assertEqual(
+            hard_gate.acceptance_row_problems("S4", "KAN-999", fields),
+            ["is not in project RCP"])
+        self.assertEqual(hard_gate.acceptance_row_problems("S4", "RCP-128", fields), [])
 
     def test_close_gate_rejects_an_acceptance_row_left_in_todo(self):
         rc, output = self._run_gate(self._members(), todo_keys={"RCP-149"})

@@ -26,7 +26,8 @@ Exit 0 only when ALL of these hold:
    (KAN-260). Board 168's filter is ``project = RCP ORDER BY Rank ASC``, so a
    KAN key added to the sprint is a member that no column can show. Rule 4
    reads the board-scoped endpoint and asserts one RCP ``S11 acceptance:`` Story
-   per SI. It is not a member/rendered delta: KAN execution rows are supposed
+   per SI, checking each row's type and summary, and that the summary names the
+   SI's execution rows. It is not a member/rendered delta: KAN execution rows are supposed
    to be members (rule 2) and cannot render. ``sprint10_hard_gate.py`` records
    why in full.
 
@@ -63,6 +64,7 @@ Exit codes: 0 pass · 1 gate failed · 2 configuration or API error.
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -74,6 +76,7 @@ from _atlassian_guard import AtlassianGuardError  # noqa: E402
 
 RCP_SCRUM_BOARD = 168
 SPRINT_NAME = "Sprint 11"
+ACCEPTANCE_PREFIX = "S11 acceptance:"
 
 # Committed items that must be in the sprint and, at close, out of To Do.
 # Charter: specs/SPRINT_11_PLAN.md. SI numbers are the plan's ordered list.
@@ -214,6 +217,30 @@ def is_todo(fields):
     return (cat.get("name") or "").strip().lower() == "to do"
 
 
+def acceptance_row_problems(si, row, fields):
+    """Why a rendered row is not this SI's acceptance row; empty when it is.
+
+    A hard-coded key only proves that some issue is on the board. The
+    convention is an RCP Story titled ``S11 acceptance: <what> (KAN-###)``, so
+    the row's project, type and summary are checked against it, and the summary
+    must name every execution row of the SI.
+    """
+    problems = []
+    if not row.startswith("RCP-"):
+        problems.append("is not in project RCP")
+    issuetype = (fields.get("issuetype") or {}).get("name")
+    if issuetype != "Story":
+        problems.append("is %s, not a Story" % (("type " + issuetype) if issuetype else "of unknown type"))
+    summary = fields.get("summary") or ""
+    if not summary.startswith(ACCEPTANCE_PREFIX):
+        problems.append("is not titled %r" % (ACCEPTANCE_PREFIX + " ..."))
+    missing = [k for k in SI_EXECUTION[si]
+               if not re.search(r"\b%s\b" % re.escape(k), summary)]
+    if missing:
+        problems.append("does not name %s in its summary" % "/".join(missing))
+    return problems
+
+
 def main():
     p = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -272,8 +299,10 @@ def main():
             # Rule 4 — board visibility. Read what the BOARD renders, not what the
             # sprint contains; the module docstring explains why this is not a
             # member/rendered delta.
-            rendered = {i["key"] for i in
-                        jira.board_sprint_issues(RCP_SCRUM_BOARD, sprint["id"])}
+            rendered_fields = {
+                i["key"]: i.get("fields") or {} for i in
+                jira.board_sprint_issues(RCP_SCRUM_BOARD, sprint["id"])}
+            rendered = set(rendered_fields)
             report["board_rendered"] = sorted(rendered)
 
             # The split is enforced, not just recorded: a row that stays under
@@ -320,6 +349,9 @@ def main():
                         "invisible on the board" % (si, row, RCP_SCRUM_BOARD))
                 else:
                     active_acceptance[row] = "%s — board-visible acceptance" % si
+                    for problem in acceptance_row_problems(si, row, rendered_fields[row]):
+                        report["violations"].append(
+                            "%s's acceptance row %s %s" % (si, row, problem))
 
             # Acceptance rows are first-class committed sprint artifacts too;
             # rule 3 must reject one left in To Do just like its execution row.
