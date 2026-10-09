@@ -166,6 +166,18 @@ def soak_until(state_dir, task_id, now=None):
     return datetime.fromisoformat(json.loads(path.read_text())["until"])
 
 
+def latest_soak_until(task, now):
+    """Latest allowed soak end from the relative window and optional hard date."""
+    latest = now + timedelta(hours=task["soak_window_hours"])
+    absolute = task.get("soak_deadline")
+    if not absolute:
+        return latest
+    absolute = datetime.fromisoformat(absolute)
+    if absolute.tzinfo is None:
+        raise ValueError("soak_deadline needs a timezone")
+    return min(latest, absolute)
+
+
 def snapshot(plan, state_dir, now=None):
     """(states, wip). A task with a soak mark never counts, in any phase."""
     out = carried(plan)
@@ -387,9 +399,14 @@ def cmd_soak(args):
         if until <= now:
             print("SOAK REFUSED — --until %s is not in the future" % until.isoformat())
             return REFUSED
-        if until > now + timedelta(hours=window):
-            print("SOAK REFUSED — --until %s is beyond %s's declared %d h window"
-                  % (until.isoformat(), task["id"], window))
+        latest = latest_soak_until(task, now)
+        if until > latest:
+            absolute = task.get("soak_deadline")
+            limit = ("absolute deadline %s" % absolute
+                     if absolute and latest == datetime.fromisoformat(absolute)
+                     else "declared %d h window" % window)
+            print("SOAK REFUSED — --until %s is beyond %s's %s"
+                  % (until.isoformat(), task["id"], limit))
             return REFUSED
         # One soak per mark: a second call must never move the deadline or turn
         # reentry back into soaking (review on #3555). Check and write under the

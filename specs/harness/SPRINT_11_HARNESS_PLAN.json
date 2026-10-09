@@ -855,7 +855,8 @@
       "done_when": "both reviews linked, R3-3 to R3-8 answered, and the cook count recorded on RCP-148",
       "max_attempts": 3,
       "status": "pending",
-      "soak_window_hours": 336
+      "soak_window_hours": 336,
+      "soak_deadline": "2026-10-23T23:59:00+00:00"
     },
     {
       "id": "T26",

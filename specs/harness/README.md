@@ -39,7 +39,8 @@ main checkout. What is specific to Sprint 11:
 - **A dated item holds no WIP slot** (charter D6). A task that has not started holds no
   slot, so work that waits on Adam first (S22's profile edits, the staging checks for S8
   and S10) is simply not started. T12, T20 and T25 wait on a dated count after their work
-  is recorded; they declare `soak_window_hours` and are soaked.
+  is recorded; they declare `soak_window_hours` and are soaked. T25 also declares its
+  absolute 2026-10-23 deadline, so a late soak cannot move the sprint-box date.
 - **S6 carries no detail.** Both repos are public and KAN-335 is not fixed. Its task says
   the detail is on the ticket, and a test keeps it that way.
 

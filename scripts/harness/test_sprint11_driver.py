@@ -11,6 +11,7 @@ import io
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -105,6 +106,8 @@ class Sprint11PlanTests(unittest.TestCase):
         soaks = {t["id"]: t["soak_window_hours"] for t in self.plan["tasks"]
                  if t.get("soak_window_hours")}
         self.assertEqual(soaks, {"T12": 168, "T20": 168, "T25": 336})
+        self.assertEqual(self.tasks["T25"]["soak_deadline"],
+                         "2026-10-23T23:59:00+00:00")
 
 
 class Sprint11DriverTests(unittest.TestCase):
@@ -160,6 +163,24 @@ class Sprint11DriverTests(unittest.TestCase):
         _verify(self.state, "T0", "T4", "T5")
         done = {"RCP-128": "Done", "RCP-129": "Done", "RCP-130": "Done"}
         self.assertIn("T26 depends on T6", self._refusals("T26", done)[0])
+
+    def test_t25_soak_cannot_move_past_its_absolute_deadline(self):
+        (Path(self.state) / "T25.state.json").write_text(
+            '{"tasks": [{"status": "verifying"}]}')
+        output = io.StringIO()
+        with (
+            patch.object(base, "datetime") as clock,
+            contextlib.redirect_stdout(output),
+        ):
+            clock.now.return_value = datetime(2026, 10, 20, tzinfo=timezone.utc)
+            clock.fromisoformat.side_effect = datetime.fromisoformat
+            rc = driver.main([
+                "--state-dir", self.state, "soak", "T25",
+                "--until", "2026-10-24T12:00:00+00:00", "--reason", "count",
+            ])
+        self.assertEqual(rc, base.REFUSED)
+        self.assertIn("absolute deadline 2026-10-23T23:59:00+00:00",
+                      output.getvalue())
 
     def test_a_carried_task_is_named_for_sprint_11(self):
         plan = {"jira": {"sprint": "Sprint 11"},
