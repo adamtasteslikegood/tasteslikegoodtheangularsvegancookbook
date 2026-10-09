@@ -36,7 +36,7 @@ STATE_NAME = "sprint11"
 
 
 def main(argv=None):
-    return driver.main(argv, plan=PLAN, state_name=STATE_NAME)
+    return driver.main(argv, plan=PLAN, state_name=STATE_NAME, description=__doc__)
 
 
 if __name__ == "__main__":

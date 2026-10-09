@@ -301,7 +301,7 @@ def cmd_status(args):
             shown = ("waived" if states[t["id"]] == "verified"
                      and raw_status(args.state_dir, t["id"]) == "waived"
                      else states[t["id"]])
-            print("%-4s %-8s %-2s %-12s %s" % (
+            print("%-4s %-8s %-10s %-12s %s" % (
                 t["id"], t.get("si", "-"), t.get("lane", "-"), shown, note))
         return 0
     except (Exception, SystemExit) as exc:
@@ -410,12 +410,14 @@ def cmd_soak(args):
         return 2
 
 
-def build_parser():
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+def build_parser(description=None, state_name="sprint10"):
+    p = argparse.ArgumentParser(
+        description=description if description is not None else __doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plan", default=str(PLAN))
     p.add_argument("--state-dir", default=None,
-                   help="shared state dir (default: <main checkout>/.agent-harness/sprint10)")
+                   help="shared state dir (default: <main checkout>/.agent-harness/%s)"
+                        % state_name)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status", help="every task's state, WIP, and what may start")
     s = sub.add_parser("start", help="initialize one task's own capped state")
@@ -433,8 +435,8 @@ def build_parser():
     return p
 
 
-def main(argv=None, plan=None, state_name="sprint10"):
-    parser = build_parser()
+def main(argv=None, plan=None, state_name="sprint10", description=None):
+    parser = build_parser(description=description, state_name=state_name)
     if plan is not None:
         parser.set_defaults(plan=str(plan))
     args = parser.parse_args(argv)
