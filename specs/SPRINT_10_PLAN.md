@@ -6,7 +6,7 @@ _Acceptance rows:_ **RCP-98** (S1) · **RCP-101** (S2) · **RCP-102** (S3) · **
 _Delivery tickets:_ **KAN-268 · KAN-292 · KAN-293 · KAN-181 · KAN-294 · KAN-295 · KAN-296 · KAN-297 · KAN-298 · KAN-277 · KAN-299 · KAN-300 · KAN-301 · KAN-302 · KAN-303 · KAN-304 · KAN-307 · KAN-309 · KAN-318 · KAN-321 · KAN-329 · KAN-330** (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-269**
 _Jira sprint:_ **Sprint 10** — id **85** on board **168**, started 2026-09-29, box ends 2026-10-20 (America/Los_Angeles)
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
-_Status:_ **Active.** Chartered via `/cs:grill-pm`, 2026-09-29, on top of the locked product grill.
+_Status:_ **Closed 2026-10-09.** Closed early by Adam; final evidence is recorded in [Close-out](#close-out).
 _Inputs:_ [`specs/discovery/sprint10/product-grill-2026-09-29.md`](./discovery/sprint10/product-grill-2026-09-29.md) (PR #3538; amends the [09-06 grill](./discovery/sprint10/product-grill-2026-09-06.md)) · [`specs/discovery/sprint10/ost.json`](./discovery/sprint10/ost.json) (`ost_linter.py`: STRUCTURALLY-SOUND, 11 opportunities, 0 violations) · [Sprint 9 Retrospective — 2026-09-29](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/81657858) (Confluence 81657858)
 
 ## Why this sprint exists
