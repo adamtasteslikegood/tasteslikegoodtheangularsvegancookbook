@@ -72,7 +72,7 @@ WIP_LIMIT = 3          # D6: WIP <= 3
 REFUSED = 3
 
 
-def default_state_dir():
+def default_state_dir(name="sprint10"):
     """The shared state dir in the MAIN checkout, even from a linked worktree.
 
     WIP, the start lock and D6 all depend on one state dir shared by every lane
@@ -82,7 +82,7 @@ def default_state_dir():
     does for ``.env``.
     """
     from _jira_client import repo_root
-    return repo_root() / ".agent-harness" / "sprint10"
+    return repo_root() / ".agent-harness" / name
 
 
 def load_plan(path=PLAN):
@@ -94,6 +94,11 @@ def load_plan(path=PLAN):
 # the tracked plan's ``carried_to``, not from the gitignored state dir, so a
 # clean checkout can never start carried work again.
 DONE = ("verified", "carried")
+
+
+def sprint_name(plan):
+    """The plan's own sprint name, so a later sprint's plan is named correctly."""
+    return plan.get("jira", {}).get("sprint", "Sprint 10")
 
 
 def carried(plan):
@@ -161,6 +166,18 @@ def soak_until(state_dir, task_id, now=None):
     return datetime.fromisoformat(json.loads(path.read_text())["until"])
 
 
+def latest_soak_until(task, now):
+    """Latest allowed soak end from the relative window and optional hard date."""
+    latest = now + timedelta(hours=task["soak_window_hours"])
+    absolute = task.get("soak_deadline")
+    if not absolute:
+        return latest
+    absolute = datetime.fromisoformat(absolute)
+    if absolute.tzinfo is None:
+        raise ValueError("soak_deadline needs a timezone")
+    return min(latest, absolute)
+
+
 def snapshot(plan, state_dir, now=None):
     """(states, wip). A task with a soak mark never counts, in any phase."""
     out = carried(plan)
@@ -186,8 +203,8 @@ def refusals(plan, task_id, state_dir, jira_factory=None):
         return ["unknown task %s" % task_id]
     task = tasks[task_id]
     if task.get("carried_to"):
-        return ["%s was carried out of Sprint 10 to %s — it is not sprint work; "
-                "do not start it" % (task_id, task["carried_to"])]
+        return ["%s was carried out of %s to %s — it is not sprint work; "
+                "do not start it" % (task_id, sprint_name(plan), task["carried_to"])]
     states, wip = snapshot(plan, state_dir)
     reasons = []
     if states[task_id] != "not-started":
@@ -267,13 +284,20 @@ def cmd_status(args):
                     "waiting on " + ", ".join(
                         d for d in deps if states[d] not in DONE)
                     if not ready else "WIP full")
+                # start refuses a task whose after_started tasks have not
+                # started; say so here, or status and start disagree.
+                unstarted = [d for d in t.get("after_started", [])
+                             if states[d] == "not-started"]
+                if unstarted and note == "startable":
+                    note = "waiting for %s to start" % ", ".join(unstarted)
                 if t.get("requires_done") and note == "startable":
                     note = "startable if %s are Done" % ", ".join(
                         t["requires_done"])
             # A waived task counts as done for WIP and dependencies, but say so:
             # "verified" alone would hide a waived SI.
             if t.get("carried_to"):
-                note = "carried to %s — not Sprint 10 work" % t["carried_to"]
+                note = "carried to %s — not %s work" % (
+                    t["carried_to"], sprint_name(plan))
             elif raw_status(args.state_dir, t["id"]) == "waived":
                 note = "counts as done, not verified (see its state's waiver reason)"
             phase = soak_phase(args.state_dir, t["id"])
@@ -289,7 +313,7 @@ def cmd_status(args):
             shown = ("waived" if states[t["id"]] == "verified"
                      and raw_status(args.state_dir, t["id"]) == "waived"
                      else states[t["id"]])
-            print("%-4s %-8s %-2s %-12s %s" % (
+            print("%-4s %-8s %-10s %-12s %s" % (
                 t["id"], t.get("si", "-"), t.get("lane", "-"), shown, note))
         return 0
     except (Exception, SystemExit) as exc:
@@ -375,9 +399,14 @@ def cmd_soak(args):
         if until <= now:
             print("SOAK REFUSED — --until %s is not in the future" % until.isoformat())
             return REFUSED
-        if until > now + timedelta(hours=window):
-            print("SOAK REFUSED — --until %s is beyond %s's declared %d h window"
-                  % (until.isoformat(), task["id"], window))
+        latest = latest_soak_until(task, now)
+        if until > latest:
+            absolute = task.get("soak_deadline")
+            limit = ("absolute deadline %s" % absolute
+                     if absolute and latest == datetime.fromisoformat(absolute)
+                     else "declared %d h window" % window)
+            print("SOAK REFUSED — --until %s is beyond %s's %s"
+                  % (until.isoformat(), task["id"], limit))
             return REFUSED
         # One soak per mark: a second call must never move the deadline or turn
         # reentry back into soaking (review on #3555). Check and write under the
@@ -398,12 +427,14 @@ def cmd_soak(args):
         return 2
 
 
-def build_parser():
-    p = argparse.ArgumentParser(description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+def build_parser(description=None, state_name="sprint10"):
+    p = argparse.ArgumentParser(
+        description=description if description is not None else __doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--plan", default=str(PLAN))
     p.add_argument("--state-dir", default=None,
-                   help="shared state dir (default: <main checkout>/.agent-harness/sprint10)")
+                   help="shared state dir (default: <main checkout>/.agent-harness/%s)"
+                        % state_name)
     sub = p.add_subparsers(dest="cmd", required=True)
     sub.add_parser("status", help="every task's state, WIP, and what may start")
     s = sub.add_parser("start", help="initialize one task's own capped state")
@@ -421,10 +452,13 @@ def build_parser():
     return p
 
 
-def main(argv=None):
-    args = build_parser().parse_args(argv)
+def main(argv=None, plan=None, state_name="sprint10", description=None):
+    parser = build_parser(description=description, state_name=state_name)
+    if plan is not None:
+        parser.set_defaults(plan=str(plan))
+    args = parser.parse_args(argv)
     if args.state_dir is None:
-        args.state_dir = str(default_state_dir())
+        args.state_dir = str(default_state_dir(state_name))
     if args.cmd in ("soak", "resume", "unsoak"):
         return cmd_soak(args)
     return cmd_status(args) if args.cmd == "status" else cmd_start(args)

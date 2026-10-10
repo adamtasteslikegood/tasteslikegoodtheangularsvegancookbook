@@ -1,6 +1,71 @@
 # Sprint agent harnesses
 
-## Sprint 10 (current)
+## Sprint 11 (current)
+
+The executable half of [`specs/SPRINT_11_PLAN.md`](../SPRINT_11_PLAN.md): one task per
+SI (T1 to T27 are S1 to S27), plus T0 (board honesty and the charter row) and T28
+(close-out). The rows kept for Sprint 12 (KAN-277, KAN-299, KAN-352) have no task.
+
+| File                                                                                         | Role                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| [`SPRINT_11_HARNESS_PLAN.json`](./SPRINT_11_HARNESS_PLAN.json)                               | The plan: 29 tasks, each with its lane, its checks, and its skill               |
+| [`../../scripts/harness/sprint11_hard_gate.py`](../../scripts/harness/sprint11_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
+| [`../../scripts/harness/sprint11_driver.py`](../../scripts/harness/sprint11_driver.py)       | **The PM driver.** The Sprint 10 driver, run on this plan and its own state dir |
+
+The driver's rules are Sprint 10's and are described under
+[How the run is driven](#how-the-run-is-driven): one controller state per SI, WIP ≤ 3,
+12 iterations and 3 attempts per SI. State lives in `.agent-harness/sprint11/` in the
+main checkout. What is specific to Sprint 11:
+
+- **The order of work is the charter's ordered list.** The driver enforces only part of
+  it: T0 first, T28 last, the four waits below, and T26's exact-Done rule. WIP 3 and the ordered
+  list decide the rest. There is no day-1 priority ruling for Sprint 11; Adam can add one.
+- **The crawl lane starts in order, without waiting for a release.** T2 is refused until
+  T1 has started, and T3 until T2 has (`after_started`). They are not chained with
+  `depends_on`, because the three share one session and one batched Backend release, and
+  `depends_on` would force a release per SI. The cost is that the lane can hold all three
+  WIP slots at once. That is a choice, named here so Adam can overrule it.
+- **T15 waits until T16 has started, and T27 until T25 has.** In both, the real condition
+  is something the driver cannot read: Adam's fill-or-decline on the seven rich-result
+  warnings (on RCP-140) sets S15's scope, and S27's build PR needs both reviews linked on
+  RCP-148. Those are human checks, stated in each task's objective. `after_started` only
+  keeps the later task from opening first.
+- **What Adam does first is not gated by the driver.** S22's profile edits, the staging
+  checks for S8 and S10, and the two conditions above live in objectives and manual
+  evidence. The driver reads task state and Jira status only. An enforced human start
+  gate would be a new rule, and is Adam's to add.
+- **The readiness walk needs exact Done.** `start T26` is refused until T4, T5 and T6 are
+  verified and RCP-128, RCP-129 and RCP-130 are exactly `Done`.
+- **A dated item holds no WIP slot** (charter D6). A task that has not started holds no
+  slot, so work that waits on Adam first (S22's profile edits, the staging checks for S8
+  and S10) is simply not started. T12, T20 and T25 wait on a dated count after their work
+  is recorded; they declare `soak_window_hours` and are soaked. T25 also declares its
+  absolute 2026-10-23 deadline, so a late soak cannot move the sprint-box date.
+- **S6 carries no detail.** Both repos are public and KAN-335 is not fixed. Its task says
+  the detail is on the ticket, and a test keeps it that way.
+
+Observed on 2026-10-09 against a scratch state dir and live Jira: `start T0 --dry-run`
+allowed; `start T2` refused (T0 not verified, T1 not started); `start T26` refused (its
+dependencies, and RCP-128, RCP-129 and RCP-130 in To Do). T0's own board check fails
+today because RCP-123 is in To Do, which is the state T0 exists to change.
+
+```bash
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
+python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_11_HARNESS_PLAN.json --strict
+python3 scripts/harness/sprint11_driver.py status          # WIP, and what may start now
+python3 scripts/harness/sprint11_driver.py start T0        # refused unless deps/WIP/Done allow
+S="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/sprint11/T0.state.json"
+python3 $HC next   --state $S                              # → directive
+python3 $HC record --state $S --task T0 --phase execute --exit-code 0
+python3 $HC verify --state $S --task T0 --cwd "$PWD"
+python3 $HC close  --state $S
+```
+
+The board-automation notes under Sprint 10 still hold: a merge moves no row to Done, and
+creating a branch moves a row out of To Do with no work behind it.
+
+## Sprint 10 (closed)
 
 The executable half of [`specs/SPRINT_10_PLAN.md`](../SPRINT_10_PLAN.md): one task per
 SI (S1–S20; S17–S20 added mid-sprint are tasks T18–T21), plus T0 (board honesty) and T17

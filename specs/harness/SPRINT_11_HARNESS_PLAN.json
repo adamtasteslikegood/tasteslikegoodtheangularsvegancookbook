@@ -1,0 +1,997 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Drive Sprint 11, the readiness sprint, to close: every committed SI in specs/SPRINT_11_PLAN.md is Done on its acceptance row with criterion-by-criterion evidence, or is named in the plan as not finished with its reason and destination. Exit check: the readiness walk passes on production (S26). Hard gate: no committed Sprint 11 item sits in To Do.",
+  "domain": "project-management",
+  "compiled_at": "2026-10-09",
+  "authored_by": "hand-authored against specs/SPRINT_11_PLAN.md, like Sprint 10's: goal_compiler.py emits one generic task per matched skill and cannot carry per-SI acceptance or lane boundaries",
+  "charter": "specs/SPRINT_11_PLAN.md",
+  "jira": {
+    "epic": "RCP-123",
+    "sprint": "Sprint 11",
+    "sprint_id": 121,
+    "board": 168,
+    "board_name": "RCP Scrum Board"
+  },
+  "hard_gate": {
+    "cmd": "python3 scripts/harness/sprint11_hard_gate.py",
+    "charter_cmd": "python3 scripts/harness/sprint11_hard_gate.py --charter",
+    "rule": "no committed Sprint 11 item may sit in the To Do status category (close form); --charter proves membership and board-rendered acceptance rows on an active sprint, and that each row is an RCP Story titled 'S11 acceptance:' naming its KAN rows",
+    "observed_failing": "2026-10-09: close form exit 1 with 49 rows in To Do on day 1; the unit tests fail the charter form for a missing sprint, a sprint not started, a row that left the sprint, an unrendered row and a wrong acceptance row",
+    "note": "Status alone is weak evidence: every SI task also carries an artifact check or a named-evidence requirement."
+  },
+  "repo_scope": {
+    "backend_repo": "adamtasteslikegood/tasteslikegood.com",
+    "rule": "Sprint 9 retro action (g): an artifact check for Backend work must pass -R adamtasteslikegood/tasteslikegood.com. The SIs the charter names as touching Backend (S1, S2, S3, S8, S9, S15, S24) and the Backend follow-ups (S12) require a Backend PR naming the key. S7, S10 and S21 require a PR in this repo. The rest accept a PR in either repo, because the charter does not say where the fix lands. S17, S18, S19, S22, S25 and S26 are evidence-only."
+  },
+  "lanes": {
+    "Crawl": {
+      "owns": "S1 -> S2 -> S3, one session, in this order (SSR templates and index.html)",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "Stability": {
+      "owns": "S4, S5, S6 (preconditions of the walk); S14; S11, S12, S13 at the bottom",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "UI": {
+      "owns": "S7, S8, S10 (built), S9",
+      "must_not_touch": ["Backend/services/", ".github/workflows/"]
+    },
+    "SEO": {
+      "owns": "S16 then S15; S20; S17, S18, S19 (evidence only)",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "Process": {
+      "owns": "S21 (gh-aw; the one lane that edits .github/workflows/)",
+      "must_not_touch": ["src/", "Backend/"]
+    },
+    "Links": {
+      "owns": "S22 (owned profiles), S24 (pin crop)",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "Proof": {
+      "owns": "S23 (code half of E1; the cooking half is KAN-352 in Sprint 12)",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "Feedback": {
+      "owns": "S25 (pre-build) then S27 (Phase 1 build)",
+      "must_not_touch": [".github/workflows/"]
+    },
+    "Exit": {
+      "owns": "S26, the readiness walk; measures, changes nothing",
+      "must_not_touch": ["src/", "server/", "Backend/", ".github/workflows/"]
+    }
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "si": "charter",
+      "jira": ["RCP-123", "RCP-124", "KAN-350"],
+      "lane": "PM",
+      "depends_on": [],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Board honesty before any SI runs. Sprint 11 (id 121, board 168) was created and started at charter on 2026-10-09 with every committed item; this task re-proves it and moves RCP-123 out of To Do, to In Progress, as the sprint's own start evidence. The board check accepts any status outside To Do, so the status it was moved to is named in the manual evidence. Do not re-create the sprint. Never fix a board-visibility failure by removing KAN rows from the sprint.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint11_hard_gate.py --charter",
+        "bash scripts/pm/check_sprint_lane.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --charter",
+          "expect_exit": 0,
+          "kind": "board-wiring"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane"
+        },
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues RCP-123 RCP-124 KAN-350",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: name the status RCP-123 is in after this task and when it was moved. It must be In Progress; if it is anything else, leave the task pending and say why.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "--charter and the lane gate exit 0, RCP-123 is In Progress, and RCP-124 and KAN-350 are out of To Do",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T1",
+      "si": "S1",
+      "jira": ["KAN-319", "RCP-125"],
+      "lane": "Crawl",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Footer and home page link the tag hubs in the first HTML response. Head of the crawl-discovery lane: S1 -> S2 -> S3 run in ONE session, in this order, because all three change the same SSR templates and index.html. Google's clock starts only when these are live. Batch the Backend release with S2 and S3 where it can be. Acceptance criteria are on RCP-125, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-319 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-319 RCP-125",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-319 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the curl (no JavaScript) hub-link count for / and for the footer on one SSR page, on production, and the release it shipped in. Every criterion on RCP-125 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "hub links are in the first HTML response on production, evidenced on RCP-125",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T2",
+      "si": "S2",
+      "jira": ["KAN-349", "RCP-126"],
+      "lane": "Crawl",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Public recipe pages link the hubs at the top and the bottom. The reading is OPEN: KAN-349 assumes both the recipe's own tag hubs and the full row of 12 hubs. Adam confirms or narrows it on KAN-349 BEFORE the build PR opens; do not open the build PR without that answer on the ticket. S26's recipe-page hub-link number follows it. Acceptance criteria are on RCP-126, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-349 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-349 RCP-126",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-349 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Adam's confirmed reading quoted from KAN-349, and the minimum hub-link count over a sample of 10 production recipe pages (curl, no JavaScript). Every criterion on RCP-126 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "recipe pages link the hubs top and bottom per the reading on KAN-349, evidenced on RCP-126",
+      "max_attempts": 3,
+      "status": "pending",
+      "after_started": ["T1"]
+    },
+    {
+      "id": "T3",
+      "si": "S3",
+      "jira": ["KAN-348", "RCP-127"],
+      "lane": "Crawl",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Home page newest-recipes row, ordered by first_published_at. Major. Last of the crawl-discovery session, after S2. Acceptance criteria are on RCP-127, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-348 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-348 RCP-127",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-348 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the production home page's first HTML response showing the row, and the order checked against first_published_at for the recipes shown. Every criterion on RCP-127 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the newest-recipes row is live and correctly ordered, evidenced on RCP-127",
+      "max_attempts": 3,
+      "status": "pending",
+      "after_started": ["T2"]
+    },
+    {
+      "id": "T4",
+      "si": "S4",
+      "jira": ["KAN-306", "RCP-128"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "A generator save during the deferred startup auth check is persisted. Stability precondition of the readiness walk (S26) and of the Sprint 12 launch post. A silent failure is a save that reports success and is absent after a reload. Acceptance criteria are on RCP-128, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-306 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-306 RCP-128",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-306 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-306 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the regression test, and a production check: generate and save during a slow startup auth check, reload, and the recipe is present. Every criterion on RCP-128 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the save persists on production, evidenced on RCP-128",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T5",
+      "si": "S5",
+      "jira": ["KAN-333", "RCP-129"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "Saves that fail to reach the server say so (cookbook membership, manual entry, duplicate). Stability precondition of the readiness walk (S26). Acceptance criteria are on RCP-129, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-333 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-333 RCP-129",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-333 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-333 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the tests for the three paths and a production or staging check of each failed sync showing its message. Every criterion on RCP-129 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "each of the three paths reports a failed sync, evidenced on RCP-129",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T6",
+      "si": "S6",
+      "jira": ["KAN-335", "RCP-130"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "Rate-limiter follow-up from the v0.5.8 review (detail on the ticket). Stability precondition of the readiness walk (S26). Both repos are PUBLIC: keep the detail on KAN-335 and out of branch names, commit messages, PR text and this plan until it is fixed on production. Acceptance criteria are on RCP-130, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-335 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-335 RCP-130",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-335 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-335 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the evidence named on RCP-130, pasted on the ticket and not in a public PR. Every criterion on RCP-130 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-130's criteria are evidenced on the ticket",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T7",
+      "si": "S7",
+      "jira": ["KAN-341", "RCP-131"],
+      "lane": "UI",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Recipe view has a labelled Add to Cookbook button. Built. Needs review and a release; rides the first release after Adam's staging checks. Acceptance criteria are on RCP-131, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-341 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-341 RCP-131",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-341 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the production recipe view showing the labelled button, and the release it shipped in. Every criterion on RCP-131 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "live on production, evidenced on RCP-131",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T8",
+      "si": "S8",
+      "jira": ["KAN-342", "RCP-132"],
+      "lane": "UI",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Public recipe pages have Previous and Next links. Built; the Backend half merged 2026-10-08. Adam's order check on staging is dated 2026-10-13 and comes before the release. Acceptance criteria are on RCP-132, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-342 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-342 RCP-132",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-342 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Adam's staging order check, and the production Previous/Next links on two recipe pages. Every criterion on RCP-132 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "live on production after Adam's order check, evidenced on RCP-132",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T9",
+      "si": "S9",
+      "jira": ["KAN-343", "RCP-133"],
+      "lane": "UI",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Browse pages carry a plain-text page-number nav in the header. Small. Touches the Backend SSR templates. Acceptance criteria are on RCP-133, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-343 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-343 RCP-133",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-343 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the first HTML response of /browse on production showing the page-number nav. Every criterion on RCP-133 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "live on production, evidenced on RCP-133",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T10",
+      "si": "S10",
+      "jira": ["KAN-344", "RCP-134"],
+      "lane": "UI",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Profile menu \"Switch user\" signs in through Google's account chooser. Built. Adam's two-account check on staging is dated 2026-10-13 and comes before the release. Acceptance criteria are on RCP-134, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-344 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-344 RCP-134",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-344 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Adam's two-account staging check, and the release it shipped in. Every criterion on RCP-134 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "live on production after Adam's two-account check, evidenced on RCP-134",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T11",
+      "si": "S11",
+      "jira": ["KAN-334", "RCP-135"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Publish toggle shows the server's state; legacy manual rows get the right explanation. Bottom of the ordered list: an unplanned level-1 item displaces from here upward. Acceptance criteria are on RCP-135, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-334 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-334 RCP-135",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-334 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-334 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the tests and a production check of the toggle against the server's state. Every criterion on RCP-135 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-135's criteria are evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T12",
+      "si": "S12",
+      "jira": ["KAN-336", "RCP-136"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "Backend review follow-ups from the publish-gate release. Bottom of the ordered list. The measured criterion is the COUNT PER DAY, over 7 days, of the locked-row log lines; the 7 days are a soak and hold no WIP slot. Acceptance criteria are on RCP-136, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-336 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-336 RCP-136",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-336 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the Backend PR numbers and the pinned SHA, and the count per day over 7 days of the locked-row log lines. Every criterion on RCP-136 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "follow-ups released and the 7-day count recorded on RCP-136",
+      "max_attempts": 3,
+      "status": "pending",
+      "soak_window_hours": 168
+    },
+    {
+      "id": "T13",
+      "si": "S13",
+      "jira": ["KAN-337", "RCP-137"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "Publish-audit and write-pause operations are in the deploy; the runbook matches the day. Bottom of the ordered list. Acceptance criteria are on RCP-137, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-337 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-337 RCP-137",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-337 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-337 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the deploy configuration showing both operations, and the runbook diff. Every criterion on RCP-137 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-137's criteria are evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T14",
+      "si": "S14",
+      "jira": ["KAN-290", "RCP-138"],
+      "lane": "Stability",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Recycle bin survives reloads, logouts and devices; failed deletes show; restore unpublished. Major. Starts with a recorded design decision on KAN-290 before any build PR. Acceptance criteria are on RCP-138, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-290 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-290 RCP-138",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-290 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-290 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the design decision linked on KAN-290, the tests, and a production check across a reload, a logout and a second device. Every criterion on RCP-138 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-138's criteria are evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T15",
+      "si": "S15",
+      "jira": ["KAN-320", "RCP-139"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Recipe JSON-LD carries the Google-recommended fields. Scope is set by S16's fill-or-decline decision (Adam, dated 2026-10-12): build only the fields Adam chose to fill. Do not open the build PR until that decision is on RCP-140; that is a human check, the driver only knows that T16 has started. Acceptance criteria are on RCP-139, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-320 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-320 RCP-139",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-320 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the Rich Results Test output for two production recipe pages, and the list of fields filled against Adam's decision on RCP-140. Every criterion on RCP-139 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the chosen fields are in production JSON-LD, evidenced on RCP-139",
+      "max_attempts": 3,
+      "status": "pending",
+      "after_started": ["T16"]
+    },
+    {
+      "id": "T16",
+      "si": "S16",
+      "jira": ["KAN-273", "RCP-140"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Recipe pages are not crawl dead-ends; the seven rich-result warnings each filled or declined. Adam fills or declines each of the seven warnings (dated 2026-10-12). The measured criterion is the MINIMUM number of links to other recipes over a sample of 10 recipe pages: at least 4. Acceptance criteria are on RCP-140, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-273 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-273 RCP-140",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-273 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-273 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Adam's fill-or-decline for each of the seven warnings, and the minimum recipe-link count over a sample of 10 production recipe pages. Every criterion on RCP-140 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "minimum of at least 4 recipe links and all seven warnings decided, evidenced on RCP-140",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T17",
+      "si": "S17",
+      "jira": ["KAN-272", "RCP-141"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Home page ships as the generator landing page (ship criteria). Evidence only: shipped in Sprint 10. Close on ship criteria. The Google check is KAN-353, dated 2026-10-23, and is outside the commitment. Acceptance criteria are on RCP-141, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-141"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-272 RCP-141",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the ship-criteria evidence from production for /, criterion by criterion. Every criterion on RCP-141 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "ship criteria evidenced on RCP-141",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T18",
+      "si": "S18",
+      "jira": ["KAN-274", "RCP-142"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Tag hubs ship: 200, self-canonical, in the sitemap (ship criteria). Evidence only: shipped in Sprint 10. The Google check is KAN-354, dated 2026-10-30 and 2026-11-13, and is outside the commitment. Acceptance criteria are on RCP-142, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-142"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-274 RCP-142",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: for each of the 12 hubs on production: the status code, the canonical, and its sitemap entry. Every criterion on RCP-142 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "ship criteria evidenced on RCP-142 for all 12 hubs",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T19",
+      "si": "S19",
+      "jira": ["KAN-276", "RCP-143"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "SPA-only routes are served noindex (ship criteria). Evidence only: shipped in Sprint 10. The Google check is KAN-355, dated 2026-10-16, and is outside the commitment. Acceptance criteria are on RCP-143, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-143"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-276 RCP-143",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the response headers or meta for each SPA-only route on production. Every criterion on RCP-143 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "ship criteria evidenced on RCP-143",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T20",
+      "si": "S20",
+      "jira": ["KAN-347", "RCP-144"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "~/.claude/skills/investigate",
+      "objective": "Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly. The only crawl evidence available inside the box. The measured criterion is the SUM OVER 7 DAYS of verified Googlebot requests per path prefix; the 7 days are a soak. Acceptance criteria are on RCP-144, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-347 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-347 RCP-144",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-347 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-347 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the instrument's first weekly output: the 7-day sum of verified Googlebot requests per path prefix, and how Googlebot was verified. Every criterion on RCP-144 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the instrument runs and its first 7-day sums are on RCP-144",
+      "max_attempts": 3,
+      "status": "pending",
+      "soak_window_hours": 168
+    },
+    {
+      "id": "T21",
+      "si": "S21",
+      "jira": ["KAN-323", "RCP-145"],
+      "lane": "Process",
+      "depends_on": ["T0"],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "gh-aw upgraded and the three agentic workflows recompiled. Process lane, worked in week 1 (Sprint 10 retro action 4): planned to start by 2026-10-13. This is the one lane that edits .github/workflows/. Acceptance criteria are on RCP-145, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-323 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-323 RCP-145",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list --state all --search 'KAN-323 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the gh-aw version before and after, and a green run of each of the three recompiled workflows. Every criterion on RCP-145 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "three workflows recompiled and seen to run, evidenced on RCP-145",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T22",
+      "si": "S22",
+      "jira": ["KAN-311", "KAN-312", "KAN-313", "RCP-146"],
+      "lane": "Links",
+      "depends_on": ["T0"],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Docker Hub, YouTube and the owned Meta profiles link the site. One deliverable with one execution row per property (KAN-311, KAN-312, KAN-313). The profile edits are Adam's, dated 2026-10-12; do not start this task until he has made them. Agents verify. IG/FB @tasteslikegood is a band, not us: check only owned profiles. Acceptance criteria are on RCP-146, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-146"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-311 KAN-312 KAN-313 RCP-146",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the public URL of each owned profile and the site link seen on it, per property. Every criterion on RCP-146 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "every owned property links the site, evidenced on RCP-146",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T23",
+      "si": "S23",
+      "jira": ["KAN-346", "RCP-147"],
+      "lane": "Proof",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Tested-recipe marker and authorship on /about (code half of E1). Major. Starts with a recorded review. The cooking half is KAN-352, in Sprint 12: do not do it here. Proof comes from the people who cook the recipes, not from Adam as sole tester. Acceptance criteria are on RCP-147, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-346 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-346 RCP-147",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-346 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-346 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the review linked on KAN-346, and the production pages showing the marker and /about authorship. Every criterion on RCP-147 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "marker and authorship live on production, evidenced on RCP-147",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T24",
+      "si": "S24",
+      "jira": ["KAN-309", "RCP-117"],
+      "lane": "Links",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Pinterest pin variant as a 1:1 centre crop, no blurred bars. Bottom of the ordered list. Acceptance criteria are on RCP-117, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-309 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-309 RCP-117",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-309 in:title' --json number --jq 'length')\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: a production pin-variant image for two recipes, 1:1 with no blurred bars. Every criterion on RCP-117 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "RCP-117's criteria are evidenced",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T25",
+      "si": "S25",
+      "jira": ["KAN-345", "RCP-148"],
+      "lane": "Feedback",
+      "depends_on": ["T0"],
+      "skill": "plan-eng-review",
+      "skill_path": "~/.claude/skills/plan-eng-review",
+      "objective": "Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment). The two reviews start in week 1 because S27 waits on them. The Assignment is Adam's, dated 2026-10-10. The design is \"I cooked this\" entries, not open comments. The measured criterion is the COUNT of invited cooks who signed in and saved by 2026-10-23; fewer than five is a finding, not a failure. That count is a soak and holds no WIP slot. The count date is fixed: soak with --until no later than 2026-10-23T23:59:00+00:00, however late the soak starts. soak_window_hours is the driver's upper bound, not the deadline. Input: docs/designs/recipe-feedback.md. Acceptance criteria are on RCP-148, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-148"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-345 RCP-148",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the eng review and the design review, each linked on RCP-148; the R3-3 to R3-8 answers; the privacy wording; and the count of invited cooks who signed in and saved by 2026-10-23. Every criterion on RCP-148 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "both reviews linked, R3-3 to R3-8 answered, and the cook count recorded on RCP-148",
+      "max_attempts": 3,
+      "status": "pending",
+      "soak_window_hours": 336,
+      "soak_deadline": "2026-10-23T23:59:00+00:00"
+    },
+    {
+      "id": "T26",
+      "si": "S26",
+      "jira": ["KAN-351", "RCP-149"],
+      "lane": "Exit",
+      "depends_on": ["T0", "T4", "T5", "T6"],
+      "skill": "qa",
+      "skill_path": "~/.claude/skills/qa",
+      "objective": "Readiness walk on production; mobile LCP medians; hub-link counts. The exit check. Never displaced. Run only when S4, S5 and S6 are Done on production. One scripted stranger journey (land on a recipe page, save, sign in, generate, save, find both in the cookbook, follow a hub link), on a phone and on a desktop, with ZERO silent failures. LCP is the MEDIAN OF 5 Lighthouse mobile runs per page on /, /browse and one /r/<slug>, each median at most 2.5 s. Hub links are counted in the first HTML response (curl, no JavaScript): / links at least 6 distinct hubs; for recipe pages the MINIMUM over a sample of 10 equals the number set on KAN-349. Paste results the same day. Acceptance criteria are on RCP-149, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-149"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-351 RCP-149",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: the walk's step-by-step results on phone and desktop, the five LCP runs and their median per page, and the hub-link counts, all pasted on RCP-149 the day they were run. Every criterion on RCP-149 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the walk passes with zero silent failures, the LCP medians hold and the hub-link counts hold, evidenced on RCP-149",
+      "max_attempts": 3,
+      "status": "pending",
+      "requires_done": ["RCP-128", "RCP-129", "RCP-130"]
+    },
+    {
+      "id": "T27",
+      "si": "S27",
+      "jira": ["KAN-356", "RCP-150"],
+      "lane": "Feedback",
+      "depends_on": ["T0"],
+      "skill": "senior-frontend",
+      "skill_path": "engineering-skills:senior-frontend",
+      "objective": "Recipe feedback Phase 1 build: cooked entry, stars, held notes, public summary. Major. The build PR opens ONLY after both reviews are linked on RCP-148; that link check is a human check, the driver cannot read it. Phase 1 only: Phase 2 and 3 are not started. Risk R7 (proposed, for Adam to confirm): if both reviews are not linked by 2026-10-14 the build rolls to Sprint 12 first in order. Input: docs/designs/recipe-feedback.md. Acceptance criteria are on RCP-150, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge. Read pulls/<n>/reviews BODIES in full, including any Suppressed comments / Previously missed block, before claiming review-debt zero.",
+      "suggested_tools": ["gh pr list --state all --search 'KAN-356 in:title'"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-356 RCP-150",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "test \"$(( $(gh pr list --state all --search 'KAN-356 in:title' --json number --jq 'length') + $(gh pr list -R adamtasteslikegood/tasteslikegood.com --state all --search 'KAN-356 in:title' --json number --jq 'length') ))\" -gt 0",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: the two review links from RCP-148, the migration and tests, and a production check of a cooked entry with stars, a held note and the public summary. Every criterion on RCP-150 must be satisfied; if any evidence is missing, leave the task pending and escalate rather than recording passing evidence.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Phase 1 live on production, evidenced on RCP-150",
+      "max_attempts": 3,
+      "status": "pending",
+      "after_started": ["T25"]
+    },
+    {
+      "id": "T28",
+      "si": "close",
+      "jira": ["RCP-123"],
+      "lane": "PM",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16",
+        "T17",
+        "T18",
+        "T19",
+        "T20",
+        "T21",
+        "T22",
+        "T23",
+        "T24",
+        "T25",
+        "T26",
+        "T27"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "~/.claude/plugins/.../pm-skills",
+      "objective": "Sprint 11 close-out. Run the full (close) hard gate. Close every acceptance row criterion by criterion with its evidence. Name every row not finished inside the box in specs/SPRINT_11_PLAN.md, each with its reason and where it went (Jira sprint Sprint 12, id 122, exists for this). Update the aging table and the dated list with final dispositions, and every row of the charter's \"Process lane (no SI slot)\" table to closed or carried with a reason; the hard gate does not cover those rows. Charter Sprint 12 under RCP-119. Create the retrospective page under Confluence parent 50298881 titled \"Sprint 11 Retrospective — <YYYY-MM-DD>\" from template 50495489, on close-out day. The Actions for Next Sprint table is the point.",
+      "suggested_tools": [
+        "python3 scripts/harness/sprint11_hard_gate.py --json",
+        "bash scripts/pm/check_sprint_lane.sh",
+        "npm run pm:status"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane"
+        },
+        {
+          "cmd": "MANUAL: link the Sprint 11 retrospective page under 50298881 with its Actions table filled; confirm every Sprint 11 acceptance row (RCP-125, RCP-126, RCP-127, RCP-128, RCP-129, RCP-130, RCP-131, RCP-132, RCP-133, RCP-134, RCP-135, RCP-136, RCP-137, RCP-138, RCP-139, RCP-140, RCP-141, RCP-142, RCP-143, RCP-144, RCP-145, RCP-146, RCP-147, RCP-117, RCP-148, RCP-149, RCP-150, RCP-124) is Done and links its criterion-by-criterion closing evidence, or is named in the plan as not finished with its reason and destination; every ticked close-out box links its evidence; the aging table and dated list carry final dispositions; and every process-lane row (open Dependabot PRs; stale started items KAN-188, KAN-199, KAN-212, KAN-261, KAN-287; the Sprint 12 charter) is closed or carried with a linked reason. The dated Google checks KAN-353, KAN-354 and KAN-355 are outside the commitment: report their state, do not wait on them.",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "the close gate exits 0, every process-lane row is closed or carried with a linked reason, Sprint 12 is chartered, AND the retrospective page exists with its actions table",
+      "max_attempts": 3,
+      "status": "pending"
+    }
+  ],
+  "loop": {
+    "order": "dependency-driven: scripts/harness/sprint11_driver.py starts one task per controller state",
+    "sequencing_note": "The order of work is the charter's ordered list; the driver enforces only what is below. T0 first. T2 waits until T1 has started and T3 until T2 has (after_started, not depends_on: the three share one session and their Backend release is batched, so waiting for T1 to be verified would force a release per SI). T15 waits until T16 has started; T27 until T25 has. T26 depends on T4, T5 and T6 and also refuses unless RCP-128, RCP-129 and RCP-130 are exactly Done. T28 last. WIP is 3 (charter D6) and counts only tasks an agent is actively building: a task that has not started holds no slot, and T12, T20 and T25 declare soak_window_hours for their dated counts. Sprint 11 has no day-1 priority ruling; an unplanned level-1 item displaces from the bottom of the ordered list (T11, T12, T13, T24) and the displaced rows are named in the charter the same day.",
+    "max_loop_iterations": 12,
+    "max_iterations_reason": "Charter D6: 3 attempts per task, 12 iterations per goal. 'Goal' is read as one SI, as in Sprint 10: the driver initializes each task in its own controller state capped at 12 iterations.",
+    "escalate_on": ["attempts_exhausted", "no_verification_available", "timebox_expired"]
+  },
+  "close": {
+    "requires": "every task verified, or explicitly waived by Adam with a reason. Sprint 11 pre-authorises no drops. A row not finished inside the box is named in the charter with its reason and destination; that is Adam's call, not the agent's.",
+    "definition_of_done": "Every Sprint 11 acceptance row is Done with criterion-by-criterion evidence, or named in the charter as not finished. The close hard gate's no-To-Do result is necessary but not sufficient; T28's evidence check enforces final statuses.",
+    "handoff": "python3 scripts/harness/sprint11_hard_gate.py --json, plus the controller's evidence log"
+  }
+}

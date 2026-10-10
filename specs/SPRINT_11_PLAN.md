@@ -270,16 +270,17 @@ lane. No retro action is declined.
 
 ## Process lane (no SI slot)
 
-| Item                                                                                                           | Source              | Planned                                                |
-| -------------------------------------------------------------------------------------------------------------- | ------------------- | ------------------------------------------------------ |
-| Open Dependabot PRs: merge or close each with a reason                                                         | Sprint 10 retro     | by 2026-10-13                                          |
-| Stale started items KAN-188, KAN-199, KAN-212, KAN-261, KAN-287: close, re-scope or return to To Do            | Flow check (WIP 19) | by 2026-10-16                                          |
-| Harness plan and driver for Sprint 11 (`specs/harness/`), with the D6 rule that a dated item holds no WIP slot | D6                  | follow-up PR under KAN-350; **not in this charter PR** |
-| Charter Sprint 12 under RCP-119 when Sprint 11 closes                                                          | Grill, 2026-10-09   | at close                                               |
-| Sprint 11 retrospective page under Confluence 50298881                                                         | CLAUDE.md           | at close                                               |
+| Item                                                                                                           | Source              | Planned                                       |
+| -------------------------------------------------------------------------------------------------------------- | ------------------- | --------------------------------------------- |
+| Open Dependabot PRs: merge or close each with a reason                                                         | Sprint 10 retro     | by 2026-10-13                                 |
+| Stale started items KAN-188, KAN-199, KAN-212, KAN-261, KAN-287: close, re-scope or return to To Do            | Flow check (WIP 19) | by 2026-10-16                                 |
+| Harness plan and driver for Sprint 11 (`specs/harness/`), with the D6 rule that a dated item holds no WIP slot | D6                  | follow-up PR under KAN-350, opened 2026-10-09 |
+| Charter Sprint 12 under RCP-119 when Sprint 11 closes                                                          | Grill, 2026-10-09   | at close                                      |
+| Sprint 11 retrospective page under Confluence 50298881                                                         | CLAUDE.md           | at close                                      |
 
-The charter's gates do not depend on the harness plan. Until it exists, the ordered
-list above is the order of work.
+The charter's gates do not depend on the harness plan. The ordered list above is the
+order of work; the harness plan ([`specs/harness/`](./harness/README.md)) enforces part
+of it and says which part.
 
 ## Gates
 
