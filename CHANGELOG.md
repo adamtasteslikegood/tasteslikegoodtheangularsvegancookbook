@@ -6,24 +6,38 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.5.9] - 2026-10-10
+
+Backend pointer pinned at `54c004ae4203` (Backend `main`, promotions #379 and #391).
 
 ### Added
 
+- Tag hub links on the home page (KAN-319). The home page lists the twelve recipe categories as
+  plain links in its first HTML response, before the app starts, so they can be crawled and
+  followed without JavaScript.
+- Tag hub links in the footer (KAN-319). Every page's footer links the tag hubs between "Browse
+  recipes" and "About". On `/browse`, the tag hubs and `/r/<slug>` the footer lists only the hubs
+  that have enough recipes to be indexed; the app and the About and Privacy pages list all twelve.
+  Backend #388.
+- Recipe pages link their own hubs (KAN-349). Each `/r/<slug>` page links the tag hubs the recipe
+  belongs to, under the intro and again under the tags. A hub with too few recipes to be indexed,
+  and a tag that has no hub, stay unlinked. Backend #390.
 - "Add to Cookbook" in the recipe view (KAN-341). The recipe view had Export and Publish and no way
   to add the recipe to a cookbook; the only route was an unlabelled icon on each kitchen card. It
   is now a labelled green button, first in the recipe's action row, and opens the same cookbook
   picker as the generator.
 - Previous and Next links on public recipe pages (KAN-342). Each `/r/<slug>` page links the
-  recipes either side of it in the default `/browse` order, newest first, under the title and again
-  below the recipe. Backend #377 and #380.
+  recipes either side of it in the default `/browse` order, newest first, in one compact row under
+  the recipe: Previous at the left edge and Next at the right. Each link names its recipe in its
+  accessible label and tooltip. Backend #377, #380 and #389.
 - Page numbers in the browse header (KAN-343). `/browse` and the tag hubs repeat the page numbers
   as a small plain-text row in the header, so a reader does not have to scroll to the bottom to
   change page. Backend #377 and #380.
 
 ### Changed
 
-- Backend pointer moved to `d3c1f09` (Backend `main`), which carries Backend #377, #378 and #380.
+- Backend dependencies updated (Dependabot: ten production packages, the development group, type
+  stubs and the `uv` build image). SQLAlchemy stays on 2.0.
 
 ### Fixed
 
