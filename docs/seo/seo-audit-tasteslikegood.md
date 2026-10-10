@@ -9,10 +9,10 @@
 
 ## Technical SEO findings
 
-| Issue                                            | Impact             | Evidence                                                                                         | Recommendation                                                                                                                                           | Priority |
-| ------------------------------------------------ | ------------------ | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Search performance and indexation are unverified | Medium             | Original crawl lacked index coverage and field Core Web Vitals; PageSpeed Insights returned HTTP 429                       | Check Search Console’s indexing, sitemap, and Core Web Vitals reports. Retry PageSpeed Insights later or use Lighthouse/WebPageTest for lab diagnostics. | High     |
-| `/assets/` is disallowed in robots.txt           | Potentially medium | robots.txt blocks `/assets/`; homepage bundles observed were root-relative, not under `/assets/` | Confirm important pages don’t load rendering-critical CSS or JavaScript from `/assets/`. If they do, allow those resources so crawlers can render pages. | Medium   |
+| Issue                                            | Impact             | Evidence                                                                                             | Recommendation                                                                                                                                           | Priority |
+| ------------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Search performance and indexation are unverified | Medium             | Original crawl lacked index coverage and field Core Web Vitals; PageSpeed Insights returned HTTP 429 | Check Search Console’s indexing, sitemap, and Core Web Vitals reports. Retry PageSpeed Insights later or use Lighthouse/WebPageTest for lab diagnostics. | High     |
+| `/assets/` is disallowed in robots.txt           | Potentially medium | robots.txt blocks `/assets/`; homepage bundles observed were root-relative, not under `/assets/`     | Confirm important pages don’t load rendering-critical CSS or JavaScript from `/assets/`. If they do, allow those resources so crawlers can render pages. | Medium   |
 
 ## On-page and content findings
 
