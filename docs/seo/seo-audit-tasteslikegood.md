@@ -39,3 +39,7 @@
 ## Scope and limitations
 
 This was a public-site crawl, not a full audit. Search Console coverage, backlink authority, and field Core Web Vitals could not be assessed. PageSpeed Insights returned HTTP 429 during the audit.
+
+## Post-audit Search Console check
+
+On 2026-10-10, GSC Wizard reported 116 submitted sitemap URLs, last downloaded by Google on 2026-10-07, with 0 errors and 0 warnings. The live sitemap contained 119 URLs. The three-URL difference is consistent with Google having fetched the sitemap before the newest URLs were published; it is not a discrepancy in the crawl's 119-URL count. Index coverage, rankings, and field Core Web Vitals remain outside this audit's evidence and should be checked through `/seo-weekly-check` and `gsc_index_coverage_sample` before acting on the recommendations above.
