@@ -19,6 +19,8 @@
  * (Backend `generation_bp`) but is AI output, hence the label advice.
  */
 
+import siteNav from '../../site-nav.json';
+
 export const LANDING_H1 = 'Vegan Recipe Generator';
 
 export const LANDING_LEAD =
@@ -81,3 +83,13 @@ export const LANDING_FAQ: readonly LandingFaq[] = [
       'After the recipe is written, an AI image model creates a photo of the finished dish for that recipe. You can regenerate it if you want a different look.',
   },
 ];
+
+/**
+ * "Browse by category" (KAN-319): the tag hubs, linked from the home page's
+ * first HTML response so a crawler reaches them without running JavaScript.
+ * The list is the `hubs` set in src/site-nav.json; index.html carries a static
+ * copy, kept in step by the same test as the rest of this file.
+ */
+export const LANDING_HUBS_HEADING = 'Browse vegan recipes by category';
+
+export const LANDING_HUBS: readonly { href: string; label: string }[] = siteNav.hubs;

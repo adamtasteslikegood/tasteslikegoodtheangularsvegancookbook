@@ -35,7 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { classifyRoute } from './route-manifest.js';
 
 type Link = { href: string; label: string };
-type SiteNav = { header: Link[]; footer: Link[] };
+type SiteNav = { header: Link[]; footer: Link[]; hubs: Link[] };
 
 const repoFile = (relative: string): string =>
   fileURLToPath(new URL(`../${relative}`, import.meta.url));
@@ -106,6 +106,34 @@ describe('site nav manifest (src/site-nav.json)', () => {
       expect(['spa', 'ssr', 'standalone'], href).toContain(classifyRoute(href));
     }
   });
+});
+
+describe('tag hubs (src/site-nav.json `hubs`, KAN-319)', () => {
+  it('lists each hub once, as an SSR /browse/tag/<slug> route', () => {
+    expect(siteNav.hubs.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(siteNav.hubs.map((hub) => hub.href)).size).toBe(siteNav.hubs.length);
+    for (const { href, label } of siteNav.hubs) {
+      expect(label.trim(), href).not.toBe('');
+      expect(href).toMatch(/^\/browse\/tag\/[a-z0-9-]+$/);
+      expect(classifyRoute(href), href).toBe('ssr');
+    }
+  });
+
+  // Local only, like the SSR base template check below: Backend/ is empty in
+  // the Vitest job. A slug the Backend does not define would be a 404 link.
+  const TAG_HUBS = 'Backend/services/tag_hubs.py';
+  it.skipIf(!existsSync(repoFile(TAG_HUBS)))(
+    `links only hubs the Backend defines (${TAG_HUBS}; local only)`,
+    () => {
+      const defined = new Set(
+        [...read(TAG_HUBS).matchAll(/_hub\(\s*"([a-z0-9-]+)"/g)].map((match) => match[1])
+      );
+      expect(defined.size).toBeGreaterThan(0);
+      for (const { href } of siteNav.hubs) {
+        expect(defined, href).toContain(href.slice('/browse/tag/'.length));
+      }
+    }
+  );
 });
 
 describe('SPA header', () => {
