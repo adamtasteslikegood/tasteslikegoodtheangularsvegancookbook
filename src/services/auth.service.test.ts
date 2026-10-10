@@ -709,3 +709,60 @@ describe('AuthService.hydrate deduplication (KAN-242/KAN-265)', () => {
     expect(result.cookbooks[0].name).toBe('Server Name');
   });
 });
+
+// KAN-344: Log Out could not switch accounts. The sign-in request sent no
+// `prompt`, so Google handed back the browser's current account.
+describe('AuthService switch user (KAN-344)', () => {
+  const localStorageMock = createLocalStorageMock();
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.stubGlobal('localStorage', localStorageMock);
+    vi.stubGlobal('window', {
+      location: { href: 'http://localhost/', search: '', hash: '', pathname: '/' },
+      history: { replaceState: vi.fn() },
+    });
+    vi.stubGlobal('document', { title: 'Vegangenius Chef' });
+    localStorageMock.clear();
+    fetchMock = vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () =>
+        url.includes('/api/auth/login')
+          ? { authorization_url: 'https://accounts.google.com/chooser' }
+          : { authenticated: false },
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+  });
+
+  afterEach(() => {
+    localStorageMock.clear();
+    vi.unstubAllGlobals();
+  });
+
+  const authCalls = () =>
+    fetchMock.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => /\/api\/auth\/(login|logout)/.test(url));
+
+  it('ordinary sign-in sends no prompt', async () => {
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+
+    await authService.login();
+
+    expect(authCalls()).toEqual(['/api/auth/login']);
+  });
+
+  it('logs out, then signs in through the account chooser', async () => {
+    const authService = new AuthService();
+    await waitForAuthInit(authService);
+    authService.currentUser.set(createAuthenticatedUser());
+
+    await authService.switchUser();
+
+    expect(authCalls()).toEqual(['/api/auth/logout', '/api/auth/login?prompt=select_account']);
+    expect(authService.currentUser()).toBeNull();
+    expect(window.location.href).toBe('https://accounts.google.com/chooser');
+  });
+});

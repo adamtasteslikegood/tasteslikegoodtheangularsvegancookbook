@@ -6,8 +6,10 @@
  *
  *   - the SPA header (src/components/header/header.component.html)
  *   - the standalone Express pages (/about, /privacy-policy)
- *   - the Flask SSR base template (Backend/templates/public/base_public.html),
- *     which every /r/<slug>, /browse and /browse/tag/<slug> page extends
+ *   - the header of the Flask SSR base template
+ *     (Backend/templates/public/base_public.html), which every /r/<slug>,
+ *     /browse and /browse/tag/<slug> page extends; its footer is rendered, so
+ *     only the Backend test can check it
  *
  * The SPA footer renders the manifest by construction; its own test is in
  * src/components/footer/footer.component.test.ts.
@@ -35,7 +37,7 @@ import { fileURLToPath } from 'node:url';
 import { classifyRoute } from './route-manifest.js';
 
 type Link = { href: string; label: string };
-type SiteNav = { header: Link[]; footer: Link[] };
+type SiteNav = { header: Link[]; footer: Link[]; hubs: Link[] };
 
 const repoFile = (relative: string): string =>
   fileURLToPath(new URL(`../${relative}`, import.meta.url));
@@ -108,6 +110,38 @@ describe('site nav manifest (src/site-nav.json)', () => {
   });
 });
 
+describe('tag hubs (src/site-nav.json `hubs`, KAN-319)', () => {
+  it('lists each hub once, as an SSR /browse/tag/<slug> route', () => {
+    expect(siteNav.hubs.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(siteNav.hubs.map((hub) => hub.href)).size).toBe(siteNav.hubs.length);
+    for (const { href, label } of siteNav.hubs) {
+      expect(label.trim(), href).not.toBe('');
+      expect(href).toMatch(/^\/browse\/tag\/[a-z0-9-]+$/);
+      expect(classifyRoute(href), href).toBe('ssr');
+    }
+  });
+
+  it('are all in the footer, in order, after its first link', () => {
+    expect(siteNav.footer.slice(1, 1 + siteNav.hubs.length)).toEqual(siteNav.hubs);
+  });
+
+  // Local only, like the SSR base template check below: Backend/ is empty in
+  // the Vitest job. A slug the Backend does not define would be a 404 link.
+  const TAG_HUBS = 'Backend/services/tag_hubs.py';
+  it.skipIf(!existsSync(repoFile(TAG_HUBS)))(
+    `links only hubs the Backend defines (${TAG_HUBS}; local only)`,
+    () => {
+      const defined = new Set(
+        [...read(TAG_HUBS).matchAll(/_hub\(\s*"([a-z0-9-]+)"/g)].map((match) => match[1])
+      );
+      expect(defined.size).toBeGreaterThan(0);
+      for (const { href } of siteNav.hubs) {
+        expect(defined, href).toContain(href.slice('/browse/tag/'.length));
+      }
+    }
+  );
+});
+
 describe('SPA header', () => {
   const links = anchors(region(read('src/components/header/header.component.html'), 'header'));
 
@@ -155,8 +189,8 @@ describe.skipIf(!existsSync(repoFile(BACKEND_PARITY_TEST)))(
       expect(pairs(anchors(region(template(), 'header')))).toEqual(siteNav.header);
     });
 
-    it('renders exactly the canonical footer set, in order', () => {
-      expect(pairs(anchors(region(template(), 'footer')))).toEqual(siteNav.footer);
-    });
+    // The footer is not checked here: its tag hub links (KAN-319) are a Jinja
+    // loop over the indexable hubs, so the template source does not hold them.
+    // Backend's tests/test_public_nav_parity.py renders the page and compares.
   }
 );
