@@ -75,8 +75,9 @@ The `gbrain-brain-check` task prompt:
 ```
 Connect to the gbrain Railway Postgres (believable-joy project).
 Run: gbrain doctor --fast
-If score < 50: run gbrain extract --stale and gbrain embed --stale, then
-re-check. Do not run gbrain dream (it calls a chat model; see above).
+If score < 50: run gbrain extract --stale and
+gbrain embed --stale --catch-up --max-usd 1, then re-check. Do not run
+gbrain dream (it calls a chat model; see above).
 If any source shows sync lag > 7d and is pointed at a missing path:
 archive it (gbrain sources archive <id>).
 If stale locks exist: break them (gbrain sync --break-lock --source <id>).
