@@ -10,7 +10,7 @@
   - Recipe saving to personal cookbook
   - Low-clutter experience
   - Generated recipes include AI food photography
-- **Homepage**: Generates 104 published recipes (per sitemap)
+- **Published catalogue**: The sitemap lists 104 recipe URLs
 - **Structured Data**: WebApplication, WebSite, and FAQPage schemas present
 - **Robots.txt**: Allows general crawling, disallows `/api/` except public recipe images, lists sitemap
 - **Sitemap**: Lists homepage, browse/about pages, 12 category pages, and recipe pages
