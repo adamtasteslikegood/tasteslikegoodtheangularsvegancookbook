@@ -24,6 +24,11 @@ import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 import { buildRouteNeutralSpaShell } from './spa-shell.js';
 import { staticCacheControl } from './static-cache.js';
+import {
+  createFailureLogGate,
+  createNewestRecipesSource,
+  injectNewestRecipes,
+} from './newest-recipes.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -233,6 +238,40 @@ export const ready = (async () => {
     res.redirect(301, `/${suffix}`);
   });
 
+  // KAN-348: the home page's newest-recipes row. Mounted before express.static,
+  // which would otherwise answer "/" with the file as built. The row is an
+  // addition: with no list, or on any failure here, the request falls through
+  // and the built shell is served with its fixed recipe links.
+  const newestRecipes = createNewestRecipesSource({ flaskUrl });
+  // Fetched now and awaited just before the server listens, so the first home
+  // request on a new instance finds the list (or a recorded failure) and does
+  // not wait on Flask. Bounded by the fetch timeout; never rejects.
+  const newestRecipesPreload = newestRecipes.refresh();
+  const shouldLogHomeShellFailure = createFailureLogGate();
+  let homeShellPromise: Promise<string> | undefined;
+  const getHomeShell = (): Promise<string> => {
+    homeShellPromise ??= readFile(spaIndexPath, 'utf8').catch((err) => {
+      homeShellPromise = undefined;
+      throw err;
+    });
+    return homeShellPromise;
+  };
+  app.get('/', staticPageLimiter, async (_req, res, next) => {
+    try {
+      const recipes = await newestRecipes.get();
+      if (recipes.length === 0) return next();
+      const html = injectNewestRecipes(await getHomeShell(), recipes);
+      // Same Cache-Control express.static gives the file it would have served.
+      res.setHeader('Cache-Control', 'public, max-age=0');
+      res.type('html').send(html);
+    } catch (err) {
+      if (shouldLogHomeShellFailure()) {
+        console.warn('[newest-recipes] serving the home shell as built:', err);
+      }
+      next();
+    }
+  });
+
   // The compiled Angular bundles and public assets must remain mounted before
   // the SPA catch-all. Missing assets then fall through to the asset 404 below.
   app.use(
@@ -398,6 +437,8 @@ export const ready = (async () => {
 
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
+
+  await newestRecipesPreload;
 
   // Skip the real listener under test runners: Vitest sets VITEST itself,
   // and NODE_ENV=test covers any other harness importing this module.

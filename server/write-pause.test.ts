@@ -149,6 +149,9 @@ describe('RECIPE_WRITE_PAUSE on the real app', () => {
 
     const { app, ready } = await import('./index.js');
     await ready;
+    // The server reads the newest-recipes list from Flask while it starts
+    // (KAN-348). That is a read, and not one of the requests under test.
+    flaskHits.length = 0;
     expressServer = app.listen(0, '127.0.0.1');
     await new Promise<void>((resolve) => expressServer.once('listening', resolve));
     baseUrl = `http://127.0.0.1:${(expressServer.address() as AddressInfo).port}`;

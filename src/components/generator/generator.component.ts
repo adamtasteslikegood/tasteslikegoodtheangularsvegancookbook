@@ -17,8 +17,15 @@ import {
   LANDING_HUBS_HEADING,
   LANDING_INTRO,
   LANDING_LEAD,
+  LANDING_NEWEST_HEADING,
   LANDING_STEPS,
 } from './landing-copy';
+import {
+  INITIAL_PAGE_PATH,
+  SERVER_NEWEST_RECIPES,
+  fetchNewestRecipes,
+  needsNewestRecipesFallback,
+} from './newest-recipes';
 
 @Component({
   selector: 'app-generator',
@@ -36,6 +43,8 @@ export class GeneratorComponent extends RecipeViewBase {
     faq: LANDING_FAQ,
     hubsHeading: LANDING_HUBS_HEADING,
     hubs: LANDING_HUBS,
+    newestHeading: LANDING_NEWEST_HEADING,
+    newest: signal(SERVER_NEWEST_RECIPES),
   };
 
   /**
@@ -76,6 +85,9 @@ export class GeneratorComponent extends RecipeViewBase {
   constructor() {
     super();
     this.recipeState.clearRecipe();
+    if (this.showLanding && needsNewestRecipesFallback(INITIAL_PAGE_PATH, this.landing.newest())) {
+      void fetchNewestRecipes().then((recipes) => this.landing.newest.set(recipes));
+    }
   }
 
   /**
