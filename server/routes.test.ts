@@ -33,6 +33,11 @@ const STUB_CSS = ':root { --tokens: loaded; }';
 const STUB_JS = 'document.documentElement.dataset.publicScript = "loaded";';
 const STUB_HTML = '<!doctype html><html><body>ssr-browse</body></html>';
 const STUB_HUB_HTML = '<!doctype html><html><body>ssr-hub-dinner</body></html>';
+// KAN-362: bodies over compression's 1 kB threshold. A hashed build asset, a
+// long proxied page, and an image that must pass through untouched.
+const STUB_BUNDLE = `console.log(${JSON.stringify('bundle '.repeat(600))});`;
+const STUB_LONG_HTML = `<!doctype html><html><body>${'<p>ssr-long-recipe</p>'.repeat(300)}</body></html>`;
+const STUB_IMAGE = Buffer.alloc(4096, 7);
 const STUB_RECIPE_HTML = '<!doctype html><html><body>ssr-recipe</body></html>';
 const STUB_SPA_SHELL =
   '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
@@ -82,6 +87,15 @@ beforeAll(async () => {
     } else if (req.url === '/browse/tag/dinner/') {
       res.writeHead(301, { location: '/browse/tag/dinner' });
       res.end();
+    } else if (req.url === '/r/long-recipe') {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'content-length': String(Buffer.byteLength(STUB_LONG_HTML)),
+      });
+      res.end(STUB_LONG_HTML);
+    } else if (req.url === '/api/recipes/abc/image') {
+      res.writeHead(200, { 'content-type': 'image/webp', 'content-length': '4096' });
+      res.end(STUB_IMAGE);
     } else if (req.url === '/r/test-slug') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_RECIPE_HTML);
@@ -98,6 +112,7 @@ beforeAll(async () => {
   // temp dir holding only index.html so the catch-all has a shell to serve.
   stubDistDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spa-dist-stub-'));
   fs.writeFileSync(path.join(stubDistDir, 'index.html'), STUB_SPA_SHELL);
+  fs.writeFileSync(path.join(stubDistDir, 'main-ABCD1234.js'), STUB_BUNDLE);
   process.env.SPA_DIST_DIR = stubDistDir;
 
   // Must be set before importing index.ts — proxy.ts reads it at import time.
@@ -417,6 +432,61 @@ describe('SPA shell index control (KAN-276)', () => {
 
   // The public SSR surface is proxied to Flask before the catch-all, so it
   // keeps the production `index, follow` header.
+  it('compresses a hashed build asset and marks it immutable (KAN-362)', async () => {
+    const res = await fetch(`${baseUrl}/main-ABCD1234.js`, {
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-encoding')).toBe('gzip');
+    expect(res.headers.get('vary')).toMatch(/accept-encoding/i);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    // fetch inflates the body: it must be the file, byte for byte.
+    expect(await res.text()).toBe(STUB_BUNDLE);
+  });
+
+  it('prefers brotli when the client accepts it', async () => {
+    const res = await fetch(`${baseUrl}/main-ABCD1234.js`, {
+      headers: { 'accept-encoding': 'gzip, br' },
+    });
+    expect(res.headers.get('content-encoding')).toBe('br');
+    expect(await res.text()).toBe(STUB_BUNDLE);
+  });
+
+  it('sends the asset as is to a client that accepts no encoding', async () => {
+    const res = await fetch(`${baseUrl}/main-ABCD1234.js`, {
+      headers: { 'accept-encoding': 'identity' },
+    });
+    expect(res.headers.get('content-encoding')).toBeNull();
+    expect(await res.text()).toBe(STUB_BUNDLE);
+  });
+
+  it('keeps the home shell revalidating, never immutable', async () => {
+    const res = await fetch(`${baseUrl}/`);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0');
+  });
+
+  it('compresses a page proxied from Flask without corrupting it', async () => {
+    const res = await fetch(`${baseUrl}/r/long-recipe`, {
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-encoding')).toBe('gzip');
+    // Flask's Content-Length describes the uncompressed body; it must not
+    // survive onto the compressed response.
+    expect(res.headers.get('content-length')).toBeNull();
+    expect(await res.text()).toBe(STUB_LONG_HTML);
+  });
+
+  it('passes a proxied image through uncompressed, length intact', async () => {
+    const res = await fetch(`${baseUrl}/api/recipes/abc/image`, {
+      headers: { 'accept-encoding': 'gzip, br' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-encoding')).toBeNull();
+    expect(res.headers.get('content-length')).toBe('4096');
+    expect(Buffer.from(await res.arrayBuffer()).equals(STUB_IMAGE)).toBe(true);
+  });
+
   it('leaves /r/<slug> indexable (proxied to Flask, not the catch-all)', async () => {
     const res = await fetch(`${baseUrl}/r/test-slug`);
     expect(res.status).toBe(200);
