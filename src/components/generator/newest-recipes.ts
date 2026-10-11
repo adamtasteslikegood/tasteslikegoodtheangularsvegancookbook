@@ -61,13 +61,26 @@ export function needsNewestRecipesFallback(
   );
 }
 
-/** Load the row only when an SPA session started on a route-neutral shell. */
+/**
+ * The longest the fallback fetch may take. The server bounds its own fetch for
+ * the same reason (server/newest-recipes.ts); a browser has no default limit,
+ * so a stalled backend would leave the request open for the life of the page.
+ */
+export const NEWEST_RECIPES_FETCH_TIMEOUT_MS = 4_000;
+
+/**
+ * Load the row in the browser: when the session started on a route-neutral
+ * shell, or the row read at boot has aged out. Answers [] on any failure,
+ * including the timeout.
+ */
 export async function fetchNewestRecipes(
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
+  timeoutMs = NEWEST_RECIPES_FETCH_TIMEOUT_MS
 ): Promise<readonly NewestRecipeLink[]> {
   try {
     const response = await fetchImpl(`/api/public/newest-recipes?limit=${NEWEST_RECIPES_LIMIT}`, {
       headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!response.ok) return [];
     return parseNewestRecipesPayload(await response.json());

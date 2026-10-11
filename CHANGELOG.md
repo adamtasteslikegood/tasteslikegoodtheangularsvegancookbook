@@ -19,6 +19,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   for it; when Flask does not answer, the page is served as built and the list is asked for again
   after 30 seconds, behind a request.
 
+### Fixed
+
+- The in-app request for the newest-recipes row gives up after four seconds (KAN-348). It had no
+  limit, so a stalled backend left the request open for the life of the page.
+
 ### Changed
 
 - Text responses are compressed (KAN-362). Express now compresses JavaScript, CSS, HTML and JSON,
