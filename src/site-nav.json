@@ -5,6 +5,7 @@
     { "href": "/kitchen", "label": "My Kitchen" },
     { "href": "/browse", "label": "Browse" }
   ],
+  "footerBrand": { "href": "/", "label": "Tasteslikegood.org" },
   "footer": [
     { "href": "/browse", "label": "Browse recipes" },
     { "href": "/browse/tag/breakfast", "label": "Breakfast" },
