@@ -58,7 +58,8 @@ export function createFailureLogGate(
 const MARKER_RE =
   /<div\s+[^>]*id=(?:"tlg-newest-recipes"|'tlg-newest-recipes'|tlg-newest-recipes(?=[\s>]))[^>]*>\s*<\/div>/i;
 
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Exported for the parity test against the SPA's own copy. */
+export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 const HTML_ESCAPES: Record<string, string> = {
   '&': '&amp;',

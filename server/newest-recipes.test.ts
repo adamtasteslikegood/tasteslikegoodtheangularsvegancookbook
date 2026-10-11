@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   NEWEST_RECIPES_HEADING,
   NEWEST_RECIPES_LIMIT,
+  SLUG_RE,
   createFailureLogGate,
   createNewestRecipesSource,
   hasNewestRecipesMarker,
@@ -138,6 +139,26 @@ describe('the marker', () => {
     expect(repoFile('src/components/generator/landing-copy.ts')).toContain(
       `LANDING_NEWEST_HEADING = '${NEWEST_RECIPES_HEADING}'`
     );
+  });
+});
+
+describe('the SPA copy of the parsing rules', () => {
+  // src/ cannot import from server/, so the landing page's fallback fetch
+  // keeps its own slug pattern, row limit and length caps. This fails when
+  // one side changes without the other.
+  const spa = repoFile('src/components/generator/newest-recipes.ts');
+
+  it('uses the same slug pattern and row limit as the server', () => {
+    expect(spa).toContain(`const SLUG_RE = ${String(SLUG_RE)};`);
+    expect(spa).toContain(`const NEWEST_RECIPES_LIMIT = ${NEWEST_RECIPES_LIMIT};`);
+  });
+
+  it('uses the same 200-character caps on slug and name', () => {
+    const server = repoFile('server/newest-recipes.ts');
+    for (const source of [spa, server]) {
+      expect(source).toContain('slug.length > 200');
+      expect(source).toMatch(/\.length > 200\) continue;/);
+    }
   });
 });
 
