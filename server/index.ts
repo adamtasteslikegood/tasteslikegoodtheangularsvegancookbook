@@ -243,6 +243,10 @@ export const ready = (async () => {
   // addition: with no list, or on any failure here, the request falls through
   // and the built shell is served with its fixed recipe links.
   const newestRecipes = createNewestRecipesSource({ flaskUrl });
+  // Fetched now and awaited just before the server listens, so the first home
+  // request on a new instance finds the list (or a recorded failure) and does
+  // not wait on Flask. Bounded by the fetch timeout; never rejects.
+  const newestRecipesPreload = newestRecipes.refresh();
   const shouldLogHomeShellFailure = createFailureLogGate();
   let homeShellPromise: Promise<string> | undefined;
   const getHomeShell = (): Promise<string> => {
@@ -433,6 +437,8 @@ export const ready = (async () => {
 
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
+
+  await newestRecipesPreload;
 
   // Skip the real listener under test runners: Vitest sets VITEST itself,
   // and NODE_ENV=test covers any other harness importing this module.

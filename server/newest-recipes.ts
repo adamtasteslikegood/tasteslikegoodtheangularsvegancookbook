@@ -29,7 +29,13 @@ export const NEWEST_RECIPES_LIMIT = 8;
  * from home (the link then answers 410).
  */
 export const NEWEST_RECIPES_TTL_MS = 3 * 60_000;
-/** The most a home request ever waits on Flask, and only when it has no usable list. */
+/**
+ * After a failed fetch the next attempt comes this soon, not a whole TTL
+ * later: a Flask that was only cold-starting is awake again within seconds.
+ * The attempt runs behind a home request and never holds one up.
+ */
+export const NEWEST_RECIPES_RETRY_MS = 30_000;
+/** The longest one fetch may take: at startup, or for a request with no usable list. */
 const FETCH_TIMEOUT_MS = 1_500;
 const FAILURE_LOG_INTERVAL_MS = 60_000;
 
@@ -114,8 +120,11 @@ export function injectNewestRecipes(shell: string, recipes: readonly NewestRecip
 export interface NewestRecipesSource {
   /**
    * The list to render now; empty means "serve the shell as built". Waits on
-   * Flask only when there is no usable list (first request, or the instance
-   * sat idle past two TTLs), and then for at most the fetch timeout.
+   * Flask only when a list that was good has aged past two TTLs (the instance
+   * sat idle), or when nothing has been fetched yet, and then for at most the
+   * fetch timeout. The server fetches once before it listens, so in practice
+   * the first request finds a list or a recorded failure. After a failure it
+   * never waits: it serves the shell and retries behind the request.
    */
   get(): Promise<readonly NewestRecipe[]>;
   /** Start (or join) a refresh. Resolves when it settles; never rejects. */
@@ -125,6 +134,7 @@ export interface NewestRecipesSource {
 export interface NewestRecipesSourceOptions {
   flaskUrl: string;
   ttlMs?: number;
+  retryMs?: number;
   timeoutMs?: number;
   now?: () => number;
   fetchImpl?: typeof fetch;
@@ -137,6 +147,7 @@ export function createNewestRecipesSource(
   const {
     flaskUrl,
     ttlMs = NEWEST_RECIPES_TTL_MS,
+    retryMs = NEWEST_RECIPES_RETRY_MS,
     timeoutMs = FETCH_TIMEOUT_MS,
     now = Date.now,
     fetchImpl = fetch,
@@ -146,6 +157,7 @@ export function createNewestRecipesSource(
 
   let recipes: readonly NewestRecipe[] = [];
   let fetchedAt: number | null = null;
+  let lastFetchFailed = false;
   let inFlight: Promise<void> | null = null;
   const shouldLogFailure = createFailureLogGate(FAILURE_LOG_INTERVAL_MS, now);
 
@@ -170,10 +182,12 @@ export function createNewestRecipesSource(
       ]);
       if (!response.ok) throw new Error(`Flask answered ${response.status}`);
       recipes = parseNewestRecipes(await response.json());
+      lastFetchFailed = false;
     } catch (err) {
       // Drop the old list rather than keep serving it: it may link a recipe
       // that has since been unpublished.
       recipes = [];
+      lastFetchFailed = true;
       if (shouldLogFailure()) {
         console.warn(
           '[newest-recipes] list unavailable; home is served without the row:',
@@ -182,8 +196,8 @@ export function createNewestRecipesSource(
       }
     } finally {
       clearTimeout(timeout);
-      // Stamp failures too, so a down Flask is retried once per TTL and not
-      // on every home request.
+      // Stamp failures too, so a down Flask is retried once per retry
+      // interval and not on every home request.
       fetchedAt = now();
     }
   };
@@ -198,6 +212,10 @@ export function createNewestRecipesSource(
   return {
     async get() {
       const age = fetchedAt === null ? Infinity : now() - fetchedAt;
+      if (lastFetchFailed) {
+        if (age >= retryMs) void refresh();
+        return recipes;
+      }
       if (age >= 2 * ttlMs) await refresh();
       else if (age >= ttlMs) void refresh();
       return recipes;

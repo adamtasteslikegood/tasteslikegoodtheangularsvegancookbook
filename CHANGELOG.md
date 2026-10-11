@@ -15,6 +15,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   for the list (new `GET /api/public/newest-recipes`, ordered by first publication), keeps it for
   three minutes, and writes it into the page; an unpublished recipe is gone from home within six
   minutes. If Flask has no list, the page is served as built, with its fixed recipe links.
+  The list is fetched while the server starts, so the first visitor to a new instance does not wait
+  for it; when Flask does not answer, the page is served as built and the list is asked for again
+  after 30 seconds, behind a request.
 
 ### Changed
 

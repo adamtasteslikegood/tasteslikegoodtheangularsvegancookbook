@@ -143,11 +143,13 @@ describe('the marker', () => {
 
 describe('createNewestRecipesSource', () => {
   const TTL = 1_000;
+  const RETRY = 100;
   const setup = (fetchImpl: typeof fetch) => {
     let clock = 0;
     const source = createNewestRecipesSource({
       flaskUrl: 'http://flask.test',
       ttlMs: TTL,
+      retryMs: RETRY,
       now: () => clock,
       fetchImpl,
       authHeader: async () => 'Bearer token',
@@ -203,28 +205,71 @@ describe('createNewestRecipesSource', () => {
     expect((await source.get()).map((r) => r.slug)).toEqual(['new']);
   });
 
-  it('drops the list when Flask fails, and retries once per TTL, not per request', async () => {
+  it('drops the list when Flask fails, then retries behind requests without holding them up', async () => {
+    let releaseRetry: (response: Response) => void = () => undefined;
     const fetchImpl = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse(list('old')))
       .mockRejectedValueOnce(new Error('connect ECONNREFUSED'))
       .mockResolvedValueOnce(jsonResponse({ error: 'boom' }, 500))
-      .mockResolvedValueOnce(jsonResponse(list('back')));
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            releaseRetry = resolve;
+          })
+      );
     const { source, advance } = setup(fetchImpl as unknown as typeof fetch);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
     try {
       await source.get();
       advance(2 * TTL);
+      // A good list aged out: this one request waits, and the fetch fails.
       expect(await source.get()).toEqual([]);
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+      expect(warn).toHaveBeenCalled();
+
+      // Inside the retry interval: no new attempt.
+      advance(RETRY - 1);
       expect(await source.get()).toEqual([]);
       expect(fetchImpl).toHaveBeenCalledTimes(2);
 
-      advance(2 * TTL);
+      // Past it: one attempt per interval, started behind the request.
+      advance(1);
       expect(await source.get()).toEqual([]);
-      advance(2 * TTL);
+      await settle();
+      expect(fetchImpl).toHaveBeenCalledTimes(3);
+
+      // The next attempt hangs; the request is answered without it.
+      advance(RETRY);
+      expect(await source.get()).toEqual([]);
+      await settle();
+      expect(fetchImpl).toHaveBeenCalledTimes(4);
+      expect(await source.get()).toEqual([]);
+      releaseRetry(jsonResponse(list('back')));
+      await settle();
       expect((await source.get()).map((r) => r.slug)).toEqual(['back']);
       expect(fetchImpl).toHaveBeenCalledTimes(4);
-      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('after a failed startup fetch, serves the shell at once and recovers on the retry', async () => {
+    const fetchImpl = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('cold backend'))
+      .mockResolvedValueOnce(jsonResponse(list('a')));
+    const { source, advance } = setup(fetchImpl as unknown as typeof fetch);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      await source.refresh(); // what the server does before it listens
+      expect(await source.get()).toEqual([]);
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+      advance(RETRY);
+      expect(await source.get()).toEqual([]);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      expect((await source.get()).map((r) => r.slug)).toEqual(['a']);
     } finally {
       warn.mockRestore();
     }

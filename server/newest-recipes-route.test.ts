@@ -111,6 +111,11 @@ describe('home page newest-recipes row (KAN-348)', () => {
     expect(revalidatedStatus).toBe(304);
   });
 
+  it('has the list before the first request: the server fetched it while starting', async () => {
+    // beforeAll awaited `ready`, which awaits the startup fetch.
+    expect(newestRequests).toBe(1);
+  });
+
   it('asks Flask once for many home requests', async () => {
     await Promise.all(Array.from({ length: 5 }, () => fetch(`${baseUrl}/`).then((r) => r.text())));
     expect(newestRequests).toBe(1);
