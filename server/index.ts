@@ -104,7 +104,6 @@ export const ready = (async () => {
   });
 
   // ── Rate limiters (before proxy so they protect Flask) ──────────
-  // General: 300 req / 15 min per IP (image serving is exempt)
   // KAN-362: compress text responses (JS, CSS, HTML, JSON), both what Express
   // serves and what it proxies from Flask. Nothing upstream compresses: the
   // 914 kB main bundle went out as is and was the whole mobile home LCP.
@@ -121,6 +120,7 @@ export const ready = (async () => {
     })
   );
 
+  // General: 300 req / 15 min per IP (image serving is exempt)
   app.use('/api', createApiLimiter(valkeyClient));
   // Expensive AI operations: 20 req / hour per IP
   app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
