@@ -221,4 +221,28 @@ describe('createNewestRecipesSource', () => {
     expect(first).toEqual(second);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it('bounds the whole refresh when the service credential stalls', async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn(async () => jsonResponse(list('a')));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const source = createNewestRecipesSource({
+        flaskUrl: 'https://flask.test',
+        timeoutMs: 50,
+        fetchImpl: fetchImpl as unknown as typeof fetch,
+        authHeader: () => new Promise<string | null>(() => undefined),
+      });
+      const settled = vi.fn();
+      void source.get().then(settled);
+
+      await vi.advanceTimersByTimeAsync(50);
+
+      expect(settled).toHaveBeenCalledWith([]);
+      expect(fetchImpl).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      vi.useRealTimers();
+    }
+  });
 });

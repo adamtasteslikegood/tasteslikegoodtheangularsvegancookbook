@@ -22,6 +22,9 @@ export function kitchenMatcher(segments: UrlSegment[]): UrlMatchResult | null {
 
 export const routes: Routes = [
   {
+    // KAN-348: keep the home component eagerly imported. Its newest-recipes
+    // module reads Express's server-written links before bootstrap replaces
+    // <app-root>; loadComponent would evaluate too late and lose the row.
     path: '',
     component: GeneratorComponent,
     canActivate: [ssrEntryGuard],

@@ -134,14 +134,24 @@ export function createNewestRecipesSource(
   let lastFailureLoggedAt = -Infinity;
 
   const load = async (): Promise<void> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(
+      () => controller.abort(new Error(`newest-recipes refresh exceeded ${timeoutMs} ms`)),
+      timeoutMs
+    );
+    const aborted = new Promise<never>((_resolve, reject) => {
+      controller.signal.addEventListener('abort', () => reject(controller.signal.reason), {
+        once: true,
+      });
+    });
     try {
       const headers: Record<string, string> = { accept: 'application/json' };
-      const auth = await authHeader();
+      const auth = await Promise.race([authHeader(), aborted]);
       if (auth) headers.authorization = auth;
-      const response = await fetchImpl(endpoint, {
-        headers,
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      const response = await Promise.race([
+        fetchImpl(endpoint, { headers, signal: controller.signal }),
+        aborted,
+      ]);
       if (!response.ok) throw new Error(`Flask answered ${response.status}`);
       recipes = parseNewestRecipes(await response.json());
     } catch (err) {
@@ -156,6 +166,7 @@ export function createNewestRecipesSource(
         );
       }
     } finally {
+      clearTimeout(timeout);
       // Stamp failures too, so a down Flask is retried once per TTL and not
       // on every home request.
       fetchedAt = now();
