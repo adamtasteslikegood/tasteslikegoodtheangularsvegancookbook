@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { describe, expect, it } from 'vitest';
-import { readNewestRecipes } from './newest-recipes';
+import { describe, expect, it, vi } from 'vitest';
+import * as newestRecipes from './newest-recipes';
 
 // KAN-348: Express writes the newest-recipes row into <app-root>; the landing
 // page reads it back before Angular replaces <app-root>, and renders the same
@@ -31,7 +31,7 @@ describe('readNewestRecipes', () => {
       anchor('/r/chili', ' Smoky Bean Chili '),
       anchor('/r/mac', 'Mac & Cheeze'),
     ]);
-    expect(readNewestRecipes(doc)).toEqual([
+    expect(newestRecipes.readNewestRecipes(doc)).toEqual([
       { href: '/r/chili', label: 'Smoky Bean Chili' },
       { href: '/r/mac', label: 'Mac & Cheeze' },
     ]);
@@ -41,11 +41,48 @@ describe('readNewestRecipes', () => {
 
   it('skips links with no href or no text, and answers [] when the row is absent', () => {
     expect(
-      readNewestRecipes(
+      newestRecipes.readNewestRecipes(
         docWith([anchor(null, 'x'), anchor('/r/a', '  '), anchor('/r/a', null)]).doc
       )
     ).toEqual([]);
-    expect(readNewestRecipes(docWith([]).doc)).toEqual([]);
+    expect(newestRecipes.readNewestRecipes(docWith([]).doc)).toEqual([]);
+  });
+
+  it('fetches a safe fallback after an SPA entry on a non-home shell', async () => {
+    const module = newestRecipes as typeof newestRecipes & {
+      fetchNewestRecipes?: (fetchImpl: typeof fetch) => Promise<unknown>;
+      needsNewestRecipesFallback?: (initialPath: string, links: unknown[]) => boolean;
+    };
+    expect(module.fetchNewestRecipes).toBeTypeOf('function');
+    expect(module.needsNewestRecipesFallback).toBeTypeOf('function');
+
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            recipes: [
+              { slug: 'smoky-chili', name: ' Smoky Chili ' },
+              { slug: '../admin', name: 'Unsafe' },
+              { slug: 'too-long', name: 'x'.repeat(201) },
+            ],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
+    );
+    await expect(module.fetchNewestRecipes!(fetchImpl as unknown as typeof fetch)).resolves.toEqual(
+      [{ href: '/r/smoky-chili', label: 'Smoky Chili' }]
+    );
+    expect(fetchImpl).toHaveBeenCalledWith('/api/public/newest-recipes?limit=8', {
+      headers: { accept: 'application/json' },
+    });
+
+    expect(module.needsNewestRecipesFallback!('/kitchen', [])).toBe(true);
+    expect(module.needsNewestRecipesFallback!('/', [])).toBe(false);
+    expect(
+      module.needsNewestRecipesFallback!('/kitchen', [
+        { href: '/r/already-there', label: 'Already there' },
+      ])
+    ).toBe(false);
   });
 });
 
@@ -57,9 +94,9 @@ describe('landing template', () => {
 
   it('renders the row only when the server wrote one, under the same landmark id', () => {
     expect(template).toMatch(
-      /@if \(landing\.newest\.length\) \{\s*<nav aria-labelledby="landing-newest-title">/
+      /@if \(landing\.newest\(\)\.length\) \{\s*<nav aria-labelledby="landing-newest-title">/
     );
     expect(template).toContain('{{ landing.newestHeading }}');
-    expect(template).toMatch(/@for \(recipe of landing\.newest; track recipe\.href\)/);
+    expect(template).toMatch(/@for \(recipe of landing\.newest\(\); track recipe\.href\)/);
   });
 });

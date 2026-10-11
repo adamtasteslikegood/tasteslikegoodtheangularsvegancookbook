@@ -24,7 +24,11 @@ import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 import { buildRouteNeutralSpaShell } from './spa-shell.js';
 import { staticCacheControl } from './static-cache.js';
-import { createNewestRecipesSource, injectNewestRecipes } from './newest-recipes.js';
+import {
+  createFailureLogGate,
+  createNewestRecipesSource,
+  injectNewestRecipes,
+} from './newest-recipes.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -239,6 +243,7 @@ export const ready = (async () => {
   // addition: with no list, or on any failure here, the request falls through
   // and the built shell is served with its fixed recipe links.
   const newestRecipes = createNewestRecipesSource({ flaskUrl });
+  const shouldLogHomeShellFailure = createFailureLogGate();
   let homeShellPromise: Promise<string> | undefined;
   const getHomeShell = (): Promise<string> => {
     homeShellPromise ??= readFile(spaIndexPath, 'utf8').catch((err) => {
@@ -256,7 +261,9 @@ export const ready = (async () => {
       res.setHeader('Cache-Control', 'public, max-age=0');
       res.type('html').send(html);
     } catch (err) {
-      console.warn('[newest-recipes] serving the home shell as built:', err);
+      if (shouldLogHomeShellFailure()) {
+        console.warn('[newest-recipes] serving the home shell as built:', err);
+      }
       next();
     }
   });

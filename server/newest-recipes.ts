@@ -33,6 +33,20 @@ export const NEWEST_RECIPES_TTL_MS = 3 * 60_000;
 const FETCH_TIMEOUT_MS = 1_500;
 const FAILURE_LOG_INTERVAL_MS = 60_000;
 
+/** Limits repeated warnings from newest-recipes failure paths on a live instance. */
+export function createFailureLogGate(
+  intervalMs = FAILURE_LOG_INTERVAL_MS,
+  now: () => number = Date.now
+): () => boolean {
+  let lastLoggedAt = -Infinity;
+  return () => {
+    const current = now();
+    if (current - lastLoggedAt < intervalMs) return false;
+    lastLoggedAt = current;
+    return true;
+  };
+}
+
 // An element, not a comment: Angular's production HTML minification drops
 // comments (see spa-shell.ts). Tolerant of quote style and attribute order.
 const MARKER_RE =
@@ -65,8 +79,10 @@ export function parseNewestRecipes(payload: unknown): NewestRecipe[] {
   for (const row of rows) {
     const { slug, name } = (row ?? {}) as { slug?: unknown; name?: unknown };
     if (typeof slug !== 'string' || !SLUG_RE.test(slug) || slug.length > 200) continue;
-    if (typeof name !== 'string' || !name.trim()) continue;
-    recipes.push({ slug, name: name.trim() });
+    if (typeof name !== 'string') continue;
+    const trimmedName = name.trim();
+    if (!trimmedName || trimmedName.length > 200) continue;
+    recipes.push({ slug, name: trimmedName });
     if (recipes.length === NEWEST_RECIPES_LIMIT) break;
   }
   return recipes;
@@ -131,7 +147,7 @@ export function createNewestRecipesSource(
   let recipes: readonly NewestRecipe[] = [];
   let fetchedAt: number | null = null;
   let inFlight: Promise<void> | null = null;
-  let lastFailureLoggedAt = -Infinity;
+  const shouldLogFailure = createFailureLogGate(FAILURE_LOG_INTERVAL_MS, now);
 
   const load = async (): Promise<void> => {
     const controller = new AbortController();
@@ -158,8 +174,7 @@ export function createNewestRecipesSource(
       // Drop the old list rather than keep serving it: it may link a recipe
       // that has since been unpublished.
       recipes = [];
-      if (now() - lastFailureLoggedAt >= FAILURE_LOG_INTERVAL_MS) {
-        lastFailureLoggedAt = now();
+      if (shouldLogFailure()) {
         console.warn(
           '[newest-recipes] list unavailable; home is served without the row:',
           (err as Error).message

@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   NEWEST_RECIPES_HEADING,
   NEWEST_RECIPES_LIMIT,
+  createFailureLogGate,
   createNewestRecipesSource,
   hasNewestRecipesMarker,
   injectNewestRecipes,
@@ -31,6 +32,20 @@ const list = (...slugs: string[]) => ({
   recipes: slugs.map((slug) => ({ slug, name: `Name ${slug}`, first_published_at: 'x' })),
 });
 
+describe('createFailureLogGate', () => {
+  it('allows one warning per interval and allows another after the interval', () => {
+    let clock = 0;
+    const shouldLog = createFailureLogGate(60_000, () => clock);
+
+    expect(shouldLog()).toBe(true);
+    expect(shouldLog()).toBe(false);
+    clock = 59_999;
+    expect(shouldLog()).toBe(false);
+    clock = 60_000;
+    expect(shouldLog()).toBe(true);
+  });
+});
+
 describe('parseNewestRecipes', () => {
   it('keeps slug and name, in order', () => {
     expect(parseNewestRecipes(list('a', 'b-2'))).toEqual([
@@ -46,6 +61,7 @@ describe('parseNewestRecipes', () => {
         { slug: 'Upper-Case', name: 'Not the public alphabet' },
         { slug: 'a"onmouseover="x', name: 'Attribute break' },
         { slug: 'no-name', name: '   ' },
+        { slug: 'too-long', name: 'x'.repeat(201) },
         { slug: 7, name: 'Numeric slug' },
         null,
         'row',
