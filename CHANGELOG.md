@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-11
+
+Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
+
 ### Added
 
 - Newest recipes on the home page (KAN-348). The home page lists the eight most recently published
@@ -39,9 +43,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `public, max-age=31536000, immutable`, on a revalidation too. They were `no-cache` before.
 - The first row of thumbnails on `/browse` and the tag hubs loads at once (KAN-362). The first three
   cards are no longer lazy, and the first image shown gets `fetchpriority="high"`; the rest stay lazy.
-
-Backend pointer moved to `6fe3608` (Backend `dev`, #393 and #394) for staging. The release pins
-Backend `main` after promotion.
 
 ## [0.5.9] - 2026-10-10
 

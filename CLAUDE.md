@@ -137,7 +137,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
-- **Version:** See `package.json` `version` field (currently v0.4.2)
+- **Version:** See `package.json` `version` field (currently v0.6.0)
 - **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions
 
 ## Commands
