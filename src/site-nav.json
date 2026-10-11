@@ -7,7 +7,33 @@
   ],
   "footer": [
     { "href": "/browse", "label": "Browse recipes" },
+    { "href": "/browse/tag/breakfast", "label": "Breakfast" },
+    { "href": "/browse/tag/lunch", "label": "Lunch" },
+    { "href": "/browse/tag/dinner", "label": "Dinner" },
+    { "href": "/browse/tag/comfort-food", "label": "Comfort food" },
+    { "href": "/browse/tag/pasta", "label": "Pasta" },
+    { "href": "/browse/tag/mexican", "label": "Mexican" },
+    { "href": "/browse/tag/sandwiches", "label": "Sandwiches" },
+    { "href": "/browse/tag/tofu", "label": "Tofu" },
+    { "href": "/browse/tag/high-protein", "label": "High-protein" },
+    { "href": "/browse/tag/gluten-free", "label": "Gluten-free" },
+    { "href": "/browse/tag/dessert", "label": "Dessert" },
+    { "href": "/browse/tag/snacks", "label": "Snacks" },
     { "href": "/about", "label": "About" },
     { "href": "/privacy-policy", "label": "Privacy Policy" }
+  ],
+  "hubs": [
+    { "href": "/browse/tag/breakfast", "label": "Breakfast" },
+    { "href": "/browse/tag/lunch", "label": "Lunch" },
+    { "href": "/browse/tag/dinner", "label": "Dinner" },
+    { "href": "/browse/tag/comfort-food", "label": "Comfort food" },
+    { "href": "/browse/tag/pasta", "label": "Pasta" },
+    { "href": "/browse/tag/mexican", "label": "Mexican" },
+    { "href": "/browse/tag/sandwiches", "label": "Sandwiches" },
+    { "href": "/browse/tag/tofu", "label": "Tofu" },
+    { "href": "/browse/tag/high-protein", "label": "High-protein" },
+    { "href": "/browse/tag/gluten-free", "label": "Gluten-free" },
+    { "href": "/browse/tag/dessert", "label": "Dessert" },
+    { "href": "/browse/tag/snacks", "label": "Snacks" }
   ]
 }

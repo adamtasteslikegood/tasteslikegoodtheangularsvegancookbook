@@ -1,5 +1,5 @@
 <div class="max-w-6xl mx-auto p-4 md:p-8 relative min-h-screen flex flex-col">
-  <app-header (logoutRequested)="onLogout()" />
+  <app-header (logoutRequested)="onLogout()" (switchUserRequested)="onSwitchUser()" />
 
   <router-outlet />
 

@@ -32,7 +32,7 @@ jobs:
         id: junie
         # Pin to a known-good release (floating @v1 previously resolved to a
         # build that fails with "Failed to build 'issue.md.junie_standalone'").
-        uses: JetBrains/junie-github-action@3c08594c219ef187ab0df0db4e2ac3222a163593 # v1.7.15
+        uses: JetBrains/junie-github-action@915822cc3611663c8d6ebbcf04c362fb95e8b34f # v1.7.17
         with:
           junie_api_key: ${{ secrets.JUNIE_API_KEY }}
           use_single_comment: true

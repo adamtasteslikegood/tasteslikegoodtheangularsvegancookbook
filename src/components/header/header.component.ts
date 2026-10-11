@@ -19,6 +19,7 @@ export class HeaderComponent {
   readonly showUserProfileCard = signal(false);
 
   readonly logoutRequested = output<void>();
+  readonly switchUserRequested = output<void>();
 
   constructor() {
     // Seed from the router's current URL so a direct load of /kitchen or
@@ -60,5 +61,10 @@ export class HeaderComponent {
   onLogout() {
     this.closeUserProfileCard();
     this.logoutRequested.emit();
+  }
+
+  onSwitchUser() {
+    this.closeUserProfileCard();
+    this.switchUserRequested.emit();
   }
 }

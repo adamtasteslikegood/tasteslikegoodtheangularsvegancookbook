@@ -28,7 +28,7 @@ export const footerLinks = (production = environment.production) =>
         class="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left"
       >
         <p class="serif">&copy; 2026 Tasteslikegood.org &mdash; VeganGenius Chef</p>
-        <nav class="flex items-center gap-5">
+        <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           @for (link of links; track link.href) {
             <a [href]="link.href" class="hover:text-stone-800 underline underline-offset-2">{{
               link.label

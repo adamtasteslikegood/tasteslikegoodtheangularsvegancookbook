@@ -13,6 +13,8 @@ import {
 import {
   LANDING_FAQ,
   LANDING_H1,
+  LANDING_HUBS,
+  LANDING_HUBS_HEADING,
   LANDING_INTRO,
   LANDING_LEAD,
   LANDING_STEPS,
@@ -32,6 +34,8 @@ export class GeneratorComponent extends RecipeViewBase {
     intro: LANDING_INTRO,
     steps: LANDING_STEPS,
     faq: LANDING_FAQ,
+    hubsHeading: LANDING_HUBS_HEADING,
+    hubs: LANDING_HUBS,
   };
 
   /**

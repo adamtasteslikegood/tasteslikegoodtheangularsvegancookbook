@@ -323,6 +323,14 @@ class StartRuleTests(unittest.TestCase):
         self.assertEqual(rc, driver.REFUSED)
         self.assertIn("24 h window", out)
 
+    def test_absolute_soak_deadline_shortens_the_relative_window(self):
+        now = driver.datetime(2026, 10, 20, tzinfo=driver.timezone.utc)
+        task = {"soak_window_hours": 336,
+                "soak_deadline": "2026-10-23T23:59:00+00:00"}
+        self.assertEqual(driver.latest_soak_until(task, now),
+                         driver.datetime(2026, 10, 23, 23, 59,
+                                         tzinfo=driver.timezone.utc))
+
     def test_soak_requires_a_timezone(self):
         write_state(self.dir, "T1", "verifying")
         rc, _ = self._run("soak", "T1", "--until", "2999-01-01T00:00:00", "--reason", "x")

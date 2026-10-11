@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url';
 import {
   LANDING_FAQ,
   LANDING_H1,
+  LANDING_HUBS,
+  LANDING_HUBS_HEADING,
   LANDING_INTRO,
   LANDING_LEAD,
   LANDING_STEPS,
@@ -127,6 +129,15 @@ describe('home page server HTML (KAN-272)', () => {
     for (const text of expected) expect(appRootText).toContain(squash(text));
   });
 
+  it('links every tag hub from the first HTML response, in manifest order (KAN-319)', () => {
+    expect(appRootText).toContain(LANDING_HUBS_HEADING);
+    const hubLinks = [
+      ...appRoot.matchAll(/<a\b[^>]*\bhref="(\/browse\/tag\/[^"]+)"[^>]*>([^<]*)</g),
+    ];
+    expect(hubLinks.map((m) => ({ href: m[1], label: squash(m[2]) }))).toEqual(LANDING_HUBS);
+    expect(LANDING_HUBS.length).toBeGreaterThanOrEqual(6);
+  });
+
   it('keeps the noscript recipe links outside <app-root>', () => {
     expect(liveShell).toMatch(/<\/app-root>\s*<noscript>/);
   });
@@ -189,7 +200,14 @@ describe('rendered DOM (KAN-272)', () => {
     expect(generatorTemplate).toMatch(/<h1\b[^>]*>\s*\{\{\s*landing\.h1\s*\}\}\s*<\/h1>/);
     // Every field renders from the module, so no stale hardcoded copy can
     // stand in for one of them.
-    for (const binding of ['landing.lead', 'landing.intro', 'landing.steps', 'landing.faq']) {
+    for (const binding of [
+      'landing.lead',
+      'landing.intro',
+      'landing.steps',
+      'landing.faq',
+      'landing.hubsHeading',
+      'landing.hubs',
+    ]) {
       expect(generatorTemplate).toContain(binding);
     }
   });

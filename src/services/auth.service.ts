@@ -152,8 +152,10 @@ export class AuthService {
    * Initiate Google OAuth login via Flask backend.
    * Redirects the browser to Google's consent page.
    */
-  async login(): Promise<void> {
-    const res = await fetch(`${this.API_BASE}/api/auth/login`, {
+  async login(opts: { selectAccount?: boolean } = {}): Promise<void> {
+    // KAN-344: without this Google reuses the browser's current account.
+    const query = opts.selectAccount ? '?prompt=select_account' : '';
+    const res = await fetch(`${this.API_BASE}/api/auth/login${query}`, {
       credentials: 'include',
     });
 
@@ -187,6 +189,16 @@ export class AuthService {
     this.currentUser.set(null);
     localStorage.removeItem(this.STORAGE_KEY_SESSION);
     resetRecipeViewTracking();
+  }
+
+  /**
+   * Switch user (KAN-344): log out, then sign in through Google's account
+   * chooser. Log Out alone cannot switch accounts, because the next sign-in
+   * lands on the Google account the browser is already signed into.
+   */
+  async switchUser(): Promise<void> {
+    await this.logout();
+    await this.login({ selectAccount: true });
   }
 
   // ─── Guest Session ────────────────────────────────────────────

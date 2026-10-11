@@ -12,6 +12,7 @@ import { CreateCookbookModalComponent } from './modals/create-cookbook/create-co
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
 import { AddToCookbookModalComponent } from './modals/add-to-cookbook/add-to-cookbook-modal.component';
 import type { Recipe } from './recipe.types';
+import { isInAppBrowserEnvironment } from './utils/in-app-browser';
 
 @Component({
   selector: 'app-root',
@@ -66,6 +67,24 @@ export class AppComponent {
     await this.authService.logout();
     this.recipeState.clearRecipe();
     this.router.navigate(['/']);
+  }
+
+  /** KAN-344: on success the browser leaves for Google's account chooser. */
+  async onSwitchUser() {
+    // Google refuses OAuth in embedded webviews. Keep the user signed in and
+    // show the sign-in modal's "open in your browser" instructions instead.
+    if (isInAppBrowserEnvironment()) {
+      this.modalService.openAuth();
+      return;
+    }
+    this.recipeState.clearRecipe();
+    try {
+      await this.authService.switchUser();
+    } catch {
+      // Already logged out; the sign-in could not start. Offer it again.
+      this.router.navigate(['/']);
+      this.modalService.openAuth();
+    }
   }
 
   viewRecipe(r: Recipe) {

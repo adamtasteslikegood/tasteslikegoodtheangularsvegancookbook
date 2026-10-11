@@ -1,0 +1,8 @@
+Issue,Validation,Items
+"Either ""image"" or ""video"" should be specified (in ""recipeInstructions"")",Not Started,1
+"Missing field ""name"" (in ""recipeInstructions"")",Not Started,1
+"Missing field ""url"" (in ""recipeInstructions"")",Not Started,1
+"Missing field ""aggregateRating""",Not Started,1
+"Missing field ""recipeCuisine""",Not Started,1
+"Missing field ""video""",Not Started,1
+"Missing field ""nutrition""",Not Started,1

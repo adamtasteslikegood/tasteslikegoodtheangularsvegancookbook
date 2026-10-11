@@ -48,11 +48,11 @@ describe('footer nav parity (KAN-294)', () => {
   });
 
   it('keeps dev-only .html hrefs for the standalone pages under npm run dev', () => {
-    expect(footerLinks(false).map((link) => link.href)).toEqual([
-      '/browse',
-      '/about.html',
-      '/privacy-policy.html',
-    ]);
+    expect(footerLinks(false).map((link) => link.href)).toEqual(
+      manifest.footer.map(({ href }) =>
+        href === '/about' || href === '/privacy-policy' ? `${href}.html` : href
+      )
+    );
   });
 
   it('has no hand-written anchors outside the manifest loop', () => {

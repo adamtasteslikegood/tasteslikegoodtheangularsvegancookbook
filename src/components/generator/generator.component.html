@@ -650,6 +650,21 @@
         }
       </dl>
     </div>
+    <!-- KAN-319: plain hrefs, not routerLink; the hubs are Flask pages behind the Express proxy. -->
+    <nav aria-labelledby="landing-hubs-title">
+      <h2 id="landing-hubs-title" class="text-2xl font-bold text-stone-800 mb-4">
+        {{ landing.hubsHeading }}
+      </h2>
+      <ul class="flex flex-wrap gap-x-5 gap-y-2 max-w-3xl">
+        @for (hub of landing.hubs; track hub.href) {
+          <li>
+            <a [href]="hub.href" class="font-bold text-green-800 underline underline-offset-2">{{
+              hub.label
+            }}</a>
+          </li>
+        }
+      </ul>
+    </nav>
     <p>
       <a href="/browse" class="font-bold text-green-800 underline underline-offset-2"
         >Browse published vegan recipes &rarr;</a
