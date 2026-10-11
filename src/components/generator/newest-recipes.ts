@@ -14,6 +14,9 @@ export interface NewestRecipeLink {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const NEWEST_RECIPES_LIMIT = 8;
+// Match the server's hard upper bound (2 * its three-minute cache TTL).
+// After this, an SPA revisit must not reuse the boot-time row indefinitely.
+const NEWEST_RECIPES_MAX_AGE_MS = 6 * 60_000;
 
 const parseNewestRecipesPayload = (payload: unknown): NewestRecipeLink[] => {
   const rows = (payload as { recipes?: unknown } | null)?.recipes;
@@ -43,14 +46,19 @@ export function readNewestRecipes(doc: Pick<Document, 'querySelectorAll'>): Newe
 
 export const SERVER_NEWEST_RECIPES: readonly NewestRecipeLink[] =
   typeof document === 'undefined' ? [] : readNewestRecipes(document);
+const SERVER_NEWEST_RECIPES_CAPTURED_AT = Date.now();
 
 export const INITIAL_PAGE_PATH = typeof location === 'undefined' ? '/' : location.pathname;
 
 export function needsNewestRecipesFallback(
   initialPath: string,
-  links: readonly NewestRecipeLink[]
+  links: readonly NewestRecipeLink[],
+  now = Date.now(),
+  capturedAt = SERVER_NEWEST_RECIPES_CAPTURED_AT
 ): boolean {
-  return initialPath !== '/' && links.length === 0;
+  return (
+    (initialPath !== '/' && links.length === 0) || now - capturedAt >= NEWEST_RECIPES_MAX_AGE_MS
+  );
 }
 
 /** Load the row only when an SPA session started on a route-neutral shell. */
