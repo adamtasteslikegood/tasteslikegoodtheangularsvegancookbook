@@ -96,7 +96,19 @@ describe('home page newest-recipes row (KAN-348)', () => {
     const res = await fetch(`${baseUrl}/?source=oauth`);
     expect(res.headers.get('x-robots-tag')).toBe('index, follow');
     expect(res.headers.get('cache-control')).toBe('public, max-age=0');
+    const etag = res.headers.get('etag');
+    expect(etag).toMatch(/^W\//);
     expect(await res.text()).toContain('/r/smoky-bean-chili');
+
+    const revalidatedStatus = await new Promise<number>((resolve, reject) => {
+      const request = http.get(`${baseUrl}/?source=oauth`, { headers: { 'if-none-match': etag! } });
+      request.once('response', (response) => {
+        response.resume();
+        resolve(response.statusCode ?? 0);
+      });
+      request.once('error', reject);
+    });
+    expect(revalidatedStatus).toBe(304);
   });
 
   it('asks Flask once for many home requests', async () => {
