@@ -430,8 +430,6 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(res.headers.get('location')).toBe('/');
   });
 
-  // The public SSR surface is proxied to Flask before the catch-all, so it
-  // keeps the production `index, follow` header.
   it('compresses a hashed build asset and marks it immutable (KAN-362)', async () => {
     const res = await fetch(`${baseUrl}/main-ABCD1234.js`, {
       headers: { 'accept-encoding': 'gzip' },
@@ -487,6 +485,8 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(Buffer.from(await res.arrayBuffer()).equals(STUB_IMAGE)).toBe(true);
   });
 
+  // The public SSR surface is proxied to Flask before the catch-all, so it
+  // keeps the production `index, follow` header.
   it('leaves /r/<slug> indexable (proxied to Flask, not the catch-all)', async () => {
     const res = await fetch(`${baseUrl}/r/test-slug`);
     expect(res.status).toBe(200);
