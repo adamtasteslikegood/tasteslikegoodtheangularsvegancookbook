@@ -21,7 +21,6 @@ import {
   LANDING_STEPS,
 } from './landing-copy';
 import {
-  INITIAL_PAGE_PATH,
   SERVER_NEWEST_RECIPES,
   fetchNewestRecipes,
   needsNewestRecipesFallback,
@@ -85,7 +84,7 @@ export class GeneratorComponent extends RecipeViewBase {
   constructor() {
     super();
     this.recipeState.clearRecipe();
-    if (this.showLanding && needsNewestRecipesFallback(INITIAL_PAGE_PATH, this.landing.newest())) {
+    if (this.showLanding && needsNewestRecipesFallback(this.landing.newest())) {
       void fetchNewestRecipes().then((recipes) => this.landing.newest.set(recipes));
     }
   }

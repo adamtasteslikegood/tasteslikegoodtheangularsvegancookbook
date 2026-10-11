@@ -48,17 +48,17 @@ export const SERVER_NEWEST_RECIPES: readonly NewestRecipeLink[] =
   typeof document === 'undefined' ? [] : readNewestRecipes(document);
 const SERVER_NEWEST_RECIPES_CAPTURED_AT = Date.now();
 
-export const INITIAL_PAGE_PATH = typeof location === 'undefined' ? '/' : location.pathname;
-
+/**
+ * True when the browser should ask for the row itself: the page arrived with
+ * none (a route-neutral shell, or a home page served while Flask had no
+ * answer), or the row read at boot has aged out.
+ */
 export function needsNewestRecipesFallback(
-  initialPath: string,
   links: readonly NewestRecipeLink[],
   now = Date.now(),
   capturedAt = SERVER_NEWEST_RECIPES_CAPTURED_AT
 ): boolean {
-  return (
-    (initialPath !== '/' && links.length === 0) || now - capturedAt >= NEWEST_RECIPES_MAX_AGE_MS
-  );
+  return links.length === 0 || now - capturedAt >= NEWEST_RECIPES_MAX_AGE_MS;
 }
 
 /**
@@ -69,9 +69,8 @@ export function needsNewestRecipesFallback(
 export const NEWEST_RECIPES_FETCH_TIMEOUT_MS = 4_000;
 
 /**
- * Load the row in the browser: when the session started on a route-neutral
- * shell, or the row read at boot has aged out. Answers [] on any failure,
- * including the timeout.
+ * Load the row in the browser, when `needsNewestRecipesFallback` says so.
+ * Answers [] on any failure, including the timeout.
  */
 export async function fetchNewestRecipes(
   fetchImpl: typeof fetch = fetch,
