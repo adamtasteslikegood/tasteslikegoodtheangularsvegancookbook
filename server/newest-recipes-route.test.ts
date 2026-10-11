@@ -39,6 +39,7 @@ let expressServer: http.Server;
 let baseUrl: string;
 let stubDistDir: string;
 let newestRequests = 0;
+let newestRequestsAfterReady = 0;
 
 beforeAll(async () => {
   flaskStub = http.createServer((req, res) => {
@@ -62,6 +63,7 @@ beforeAll(async () => {
 
   const { app, ready } = await import('./index.js');
   await ready;
+  newestRequestsAfterReady = newestRequests;
   expressServer = app.listen(0, '127.0.0.1');
   await new Promise<void>((resolve) => expressServer.once('listening', resolve));
   baseUrl = `http://127.0.0.1:${(expressServer.address() as AddressInfo).port}`;
@@ -112,8 +114,9 @@ describe('home page newest-recipes row (KAN-348)', () => {
   });
 
   it('has the list before the first request: the server fetched it while starting', async () => {
-    // beforeAll awaited `ready`, which awaits the startup fetch.
-    expect(newestRequests).toBe(1);
+    // Capture this immediately after `ready`: earlier tests make home requests,
+    // so reading `newestRequests` here would not prove the preload happened.
+    expect(newestRequestsAfterReady).toBe(1);
   });
 
   it('asks Flask once for many home requests', async () => {
