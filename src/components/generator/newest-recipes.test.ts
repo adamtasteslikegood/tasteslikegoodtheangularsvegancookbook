@@ -1,0 +1,65 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, it } from 'vitest';
+import { readNewestRecipes } from './newest-recipes';
+
+// KAN-348: Express writes the newest-recipes row into <app-root>; the landing
+// page reads it back before Angular replaces <app-root>, and renders the same
+// links.
+
+const anchor = (href: string | null, text: string | null) => ({
+  getAttribute: (name: string) => (name === 'href' ? href : null),
+  textContent: text,
+});
+
+const docWith = (anchors: unknown[]) => {
+  const selectors: string[] = [];
+  return {
+    selectors,
+    doc: {
+      querySelectorAll: (selector: string) => {
+        selectors.push(selector);
+        return anchors;
+      },
+    } as unknown as Pick<Document, 'querySelectorAll'>,
+  };
+};
+
+describe('readNewestRecipes', () => {
+  it('reads the links the server wrote, in order', () => {
+    const { doc, selectors } = docWith([
+      anchor('/r/chili', ' Smoky Bean Chili '),
+      anchor('/r/mac', 'Mac & Cheeze'),
+    ]);
+    expect(readNewestRecipes(doc)).toEqual([
+      { href: '/r/chili', label: 'Smoky Bean Chili' },
+      { href: '/r/mac', label: 'Mac & Cheeze' },
+    ]);
+    // Only recipe links inside the row Express writes (server/newest-recipes.ts).
+    expect(selectors).toEqual(['nav[aria-labelledby="landing-newest-title"] a[href^="/r/"]']);
+  });
+
+  it('skips links with no href or no text, and answers [] when the row is absent', () => {
+    expect(
+      readNewestRecipes(
+        docWith([anchor(null, 'x'), anchor('/r/a', '  '), anchor('/r/a', null)]).doc
+      )
+    ).toEqual([]);
+    expect(readNewestRecipes(docWith([]).doc)).toEqual([]);
+  });
+});
+
+describe('landing template', () => {
+  const template = readFileSync(
+    fileURLToPath(new URL('./generator.component.html', import.meta.url)),
+    'utf8'
+  );
+
+  it('renders the row only when the server wrote one, under the same landmark id', () => {
+    expect(template).toMatch(
+      /@if \(landing\.newest\.length\) \{\s*<nav aria-labelledby="landing-newest-title">/
+    );
+    expect(template).toContain('{{ landing.newestHeading }}');
+    expect(template).toMatch(/@for \(recipe of landing\.newest; track recipe\.href\)/);
+  });
+});

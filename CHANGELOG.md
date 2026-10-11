@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Newest recipes on the home page (KAN-348). The home page lists the eight most recently published
+  recipes as plain links in its first HTML response, under the category links. Express asks Flask
+  for the list (new `GET /api/public/newest-recipes`, ordered by first publication), keeps it for
+  three minutes, and writes it into the page; an unpublished recipe is gone from home within six
+  minutes. If Flask has no list, the page is served as built, with its fixed recipe links.
+
 ### Changed
 
 - Text responses are compressed (KAN-362). Express now compresses JavaScript, CSS, HTML and JSON,
@@ -18,6 +26,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and `styles-*.css` are served `public, max-age=31536000, immutable`; the home page itself still
   revalidates on every visit. The two `/rum/*.js` scripts keep their names across releases, so
   they get one hour.
+- Flask's own stylesheets and script are cacheable (KAN-362). `/static/` URLs on the public pages
+  now carry the file's content hash as `?v=`, and a URL naming the current hash is served
+  `public, max-age=31536000, immutable`, on a revalidation too. They were `no-cache` before.
+- The first row of thumbnails on `/browse` and the tag hubs loads at once (KAN-362). The first three
+  cards are no longer lazy, and the first image shown gets `fetchpriority="high"`; the rest stay lazy.
+
+Backend pointer moved to `6fe3608` (Backend `dev`, #393 and #394) for staging. The release pins
+Backend `main` after promotion.
 
 ## [0.5.9] - 2026-10-10
 

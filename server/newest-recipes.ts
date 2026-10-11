@@ -131,7 +131,7 @@ export function createNewestRecipesSource(
   let recipes: readonly NewestRecipe[] = [];
   let fetchedAt: number | null = null;
   let inFlight: Promise<void> | null = null;
-  let lastFailureLoggedAt = 0;
+  let lastFailureLoggedAt = -Infinity;
 
   const load = async (): Promise<void> => {
     try {
