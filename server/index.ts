@@ -1,5 +1,7 @@
 import express from 'express';
+import compression from 'compression';
 import { readFile } from 'node:fs/promises';
+import { constants as zlibConstants } from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Server } from 'node:http';
@@ -21,6 +23,12 @@ import { createWritePause } from './write-pause.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 import { buildRouteNeutralSpaShell } from './spa-shell.js';
+import { staticCacheControl } from './static-cache.js';
+import {
+  createFailureLogGate,
+  createNewestRecipesSource,
+  injectNewestRecipes,
+} from './newest-recipes.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -101,6 +109,22 @@ export const ready = (async () => {
   });
 
   // ── Rate limiters (before proxy so they protect Flask) ──────────
+  // KAN-362: compress text responses (JS, CSS, HTML, JSON), both what Express
+  // serves and what it proxies from Flask. Nothing upstream compresses: the
+  // 914 kB main bundle went out as is and was the whole mobile home LCP.
+  // Mounted before every route that produces a body. The default filter only
+  // touches compressible content types, so recipe images pass through, and it
+  // leaves any response that already carries a Content-Encoding alone.
+  //
+  // Brotli quality 5, up from the library's 4: at 4 the main bundle came out
+  // larger than gzip's (256 kB against 252 kB). At 5 it is 237 kB for the same
+  // CPU time as gzip (about 26 ms for the whole bundle, measured 2026-10-11).
+  app.use(
+    compression({
+      brotli: { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 5 } },
+    })
+  );
+
   // General: 300 req / 15 min per IP (image serving is exempt)
   app.use('/api', createApiLimiter(valkeyClient));
   // Expensive AI operations: 20 req / hour per IP
@@ -214,9 +238,50 @@ export const ready = (async () => {
     res.redirect(301, `/${suffix}`);
   });
 
+  // KAN-348: the home page's newest-recipes row. Mounted before express.static,
+  // which would otherwise answer "/" with the file as built. The row is an
+  // addition: with no list, or on any failure here, the request falls through
+  // and the built shell is served with its fixed recipe links.
+  const newestRecipes = createNewestRecipesSource({ flaskUrl });
+  // Fetched now and awaited just before the server listens, so the first home
+  // request on a new instance finds the list (or a recorded failure) and does
+  // not wait on Flask. Bounded by the fetch timeout; never rejects.
+  const newestRecipesPreload = newestRecipes.refresh();
+  const shouldLogHomeShellFailure = createFailureLogGate();
+  let homeShellPromise: Promise<string> | undefined;
+  const getHomeShell = (): Promise<string> => {
+    homeShellPromise ??= readFile(spaIndexPath, 'utf8').catch((err) => {
+      homeShellPromise = undefined;
+      throw err;
+    });
+    return homeShellPromise;
+  };
+  app.get('/', staticPageLimiter, async (_req, res, next) => {
+    try {
+      const recipes = await newestRecipes.get();
+      if (recipes.length === 0) return next();
+      const html = injectNewestRecipes(await getHomeShell(), recipes);
+      // Same Cache-Control express.static gives the file it would have served.
+      res.setHeader('Cache-Control', 'public, max-age=0');
+      res.type('html').send(html);
+    } catch (err) {
+      if (shouldLogHomeShellFailure()) {
+        console.warn('[newest-recipes] serving the home shell as built:', err);
+      }
+      next();
+    }
+  });
+
   // The compiled Angular bundles and public assets must remain mounted before
   // the SPA catch-all. Missing assets then fall through to the asset 404 below.
-  app.use(express.static(distPath));
+  app.use(
+    express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        const cacheControl = staticCacheControl(path.relative(distPath, filePath));
+        if (cacheControl) res.setHeader('Cache-Control', cacheControl);
+      },
+    })
+  );
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
@@ -372,6 +437,8 @@ export const ready = (async () => {
 
   // Error handling middleware (must be last)
   app.use(createErrorHandler());
+
+  await newestRecipesPreload;
 
   // Skip the real listener under test runners: Vitest sets VITEST itself,
   // and NODE_ENV=test covers any other harness importing this module.

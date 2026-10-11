@@ -6,6 +6,47 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+## [0.6.0] - 2026-10-11
+
+Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
+
+### Added
+
+- Newest recipes on the home page (KAN-348). The home page lists the eight most recently published
+  recipes as plain links in its first HTML response, under the category links. Express asks Flask
+  for the list (new `GET /api/public/newest-recipes`, ordered by first publication), keeps it for
+  three minutes, and writes it into the page; an unpublished recipe is gone from home within six
+  minutes. If Flask has no list, the page is served as built, with its fixed recipe links.
+  The list is fetched while the server starts, so the first visitor to a new instance does not wait
+  for it; when Flask does not answer, the page is served as built and the list is asked for again
+  after 30 seconds, behind a request.
+
+### Fixed
+
+- The in-app request for the newest-recipes row gives up after four seconds (KAN-348). It had no
+  limit, so a stalled backend left the request open for the life of the page.
+- A home page served without the newest-recipes row now asks for it in the browser (KAN-348).
+  When Flask had no answer as the page was built, the app waited six minutes before asking again;
+  it now asks as it starts, the same as a session that began on another page.
+
+### Changed
+
+- Text responses are compressed (KAN-362). Express now compresses JavaScript, CSS, HTML and JSON,
+  both its own files and the pages it proxies from Flask, with Brotli or gzip as the browser
+  accepts. The main bundle goes from 916 kB to about 237 kB on the wire. Images and other
+  already-compressed types pass through unchanged.
+- Hashed build files are cached for a year (KAN-362). `main-*.js`, `chunk-*.js`, `polyfills-*.js`
+  and `styles-*.css` are served `public, max-age=31536000, immutable`; the home page itself still
+  revalidates on every visit. The two `/rum/*.js` scripts keep their names across releases, so
+  they get one hour.
+- Flask's own stylesheets and script are cacheable (KAN-362). `/static/` URLs on the public pages
+  now carry the file's content hash as `?v=`, and a URL naming the current hash is served
+  `public, max-age=31536000, immutable`, on a revalidation too. They were `no-cache` before.
+- The first row of thumbnails on `/browse` and the tag hubs loads at once (KAN-362). The first three
+  cards are no longer lazy, and the first image shown gets `fetchpriority="high"`; the rest stay lazy.
+
 ## [0.5.9] - 2026-10-10
 
 Backend pointer pinned at `54c004ae4203` (Backend `main`, promotions #379 and #391).

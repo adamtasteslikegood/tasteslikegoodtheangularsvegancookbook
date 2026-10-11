@@ -137,7 +137,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 **Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-3-pro-image`, Nano Banana Pro), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
-- **Version:** See `package.json` `version` field (currently v0.4.2)
+- **Version:** See `package.json` `version` field (currently v0.6.0)
 - **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions
 
 ## Commands
@@ -185,7 +185,8 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream. Angular only ever uses relative URLs (`/api/...`).
 
 - **Layer 1 — Angular 22 SPA** (`src/`): Standalone components with Signals API, flat route config in `src/app.routes.ts`. See `src/` directory structure for component tree.
-- **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation. No AI logic — purely proxy + static hosting.
+- **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation, response compression, cache headers for the built assets. No AI logic and no recipe logic: proxy + static hosting, with **one exception**.
+  - **The exception (KAN-348):** `/` is the Angular build's `index.html`, the one crawlable page Flask does not render. Express writes the newest-recipes row into it from Flask's `GET /api/public/newest-recipes` (`server/newest-recipes.ts`): fetched at startup, kept three minutes, served as built when Flask has no list. Flask decides order and visibility; Express only pastes links. **Do not extend this.** It cost a cache, a timeout, a retry rule and a browser fallback for eight links. More live content on the home page means Flask rendering `/`, not more composition in Express.
 - **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: @Backend/CLAUDE.md
 - **Public SSR surface**: Express proxies `/r/<slug>`, `/browse`, `/sitemap.xml`, `/static/*` to Flask for server-side rendering before the SPA catch-all.
 - **Persistence**: `PersistenceService` writes localStorage first (instant UI), then syncs to Flask. Cloud SQL is authoritative; SQLite for local dev.

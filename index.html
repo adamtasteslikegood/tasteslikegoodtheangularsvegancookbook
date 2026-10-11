@@ -432,6 +432,11 @@
               </li>
             </ul>
           </nav>
+          <!--
+            KAN-348: Express writes the newest-recipes row over this element
+            (server/newest-recipes.ts). It stays empty when Flask has no list.
+          -->
+          <div id="tlg-newest-recipes"></div>
           <p>
             <a href="/browse" class="font-bold text-green-800 underline underline-offset-2"
               >Browse published vegan recipes &rarr;</a
