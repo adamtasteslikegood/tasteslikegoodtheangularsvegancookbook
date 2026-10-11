@@ -79,6 +79,7 @@ describe('readNewestRecipes', () => {
     );
     expect(fetchImpl).toHaveBeenCalledWith('/api/public/newest-recipes?limit=8', {
       headers: { accept: 'application/json' },
+      signal: expect.any(AbortSignal),
     });
 
     expect(module.needsNewestRecipesFallback!('/kitchen', [])).toBe(true);
@@ -119,5 +120,23 @@ describe('landing template', () => {
     );
     expect(template).toContain('{{ landing.newestHeading }}');
     expect(template).toMatch(/@for \(recipe of landing\.newest\(\); track recipe\.href\)/);
+  });
+});
+
+describe('fetchNewestRecipes timeout', () => {
+  it('gives up on a backend that never answers, and answers []', async () => {
+    const { fetchNewestRecipes } = await import('./newest-recipes');
+    let aborted = false;
+    // Like the real fetch: pending until the signal aborts, then rejects.
+    const fetchImpl = ((_url: string, init?: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener('abort', () => {
+          aborted = true;
+          reject(init.signal?.reason);
+        });
+      })) as unknown as typeof fetch;
+
+    await expect(fetchNewestRecipes(fetchImpl, 20)).resolves.toEqual([]);
+    expect(aborted).toBe(true);
   });
 });
