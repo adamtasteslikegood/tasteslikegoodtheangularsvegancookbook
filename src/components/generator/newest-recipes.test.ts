@@ -51,7 +51,12 @@ describe('readNewestRecipes', () => {
   it('fetches a safe fallback after an SPA entry on a non-home shell', async () => {
     const module = newestRecipes as typeof newestRecipes & {
       fetchNewestRecipes?: (fetchImpl: typeof fetch) => Promise<unknown>;
-      needsNewestRecipesFallback?: (initialPath: string, links: unknown[]) => boolean;
+      needsNewestRecipesFallback?: (
+        initialPath: string,
+        links: unknown[],
+        now?: number,
+        capturedAt?: number
+      ) => boolean;
     };
     expect(module.fetchNewestRecipes).toBeTypeOf('function');
     expect(module.needsNewestRecipesFallback).toBeTypeOf('function');
@@ -83,6 +88,22 @@ describe('readNewestRecipes', () => {
         { href: '/r/already-there', label: 'Already there' },
       ])
     ).toBe(false);
+    expect(
+      module.needsNewestRecipesFallback!(
+        '/',
+        [{ href: '/r/server-rendered', label: 'Server rendered' }],
+        6 * 60_000 - 1,
+        0
+      )
+    ).toBe(false);
+    expect(
+      module.needsNewestRecipesFallback!(
+        '/',
+        [{ href: '/r/server-rendered', label: 'Server rendered' }],
+        6 * 60_000,
+        0
+      )
+    ).toBe(true);
   });
 });
 
