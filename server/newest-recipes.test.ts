@@ -155,10 +155,10 @@ describe('the SPA copy of the parsing rules', () => {
 
   it('uses the same 200-character caps on slug and name', () => {
     const server = repoFile('server/newest-recipes.ts');
-    for (const source of [spa, server]) {
-      expect(source).toContain('slug.length > 200');
-      expect(source).toMatch(/\.length > 200\) continue;/);
-    }
+    expect(spa).toContain('slug.length > 200');
+    expect(spa).toContain('label.length > 200');
+    expect(server).toContain('slug.length > 200');
+    expect(server).toContain('trimmedName.length > 200');
   });
 });
 
