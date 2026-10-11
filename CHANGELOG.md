@@ -27,6 +27,9 @@ Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
 
 - The in-app request for the newest-recipes row gives up after four seconds (KAN-348). It had no
   limit, so a stalled backend left the request open for the life of the page.
+- A home page served without the newest-recipes row now asks for it in the browser (KAN-348).
+  When Flask had no answer as the page was built, the app waited six minutes before asking again;
+  it now asks as it starts, the same as a session that began on another page.
 
 ### Changed
 

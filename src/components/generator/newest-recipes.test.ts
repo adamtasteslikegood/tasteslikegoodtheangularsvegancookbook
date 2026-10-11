@@ -51,12 +51,7 @@ describe('readNewestRecipes', () => {
   it('fetches a safe fallback after an SPA entry on a non-home shell', async () => {
     const module = newestRecipes as typeof newestRecipes & {
       fetchNewestRecipes?: (fetchImpl: typeof fetch) => Promise<unknown>;
-      needsNewestRecipesFallback?: (
-        initialPath: string,
-        links: unknown[],
-        now?: number,
-        capturedAt?: number
-      ) => boolean;
+      needsNewestRecipesFallback?: (links: unknown[], now?: number, capturedAt?: number) => boolean;
     };
     expect(module.fetchNewestRecipes).toBeTypeOf('function');
     expect(module.needsNewestRecipesFallback).toBeTypeOf('function');
@@ -82,29 +77,11 @@ describe('readNewestRecipes', () => {
       signal: expect.any(AbortSignal),
     });
 
-    expect(module.needsNewestRecipesFallback!('/kitchen', [])).toBe(true);
-    expect(module.needsNewestRecipesFallback!('/', [])).toBe(false);
-    expect(
-      module.needsNewestRecipesFallback!('/kitchen', [
-        { href: '/r/already-there', label: 'Already there' },
-      ])
-    ).toBe(false);
-    expect(
-      module.needsNewestRecipesFallback!(
-        '/',
-        [{ href: '/r/server-rendered', label: 'Server rendered' }],
-        6 * 60_000 - 1,
-        0
-      )
-    ).toBe(false);
-    expect(
-      module.needsNewestRecipesFallback!(
-        '/',
-        [{ href: '/r/server-rendered', label: 'Server rendered' }],
-        6 * 60_000,
-        0
-      )
-    ).toBe(true);
+    // No row on the page: ask for it, whichever shell the session started on.
+    expect(module.needsNewestRecipesFallback!([])).toBe(true);
+    const row = [{ href: '/r/server-rendered', label: 'Server rendered' }];
+    expect(module.needsNewestRecipesFallback!(row, 6 * 60_000 - 1, 0)).toBe(false);
+    expect(module.needsNewestRecipesFallback!(row, 6 * 60_000, 0)).toBe(true);
   });
 });
 
