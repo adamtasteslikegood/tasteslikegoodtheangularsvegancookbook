@@ -21,6 +21,7 @@ import { createWritePause } from './write-pause.js';
 import { createValkeyClient, shutdownValkey } from './valkey.js';
 import { absoluteRequestPath, classifyRoute } from './route-manifest.js';
 import { buildRouteNeutralSpaShell } from './spa-shell.js';
+import { createNewestRecipesSource, injectNewestRecipes } from './newest-recipes.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -212,6 +213,33 @@ export const ready = (async () => {
 
     const suffix = query.size > 0 ? `?${query.toString()}` : '';
     res.redirect(301, `/${suffix}`);
+  });
+
+  // KAN-348: the home page's newest-recipes row. Mounted before express.static,
+  // which would otherwise answer "/" with the file as built. The row is an
+  // addition: with no list, or on any failure here, the request falls through
+  // and the built shell is served with its fixed recipe links.
+  const newestRecipes = createNewestRecipesSource({ flaskUrl });
+  let homeShellPromise: Promise<string> | undefined;
+  const getHomeShell = (): Promise<string> => {
+    homeShellPromise ??= readFile(spaIndexPath, 'utf8').catch((err) => {
+      homeShellPromise = undefined;
+      throw err;
+    });
+    return homeShellPromise;
+  };
+  app.get('/', staticPageLimiter, async (_req, res, next) => {
+    try {
+      const recipes = await newestRecipes.get();
+      if (recipes.length === 0) return next();
+      const html = injectNewestRecipes(await getHomeShell(), recipes);
+      // Same Cache-Control express.static gives the file it would have served.
+      res.setHeader('Cache-Control', 'public, max-age=0');
+      res.type('html').send(html);
+    } catch (err) {
+      console.warn('[newest-recipes] serving the home shell as built:', err);
+      next();
+    }
   });
 
   // The compiled Angular bundles and public assets must remain mounted before

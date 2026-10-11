@@ -665,6 +665,24 @@
         }
       </ul>
     </nav>
+    @if (landing.newest.length) {
+      <nav aria-labelledby="landing-newest-title">
+        <h2 id="landing-newest-title" class="text-2xl font-bold text-stone-800 mb-4">
+          {{ landing.newestHeading }}
+        </h2>
+        <ul class="flex flex-wrap gap-x-5 gap-y-2 max-w-3xl">
+          @for (recipe of landing.newest; track recipe.href) {
+            <li>
+              <a
+                [href]="recipe.href"
+                class="font-bold text-green-800 underline underline-offset-2"
+                >{{ recipe.label }}</a
+              >
+            </li>
+          }
+        </ul>
+      </nav>
+    }
     <p>
       <a href="/browse" class="font-bold text-green-800 underline underline-offset-2"
         >Browse published vegan recipes &rarr;</a

@@ -93,3 +93,11 @@ export const LANDING_FAQ: readonly LandingFaq[] = [
 export const LANDING_HUBS_HEADING = 'Browse vegan recipes by category';
 
 export const LANDING_HUBS: readonly { href: string; label: string }[] = siteNav.hubs;
+
+/**
+ * "Newest vegan recipes" (KAN-348). Not static copy: Express writes the row
+ * into index.html's `#tlg-newest-recipes` marker from Flask's list
+ * (server/newest-recipes.ts, which repeats this heading), and the landing page
+ * re-renders what the server wrote. See ./newest-recipes.ts.
+ */
+export const LANDING_NEWEST_HEADING = 'Newest vegan recipes';

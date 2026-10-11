@@ -17,8 +17,10 @@ import {
   LANDING_HUBS_HEADING,
   LANDING_INTRO,
   LANDING_LEAD,
+  LANDING_NEWEST_HEADING,
   LANDING_STEPS,
 } from './landing-copy';
+import { SERVER_NEWEST_RECIPES } from './newest-recipes';
 
 @Component({
   selector: 'app-generator',
@@ -36,6 +38,8 @@ export class GeneratorComponent extends RecipeViewBase {
     faq: LANDING_FAQ,
     hubsHeading: LANDING_HUBS_HEADING,
     hubs: LANDING_HUBS,
+    newestHeading: LANDING_NEWEST_HEADING,
+    newest: SERVER_NEWEST_RECIPES,
   };
 
   /**
