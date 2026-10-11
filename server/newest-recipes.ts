@@ -191,7 +191,7 @@ export function createNewestRecipesSource(
       if (shouldLogFailure()) {
         console.warn(
           '[newest-recipes] list unavailable; home is served without the row:',
-          (err as Error).message
+          err instanceof Error ? err.message : String(err)
         );
       }
     } finally {
