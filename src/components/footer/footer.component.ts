@@ -27,7 +27,13 @@ export const footerLinks = (production = environment.production) =>
       <div
         class="flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left"
       >
-        <p class="serif">&copy; 2026 Tasteslikegood.org &mdash; VeganGenius Chef</p>
+        <p class="serif">
+          &copy; 2026
+          <a [href]="brand.href" class="hover:text-stone-800 underline underline-offset-2">{{
+            brand.label
+          }}</a>
+          &mdash; VeganGenius Chef
+        </p>
         <nav class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
           @for (link of links; track link.href) {
             <a [href]="link.href" class="hover:text-stone-800 underline underline-offset-2">{{
@@ -54,4 +60,6 @@ export const footerLinks = (production = environment.production) =>
 })
 export class FooterComponent {
   readonly links = footerLinks();
+  /** The site name in the copyright line, linked home (KAN-374). */
+  readonly brand = siteNav.footerBrand;
 }

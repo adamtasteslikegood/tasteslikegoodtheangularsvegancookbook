@@ -41,7 +41,10 @@ describe('footer standalone-page links', () => {
 describe('footer nav parity (KAN-294)', () => {
   const manifest = JSON.parse(
     readFileSync(fileURLToPath(new URL('../../site-nav.json', import.meta.url)), 'utf8')
-  ) as { footer: Array<{ href: string; label: string }> };
+  ) as {
+    footer: Array<{ href: string; label: string }>;
+    footerBrand: { href: string; label: string };
+  };
 
   it('renders exactly the canonical footer set from src/site-nav.json, in order', () => {
     expect(footerLinks(true)).toEqual(manifest.footer);
@@ -55,12 +58,15 @@ describe('footer nav parity (KAN-294)', () => {
     );
   });
 
-  it('has no hand-written anchors outside the manifest loop', () => {
+  it('has one anchor besides the manifest loop: the site name, from the manifest', () => {
     const source = readFileSync(
       fileURLToPath(new URL('./footer.component.ts', import.meta.url)),
       'utf8'
     );
     expect(source).toContain('@for (link of links;');
-    expect(source.match(/<a\b/g)).toHaveLength(1);
+    expect(source).toContain('<a [href]="brand.href"');
+    expect(source).toContain('brand = siteNav.footerBrand');
+    expect(manifest.footerBrand).toEqual({ href: '/', label: 'Tasteslikegood.org' });
+    expect(source.match(/<a\b/g)).toHaveLength(2);
   });
 });

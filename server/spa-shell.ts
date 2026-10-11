@@ -37,7 +37,7 @@ export function buildRouteNeutralSpaShell(fullSpaShell: string, neutralRobots: s
   const homeHeadStart = homeHeadStartMatch.index;
   const homeHeadEnd =
     homeHeadStartMatch.index + homeHeadEndMatch.index + homeHeadEndMatch[0].length;
-  const neutralHead = `<title>TastesLikeGood</title><meta name="robots" content="${neutralRobots}" />`;
+  const neutralHead = `<title>Tasteslikegood.org</title><meta name="robots" content="${neutralRobots}" />`;
   const shellWithoutHomeHead =
     fullSpaShell.slice(0, homeHeadStart) + neutralHead + fullSpaShell.slice(homeHeadEnd);
 

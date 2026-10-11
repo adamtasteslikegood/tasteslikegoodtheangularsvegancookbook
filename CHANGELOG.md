@@ -8,6 +8,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- The site name is written one way, "Tasteslikegood.org", wherever it is shown (KAN-374): page
+  titles, social-card and structured-data names, the about and privacy pages, and the footers.
+  The second name is "VeganGenius Chef" throughout. The home page title drops "Free" to stay
+  within 60 characters: "AI Vegan Recipe Generator & Cookbook | Tasteslikegood.org".
+- The site name in the footer's copyright line links to the home page (KAN-374), in the app and on
+  the about and privacy pages. The link comes from `footerBrand` in `src/site-nav.json`.
+
 ## [0.6.0] - 2026-10-11
 
 Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
