@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Text responses are compressed (KAN-362). Express now compresses JavaScript, CSS, HTML and JSON,
+  both its own files and the pages it proxies from Flask, with Brotli or gzip as the browser
+  accepts. The main bundle goes from 916 kB to about 237 kB on the wire. Images and other
+  already-compressed types pass through unchanged.
+- Hashed build files are cached for a year (KAN-362). `main-*.js`, `chunk-*.js`, `polyfills-*.js`
+  and `styles-*.css` are served `public, max-age=31536000, immutable`; the home page itself still
+  revalidates on every visit. The two `/rum/*.js` scripts keep their names across releases, so
+  they get one hour.
+
 ## [0.5.9] - 2026-10-10
 
 Backend pointer pinned at `54c004ae4203` (Backend `main`, promotions #379 and #391).
