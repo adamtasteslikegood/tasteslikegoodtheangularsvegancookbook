@@ -33,7 +33,7 @@ slug="$(fetch "$BASE/api/public/newest-recipes" | grep -oE '"slug": ?"[a-z0-9-]+
 
 # AR-1: every named AI crawler appears in robots.txt
 missing=""
-for bot in GPTBot OAI-SearchBot ChatGPT-User ClaudeBot Claude-SearchBot Claude-User PerplexityBot Perplexity-User Google-Extended CCBot; do
+for bot in GPTBot OAI-SearchBot ChatGPT-User ClaudeBot Claude-SearchBot Claude-User PerplexityBot Perplexity-User Google-Extended Applebot-Extended CCBot; do
   grep -qi "^User-agent: *$bot *\$" <<<"$robots" || missing="$missing $bot"
 done
 [ -z "$missing" ]
