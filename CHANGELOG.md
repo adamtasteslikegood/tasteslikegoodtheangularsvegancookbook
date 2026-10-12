@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-12
+
+Backend pointer pinned at `e3e86a2ac471` (Backend `main`, promotion #399).
+
 ### Changed
 
 - The site name is written one way, "Tasteslikegood.org", wherever it is shown (KAN-374): page
@@ -32,6 +36,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - A recipe that finishes generating after you have opened a different recipe no longer replaces
   the one on screen (KAN-378). It is saved, and a message says it is ready in My Kitchen. A
   generation that fails while you are elsewhere is reported the same way.
+- My Kitchen no longer lists or counts a recipe that never finished generating (KAN-381, Backend
+  #398). The "Generating..." placeholder, and a row left behind by a failed generation, stay out
+  of the list and the recipe count; a recipe appears once it is ready.
 
 ## [0.6.0] - 2026-10-11
 
