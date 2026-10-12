@@ -87,6 +87,22 @@ describe('GeminiService.generateRecipe wait', () => {
     expect(fetchMock).toHaveBeenCalledTimes(5);
   });
 
+  it('keeps waiting when a ready status arrives without the recipe', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(queued())
+      .mockResolvedValueOnce(jsonResponse({ status: 'ready', recipe: null }))
+      .mockResolvedValueOnce(ready());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = new GeminiService().generateRecipe('a hearty winter stew');
+    await vi.advanceTimersByTimeAsync(4000);
+
+    await expect(result).resolves.toMatchObject({ id: RECIPE_ID });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it('gives up after five failed status requests in a row (KAN-379)', async () => {
     vi.useFakeTimers();
     const fetchMock = vi
