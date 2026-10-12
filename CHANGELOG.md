@@ -17,6 +17,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The site name in the footer's copyright line links to the home page (KAN-374), in the app and on
   the about and privacy pages. The link comes from `footerBrand` in `src/site-nav.json`.
 
+### Fixed
+
+- The wait for a recipe, and for its image, no longer ends with an error on one failed status
+  request (KAN-379). A dropped connection, a 502 or a 429 is retried; the wait ends only after
+  five failed requests in a row, or at once when the recipe no longer exists.
+- The wait for a recipe gives up after five minutes with a message, as the image wait already
+  did (KAN-380). A generation that died used to leave "Cooking..." on screen until the tab was
+  closed. Status requests no longer overlap behind a slow response.
+
 ## [0.6.0] - 2026-10-11
 
 Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
