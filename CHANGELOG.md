@@ -8,6 +8,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-10-12
+
+Backend pointer pinned at `95cbe1044cc4` (Backend `main`, promotion #405).
+
+### Added
+
+- A second pass on the server writes the search title and meta description for public recipe
+  pages (KAN-388). It runs after the recipe is saved and does not change the generated recipe.
+  A rule version adds "Recipe" and the site name where 60 characters allow, and ends a long
+  description at a sentence. A model rewrite replaces it only when it passes the length limits
+  and a keyword guard. Versions are kept in a new table, `recipe_metadata` (migration
+  `d9b3e7a1c5f4`). A page with no metadata renders as before.
+- Pub/Sub topic `recipe-metadata` and its push subscription to `/api/worker/metadata` in
+  `scripts/gcloud/setup_pubsub.sh`, the endpoint updater, the monitoring defaults and the local
+  emulator (KAN-388). The script is run by hand after this release is live; until then pages
+  keep the titles they have.
+
+### Fixed
+
+- Card thumbnails are sized to the card, at a width of 600 px (KAN-371).
+- Pinterest pins made from a landscape photo are cropped to a square before padding (KAN-387).
+
 ## [0.6.1] - 2026-10-12
 
 Backend pointer pinned at `e3e86a2ac471` (Backend `main`, promotion #399).
