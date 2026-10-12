@@ -111,13 +111,14 @@ export class GeneratorComponent extends RecipeViewBase {
     // is not, and a generator rebuilt by navigation has no memory of its own.
     if (!this.recipeState.beginRecipeGeneration()) return;
 
-    this.authService.ensureGuestSession();
-
     this.error.set(null);
     this.recipeState.clearRecipe();
     this.servingsMultiplier.set(1);
 
     try {
+      // Inside the try: the slot is on a root service now, so anything that
+      // throws before the `finally` would leave every generator disabled.
+      this.authService.ensureGuestSession();
       // KAN-330: the `generated` label is the server's to write — the worker
       // stamps it when the text lands, and the status poll returns it. A
       // client-sent label is ignored, so none is sent.
@@ -125,8 +126,7 @@ export class GeneratorComponent extends RecipeViewBase {
       // KAN-378: everything from here may run after this component is gone.
       // `currentRecipe` is also what the recipe page renders, so the result
       // only takes the screen while a generator is the view on it.
-      const onGenerator = this.recipeState.isGeneratorOnScreen();
-      if (onGenerator) {
+      if (this.recipeState.isGeneratorOnScreen()) {
         // Display and count the view immediately; persistence can be slow or
         // fail, and a rendered recipe is still a view. Start unsaved, then let
         // the detailed outcome below reconcile the Save control (KAN-292).
@@ -143,7 +143,9 @@ export class GeneratorComponent extends RecipeViewBase {
           // KAN-292: already_saved / saved / saved_offline from the detailed
           // outcome; ownership and duplicate refusals keep nothing and emit nothing.
           trackRecipeSaveOutcome('generated', outcome);
-          if (!onGenerator) {
+          // Asked after the save, not before it: the user can leave during
+          // the save too, and a generator they come back to starts empty.
+          if (this.recipe()?.id !== generatedRecipe.id) {
             this.toastService.show(
               kept
                 ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`

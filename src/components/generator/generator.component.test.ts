@@ -615,6 +615,44 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(recipeState.isRecipeGenerating()).toBe(false);
     });
 
+    it('says the recipe is ready when the user leaves while it is being saved', async () => {
+      const { component, injector, recipeState, persistenceSaveRecipe } = createComponent();
+      let finishSave!: (outcome: { ok: boolean }) => void;
+      persistenceSaveRecipe.mockReturnValue(
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+      );
+      component.prompt.set('vegan cornbread');
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+
+      // Leaves and comes back while the save is still going: route entry
+      // clears the generator (KAN-256), so nothing shows the new recipe.
+      recipeState.leaveGenerator();
+      runInInjectionContext(injector, () => new GeneratorComponent());
+      finishSave({ ok: true });
+      await generating;
+
+      expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');
+    });
+
+    it('frees the generator when starting a generation throws', async () => {
+      const { component, injector } = createComponent();
+      const ensureGuestSession = vi.mocked(injector.get(AuthService).ensureGuestSession);
+      ensureGuestSession.mockImplementationOnce(() => {
+        throw new Error('The operation is insecure.');
+      });
+      component.prompt.set('vegan cornbread');
+
+      await component.onGenerate();
+
+      expect(component.isRecipeLoading()).toBe(false);
+      expect(component.error()).toBe('The operation is insecure.');
+      await component.onGenerate();
+      expect(component.recipe()?.id).toBe('gen-1');
+    });
+
     it('reports a failure on the generator, or as a toast when the user has left', async () => {
       const onScreen = createComponent();
       const first = pendingGeneration(onScreen.injector);
