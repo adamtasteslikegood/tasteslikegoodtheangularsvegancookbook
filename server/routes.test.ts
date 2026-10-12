@@ -407,6 +407,15 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(await res.text()).toBe(STUB_SPA_SHELL);
   });
 
+  it('points agents at llms.txt and the sitemap from the home page only (KAN-395)', async () => {
+    const home = await fetch(`${baseUrl}/`);
+    expect(home.headers.get('link')).toBe(
+      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"'
+    );
+    const kitchen = await fetch(`${baseUrl}/kitchen`);
+    expect(kitchen.headers.get('link')).toBeNull();
+  });
+
   it('keeps the home page indexable with a query string (OAuth return)', async () => {
     const res = await fetch(`${baseUrl}/?auth=success`);
     expect(res.status).toBe(200);

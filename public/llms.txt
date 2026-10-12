@@ -1,0 +1,32 @@
+# Tasteslikegood.org (VeganGenius Chef)
+
+> A free vegan recipe generator and cookbook. Type what you are craving and get a complete vegan recipe with an AI-generated food photo. No ads, no paywall.
+
+Recipes and their photos are generated with Google Gemini. Published recipes are public pages with schema.org Recipe structured data. Generating a recipe and saving cookbooks happen in the web app and are not available as an API.
+
+## Recipes
+
+- [Browse all published recipes](https://www.tasteslikegood.org/browse): server-rendered index of every public recipe
+- [Sitemap](https://www.tasteslikegood.org/sitemap.xml): every public recipe URL, at `/r/<slug>`
+- [Newest recipes (JSON)](https://www.tasteslikegood.org/api/public/newest-recipes): name, slug and first publication time of the most recent recipes; a recipe's page is `https://www.tasteslikegood.org/r/<slug>`
+
+## Categories
+
+- [Breakfast](https://www.tasteslikegood.org/browse/tag/breakfast)
+- [Lunch](https://www.tasteslikegood.org/browse/tag/lunch)
+- [Dinner](https://www.tasteslikegood.org/browse/tag/dinner)
+- [Dessert](https://www.tasteslikegood.org/browse/tag/dessert)
+- [Snacks](https://www.tasteslikegood.org/browse/tag/snacks)
+- [Comfort food](https://www.tasteslikegood.org/browse/tag/comfort-food)
+- [High protein](https://www.tasteslikegood.org/browse/tag/high-protein)
+- [Gluten free](https://www.tasteslikegood.org/browse/tag/gluten-free)
+- [Mexican](https://www.tasteslikegood.org/browse/tag/mexican)
+- [Pasta](https://www.tasteslikegood.org/browse/tag/pasta)
+- [Sandwiches](https://www.tasteslikegood.org/browse/tag/sandwiches)
+- [Tofu](https://www.tasteslikegood.org/browse/tag/tofu)
+
+## About
+
+- [Recipe generator](https://www.tasteslikegood.org/): the home page and the app
+- [About](https://www.tasteslikegood.org/about): who makes the site and why
+- [Privacy policy](https://www.tasteslikegood.org/privacy-policy)

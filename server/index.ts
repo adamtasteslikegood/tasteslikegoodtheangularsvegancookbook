@@ -256,6 +256,19 @@ export const ready = (async () => {
     });
     return homeShellPromise;
   };
+  // KAN-395: point agents at the machine-readable descriptions of the site from
+  // the home page's response headers. A middleware, not a line in the handler
+  // below, because "/" is answered from three places (that handler,
+  // express.static, and the catch-all's safety net).
+  app.use((req, res, next) => {
+    if (req.path === '/') {
+      res.setHeader(
+        'Link',
+        '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"'
+      );
+    }
+    next();
+  });
   app.get('/', staticPageLimiter, async (_req, res, next) => {
     try {
       const recipes = await newestRecipes.get();
