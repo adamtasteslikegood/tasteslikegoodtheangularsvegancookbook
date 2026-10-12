@@ -17,9 +17,9 @@ User-agent: Perplexity-User
 User-agent: Google-Extended
 User-agent: Applebot-Extended
 User-agent: CCBot
-# Search indexing and use as input to AI answers are welcome. No preference is
-# stated for model training.
-Content-Signal: search=yes, ai-input=yes
+# Search indexing, use as input to AI answers, and model training are all
+# welcome.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
 # Disallow API endpoints and internal paths
