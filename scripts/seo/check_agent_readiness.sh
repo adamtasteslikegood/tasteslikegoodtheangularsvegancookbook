@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Checks a deployed site against specs/AGENT_READINESS_SPEC.md, one line per
-# requirement. Exit 0 when every requirement passes, 1 when any fails.
+# Checks what a deployed site serves to AI crawlers and agents, one line per
+# requirement (AR-1 to AR-10; KAN-395, KAN-397, KAN-398, KAN-399). Exit 0 when every requirement passes, 1 when any fails.
 #
 #   scripts/seo/check_agent_readiness.sh [base-url]
 #
