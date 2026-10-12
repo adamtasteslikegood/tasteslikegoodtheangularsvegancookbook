@@ -117,7 +117,7 @@ export class GeminiService {
           if (status === 'error') {
             throw new Error('Recipe generation failed during async processing');
           }
-          return status === 'ready' ? recipe : undefined;
+          return status === 'ready' && recipe ? recipe : undefined;
         }
       );
     }
