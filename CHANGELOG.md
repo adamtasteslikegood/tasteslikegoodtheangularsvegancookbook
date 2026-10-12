@@ -19,6 +19,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- The wait for a recipe, and for its image, no longer ends with an error on one failed status
+  request (KAN-379). A dropped connection, a 502 or a 429 is retried; the wait ends only after
+  five failed requests in a row, or at once when the recipe no longer exists.
+- The wait for a recipe gives up after five minutes with a message, as the image wait already
+  did (KAN-380). A generation that died used to leave "Cooking..." on screen until the tab was
+  closed. Status requests no longer overlap behind a slow response.
 - Submitting the generator again while a recipe is cooking no longer starts a second generation
   (KAN-376). The button was already disabled; the Enter key was not.
 - The generator still shows "Cooking..." after you leave it and come back mid-generation

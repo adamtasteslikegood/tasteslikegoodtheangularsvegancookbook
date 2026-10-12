@@ -1,11 +1,92 @@
 import { Injectable } from '@angular/core';
 import { Recipe } from '../recipe.types';
 
+const POLL_INTERVAL_MS = 2000;
+/** Both waits give up after this long; the worker's own lease is ten minutes. */
+const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+/** One status request, body included, may take this long before it counts as failed. */
+const STATUS_REQUEST_TIMEOUT_MS = 15 * 1000;
+/**
+ * Five failed status requests in a row before the wait gives up. The elapsed
+ * time depends on how each one fails: ~10s when they reject fast (bad gateway,
+ * network error), up to ~85s when each hangs to its own 15s abort limit.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 5;
+
+/** A status answer no retry will change: the recipe is gone or not ours. */
+const isTerminalStatusCode = (status: number) =>
+  status >= 400 && status < 500 && status !== 408 && status !== 429;
+
+interface RecipeStatusBody {
+  status: string;
+  recipe: Recipe & { ai_metadata?: { image_generation?: { success?: boolean } | null } };
+}
+
 @Injectable({
   providedIn: 'root',
 })
 export class GeminiService {
   constructor() {}
+
+  /**
+   * Ask `/api/recipes/<id>/status` every two seconds until `read` returns a
+   * value. `read` returns undefined to keep waiting and throws to end the
+   * wait with that error.
+   *
+   * KAN-379: one failed request used to end the wait, although the worker
+   * finishes the recipe regardless. A phone changing networks, or a 502 while
+   * an instance starts, showed an error for a recipe that then existed. A
+   * failed request is now retried; only a run of them, or an answer no retry
+   * will change, ends the wait.
+   *
+   * KAN-380 (and KAN-243 for images): every wait has a deadline, and a
+   * request still open at the deadline is aborted. One request at a time: the
+   * next is scheduled after the last settles, where a `setInterval` stacked
+   * them up behind a slow response.
+   */
+  private async pollStatus<T>(
+    recipeId: string,
+    timeoutMessage: string,
+    read: (body: RecipeStatusBody) => T | undefined
+  ): Promise<T> {
+    const deadline = Date.now() + GENERATION_TIMEOUT_MS;
+    let failures = 0;
+    for (;;) {
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+      if (Date.now() >= deadline) throw new Error(timeoutMessage);
+
+      // A request that never answers must not hold the loop past the
+      // deadline, so each one is aborted at its own limit or the deadline,
+      // whichever is sooner. An abort is a failed request like any other.
+      const abort = new AbortController();
+      const limit = setTimeout(
+        () => abort.abort(),
+        Math.min(STATUS_REQUEST_TIMEOUT_MS, deadline - Date.now())
+      );
+      let body: RecipeStatusBody;
+      try {
+        const res = await fetch(`/api/recipes/${recipeId}/status`, { signal: abort.signal });
+        if (!res.ok) {
+          if (isTerminalStatusCode(res.status)) failures = MAX_CONSECUTIVE_POLL_FAILURES;
+          throw new Error(`status ${res.status}`);
+        }
+        body = (await res.json()) as RecipeStatusBody;
+      } catch {
+        if (Date.now() >= deadline) throw new Error(timeoutMessage);
+        failures += 1;
+        if (failures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+          throw new Error('Failed to get recipe status');
+        }
+        continue;
+      } finally {
+        clearTimeout(limit);
+      }
+      failures = 0;
+
+      const result = read(body);
+      if (result !== undefined) return result;
+    }
+  }
 
   /**
    * Generate a vegan recipe via the Flask backend.
@@ -29,29 +110,16 @@ export class GeminiService {
 
     // Poll for status if generating asynchronously
     if (payload.status === 'generating') {
-      return new Promise((resolve, reject) => {
-        const poll = setInterval(async () => {
-          try {
-            const res = await fetch(`/api/recipes/${recipeId}/status`);
-            if (!res.ok) {
-              clearInterval(poll);
-              reject(new Error('Failed to get recipe status'));
-              return;
-            }
-            const { status, recipe } = await res.json();
-            if (status === 'ready') {
-              clearInterval(poll);
-              resolve(recipe as Recipe);
-            } else if (status === 'error') {
-              clearInterval(poll);
-              reject(new Error('Recipe generation failed during async processing'));
-            }
-          } catch (e) {
-            clearInterval(poll);
-            reject(e);
+      return this.pollStatus(
+        recipeId,
+        'Recipe generation timed out after 5 minutes. Please try again.',
+        ({ status, recipe }) => {
+          if (status === 'error') {
+            throw new Error('Recipe generation failed during async processing');
           }
-        }, 2000);
-      });
+          return status === 'ready' && recipe ? recipe : undefined;
+        }
+      );
     }
 
     const recipe = payload.recipe as Recipe;
@@ -63,7 +131,7 @@ export class GeminiService {
    * Generate an AI image for a recipe via the Flask backend.
    * The backend saves the image server-side and returns a URL path.
    *
-   * KAN-243: added a 5-minute timeout to the async polling loop. Before
+   * KAN-243: the wait has a 5-minute timeout (see `pollStatus`). Before
    * this, a silent worker failure (status stuck on generating_image, or
    * status=ready with no ai_image_url and no failure metadata) left the
    * poll running indefinitely — the caller's promise never settled, so
@@ -86,37 +154,18 @@ export class GeminiService {
     const payload = await response.json();
 
     if (payload.status === 'generating_image') {
-      // Poll until image_url is populated, with a 5-minute timeout.
-      return new Promise((resolve, reject) => {
-        const startTime = Date.now();
-        const TIMEOUT_MS = 5 * 60 * 1000;
-        const poll = setInterval(async () => {
-          if (Date.now() - startTime > TIMEOUT_MS) {
-            clearInterval(poll);
-            reject(new Error('Image generation timed out after 5 minutes'));
-            return;
+      // Poll until image_url is populated.
+      return this.pollStatus(
+        recipeId,
+        'Image generation timed out after 5 minutes',
+        ({ status, recipe }) => {
+          if (status !== 'ready' || !recipe) return undefined;
+          if (recipe.ai_metadata?.image_generation?.success === false) {
+            throw new Error('Image generation failed during async processing');
           }
-          try {
-            const res = await fetch(`/api/recipes/${recipeId}/status`);
-            if (!res.ok) {
-              clearInterval(poll);
-              reject(new Error('Failed to get recipe status'));
-              return;
-            }
-            const { status, recipe } = await res.json();
-            if (status === 'ready' && recipe.ai_metadata?.image_generation?.success === false) {
-              clearInterval(poll);
-              reject(new Error('Image generation failed during async processing'));
-            } else if (status === 'ready' && recipe.ai_image_url) {
-              clearInterval(poll);
-              resolve(recipe.ai_image_url);
-            }
-          } catch (e) {
-            clearInterval(poll);
-            reject(e);
-          }
-        }, 2000);
-      });
+          return recipe.ai_image_url || undefined;
+        }
+      );
     }
 
     if (!payload.image_url) {
