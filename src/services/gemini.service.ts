@@ -6,7 +6,11 @@ const POLL_INTERVAL_MS = 2000;
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
 /** One status request, body included, may take this long before it counts as failed. */
 const STATUS_REQUEST_TIMEOUT_MS = 15 * 1000;
-/** Ten seconds of failed status requests in a row before the wait gives up. */
+/**
+ * Five failed status requests in a row before the wait gives up. The elapsed
+ * time depends on how each one fails: ~10s when they reject fast (bad gateway,
+ * network error), up to ~85s when each hangs to its own 15s abort limit.
+ */
 const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 
 /** A status answer no retry will change: the recipe is gone or not ours. */
@@ -155,7 +159,7 @@ export class GeminiService {
         recipeId,
         'Image generation timed out after 5 minutes',
         ({ status, recipe }) => {
-          if (status !== 'ready') return undefined;
+          if (status !== 'ready' || !recipe) return undefined;
           if (recipe.ai_metadata?.image_generation?.success === false) {
             throw new Error('Image generation failed during async processing');
           }
