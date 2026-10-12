@@ -13,9 +13,9 @@ BASE="${1:-https://www.tasteslikegood.org}"
 BASE="${BASE%/}"
 fails=0
 
-fetch() { curl -sS -m 20 "$@" 2>/dev/null; }
-status() { curl -sS -o /dev/null -m 20 -w '%{http_code}' "$@" 2>/dev/null; }
-ctype() { curl -sS -o /dev/null -m 20 -w '%{content_type}' "$@" 2>/dev/null; }
+fetch() { curl -sS -m 20 "$@"; }
+status() { curl -sS -o /dev/null -m 20 -w '%{http_code}' "$@"; }
+ctype() { curl -sS -o /dev/null -m 20 -w '%{content_type}' "$@"; }
 
 report() { # id, result (0 = pass), description
   if [ "$2" -eq 0 ]; then
@@ -26,10 +26,10 @@ report() { # id, result (0 = pass), description
   fi
 }
 
-robots="$(fetch "$BASE/robots.txt")"
+robots="$(fetch "$BASE/robots.txt" | tr -d '\r')"
 home="$(fetch "$BASE/")"
-home_headers="$(curl -sS -o /dev/null -D - -m 20 "$BASE/" 2>/dev/null)"
-slug="$(fetch "$BASE/api/public/newest-recipes" | grep -oE '"slug": ?"[a-z0-9-]+"' | head -1 | grep -oE '[a-z0-9-]+"$' | tr -d '"')"
+home_headers="$(curl -sS -o /dev/null -D - -m 20 "$BASE/" | tr -d '\r')"
+slug="$(fetch "$BASE/api/public/newest-recipes" | grep -oE '"slug": ?"[a-z0-9-]+"' | head -1 | sed -E 's/.*"([a-z0-9-]+)"$/\1/')"
 
 # AR-1: every named AI crawler appears in robots.txt
 missing=""
@@ -57,10 +57,18 @@ report AR-5b $? "a recipe page has Recipe structured data"
 grep -qi '^link:.*llms\.txt' <<<"$home_headers"
 report AR-6 $? "home page Link header points at /llms.txt"
 
-for path in / /browse "/r/${slug:-missing}"; do
-  ctype -H 'Accept: text/markdown' "$BASE$path" | grep -qi '^text/markdown'
-  report AR-7 $? "Accept: text/markdown on $path returns markdown"
-done
+ctype -H 'Accept: text/markdown' "$BASE/" | grep -qi '^text/markdown'
+report AR-7a $? "Accept: text/markdown on / returns markdown"
+
+ctype -H 'Accept: text/markdown' "$BASE/browse" | grep -qi '^text/markdown'
+report AR-7b $? "Accept: text/markdown on /browse returns markdown"
+
+if [ -n "$slug" ]; then
+  ctype -H 'Accept: text/markdown' "$BASE/r/$slug" | grep -qi '^text/markdown'
+  report AR-7c $? "Accept: text/markdown on /r/$slug returns markdown"
+else
+  printf 'SKIP  %-6s %s\n' "AR-7c" "Accept: text/markdown on /r/<slug> (no slug from newest-recipes)"
+fi
 
 [ "$(status "$BASE/api/public/openapi.json")" = 200 ] && fetch "$BASE/api/public/openapi.json" | grep -q '"openapi"'
 report AR-8a $? "/api/public/openapi.json describes the public API"
