@@ -98,6 +98,8 @@ describe('home page newest-recipes row (KAN-348)', () => {
     const res = await fetch(`${baseUrl}/?source=oauth`);
     expect(res.headers.get('x-robots-tag')).toBe('index, follow');
     expect(res.headers.get('cache-control')).toBe('public, max-age=0');
+    // KAN-395: the composed home page carries the same Link header as the built one.
+    expect(res.headers.get('link')).toContain('</llms.txt>; rel="describedby"');
     const etag = res.headers.get('etag');
     expect(etag).toMatch(/^W\//);
     expect(await res.text()).toContain('/r/smoky-bean-chili');
