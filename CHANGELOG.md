@@ -25,6 +25,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The wait for a recipe gives up after five minutes with a message, as the image wait already
   did (KAN-380). A generation that died used to leave "Cooking..." on screen until the tab was
   closed. Status requests no longer overlap behind a slow response.
+- Submitting the generator again while a recipe is cooking no longer starts a second generation
+  (KAN-376). The button was already disabled; the Enter key was not.
+- The generator still shows "Cooking..." after you leave it and come back mid-generation
+  (KAN-377), instead of an idle Generate button that could start another one.
+- A recipe that finishes generating after you have opened a different recipe no longer replaces
+  the one on screen (KAN-378). It is saved, and a message says it is ready in My Kitchen. A
+  generation that fails while you are elsewhere is reported the same way.
 
 ## [0.6.0] - 2026-10-11
 

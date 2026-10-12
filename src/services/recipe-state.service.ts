@@ -49,6 +49,50 @@ export class RecipeStateService {
   readonly isSaved = signal(false);
 
   /**
+   * KAN-376 / KAN-377: whether a recipe's text is being generated.
+   *
+   * Held here, not on GeneratorComponent, for the reason the image state is
+   * (KAN-243): the generation outlives the component that started it. As a
+   * component signal it reset to "idle" when the user left the generator and
+   * came back, and it never guarded the Enter key at all, so either route
+   * started a second generation beside the first.
+   */
+  private readonly _recipeGenerating = signal(false);
+  readonly isRecipeGenerating = this._recipeGenerating.asReadonly();
+
+  /** Why the last generation failed, for whichever generator is on screen. */
+  readonly recipeGenerationError = signal<string | null>(null);
+
+  /** Claim the one generation slot. False means one is already in flight. */
+  beginRecipeGeneration(): boolean {
+    if (this._recipeGenerating()) return false;
+    this._recipeGenerating.set(true);
+    return true;
+  }
+
+  endRecipeGeneration(): void {
+    this._recipeGenerating.set(false);
+  }
+
+  /**
+   * KAN-378: how many generator views are on screen (0 or 1 in practice; a
+   * count so a route change that builds the next one before destroying the
+   * last cannot leave it wrong). A finished generation may only take over
+   * `currentRecipe` while this is true, because the recipe page reads the
+   * same signal.
+   */
+  private readonly _generatorViews = signal(0);
+  readonly isGeneratorOnScreen = computed(() => this._generatorViews() > 0);
+
+  enterGenerator(): void {
+    this._generatorViews.update((n) => n + 1);
+  }
+
+  leaveGenerator(): void {
+    this._generatorViews.update((n) => Math.max(0, n - 1));
+  }
+
+  /**
    * KAN-243: in-flight image generations, as recipe id -> outstanding count.
    *
    * Tracked at the service level (root-scoped singleton) so the loading
