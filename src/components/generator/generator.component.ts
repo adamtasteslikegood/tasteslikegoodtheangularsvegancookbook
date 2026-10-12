@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -54,8 +54,9 @@ export class GeneratorComponent extends RecipeViewBase {
     inject(ActivatedRoute, { optional: true })?.snapshot.data['landing'] !== false;
 
   prompt = signal('');
-  isRecipeLoading = signal(false);
-  error = signal<string | null>(null);
+  /** On the root service so they outlive this component (KAN-376, KAN-377). */
+  readonly isRecipeLoading = this.recipeState.isRecipeGenerating;
+  readonly error = this.recipeState.recipeGenerationError;
   private readonly savingRecipeIds = signal<ReadonlySet<string>>(new Set());
   readonly isCurrentRecipeSaving = computed(() => {
     const recipeId = this.recipe()?.id;
@@ -84,6 +85,11 @@ export class GeneratorComponent extends RecipeViewBase {
   constructor() {
     super();
     this.recipeState.clearRecipe();
+    // A failure shown on an earlier visit is stale by now. One still in
+    // flight has no error yet, so this never hides a live one.
+    this.error.set(null);
+    this.recipeState.enterGenerator();
+    inject(DestroyRef, { optional: true })?.onDestroy(() => this.recipeState.leaveGenerator());
     if (this.showLanding && needsNewestRecipesFallback(this.landing.newest())) {
       void fetchNewestRecipes().then((recipes) => this.landing.newest.set(recipes));
     }
@@ -99,11 +105,14 @@ export class GeneratorComponent extends RecipeViewBase {
   }
 
   async onGenerate() {
-    if (!this.prompt().trim()) return;
+    const prompt = this.prompt();
+    if (!prompt.trim()) return;
+    // KAN-376: the button is disabled while cooking, but Enter in the input
+    // is not, and a generator rebuilt by navigation has no memory of its own.
+    if (!this.recipeState.beginRecipeGeneration()) return;
 
     this.authService.ensureGuestSession();
 
-    this.isRecipeLoading.set(true);
     this.error.set(null);
     this.recipeState.clearRecipe();
     this.servingsMultiplier.set(1);
@@ -112,21 +121,35 @@ export class GeneratorComponent extends RecipeViewBase {
       // KAN-330: the `generated` label is the server's to write — the worker
       // stamps it when the text lands, and the status poll returns it. A
       // client-sent label is ignored, so none is sent.
-      const generatedRecipe: Recipe = await this.geminiService.generateRecipe(this.prompt());
-      // Display and count the view immediately; persistence can be slow or
-      // fail, and a rendered recipe is still a view. Start unsaved, then let
-      // the detailed outcome below reconcile the Save control (KAN-292).
-      this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
-      trackRecipeView(generatedRecipe, false);
+      const generatedRecipe: Recipe = await this.geminiService.generateRecipe(prompt);
+      // KAN-378: everything from here may run after this component is gone.
+      // `currentRecipe` is also what the recipe page renders, so the result
+      // only takes the screen while a generator is the view on it.
+      const onGenerator = this.recipeState.isGeneratorOnScreen();
+      if (onGenerator) {
+        // Display and count the view immediately; persistence can be slow or
+        // fail, and a rendered recipe is still a view. Start unsaved, then let
+        // the detailed outcome below reconcile the Save control (KAN-292).
+        this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
+        trackRecipeView(generatedRecipe, false);
+      }
       if (this.beginRecipeSave(generatedRecipe.id)) {
         try {
           const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+          const kept = saveOutcomeForAnalytics(outcome) !== null;
           if (this.recipe()?.id === generatedRecipe.id) {
-            this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
+            this.isSaved.set(kept);
           }
           // KAN-292: already_saved / saved / saved_offline from the detailed
           // outcome; ownership and duplicate refusals keep nothing and emit nothing.
           trackRecipeSaveOutcome('generated', outcome);
+          if (!onGenerator) {
+            this.toastService.show(
+              kept
+                ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
+                : `"${generatedRecipe.name}" is ready.`
+            );
+          }
         } finally {
           this.finishRecipeSave(generatedRecipe.id);
         }
@@ -137,9 +160,10 @@ export class GeneratorComponent extends RecipeViewBase {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
-      this.error.set(message);
+      if (this.recipeState.isGeneratorOnScreen()) this.error.set(message);
+      else this.toastService.show(message);
     } finally {
-      this.isRecipeLoading.set(false);
+      this.recipeState.endRecipeGeneration();
     }
   }
 

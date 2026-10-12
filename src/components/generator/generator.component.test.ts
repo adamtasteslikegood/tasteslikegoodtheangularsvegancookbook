@@ -536,4 +536,105 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(recipeState.isImageGenerating()).toBe(false);
     });
   });
+
+  // The generation outlives the component that started it, so its state has
+  // to as well. Constructing a second component from the same injector IS
+  // leaving the generator and coming back (see KAN-256 above).
+  describe('generation in flight (KAN-376, KAN-377, KAN-378)', () => {
+    const pendingGeneration = (injector: Injector) => {
+      let land!: (recipe: unknown) => void;
+      let fail!: (error: Error) => void;
+      const generateRecipe = vi.mocked(injector.get(GeminiService).generateRecipe);
+      generateRecipe.mockReturnValue(
+        new Promise((resolve, reject) => {
+          land = resolve as (recipe: unknown) => void;
+          fail = reject;
+        }) as never
+      );
+      return { generateRecipe, land: (id = 'gen-1') => land(draftRecipe(id)), fail };
+    };
+
+    it('starts one generation however many times it is submitted (KAN-376)', async () => {
+      const { component, injector } = createComponent();
+      const { generateRecipe, land } = pendingGeneration(injector);
+      component.prompt.set('vegan cornbread');
+
+      const first = component.onGenerate();
+      const second = component.onGenerate();
+      await second;
+
+      expect(generateRecipe).toHaveBeenCalledOnce();
+      expect(component.isRecipeLoading()).toBe(true);
+
+      land();
+      await first;
+      expect(component.isRecipeLoading()).toBe(false);
+      expect(component.recipe()?.id).toBe('gen-1');
+    });
+
+    it('still shows it cooking after leaving and coming back, then shows the recipe (KAN-377)', async () => {
+      const { component, injector, recipeState } = createComponent();
+      const { generateRecipe, land } = pendingGeneration(injector);
+      component.prompt.set('vegan cornbread');
+      const generating = component.onGenerate();
+
+      recipeState.leaveGenerator();
+      const reEntered = runInInjectionContext(injector, () => new GeneratorComponent());
+
+      expect(reEntered.isRecipeLoading()).toBe(true);
+      reEntered.prompt.set('something else');
+      await reEntered.onGenerate();
+      expect(generateRecipe).toHaveBeenCalledOnce();
+
+      land();
+      await generating;
+      expect(reEntered.isRecipeLoading()).toBe(false);
+      expect(reEntered.recipe()?.id).toBe('gen-1');
+      expect(toastShow).not.toHaveBeenCalled();
+    });
+
+    it('leaves another recipe on screen alone, and says the new one is ready (KAN-378)', async () => {
+      const { component, injector, recipeState, persistenceSaveRecipe } = createComponent();
+      const { land } = pendingGeneration(injector);
+      const generateImage = vi.mocked(injector.get(GeminiService).generateImage);
+      component.prompt.set('vegan cornbread');
+      const generating = component.onGenerate();
+
+      // The user opens another recipe while the text is still cooking.
+      recipeState.leaveGenerator();
+      recipeState.viewRecipe(draftRecipe('other-recipe'));
+
+      land();
+      await generating;
+
+      expect(recipeState.currentRecipe()?.id).toBe('other-recipe');
+      expect(recipeState.isSaved()).toBe(true);
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(expect.objectContaining({ id: 'gen-1' }));
+      expect(generateImage).toHaveBeenCalledWith('gen-1', false);
+      expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');
+      expect(recipeState.isRecipeGenerating()).toBe(false);
+    });
+
+    it('reports a failure on the generator, or as a toast when the user has left', async () => {
+      const onScreen = createComponent();
+      const first = pendingGeneration(onScreen.injector);
+      onScreen.component.prompt.set('vegan cornbread');
+      const shown = onScreen.component.onGenerate();
+      first.fail(new Error('Recipe generation failed.'));
+      await shown;
+      expect(onScreen.component.error()).toBe('Recipe generation failed.');
+      expect(onScreen.component.isRecipeLoading()).toBe(false);
+      expect(toastShow).not.toHaveBeenCalled();
+
+      const away = createComponent();
+      const second = pendingGeneration(away.injector);
+      away.component.prompt.set('vegan cornbread');
+      const hidden = away.component.onGenerate();
+      away.recipeState.leaveGenerator();
+      second.fail(new Error('Recipe generation failed.'));
+      await hidden;
+      expect(away.component.error()).toBeNull();
+      expect(toastShow).toHaveBeenCalledWith('Recipe generation failed.');
+    });
+  });
 });
