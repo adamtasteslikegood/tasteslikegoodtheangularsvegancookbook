@@ -18,6 +18,7 @@ FLASK_SERVICE="${FLASK_SERVICE:-flask-backend}"
 PAIRS=(
   "recipe-generation:recipe"
   "image-generation:image"
+  "recipe-metadata:metadata"
 )
 
 log() { printf '\033[36m[update-push]\033[0m %s\n' "$*"; }
