@@ -270,7 +270,7 @@ the script (or the Flask revision will deploy successfully but
   write access to it (create with `gcloud storage buckets create` and
   grant `roles/storage.objectAdmin`).
 - Pub/Sub topics `recipe-generation`, `image-generation`,
-  `generation-dlq` + push subscriptions, and the `pubsub-pusher`
+  `recipe-metadata`, `generation-dlq` + push subscriptions, and the `pubsub-pusher`
   service account. Provision by running
   `PROJECT_ID=gen-lang-client-0491022701 FLASK_SERVICE=flask-backend-staging scripts/gcloud/setup_pubsub.sh`
   (the script defaults to the prod project, so the override is required).

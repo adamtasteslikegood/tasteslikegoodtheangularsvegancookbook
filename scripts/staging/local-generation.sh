@@ -175,7 +175,7 @@ echo " up."
 # is bypassed with PUBSUB_AUTH_OPTIONAL=1 (the emulator cannot mint
 # Google-signed tokens).
 BASE="http://localhost:${EMULATOR_PORT}/v1/projects/${PROJECT_ID}"
-for topic in recipe-generation image-generation; do
+for topic in recipe-generation image-generation recipe-metadata; do
   curl -s -X PUT "${BASE}/topics/${topic}" >/dev/null
 done
 # Push endpoints use host.docker.internal: the emulator delivers from
@@ -187,7 +187,10 @@ curl -s -X PUT "${BASE}/subscriptions/recipe-generation-local" \
 curl -s -X PUT "${BASE}/subscriptions/image-generation-local" \
   -H 'Content-Type: application/json' \
   -d "{\"topic\":\"projects/${PROJECT_ID}/topics/image-generation\",\"pushConfig\":{\"pushEndpoint\":\"http://${PUSH_HOST}:${FLASK_PORT}/api/worker/image\"},\"ackDeadlineSeconds\":600}" >/dev/null
-echo "Topics recipe-generation + image-generation wired to /api/worker/* on :${FLASK_PORT}."
+curl -s -X PUT "${BASE}/subscriptions/recipe-metadata-local" \
+  -H 'Content-Type: application/json' \
+  -d "{\"topic\":\"projects/${PROJECT_ID}/topics/recipe-metadata\",\"pushConfig\":{\"pushEndpoint\":\"http://${PUSH_HOST}:${FLASK_PORT}/api/worker/metadata\"},\"ackDeadlineSeconds\":600}" >/dev/null
+echo "Topics recipe-generation + image-generation + recipe-metadata wired to /api/worker/* on :${FLASK_PORT}."
 
 # ── Run Flask with the generation stack enabled ───────────────────────
 echo ""

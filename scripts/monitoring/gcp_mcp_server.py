@@ -151,7 +151,7 @@ VALKEY_INSTANCE = os.environ.get("VALKEY_INSTANCE", "veganchef-valkeymem")
 PUBSUB_TOPICS = [
     t.strip()
     for t in os.environ.get(
-        "PUBSUB_TOPICS", "recipe-generation,image-generation,generation-dlq"
+        "PUBSUB_TOPICS", "recipe-generation,image-generation,recipe-metadata,generation-dlq"
     ).split(",")
     if t.strip()
 ]
@@ -159,7 +159,8 @@ PUBSUB_SUBSCRIPTIONS = [
     s.strip()
     for s in os.environ.get(
         "PUBSUB_SUBSCRIPTIONS",
-        "recipe-generation-push-sub,image-generation-push-sub,generation-dlq-sub",
+        "recipe-generation-push-sub,image-generation-push-sub,recipe-metadata-push-sub,"
+        "generation-dlq-sub",
     ).split(",")
     if s.strip()
 ]
