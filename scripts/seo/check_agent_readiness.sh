@@ -13,7 +13,13 @@ BASE="${1:-https://www.tasteslikegood.org}"
 BASE="${BASE%/}"
 fails=0
 
-fetch() { curl -sS -m 20 "$@"; }
+# The body is read in full before it is printed. A reader that stops early
+# (grep -q, head -1) would otherwise close the pipe on curl, and curl would
+# report that as an error.
+fetch() {
+  local body
+  body="$(curl -sS -m 20 "$@")" && printf '%s\n' "$body"
+}
 status() { curl -sS -o /dev/null -m 20 -w '%{http_code}' "$@"; }
 ctype() { curl -sS -o /dev/null -m 20 -w '%{content_type}' "$@"; }
 
