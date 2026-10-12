@@ -151,7 +151,8 @@ VALKEY_INSTANCE = os.environ.get("VALKEY_INSTANCE", "veganchef-valkeymem")
 PUBSUB_TOPICS = [
     t.strip()
     for t in os.environ.get(
-        "PUBSUB_TOPICS", "recipe-generation,image-generation,recipe-metadata,generation-dlq"
+        "PUBSUB_TOPICS",
+        "recipe-generation,image-generation,recipe-metadata,generation-dlq",
     ).split(",")
     if t.strip()
 ]
@@ -183,6 +184,7 @@ def _label_scope(label: str, values: list[str], match: str = "eq") -> str:
         return f' AND {label} = "{values[0]}"'
     quoted = ", ".join(f'"{v}"' for v in values)
     return f" AND {label} = one_of({quoted})"
+
 
 MAX_SERIES_PER_PROBE = 12
 
