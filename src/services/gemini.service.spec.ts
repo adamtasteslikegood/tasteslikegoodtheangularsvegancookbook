@@ -340,4 +340,25 @@ describe('GeminiService.generateImage', () => {
 
     await expect(result).resolves.toBe(`/api/recipes/${RECIPE_ID}/image`);
   });
+
+  it('keeps waiting when a ready status arrives without the recipe', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ status: 'generating_image' }, 202))
+      .mockResolvedValueOnce(jsonResponse({ status: 'ready' }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          status: 'ready',
+          recipe: { ai_image_url: `/api/recipes/${RECIPE_ID}/image` },
+        })
+      );
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = new GeminiService().generateImage(RECIPE_ID);
+    await vi.advanceTimersByTimeAsync(4000);
+
+    await expect(result).resolves.toBe(`/api/recipes/${RECIPE_ID}/image`);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });
