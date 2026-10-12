@@ -145,7 +145,11 @@ export class GeneratorComponent extends RecipeViewBase {
           trackRecipeSaveOutcome('generated', outcome);
           // Asked after the save, not before it: the user can leave during
           // the save too, and a generator they come back to starts empty.
-          if (this.recipe()?.id !== generatedRecipe.id) {
+          // Both halves matter: My Kitchen keeps `currentRecipe` as a cache
+          // without showing it, so the id alone does not mean "on screen".
+          const shown =
+            this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
+          if (!shown) {
             this.toastService.show(
               kept
                 ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`

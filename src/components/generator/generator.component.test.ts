@@ -637,6 +637,28 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');
     });
 
+    it('says the recipe is ready when the user goes to My Kitchen while it is being saved', async () => {
+      const { component, recipeState, persistenceSaveRecipe } = createComponent();
+      let finishSave!: (outcome: { ok: boolean }) => void;
+      persistenceSaveRecipe.mockReturnValue(
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+      );
+      component.prompt.set('vegan cornbread');
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+
+      // My Kitchen keeps currentRecipe as a navigation cache and shows none of it.
+      recipeState.leaveGenerator();
+      recipeState.leaveRecipeView();
+      finishSave({ ok: true });
+      await generating;
+
+      expect(recipeState.currentRecipe()?.id).toBe('gen-1');
+      expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');
+    });
+
     it('frees the generator when starting a generation throws', async () => {
       const { component, injector } = createComponent();
       const ensureGuestSession = vi.mocked(injector.get(AuthService).ensureGuestSession);
