@@ -4,6 +4,8 @@ import { Recipe } from '../recipe.types';
 const POLL_INTERVAL_MS = 2000;
 /** Both waits give up after this long; the worker's own lease is ten minutes. */
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+/** One status request, body included, may take this long before it counts as failed. */
+const STATUS_REQUEST_TIMEOUT_MS = 15 * 1000;
 /** Ten seconds of failed status requests in a row before the wait gives up. */
 const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 
@@ -33,9 +35,10 @@ export class GeminiService {
    * failed request is now retried; only a run of them, or an answer no retry
    * will change, ends the wait.
    *
-   * KAN-380 (and KAN-243 for images): every wait has a deadline. One request
-   * at a time: the next is scheduled after the last settles, where a
-   * `setInterval` stacked them up behind a slow response.
+   * KAN-380 (and KAN-243 for images): every wait has a deadline, and a
+   * request still open at the deadline is aborted. One request at a time: the
+   * next is scheduled after the last settles, where a `setInterval` stacked
+   * them up behind a slow response.
    */
   private async pollStatus<T>(
     recipeId: string,
@@ -48,20 +51,31 @@ export class GeminiService {
       await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
       if (Date.now() >= deadline) throw new Error(timeoutMessage);
 
+      // A request that never answers must not hold the loop past the
+      // deadline, so each one is aborted at its own limit or the deadline,
+      // whichever is sooner. An abort is a failed request like any other.
+      const abort = new AbortController();
+      const limit = setTimeout(
+        () => abort.abort(),
+        Math.min(STATUS_REQUEST_TIMEOUT_MS, deadline - Date.now())
+      );
       let body: RecipeStatusBody;
       try {
-        const res = await fetch(`/api/recipes/${recipeId}/status`);
+        const res = await fetch(`/api/recipes/${recipeId}/status`, { signal: abort.signal });
         if (!res.ok) {
           if (isTerminalStatusCode(res.status)) failures = MAX_CONSECUTIVE_POLL_FAILURES;
           throw new Error(`status ${res.status}`);
         }
         body = (await res.json()) as RecipeStatusBody;
       } catch {
+        if (Date.now() >= deadline) throw new Error(timeoutMessage);
         failures += 1;
         if (failures >= MAX_CONSECUTIVE_POLL_FAILURES) {
           throw new Error('Failed to get recipe status');
         }
         continue;
+      } finally {
+        clearTimeout(limit);
       }
       failures = 0;
 

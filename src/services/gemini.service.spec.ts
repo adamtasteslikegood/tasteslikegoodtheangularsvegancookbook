@@ -51,7 +51,9 @@ describe('GeminiService.generateRecipe', () => {
     const recipe = await result;
     expect(recipe.origin).toBe('generated');
     expect(publishToggleKind(recipe)).toBe('normal');
-    expect(fetchMock).toHaveBeenLastCalledWith(`/api/recipes/${RECIPE_ID}/status`);
+    expect(fetchMock).toHaveBeenLastCalledWith(`/api/recipes/${RECIPE_ID}/status`, {
+      signal: expect.any(AbortSignal),
+    });
   });
 });
 
@@ -176,6 +178,56 @@ describe('GeminiService.generateRecipe wait', () => {
     const callsAtTimeout = fetchMock.mock.calls.length;
     await vi.advanceTimersByTimeAsync(10000);
     expect(fetchMock).toHaveBeenCalledTimes(callsAtTimeout);
+  });
+
+  // A request that never answers, as on a connection that went away without
+  // closing: it settles only when its signal aborts.
+  const hangUntilAborted = (init?: RequestInit) =>
+    new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')));
+    });
+
+  it('gives up on time even when a status request never answers (KAN-380)', async () => {
+    vi.useFakeTimers();
+    let stall = false;
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/api/generate') return queued();
+      if (stall) return hangUntilAborted(init);
+      return jsonResponse({ status: 'generating', recipe: { id: RECIPE_ID } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = new GeminiService().generateRecipe('a hearty winter stew');
+    let outcome: unknown = 'pending';
+    void result.then(
+      () => (outcome = 'resolved'),
+      (error: Error) => (outcome = error.message)
+    );
+
+    // Healthy until just before the deadline, then the next request hangs.
+    await vi.advanceTimersByTimeAsync(297 * 1000);
+    stall = true;
+    await vi.advanceTimersByTimeAsync(2 * 1000);
+    expect(outcome).toBe('pending');
+
+    await vi.advanceTimersByTimeAsync(2 * 1000);
+    expect(outcome).toBe('Recipe generation timed out after 5 minutes. Please try again.');
+  });
+
+  it('treats a hung status request as one failed request and carries on (KAN-379)', async () => {
+    vi.useFakeTimers();
+    let calls = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init?: RequestInit) => {
+      if (url === '/api/generate') return queued();
+      calls += 1;
+      return calls === 1 ? hangUntilAborted(init) : ready();
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = new GeminiService().generateRecipe('a hearty winter stew');
+    await vi.advanceTimersByTimeAsync(20 * 1000);
+
+    await expect(result).resolves.toMatchObject({ id: RECIPE_ID });
   });
 
   it('asks one status request at a time, however slow the answer (KAN-380)', async () => {
