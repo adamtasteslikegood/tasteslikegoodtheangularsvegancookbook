@@ -28,6 +28,7 @@ PUSH_SA="${PUSH_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 PAIRS=(
   "recipe-generation:recipe"
   "image-generation:image"
+  "recipe-metadata:metadata"
 )
 
 DLQ_TOPIC="generation-dlq"
