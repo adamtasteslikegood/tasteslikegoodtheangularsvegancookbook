@@ -37,7 +37,7 @@ import { fileURLToPath } from 'node:url';
 import { classifyRoute } from './route-manifest.js';
 
 type Link = { href: string; label: string };
-type SiteNav = { header: Link[]; footer: Link[]; hubs: Link[] };
+type SiteNav = { header: Link[]; footer: Link[]; footerBrand: Link; hubs: Link[] };
 
 const repoFile = (relative: string): string =>
   fileURLToPath(new URL(`../${relative}`, import.meta.url));
@@ -103,7 +103,7 @@ describe('site nav manifest (src/site-nav.json)', () => {
   it('has a header and a footer, and every link is a live route', () => {
     expect(siteNav.header.length).toBeGreaterThan(0);
     expect(siteNav.footer.length).toBeGreaterThan(0);
-    for (const { href, label } of [...siteNav.header, ...siteNav.footer]) {
+    for (const { href, label } of [...siteNav.header, siteNav.footerBrand, ...siteNav.footer]) {
       expect(label.trim(), href).not.toBe('');
       expect(['spa', 'ssr', 'standalone'], href).toContain(classifyRoute(href));
     }
@@ -168,8 +168,11 @@ describe.each(['server/public/about.html', 'server/public/privacy-policy.html'])
       expect(pairs(anchors(region(page, 'header')))).toEqual(siteNav.header);
     });
 
-    it('renders exactly the canonical footer set, in order', () => {
-      expect(pairs(anchors(region(page, 'footer')))).toEqual(siteNav.footer);
+    it('renders the site name linked home, then exactly the canonical footer set, in order', () => {
+      expect(pairs(anchors(region(page, 'footer')))).toEqual([
+        siteNav.footerBrand,
+        ...siteNav.footer,
+      ]);
     });
   }
 );

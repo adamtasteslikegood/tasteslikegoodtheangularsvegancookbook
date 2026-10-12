@@ -55,7 +55,7 @@ const STUB_SPA_SHELL =
 const STUB_ROUTE_NEUTRAL_SHELL =
   '<!doctype html><html><head><link rel="icon" href="/favicon.svg">' +
   '<meta name="tlg-home-head-start-social" content="retain">' +
-  '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />' +
+  '<title>Tasteslikegood.org</title><meta name="robots" content="noindex, follow" />' +
   '</head><body><app-root ng-version="22.1.0"></app-root></body></html>';
 
 let flaskStub: http.Server;
@@ -249,7 +249,7 @@ describe('standalone static pages', () => {
 
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(body).toContain('<title>About TastesLikeGood');
+    expect(body).toContain('<title>About Tasteslikegood.org');
     expect(body).not.toContain('spa-shell');
   });
 });

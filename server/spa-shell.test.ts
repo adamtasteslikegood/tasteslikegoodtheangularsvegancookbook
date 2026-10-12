@@ -19,7 +19,7 @@ describe('buildRouteNeutralSpaShell', () => {
   it('replaces the home head block and strips the <app-root> children', () => {
     expect(buildRouteNeutralSpaShell(shell(HOME_HEAD, APP_ROOT), 'noindex, follow')).toBe(
       shell(
-        '<title>TastesLikeGood</title><meta name="robots" content="noindex, follow" />',
+        '<title>Tasteslikegood.org</title><meta name="robots" content="noindex, follow" />',
         '<app-root ng-version="22.1.0"></app-root>'
       )
     );

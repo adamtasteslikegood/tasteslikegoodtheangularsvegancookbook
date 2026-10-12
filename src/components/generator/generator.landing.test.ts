@@ -23,7 +23,7 @@ const create = (routeData?: Record<string, unknown>) => {
       { provide: AuthService, useValue: { currentUser: () => null } },
       { provide: PersistenceService, useValue: {} },
       { provide: GeminiService, useValue: {} },
-      { provide: RecipeStateService, useValue: { clearRecipe: () => undefined } },
+      { provide: RecipeStateService, useValue: new RecipeStateService() },
       { provide: ToastService, useValue: { show: () => undefined } },
       { provide: ModalService, useValue: {} },
       ...(routeData

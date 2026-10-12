@@ -8,6 +8,38 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-12
+
+Backend pointer pinned at `e3e86a2ac471` (Backend `main`, promotion #399).
+
+### Changed
+
+- The site name is written one way, "Tasteslikegood.org", wherever it is shown (KAN-374): page
+  titles, social-card and structured-data names, the about and privacy pages, and the footers.
+  The second name is "VeganGenius Chef" throughout. The home page title drops "Free" to stay
+  within 60 characters: "AI Vegan Recipe Generator & Cookbook | Tasteslikegood.org".
+- The site name in the footer's copyright line links to the home page (KAN-374), in the app and on
+  the about and privacy pages. The link comes from `footerBrand` in `src/site-nav.json`.
+
+### Fixed
+
+- The wait for a recipe, and for its image, no longer ends with an error on one failed status
+  request (KAN-379). A dropped connection, a 502 or a 429 is retried; the wait ends only after
+  five failed requests in a row, or at once when the recipe no longer exists.
+- The wait for a recipe gives up after five minutes with a message, as the image wait already
+  did (KAN-380). A generation that died used to leave "Cooking..." on screen until the tab was
+  closed. Status requests no longer overlap behind a slow response.
+- Submitting the generator again while a recipe is cooking no longer starts a second generation
+  (KAN-376). The button was already disabled; the Enter key was not.
+- The generator still shows "Cooking..." after you leave it and come back mid-generation
+  (KAN-377), instead of an idle Generate button that could start another one.
+- A recipe that finishes generating after you have opened a different recipe no longer replaces
+  the one on screen (KAN-378). It is saved, and a message says it is ready in My Kitchen. A
+  generation that fails while you are elsewhere is reported the same way.
+- My Kitchen no longer lists or counts a recipe that never finished generating (KAN-381, Backend
+  #398). The "Generating..." placeholder, and a row left behind by a failed generation, stay out
+  of the list and the recipe count; a recipe appears once it is ready.
+
 ## [0.6.0] - 2026-10-11
 
 Backend pointer pinned at `86823f302d6d` (Backend `main`, promotion #395).
