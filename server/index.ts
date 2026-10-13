@@ -17,7 +17,7 @@ import {
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
-import { forAgentGeneration } from './agent-tools.js';
+import { mountGenerationLimiter } from './agent-tools.js';
 import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
 import { createWritePause } from './write-pause.js';
@@ -129,11 +129,8 @@ export const ready = (async () => {
   // General: 300 req / 15 min per IP (image serving is exempt)
   app.use('/api', createApiLimiter(valkeyClient));
   // Expensive AI operations: 20 req / hour per IP
-  app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
-  app.use('/api/generate_image', createExpensiveOperationLimiter(valkeyClient));
-  // Agent generation tools (KAN-401) spend the same budget. Matched on the
-  // decoded path, because Flask decodes the URL before routing it.
-  app.use('/api', forAgentGeneration(createExpensiveOperationLimiter(valkeyClient)));
+  // The agent generation tools (KAN-401) spend the same budget.
+  mountGenerationLimiter(app, createExpensiveOperationLimiter(valkeyClient));
   // Public HTML surface (SPA shell, SSR pages, standalone static pages).
   // KAN-154: its own limiter, not a second createApiLimiter — that shared the
   // `rl:api:` Valkey keyspace with the /api limiter above, and it metered

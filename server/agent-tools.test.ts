@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import express from 'express';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { forAgentGeneration, isAgentGenerationPath } from './agent-tools.js';
+import { isAgentGenerationPath, mountGenerationLimiter } from './agent-tools.js';
 import { createExpensiveOperationLimiter } from './security.js';
 
 describe('isAgentGenerationPath', () => {
@@ -37,7 +37,7 @@ describe('the expensive-operation limit on agent generation tools (KAN-401)', ()
   async function boot() {
     const app = express();
     // max=2 so exhaustion is cheap; the real budget is 20 per hour.
-    app.use('/api', forAgentGeneration(createExpensiveOperationLimiter(null, 60_000, 2)));
+    mountGenerationLimiter(app, createExpensiveOperationLimiter(null, 60_000, 2));
     app.use('/api', (_req, res) => res.status(200).json({ ok: true }));
     const server = http.createServer(app);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -56,6 +56,18 @@ describe('the expensive-operation limit on agent generation tools (KAN-401)', ()
       expect(await post('/api/agent/tools/generate_recipe_image')).toBe(200);
       expect(await post('/api/agent/tools/generate_recipe')).toBe(429);
       expect(await post('/api/agent/tools/generate%5Frecipe')).toBe(429);
+    } finally {
+      await close();
+    }
+  });
+
+  it('shares the budget with the web generation routes without Valkey', async () => {
+    const { post, close } = await boot();
+    try {
+      expect(await post('/api/generate')).toBe(200);
+      expect(await post('/api/generate_image')).toBe(200);
+      expect(await post('/api/agent/tools/generate_recipe')).toBe(429);
+      expect(await post('/api/generate')).toBe(429);
     } finally {
       await close();
     }
