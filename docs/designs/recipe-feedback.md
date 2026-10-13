@@ -316,13 +316,14 @@ Reality rows:
 ```
 SPA saved copy (signed in)                    Flask                               Postgres
   feedback control ── PUT /api/feedback/<target> ─▶ load User by session id        recipe_feedback
-                                              │    resolve target (public source)   (recipe_id, user_id) unique
+                                              │    resolve target (public source)   one active row per recipe/user;
+                                              │                                      deleted rows retained
                                               │    author? ── yes ─▶ age >= 24h      FK recipe CASCADE
                                               │            └─ no ──▶ age >= 24h      FK user   CASCADE
                                               │                     and saved copy
                                               │    stars 1..5, note <= cap
                                               │    note state: held unless account trusted
-                                              └──▶ upsert entry ─▶ (new held note) mail moderator, never fatal
+                                              └──▶ create active entry ─▶ (new held note) mail moderator, never fatal
 SPA moderation view (moderator only) ── approve / reject / hide ─▶ moderator check ─▶ update note or entry,
                                                                                      update account trusted flag
 Public /r/<slug> (no session read) ── show_public_recipe ─▶ one summary query + approved notes
@@ -346,8 +347,8 @@ Dispositions: A1 to A6 accepted as required proof of approved rules; none needs 
 ### 2. Code quality
 
 - **Q1** withdrawn. The first draft proposed moving `_resolve_source_for_image` to a shared place and calling it for feedback. Feedback now reads `source_recipe_id` directly (A4), so there is no second caller and nothing to extract.
-- **Q2** `[P2] (confidence: 8/10) design "Entry and identity"`: the design names no error cases. Required: a second submit for the same recipe updates the existing entry; stars outside 1 to 5 and a note over the cap return 400; a target that was unpublished between page load and submit returns 409 with a plain message; a failed email is logged and never fails the entry write.
-- **Q3** `[P2] (confidence: 8/10) models/recipe.py:109-112`: "free-text content with no AI mediation must not reach the public `/r/<slug>` surface" is the existing rule for manual recipes. A note from a trusted account does reach the page unreviewed. That is the design's stated choice ("its later notes and edits publish without review"); recorded so the build does not treat it as an oversight.
+- **Q2** `[P2] (confidence: 8/10) design "Entry and identity"`: the design names no error cases. Required: only one non-deleted entry exists per recipe and account, enforced with a partial unique index on `(recipe_id, user_id)` where `deleted_at IS NULL`; deleted entries remain as separate moderation records. Replaying the same create payload is idempotent, while a different payload for an existing active entry returns 409 and tells the cook to delete first. Stars outside 1 to 5 and a comment over the cap return 400; a target that was unpublished between page load and submit returns 409 with a plain message; a failed email is logged and never fails the entry write.
+- **Q3** `[P2] (confidence: 8/10) models/recipe.py:109-112`: "free-text content with no AI mediation must not reach the public `/r/<slug>` surface" is the existing rule for manual recipes. A comment from a trusted account does reach the page unreviewed. That is the design's stated choice ("its later notes publish without review"); recorded so the build does not treat it as an oversight.
 
 Dispositions: Q1 withdrawn after PR review. Q2 accepted as required proof. Q3 recorded, no change.
 
@@ -365,7 +366,7 @@ CODE PATHS                                                   USER FLOWS
   ├── [GAP] cook with slug-only copy refused               [+] Moderator
   ├── [GAP] author accepted without a copy                     ├── [GAP] approve first note, later notes publish
   ├── [GAP] stars 0 and 6, note over cap (400)                 ├── [GAP] hide note returns account to held
-  ├── [GAP] second submit updates, unique holds                └── [GAP] non-moderator refused on all three actions
+  ├── [GAP] replay idempotent; changed payload 409             └── [GAP] non-moderator refused on all three actions
   ├── [GAP] target unpublished at submit (409)               [+] Public page
   └── [GAP] mail failure does not fail the write               ├── [GAP] no entries: link line only
 [+] show_public_recipe (existing, changed)                     ├── [GAP] author only: block, held note shows stars only
@@ -381,7 +382,7 @@ COVERAGE: 1/27 paths tested (4%)  |  Code paths: 1/15  |  User flows: 0/12
 QUALITY: ★★★:0 ★★:1 ★:0  |  GAPS: 26 (0 E2E, 0 eval)
 ```
 
-Everything new is a gap because nothing is built. Two regression contracts, both already stated by this design and so carried as required proof:
+Everything new is a gap because nothing is built. Three regression contracts are carried as required proof:
 
 - The guest merge keeps `source_recipe_id` on a reassigned saved copy. `tests/test_guest_merge_dedup.py` builds its rows with `source_slug` only and never reads the id link after the merge.
 - A recipe with no entries renders the same JSON-LD as today.
@@ -393,21 +394,21 @@ Dispositions: all gaps accepted as required proof of approved behaviour.
 
 ### 4. Performance
 
-- **P1** `[P2] (confidence: 7/10) blueprints/public_bp.py:1023`: `show_public_recipe` gains one summary query and one notes query on every request. Both filter on the target recipe, so the entry table needs an index that starts with `recipe_id` (the unique pair gives it). "Approved notes newest first" has no bound in the design; the page should cap what it renders. Proposed cap: 20 notes. Scale: unknown, expected tens of entries per recipe at most.
+- **P1** `[P2] (confidence: 7/10) blueprints/public_bp.py:1023`: `show_public_recipe` gains one summary query and one notes query on every request. Both filter on the target recipe, so the partial unique index on active `(recipe_id, user_id)` rows starts with `recipe_id` and serves the public summary. "Approved notes newest first" has no bound in the design; the page should cap what it renders. Proposed cap: 20 notes. Scale: unknown, expected tens of entries per recipe at most.
 - No change to `/browse`, hubs or the home row: ratings are not shown on cards in Phase 1.
 
 Dispositions: P1 index accepted as required; the 20-note cap is part of R4.
 
 ### Failure modes
 
-| Path            | Realistic failure                          | Handling                                            | User sees                         |
-| --------------- | ------------------------------------------ | --------------------------------------------------- | --------------------------------- |
-| Entry write     | double tap sends two requests              | unique pair, second becomes an update; test         | one entry                         |
-| Entry write     | recipe unpublished while the copy was open | 409; test                                           | plain message                     |
-| New-note email  | provider down or key missing               | logged, write succeeds, reminder still lists it     | nothing; Adam sees it in the view |
-| Reminder        | scheduler not created in an environment    | none in code; checked at release                    | Adam gets no reminder             |
-| Moderator check | moderator setting missing                  | fails closed, logged at start-up                    | notes stay held                   |
-| Public page     | summary query fails                        | must not take the recipe page down: render no block | recipe without feedback           |
+| Path            | Realistic failure                          | Handling                                             | User sees                         |
+| --------------- | ------------------------------------------ | ---------------------------------------------------- | --------------------------------- |
+| Entry write     | double tap sends two requests              | partial unique index; identical replay is idempotent | one entry                         |
+| Entry write     | recipe unpublished while the copy was open | 409; test                                            | plain message                     |
+| New-note email  | provider down or key missing               | logged, write succeeds, reminder still lists it      | nothing; Adam sees it in the view |
+| Reminder        | scheduler not created in an environment    | none in code; checked at release                     | Adam gets no reminder             |
+| Moderator check | moderator setting missing                  | fails closed, logged at start-up                     | notes stay held                   |
+| Public page     | summary query fails                        | must not take the recipe page down: render no block  | recipe without feedback           |
 
 No critical gap: none is silent, untested and unhandled at once. The reminder row is the weakest; it needs a line in the release checklist.
 
@@ -448,7 +449,7 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
 - [ ] **T1 (P1, human: ~2d / CC: ~1h)** Backend: feedback model, migration and API with the eligibility check
   - Surfaced by: Architecture A1, A2, A4, A5; Code quality Q2
   - Files: `Backend/models/`, `Backend/migrations/versions/`, `Backend/blueprints/`, `Backend/tests/`
-  - Verify: `cd Backend && uv run pytest` and `uv run flask db heads` prints one line
+  - Verify: `cd Backend && uv run pytest` covers one active entry per recipe/account, retained deleted rows, idempotent replay and changed-payload 409; `uv run flask db heads` prints one line
 - [ ] **T2 (P1, human: ~1d / CC: ~30min)** Backend: moderator check and moderation actions
   - Surfaced by: Scope Challenge S2 (decision R2); R3-6, R3-7
   - Files: `Backend/blueprints/`, `Backend/utils/`, `Backend/tests/`
@@ -604,7 +605,7 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 - Reality rows: 8/8 applicable rows emitted, 1 unverified premise (production saved-copy counts, task T8)
 - Architecture Review: 6 issues found
 - Code Quality Review: 3 issues found
-- Test Review: diagram produced, 26 gaps identified (2 are regression contracts)
+- Test Review: diagram produced, 26 gaps identified (3 are regression contracts)
 - Performance Review: 1 issue found
 - NOT in scope: written
 - What already exists: written
