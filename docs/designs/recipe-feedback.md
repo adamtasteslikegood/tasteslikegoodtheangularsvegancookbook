@@ -78,7 +78,7 @@ Entry and identity
 
 - An entry is: "I cooked this", a required 1 to 5 star rating (proposed), and an optional "what I changed" note with a length cap. One entry per account per public recipe. Because stars are required, "Cooked by N", the rating count and the JSON-LD `ratingCount` are the same number.
 - The owner of an entry can edit it and can delete it. Deleting recomputes the recipe's count, average and threshold.
-- Target recipe: an entry is keyed to a public recipe's id. A saved copy resolves to its nearest published ancestor through `Recipe.source_recipe_id`. A copy that has itself been published is its own target, and its owner is its author.
+- Target recipe: an entry is keyed to a public recipe's id. A saved copy resolves to its public source through `Recipe.source_recipe_id`, which is always one step: the server refuses to publish a saved copy, so a copy never becomes a target and there are no copies of copies (corrected by the eng review, 2026-10-13; see finding S1).
 - Where the control lives: for a cook, on their saved copy; for an author, on their own published recipe in the app.
 - If a saved copy has no published ancestor (older copies with no source, or the source was unpublished), the control does not render.
 - A saved copy made as a guest must keep its link to the public source through the guest-to-login merge. That, and a data check of existing saved copies, are inputs to the eng review.
@@ -271,3 +271,208 @@ Stop: MAX_ITERATIONS
 > State what the author's block shows when the author's note is held or rejected, and add the author's block to the two non-author page states.
 
 <!-- gstack:office-hours:concerns:end -->
+
+## Eng Review (KAN-345), 2026-10-13
+
+Target: this document, Phase 1 only. Reviewed against cookbook `dev` `af8d300` and Backend `3a71b3e`. Nothing was built. File references are to the Backend repo unless they start with `server/` or `src/`.
+
+Changes this review made to the text above: one factual correction, in "Entry and identity" (finding S1). Everything else is recorded here and waits for Adam's answer where it says so.
+
+### Answers to reviewer concerns R3-3 to R3-8
+
+Proposed answers. R3-3 is a correction and needs no decision. R3-7 is decision R2. The rest are pending as decision R4.
+
+- **R3-3.** The case cannot happen. `repositories/db_recipe_repository.py:715-724` raises `SavedCopyPublishError` for any row with `source_slug` or `source_recipe_id`, so a cook can never publish the copy they rated from. Their entry on the original is unaffected. The only author path is a recipe the account generated and published itself.
+- **R3-4.** A saved copy that already has an entry shows the entry, its note status and a delete action while the source is unpublished. No new entry can be made in that state. Known limit: if the cook also deleted the saved copy, the entry has no surface until the source is public again and the cook saves it again; Adam can delete it on request. A "your feedback" list would close that and is not in Phase 1.
+- **R3-5.** Adam asks the invited cooks directly whether they opened the saved copy and saw the control. No record of page opens is added. The funnel can count signed in, saved and left an entry from existing records; it cannot separate "did not see the control" from "saw it and left nothing" without asking.
+- **R3-6.** Notes already published from the account stay up unless Adam hides them one by one. Hiding a whole entry has the same effect on the account as hiding a note. Approving one later note returns the account to publishing without review.
+- **R3-7.** No account-level moderator identity exists today (finding S2). Decision R2 picks the mechanism. Whichever is picked, the server refuses approve, reject and hide for every other account, and the app only shows the view when the server says the account is the moderator.
+- **R3-8.** The author's block renders in all three page states that have an author's entry, above the cooks' notes. With an approved note it shows the author's stars and the note. While the author's note is held, or after it is rejected, it shows the author's stars and one line, "The author cooked this", with no note. The wording and placement are for `/plan-design-review` to confirm.
+
+### Scope Challenge
+
+Complexity: about 18 changed files and 5 new units (feedback model, feedback blueprint, mail sender, feedback control, moderation view) [estimated]. That is over the 8-file gate, so the file arrangement is decision R1. No feature cut is proposed: the full feature, the saved-copy rule, the 24-hour age and the email notifications are Adam's approved terms.
+
+Findings:
+
+- **S1** `[P2] (confidence: 9/10) repositories/db_recipe_repository.py:715-724`: the design said "a copy that has itself been published is its own target". The code is `if is_saved_copy: raise SavedCopyPublishError(SAVED_COPY_PUBLISH_ERROR)`. Corrected in the text. "Nearest published ancestor" is one `source_recipe_id` step.
+- **S2** `[P1] (confidence: 9/10) models/user.py:6-11`: `User` has `id`, `email`, `name`, `google_id`, `created_at` and no role. `utils/admin_auth.py:9-24` is a bearer token (`ADMIN_API_TOKEN`) for scripts, which a signed-in browser view cannot use. Decision R2.
+- **S3** `[P1] (confidence: 8/10) design "Moderation"`: "one email when a new note joins the queue, and a reminder". Neither repo has a mail transport or a schedule that could send one (a search for SMTP and mail-provider names in both repos returns nothing). Decision R3. Search unavailable for this row; in-distribution knowledge only: Cloud Run blocks outbound port 25, so the usual routes are a provider's HTTPS API or Gmail API with a Workspace account.
+- **S4** `[P2] (confidence: 9/10) design "Entry lifecycle"`: "Deleting the account removes that account's entries". There is no account deletion in the API or the app. The schema carries `ON DELETE CASCADE` on the entry's `user_id` so the rule holds if deletion is ever built; the deletion surface is not in scope.
+
+Reality rows:
+
+- REALITY: premise-table finding 9 premises checked, 2 false (S1, S4), 1 unverified (count of existing saved copies with no resolved source, needs the production data check) docs/designs/recipe-feedback.md:81
+- REALITY: already-done pass no feedback, rating or cooked-entry code on `origin/dev` in either repo since 2026-10-04; only this design's own commits Backend/blueprints/public_bp.py:516
+- REALITY: surface-check pass `flask db heads` prints one head, `d9b3e7a1c5f4`; `/r/<slug>` exists at Backend/blueprints/public_bp.py:1023
+- REALITY: binding-decisions pass no logged branch decisions; the doc's approved terms (24 hours, saved copy required, email notifications, first name only) are treated as binding docs/designs/recipe-feedback.md:75
+- REALITY: numbers pass file and unit counts are tagged estimated; "27 impressions per 28 days" is a cited baseline, re-measure before the success read docs/designs/recipe-feedback.md:20
+- REALITY: deferred-asks pass KAN-345 asks for the eng review, the design review, R3-3 to R3-8, the Assignment, privacy wording and open questions 1 to 4; this review covers the first and third, the rest stay on the ticket docs/designs/recipe-feedback.md:165
+- REALITY: pr-count finding no ship policy file; the build needs at least one Backend PR and one cookbook PR plus the pointer bump and release, each through its own gate scripts/release/RUNBOOK.md:1
+- REALITY: transaction-semantics n/a new tables only, no driver, pool or protocol change Backend/models/recipe.py:10
+
+### 1. Architecture
+
+```
+SPA saved copy (signed in)                    Flask                               Postgres
+  feedback control ── PUT /api/feedback/<target> ─▶ load User by session id        recipe_feedback
+                                              │    resolve target (public source)   (recipe_id, user_id) unique
+                                              │    author? ── yes ─▶ age >= 24h      FK recipe CASCADE
+                                              │            └─ no ──▶ age >= 24h      FK user   CASCADE
+                                              │                     and saved copy
+                                              │    stars 1..5, note <= cap
+                                              │    note state: held unless account trusted
+                                              └──▶ upsert entry ─▶ (new held note) mail moderator, never fatal
+SPA moderation view (moderator only) ── approve / reject / hide ─▶ moderator check ─▶ update note or entry,
+                                                                                     update account trusted flag
+Public /r/<slug> (no session read) ── show_public_recipe ─▶ one summary query + approved notes
+                                              └─▶ state: none | author only | 1-2 cooks | >= 3 cooks
+                                              └─▶ JSON-LD aggregateRating only at >= 3 cooks
+Scheduler ── POST reminder endpoint (ADMIN_API_TOKEN) ─▶ count held notes ─▶ mail moderator
+```
+
+- **A1** `[P1] (confidence: 8/10) design "Moderation"`: "Hiding a note returns its account to the held state" cannot be worked out from the entries, because the account's earlier approved note still exists after the hide. The account's state must be stored: one boolean on `user` (trusted for notes, default false), set by approve, cleared by hide. Required to implement the approved rule; no decision.
+- **A2** `[P2] (confidence: 9/10) models/recipe.py:82,119`: a recipe has `user_id` and `user_id_author`. `blueprints/public_bp.py:531-533` names the author from `recipe.user` (`user_id`). The feedback author, the one excluded from the count and the average, is the target recipe's `user_id`, so the page and the JSON-LD agree.
+- **A3** `[P2] (confidence: 8/10) models/user.py:9`: `name = db.Column(db.String(100), nullable=True)` is one string and `blueprints/auth_api_bp.py:470` stores Google's full `name`. First name is the first word of `User.name` at render time; an empty name shows "A cook". Nothing new is stored.
+- **A4** `[P2] (confidence: 8/10) design "Eligibility"`: "has a saved copy" is a row with the cook's `user_id` and `source_recipe_id` equal to the target, or an older slug-only copy that passes the date guard in `blueprints/public_bp.py:153-206`. It is checked when the entry is created. Edit and delete need only ownership, because an entry outlives its saved copy.
+- **A5** `[P2] (confidence: 7/10) blueprints/recipes_api_bp.py:37-45`: `get_current_user_id()` returns the raw session value. Feedback routes load the `User` row by integer id and refuse when there is none, so the age check always reads a real `created_at`.
+- **A6** `[P2] (confidence: 8/10) server/route-manifest.ts:66`: a new app route for the moderation view must be added to the route manifest or Express returns 404. Prior learning applied: landing-vs-generate-route (confidence 9/10, from 2026-09-28).
+- Cache requirement, confirmed and not a finding: on 2026-10-13 `/r/classic-vegan-aquafaba-meringue-cookies` returned `cache-control: private` and `vary: Origin, Cookie, Accept-Encoding`; `server/index.ts:361` proxies `/r/*` and adds no cache header.
+- Security: the session cookie is `SameSite=Lax`, `HttpOnly`, `Secure` (`app.py:113-115`). Every feedback and moderation write is a non-GET JSON request. Notes are shown through Jinja's default escaping and never marked safe; links in notes are not made clickable.
+- Guest-to-login merge, confirmed: `_merge_guest_session_into_user` (`blueprints/auth_api_bp.py:256-270`) reassigns a guest's saved copy without touching `source_recipe_id` or `source_slug`. The link survives today. No test asserts it (see Tests).
+
+Dispositions: A1 to A6 accepted as required proof of approved rules; none needs an answer.
+
+### 2. Code quality
+
+- **Q1** `[P2] (confidence: 8/10) blueprints/public_bp.py:153`: `_resolve_source_for_image` is the only source resolver and carries the date guard against reused slugs. Feedback needs the same resolution twice (target of a saved copy, saved-copy check). Proposal: move it to a neutral name in `repositories/` and call it from all three places. Callers: `_recipe_image` at `blueprints/public_bp.py:231` (existing), target resolution and eligibility (both proposed). Estimated 55 lines moved, about 5 added for the import, no net saving; the gain is one guard and not two. Pending as R5.
+- **Q2** `[P2] (confidence: 8/10) design "Entry and identity"`: the design names no error cases. Required: a second submit for the same recipe updates the existing entry; stars outside 1 to 5 and a note over the cap return 400; a target that was unpublished between page load and submit returns 409 with a plain message; a failed email is logged and never fails the entry write.
+- **Q3** `[P2] (confidence: 8/10) models/recipe.py:109-112`: "free-text content with no AI mediation must not reach the public `/r/<slug>` surface" is the existing rule for manual recipes. A note from a trusted account does reach the page unreviewed. That is the design's stated choice ("its later notes and edits publish without review"); recorded so the build does not treat it as an oversight.
+
+Dispositions: Q1 pending (R5). Q2 accepted as required proof. Q3 recorded, no change.
+
+### 3. Tests
+
+Framework: pytest in `Backend/tests/`, Vitest for `src/` and `server/`. No E2E harness; the app surfaces are checked in a browser.
+
+```
+CODE PATHS                                                   USER FLOWS
+[+] feedback API (new)                                       [+] Cook leaves an entry
+  ├── [GAP] guest refused (401)                                ├── [GAP] save, wait 24h, rate, note held
+  ├── [GAP] account under 24h refused, opens-on date returned  ├── [GAP] double submit keeps one entry
+  ├── [GAP] cook without saved copy refused                    ├── [GAP] edit note on a hidden entry stays hidden
+  ├── [GAP] cook with saved copy accepted (id link)            └── [GAP] delete copy, keep entry, save again shows it
+  ├── [GAP] cook with slug-only copy accepted (date guard)   [+] Moderator
+  ├── [GAP] author accepted without a copy                     ├── [GAP] approve first note, later notes publish
+  ├── [GAP] stars 0 and 6, note over cap (400)                 ├── [GAP] hide note returns account to held
+  ├── [GAP] second submit updates, unique holds                └── [GAP] non-moderator refused on all three actions
+  ├── [GAP] target unpublished at submit (409)               [+] Public page
+  └── [GAP] mail failure does not fail the write               ├── [GAP] no entries: link line only
+[+] show_public_recipe (existing, changed)                     ├── [GAP] author only: block, held note shows stars only
+  ├── [GAP] four states render as specified                    ├── [GAP] 2 cooks: count, no stars, no aggregateRating
+  ├── [GAP] author entry never in count or average             ├── [GAP] 3 cooks: average and aggregateRating agree
+  ├── [GAP] hidden entry leaves count; hidden note keeps stars └── [GAP] note text is escaped
+  └── [GAP] aggregateRating absent at 2, present at 3        [+] Regression (existing behaviour)
+[+] guest merge (existing)                                     ├── [GAP] CRITICAL merged guest copy keeps source_recipe_id
+  └── [★★ TESTED] dedup on source_slug, tests/test_guest_merge_dedup.py:87-145
+                                                               └── [GAP] CRITICAL recipe JSON-LD unchanged with no entries
+
+COVERAGE: 1/27 paths tested (4%)  |  Code paths: 1/15  |  User flows: 0/12
+QUALITY: ★★★:0 ★★:1 ★:0  |  GAPS: 26 (0 E2E, 0 eval)
+```
+
+Everything new is a gap because nothing is built. Two regression contracts, both already stated by this design and so carried as required proof:
+
+- The guest merge keeps `source_recipe_id` on a reassigned saved copy. `tests/test_guest_merge_dedup.py` builds its rows with `source_slug` only and never reads the id link after the merge.
+- A recipe with no entries renders the same JSON-LD as today.
+
+Test plan artifact: written to the gstack project directory for `/qa`. No LLM or prompt change, so no eval scope.
+
+Dispositions: all gaps accepted as required proof of approved behaviour.
+
+### 4. Performance
+
+- **P1** `[P2] (confidence: 7/10) blueprints/public_bp.py:1023`: `show_public_recipe` gains one summary query and one notes query on every request. Both filter on the target recipe, so the entry table needs an index that starts with `recipe_id` (the unique pair gives it). "Approved notes newest first" has no bound in the design; the page should cap what it renders. Proposed cap: 20 notes. Scale: unknown, expected tens of entries per recipe at most.
+- No change to `/browse`, hubs or the home row: ratings are not shown on cards in Phase 1.
+
+Dispositions: P1 index accepted as required; the 20-note cap is part of R4.
+
+### Failure modes
+
+| Path            | Realistic failure                          | Handling                                            | User sees                         |
+| --------------- | ------------------------------------------ | --------------------------------------------------- | --------------------------------- |
+| Entry write     | double tap sends two requests              | unique pair, second becomes an update; test         | one entry                         |
+| Entry write     | recipe unpublished while the copy was open | 409; test                                           | plain message                     |
+| New-note email  | provider down or key missing               | logged, write succeeds, reminder still lists it     | nothing; Adam sees it in the view |
+| Reminder        | scheduler not created in an environment    | none in code; checked at release                    | Adam gets no reminder             |
+| Moderator check | moderator setting missing                  | fails closed, logged at start-up                    | notes stay held                   |
+| Public page     | summary query fails                        | must not take the recipe page down: render no block | recipe without feedback           |
+
+No critical gap: none is silent, untested and unhandled at once. The reminder row is the weakest; it needs a line in the release checklist.
+
+### NOT in scope
+
+- Account deletion: no such feature exists; only the cascade is built.
+- A "your feedback" list in the app: would close the R3-4 limit; Phase 2.
+- Ratings on browse cards and hub pages: not in the design.
+- Showing source feedback on saved copies, edit history, report-abuse, author replies: the design's Phase 2 or 3.
+- Storing Google's given name: first word of the existing name is used.
+- Removing the old sign-in routes: tracked separately.
+
+### What already exists
+
+- `Recipe.source_recipe_id` and its resolver with the date guard (`blueprints/public_bp.py:153-206`): reused, not rebuilt (Q1).
+- `User.created_at` (`models/user.py:11`): the 24-hour check needs no new column.
+- `_recipe_json_ld` (`blueprints/public_bp.py:516`): gains one optional key.
+- `require_admin` bearer check (`utils/admin_auth.py:9`): fits the scheduled reminder call, machine to machine.
+- `scripts/publish_audit.py`: already reports public rows that carry a source pointer; it is the tool for the design's data check of existing saved copies.
+- `/api/auth/me` (`blueprints/auth_api_bp.py:538`): the place to tell the app whether the account is the moderator.
+
+### Parallelization
+
+| Step                                    | Modules touched                           | Depends on |
+| --------------------------------------- | ----------------------------------------- | ---------- |
+| 1. Model, migration, feedback API       | Backend models, migrations, blueprints    | R1, R2     |
+| 2. Public page states and JSON-LD       | Backend blueprints (public), templates    | 1          |
+| 3. Mail and reminder                    | Backend services, deploy config           | 1, R3      |
+| 4. Feedback control and moderation view | cookbook `src/`, `server/` route manifest | 1          |
+| 5. Privacy policy text                  | cookbook `server/public/`                 | wording    |
+
+Lane A: 1, then 2 and 3 (shared Backend blueprints, in sequence). Lane B: 5, independent, any time. Lane C: 4, after step 1's API is merged. Launch A and B; start C when step 1 lands. Conflict flag: steps 2 and 3 both touch Backend app registration.
+
+## Implementation Tasks
+
+Synthesized from this review's findings. Effort assumes a feature ratio of about 30x.
+
+- [ ] **T1 (P1, human: ~2d / CC: ~1h)** Backend: feedback model, migration and API with the eligibility check
+  - Surfaced by: Architecture A1, A2, A4, A5; Code quality Q2
+  - Files: `Backend/models/`, `Backend/migrations/versions/`, `Backend/blueprints/`, `Backend/tests/`
+  - Verify: `cd Backend && uv run pytest` and `uv run flask db heads` prints one line
+- [ ] **T2 (P1, human: ~1d / CC: ~30min)** Backend: moderator check and moderation actions
+  - Surfaced by: Scope Challenge S2 (decision R2); R3-6, R3-7
+  - Files: `Backend/blueprints/`, `Backend/utils/`, `Backend/tests/`
+  - Verify: pytest shows approve, reject and hide refused for a second account
+- [ ] **T3 (P1, human: ~1d / CC: ~30min)** Backend: four page states and `aggregateRating` at 3 cooks
+  - Surfaced by: Architecture A2, A3; Performance P1; R3-8
+  - Files: `Backend/blueprints/public_bp.py`, `Backend/templates/public/`, `Backend/tests/`
+  - Verify: pytest for each state; Rich Results Test on staging
+- [ ] **T4 (P1, human: ~1d / CC: ~30min)** Backend: new-note email and reminder
+  - Surfaced by: Scope Challenge S3 (decision R3)
+  - Files: `Backend/services/`, `cloudbuild.yaml`, release checklist
+  - Verify: pytest with the sender mocked; one real send on staging
+- [ ] **T5 (P1, human: ~2d / CC: ~1h)** cookbook: feedback control on the saved copy and the moderation view
+  - Surfaced by: Architecture A6; R3-4
+  - Files: `src/components/`, `src/services/`, `src/app.routes.ts`, `server/route-manifest.ts`
+  - Verify: `npm test`, then a browser pass on staging with two accounts
+- [ ] **T6 (P1, human: ~1h / CC: ~10min)** Backend: regression tests for the guest merge link and unchanged JSON-LD
+  - Surfaced by: Tests, the two CRITICAL rows
+  - Files: `Backend/tests/test_guest_merge_dedup.py`, `Backend/tests/`
+  - Verify: both tests fail when the behaviour is broken on purpose, then pass
+- [ ] **T7 (P2, human: ~1h / CC: ~10min)** Backend: move the source resolver to a shared place
+  - Surfaced by: Code quality Q1 (pending R5)
+  - Files: `Backend/blueprints/public_bp.py`, `Backend/repositories/`
+  - Verify: existing image tests pass unchanged
+- [ ] **T8 (P1, human: ~30min / CC: ~5min)** Data check of existing saved copies on production
+  - Surfaced by: Reality row premise-table, the one unverified premise
+  - Files: none; `Backend/scripts/publish_audit.py` and one count query in Cloud SQL Studio
+  - Verify: counts of saved copies with a resolved source, slug-only, and public rows carrying a source pointer (expected 0)
