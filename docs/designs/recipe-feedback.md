@@ -458,7 +458,7 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
   - Verify: pytest for each state; Rich Results Test on staging
 - [ ] **T4 (P1, human: ~1d / CC: ~30min)** Backend: new-note email and reminder
   - Surfaced by: Scope Challenge S3 (decision R3)
-  - Files: `Backend/services/`, `cloudbuild.yaml`, release checklist
+  - Files: `Backend/services/`, `cloudbuild.yaml`, release checklist; Gmail API send-only grant in Workspace admin (Adam)
   - Verify: pytest with the sender mocked; one real send on staging
 - [ ] **T5 (P1, human: ~2d / CC: ~1h)** cookbook: feedback control on the saved copy and the moderation view
   - Surfaced by: Architecture A6; R3-4
@@ -472,6 +472,10 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
   - Surfaced by: Code quality Q1 (pending R5)
   - Files: `Backend/blueprints/public_bp.py`, `Backend/repositories/`
   - Verify: existing image tests pass unchanged
+- [ ] **T9 (P2, human: ~3d / CC: ~1.5h)** Display-name settings page: separate choices for published recipes and feedback posts (Google name or part, nickname, food-themed alias)
+  - Surfaced by: decision R6, Adam's answer of 2026-10-13; phase not yet placed
+  - Files: `Backend/models/user.py`, `Backend/blueprints/`, `Backend/blueprints/public_bp.py`, `src/components/`
+  - Verify: an account set to an alias shows no part of its Google name on `/r/<slug>`, in JSON-LD or beside a comment
 - [ ] **T8 (P1, human: ~30min / CC: ~5min)** Data check of existing saved copies on production
   - Surfaced by: Reality row premise-table, the one unverified premise
   - Files: none; `Backend/scripts/publish_audit.py` and one count query in Cloud SQL Studio
@@ -488,6 +492,27 @@ A second model read the design and the review above, read-only, and returned fiv
 - **O5** `[P2] (confidence: 8/10) blueprints/auth_api_bp.py:470,483`: `name = user_info.get("name")` and `user.name = name or user.name`. The first word of Google's display name is not always a first name, and a later sign-in can change the name shown on old entries. This reopens finding A3. Decision R6.
 
 The outside review recommends revising before the build starts. O1 and O2 are folded into task T2. O3 and O5 wait for Adam. O4 goes to the design review.
+
+## Privacy wording and open questions (draft, KAN-345)
+
+Draft wording for the privacy policy (`server/public/privacy-policy.html`), to be added when the feature ships, not before. It assumes the Phase 1 name rule and changes when the display-name setting exists.
+
+New section 3.7, "Feedback You Post on Recipes":
+
+> If you leave feedback on a recipe, we store your star rating, the comment you write, the date and the recipe it belongs to, linked to your account. Your rating, your comment and the first word of your Google account name are shown publicly on that recipe's page. Anyone can read them, including search engines. When three or more people have rated a recipe, we show the average and give it to search engines as part of the recipe's description. New comments may be held until we have read them, and we may hide a rating or comment. You can delete your feedback at any time from your saved copy of the recipe, and it is then removed from the public page. If we delete your account at your request, your feedback is deleted with it.
+
+Additions to existing sections:
+
+- Section 4 (How We Use Your Information): "to show your feedback on recipe pages and to review comments before or after they are published."
+- Section 7 (How We Share Your Information): "Feedback you post is public. When a comment needs review we send a notice to the site owner by email through Google Workspace; the notice does not go to anyone else."
+- Section 8 (Data Retention): "Feedback is kept until you delete it, the recipe is deleted, or your account is deleted."
+
+Open questions 1 to 4:
+
+1. Tested-recipe marker (E1): proposed that it is the author's own entry, one mechanism and not two. Attaching a real photo to it is not in Phase 1. Open, for Adam.
+2. Repeat cooks: not in Phase 1. One entry per account per recipe is the approved rule. Open for Phase 2.
+3. Comment length cap: proposed 500 characters. Part of R4.
+4. Privacy wording: drafted above. Open until Adam reads it; the section 10.1 deletion text may also need a line once R7 is answered.
 
 ## Decision ledger
 
@@ -509,9 +534,9 @@ Runtime evidence: no role on `User`; `utils/admin_auth.py:9-24` is a bearer toke
 | R6 public name      | pending | pending                                                                   | pending                                                                   |
 | R7 unreviewed edits | pending | pending                                                                   | pending                                                                   |
 
-State: pending
-Actual answer: unanswered
-Accepted scope: none
+State: approved
+Actual answer: A, "Email list in deploy config" (Adam, 2026-10-13, question D1)
+Accepted scope: a deploy setting lists moderator emails; the server matches it to the signed-in account's email on every approve, reject and hide, and fails closed when the setting is missing. `/api/auth/me` tells the app whether the account is a moderator. Tests for refusal on a second account.
 
 ### R3: how the moderation emails are sent
 
@@ -525,11 +550,11 @@ Runtime evidence: no mail transport and no scheduler in either repo.
 | reminder trigger | none    | Cloud Scheduler calls a token-guarded endpoint     | Cloud Scheduler calls a token-guarded endpoint          |
 | R2, R6, R7       | pending | pending                                            | pending                                                 |
 
-State: pending
-Actual answer: unanswered
-Accepted scope: none
+State: approved
+Actual answer: B, "Gmail API from Workspace" (Adam, 2026-10-13, question D2)
+Accepted scope: the Flask service account sends through the Gmail API as an address on the tasteslikegood.org Workspace. The grant is limited to sending mail. Cloud Scheduler calls a token-guarded endpoint for the reminder. A failed send is logged and never fails an entry write. One real send is checked on staging.
 
-### R4: proposed answers to R3-4, R3-5, R3-6, R3-8 and the 20-note cap
+### R4: proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-comment cap and the 500-character cap
 
 Finding: reviewer concerns in this document; P1 in Performance.
 State: pending. Proposed in "Answers to reviewer concerns" above. They stand as written unless Adam changes them in review of this document's PR; R3-8's wording is confirmed by the design review.
@@ -554,9 +579,9 @@ Runtime evidence: one `name` string per user, overwritten at each sign-in.
 | R6 public name | not built | first word of the Google name, read at display | the cook confirms a public name at their first entry; it is stored |
 | R2, R3, R7     | pending   | pending                                        | pending                                                            |
 
-State: pending
-Actual answer: unanswered
-Accepted scope: none
+State: approved for Phase 1; one part not yet placed
+Actual answer: A, with an addition (Adam, 2026-10-13, question D3): "A - also, there needs to be an option for BOTH publshed recipes and for these posts to keep an anounomous tag for their recipes AND for posts (two seperate options in settings page) for now, this: A, but the options are either choices of google acct's name string -or sub-string or nickname-field possibly from google acct or a random assigned alias like in gaming apps (like bingo, or project names, claude-code remote-control session names) - pref food (health+vegan-non-animal-food-nouns) themed.. yes this feat is complicated, its accepted work, keeping it on the minimal scope -already decided on gates for leaving comments - must save recipe and 24hr acct age, adding moderation by me is even better"
+Accepted scope: Phase 1 shows the first word of the Google name, read at display; an empty name shows "A cook". Also accepted as work, in Adam's words above: a settings page with two separate display-name choices, one for the account's published recipes and one for its feedback posts, each allowing the Google name or part of it, a nickname, or a randomly assigned food-themed alias, so an account can stay anonymous on either. This review's reading, to be confirmed: the first build ships with the first word, and the settings page is not yet placed in a phase. It touches the author name on existing public recipe pages and their JSON-LD (`blueprints/public_bp.py:531-544`), which is outside this design so far.
 
 ### R7: what Adam can see of an edit that published without review
 
@@ -570,10 +595,10 @@ Runtime evidence: not built.
 | R2, R3, R6          | pending   | pending                                                         | pending                                                  |
 
 State: pending
-Actual answer: unanswered
-Accepted scope: none
+Actual answer: Adam, 2026-10-13, question D4, chose neither option: "were not editing the pencil notes, this is a comments style - blog-like feedback feat with star ratings"
+Accepted scope: none yet. Recorded from the answer: the feedback text is a public comment in the style of a blog comment with a star rating. It is separate from the private notes a cook edits with the pencil on a saved recipe (`personalNotes`, `src/components/shared/recipe-view.base.ts:287-289`), and this feature does not touch those. To avoid the two being confused, the build and the app call the feedback text a comment, not a note. Still open: whether a cook can change a posted comment in place, or deletes it and posts again. If comments are not edited in place, every published comment is its own record and this question goes away, provided a deleted comment stays visible to Adam.
 
-Approval readiness: not yet passed. R2, R3, R6 and R7 wait for Adam; R4 and R5 are pending as stated.
+Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 waits for one answer from Adam. R4 and R5 are pending as stated.
 
 ## Completion summary
 
@@ -587,10 +612,10 @@ Approval readiness: not yet passed. R2, R3, R6 and R7 wait for Adam; R4 and R5 a
 - What already exists: written
 - TODOS.md updates: 0 items proposed (the repo has no TODOS.md; follow-ups are on KAN-345)
 - Failure modes: 0 critical gaps flagged
-- Unresolved decisions: 6 in this review (R2, R3, R4, R5, R6, R7)
+- Unresolved decisions: 3 in this review (R4, R5, R7), plus the placement of the display-name settings page from R6
 - Outside voice: Codex, completed, 5 findings (2 accepted as required, 2 to Adam, 1 to the design review)
 - Parallelization: 3 lanes, 2 parallel at the start, 1 after step 1
-- Lake Score: N/A (no answers yet)
+- Lake Score: 0/1 (R6 was the one scored answer; Adam chose the first-word option and added the settings page as accepted work)
 
 ## GSTACK REVIEW REPORT
 
@@ -604,13 +629,11 @@ Approval readiness: not yet passed. R2, R3, R6 and R7 wait for Adam; R4 and R5 a
 
 - **OUTSIDE COVERAGE:** Codex, plan-review phase, completed, 5 findings (2 P1, 3 P2).
 - **CROSS-MODEL:** no overlap; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3).
-- **VERDICT:** not cleared. Eng review required answers on R2, R3, R6 and R7; design review still to run.
+- **VERDICT:** not cleared. Eng review required: R7 needs one answer; design review still to run.
 
 **UNRESOLVED DECISIONS:**
 
-- R2: how the server knows the moderator
-- R3: how the moderation emails are sent
-- R4: proposed answers to R3-4, R3-5, R3-6, R3-8 and the 20-note cap
+- R4: proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-comment cap and the 500-character cap
 - R5: move the source resolver to a shared place
-- R6: the name shown beside a cook's note
-- R7: what Adam can see of an edit that published without review
+- R7: whether a posted comment can be changed in place, and what Adam sees if it can
+- R6, one part: which phase the display-name settings page belongs to
