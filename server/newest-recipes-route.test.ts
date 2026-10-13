@@ -134,3 +134,38 @@ describe('home page newest-recipes row (KAN-348)', () => {
     expect(body).not.toContain('/r/smoky-bean-chili');
   });
 });
+
+describe('home page as Markdown (KAN-397)', () => {
+  it('answers Accept: text/markdown with the guide and the newest recipes', async () => {
+    const res = await fetch(`${baseUrl}/`, { headers: { accept: 'text/markdown' } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
+    expect(res.headers.get('vary')).toMatch(/\bAccept\b/);
+    expect(res.headers.get('cache-control')).toBe('public, max-age=0');
+    expect(res.headers.get('link')).toContain('</llms.txt>');
+    const body = await res.text();
+
+    expect(body).toMatch(/^# How to Use VeganGenius Chef/);
+    expect(body).toContain('[recipe generator](/generate)');
+    expect(body).toContain('## Newest vegan recipes');
+    expect(body).toContain('- [Smoky Bean Chili](/r/smoky-bean-chili)');
+    expect(body).toContain('- [Mac & Cheeze](/r/mac-and-cheeze)');
+    expect(body).not.toContain('<html');
+  });
+
+  it.each(['text/html', '*/*', 'text/*', 'text/markdown;q=0'])(
+    'still answers Accept: %s with HTML, and says the answer varies',
+    async (accept) => {
+      const res = await fetch(`${baseUrl}/`, { headers: { accept } });
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toContain('text/html');
+      expect(res.headers.get('vary')).toMatch(/\bAccept\b/);
+      expect(await res.text()).toContain('<h1>home-landing</h1>');
+    }
+  );
+
+  it('leaves other pages alone', async () => {
+    const res = await fetch(`${baseUrl}/kitchen`, { headers: { accept: 'text/markdown' } });
+    expect(res.headers.get('content-type')).toContain('text/html');
+  });
+});
