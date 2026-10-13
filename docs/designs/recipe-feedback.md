@@ -77,7 +77,7 @@ Items marked (proposed) were this design's defaults. Adam approved the doc on 20
 Entry and identity
 
 - An entry is: "I cooked this", a required 1 to 5 star rating (proposed), and an optional "what I changed" note with a length cap. One entry per account per public recipe. Because stars are required, "Cooked by N", the rating count and the JSON-LD `ratingCount` are the same number.
-- The owner of an entry can edit it and can delete it. Deleting recomputes the recipe's count, average and threshold.
+- The owner of an entry can delete it and post a new one. In the first version an entry is not edited in place (Adam, 2026-10-13: "for the first version of this feat go with delete and re-post"). Deleting recomputes the recipe's count, average and threshold. A deleted entry stays visible to Adam in the moderation view, and a hide placed on it carries over to the cook's next entry on that recipe.
 - Target recipe: an entry is keyed to a public recipe's id. A saved copy resolves to its public source through `Recipe.source_recipe_id`, which is always one step: the server refuses to publish a saved copy, so a copy never becomes a target and there are no copies of copies (corrected by the eng review, 2026-10-13; see finding S1).
 - Where the control lives: for a cook, on their saved copy; for an author, on their own published recipe in the app.
 - If a saved copy has no published ancestor (older copies with no source, or the source was unpublished), the control does not render.
@@ -99,10 +99,10 @@ Entry lifecycle
 
 Moderation
 
-- The rule is per account, not per entry: until an account has one approved note, every new or edited note from it is held. The stars and cooked mark on that entry count meanwhile. Author's notes follow the same rule.
+- The rule is per account, not per entry: until an account has one approved note, every new note from it is held. The stars and cooked mark on that entry count meanwhile. Author's notes follow the same rule.
 - A rejected note is not shown; the entry's stars stay; the cook sees the note's status on their copy; the account stays unapproved, so its next note is held too.
-- Once an account has an approved note, its later notes and edits publish without review. Adam can list every note and edit that published without review, in the same place as the approval queue.
-- Adam can hide a note or a whole entry at any time. Hiding a note leaves the entry's stars counting. Hiding an entry removes it from the count and the average. The cook sees the hidden status. Editing a hidden note or entry does not put it back; only Adam can.
+- Once an account has an approved note, its later notes publish without review. Adam can list every note that published without review, including ones the cook has since deleted, in the same place as the approval queue.
+- Adam can hide a note or a whole entry at any time. Hiding a note leaves the entry's stars counting. Hiding an entry removes it from the count and the average. The cook sees the hidden status. Deleting a hidden entry and posting again does not put it back; only Adam can.
 - Hiding a note returns its account to the held state, so a repeat offender is reviewed again.
 - Queue, list and hide action live in an Adam-only view in the app. Email is notification only (Adam, at approval): one email when a new note joins the queue, and a reminder of pending notes on a daily or every-other-day schedule. Emails link into the app view; they carry no approve or reject links. The server refuses approve, reject and hide for every other account; how Adam is identified on the server is an input to the eng review.
 
@@ -360,7 +360,7 @@ CODE PATHS                                                   USER FLOWS
 [+] feedback API (new)                                       [+] Cook leaves an entry
   ├── [GAP] guest refused (401)                                ├── [GAP] save, wait 24h, rate, note held
   ├── [GAP] account under 24h refused, opens-on date returned  ├── [GAP] double submit keeps one entry
-  ├── [GAP] cook without saved copy refused                    ├── [GAP] edit note on a hidden entry stays hidden
+  ├── [GAP] cook without saved copy refused                    ├── [GAP] delete hidden entry, repost: stays hidden
   ├── [GAP] cook with saved copy accepted (id link)            └── [GAP] delete copy, keep entry, save again shows it
   ├── [GAP] cook with slug-only copy accepted (date guard)   [+] Moderator
   ├── [GAP] author accepted without a copy                     ├── [GAP] approve first note, later notes publish
@@ -512,7 +512,7 @@ Open questions 1 to 4:
 1. Tested-recipe marker (E1): proposed that it is the author's own entry, one mechanism and not two. Attaching a real photo to it is not in Phase 1. Open, for Adam.
 2. Repeat cooks: not in Phase 1. One entry per account per recipe is the approved rule. Open for Phase 2.
 3. Comment length cap: proposed 500 characters. Part of R4.
-4. Privacy wording: drafted above. Open until Adam reads it; the section 10.1 deletion text may also need a line once R7 is answered.
+4. Privacy wording: drafted above. Open until Adam reads it. It should also say that a deleted entry leaves the public page at once and is kept for moderation records.
 
 ## Decision ledger
 
@@ -594,11 +594,12 @@ Runtime evidence: not built.
 | R7 unreviewed edits | not built | each published note version is kept; Adam's list shows them all | the list shows the current text and when it last changed |
 | R2, R3, R6          | pending   | pending                                                         | pending                                                  |
 
-State: pending
-Actual answer: Adam, 2026-10-13, question D4, chose neither option: "were not editing the pencil notes, this is a comments style - blog-like feedback feat with star ratings"
-Accepted scope: none yet. Recorded from the answer: the feedback text is a public comment in the style of a blog comment with a star rating. It is separate from the private notes a cook edits with the pencil on a saved recipe (`personalNotes`, `src/components/shared/recipe-view.base.ts:287-289`), and this feature does not touch those. To avoid the two being confused, the build and the app call the feedback text a comment, not a note. Adam added the same day: "no one is editing recipes content , just rating and comments feedback at the bottom". So the feature never changes a recipe's content, and the rating and comments sit at the bottom of the recipe. And: "if changes are requested there made by re-generating the recipe until a 'chat with gemini about this recipe feat down the road". So a comment that asks for a change does not alter the recipe; the author regenerates it, and a chat-about-this-recipe feature is a later idea, outside this design. Still open: whether a cook can change a posted comment in place, or deletes it and posts again. If comments are not edited in place, every published comment is its own record and this question goes away, provided a deleted comment stays visible to Adam.
+State: approved
+Actual answer: Adam, 2026-10-13: "for the first version of this feat go with delete and re-post". His two earlier replies to this question are kept under History.
+Accepted scope: in the first version a cook cannot change a posted entry. They delete it and post a new one, which follows the same rules as any new entry (stars count at once; the comment is held unless the account is trusted). Each published comment is its own record. A deleted entry is kept, marked deleted, so Adam's list still shows what was public; it leaves the page, the count and the average at once. A hide stays on the account and recipe pair through delete and repost (O1). Approve and reject act on one comment record, so the edited-while-reviewing case (O2) cannot occur. No version table is built.
+History: question D4 offered "keep each published version" and "current text only". Adam chose neither: "were not editing the pencil notes, this is a comments style - blog-like feedback feat with star ratings"; then "no one is editing recipes content , just rating and comments feedback at the bottom"; then "if changes are requested there made by re-generating the recipe until a 'chat with gemini about this recipe feat down the road". Recorded from those: the feedback text is a public comment, separate from the private pencil notes on a saved recipe (`personalNotes`, `src/components/shared/recipe-view.base.ts:287-289`); the feature never changes a recipe's content; a requested change is made by the author regenerating the recipe; a chat-about-this-recipe feature is a later idea outside this design.
 
-Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 waits for one answer from Adam. R4 and R5 are pending as stated.
+Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 is approved by Adam's answer of the same day. R4 and R5 are pending as stated.
 
 ## Completion summary
 
@@ -612,7 +613,7 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 - What already exists: written
 - TODOS.md updates: 0 items proposed (the repo has no TODOS.md; follow-ups are on KAN-345)
 - Failure modes: 0 critical gaps flagged
-- Unresolved decisions: 3 in this review (R4, R5, R7), plus the placement of the display-name settings page from R6
+- Unresolved decisions: 2 in this review (R4, R5), plus the placement of the display-name settings page from R6
 - Outside voice: Codex, completed, 5 findings (2 accepted as required, 2 to Adam, 1 to the design review)
 - Parallelization: 3 lanes, 2 parallel at the start, 1 after step 1
 - Lake Score: 0/1 (R6 was the one scored answer; Adam chose the first-word option and added the settings page as accepted work)
@@ -629,11 +630,10 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 
 - **OUTSIDE COVERAGE:** Codex, plan-review phase, completed, 5 findings (2 P1, 3 P2).
 - **CROSS-MODEL:** no overlap; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3).
-- **VERDICT:** not cleared. Eng review required: R7 needs one answer; design review still to run.
+- **VERDICT:** eng review answered on every decision that was Adam's (R2, R3, R6, R7); R4 and R5 are settled in review of the PRs. Design review still to run before the build.
 
 **UNRESOLVED DECISIONS:**
 
 - R4: proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-comment cap and the 500-character cap
 - R5: move the source resolver to a shared place
-- R7: whether a posted comment can be changed in place, and what Adam sees if it can
 - R6, one part: which phase the display-name settings page belongs to
