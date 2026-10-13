@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'express';
+import { isAgentGenerationPath } from './agent-tools.js';
 
 /**
  * KAN-330 — the recipe write pause.
@@ -6,7 +7,8 @@ import type { RequestHandler } from 'express';
  * While the publish-state audit runs on the database, nothing may change a
  * recipe row: a save that lands between the listing and the cutover would be
  * judged against stale data. With `RECIPE_WRITE_PAUSE=1` every mutating request
- * under `/api/recipes` and `/api/generate` stops here with a 503 the SPA can
+ * under `/api/recipes` and `/api/generate`, and every agent generation tool
+ * call (`/api/agent/tools/generate_*`, KAN-401), stops here with a 503 the SPA can
  * name (`code`), before the body is buffered and before Flask sees it. Reads,
  * the health check and every other API route are untouched, so browsing and
  * the kitchen keep working.
@@ -38,7 +40,7 @@ export function isRecipeWritePaused(
 // treated as paused rather than guessed at.
 function isPausedPath(path: string): boolean {
   try {
-    return PAUSED_PATHS.test(decodeURIComponent(path));
+    return PAUSED_PATHS.test(decodeURIComponent(path)) || isAgentGenerationPath(path);
   } catch {
     return true;
   }
