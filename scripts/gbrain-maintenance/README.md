@@ -13,19 +13,31 @@ work now runs from the hermes agent on the sprite (see below).
 
 This directory is the **fallback**. The sprite sleeps and has missed a full
 day of runs (2026-10-11), so its wake-up is not yet proven. If it keeps
-missing runs, move the script work back here:
+missing runs, move the script work back here. Do the steps in this order so
+exactly one of the two runs the script work at any time.
+
+To move the script work to Railway:
 
 ```bash
-# turn the Railway nightly back on (runs once now, then nightly from railway.json)
+# 1. on the sprite: stop the hermes script job (take the id from `hermes cron list`)
+hermes cron pause <gbrain-maintain job id>
+# 2. deploy; this restores the nightly from railway.json but does not run it now
 railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
-# turn it off again (the service and its variables stay)
-railway down --service gbrain-maintenance --yes
+# 3. run it once now instead of waiting for the next 09:00 UTC slot
+railway cron run --service gbrain-maintenance --yes
 ```
 
-Then pause the matching hermes job (`hermes cron pause gbrain-maintain`) so
-only one of the two runs the script work. The weekly agent check stays on
-hermes either way: nothing here calls a chat model, and the Railway key is
-scoped to embeddings.
+To move it back to hermes:
+
+```bash
+# 1. remove the Railway deployment (the service and its variables stay)
+railway down --service gbrain-maintenance --yes
+# 2. on the sprite: start the hermes script job again
+hermes cron resume <gbrain-maintain job id>
+```
+
+The weekly agent check stays on hermes either way: nothing here calls a chat
+model, and the Railway key is scoped to embeddings.
 
 The service is not connected to GitHub, so a merge to `dev` does not deploy
 it. Only `railway up` does.
