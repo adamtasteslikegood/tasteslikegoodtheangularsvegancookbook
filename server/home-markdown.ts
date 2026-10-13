@@ -27,8 +27,11 @@ export function acceptsMarkdown(accept: string | undefined): boolean {
   return false;
 }
 
-// Recipe names come from Flask; keep one from breaking out of its link text.
-const escapeLinkText = (value: string): string => value.replace(/[\\[\]]/g, '\\$&');
+// Recipe names come from Flask and are a publisher's own words. Keep one on
+// its line and inside its link text: no new line, no raw HTML, no entity, no
+// Markdown of its own. A plain "&" (as in "Mac & Cheeze") is left alone.
+const escapeLinkText = (value: string): string =>
+  value.replace(/\s+/g, ' ').replace(/[\\[\]<>`*_]|&(?=#?\w+;)/g, '\\$&');
 
 /** The guide, followed by the newest-recipes links when there is a list. */
 export function renderHomeMarkdown(guide: string, recipes: readonly NewestRecipe[]): string {

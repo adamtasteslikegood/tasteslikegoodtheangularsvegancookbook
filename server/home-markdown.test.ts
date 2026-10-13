@@ -29,4 +29,17 @@ describe('renderHomeMarkdown', () => {
       '# Guide\n\n## Newest vegan recipes\n\n- [A \\[b\\](x)](/r/a-b)\n'
     );
   });
+  it('keeps a hostile name on one line, as text', () => {
+    const name = 'Stew <img src=x onerror=alert(1)>\n## Fake &lt;b&gt; *bold* `code` a_b';
+    expect(renderHomeMarkdown('# Guide\n', [{ slug: 'stew', name }])).toBe(
+      '# Guide\n\n## Newest vegan recipes\n\n' +
+        '- [Stew \\<img src=x onerror=alert(1)\\> ## Fake \\&lt;b\\&gt; \\*bold\\* \\`code\\` a\\_b](/r/stew)\n'
+    );
+  });
+
+  it('leaves a plain ampersand alone', () => {
+    expect(renderHomeMarkdown('# Guide\n', [{ slug: 'mac', name: 'Mac & Cheeze' }])).toContain(
+      '- [Mac & Cheeze](/r/mac)'
+    );
+  });
 });
