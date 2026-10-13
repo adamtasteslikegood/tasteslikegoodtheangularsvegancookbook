@@ -73,6 +73,30 @@ describe('the expensive-operation limit on agent generation tools (KAN-401)', ()
     }
   });
 
+  it('meters the web generation routes on the decoded path', async () => {
+    const { post, close } = await boot();
+    try {
+      expect(await post('/api/%67enerate')).toBe(200);
+      expect(await post('/api/generate%5Fimage')).toBe(200);
+      expect(await post('/api/%67enerate')).toBe(429);
+      expect(await post('/api/generate')).toBe(429);
+    } finally {
+      await close();
+    }
+  });
+
+  it('does not meter other API routes', async () => {
+    const { post, close } = await boot();
+    try {
+      for (let i = 0; i < 5; i++) {
+        expect(await post('/api/recipes')).toBe(200);
+        expect(await post('/api/generated')).toBe(200);
+      }
+    } finally {
+      await close();
+    }
+  });
+
   it('does not meter the read tools', async () => {
     const { post, close } = await boot();
     try {

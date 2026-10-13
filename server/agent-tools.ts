@@ -29,26 +29,33 @@ export function isAgentGenerationPath(path: string): boolean {
   }
 }
 
-/** Run `handler` for agent generation calls only. Mount at /api. */
-export function forAgentGeneration(handler: RequestHandler): RequestHandler {
-  return (req, res, next) => {
-    if (isAgentGenerationPath(req.path)) {
-      handler(req, res, next);
-      return;
-    }
-    next();
-  };
+// Mount-relative: /generate, /generate_image and anything under them, as the
+// two path mounts they replace matched.
+const WEB_GENERATION_PATH = /^\/generate(?:_image)?(?:\/|$)/;
+
+/** Any generation entry point: the web app's two or an agent tool. */
+export function isGenerationPath(path: string): boolean {
+  try {
+    const decoded = decodeURIComponent(path);
+    return WEB_GENERATION_PATH.test(decoded) || AGENT_GENERATION_PATH.test(decoded);
+  } catch {
+    return true;
+  }
 }
 
 /**
  * Mount one expensive-operation limiter on every generation entry point: the
  * web app's two and the agent tools. It takes one limiter, not one per mount,
  * because without Valkey each limiter keeps its own in-memory count and each
- * entry point would get a budget of its own.
+ * entry point would get a budget of its own. Every entry point is matched on
+ * the decoded path, the spelling Flask routes on.
  */
 export function mountGenerationLimiter(app: Express, limiter: RequestHandler): void {
-  app.use('/api/generate', limiter);
-  app.use('/api/generate_image', limiter);
-  // Matched on the decoded path, because Flask decodes the URL before routing.
-  app.use('/api', forAgentGeneration(limiter));
+  app.use('/api', (req, res, next) => {
+    if (isGenerationPath(req.path)) {
+      limiter(req, res, next);
+      return;
+    }
+    next();
+  });
 }
