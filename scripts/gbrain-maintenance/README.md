@@ -5,6 +5,43 @@ shared Railway Postgres, then exits. Deployed as a Railway **cron service**
 ("gbrain maintenance" in the "believable-joy" project) linked to the same
 Postgres and pg_volume that host the brain.
 
+## Status: fallback, not running (2026-10-13)
+
+The nightly schedule is **cancelled on the live service** (KAN-410). The
+service is kept with no cron schedule and no active deployment, and the same
+work now runs from the hermes agent on the sprite (see below).
+
+This directory is the **fallback**. The sprite sleeps and has missed a full
+day of runs (2026-10-11), so its wake-up is not yet proven. If it keeps
+missing runs, move the script work back here. Do the steps in this order so
+exactly one of the two runs the script work at any time.
+
+To move the script work to Railway:
+
+```bash
+# 1. on the sprite: stop the hermes script job (take the id from `hermes cron list`)
+hermes cron pause <gbrain-maintain job id>
+# 2. deploy; this restores the nightly from railway.json but does not run it now
+railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
+# 3. run it once now instead of waiting for the next 09:00 UTC slot
+railway cron run --service gbrain-maintenance --yes
+```
+
+To move it back to hermes:
+
+```bash
+# 1. remove the Railway deployment (the service and its variables stay)
+railway down --service gbrain-maintenance --yes
+# 2. on the sprite: start the hermes script job again
+hermes cron resume <gbrain-maintain job id>
+```
+
+The weekly agent check stays on hermes either way: nothing here calls a chat
+model, and the Railway key is scoped to embeddings.
+
+The service is not connected to GitHub, so a merge to `dev` does not deploy
+it. Only `railway up` does.
+
 ## What it does
 
 | Phase | Command                                             | Purpose                                                  |
@@ -57,18 +94,21 @@ railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenanc
 
 ## Hermes agent integration (spawn/sprite)
 
-For on-demand maintenance outside the nightly cron — e.g. after a large
-sync or when doctor score drops — wake the hermes agent on the spawn/sprite
-instance with a brain-check task. The agent runs the same commands `run.sh`
-does, but can make judgment calls (archive dead sources, break stale locks,
-report anomalies).
+The hermes agent on the sprite (`spawn-sprite-hermes222`) runs the scheduled
+work while the Railway nightly is off. List the jobs with `hermes cron list`
+and their history with `hermes cron runs`.
 
-Sample hermes cron (twice daily, offset from the Railway nightly):
+| Job                  | Schedule (UTC)            | Chat model | What it does                                                    |
+| -------------------- | ------------------------- | ---------- | --------------------------------------------------------------- |
+| `gbrain-maintain`    | 03:30, 15:30, 21:30 daily | no         | `~/.hermes/scripts/gbrain-maintain.sh`: the same phases as here |
+| `gbrain-brain-check` | Mondays 16:00             | yes        | Runs doctor, remediates under a score of 50, reports FAILs      |
 
-```cron
-0 15 * * * hermes run --task "gbrain-brain-check" --timeout 300
-0 3  * * * hermes run --task "gbrain-brain-check" --timeout 300
-```
+There is no dream job. A `gbrain-nightly-dream` agent job was removed on
+2026-10-13: it sent about 495k prompt tokens a run and created no pages.
+
+Neither hermes nor this service syncs code. That is the dev machine's
+`gbrain autopilot` cron; if it is not running, the brain only changes when
+`/sync-gbrain` is run by hand.
 
 The `gbrain-brain-check` task prompt:
 
@@ -79,10 +119,10 @@ If score < 50: run gbrain extract --stale and
 gbrain embed --stale --catch-up --max-usd 1, then re-check. Do not run
 gbrain dream (it calls a chat model; see above).
 If any source shows sync lag > 7d and is pointed at a missing path:
-archive it (gbrain sources archive <id>).
-If stale locks exist: break them (gbrain sync --break-lock --source <id>).
-Report the before/after score and any actions taken.
+report it, but do not archive or delete anything.
+If stale locks exist: report them, but do not break them.
+Report the before/after score, every FAIL check and any actions taken.
 ```
 
-This keeps the hermes agent lightweight — it only acts when doctor says
-something is wrong, and the Railway cron handles the scheduled work.
+This keeps the agent job lightweight: it only acts when doctor says
+something is wrong.
