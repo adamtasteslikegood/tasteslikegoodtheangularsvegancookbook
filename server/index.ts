@@ -285,30 +285,28 @@ export const ready = (async () => {
     res.vary('Accept');
     next();
   });
-  // KAN-397: the Markdown form, for a client that names text/markdown. Without
-  // the guide file the request falls through to the HTML home page.
-  let homeGuidePromise: Promise<string> | undefined;
-  const getHomeGuide = (): Promise<string> => {
-    homeGuidePromise ??= readFile(path.join(publicPath, 'home.md'), 'utf8').catch((err) => {
-      homeGuidePromise = undefined;
-      throw err;
-    });
-    return homeGuidePromise;
+  // KAN-397: the Markdown form, for a client that names text/markdown. The
+  // guide is a file in the image, so it is read once, now. If that fails it is
+  // logged here and "/" is HTML only until the next start: no retry per
+  // request, and the warning is this handler's own.
+  const homeGuide: Promise<string | null> = readFile(
+    path.join(publicPath, 'home.md'),
+    'utf8'
+  ).catch((err) => {
+    console.warn('[home-markdown] no guide to serve; "/" is HTML only:', err);
+    return null;
+  });
+  // Both checks come before the limiter, so a request is counted once whichever
+  // form it gets.
+  const markdownOnly: express.RequestHandler = async (req, _res, next) => {
+    if (!acceptsMarkdown(req.get('Accept'))) return next('route');
+    next((await homeGuide) === null ? 'route' : undefined);
   };
-  const markdownOnly: express.RequestHandler = (req, _res, next) =>
-    acceptsMarkdown(req.get('Accept')) ? next() : next('route');
-  // The check comes before the limiter, so an HTML request is counted once.
   app.get('/', markdownOnly, staticPageLimiter, async (_req, res, next) => {
-    try {
-      const markdown = renderHomeMarkdown(await getHomeGuide(), await newestRecipes.get());
-      res.setHeader('Cache-Control', 'public, max-age=0');
-      res.type(MARKDOWN_CONTENT_TYPE).send(markdown);
-    } catch (err) {
-      if (shouldLogHomeShellFailure()) {
-        console.warn('[home-markdown] serving the HTML home page:', err);
-      }
-      next();
-    }
+    const guide = await homeGuide;
+    if (guide === null) return next('route');
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    res.type(MARKDOWN_CONTENT_TYPE).send(renderHomeMarkdown(guide, await newestRecipes.get()));
   });
   app.get('/', staticPageLimiter, async (_req, res, next) => {
     try {
