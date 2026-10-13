@@ -49,6 +49,8 @@ describe('createWritePause', () => {
     ['PATCH', '/api/recipes/r1'],
     ['POST', '/api/generate'],
     ['POST', '/api/generate_image'],
+    ['POST', '/api/agent/tools/generate_recipe'],
+    ['POST', '/api/agent/tools/generate_recipe_image'],
   ] as const;
 
   it('answers 503 with a named code for recipe and generation writes while paused', async () => {
@@ -74,6 +76,8 @@ describe('createWritePause', () => {
         ['POST', '/api/recipe%73'],
         ['POST', '/api/%67enerate'],
         ['POST', '/api/generate%5Fimage'],
+        ['POST', '/api/agent/tools/generate%5Frecipe'],
+        ['POST', '/api/%61gent/tools/generate_recipe_image'],
         ['DELETE', '/api/recipes%2Fr1'],
         ['POST', '/api/%E0%A4%A'],
       ] as const;
@@ -96,6 +100,10 @@ describe('createWritePause', () => {
         ['POST', '/api/collections/c1/recipes'],
         ['DELETE', '/api/collections/c1/recipes/r1'],
         ['GET', '/api/health'],
+        ['GET', '/api/agent/tools'],
+        ['POST', '/api/agent/tools/search_recipes'],
+        ['POST', '/api/agent/tools/get_recipe'],
+        ['POST', '/api/agent/tools/get_generation_status'],
       ] as const;
       for (const [method, url] of passThrough) {
         const res = await fetch(`${baseUrl}${url}`, { method });

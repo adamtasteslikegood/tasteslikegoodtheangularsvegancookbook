@@ -17,6 +17,7 @@ import {
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
+import { mountGenerationLimiter } from './agent-tools.js';
 import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
 import { createWritePause } from './write-pause.js';
@@ -128,8 +129,8 @@ export const ready = (async () => {
   // General: 300 req / 15 min per IP (image serving is exempt)
   app.use('/api', createApiLimiter(valkeyClient));
   // Expensive AI operations: 20 req / hour per IP
-  app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
-  app.use('/api/generate_image', createExpensiveOperationLimiter(valkeyClient));
+  // The agent generation tools (KAN-401) spend the same budget.
+  mountGenerationLimiter(app, createExpensiveOperationLimiter(valkeyClient));
   // Public HTML surface (SPA shell, SSR pages, standalone static pages).
   // KAN-154: its own limiter, not a second createApiLimiter — that shared the
   // `rl:api:` Valkey keyspace with the /api limiter above, and it metered
@@ -143,8 +144,8 @@ export const ready = (async () => {
   app.use(createRequestLogger());
 
   // ── Recipe write pause (KAN-330) ────────────────────────────────
-  // RECIPE_WRITE_PAUSE=1 answers every write to /api/recipes* and
-  // /api/generate* with a 503 before the body is buffered or proxied, so a
+  // RECIPE_WRITE_PAUSE=1 answers every write to /api/recipes*,
+  // /api/generate* and the agent generation tools with a 503 before the body is buffered or proxied, so a
   // publish-state audit can run against a database nothing is changing.
   app.use('/api', createWritePause());
 
