@@ -80,8 +80,8 @@ Entry and identity
 - The owner of an entry can delete it and post a new one. In the first version an entry is not edited in place (Adam, 2026-10-13: "for the first version of this feat go with delete and re-post"). Deleting recomputes the recipe's count, average and threshold. A deleted entry stays visible to Adam in the moderation view, and a hide placed on it carries over to the cook's next entry on that recipe.
 - Target recipe: an entry is keyed to a public recipe's id. A saved copy resolves to its public source through `Recipe.source_recipe_id`, which is always one step: the server refuses to publish a saved copy, so a copy never becomes a target and there are no copies of copies (corrected by the eng review, 2026-10-13; see finding S1).
 - Where the control lives: for a cook, on their saved copy; for an author, on their own published recipe in the app.
-- If a saved copy has no published ancestor (older copies with no source, or the source was unpublished), the control does not render.
-- A saved copy made as a guest must keep its link to the public source through the guest-to-login merge. That, and a data check of existing saved copies, are inputs to the eng review.
+- If a saved copy has no `source_recipe_id` pointing at a published recipe (an older copy that carries only a slug, or a copy whose source was unpublished), the control for a new entry does not render (finding A4).
+- A saved copy made as a guest must keep its link to the public source through the guest-to-login merge. The eng review confirmed that the merge keeps the link today; task T6 adds the test for it and task T8 is the data check of existing saved copies.
 - Before submitting, the control states that the rating, the note and the cook's first name will be shown publicly on the recipe page. Name form: first name only (proposed).
 - Non-goal for Phase 1: feedback on recipes that are not published. Adam's "generated OR cooked" is covered by author's notes on your own published recipe and cooked entries on other people's.
 
@@ -104,11 +104,11 @@ Moderation
 - Once an account has an approved note, its later notes publish without review. Adam can list every note that published without review, including ones the cook has since deleted, in the same place as the approval queue.
 - Adam can hide a note or a whole entry at any time. Hiding a note leaves the entry's stars counting. Hiding an entry removes it from the count and the average. The cook sees the hidden status. Deleting a hidden entry and posting again does not put it back; only Adam can.
 - Hiding a note returns its account to the held state, so a repeat offender is reviewed again.
-- Queue, list and hide action live in an Adam-only view in the app. Email is notification only (Adam, at approval): one email when a new note joins the queue, and a reminder of pending notes on a daily or every-other-day schedule. Emails link into the app view; they carry no approve or reject links. The server refuses approve, reject and hide for every other account; how Adam is identified on the server is an input to the eng review.
+- Queue, list and hide action live in an Adam-only view in the app. Email is notification only (Adam, at approval): one email when a new note joins the queue, and a reminder of pending notes on a daily or every-other-day schedule. Emails link into the app view; they carry no approve or reject links. The server refuses approve, reject and hide for every other account. A moderator is an account whose email is on a list in the deploy configuration; with the setting missing, every moderation action is refused (decision R2). Where this document says "Adam" for a moderation action, read "a moderator".
 
 Public recipe page
 
-- Requirement: the feedback section and the JSON-LD reflect a new entry, a hide, a rejection or a threshold change on the next request. These pages returned `Cache-Control: private` when probed on 2026-10-03; the eng review confirms nothing else caches them.
+- Requirement: the feedback section and the JSON-LD reflect a new entry, a hide, a rejection or a threshold change on the next request. These pages returned `Cache-Control: private` when probed on 2026-10-03 and again on 2026-10-13, and the Express proxy adds no cache header (eng review, Architecture).
 - No entries of any kind: one link line only, "Add feedback". No count, no empty box.
 - Author's entry only: author's notes, with the author's stars shown inside that block, and the link line.
 - 1 or 2 non-author entries: "Cooked by N" and any approved notes with the cook's first name. No stars, no average.
@@ -124,18 +124,24 @@ Public recipe page
 
 ```
 PUBLIC /r/<slug>  (server-rendered, read-only)
+  Author's notes: ★★★★★ "..."      <- above the cooks; outside the count and average
   [Cooked by 7 · 4.6 ★]            <- average only at >= 3 non-author entries
-  "Used oat milk, baked 5 min longer."  — Sam
-  Author's notes: ...
+  "Used oat milk, baked 5 min longer."  — Sam     <- approved notes only, newest first
   Add feedback  ->  explains: sign in, save to your cookbook, comment there
         |
-        v  existing Save CTA
+        v  existing Save CTA  (the steps from here to a signed-in saved copy: finding O4)
 SAVED COPY in the app  (signed in)
   [x] I cooked this   ★★★★☆   What I changed: [..............]
   "Your rating, note and first name will be shown publicly."
         |
-        v  server checks: signed in, account age, saved copy -> nearest published ancestor
-  entry stored and counted; note held until the account has one approved note
+        v  server checks: signed in, account >= 24h, saved copy whose
+        |  source_recipe_id is this public recipe (one step, no slug fallback)
+  entry stored and counted at once
+  note: held until the account has one approved note -> approved | rejected | hidden
+        |
+        v  to change an entry: delete it, then post a new one (no edit in place)
+  deleted entry leaves the page, count and average; kept for the moderator;
+  a hide stays on the account and recipe pair
 ```
 
 ## Open Questions
@@ -144,6 +150,8 @@ SAVED COPY in the app  (signed in)
 2. Should repeat cooks count ("cooked 3 times")? Carried from Approach C.
 3. The note length cap.
 4. The privacy policy wording for public user content.
+
+Proposed answers to all four are in "Privacy wording and open questions" below.
 
 ## Success Criteria
 
@@ -162,9 +170,9 @@ Phase 2 is released when all five criteria above are met.
 ## Dependencies
 
 - RCP-119 charter, with an RCP acceptance row for this item.
-- `/plan-eng-review` for the data model, the eligibility check and the JSON-LD threshold; `/plan-design-review` for the public section and the control.
-- Privacy policy update for public user content.
-- Reviewer concerns R3-3 to R3-8 (listed at the end) are open and are inputs to the eng review. R3-1 and R3-2 were corrected in this document after the final review pass; no reviewer has confirmed those two corrections.
+- `/plan-eng-review` for the data model, the eligibility check and the JSON-LD threshold: run on 2026-10-13, recorded below. `/plan-design-review` for the public section and the control: run on 2026-10-13, recorded below.
+- Privacy policy update for public user content: wording drafted below; it ships with the feature.
+- Reviewer concerns R3-3 to R3-8 are answered in the eng review below. R3-3 was a correction and R3-7 is decision R2, both closed; the answers to R3-4, R3-5, R3-6 and R3-8 are proposed and pending as decision R4. R3-1 and R3-2 were corrected in this document after the final review pass; the diagram was redrawn on 2026-10-13 to match the eng review.
 - Related: KAN-320 (Recipe schema), E1 tested-recipe proof, the existing Save to cookbook flow and guest-to-login merge.
 
 ## The Assignment
@@ -491,6 +499,217 @@ A second model read the design and the review above, read-only, and returned fiv
 
 The outside review recommends revising before the build starts. O1 and O2 are folded into task T2. O3 and O5 wait for Adam. O4 goes to the design review.
 
+## Design Review (KAN-345), 2026-10-13
+
+Target: this document, Phase 1 only, as it stood after the eng review. Nothing is built, so this is a review of the plan and not of a page. Surfaces: the feedback section on the public `/r/<slug>` page, the control on the saved copy, the moderation view, and the steps from the public "Add feedback" line to a signed-in saved copy (finding O4).
+
+What this review changed in the text above: nothing that needed a decision. Lines that still described the design as it was before the eng review were brought in line with decisions already made (S1, A4, R2, R7) and the diagram was redrawn. Every new design choice below is a proposal. Each one is a ledger entry, R8 to R14, and is pending until Adam answers it.
+
+No mockups were generated. The surface is one more panel in an existing page template and a form in an existing app view, and the review ran in a remote session with no browser to open a comparison board in. The wireframes below stand in. Mockups can be generated on request.
+
+### Step 0: scope and rating
+
+Initial rating: 4/10 on design completeness. The document is strong on rules: who may post, what counts, and which of four states the public page is in. It says little about what a person sees. It does not say where the section sits on the page, what the control looks like in each of its states, what a cook reads when a note is held, rejected or hidden, how a new cook gets from the public page to a control they can use, or anything about keyboards, screen readers and small screens.
+
+A 10 for this plan: a builder can open the two templates and write the markup without making up a heading, a sentence, a state or a breakpoint.
+
+No `DESIGN.md` exists in either repo. The review used the tokens and patterns already in the code (see "What already exists" below) and universal principles. A design system document is a separate piece of work and is not proposed here.
+
+Classifier: the public feedback section is READ (a person deciding whether to trust and cook a recipe). The control and the moderation view are OPERATE (a person finishing a task).
+
+### Pass 1: information architecture, 4/10
+
+Findings:
+
+- **DR1** the document does not place the feedback section on the public page or say what a reader sees first. A count of cooks is the trust signal the feature exists for, and at the bottom of a long recipe most readers never reach it. Decision R9.
+- **DR2** the public page already has a panel headed "Chef's notes" (`Backend/templates/public/recipe.html:200-209`) that shows the recipe's own notes. The design adds "Author's notes" for the author's entry. Two panels with near-identical names, one written with the recipe and one written after cooking it, will be read as the same thing. Decision R10.
+- **DR3** the moderation view has rules and no layout: which list comes first, what one row shows, where the actions are. Decision R13.
+
+Proposed public page order (R9):
+
+```
+/r/<slug>
+  hero image
+  breadcrumbs, title, description
+  toolbar:  Prep 15m · Cook 30m · Serves 4 · By Adam · Cooked by 7 · 4.6 ★     [Save to your cookbook]
+                                                   ^ links to #feedback; shown only when a cook has an entry
+  Ingredients | Method
+  Chef's notes                      (existing; the recipe's own notes)
+  ---- new, id="feedback" ----
+  h2  Cooked by 7                   (state heading; see the states table)
+      4.6 ★ average from 7 cooks    (only at 3 or more cooks)
+      h3 From the author            ★★★★★  "note..."
+      notes, newest first:          "Used oat milk, baked 5 minutes longer."
+                                    Sam · October 2026
+  Add feedback line                 (always; the only thing rendered when there are no entries)
+  ---- end new ----
+  tags, hubs, neighbours, more vegan recipes
+```
+
+Constraint applied: if the page could show three things about feedback, they are the count of cooks, the average once it is real, and the newest note. The toolbar line carries the first two; the section carries the third.
+
+### Pass 2: interaction states, 5/10
+
+The four public page states are specified and tested for. The control's states are not, and the document names three error cases ("plain message") without the words. Finding **DR4**: the control has no specified layout, states or copy. Decision R11 covers the control's layout and the two tables below as one remedy.
+
+Proposed control (R11), at the bottom of the saved copy, under the method and notes, where Adam placed it ("rating and comments feedback at the bottom"):
+
+```
+h3  Your feedback
+    How did it turn out?        ( ) 1  ( ) 2  ( ) 3  ( ) 4  ( ) 5 stars     <- required
+    What I changed (optional)   [ textarea                    ]  0 / 500
+    Your rating, your note and your first name (Sam) will be shown publicly on the recipe page.
+    [ Post: I cooked this ]
+```
+
+The design's "[x] I cooked this" checkbox is folded into the button. Stars are required, so a ticked box carries no information the submit does not; the words stay.
+
+Saved copy, what the cook sees:
+
+| State                                             | What the cook sees                                                                                                                                         |
+| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Copy has no public source                         | Nothing. No heading, no explanation.                                                                                                                       |
+| Guest                                             | "Your feedback" heading, one line "Feedback is public and needs a Google account.", and a "Sign in to leave feedback" button (see R8).                     |
+| Signed in, account under 24 hours                 | The control, visible and disabled, with "You can leave feedback from 14 October, 3:10 pm. New accounts wait 24 hours."                                     |
+| Eligible, no entry                                | The control as drawn above.                                                                                                                                |
+| Sending                                           | Button disabled and reads "Posting…". The stars and the note stay as typed.                                                                                |
+| Posted, note held                                 | The entry read-only: stars, note, "Posted 13 October". Status line: "Your rating counts now. Your note is waiting for review." A "Delete feedback" action. |
+| Posted, note published                            | The entry read-only. Status line: "Your rating and note are on the recipe page." with a link to it.                                                        |
+| Posted, no note                                   | The entry read-only. Status line: "Your rating counts on the recipe page."                                                                                 |
+| Note rejected                                     | Status line: "Your note was not published. Your rating still counts."                                                                                      |
+| Note hidden by a moderator                        | Status line: "A moderator hid your note. Your rating still counts."                                                                                        |
+| Entry hidden by a moderator                       | Status line: "A moderator hid this feedback. It is not shown or counted."                                                                                  |
+| Delete                                            | A confirm dialog: "Delete your feedback? It leaves the recipe page now. To change it, delete it and post a new one." Buttons: "Delete", "Keep".            |
+| Could not send (network or server error)          | Above the button: "Could not post. Your rating and note are still here. Try again." Nothing typed is lost.                                                 |
+| Recipe unpublished between opening and posting    | "This recipe is no longer public, so feedback is closed."                                                                                                  |
+| An entry already exists (second device or tab)    | "You already posted feedback on this recipe. Delete it to post a new one." The existing entry is shown.                                                    |
+| Source unpublished, entry exists (R3-4, under R4) | The entry, its status and "Delete feedback", with "This recipe is not public right now." No new entry can be made.                                         |
+| Author, on their own published recipe             | The same control under "Your notes as the author". Consent line: "Shown on the recipe page as the author's notes. Not counted in the rating."              |
+| Deleting a saved copy that has an entry           | The existing delete prompt gains one choice: "Keep my feedback on the recipe page" or "Delete my feedback too" (approved in "Entry lifecycle").            |
+
+There is no edit action anywhere. The delete dialog is where the cook learns that changing an entry means deleting it and posting again (decision R7).
+
+Public page, what a reader sees:
+
+| State                                         | Toolbar         | Section heading | Body                                                                                                |
+| --------------------------------------------- | --------------- | --------------- | --------------------------------------------------------------------------------------------------- |
+| No entries                                    | nothing         | none            | The "Add feedback" line only.                                                                       |
+| Author's entry only, note approved            | nothing         | From the author | Author's stars and note. Then the "Add feedback" line.                                              |
+| Author's entry only, note held or rejected    | nothing         | From the author | Author's stars and the line from R10. Then the "Add feedback" line.                                 |
+| 1 or 2 cooks                                  | Cooked by N     | Cooked by N     | Author's block if there is one, then approved notes. No stars, no average.                          |
+| 3 or more cooks                               | Cooked by N · ★ | Cooked by N     | The average line, the author's block if there is one, then approved notes newest first.             |
+| Cooks, but no approved note yet               | as above        | Cooked by N     | The count (and the average at 3 or more). No empty list, no "no notes yet".                         |
+| More than 20 approved notes (cap is under R4) | as above        | Cooked by N     | The 20 newest, then one line: "Showing the 20 newest notes."                                        |
+| A cook's name is empty                        | as above        | as above        | "A cook" in place of the first name (decision R6).                                                  |
+| Summary query fails                           | nothing         | none            | The "Add feedback" line only. The recipe page renders as it does today (eng review, failure modes). |
+
+### Pass 3: journey, 3/10
+
+Finding **DR5** (this is O4): the journey breaks at its third step. The public line sends a new cook through the existing Save link, which saves as a guest and returns them to the app with a toast. Nothing tells them to sign in, and a guest sees no control. The people this feature is for, friends and family who do not have an account, stop here. Decision R8.
+
+Storyboard, with the path proposed in R8 (option A):
+
+| Step | The cook does                                | The cook feels                         | Specified?                                                                  |
+| ---- | -------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| 1    | Reads the recipe, sees "Cooked by 7 · 4.6 ★" | Other people made this. Safer to try.  | R9                                                                          |
+| 2    | Cooks it. Comes back, reads "Add feedback"   | Willing, if it is quick                | The line's wording is under R8                                              |
+| 3    | Taps "Save to your cookbook"                 | Fine, one tap                          | Existing flow, unchanged                                                    |
+| 4    | Sees the toast, taps "View"                  | Where do I comment?                    | Existing toast; the copy opens with "Your feedback" at the bottom           |
+| 5    | Taps "Sign in to leave feedback"             | A Google prompt. Acceptable.           | R8; the app must return to this same saved copy after sign-in               |
+| 6    | Sees the control disabled with a date        | Mild annoyance. At least it says when. | R11. This is the weakest moment: a new account cannot finish in one sitting |
+| 7    | Returns after the date, rates, writes a note | Useful. Heard.                         | R11                                                                         |
+| 8    | Reads "Your note is waiting for review"      | Fair, as long as the stars counted     | R11                                                                         |
+| 9    | Later sees their name on the recipe page     | Pride. Shows someone.                  | R9                                                                          |
+
+Step 6 follows from the approved 24-hour rule and is not reopened here. The Assignment already covers it for the first cooks: they are asked to sign in and save before the control exists. For everyone after them the date on the disabled control is the only bridge, which is why the state must give a date and time and not "later".
+
+Time horizons. Five seconds: a count of people near the title, no stars until they mean something. Five minutes: one form, three fields, nothing lost on an error. Five years: a recipe page that carries the notes of the people who cooked it reads as a kitchen notebook and not as generated text.
+
+### Pass 4: generic-pattern risk, 8/10
+
+No hard rejection applies. The plan is specific where it matters: it shows nothing when there is nothing, withholds the average until three cooks, and has no testimonial carousel, badge or review-count theatre.
+
+Litmus: product unmistakable in the first screen, yes (unchanged page). One visual anchor, yes (the hero image; feedback adds none). Understandable from headings alone, yes with R9 ("Cooked by 7", "From the author"). One job per section, yes. Cards necessary, no, and none are proposed. Motion, none proposed and none needed. Premium without shadows, yes: the public page has no shadows today.
+
+The risk is in the build, where a review section tends to arrive as a grid of bordered quote cards with coloured left edges and emoji stars. R14 rules those out by naming what to reuse. No separate issue.
+
+### Pass 5: design system alignment, 4/10
+
+Finding **DR6**: the document names no token, class or component for either surface, and there is no `DESIGN.md`. Without a mapping the builder picks, and the section will not match the page around it. Decision R14.
+
+Proposed mapping (R14):
+
+- Public section: the existing panel structure, `.public-recipe-panel` with its header and body (`Backend/static/css/recipe-site.css:569-590`): `--bg-surface`, `--ar-border`, `--ar-radius` (0). Headings in `--font-display`, text in `--font-body` at `--text-base`, secondary text (name and month) in `--fg-secondary` at `--text-sm`.
+- The yellow accent treatment (`.public-recipe-notes`, `--color-accent-bg`) stays with "Chef's notes" alone, so the two blocks do not look alike.
+- The star glyph and the average use `--color-accent-text` (`#854d0e`), which passes 4.5:1 on white. The lighter yellows do not and are not used for text.
+- Notes are a plain list separated by `--ar-border` rules. No cards, no coloured left edge, no avatars, no emoji.
+- Toolbar line: one more `<li>` in `.public-recipe-meta`, same type as its neighbours.
+- App side: the saved copy's existing section heading (`text-2xl font-bold text-stone-800 serif`, `src/components/recipe-detail/recipe-detail.component.html:386`), the stone palette, the existing button styles. The delete confirm follows `src/components/shared/unpublish-confirm.component.ts` with `dialog-focus.directive.ts`. The sign-in prompt follows the existing "Sign in to publish" button (`recipe-detail.component.html:216-218`).
+- No new colour, typeface, radius or shadow on either surface.
+
+### Pass 6: responsive and accessibility, 2/10
+
+Finding **DR7**: the document says nothing about small screens, keyboards or screen readers. A star picker is the classic place this goes wrong: five clickable glyphs that a keyboard cannot reach and a screen reader announces as nothing. Decision R12.
+
+Proposed (R12):
+
+- Stars are five native radio buttons in a `fieldset` whose `legend` is "How did it turn out?". Each has a visible label ("1 star" to "5 stars"). Arrow keys move, space selects, as the browser already does. No hover-only preview.
+- Every control is at least 44 by 44 px. The textarea has a visible label above it, never a placeholder as its label. The counter is announced politely as the limit nears, not on every key.
+- Status lines use `role="status"`. Errors use `role="alert"` and sit next to the button, and focus moves to them. The disabled control's date is real text beside it, not a tooltip.
+- The delete confirm traps focus and returns it to the "Delete feedback" action on close.
+- Public section: `<section id="feedback" aria-labelledby>`; the average has a text form ("4.6 out of 5 from 7 cooks"), and the glyph is hidden from screen readers; notes are a list; each note is a `blockquote` followed by the name and month.
+- Body text 16 px or more, contrast 4.5:1 or more, visible focus ring on every interactive element including the toolbar link.
+- Small screens (600 px and under): the toolbar's "Cooked by" line wraps onto its own row under the times; the public section is one column with a line length of 65 characters at most on any width; the control's stars sit on one row with labels shortened to the numerals and the full label kept for screen readers; the post button is full width.
+- Moderation view at 768 px and under: each row becomes a stacked block with the note in full and the actions as full-width buttons below it. No horizontal scrolling table.
+
+### Pass 7: decisions this review leaves open
+
+| Decision                                  | If it is left to the build                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| R8 path from "Add feedback" to a control  | New cooks save as guests and never see a control. The success criteria cannot be met. |
+| R9 placement and toolbar line             | The section lands under the related recipes and the count is never seen.              |
+| R10 author block name and held-note line  | Two "notes" panels that read as one.                                                  |
+| R11 control layout, states and copy       | A form that says "Error" and loses the note.                                          |
+| R12 keyboard, screen reader, small screen | Five clickable stars no keyboard can reach.                                           |
+| R13 moderation view layout                | A raw table; hide and approve easy to confuse.                                        |
+| R14 tokens and components to reuse        | A card grid in new colours beside a page that has none.                               |
+
+Proposed moderation view (R13). One page in the app, linked from the account menu only when the server says the account is a moderator:
+
+```
+h2  Feedback to review
+    Waiting for review (3)                              <- first, because it is the job
+      Classic Meringue Cookies  ->  public page
+      Sam Rivera · sam@example.com · ★★★★☆ · 13 October
+      "Used oat milk, baked 5 minutes longer."
+      [ Approve ]  [ Reject ]  [ Hide whole entry ]
+    Published without review                            <- newest first
+      ... same row ...                                  [ Hide note ]  [ Hide whole entry ]
+    Hidden and deleted                                  <- collapsed by default
+      ... same row, with "hidden 12 October" or "deleted by the cook 12 October" ...  [ Show again ]
+```
+
+The moderator sees the full name and email; nobody else does. "Approve" and "Hide whole entry" are never adjacent without a gap, and "Hide whole entry" asks once before acting because it changes the public count. Empty: "Nothing is waiting." After an action the row stays where it is with the result written on it until the page is reloaded, so a mis-tap can be seen and reversed with "Show again".
+
+### NOT in scope (design)
+
+- A `DESIGN.md` for the site: worth having, a separate piece of work.
+- Generated mockups: offered above, not produced.
+- Stars beside each cook's note: the approved design shows the average only.
+- Ratings on browse cards and hub pages, feedback shown on saved copies, replies, report-abuse, edit history: Phase 2 or 3, as already recorded.
+- The display-name settings page (task T9): unplaced; it will need its own design pass because it changes the author line on every public recipe.
+- Changing the 24-hour wait or the saved-copy rule to shorten the journey: both are Adam's approved terms.
+
+### What already exists (design)
+
+- Public page panels and the "Chef's notes" accent panel: `Backend/templates/public/recipe.html:142-209`, `Backend/static/css/recipe-site.css:569-650`.
+- Design tokens for the public pages: `Backend/static/css/tokens.css` (stone, green and yellow scales, Playfair Display and Lato, square corners, 1 px black border).
+- The Save link the "Add feedback" line reuses: `recipe.html:120-124`, `.public-save-cta` (44 px high already).
+- The guest save and its toast with a "View" action: `src/services/ssr-entry.service.ts`, `src/components/shared/save-toast.component.ts`.
+- A sign-in prompt on the saved copy: "Sign in to publish", `recipe-detail.component.html:216-218`.
+- A confirm dialog with focus handling: `src/components/shared/unpublish-confirm.component.ts`, `dialog-focus.directive.ts`.
+- Private notes on a saved copy (`personalNotes`), which the feedback note must not be confused with: `recipe-detail.component.html:580-590`. The control's heading is "Your feedback" and its consent line says "publicly" for that reason.
+
 ## Privacy wording and open questions (draft, KAN-345)
 
 Draft wording for the privacy policy (`server/public/privacy-policy.html`), to be added when the feature ships, not before. It assumes the Phase 1 name rule and changes when the display-name setting exists.
@@ -597,9 +816,65 @@ Actual answer: Adam, 2026-10-13: "for the first version of this feat go with del
 Accepted scope: in the first version a cook cannot change a posted entry. They delete it and post a new one, which follows the same rules as any new entry (stars count at once; the comment is held unless the account is trusted). Each published comment is its own record. A deleted entry is kept, marked deleted, so Adam's list still shows what was public; it leaves the page, the count and the average at once. A hide stays on the account and recipe pair through delete and repost (O1). Approve and reject act on one comment record, so the edited-while-reviewing case (O2) cannot occur. No version table is built.
 History: question D4 offered "keep each published version" and "current text only". Adam chose neither: "were not editing the pencil notes, this is a comments style - blog-like feedback feat with star ratings"; then "no one is editing recipes content , just rating and comments feedback at the bottom"; then "if changes are requested there made by re-generating the recipe until a 'chat with gemini about this recipe feat down the road". Recorded from those: the feedback text is a public comment, separate from the private pencil notes on a saved recipe (`personalNotes`, `src/components/shared/recipe-view.base.ts:287-289`); the feature never changes a recipe's content; a requested change is made by the author regenerating the recipe; a chat-about-this-recipe feature is a later idea outside this design.
 
-Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 is approved by Adam's answer of the same day. R4 is pending as stated; R5 is withdrawn.
+### R8: the steps from "Add feedback" to a control the cook can use
 
-## Completion summary
+Finding: O4 (outside review) and DR5 (design review, Pass 3), `src/services/ssr-entry.service.ts:61-64`.
+Plan baseline: "Add feedback" explains the path and "leads through the existing Save to cookbook call to action".
+Runtime evidence: that link saves as a guest and does not ask for sign-in. The guest-to-login merge keeps `source_recipe_id` (eng review, Architecture).
+
+| Choice | Current                            | A                                                                                                                                                             | B                                                                                                  |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| R8     | guest save, then nothing to follow | the Save link is unchanged; a guest's saved copy shows "Sign in to leave feedback"; sign-in returns to the same copy, where the control shows (with its date) | the "Add feedback" link asks for sign-in before it saves, then opens the saved copy at the control |
+
+State: pending. This review recommends A: it changes nothing in a live flow, a cook who never signs in still keeps the recipe, and it repeats the "Sign in to publish" pattern already on the saved copy. Under A the "Add feedback" line reads: "Cooked this? Save it to your cookbook, sign in, and leave your feedback from your saved copy. New accounts can comment after 24 hours." Under either choice the build needs one browser check from the public page to a posted entry, with a new account.
+Actual answer: unanswered
+Accepted scope: none
+
+### R9: where the feedback section sits on the public page
+
+Finding: DR1, design review, Pass 1.
+State: pending. Proposed: the section follows "Chef's notes" and comes before the tags; its heading is the count ("Cooked by N"), or "From the author" when only the author has an entry; each note shows the first name and the month; and one line in the toolbar under the title ("Cooked by N", with the average at 3 or more cooks) links down to it. The alternative is the section alone, with no toolbar line.
+Actual answer: unanswered
+Accepted scope: none
+
+### R10: the author's block, its name and its held-note line
+
+Finding: DR2, design review, Pass 1; R3-8.
+State: pending. Proposed: the block is headed "From the author", not "Author's notes", so it is not read as the existing "Chef's notes" panel. While the author's note is held, or after it is rejected, it shows the author's stars and "The author cooked this." (the eng review's line, confirmed as worded). The alternative keeps "Author's notes".
+Actual answer: unanswered
+Accepted scope: none
+
+### R11: the control's layout, states and wording
+
+Finding: DR4, design review, Pass 2.
+State: pending. Proposed: the layout and the two tables in "Pass 2" above, including the "I cooked this" words moving from a checkbox to the post button.
+Actual answer: unanswered
+Accepted scope: none
+
+### R12: keyboard, screen reader and small-screen rules
+
+Finding: DR7, design review, Pass 6.
+State: pending. Proposed: the list in "Pass 6" above.
+Actual answer: unanswered
+Accepted scope: none
+
+### R13: the moderation view's layout
+
+Finding: DR3, design review, Pass 1.
+State: pending. Proposed: the layout in "Pass 7" above.
+Actual answer: unanswered
+Accepted scope: none
+
+### R14: which existing tokens and components the build reuses
+
+Finding: DR6, design review, Pass 5.
+State: pending. Proposed: the mapping in "Pass 5" above, with no new colour, typeface, radius or shadow.
+Actual answer: unanswered
+Accepted scope: none
+
+Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 is approved by Adam's answer of the same day. R4 is pending as stated; R5 is withdrawn. R8 to R14 come from the design review and are pending.
+
+## Eng review completion summary
 
 - Step 0: Scope Challenge: scope accepted as-is (4 findings; 1 corrected in the text)
 - Reality rows: 8/8 applicable rows emitted, 1 unverified premise (production saved-copy counts, task T8)
@@ -616,21 +891,115 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 - Parallelization: 3 lanes, 2 parallel at the start, 1 after step 1
 - Lake Score: 0/1 (R6 was the one scored answer; Adam chose the first-word option and added the settings page as accepted work)
 
+## Design review completion summary
+
+```
+  +====================================================================+
+  |         DESIGN PLAN REVIEW — COMPLETION SUMMARY                    |
+  +====================================================================+
+  | System Audit         | no DESIGN.md; 3 UI surfaces and 1 journey   |
+  | Step 0               | 4/10; all seven passes run                  |
+  | Pass 1  (Info Arch)  | 4/10 → 4/10 (9 with R9, R10, R13)           |
+  | Pass 2  (States)     | 5/10 → 5/10 (9 with R11)                    |
+  | Pass 3  (Journey)    | 3/10 → 3/10 (8 with R8)                     |
+  | Pass 4  (AI Slop)    | 8/10 → 8/10                                 |
+  | Pass 5  (Design Sys) | 4/10 → 4/10 (8 with R14)                    |
+  | Pass 6  (Responsive) | 2/10 → 2/10 (9 with R12)                    |
+  | Pass 7  (Decisions)  | 0 resolved, 7 pending                       |
+  +--------------------------------------------------------------------+
+  | NOT in scope         | written (6 items)                           |
+  | What already exists  | written                                     |
+  | TODOS.md updates     | 0 items proposed (no TODOS.md)              |
+  | Approved Mockups     | 0 generated, 0 approved                     |
+  | Decisions made       | 0 added to plan                             |
+  | Decisions deferred   | 7 (R8 to R14, each waiting for Adam)        |
+  | Overall design score | 2/10 → 2/10 (8 once R8 to R14 are approved) |
+  +====================================================================+
+```
+
+Scores do not move until a proposal is approved. The figure in brackets is what the pass is worth if the proposal is accepted as written. Journey stops at 8 because the 24-hour wait leaves a new cook unable to finish in one sitting, which is an approved rule and not a gap.
+
+Outside design voices were not run. The eng review's outside review (Codex) covered the plan the same day and its one design finding, O4, is R8 here.
+
+Design tasks. These add to the eng review's list; T3 and T5 already carry the build of both surfaces, and the items below are what they must now also satisfy. They take effect as each decision is approved.
+
+- [ ] **T10 (P1, human: ~4h / CC: ~20min)** cookbook and Backend: the path from "Add feedback" to a posted entry
+  - Surfaced by: Design review Pass 3, DR5; outside review O4 (decision R8)
+  - Files: `Backend/templates/public/recipe.html`, `src/components/recipe-detail/`, `src/services/auth.service.ts`
+  - Verify: on staging, with a new Google account, go from a public recipe to a posted entry without typing a URL
+- [ ] **T11 (P1, folded into T3)** Backend: section placement, toolbar line, headings and author block as decided in R9 and R10; tokens as in R14
+  - Surfaced by: Design review Pass 1 and Pass 5, DR1, DR2, DR6
+  - Files: `Backend/templates/public/recipe.html`, `Backend/static/css/recipe-site.css`
+  - Verify: pytest renders each row of the public states table; no new colour or font in the diff
+- [ ] **T12 (P1, folded into T5)** cookbook: control layout, every state and its wording as decided in R11; keyboard and screen-reader rules as in R12; moderation view as in R13
+  - Surfaced by: Design review Pass 2, Pass 6 and Pass 7, DR3, DR4, DR7
+  - Files: `src/components/recipe-detail/`, `src/components/` (moderation view)
+  - Verify: Vitest covers each row of the saved-copy states table; a keyboard-only pass and a 375 px pass in a browser
+
+## Build spec status (for KAN-356)
+
+One place that says what the build may rely on. "Decided" means approved by Adam or required by an approved rule. "Open" means the build must not assume an answer.
+
+Decided:
+
+| Item                       | What the build does                                                                                                                                      | Source                              |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| The entry                  | "I cooked this", required 1 to 5 stars, optional note. One active entry per account per public recipe.                                                   | Premises; Q2                        |
+| Eligibility                | Signed in, account at least 24 hours old, and a saved copy whose `source_recipe_id` is the target. Authors need no copy. Guests never.                   | Premise 2; A4; A5                   |
+| No slug fallback           | A copy that carries only `source_slug` shows no control and cannot post.                                                                                 | A4                                  |
+| Target                     | The public recipe's id, one `source_recipe_id` step. A saved copy can never be published, so there are no copies of copies.                              | S1; R3-3                            |
+| Author                     | The target recipe's `user_id`. The author's entry is outside the count and the average.                                                                  | A2; Premise 3                       |
+| Changing an entry          | Delete and post again. No edit in place. Deleted rows are kept for the moderator and leave the page at once.                                             | R7                                  |
+| A hide survives delete     | A hide stays on the account and recipe pair through delete and repost.                                                                                   | O1                                  |
+| Approve acts on one record | Each posted note is its own record, so an approval can never cover text the moderator did not read.                                                      | O2; R7                              |
+| Notes                      | Held until the account has one approved note; stars count at once. The account's trusted state is stored on the user and cleared by a hide.              | Premise 6; A1                       |
+| Moderator                  | An account whose email is on a list in deploy configuration. Fails closed. `/api/auth/me` tells the app.                                                 | R2                                  |
+| Mail                       | Gmail API from the Workspace, send-only. Cloud Scheduler calls a token-guarded reminder endpoint. A failed send never fails a write.                     | R3                                  |
+| Name shown                 | First word of the Google name, read at display. Empty name: "A cook".                                                                                    | R6 (Phase 1 part)                   |
+| Public page                | Four states; nothing but the link line when there are no entries; `aggregateRating` only at 3 or more cooks, from the same query as the visible numbers. | Premises 4, 5; "Public recipe page" |
+| Errors                     | Stars outside 1 to 5 or an over-long note: 400. Changed payload on an existing entry: 409. Target unpublished at submit: 409. Identical replay: no-op.   | Q2                                  |
+| File arrangement           | One model file, one blueprint, one mail helper, one control component, one moderation view.                                                              | R1                                  |
+| Regression tests           | Guest merge keeps `source_recipe_id`; JSON-LD unchanged with no entries; renamed-slug case gets no control.                                              | Tests; T6                           |
+| Moderation view route      | Added to `server/route-manifest.ts`.                                                                                                                     | A6                                  |
+
+Open:
+
+| Item                                                                     | Whose call | Blocks the build?                                                            |
+| ------------------------------------------------------------------------ | ---------- | ---------------------------------------------------------------------------- |
+| R4: answers to R3-4, R3-5, R3-6, R3-8; 20-note cap; 500-character cap    | Adam       | Yes for the caps and R3-4, R3-6; proposed answers are written and unanswered |
+| R8: path from "Add feedback" to a control                                | Adam       | Yes. Without it new cooks cannot reach a control                             |
+| R9, R10: public section placement, headings, author block                | Adam       | Yes for T3                                                                   |
+| R11, R12, R13: control, accessibility, moderation view                   | Adam       | Yes for T5                                                                   |
+| R14: tokens and components to reuse                                      | Adam       | No; a default exists (reuse what is there)                                   |
+| R6, one part: which phase the display-name settings page is              | Adam       | No. Phase 1 ships with the first word                                        |
+| Open question 1: is the E1 tested-recipe marker the author's entry       | Adam       | No                                                                           |
+| T8: production count of saved copies with and without `source_recipe_id` | data check | No, but it says how many existing cooks can post on day one                  |
+| Privacy wording                                                          | Adam       | Not the build; it must be read before the release                            |
+| The Assignment count                                                     | Adam       | Not the build; due 2026-10-23 on RCP-148                                     |
+| Which sprint the build is in                                             | Adam       | KAN-356 says Sprint 11; RCP-148 says no build PR opens in Sprint 11          |
+
 ## GSTACK REVIEW REPORT
 
-| Review         | Trigger                    | Why                             | Runs | Status      | Findings                             |
-| -------------- | -------------------------- | ------------------------------- | ---- | ----------- | ------------------------------------ |
-| CEO Review     | `/plan-ceo-review`         | Scope & strategy                | 0    | not run     | n/a                                  |
-| Outside Review | Codex, from the eng review | Independent 2nd opinion         | 1    | completed   | 5 findings                           |
-| Eng Review     | `/plan-eng-review`         | Architecture & tests (required) | 1    | ISSUES OPEN | 36 issues, 0 critical gaps           |
-| Design Review  | `/plan-design-review`      | UI/UX gaps                      | 0    | not run     | required by KAN-345 before the build |
-| DX Review      | `/plan-devex-review`       | Developer experience gaps       | 0    | not run     | n/a                                  |
+| Review         | Trigger                    | Why                             | Runs | Status      | Findings                        |
+| -------------- | -------------------------- | ------------------------------- | ---- | ----------- | ------------------------------- |
+| CEO Review     | `/plan-ceo-review`         | Scope & strategy                | 0    | not run     | n/a                             |
+| Outside Review | Codex, from the eng review | Independent 2nd opinion         | 1    | completed   | 5 findings                      |
+| Eng Review     | `/plan-eng-review`         | Architecture & tests (required) | 1    | ISSUES OPEN | 36 issues, 0 critical gaps      |
+| Design Review  | `/plan-design-review`      | UI/UX gaps                      | 1    | ISSUES OPEN | score: 2/10 → 2/10, 0 decisions |
+| DX Review      | `/plan-devex-review`       | Developer experience gaps       | 0    | not run     | n/a                             |
 
-- **OUTSIDE COVERAGE:** Codex, plan-review phase, completed, 5 findings (2 P1, 3 P2).
-- **CROSS-MODEL:** no overlap; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3).
-- **VERDICT:** eng review answered on every decision that was Adam's (R2, R3, R6, R7); R4 is settled in review of this PR; R5 is withdrawn. Design review still to run before the build.
+- **OUTSIDE COVERAGE:** Codex, plan-review phase of the eng review, completed, 5 findings (2 P1, 3 P2). No outside design voice was run in the design review.
+- **CROSS-MODEL:** no overlap between the eng review and its outside review; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3). Its finding O4 is decision R8 of the design review.
+- **VERDICT:** no review is clear. Eng review is answered on every decision that was Adam's (R2, R3, R6, R7) and waits on R4. Design review has run and waits on R8 to R14. Eng review required; the build starts when the open rows in "Build spec status" that block it are answered.
 
 **UNRESOLVED DECISIONS:**
 
-- R4: proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-comment cap and the 500-character cap
-- R6, one part: which phase the display-name settings page belongs to
+- R8: the steps from "Add feedback" to a control the cook can use
+- R9: where the feedback section sits on the public page, and the toolbar line
+- R10: the author's block, its name and its held-note line
+- R11: the control's layout, states and wording
+- R12: keyboard, screen reader and small-screen rules
+- R13: the moderation view's layout
+- R14: which existing tokens and components the build reuses
+- R4 (eng review): proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-note cap and the 500-character cap
+- R6, one part (eng review): which phase the display-name settings page belongs to
