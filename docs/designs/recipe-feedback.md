@@ -476,3 +476,141 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
   - Surfaced by: Reality row premise-table, the one unverified premise
   - Files: none; `Backend/scripts/publish_audit.py` and one count query in Cloud SQL Studio
   - Verify: counts of saved copies with a resolved source, slug-only, and public rows carrying a source pointer (expected 0)
+
+## Outside review (Codex, plan review), 2026-10-13
+
+A second model read the design and the review above, read-only, and returned five findings. Each was checked against the code.
+
+- **O1** `[P1] (confidence: 8/10) design "Entry and identity"`: "The owner of an entry can edit it and can delete it", and a new entry's stars count at once. A cook whose entry Adam hid could delete it and submit again, which undoes the hide. The design already says "Editing a hidden note or entry does not put it back; only Adam can", so the same must hold for delete then recreate: the hide is kept against the account and recipe pair when the entry is deleted. Accepted as required proof of the approved rule.
+- **O2** `[P1] (confidence: 8/10) design "Moderation"`: Adam opens a held note, the cook edits it, Adam approves. The approval would cover text he did not read and would also make the account trusted. Approve and reject must name the note version they act on and be refused when the note has changed. Accepted as required proof.
+- **O3** `[P2] (confidence: 8/10) design "Moderation"`: "Adam can list every note and edit that published without review" needs the earlier text of an edited note, and edit history is listed under Phase 2 or 3. One of the two has to give. Decision R7.
+- **O4** `[P2] (confidence: 9/10) src/services/ssr-entry.service.ts:61-64`: the existing Save link runs `this.auth.ensureGuestSession()` and saves as a guest. It does not ask for sign-in and does not bring the cook back to the saved copy afterwards. "Add feedback ... leads through the existing Save to cookbook call to action" therefore leaves a new cook as a guest who cannot leave feedback. The steps from that link to an open, signed-in saved copy need to be specified. Handed to `/plan-design-review`; the build needs one end-to-end browser check of it.
+- **O5** `[P2] (confidence: 8/10) blueprints/auth_api_bp.py:470,483`: `name = user_info.get("name")` and `user.name = name or user.name`. The first word of Google's display name is not always a first name, and a later sign-in can change the name shown on old entries. This reopens finding A3. Decision R6.
+
+The outside review recommends revising before the build starts. O1 and O2 are folded into task T2. O3 and O5 wait for Adam. O4 goes to the design review.
+
+## Decision ledger
+
+### R1: file arrangement for the build
+
+Finding: Scope Challenge complexity gate (about 18 files, 5 new units, estimated).
+State: settled by the project rule "Simplicity First", not by an answer from Adam. One model file, one feedback blueprint holding the cook and moderator routes, one mail helper, one control component and one moderation view. No separate service or repository layer until a second caller needs one. Same features and same tests either way. Say so if a different arrangement is wanted.
+
+### R2: how the server knows the moderator
+
+Finding: S2, P1, confidence 9/10, `models/user.py:6-11`, eng review. Answers R3-7.
+Plan baseline: "how Adam is identified on the server is an input to the eng review".
+Runtime evidence: no role on `User`; `utils/admin_auth.py:9-24` is a bearer token.
+
+| Choice              | Current | A                                                                         | B                                                                         |
+| ------------------- | ------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| R2 moderator        | none    | a deploy setting lists moderator emails; matched to the signed-in account | a moderator column on the user table, set by a migration for Adam's email |
+| R3 mail             | pending | pending                                                                   | pending                                                                   |
+| R6 public name      | pending | pending                                                                   | pending                                                                   |
+| R7 unreviewed edits | pending | pending                                                                   | pending                                                                   |
+
+State: pending
+Actual answer: unanswered
+Accepted scope: none
+
+### R3: how the moderation emails are sent
+
+Finding: S3, P1, confidence 8/10, design "Moderation", eng review.
+Plan baseline: one email per new held note and a reminder every one or two days; links into the app only. That is approved. The transport is not chosen.
+Runtime evidence: no mail transport and no scheduler in either repo.
+
+| Choice           | Current | A                                                  | B                                                       |
+| ---------------- | ------- | -------------------------------------------------- | ------------------------------------------------------- |
+| R3 mail          | none    | a mail provider's HTTPS API, key in Secret Manager | Gmail API from the tasteslikegood.org Workspace account |
+| reminder trigger | none    | Cloud Scheduler calls a token-guarded endpoint     | Cloud Scheduler calls a token-guarded endpoint          |
+| R2, R6, R7       | pending | pending                                            | pending                                                 |
+
+State: pending
+Actual answer: unanswered
+Accepted scope: none
+
+### R4: proposed answers to R3-4, R3-5, R3-6, R3-8 and the 20-note cap
+
+Finding: reviewer concerns in this document; P1 in Performance.
+State: pending. Proposed in "Answers to reviewer concerns" above. They stand as written unless Adam changes them in review of this document's PR; R3-8's wording is confirmed by the design review.
+Actual answer: unanswered
+Accepted scope: none
+
+### R5: move the source resolver to a shared place
+
+Finding: Q1, P2, confidence 8/10, `blueprints/public_bp.py:153`, eng review.
+State: pending; decided in the Backend build PR, where the callers exist.
+Actual answer: unanswered
+Accepted scope: none
+
+### R6: the name shown beside a cook's note
+
+Finding: O5, P2, confidence 8/10, `blueprints/auth_api_bp.py:470,483`, outside review. Reopens A3.
+Plan baseline: "Name form: first name only (proposed)", approved as proposed.
+Runtime evidence: one `name` string per user, overwritten at each sign-in.
+
+| Choice         | Current   | A                                              | B                                                                  |
+| -------------- | --------- | ---------------------------------------------- | ------------------------------------------------------------------ |
+| R6 public name | not built | first word of the Google name, read at display | the cook confirms a public name at their first entry; it is stored |
+| R2, R3, R7     | pending   | pending                                        | pending                                                            |
+
+State: pending
+Actual answer: unanswered
+Accepted scope: none
+
+### R7: what Adam can see of an edit that published without review
+
+Finding: O3, P2, confidence 8/10, design "Moderation", outside review.
+Plan baseline: "Adam can list every note and edit that published without review"; "Edit history" is Phase 2 or 3.
+Runtime evidence: not built.
+
+| Choice              | Current   | A                                                               | B                                                        |
+| ------------------- | --------- | --------------------------------------------------------------- | -------------------------------------------------------- |
+| R7 unreviewed edits | not built | each published note version is kept; Adam's list shows them all | the list shows the current text and when it last changed |
+| R2, R3, R6          | pending   | pending                                                         | pending                                                  |
+
+State: pending
+Actual answer: unanswered
+Accepted scope: none
+
+Approval readiness: not yet passed. R2, R3, R6 and R7 wait for Adam; R4 and R5 are pending as stated.
+
+## Completion summary
+
+- Step 0: Scope Challenge: scope accepted as-is (4 findings; 1 corrected in the text)
+- Reality rows: 8/8 applicable rows emitted, 1 unverified premise (production saved-copy counts, task T8)
+- Architecture Review: 6 issues found
+- Code Quality Review: 3 issues found
+- Test Review: diagram produced, 26 gaps identified (2 are regression contracts)
+- Performance Review: 1 issue found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 0 items proposed (the repo has no TODOS.md; follow-ups are on KAN-345)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 6 in this review (R2, R3, R4, R5, R6, R7)
+- Outside voice: Codex, completed, 5 findings (2 accepted as required, 2 to Adam, 1 to the design review)
+- Parallelization: 3 lanes, 2 parallel at the start, 1 after step 1
+- Lake Score: N/A (no answers yet)
+
+## GSTACK REVIEW REPORT
+
+| Review         | Trigger                    | Why                             | Runs | Status      | Findings                             |
+| -------------- | -------------------------- | ------------------------------- | ---- | ----------- | ------------------------------------ |
+| CEO Review     | `/plan-ceo-review`         | Scope & strategy                | 0    | not run     | n/a                                  |
+| Outside Review | Codex, from the eng review | Independent 2nd opinion         | 1    | completed   | 5 findings                           |
+| Eng Review     | `/plan-eng-review`         | Architecture & tests (required) | 1    | ISSUES OPEN | 36 issues, 0 critical gaps           |
+| Design Review  | `/plan-design-review`      | UI/UX gaps                      | 0    | not run     | required by KAN-345 before the build |
+| DX Review      | `/plan-devex-review`       | Developer experience gaps       | 0    | not run     | n/a                                  |
+
+- **OUTSIDE COVERAGE:** Codex, plan-review phase, completed, 5 findings (2 P1, 3 P2).
+- **CROSS-MODEL:** no overlap; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3).
+- **VERDICT:** not cleared. Eng review required answers on R2, R3, R6 and R7; design review still to run.
+
+**UNRESOLVED DECISIONS:**
+
+- R2: how the server knows the moderator
+- R3: how the moderation emails are sent
+- R4: proposed answers to R3-4, R3-5, R3-6, R3-8 and the 20-note cap
+- R5: move the source resolver to a shared place
+- R6: the name shown beside a cook's note
+- R7: what Adam can see of an edit that published without review
