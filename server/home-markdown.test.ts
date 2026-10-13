@@ -37,6 +37,12 @@ describe('renderHomeMarkdown', () => {
     );
   });
 
+  it('escapes strikethrough marks in a name', () => {
+    expect(renderHomeMarkdown('# Guide\n', [{ slug: 'soup', name: '~~Old~~ Soup' }])).toContain(
+      '- [\\~\\~Old\\~\\~ Soup](/r/soup)'
+    );
+  });
+
   it('leaves a plain ampersand alone', () => {
     expect(renderHomeMarkdown('# Guide\n', [{ slug: 'mac', name: 'Mac & Cheeze' }])).toContain(
       '- [Mac & Cheeze](/r/mac)'

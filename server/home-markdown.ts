@@ -31,7 +31,7 @@ export function acceptsMarkdown(accept: string | undefined): boolean {
 // its line and inside its link text: no new line, no raw HTML, no entity, no
 // Markdown of its own. A plain "&" (as in "Mac & Cheeze") is left alone.
 const escapeLinkText = (value: string): string =>
-  value.replace(/\s+/g, ' ').replace(/[\\[\]<>`*_]|&(?=#?\w+;)/g, '\\$&');
+  value.replace(/\s+/g, ' ').replace(/[\\[\]<>`*_~]|&(?=#?\w+;)/g, '\\$&');
 
 /** The guide, followed by the newest-recipes links when there is a list. */
 export function renderHomeMarkdown(guide: string, recipes: readonly NewestRecipe[]): string {
