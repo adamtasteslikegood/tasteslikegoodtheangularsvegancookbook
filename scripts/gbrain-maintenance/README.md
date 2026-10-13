@@ -1,9 +1,14 @@
-# gbrain nightly maintenance (Railway cron service)
+# gbrain maintenance (Railway service, no schedule)
 
-Runs nightly gbrain maintenance (link extraction and embedding) against the
-shared Railway Postgres, then exits. Deployed as a Railway **cron service**
-("gbrain maintenance" in the "believable-joy" project) linked to the same
-Postgres and pg_volume that host the brain.
+Runs gbrain maintenance (link extraction and embedding) against the shared
+Railway Postgres, then exits. It is the "gbrain-maintenance" service in the
+"believable-joy" Railway project, linked to the same Postgres and pg_volume
+that host the brain.
+
+**It has no schedule.** The nightly Railway cron (`0 9 * * *` UTC) was
+cancelled on 2026-10-13 (KAN-410): scheduled gbrain work runs from the hermes
+agent on the sprite. The service is kept with no active deployment, and each
+`railway up` runs the phases below once and exits.
 
 ## What it does
 
@@ -21,7 +26,7 @@ the output (KAN-357). Do not add it back without a budget and a consumer.
 Code sync stays on the dev machine (`gbrain autopilot` cron, every 5 min);
 this service never syncs code, so there is exactly one writer per concern.
 
-## Deploy (one-time, already done)
+## Deploy (runs the maintenance once)
 
 ```bash
 railway login
@@ -37,7 +42,8 @@ Service variables (Dashboard → gbrain-maintenance → Variables):
 - `EMBED_MAX_USD` — optional per-run embedding spend cap (default `1`).
   Without a terminal, `gbrain embed` exits 3 unless a cap is passed.
 
-The cron schedule (`0 9 * * *` UTC = 2am PT) lives in `railway.json`.
+`railway.json` sets no `cronSchedule`. Do not add one back without a budget
+and an owner for the run.
 
 ## Version pinning
 
@@ -57,13 +63,13 @@ railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenanc
 
 ## Hermes agent integration (spawn/sprite)
 
-For on-demand maintenance outside the nightly cron — e.g. after a large
-sync or when doctor score drops — wake the hermes agent on the spawn/sprite
+Scheduled and on-demand maintenance — e.g. after a large sync or when
+doctor score drops — runs here: wake the hermes agent on the spawn/sprite
 instance with a brain-check task. The agent runs the same commands `run.sh`
 does, but can make judgment calls (archive dead sources, break stale locks,
 report anomalies).
 
-Sample hermes cron (twice daily, offset from the Railway nightly):
+Sample hermes cron (twice daily):
 
 ```cron
 0 15 * * * hermes run --task "gbrain-brain-check" --timeout 300
@@ -85,4 +91,4 @@ Report the before/after score and any actions taken.
 ```
 
 This keeps the hermes agent lightweight — it only acts when doctor says
-something is wrong, and the Railway cron handles the scheduled work.
+something is wrong.
