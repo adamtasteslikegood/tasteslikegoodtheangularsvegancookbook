@@ -334,7 +334,7 @@ Scheduler ── POST reminder endpoint (ADMIN_API_TOKEN) ─▶ count held note
 - **A1** `[P1] (confidence: 8/10) design "Moderation"`: "Hiding a note returns its account to the held state" cannot be worked out from the entries, because the account's earlier approved note still exists after the hide. The account's state must be stored: one boolean on `user` (trusted for notes, default false), set by approve, cleared by hide. Required to implement the approved rule; no decision.
 - **A2** `[P2] (confidence: 9/10) models/recipe.py:82,119`: a recipe has `user_id` and `user_id_author`. `blueprints/public_bp.py:531-533` names the author from `recipe.user` (`user_id`). The feedback author, the one excluded from the count and the average, is the target recipe's `user_id`, so the page and the JSON-LD agree.
 - **A3** `[P2] (confidence: 8/10) models/user.py:9`: `name = db.Column(db.String(100), nullable=True)` is one string and `blueprints/auth_api_bp.py:470` stores Google's full `name`. First name is the first word of `User.name` at render time; an empty name shows "A cook". Nothing new is stored.
-- **A4** `[P2] (confidence: 8/10) design "Eligibility"`: "has a saved copy" is a row with the cook's `user_id` and `source_recipe_id` equal to the target, or an older slug-only copy that passes the date guard in `blueprints/public_bp.py:153-206`. It is checked when the entry is created. Edit and delete need only ownership, because an entry outlives its saved copy.
+- **A4** `[P1] (confidence: 9/10) blueprints/public_bp.py:153-206`: "has a saved copy" is a row with the cook's `user_id` and `source_recipe_id` equal to the target, and nothing else. An older copy that carries only `source_slug` is not eligible and shows no control, which is what "Entry and identity" already says for copies with no source. The slug fallback in `_resolve_source_for_image` is not used for feedback: its own docstring says "One narrow case survives — an older recipe _renamed_ into the freed slug still predates the copy (KAN-251)", and a rating stored against the wrong recipe is permanent where a wrong image is not (PR #3674 review, 2026-10-13). Eligibility is checked when the entry is created; delete needs only ownership, because an entry outlives its saved copy.
 - **A5** `[P2] (confidence: 7/10) blueprints/recipes_api_bp.py:37-45`: `get_current_user_id()` returns the raw session value. Feedback routes load the `User` row by integer id and refuse when there is none, so the age check always reads a real `created_at`.
 - **A6** `[P2] (confidence: 8/10) server/route-manifest.ts:66`: a new app route for the moderation view must be added to the route manifest or Express returns 404. Prior learning applied: landing-vs-generate-route (confidence 9/10, from 2026-09-28).
 - Cache requirement, confirmed and not a finding: on 2026-10-13 `/r/classic-vegan-aquafaba-meringue-cookies` returned `cache-control: private` and `vary: Origin, Cookie, Accept-Encoding`; `server/index.ts:361` proxies `/r/*` and adds no cache header.
@@ -345,11 +345,11 @@ Dispositions: A1 to A6 accepted as required proof of approved rules; none needs 
 
 ### 2. Code quality
 
-- **Q1** `[P2] (confidence: 8/10) blueprints/public_bp.py:153`: `_resolve_source_for_image` is the only source resolver and carries the date guard against reused slugs. Feedback needs the same resolution twice (target of a saved copy, saved-copy check). Proposal: move it to a neutral name in `repositories/` and call it from all three places. Callers: `_recipe_image` at `blueprints/public_bp.py:231` (existing), target resolution and eligibility (both proposed). Estimated 55 lines moved, about 5 added for the import, no net saving; the gain is one guard and not two. Pending as R5.
+- **Q1** withdrawn. The first draft proposed moving `_resolve_source_for_image` to a shared place and calling it for feedback. Feedback now reads `source_recipe_id` directly (A4), so there is no second caller and nothing to extract.
 - **Q2** `[P2] (confidence: 8/10) design "Entry and identity"`: the design names no error cases. Required: a second submit for the same recipe updates the existing entry; stars outside 1 to 5 and a note over the cap return 400; a target that was unpublished between page load and submit returns 409 with a plain message; a failed email is logged and never fails the entry write.
 - **Q3** `[P2] (confidence: 8/10) models/recipe.py:109-112`: "free-text content with no AI mediation must not reach the public `/r/<slug>` surface" is the existing rule for manual recipes. A note from a trusted account does reach the page unreviewed. That is the design's stated choice ("its later notes and edits publish without review"); recorded so the build does not treat it as an oversight.
 
-Dispositions: Q1 pending (R5). Q2 accepted as required proof. Q3 recorded, no change.
+Dispositions: Q1 withdrawn after PR review. Q2 accepted as required proof. Q3 recorded, no change.
 
 ### 3. Tests
 
@@ -362,7 +362,7 @@ CODE PATHS                                                   USER FLOWS
   ├── [GAP] account under 24h refused, opens-on date returned  ├── [GAP] double submit keeps one entry
   ├── [GAP] cook without saved copy refused                    ├── [GAP] delete hidden entry, repost: stays hidden
   ├── [GAP] cook with saved copy accepted (id link)            └── [GAP] delete copy, keep entry, save again shows it
-  ├── [GAP] cook with slug-only copy accepted (date guard)   [+] Moderator
+  ├── [GAP] cook with slug-only copy refused               [+] Moderator
   ├── [GAP] author accepted without a copy                     ├── [GAP] approve first note, later notes publish
   ├── [GAP] stars 0 and 6, note over cap (400)                 ├── [GAP] hide note returns account to held
   ├── [GAP] second submit updates, unique holds                └── [GAP] non-moderator refused on all three actions
@@ -385,6 +385,7 @@ Everything new is a gap because nothing is built. Two regression contracts, both
 
 - The guest merge keeps `source_recipe_id` on a reassigned saved copy. `tests/test_guest_merge_dedup.py` builds its rows with `source_slug` only and never reads the id link after the merge.
 - A recipe with no entries renders the same JSON-LD as today.
+- A saved copy whose source was deleted, followed by an older recipe renamed into the freed slug, gets no control and cannot create an entry on that recipe.
 
 Test plan artifact: written to the gstack project directory for `/qa`. No LLM or prompt change, so no eval scope.
 
@@ -421,7 +422,7 @@ No critical gap: none is silent, untested and unhandled at once. The reminder ro
 
 ### What already exists
 
-- `Recipe.source_recipe_id` and its resolver with the date guard (`blueprints/public_bp.py:153-206`): reused, not rebuilt (Q1).
+- `Recipe.source_recipe_id` (`models/recipe.py:104-108`): the immutable link feedback reads. The slug fallback used for images is deliberately not reused (A4).
 - `User.created_at` (`models/user.py:11`): the 24-hour check needs no new column.
 - `_recipe_json_ld` (`blueprints/public_bp.py:516`): gains one optional key.
 - `require_admin` bearer check (`utils/admin_auth.py:9`): fits the scheduled reminder call, machine to machine.
@@ -468,10 +469,6 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
   - Surfaced by: Tests, the two CRITICAL rows
   - Files: `Backend/tests/test_guest_merge_dedup.py`, `Backend/tests/`
   - Verify: both tests fail when the behaviour is broken on purpose, then pass
-- [ ] **T7 (P2, human: ~1h / CC: ~10min)** Backend: move the source resolver to a shared place
-  - Surfaced by: Code quality Q1 (pending R5)
-  - Files: `Backend/blueprints/public_bp.py`, `Backend/repositories/`
-  - Verify: existing image tests pass unchanged
 - [ ] **T9 (P2, human: ~3d / CC: ~1.5h)** Display-name settings page: separate choices for published recipes and feedback posts (Google name or part, nickname, food-themed alias)
   - Surfaced by: decision R6, Adam's answer of 2026-10-13; phase not yet placed
   - Files: `Backend/models/user.py`, `Backend/blueprints/`, `Backend/blueprints/public_bp.py`, `src/components/`
@@ -479,7 +476,7 @@ Synthesized from this review's findings. Effort assumes a feature ratio of about
 - [ ] **T8 (P1, human: ~30min / CC: ~5min)** Data check of existing saved copies on production
   - Surfaced by: Reality row premise-table, the one unverified premise
   - Files: none; `Backend/scripts/publish_audit.py` and one count query in Cloud SQL Studio
-  - Verify: counts of saved copies with a resolved source, slug-only, and public rows carrying a source pointer (expected 0)
+  - Verify: counts of saved copies with a resolved source, slug-only, and public rows carrying a source pointer (expected 0). Slug-only copies cannot leave feedback; if the count matters, Adam decides whether to repair them by hand, one verified row at a time
 
 ## Outside review (Codex, plan review), 2026-10-13
 
@@ -563,9 +560,9 @@ Accepted scope: none
 
 ### R5: move the source resolver to a shared place
 
-Finding: Q1, P2, confidence 8/10, `blueprints/public_bp.py:153`, eng review.
-State: pending; decided in the Backend build PR, where the callers exist.
-Actual answer: unanswered
+Finding: Q1, eng review.
+State: withdrawn, 2026-10-13, after the PR #3674 review. Feedback requires `source_recipe_id` and does not use the slug fallback, so there is nothing to share.
+Actual answer: not needed
 Accepted scope: none
 
 ### R6: the name shown beside a cook's note
@@ -599,7 +596,7 @@ Actual answer: Adam, 2026-10-13: "for the first version of this feat go with del
 Accepted scope: in the first version a cook cannot change a posted entry. They delete it and post a new one, which follows the same rules as any new entry (stars count at once; the comment is held unless the account is trusted). Each published comment is its own record. A deleted entry is kept, marked deleted, so Adam's list still shows what was public; it leaves the page, the count and the average at once. A hide stays on the account and recipe pair through delete and repost (O1). Approve and reject act on one comment record, so the edited-while-reviewing case (O2) cannot occur. No version table is built.
 History: question D4 offered "keep each published version" and "current text only". Adam chose neither: "were not editing the pencil notes, this is a comments style - blog-like feedback feat with star ratings"; then "no one is editing recipes content , just rating and comments feedback at the bottom"; then "if changes are requested there made by re-generating the recipe until a 'chat with gemini about this recipe feat down the road". Recorded from those: the feedback text is a public comment, separate from the private pencil notes on a saved recipe (`personalNotes`, `src/components/shared/recipe-view.base.ts:287-289`); the feature never changes a recipe's content; a requested change is made by the author regenerating the recipe; a chat-about-this-recipe feature is a later idea outside this design.
 
-Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 is approved by Adam's answer of the same day. R4 and R5 are pending as stated.
+Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by Adam's answers of 2026-10-13. R7 is approved by Adam's answer of the same day. R4 is pending as stated; R5 is withdrawn.
 
 ## Completion summary
 
@@ -613,7 +610,7 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 - What already exists: written
 - TODOS.md updates: 0 items proposed (the repo has no TODOS.md; follow-ups are on KAN-345)
 - Failure modes: 0 critical gaps flagged
-- Unresolved decisions: 2 in this review (R4, R5), plus the placement of the display-name settings page from R6
+- Unresolved decisions: 1 in this review (R4), plus the placement of the display-name settings page from R6
 - Outside voice: Codex, completed, 5 findings (2 accepted as required, 2 to Adam, 1 to the design review)
 - Parallelization: 3 lanes, 2 parallel at the start, 1 after step 1
 - Lake Score: 0/1 (R6 was the one scored answer; Adam chose the first-word option and added the settings page as accepted work)
@@ -630,10 +627,9 @@ Approval readiness: not yet passed. R2, R3 and R6 (Phase 1 part) are approved by
 
 - **OUTSIDE COVERAGE:** Codex, plan-review phase, completed, 5 findings (2 P1, 3 P2).
 - **CROSS-MODEL:** no overlap; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3).
-- **VERDICT:** eng review answered on every decision that was Adam's (R2, R3, R6, R7); R4 and R5 are settled in review of the PRs. Design review still to run before the build.
+- **VERDICT:** eng review answered on every decision that was Adam's (R2, R3, R6, R7); R4 is settled in review of this PR; R5 is withdrawn. Design review still to run before the build.
 
 **UNRESOLVED DECISIONS:**
 
 - R4: proposed answers to R3-4, R3-5, R3-6, R3-8, the 20-comment cap and the 500-character cap
-- R5: move the source resolver to a shared place
 - R6, one part: which phase the display-name settings page belongs to
