@@ -689,10 +689,11 @@ h2  Feedback to review
     Published without review                            <- newest first
       ... same row ...                                  [ Hide note ]  [ Hide whole entry ]
     Hidden and deleted                                  <- collapsed by default
-      ... same row, with "hidden 12 October" or "deleted by the cook 12 October" ...  [ Show again ]
+      hidden by a moderator:  ... same row, with "hidden 12 October" ...            [ Show again ]
+      deleted by the cook:    ... same row, with "deleted by the cook 12 October" ... (no action; read-only)
 ```
 
-The moderator sees the full name and email; nobody else does. "Approve" and "Hide whole entry" are never adjacent without a gap, and "Hide whole entry" asks once before acting because it changes the public count. Empty: "Nothing is waiting." After an action the row stays where it is with the result written on it until the page is reloaded, so a mis-tap can be seen and reversed with "Show again".
+The moderator sees the full name and email; nobody else does. "Approve" and "Hide whole entry" are never adjacent without a gap, and "Hide whole entry" asks once before acting because it changes the public count. Empty: "Nothing is waiting." After an action the row stays where it is with the result written on it until the page is reloaded, so a mis-tap can be seen and reversed with "Show again". "Show again" exists only on what a moderator hid. An entry its cook deleted is a read-only record and can never be put back by anyone; the cook posts a new one if they want it back (decision R7; PR #3679 review, 2026-10-13).
 
 ### NOT in scope (design)
 
@@ -866,7 +867,7 @@ Accepted scope: the list in "Pass 6" above. The build is checked with a keyboard
 Finding: DR3, design review, Pass 1.
 State: approved
 Actual answer: A, "One page, three lists" (Adam, 2026-10-13, question D7)
-Accepted scope: the layout in "Pass 7" above. Each row also says whether the account is still inside its first 24 hours.
+Accepted scope: the layout in "Pass 7" above. Each row also says whether the account is still inside its first 24 hours. A cook-deleted entry has no restore action (PR #3679 review, 2026-10-13).
 
 ### R14: which existing tokens and components the build reuses
 
@@ -966,7 +967,7 @@ Decided:
 | Public section                  | After "Chef's notes"; heading "Cooked by N"; a line under the title; author block headed "From the author"; first name and month on each note.                                                          | R9, R10                             |
 | The form                        | Stars, optional note, public-display line, one "Post: I cooked this" button; every state and its wording as in the Pass 2 tables.                                                                       | R11                                 |
 | Accessibility and small screens | Native radio-button stars, 44 px targets, announced status and errors, the phone layouts in Pass 6.                                                                                                     | R12                                 |
-| Moderation view                 | One page, three lists, confirm on "Hide whole entry".                                                                                                                                                   | R13                                 |
+| Moderation view                 | One page, three lists, confirm on "Hide whole entry". "Show again" only on moderator-hidden items; a cook-deleted entry is read-only and cannot be restored.                                            | R13                                 |
 | Styles                          | Existing tokens and components only.                                                                                                                                                                    | R14                                 |
 | File arrangement                | One model file, one blueprint, one mail helper, one control component, one moderation view.                                                                                                             | R1                                  |
 | Regression tests                | Guest merge keeps `source_recipe_id`; JSON-LD unchanged with no entries; renamed-slug case gets no control.                                                                                             | Tests; T6                           |
