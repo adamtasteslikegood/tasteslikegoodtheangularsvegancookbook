@@ -33,10 +33,13 @@ Exit 0 only when ALL of these hold:
 
 The split
 ---------
-Sprint 11 is the readiness sprint. Articles, the launch post and the cooking
-half of the tested-recipe proof stay under epic RCP-119 for Sprint 12 (Adam,
-2026-10-09). ``NOT_IN_SPRINT`` names those rows; the charter and close gates
-fail if one of them is in the sprint or on the board.
+Sprint 11 is the readiness sprint. Articles and the launch post stay under
+epic RCP-119 (Adam, 2026-10-09). The re-plan of 2026-10-14 (KAN-412) moved
+S11 to S14, S20, S23 and S27 to Sprint 12 and S26 to Sprint 13, added the
+agent-readiness rows S28 to S39, and moved the cooking (KAN-352) in as S40
+because it finished inside this box. ``NOT_IN_SPRINT`` names every row that
+belongs to a later sprint; the charter and close gates fail if one of them is
+in the sprint or on the board.
 
 Droppable items
 ---------------
@@ -93,27 +96,34 @@ REQUIRED = {
     "KAN-342": "S8  — Previous and Next links on public recipe pages",
     "KAN-343": "S9  — page-number nav in the browse header",
     "KAN-344": "S10 — Switch user through Google's account chooser",
-    "KAN-334": "S11 — publish toggle shows the server's state",
-    "KAN-336": "S12 — Backend review follow-ups from the publish-gate release",
-    "KAN-337": "S13 — publish-audit and write-pause operations",
-    "KAN-290": "S14 — recycle bin server-side",
     "KAN-320": "S15 — Recipe JSON-LD recommended fields",
     "KAN-273": "S16 — recipe pages not crawl dead-ends; rich-result warnings decided",
     "KAN-272": "S17 — home page landing ship criteria",
     "KAN-274": "S18 — tag hubs ship criteria",
     "KAN-276": "S19 — SPA-only routes noindex ship criteria",
-    "KAN-347": "S20 — crawl-evidence instrument",
     "KAN-323": "S21 — gh-aw upgrade and recompile",
     "KAN-311": "S22 — Docker Hub links the site",
     "KAN-312": "S22 — YouTube About links the site",
     "KAN-313": "S22 — owned Meta profiles link the site",
-    "KAN-346": "S23 — tested-recipe marker and /about authorship (code half)",
     "KAN-309": "S24 — Pinterest pin variant as a 1:1 centre crop",
     "KAN-345": "S25 — recipe feedback pre-build steps",
-    "KAN-351": "S26 — readiness walk, mobile LCP medians, hub-link counts",
-    # S27: added by Adam on 2026-10-09, during chartering, so the build of the
-    # feedback feature has its own row instead of waiting for the next charter.
-    "KAN-356": "S27 — recipe feedback Phase 1 build",
+    # Re-plan, 2026-10-14 (Adam, /cs:grill-pm; KAN-412). S11, S12, S13, S14,
+    # S20, S23 and S27 moved to Sprint 12 and S26 to Sprint 13; they are in
+    # NOT_IN_SPRINT below. Agent readiness was added so its throughput counts.
+    "KAN-412": "re-plan — execution row; closes with RCP-160",
+    "KAN-395": "S28 — AI crawlers, llms.txt and the well-known files",
+    "KAN-397": "S29 — Markdown on Accept: text/markdown",
+    "KAN-398": "S30 — OpenAPI document and /.well-known/api-catalog",
+    "KAN-399": "S31 — read-only MCP endpoint",
+    "KAN-401": "S32 — agent tool layer in Flask",
+    "KAN-403": "S33 — legacy file routes need sign-in",
+    "KAN-393": "S34 — metadata engine does not ask again after a rejection",
+    "KAN-405": "S35 — an empty model answer is not the one permitted rejection",
+    "KAN-406": "S36 — the model-rejection counter is atomic",
+    "KAN-407": "S37 — agent tools check body size before access",
+    "KAN-408": "S38 — Express caps streamed request bodies (v0.7.0 release gate)",
+    "KAN-409": "S39 — legacy file routes not served on staging (v0.7.0 release gate)",
+    "KAN-352": "S40 — tested-recipe cooking, Done on Adam's statement",
 }
 
 # Recorded, not committed: work added to the record after it was done. None yet.
@@ -134,23 +144,29 @@ SI_EXECUTION = {
     "S8": ["KAN-342"],
     "S9": ["KAN-343"],
     "S10": ["KAN-344"],
-    "S11": ["KAN-334"],
-    "S12": ["KAN-336"],
-    "S13": ["KAN-337"],
-    "S14": ["KAN-290"],
     "S15": ["KAN-320"],
     "S16": ["KAN-273"],
     "S17": ["KAN-272"],
     "S18": ["KAN-274"],
     "S19": ["KAN-276"],
-    "S20": ["KAN-347"],
     "S21": ["KAN-323"],
     "S22": ["KAN-311", "KAN-312", "KAN-313"],
-    "S23": ["KAN-346"],
     "S24": ["KAN-309"],
     "S25": ["KAN-345"],
-    "S26": ["KAN-351"],
-    "S27": ["KAN-356"],
+    "replan": ["KAN-412"],
+    "S28": ["KAN-395"],
+    "S29": ["KAN-397"],
+    "S30": ["KAN-398"],
+    "S31": ["KAN-399"],
+    "S32": ["KAN-401"],
+    "S33": ["KAN-403"],
+    "S34": ["KAN-393"],
+    "S35": ["KAN-405"],
+    "S36": ["KAN-406"],
+    "S37": ["KAN-407"],
+    "S38": ["KAN-408"],
+    "S39": ["KAN-409"],
+    "S40": ["KAN-352"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them. ``None``
@@ -168,39 +184,68 @@ ACCEPTANCE = {
     "S8": "RCP-132",
     "S9": "RCP-133",
     "S10": "RCP-134",
-    "S11": "RCP-135",
-    "S12": "RCP-136",
-    "S13": "RCP-137",
-    "S14": "RCP-138",
     "S15": "RCP-139",
     "S16": "RCP-140",
     "S17": "RCP-141",
     "S18": "RCP-142",
     "S19": "RCP-143",
-    "S20": "RCP-144",
     "S21": "RCP-145",
     "S22": "RCP-146",
-    "S23": "RCP-147",
     "S24": "RCP-117",
     "S25": "RCP-148",
-    "S26": "RCP-149",
-    "S27": "RCP-150",
+    "replan": "RCP-160",
+    "S28": "RCP-161",
+    "S29": "RCP-162",
+    "S30": "RCP-163",
+    "S31": "RCP-164",
+    "S32": "RCP-165",
+    "S33": "RCP-166",
+    "S34": "RCP-167",
+    "S35": "RCP-168",
+    "S36": "RCP-169",
+    "S37": "RCP-170",
+    "S38": "RCP-171",
+    "S39": "RCP-172",
+    "S40": "RCP-173",
 }
 
 # Sprint 11 pre-authorises no drops. Dropping anything is a charter update.
 DROPPABLE_SIS = set()
 DROPPABLE = {}
 
-# Rows that stay under RCP-119 for Sprint 12 (Adam, 2026-10-09). No rule here
-# may require them; the charter and close gates fail if any of them is in the
-# sprint or on the board, because that would pull launch work back into the
-# readiness sprint without a charter update.
+# Rows that belong to a later sprint: the RCP-119 launch rows (Adam, 2026-10-09)
+# and the rows the 2026-10-14 re-plan moved out (KAN-412). No rule here may
+# require them; the charter and close gates fail if any of them is in the
+# sprint or on the board, because that would pull them back into Sprint 11
+# without a charter update.
 NOT_IN_SPRINT = {
     "KAN-277": "articles under the Q6 rubric (links half is S22)",
     "RCP-109": "acceptance row for the articles",
-    "KAN-299": "launch post and 7-day readout",
+    "KAN-299": "launch post and 7-day readout (Sprint 14 since the re-plan)",
     "RCP-110": "acceptance row for the launch post",
-    "KAN-352": "cooking half of the tested-recipe proof (code half is S23)",
+    # Moved out by the 2026-10-14 re-plan (KAN-412). KAN-352 moved the other
+    # way: its cooking finished inside this box, so it is S40 above.
+    "KAN-356": "S27 recipe feedback build (Sprint 12, first in order)",
+    "RCP-150": "acceptance row for S27",
+    "KAN-346": "S23 tested-recipe marker (Sprint 12, blocked by KAN-356)",
+    "RCP-147": "acceptance row for S23",
+    "KAN-290": "S14 recycle bin server-side (Sprint 12)",
+    "RCP-138": "acceptance row for S14",
+    "KAN-347": "S20 crawl-evidence instrument (Sprint 12)",
+    "RCP-144": "acceptance row for S20",
+    "KAN-334": "S11 publish toggle state (Sprint 12)",
+    "RCP-135": "acceptance row for S11",
+    "KAN-336": "S12 Backend publish-gate follow-ups (Sprint 12)",
+    "RCP-136": "acceptance row for S12",
+    "KAN-337": "S13 publish-audit and write-pause operations (Sprint 12)",
+    "RCP-137": "acceptance row for S13",
+    "KAN-389": "recipe tags become links (Sprint 12)",
+    "RCP-159": "acceptance row for KAN-389",
+    "KAN-351": "S26 readiness walk (Sprint 13, the beta)",
+    "RCP-149": "acceptance row for S26",
+    "KAN-400": "WebMCP tools in the browser (Sprint 12)",
+    "KAN-404": "agent tools advisory from #3671 (Sprint 12)",
+    "KAN-411": "md4a PyPI packaging (Sprint 12)",
 }
 
 COMMITTED = dict(REQUIRED, **DROPPABLE)
@@ -310,7 +355,7 @@ def main():
             for key, what in sorted(NOT_IN_SPRINT.items()):
                 if key in members or key in rendered:
                     report["violations"].append(
-                        "%s (%s) stays under RCP-119 for Sprint 12 but is in "
+                        "%s (%s) belongs to a later sprint but is in "
                         "Sprint 11 — remove it from sprint %s, or record a "
                         "charter update" % (key, what, sprint["id"]))
             report["acceptance"] = {}

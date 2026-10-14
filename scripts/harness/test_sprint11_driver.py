@@ -42,24 +42,34 @@ class Sprint11PlanTests(unittest.TestCase):
 
     def test_one_task_per_si_plus_charter_and_close(self):
         sis = [t["si"] for t in self.plan["tasks"]]
-        self.assertEqual(sis, ["charter"] + ["S%d" % n for n in range(1, 28)] + ["close"])
+        self.assertEqual(sis, ["charter"] + ["S%d" % n for n in range(1, 28)] + ["replan"]
+                         + ["S%d" % n for n in range(28, 41)] + ["close"])
+
+    def test_the_rows_moved_on_2026_10_14_are_carried(self):
+        carried = {t["id"]: t["carried_to"] for t in self.plan["tasks"] if t.get("carried_to")}
+        self.assertEqual(set(carried), {"T11", "T12", "T13", "T14", "T20", "T23", "T26", "T27"})
+        self.assertTrue(carried["T26"].startswith("Sprint 13"))
+        self.assertTrue(all(v.startswith("Sprint 12") for k, v in carried.items() if k != "T26"))
 
     def test_every_task_names_its_gate_rows(self):
         for task in self.plan["tasks"]:
             si = task["si"]
-            if si == "close":
+            if si == "close" or task.get("carried_to"):
                 continue
             with self.subTest(si=si):
                 expected = set(hard_gate.SI_EXECUTION[si]) | {hard_gate.ACCEPTANCE[si]}
                 self.assertEqual(set(task["jira"]) - {"RCP-123"}, expected)
 
     def test_plan_covers_every_gated_row_and_no_sprint_12_row(self):
-        planned = {k for t in self.plan["tasks"] for k in t["jira"]}
+        planned = {k for t in self.plan["tasks"] if not t.get("carried_to") for k in t["jira"]}
+        carried = {k for t in self.plan["tasks"] if t.get("carried_to") for k in t["jira"]}
         self.assertEqual(planned, set(hard_gate.REQUIRED) | set(hard_gate.ACCEPTANCE.values()))
         self.assertFalse(planned & set(hard_gate.NOT_IN_SPRINT))
+        self.assertTrue(carried <= set(hard_gate.NOT_IN_SPRINT))
         # Literal keys, so the check does not depend on the gate's own sets.
-        for key in ("KAN-277", "KAN-299", "KAN-352", "RCP-109", "RCP-110"):
+        for key in ("KAN-277", "KAN-299", "KAN-356", "KAN-351", "RCP-109", "RCP-110"):
             self.assertNotIn(key, planned)
+        self.assertIn("KAN-352", planned)
 
     def test_every_task_has_a_board_check_and_a_non_status_check(self):
         for task in self.plan["tasks"]:
@@ -135,7 +145,7 @@ class Sprint11DriverTests(unittest.TestCase):
 
     def test_the_feedback_build_waits_for_the_pre_build_task(self):
         _verify(self.state, "T0")
-        self.assertIn("T27 waits until T25", self._refusals("T27")[0])
+        self.assertIn("T27 was carried out of Sprint 11 to Sprint 12", self._refusals("T27")[0])
         self.assertIn("T15 waits until T16", self._refusals("T15")[0])
 
     def test_status_does_not_call_a_task_startable_when_start_refuses_it(self):
@@ -149,20 +159,21 @@ class Sprint11DriverTests(unittest.TestCase):
         self.assertTrue(notes["T1"].endswith("startable"))
         self.assertIn("waiting for T1 to start", notes["T2"])
         self.assertIn("waiting for T16 to start", notes["T15"])
-        self.assertIn("waiting for T25 to start", notes["T27"])
+        self.assertIn("carried to Sprint 12", notes["T27"])
 
-    def test_the_walk_needs_the_stability_rows_exactly_done(self):
+    def test_the_walk_is_carried_to_the_beta_sprint(self):
+        # The readiness walk is Sprint 13's job since the 2026-10-14 re-plan.
         _verify(self.state, "T0", "T4", "T5", "T6")
         done = {"RCP-128": "Done", "RCP-129": "Done", "RCP-130": "Done"}
-        self.assertEqual(self._refusals("T26", done), [])
-        reasons = self._refusals("T26", dict(done, **{"RCP-130": "In Review"}))
+        reasons = self._refusals("T26", done)
         self.assertEqual(len(reasons), 1)
-        self.assertIn("RCP-130 is 'In Review'", reasons[0])
+        self.assertIn("carried out of Sprint 11 to Sprint 13", reasons[0])
 
-    def test_the_walk_waits_for_the_stability_tasks(self):
-        _verify(self.state, "T0", "T4", "T5")
-        done = {"RCP-128": "Done", "RCP-129": "Done", "RCP-130": "Done"}
-        self.assertIn("T26 depends on T6", self._refusals("T26", done)[0])
+    def test_close_counts_carried_tasks_as_done(self):
+        verified = [t["id"] for t in self.plan["tasks"]
+                    if t["id"] != "T28" and not t.get("carried_to")]
+        _verify(self.state, *verified)
+        self.assertEqual(self._refusals("T28"), [])
 
     def test_t25_soak_cannot_move_past_its_absolute_deadline(self):
         (Path(self.state) / "T25.state.json").write_text(
@@ -204,7 +215,7 @@ class Sprint11DriverTests(unittest.TestCase):
         state_dir.assert_called_once_with("sprint11")
         lines = output.getvalue().splitlines()
         self.assertEqual(lines[0], "WIP 0/3")
-        self.assertEqual(len(lines), 30)
+        self.assertEqual(len(lines), 44)
         self.assertIn("S27", output.getvalue())
 
     def test_the_sprint_10_entry_point_is_unchanged(self):

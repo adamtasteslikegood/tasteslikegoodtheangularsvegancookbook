@@ -223,6 +223,48 @@ if expected_label and label == expected_label:
         sys.exit(1)
     print(f"lane census: all {len(members)} sprint member(s) carry {label}")
 
+    # THE WIP CHECK, in lanes (Sprint 11 re-plan, 2026-10-14, decision D-I).
+    # A lane is one worktree with one agent session in it, or one human. It holds
+    # one In Progress item, claimed with the label `lane:<worktree-name>`.
+    # `lane:adam` is the human lane and does not count against the cap. An item
+    # waiting on review, CI or Adam is In Review, which frees its lane, so only
+    # items being built are counted. Subagents inside a lane are not WIP.
+    #
+    # In Progress with no lane label is a WARNING, not a failure: a Jira global
+    # rule moves a row to In Progress when a branch is created for it, so an
+    # unclaimed In Progress row is routine and would otherwise block every PR.
+    MAX_AGENT_LANES = 3
+    building = {k: f for k, f in members.items()
+                if k.startswith("KAN-")
+                and (f.get("status") or {}).get("name", "").lower() == "in progress"}
+    by_lane, unclaimed, wip_fail = {}, [], []
+    for k, f in sorted(building.items()):
+        lanes = [l for l in (f.get("labels") or []) if l.startswith("lane:")]
+        if not lanes:
+            unclaimed.append(k)
+        elif len(lanes) > 1:
+            wip_fail.append(f"{k} carries {len(lanes)} lane labels ({', '.join(lanes)})")
+        for l in lanes:
+            by_lane.setdefault(l, []).append(k)
+    for l, keys in sorted(by_lane.items()):
+        if len(keys) > 1:
+            wip_fail.append(f"{l} holds {len(keys)} In Progress items ({', '.join(keys)}); a lane holds one")
+    agent_lanes = sorted(l for l in by_lane if l != "lane:adam")
+    if len(agent_lanes) > MAX_AGENT_LANES:
+        wip_fail.append(f"{len(agent_lanes)} agent lanes are building ({', '.join(agent_lanes)}); "
+                        f"the cap is {MAX_AGENT_LANES}")
+    print(f"wip: {len(agent_lanes)}/{MAX_AGENT_LANES} agent lane(s) building"
+          + (f" ({', '.join(agent_lanes)})" if agent_lanes else "")
+          + ("; human lane in use" if "lane:adam" in by_lane else ""))
+    for k in unclaimed:
+        print(f"  WARN {k} is In Progress with no lane: label — claim it, or move it "
+              "to In Review if it is waiting on someone")
+    if wip_fail:
+        print(f"\nFAIL(1): the WIP limit is broken:")
+        for w in wip_fail:
+            print(f"  {w}")
+        sys.exit(1)
+
     # THE REVERSE ASSERTION. The census above proves every member carries the label;
     # nothing proved every open labelled row is a member. KAN-306 sat labelled
     # `sprint-10` and linked to RCP-101 for 30 hours outside sprint 85 while this gate
