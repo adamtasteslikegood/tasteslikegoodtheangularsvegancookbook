@@ -731,7 +731,7 @@ Additions to existing sections:
 
 Open questions 1 to 4:
 
-1. Tested-recipe marker (E1): proposed that it is the author's own entry, one mechanism and not two. Attaching a real photo to it is not in Phase 1. Open, for Adam.
+1. Tested-recipe marker (E1): **decided, Adam, 2026-10-14.** There is no separate marker; the feedback build supersedes it. The author's own entry on a recipe he cooked is the proof, one mechanism and not two. Attaching a real photo to it is not in Phase 1.
 2. Repeat cooks: not in Phase 1. One entry per account per recipe is the approved rule. Open for Phase 2.
 3. Comment length cap: 1,000 characters (Adam, 2026-10-13, decision R4). The review had proposed 500.
 4. Privacy wording: drafted above. Open until Adam reads it. It should also say that a deleted entry leaves the public page at once and is kept for moderation records.
@@ -985,7 +985,6 @@ Open:
 
 | Item                                                                     | Whose call | Blocks the build?                                           |
 | ------------------------------------------------------------------------ | ---------- | ----------------------------------------------------------- |
-| Open question 1: is the E1 tested-recipe marker the author's entry       | Adam       | No                                                          |
 | T8: production count of saved copies with and without `source_recipe_id` | data check | No, but it says how many existing cooks can post on day one |
 | Privacy wording                                                          | Adam       | Not the build; it must be read before the release           |
 | The Assignment count                                                     | Adam       | Not the build; due 2026-10-23 on RCP-148                    |
