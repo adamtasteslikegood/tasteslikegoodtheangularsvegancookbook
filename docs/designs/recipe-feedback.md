@@ -1202,7 +1202,7 @@ These add to T1 to T12 above. Effort assumes the 30x feature ratio [estimated].
 - [ ] **T13 (P1, human: ~3h / CC: ~15min)** Backend: callback cancel branch with state check
   - Surfaced by: E2, O7
   - Files: `Backend/blueprints/auth_api_bp.py`, `Backend/tests/`
-  - Verify: `cd Backend && uv run pytest` covers `error` with matching, missing, mismatched and replayed state; matching state clears `state` and `code_verifier` and 302s to `/?auth=cancelled`
+  - Verify: `cd Backend && uv run pytest` covers `error=access_denied` with matching, missing, mismatched and replayed state; matching state clears `state` and `code_verifier` and 302s to `/?auth=cancelled`; missing, mismatched and replayed state return 400 without redirecting, and mismatched state leaves the stored state and verifier intact
 - [ ] **T14 (P1, human: ~6h / CC: ~30min)** cookbook: `?feedback=<slug>` entry, intent lifecycle and cancel toast
   - Surfaced by: R15, O6, O8 (with T10)
   - Files: `src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts`, `src/services/auth.service.ts`, `src/components/shared/save-toast.component.ts`, `Backend/templates/public/recipe.html` (link href)
