@@ -34,6 +34,8 @@ RCP-119, chartered when this sprint closes.
 
 ## Committed scope — 27 SIs
 
+> **As chartered on 2026-10-09.** The re-plan of 2026-10-14 changed this scope: eight rows moved out and S28 to S40 were added. The current scope is in [Re-plan — 2026-10-14 (Adam)](#re-plan--2026-10-14-adam); work from that section.
+
 SI numbers are tracking numbers. The order of work is in [Ordered list](#ordered-list).
 Size is a sort, not an estimate: **Q** quick, **S** standard, **M** major.
 
@@ -133,6 +135,14 @@ commitment). Each has its own RCP acceptance row; no item was bundled.
 | **S38** | KAN-408 | RCP-171    | Express caps streamed request bodies. **Release gate for v0.7.0**                  |
 | **S39** | KAN-409 | RCP-172    | Legacy file routes are not served on staging. **Release gate for v0.7.0**          |
 | **S40** | KAN-352 | RCP-173    | Tested-recipe cooking. **Done 2026-10-14** on Adam's statement; acceptance amended |
+
+**How the release gate is enforced.** Nothing in `release.yml` checks S38 and S39:
+it tags every push to `main`. The gate is a release-train step. Before the
+`dev → main` release PR for v0.7.0 merges, the operator runs
+`python3 scripts/harness/sprint11_hard_gate.py --issues KAN-408 KAN-409` and confirms
+on RCP-171 and RCP-172 that both rows are **Done** (the scoped check proves only
+"out of To Do"). If either is not Done, the agent tools ship switched off (P1) or
+the release waits.
 
 **Moved out of Sprint 11.** Each is labelled `rolled-from-sprint-11`.
 
@@ -431,7 +441,7 @@ rules with Sprint 11 constants and no pre-authorised drops. Its `NOT_IN_SPRINT` 
 fails the gate if a Sprint 12 row (the table above) is in the sprint or on the board.
 Rule 3 (nothing in To Do) is the close gate, so on day 1 it is expected red.
 
-**Day-1 evidence, 2026-10-09:**
+**Day-1 evidence, 2026-10-09** (charter-time scope; the re-plan's evidence of 2026-10-14 is in the Re-plan section):
 
 | Run                                  | Result                                                                            |
 | ------------------------------------ | --------------------------------------------------------------------------------- |
