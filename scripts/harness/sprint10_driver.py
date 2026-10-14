@@ -190,8 +190,13 @@ def snapshot(plan, state_dir, now=None):
 
 
 def soak_blockers(plan, state_dir, now=None):
-    """Marked tasks that must be resumed before any new start: (reentry, violation)."""
-    phases = {t["id"]: soak_phase(state_dir, t["id"], now) for t in plan["tasks"]}
+    """Marked tasks that must be resumed before any new start: (reentry, violation).
+
+    A carried task is skipped: ``start`` and ``resume`` refuse it, so a soak mark
+    left from before it was carried could never be cleared and would block every
+    later start (codex-gate on KAN-412)."""
+    phases = {t["id"]: soak_phase(state_dir, t["id"], now) for t in plan["tasks"]
+              if not t.get("carried_to")}
     return (sorted(k for k, v in phases.items() if v == "reentry"),
             sorted(k for k, v in phases.items() if v == "violation"))
 

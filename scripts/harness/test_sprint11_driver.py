@@ -169,6 +169,13 @@ class Sprint11DriverTests(unittest.TestCase):
         self.assertEqual(len(reasons), 1)
         self.assertIn("carried out of Sprint 11 to Sprint 13", reasons[0])
 
+    def test_a_carried_task_soak_mark_does_not_block_starts(self):
+        # T12 and T20 still declare soak windows; a mark left from before they
+        # were carried must not block the rest of the sprint.
+        with patch.object(base, "soak_phase",
+                          side_effect=lambda d, t, now=None: "violation" if t in ("T12", "T20") else None):
+            self.assertEqual(base.soak_blockers(self.plan, self.state), ([], []))
+
     def test_close_counts_carried_tasks_as_done(self):
         verified = [t["id"] for t in self.plan["tasks"]
                     if t["id"] != "T28" and not t.get("carried_to")]

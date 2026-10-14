@@ -314,6 +314,10 @@ day). Rows filed on 2026-10-09 (KAN-345 to KAN-356) are age 0.
 
 One list, worked top to bottom. A row lower down starts only when a slot is free.
 
+> **Superseded on 2026-10-14 for the rest of the box.** The table below is the
+> chartered order. Work from the [order after the re-plan](#order-after-the-re-plan-2026-10-14)
+> instead; S11 to S14, S20, S23, S26 and S27 are no longer Sprint 11 work.
+
 | Rank | SI                 | Why here                                                                                                                                                    |
 | ---- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | S1 → S2 → S3       | Crawl-discovery lane. One session, in this order: all three change the same SSR templates and `index.html`. Google's clock starts only when these are live. |
@@ -329,6 +333,20 @@ One list, worked top to bottom. A row lower down starts only when a slot is free
 | 11   | S22                | Adam's profile edits, dated below; agents verify.                                                                                                           |
 | 12   | S11, S12, S13, S24 | **The bottom of the list. An unplanned level-1 item displaces from here upward.**                                                                           |
 | —    | S26                | The exit check. Run when S4, S5 and S6 are Done on production. Never displaced.                                                                             |
+
+#### Order after the re-plan (2026-10-14)
+
+| Rank | SI                                      | Why here                                                                             |
+| ---- | --------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1    | S38, S39                                | The v0.7.0 release gates. Nothing else in the release can ship until they are Done.  |
+| 2    | S4, S5, S6                              | The save fixes and the rate-limiter fix ride the same release.                       |
+| 3    | S34 to S37                              | Codex-gate and metadata follow-ups, merged with tests and in the v0.7.0 Backend pin. |
+| 4    | S28 to S33                              | Built and In Review. Their evidence is a production check after v0.7.0 is live.      |
+| 5    | S16, S15                                | S16 is in review; S15 is small.                                                      |
+| 6    | S21                                     | Process lane.                                                                        |
+| 7    | S22, S7, S9                             | Adam's lane: profile edits and two browser checks. They hold no agent lane.          |
+| 8    | S25                                     | Closes on its dated count, due 10-23.                                                |
+| —    | S1 to S3, S8, S10, S17 to S19, S24, S40 | Done.                                                                                |
 
 **Displaced items:** none as of 2026-10-09. **2026-10-14 (re-plan, Adam):** S11, S12, S13, S14, S20, S23, S27 and KAN-389 moved to Sprint 12; S26 moved to Sprint 13. The reason for each is in [Re-plan](#re-plan--2026-10-14-adam).
 
