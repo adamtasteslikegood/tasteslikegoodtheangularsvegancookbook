@@ -114,58 +114,77 @@ before or after.
 
 ## Brand visibility (production)
 
-ChatGPT, Claude and Perplexity could not be queried directly. Two stand-ins
-were used. The full results are in
+ChatGPT, Claude and Perplexity could not be queried directly. Three sources
+were used; the full results are in
 [search-capture.md](./evidence/2026-10-14/search-capture.md).
 
+**Google, searched by Adam for `tasteslikegood` (2026-10-14, also in an
+incognito tab, US).** This is the result that counts for the brand query:
+
+- Google's **AI Overview** answers first: "Tasteslikegood.org is home to
+  VeganGenius Chef, a free AI-powered vegan recipe generator". It lists four
+  features, each cited to `www.tasteslikegood.org`: custom recipes from a
+  mood, dish or leftover ingredients; measured ingredients, steps, times and
+  servings; saving recipes to a cookbook, collections and publishing; free,
+  with no ads or life story. All four are accurate. It does not mention
+  Google Gemini.
+- The **first organic result** is the home page, titled "AI Vegan Recipe
+  Generator & Cookbook | Tasteslikegood", with the site's own description and
+  its image.
+- Below it: other accounts using the name (a YouTube music channel, a
+  Pinterest profile), the Backend's GitHub repository, then unrelated videos.
+
+So for its own name the site ranks first and an AI summary describes it
+correctly. That is a real AI-generated answer about the brand, and the best
+evidence in this document for what AI search already says.
+
 **Web search, Claude Code's built-in search tool (US, signed out), 14:44 to
-15:05 UTC.** Seven exact queries: the brand name `tasteslikegood`,
-`tasteslikegood vegan recipe generator`, `tasteslikegood.org`,
-`VeganGenius Chef`, `free AI vegan recipe generator`,
-`best AI vegan recipe generator` and `AI recipe generator alternatives`. The
-site appears in none of them, not even for its own name. Directories and
-roundups (topai.tools, alternativeto.net, DishGen listings) fill the category
-queries.
+15:05 UTC.** Seven exact queries, including `tasteslikegood`. The site appears
+in none of them, not even for its own name, which Google answers with the site
+first. This tool does not search Google's index and is not a stand-in for it.
+It is kept as a record of a non-Google search index, where the site is not yet
+present. Directories and roundups (topai.tools, alternativeto.net, DishGen
+listings) fill its category queries.
 
-An earlier run that morning had shown the site 2nd for the category search and
-1st for its name. That run was not saved and could not be repeated, so it is
-withdrawn. The same is true of an observation from that run that the search
-index held only the home page's menu text. Search Console confirms the home
-page is indexed but does not return the text Google stored for it, so that
-claim is not supported either.
+An earlier run of that tool the same morning had shown the site 2nd for the
+category search and 1st for its name. It was not saved and could not be
+repeated, so it is not used. The observation from that run that the index
+held only the home page's menu text is contradicted by Google's result above,
+which shows the real description, and is withdrawn.
 
-**Google Search Console, last 28 days (2026-09-16 to 2026-10-13).** This is
-the measured baseline, because it can be read again for the same window
-later:
+**Google Search Console, last 28 days (2026-09-16 to 2026-10-13).** The
+measured baseline for category queries, because the same window can be read
+again later:
 
 | Query                  | Clicks | Impressions | Average position |
 | ---------------------- | ------ | ----------- | ---------------- |
 | vegan recipe generator | 4      | 15          | 74.7             |
 | vegan recipe tester    | 0      | 2           | 64.5             |
 
-No query containing `tasteslike` appears in the last 90 days: nobody reached
-the site from Google by its name. The home page is "Submitted and indexed", last crawled 2026-10-13, with
-Google's canonical matching the declared one.
+No query containing `tasteslike` is reported for the last 90 days. Search
+Console leaves out rare queries for privacy, so this says brand searches are
+few, not that there were none. The home page is "Submitted and indexed", last
+crawled 2026-10-13, with Google's canonical matching the declared one.
 
 ### Rough visibility score
 
 Scored with the rubric in the SearchFit `ai-visibility` skill (plugin
 `searchfit-seo`, no version number published): each dimension 0 to 10, overall
-= mean x 10, over the dimensions that could be scored. An estimate, not a
-tracked score.
+= mean x 10. An estimate, not a tracked score.
 
-| Dimension    | Score         | Basis                                                                                            |
-| ------------ | ------------- | ------------------------------------------------------------------------------------------------ |
-| Presence     | 1             | Absent from all seven captured queries, including its own name; Search Console position about 75 |
-| Accuracy     | not measured  | No result showed the site, so there was nothing to check                                         |
-| Sentiment    | 5             | Neutral: no third-party reviews either way                                                       |
-| Position     | 1             | Search Console average position 74.7 for the main category query                                 |
-| Completeness | 1             | Gemini, published recipes and the cookbook are not mentioned anywhere seen                       |
-| Consistency  | not measured  | No access to the AI assistants themselves                                                        |
-| **Overall**  | **20 of 100** | (1 + 5 + 1 + 1) / 4 x 10, four dimensions only                                                   |
+| Dimension    | Score         | Basis                                                                                          |
+| ------------ | ------------- | ---------------------------------------------------------------------------------------------- |
+| Presence     | 5             | First on Google and in its AI Overview for the brand; position about 75 for the category query |
+| Accuracy     | 9             | Every claim in the AI Overview is correct                                                      |
+| Sentiment    | 5             | Neutral: no third-party reviews either way                                                     |
+| Position     | 4             | 1st for the brand, 74.7 for "vegan recipe generator", absent from roundups                     |
+| Completeness | 7             | Recipes, cookbook, publishing and free use are all named; Gemini is not                        |
+| Consistency  | 3             | Google answers with the site first; the other search index does not know it                    |
+| **Overall**  | **55 of 100** | (5 + 9 + 5 + 4 + 7 + 3) / 6 x 10                                                               |
 
-This replaces the "about 38 of 100" in the first version of this document,
-which rested on the withdrawn search observation.
+The gap is the category, not the brand: people who know the name find an
+accurate answer; people asking for a vegan recipe generator do not find the
+site.
 
 ## What would raise it
 
@@ -188,5 +207,5 @@ which rested on the withdrawn search observation.
 Against production after 0.7.0 is live: the readiness check (expect 14 of 14),
 the Lighthouse audit (the `llms-txt` audit should pass on production), the
 AIReady scan once the connector works, and this audit again a few weeks later
-with the same seven queries, saved the same way, plus Search Console for the
+with the same queries, saved the same way, Google's answer for `tasteslikegood` captured again, plus Search Console for the
 28 days after release.

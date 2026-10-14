@@ -24,6 +24,27 @@ Raw results behind the brand-visibility section of
 | `best AI vegan recipe generator`                        | no                | topai.tools (vegan-recipes), topai.tools (vegan-recipe-recommendations), thrivemarket.com, oneingredientchef.com, bootstrapped.ventures, morningdough.com, morningdough.com, origin.thrivemarket.com, topai.tools (diet-specific)                        |
 | `AI recipe generator alternatives`                      | no                | alternativeto.net (Cookup), stork.ai (Let's Foodie), topai.tools (AI Recipe Writer), zylalabs.com, alternativeto.net (Random Recipe Generator), alternativeto.net (ChefBot), tracker.zylalabs.com, zylalabs.com, aichief.com (RecipeGen)                 |
 
+## Google, `tasteslikegood` (Adam, 2026-10-14)
+
+Searched by Adam on google.com, also in an incognito tab; results located in
+the US. Transcribed from his screenshot (not committed: it shows his account
+and location).
+
+- AI Overview: "Tasteslikegood.org is home to VeganGenius Chef, a free
+  AI-powered vegan recipe generator". Key features, each cited to
+  www.tasteslikegood.org: Custom Recipes; Recipe Details; Cookbook & Sharing;
+  No Paywalls. Source card: "Vegan Recipe Generator".
+- Organic results, in order: www.tasteslikegood.org "AI Vegan Recipe
+  Generator & Cookbook | Tasteslikegood."; music.youtube.com @Tasteslikegood;
+  m.youtube.com @Tasteslikegood; pinterest @tasteslikegood4ever; github.com
+  tasteslikegood.com (COPY_PASTE_COMMANDS.md); YouTube "Trying AI Vegan
+  Recipes (And How to Spot the Fake Ones)"; YouTube "The thumbnail isn't
+  clickbait. This VEGAN CHEESE is ..."; a Recipes carousel (Instagram, The
+  Defined Dish); ebay.com "Tastes Like Good".
+
+The Claude Code search tool returned none of this for the same query (table
+above), so it does not search Google's index.
+
 ## Earlier observation, withdrawn
 
 An earlier run the same morning, before this capture, showed the site 2nd of
@@ -50,5 +71,5 @@ Read through the `gcp-monitor` connector at about 14:46 UTC.
   | sure!                  | 0      | 1           | 1.0              |
 
 - **Search performance, queries containing `tasteslike`, 90 days (2026-07-16
-  to 2026-10-13):** no rows. Nobody reached the site from Google by its
-  name in that window.
+  to 2026-10-13):** no rows. Search Console omits rare queries for privacy,
+  so brand searches were few, not necessarily none.
