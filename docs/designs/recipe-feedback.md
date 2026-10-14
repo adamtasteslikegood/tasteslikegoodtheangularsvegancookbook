@@ -1074,6 +1074,8 @@ Findings accepted as required proof of approved rules (no question):
 
 - **E2** `[P1] (confidence: 8/10) Backend/blueprints/auth_api_bp.py:425-450`: R8 approves "cancelling google sign-in saves the recipe to guest session cookbook ... and shows a informational toast". When the cook cancels, Google sends them to the callback with `error=access_denied`. The callback has no branch for that: it calls `flow.fetch_token(...)` and on any exception returns `jsonify({"error": "Authentication failed"}), 500`. The cook sees a JSON error page, and the SPA never runs, so neither the guest save nor the toast can happen. Required: when `error` is present, clear the OAuth state and redirect to the fixed `{FRONTEND_URL}?auth=cancelled`, with a pytest. This also fixes an ordinary cancelled sign-in, which hits the same page today.
 
+Approval readiness: PASS. Every decision this review raised is answered: D1 (structure, confirms R1), D2 (R15) and D3 (R16), all by Adam on 2026-10-14. E2, E4 and the outside review's O6 to O8 are required proof of approved decisions and need no answer.
+
 Scope Challenge result: scope accepted as-is. Reality rows:
 
 - REALITY: premise-table pass 6 new claims checked (callback redirect, no `error` branch, SPA starts sign-in, `?save=` guard, Markdown conversion of notes, `escape_misc` fix), all with receipts or a probe; still 1 unverified from the first run (T8 production counts) Backend/blueprints/auth_api_bp.py:531
@@ -1147,20 +1149,104 @@ Dispositions: all gaps accepted as required proof.
 
 - No new issues. The read-time age filter joins `user` on its primary key inside the existing per-recipe summary query; expected tens of rows per recipe [estimated]. `escape_misc` adds a character pass over each Markdown response, which md4a does not cache; pages are tens of kilobytes [estimated].
 
+Dispositions: none needed.
+
+### Outside review 2 (Codex, plan review), 2026-10-14
+
+Codex (`gpt-6-astra`, plan-review role) read the build spec, decisions R7 to R16 and the Phase 1 text at commit `a9f7ac3`, read-only; HEAD did not move during the run. It returned three findings and recommended revising before the build. Each was checked against the code and each holds. All three are the correct implementation of behaviour Adam already approved (R8, R15, E2), so none needed a new question.
+
+- **O6** `[P1] (confidence: 8/10) src/services/ssr-entry.service.ts:134-138`: the existing-copy lookup is `find(matchesSlug(normalizedSlug, 'sourceSlug')) ?? find(matchesSlug(normalizedSlug, 'slug'))`, then `existing ?? null`. A copy saved before its source was renamed keeps the old `sourceSlug`, so `?feedback=<new-slug>` would not find it and could not open the form. Required for R15: fetch the public recipe (already done at `:116`), then find the cook's copy by `sourceRecipeId` equal to that recipe's id (the field exists on SPA rows, `src/recipe.types.ts:71`, hydrated in `src/utils/recipe-row.ts`), or the author's own recipe by id. The slug lookup stays for the ordinary Save toast. Correction to the build spec's regression row: a copy whose source was renamed still carries `source_recipe_id` and **is** eligible; only a copy with no `source_recipe_id`, or whose source was deleted, gets no control (A4).
+- **O7** `[P2] (confidence: 8/10) Backend/blueprints/auth_api_bp.py:432-434`: the E2 cancel branch must first compare the callback's `state` with `session["state"]`, as the token exchange does, before it clears anything. With no match it refuses as today (400); with a match it clears `state` and `code_verifier` and redirects to `/?auth=cancelled`. Tests for missing, mismatched and replayed state. Folded into E2.
+- **O8** `[P2] (confidence: 8/10) design R8`: R8's approved build note says that signing in from the cancel toast "opens it at the form". R15 deletes the intent on cancel, and `AuthService.login()` keeps no destination. Required: the toast's sign-in action writes a fresh `{feedback: slug}` intent (or navigates to `/?feedback=<slug>`) before starting sign-in. Test the whole chain: cancel, guest save, toast sign-in, merged copy keeps `source_recipe_id`, form opens.
+
+Cross-model tension: none. Codex found three gaps this review missed; it disagreed with no decision and raised nothing that needs Adam.
+
+Dispositions: O6, O7 and O8 accepted as required proof of R15, E2 and R8.
+
+### NOT in scope (eng review 2)
+
+- Feedback in the MCP endpoint, the `get_recipe` agent tool and the OpenAPI document (E5): agents get it through the Markdown view.
+- Escaping in Cloudflare's own Markdown for Agents: the site does not use it; md4a is the converter.
+- A server-side return URL after sign-in: R15 chose the SPA.
+- Everything the first review and the design review listed as not in scope still stands.
+
+### What already exists (eng review 2)
+
+- `ssrEntryGuard` and `SsrEntryService.handleSave` (`src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts`): the slug check, in-flight map and save path `?feedback=` reuses.
+- `AuthService` starts sign-in in the SPA (`src/services/auth.service.ts:168-170`) and cleans `?auth=success` (`:112-115`); the intent is written just before line 170.
+- `sourceRecipeId` on SPA recipe rows (`src/recipe.types.ts:71`).
+- md4a fork pinned in `Backend/pyproject.toml` (`adamtasteslikegood/md4a-fastapi`); `tests/test_markdown_for_agents.py` is where the escaping test goes.
+
+### Failure modes (eng review 2)
+
+| Path                                            | Realistic failure                     | Handling                                                   | User sees                             |
+| ----------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
+| Google cancel                                   | `error=access_denied` at the callback | E2 branch with state check (O7); test                      | the app, a guest save and the toast   |
+| Forged or stale callback with `error`           | state missing or wrong                | refused, nothing cleared (O7); test                        | an error page, as today               |
+| Cook closes the Google tab                      | nothing returns                       | intent dies with the tab's sessionStorage                  | the public page they left             |
+| Source renamed since the cook saved it          | slug lookup misses                    | lookup by `sourceRecipeId` (O6); test                      | their copy, at the form               |
+| Toast sign-in after a cancel                    | intent already consumed               | toast writes a fresh intent (O8); test                     | the form after sign-in                |
+| Account crosses 24 hours between two page loads | numbers change with no write          | one age predicate for all four outputs (E4); boundary test | consistent count, average and JSON-LD |
+| md4a pin bumped without `escape_misc`           | links come back                       | escaping test fails                                        | nothing; CI catches it                |
+
+No critical gap: every row is handled and tested.
+
+### Parallelization (eng review 2)
+
+Adds to the first review's table. Step 6 (md4a fork commit and pin, R16) touches the fork and `Backend/pyproject.toml` and depends on nothing; it can run in Lane B with the privacy text. Step 7 (callback cancel branch, E2 and O7) touches `Backend/blueprints/auth_api_bp.py` and joins Lane A after step 1. Step 8 (`?feedback=` guard, intent and toast, R15, O6, O8) is cookbook `src/` and joins Lane C; it needs step 7 merged before the staging check. Conflict flag: step 7 and the first review's T2 both touch `/api/auth/me`'s blueprint file.
+
+### Implementation tasks (eng review 2)
+
+These add to T1 to T12 above. Effort assumes the 30x feature ratio [estimated].
+
+- [ ] **T13 (P1, human: ~3h / CC: ~15min)** Backend: callback cancel branch with state check
+  - Surfaced by: E2, O7
+  - Files: `Backend/blueprints/auth_api_bp.py`, `Backend/tests/`
+  - Verify: `cd Backend && uv run pytest` covers `error` with matching, missing, mismatched and replayed state; matching state clears `state` and `code_verifier` and 302s to `/?auth=cancelled`
+- [ ] **T14 (P1, human: ~6h / CC: ~30min)** cookbook: `?feedback=<slug>` entry, intent lifecycle and cancel toast
+  - Surfaced by: R15, O6, O8 (with T10)
+  - Files: `src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts`, `src/services/auth.service.ts`, `src/components/shared/save-toast.component.ts`, `Backend/templates/public/recipe.html` (link href)
+  - Verify: `npm test` covers invalid slug, signed in, signed out, success, cancel, one-time intent, renamed source found by `sourceRecipeId`, and the toast re-arming the intent; staging browser pass of cancel then toast sign-in then form
+- [ ] **T15 (P2, human: ~2h / CC: ~15min)** md4a fork: `escape_misc=True`, pin bump, escaping test
+  - Surfaced by: E1, R16
+  - Files: `adamtasteslikegood/md4a-fastapi` (`md4a/wsgi.py`, `md4a/middleware.py`), `Backend/pyproject.toml`, `Backend/uv.lock`, `Backend/tests/test_markdown_for_agents.py`
+  - Verify: the new test fails on the old pin and passes on the new one
+- [ ] **T16 (P1, folded into T3)** Backend: one age predicate across count, average, notes and `aggregateRating`
+  - Surfaced by: E4
+  - Files: `Backend/blueprints/public_bp.py`, `Backend/tests/`
+  - Verify: pytest with a frozen clock at 23h59m and 24h00m
+
+### Eng review 2 completion summary
+
+- Step 0: Scope Challenge: scope accepted as-is (R1 confirmed by D1)
+- Reality rows: 8/8 applicable rows emitted (`PLAN_REALITY` line below), 1 unverified premise (T8, carried)
+- Architecture Review: 5 issues found (E1 to E5)
+- Code Quality Review: 0 issues found
+- Test Review: diagram produced, 15 gaps identified, plus 3 from the outside review
+- Performance Review: 0 issues found
+- NOT in scope: written
+- What already exists: written
+- TODOS.md updates: 0 items proposed (no TODOS.md; follow-ups live on KAN-345 and KAN-356)
+- Failure modes: 0 critical gaps flagged
+- Unresolved decisions: 0
+- Outside voice: Codex, completed, 3 findings, all accepted as required
+- Parallelization: 3 lanes, unchanged; steps 6 to 8 added to Lanes B, A and C
+- Lake Score: 2/2 (D2 and D3 both chose the 9/10 option)
+
 ## GSTACK REVIEW REPORT
 
 | Review         | Trigger                    | Why                             | Runs | Status    | Findings                        |
 | -------------- | -------------------------- | ------------------------------- | ---- | --------- | ------------------------------- |
 | CEO Review     | `/plan-ceo-review`         | Scope & strategy                | 0    | not run   | n/a                             |
-| Outside Review | Codex, from the eng review | Independent 2nd opinion         | 1    | completed | 5 findings                      |
-| Eng Review     | `/plan-eng-review`         | Architecture & tests (required) | 1    | CLEAR     | 36 issues, 0 critical gaps      |
+| Outside Review | Codex, from the eng review | Independent 2nd opinion         | 2    | completed | 8 findings (5 + 3)              |
+| Eng Review     | `/plan-eng-review`         | Architecture & tests (required) | 2    | CLEAR     | 36 + 5 issues, 0 critical gaps  |
 | Design Review  | `/plan-design-review`      | UI/UX gaps                      | 1    | CLEAR     | score: 2/10 → 8/10, 7 decisions |
 | DX Review      | `/plan-devex-review`       | Developer experience gaps       | 0    | not run   | n/a                             |
 
-- **OUTSIDE COVERAGE:** Codex, plan-review phase of the eng review, completed, 5 findings (2 P1, 3 P2). No outside design voice was run in the design review.
-- **CROSS-MODEL:** no overlap between the eng review and its outside review; the outside review found two moderation bypasses and three gaps the eng review missed, and reopened one eng finding (A3). Its finding O4 is decision R8 of the design review.
-- **VERDICT:** DESIGN CLEARED. ENG CLEARED on 2026-10-13, after the review ran: Adam answered R4, with both caps changed, and placed the R6 settings page after Phase 1. Decision R8 changed the 24-hour rule after the eng review ran, so its eligibility test and summary query are amended in the ledger entry for R8.
+- **OUTSIDE COVERAGE:** Codex, plan-review phase of both eng reviews, completed both times: 5 findings on 2026-10-13 (2 P1, 3 P2), 3 on 2026-10-14 (1 P1, 2 P2). No outside design voice was run in the design review.
+- **CROSS-MODEL:** no overlap in either run. On 2026-10-14 Codex found the slug-only copy lookup (O6), the unchecked state on the cancel branch (O7) and the lost intent after the cancel toast (O8); all three were verified against the code and folded in as required proof of R15, E2 and R8. It disagreed with no decision.
+- **VERDICT:** DESIGN CLEARED. ENG CLEARED on 2026-10-14 against cookbook `6b15dd3` and Backend `e69b5cd`: Adam answered D1 (structure), D2 (R15, return path in the SPA) and D3 (R16, escaping in md4a). The build still waits for the Sprint 12 charter (this document, "Sprint").
 
 **UNRESOLVED DECISIONS:**
 
-NO UNRESOLVED DECISIONS. The last one, the text of the "Add feedback" link, was answered by Adam on 2026-10-13: the link alone, with no line under it. Every other decision is answered.
+NO UNRESOLVED DECISIONS
