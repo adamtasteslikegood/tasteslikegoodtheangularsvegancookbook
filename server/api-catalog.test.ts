@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { apiCatalog, API_CATALOG_CONTENT_TYPE, OPENAPI_PATH } from './api-catalog.js';
 
 describe('apiCatalog (KAN-398)', () => {
-  it('anchors each entry at a callable endpoint, with the shared OpenAPI description', () => {
+  it('anchors each entry at a callable endpoint; the REST ones share the OpenAPI description', () => {
     const origin = 'https://www.tasteslikegood.org';
     const entry = (path: string) => ({
       anchor: `${origin}${path}`,
@@ -10,7 +10,14 @@ describe('apiCatalog (KAN-398)', () => {
       'service-doc': [{ href: `${origin}/llms.txt`, type: 'text/plain' }],
     });
     expect(apiCatalog(origin)).toEqual({
-      linkset: [entry('/api/public/newest-recipes'), entry('/api/agent/tools')],
+      linkset: [
+        entry('/api/public/newest-recipes'),
+        entry('/api/agent/tools'),
+        {
+          anchor: `${origin}/mcp`,
+          'service-doc': [{ href: `${origin}/llms.txt`, type: 'text/plain' }],
+        },
+      ],
     });
   });
 
