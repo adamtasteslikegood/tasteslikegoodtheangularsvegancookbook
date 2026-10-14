@@ -1,0 +1,29 @@
+{
+  "tool": "Chrome DevTools MCP, evaluate_script in a fresh isolated browser context per site",
+  "checks": "fetch('/') response headers; fetch('/', Accept: text/markdown) content-type; JSON-LD @types on the rendered home page; 'modelContext' in navigator (WebMCP, AR-11)",
+  "production": {
+    "at": "2026-10-14T14:44:02.064Z",
+    "webmcp": false,
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "vary": "Accept-Encoding",
+      "x-robots-tag": "index, follow"
+    },
+    "mdType": "text/html; charset=utf-8",
+    "jsonLd": ["WebApplication", "WebSite", "FAQPage"],
+    "h1": "Vegan Recipe Generator"
+  },
+  "staging": {
+    "at": "2026-10-14T14:44:02.375Z",
+    "webmcp": false,
+    "headers": {
+      "content-type": "text/html; charset=utf-8",
+      "link": "</llms.txt>; rel=\"describedby\"; type=\"text/plain\", </sitemap.xml>; rel=\"sitemap\", </.well-known/api-catalog>; rel=\"api-catalog\"",
+      "vary": "Accept, Accept-Encoding",
+      "x-robots-tag": "noindex, nofollow"
+    },
+    "mdType": "text/markdown; charset=utf-8",
+    "jsonLd": ["WebApplication", "WebSite", "FAQPage"],
+    "h1": "Vegan Recipe Generator"
+  }
+}
