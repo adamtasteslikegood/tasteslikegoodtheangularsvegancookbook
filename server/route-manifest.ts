@@ -55,8 +55,9 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   api         — proxied to Flask (/api/*)
  *   ssr         — Flask-rendered HTML pages (/r/*, /browse, /browse/tag/*, /sitemap.xml)
  *   ssrStatic   — Flask SSR static assets (/static/*)
- *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html)
- *                 and the Express-local RUM endpoints (/rum/config, /rum/intake)
+ *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html),
+ *                 the Express-local RUM endpoints (/rum/config, /rum/intake), and /mcp
+ *                 (KAN-399), which is proxied to Flask outside the /api prefix
  *   spa         — Angular client-side routes (/, /kitchen, /kitchen/:cookbookId, /recipe/:id, etc.)
  */
 export const ROUTE_MANIFEST = {
@@ -79,6 +80,7 @@ export const ROUTE_MANIFEST = {
       '/index.html',
       '/rum/config',
       '/rum/intake',
+      '/mcp',
     ],
   },
   /**

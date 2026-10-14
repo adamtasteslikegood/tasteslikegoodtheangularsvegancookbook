@@ -221,6 +221,7 @@ describe('classifyRoute', () => {
     ['/index.html', 'standalone'],
     ['/rum/config', 'standalone'],
     ['/rum/intake', 'standalone'],
+    ['/mcp', 'standalone'],
     // Asset-like paths — the SPA catch-all must 404 these (RCP-77 AC4)
     ['/evil.js', 'asset'],
     ['/nope/thing.css', 'asset'],

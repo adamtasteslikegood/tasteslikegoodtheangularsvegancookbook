@@ -14,6 +14,7 @@ import {
   createRequestLogger,
   createRumConfigLimiter,
   createRumIntakeLimiter,
+  createMcpLimiter,
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
@@ -35,6 +36,7 @@ import {
   API_CATALOG_LINK,
   API_CATALOG_PATH,
   apiCatalog,
+  MCP_PATH,
 } from './api-catalog.js';
 import { MARKDOWN_CONTENT_TYPE, acceptsMarkdown, renderHomeMarkdown } from './home-markdown.js';
 
@@ -169,6 +171,10 @@ export const ready = (async () => {
   // through to Flask without being consumed by the JSON parser (the AI
   // endpoints above are the deliberate buffer-and-replay exception).
   app.use('/api', createFlaskProxy('API'));
+
+  // MCP endpoint (KAN-399): Flask answers POST; GET and DELETE get Flask's 405.
+  // Exact path only, all methods, its own limiter (it is outside /api).
+  app.all(MCP_PATH, createMcpLimiter(valkeyClient), createFlaskProxy('MCP'));
 
   // ── Datadog RUM (KAN-292) ───────────────────────────────────────
   // GET /rum/config feeds the consent loader (public/rum/consent.js);
