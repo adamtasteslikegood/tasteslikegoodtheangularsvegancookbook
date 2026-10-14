@@ -410,10 +410,28 @@ describe('SPA shell index control (KAN-276)', () => {
   it('points agents at llms.txt and the sitemap from the home page only (KAN-395)', async () => {
     const home = await fetch(`${baseUrl}/`);
     expect(home.headers.get('link')).toBe(
-      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"'
+      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap", </.well-known/api-catalog>; rel="api-catalog"'
     );
     const kitchen = await fetch(`${baseUrl}/kitchen`);
     expect(kitchen.headers.get('link')).toBeNull();
+  });
+
+  it('serves the API catalog as a link set, for GET and HEAD (KAN-398)', async () => {
+    const res = await fetch(`${baseUrl}/.well-known/api-catalog`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe(
+      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"'
+    );
+    expect(res.headers.get('link')).toBe('</.well-known/api-catalog>; rel="api-catalog"');
+    const { linkset } = (await res.json()) as {
+      linkset: { anchor: string; 'service-desc': { href: string }[] }[];
+    };
+    // Absolute, and on the host that was asked.
+    expect(linkset[0]['service-desc'][0].href).toBe(`${baseUrl}/api/public/openapi.json`);
+
+    const head = await fetch(`${baseUrl}/.well-known/api-catalog`, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('link')).toBe('</.well-known/api-catalog>; rel="api-catalog"');
   });
 
   it('keeps the home page indexable with a query string (OAuth return)', async () => {

@@ -30,6 +30,12 @@ import {
   createNewestRecipesSource,
   injectNewestRecipes,
 } from './newest-recipes.js';
+import {
+  API_CATALOG_CONTENT_TYPE,
+  API_CATALOG_LINK,
+  API_CATALOG_PATH,
+  apiCatalog,
+} from './api-catalog.js';
 import { MARKDOWN_CONTENT_TYPE, acceptsMarkdown, renderHomeMarkdown } from './home-markdown.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
@@ -270,6 +276,18 @@ export const ready = (async () => {
     });
     return homeShellPromise;
   };
+  // KAN-398: the API catalog. An explicit route, because express.static does
+  // not serve from a dot-directory. The links are absolute (as in RFC 9727's
+  // examples) and built from the host that was asked, so staging's catalog
+  // points at staging. Express answers HEAD from the same handler.
+  app.get(API_CATALOG_PATH, staticPageLimiter, (req, res) => {
+    res.setHeader('Link', API_CATALOG_LINK);
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    // A Buffer, so Express leaves the media type as written: for a string it
+    // would add a charset parameter the link set type does not define.
+    const body = JSON.stringify(apiCatalog(`${req.protocol}://${req.host}`));
+    res.type(API_CATALOG_CONTENT_TYPE).send(Buffer.from(body));
+  });
   // KAN-395: point agents at the machine-readable descriptions of the site from
   // the home page's response headers. Scoped to GET `/` (so it does not fire on
   // every /api, /r, image or proxy request) but still a standalone handler,
@@ -279,7 +297,7 @@ export const ready = (async () => {
   app.get('/', (_req, res, next) => {
     res.setHeader(
       'Link',
-      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"'
+      `</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap", ${API_CATALOG_LINK}`
     );
     // KAN-397: "/" has an HTML and a Markdown form, so every answer says so.
     res.vary('Accept');

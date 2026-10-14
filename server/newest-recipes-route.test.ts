@@ -100,7 +100,7 @@ describe('home page newest-recipes row (KAN-348)', () => {
     expect(res.headers.get('cache-control')).toBe('public, max-age=0');
     // KAN-395: the composed home page carries the same Link header as the built one.
     expect(res.headers.get('link')).toBe(
-      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap"'
+      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap", </.well-known/api-catalog>; rel="api-catalog"'
     );
     const etag = res.headers.get('etag');
     expect(etag).toMatch(/^W\//);
