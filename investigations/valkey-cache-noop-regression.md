@@ -3,6 +3,7 @@ type: concept
 title: 'Investigation: extensions.cache no-op stub (Backend issue #143)'
 ingested_via: put_page
 ingested_at: '2026-07-15T11:49:39.852Z'
+created: '2026-07-15T11:49:39.852Z'
 source_kind: put_page
 tags:
   - investigation
