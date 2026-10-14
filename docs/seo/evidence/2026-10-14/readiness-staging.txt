@@ -1,0 +1,18 @@
+# https://staging.tasteslikegood.xyz  run at 2026-10-14T14:43:46Z
+FAIL  AR-1   robots.txt names the AI crawlers (missing: GPTBot OAI-SearchBot ChatGPT-User ClaudeBot Claude-SearchBot Claude-User PerplexityBot Perplexity-User Google-Extended Applebot-Extended CCBot)
+FAIL  AR-2   robots.txt states a Content-Signal
+PASS  AR-3   /llms.txt is served and starts with a title
+FAIL  AR-4   /sitemap.xml is served and listed in robots.txt
+PASS  AR-5a  home page has WebApplication and Organization structured data
+PASS  AR-5b  a recipe page has Recipe structured data
+PASS  AR-6   home page Link header points at /llms.txt
+PASS  AR-7a  Accept: text/markdown on / returns markdown
+PASS  AR-7b  Accept: text/markdown on /browse returns markdown
+PASS  AR-7c  Accept: text/markdown on /r/hotel-california-gluten-free-veggie-burger-with-hand-cut-fries-house-ketchup returns markdown
+PASS  AR-8a  /api/public/openapi.json describes the public API
+PASS  AR-8b  /.well-known/api-catalog is a linkset
+PASS  AR-9   /mcp answers an MCP initialize request
+PASS  AR-10  home page and llms.txt say the recipes are generated with Gemini
+
+3 requirement(s) fail for https://staging.tasteslikegood.xyz
+exit=1
