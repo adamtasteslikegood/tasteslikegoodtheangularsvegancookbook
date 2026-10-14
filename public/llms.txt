@@ -10,6 +10,12 @@ Recipes and their photos are generated with Google Gemini. Published recipes are
 - [Sitemap](https://www.tasteslikegood.org/sitemap.xml): every public recipe URL, at `/r/<slug>`
 - [Newest recipes (JSON)](https://www.tasteslikegood.org/api/public/newest-recipes): name, slug and first publication time of the most recent recipes; a recipe's page is `https://www.tasteslikegood.org/r/<slug>`
 
+## For programs
+
+- [API catalog](https://www.tasteslikegood.org/.well-known/api-catalog): link set (RFC 9727) pointing at the API description
+- [API description (OpenAPI)](https://www.tasteslikegood.org/api/public/openapi.json): the public read endpoints and the recipe search and read tools; no account or key needed
+- A request for a recipe page, the browse pages or the home page with `Accept: text/markdown` gets Markdown
+
 ## Categories
 
 - [Breakfast](https://www.tasteslikegood.org/browse/tag/breakfast)
