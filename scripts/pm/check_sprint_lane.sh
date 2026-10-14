@@ -243,9 +243,11 @@ if expected_label and label == expected_label:
         if not lanes:
             unclaimed.append(k)
         elif len(lanes) > 1:
+            # Flagged once here; not counted into each lane, so one row cannot
+            # inflate the lane count or report phantom shared lanes.
             wip_fail.append(f"{k} carries {len(lanes)} lane labels ({', '.join(lanes)})")
-        for l in lanes:
-            by_lane.setdefault(l, []).append(k)
+        else:
+            by_lane.setdefault(lanes[0], []).append(k)
     for l, keys in sorted(by_lane.items()):
         if len(keys) > 1:
             wip_fail.append(f"{l} holds {len(keys)} In Progress items ({', '.join(keys)}); a lane holds one")

@@ -374,12 +374,11 @@ def cmd_soak(args):
         path = state_dir / ("%s.soak.json" % task["id"])
         if task.get("carried_to"):
             # Carried work never re-enters this sprint, so a soak on it is
-            # refused and a leftover mark is reported, not resumed.
+            # refused. A leftover mark is inert: soak_blockers and status skip
+            # carried tasks.
             print("%s REFUSED — %s was carried out of %s to %s; it is not sprint "
-                  "work%s" % (args.cmd.upper(), task["id"], sprint_name(plan),
-                              task["carried_to"],
-                              " (delete %s by hand to clear its old mark)" % path
-                              if path.exists() else ""))
+                  "work" % (args.cmd.upper(), task["id"], sprint_name(plan),
+                            task["carried_to"]))
             return REFUSED
         if args.cmd in ("resume", "unsoak"):
             if not path.exists():
