@@ -119,11 +119,13 @@ were used. The full results are in
 [search-capture.md](./evidence/2026-10-14/search-capture.md).
 
 **Web search, Claude Code's built-in search tool (US, signed out), 14:44 to
-14:48 UTC.** Five exact queries: `tasteslikegood.org`, `VeganGenius Chef`,
-`free AI vegan recipe generator`, `best AI vegan recipe generator` and
-`AI recipe generator alternatives`. The site appears in none of them.
-Directories and roundups (topai.tools, alternativeto.net, DishGen listings)
-fill the category queries.
+15:05 UTC.** Seven exact queries: the brand name `tasteslikegood`,
+`tasteslikegood vegan recipe generator`, `tasteslikegood.org`,
+`VeganGenius Chef`, `free AI vegan recipe generator`,
+`best AI vegan recipe generator` and `AI recipe generator alternatives`. The
+site appears in none of them, not even for its own name. Directories and
+roundups (topai.tools, alternativeto.net, DishGen listings) fill the category
+queries.
 
 An earlier run that morning had shown the site 2nd for the category search and
 1st for its name. That run was not saved and could not be repeated, so it is
@@ -141,7 +143,8 @@ later:
 | vegan recipe generator | 4      | 15          | 74.7             |
 | vegan recipe tester    | 0      | 2           | 64.5             |
 
-The home page is "Submitted and indexed", last crawled 2026-10-13, with
+No query containing `tasteslike` appears in the last 90 days: nobody reached
+the site from Google by its name. The home page is "Submitted and indexed", last crawled 2026-10-13, with
 Google's canonical matching the declared one.
 
 ### Rough visibility score
@@ -151,15 +154,15 @@ Scored with the rubric in the SearchFit `ai-visibility` skill (plugin
 = mean x 10, over the dimensions that could be scored. An estimate, not a
 tracked score.
 
-| Dimension    | Score         | Basis                                                                      |
-| ------------ | ------------- | -------------------------------------------------------------------------- |
-| Presence     | 1             | Absent from all five captured queries; Search Console position about 75    |
-| Accuracy     | not measured  | No result showed the site, so there was nothing to check                   |
-| Sentiment    | 5             | Neutral: no third-party reviews either way                                 |
-| Position     | 1             | Search Console average position 74.7 for the main category query           |
-| Completeness | 1             | Gemini, published recipes and the cookbook are not mentioned anywhere seen |
-| Consistency  | not measured  | No access to the AI assistants themselves                                  |
-| **Overall**  | **20 of 100** | (1 + 5 + 1 + 1) / 4 x 10, four dimensions only                             |
+| Dimension    | Score         | Basis                                                                                            |
+| ------------ | ------------- | ------------------------------------------------------------------------------------------------ |
+| Presence     | 1             | Absent from all seven captured queries, including its own name; Search Console position about 75 |
+| Accuracy     | not measured  | No result showed the site, so there was nothing to check                                         |
+| Sentiment    | 5             | Neutral: no third-party reviews either way                                                       |
+| Position     | 1             | Search Console average position 74.7 for the main category query                                 |
+| Completeness | 1             | Gemini, published recipes and the cookbook are not mentioned anywhere seen                       |
+| Consistency  | not measured  | No access to the AI assistants themselves                                                        |
+| **Overall**  | **20 of 100** | (1 + 5 + 1 + 1) / 4 x 10, four dimensions only                                                   |
 
 This replaces the "about 38 of 100" in the first version of this document,
 which rested on the withdrawn search observation.
@@ -170,7 +173,7 @@ which rested on the withdrawn search observation.
    and the MCP server on production. Expected impact: high, for AI search tools
    and agents.
 2. **Appear in the roundups.** The "AI recipe generator alternatives" and "best
-   of" lists are where competitors appear and Tasteslikegood.org does not.
+   of" lists are where competitors appear and tasteslikegood does not.
    That means directory submissions and the backlink plan in
    [SEO_AUDIT_2026-09-13.md](./SEO_AUDIT_2026-09-13.md). Expected impact: high.
 3. **Proof from cooks.** Reviews from people who generated and cooked a recipe
@@ -185,5 +188,5 @@ which rested on the withdrawn search observation.
 Against production after 0.7.0 is live: the readiness check (expect 14 of 14),
 the Lighthouse audit (the `llms-txt` audit should pass on production), the
 AIReady scan once the connector works, and this audit again a few weeks later
-with the same five queries, saved the same way, plus Search Console for the
+with the same seven queries, saved the same way, plus Search Console for the
 28 days after release.
