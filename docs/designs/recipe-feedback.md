@@ -1068,7 +1068,8 @@ Record the gap and change nothing. The links are only in the Markdown view, only
 State: approved
 Actual answer: A, "Escape it in the converter" (Adam, 2026-10-14, question D3, after asking whether non-clickable links are part of Cloudflare's Markdown for Agents; they are not: the protocol converts HTML as written and does no escaping, so the rule is this design's own)
 Accepted scope: the md4a fork calls `markdownify(..., escape_misc=True)`; `Backend/pyproject.toml` pins the new fork commit; `tests/test_markdown_for_agents.py` gains a test that renders a note containing a Markdown link and image and asserts both come out escaped. Verified by probe on 2026-10-14: with `escape_misc=True` the same note converts to `\[Free coupons\](https://evil.example) !\[x\](...)`. Recipe text gains some backslashes in the Markdown view.
-History: none
+Amendment (PR #3684 review, 2026-10-14): `escape_misc` does not stop autolinks. A probe against the pinned markdownify showed `Visit https://evil.example/path?x=1` converts to `> Visit https://evil.example/path?x\=1` and `spam@evil.example` passes unchanged, and GFM clients link both. To keep R16's rule that links in notes are never clickable, the template marks each note's text element (for example `data-md="plain"`) and the md4a fork's converter renders a marked element as an inline code span, with a backtick fence longer than any backtick run in the note; GFM does not autolink inside code spans (probe: `` > Visit `https://evil.example` ``). The HTML view is unchanged, and site-authored links elsewhere on the page keep working. `escape_misc=True` stays for the rest of the page. Tests cover a Markdown link, an image, a bare `https://` URL, an email address and a note containing backticks.
+History: amended after PR #3684 review (bare URLs and email addresses); same goal, same option A
 
 Findings accepted as required proof of approved rules (no question):
 
@@ -1179,15 +1180,15 @@ Dispositions: O6, O7 and O8 accepted as required proof of R15, E2 and R8.
 
 ### Failure modes (eng review 2)
 
-| Path                                            | Realistic failure                     | Handling                                                   | User sees                             |
-| ----------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
-| Google cancel                                   | `error=access_denied` at the callback | E2 branch with state check (O7); test                      | the app, a guest save and the toast   |
-| Forged or stale callback with `error`           | state missing or wrong                | refused, nothing cleared (O7); test                        | an error page, as today               |
-| Cook closes the Google tab                      | nothing returns                       | intent dies with the tab's sessionStorage                  | the public page they left             |
-| Source renamed since the cook saved it          | slug lookup misses                    | lookup by `sourceRecipeId` (O6); test                      | their copy, at the form               |
-| Toast sign-in after a cancel                    | intent already consumed               | toast writes a fresh intent (O8); test                     | the form after sign-in                |
-| Account crosses 24 hours between two page loads | numbers change with no write          | one age predicate for all four outputs (E4); boundary test | consistent count, average and JSON-LD |
-| md4a pin bumped without `escape_misc`           | links come back                       | escaping test fails                                        | nothing; CI catches it                |
+| Path                                                        | Realistic failure                     | Handling                                                   | User sees                             |
+| ----------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
+| Google cancel                                               | `error=access_denied` at the callback | E2 branch with state check (O7); test                      | the app, a guest save and the toast   |
+| Forged or stale callback with `error`                       | state missing or wrong                | refused, nothing cleared (O7); test                        | an error page, as today               |
+| Cook closes the Google tab                                  | nothing returns                       | intent dies with the tab's sessionStorage                  | the public page they left             |
+| Source renamed since the cook saved it                      | slug lookup misses                    | lookup by `sourceRecipeId` (O6); test                      | their copy, at the form               |
+| Toast sign-in after a cancel                                | intent already consumed               | toast writes a fresh intent (O8); test                     | the form after sign-in                |
+| Account crosses 24 hours between two page loads             | numbers change with no write          | one age predicate for all four outputs (E4); boundary test | consistent count, average and JSON-LD |
+| md4a pin bumped without `escape_misc` or the note code span | links or autolinks come back          | escaping tests fail (link, image, URL, email)              | nothing; CI catches it                |
 
 No critical gap: every row is handled and tested.
 
@@ -1207,10 +1208,10 @@ These add to T1 to T12 above. Effort assumes the 30x feature ratio [estimated].
   - Surfaced by: R15, O6, O8 (with T10)
   - Files: `src/guards/ssr-entry.guard.ts`, `src/services/ssr-entry.service.ts`, `src/services/auth.service.ts`, `src/components/shared/save-toast.component.ts`, `Backend/templates/public/recipe.html` (link href)
   - Verify: `npm test` covers invalid slug, signed in, signed out, success, cancel, one-time intent, renamed source found by `sourceRecipeId`, and the toast re-arming the intent; staging browser pass of cancel then toast sign-in then form
-- [ ] **T15 (P2, human: ~2h / CC: ~15min)** md4a fork: `escape_misc=True`, pin bump, escaping test
+- [ ] **T15 (P2, human: ~3h / CC: ~20min)** md4a fork: `escape_misc=True`, note elements as code spans, pin bump, escaping tests
   - Surfaced by: E1, R16
-  - Files: `adamtasteslikegood/md4a-fastapi` (`md4a/wsgi.py`, `md4a/middleware.py`), `Backend/pyproject.toml`, `Backend/uv.lock`, `Backend/tests/test_markdown_for_agents.py`
-  - Verify: the new test fails on the old pin and passes on the new one
+  - Files: `adamtasteslikegood/md4a-fastapi` (`md4a/wsgi.py`, `md4a/middleware.py`), `Backend/pyproject.toml`, `Backend/uv.lock`, `Backend/tests/test_markdown_for_agents.py`, `Backend/templates/public/recipe.html` (note marker)
+  - Verify: tests for a Markdown link, an image, a bare `https://` URL, an email address and a note with backticks fail on the old pin and pass on the new one
 - [ ] **T16 (P1, folded into T3)** Backend: one age predicate across count, average, notes and `aggregateRating`
   - Surfaced by: E4
   - Files: `Backend/blueprints/public_bp.py`, `Backend/tests/`
