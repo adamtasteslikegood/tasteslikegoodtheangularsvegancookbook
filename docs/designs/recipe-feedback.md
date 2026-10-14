@@ -328,15 +328,16 @@ SPA saved copy (signed in)                    Flask                             
   feedback control ── PUT /api/feedback/<target> ─▶ load User by session id        recipe_feedback
                                               │    resolve target (public source)   one active row per recipe/user;
                                               │                                      deleted rows retained
-                                              │    author? ── yes ─▶ age >= 24h      FK recipe CASCADE
-                                              │            └─ no ──▶ age >= 24h      FK user   CASCADE
-                                              │                     and saved copy
+                                              │    author? ── yes ─▶ (no copy needed) FK recipe CASCADE
+                                              │            └─ no ──▶ saved copy       FK user   CASCADE
+                                              │    account age never refuses (R8): read-time filter on the public side
                                               │    stars 1..5, note <= cap
                                               │    note state: held unless account trusted
                                               └──▶ create active entry ─▶ (new held note) mail moderator, never fatal
 SPA moderation view (moderator only) ── approve / reject / hide ─▶ moderator check ─▶ update note or entry,
                                                                                      update account trusted flag
-Public /r/<slug> (no session read) ── show_public_recipe ─▶ one summary query + approved notes
+Public /r/<slug> (no session read) ── show_public_recipe ─▶ one summary query + approved notes,
+                                                              both only for accounts >= 24h old (R8)
                                               └─▶ state: none | author only | 1-2 cooks | >= 3 cooks
                                               └─▶ JSON-LD aggregateRating only at >= 3 cooks
 Scheduler ── POST reminder endpoint (ADMIN_API_TOKEN) ─▶ count held notes ─▶ mail moderator
@@ -990,6 +991,161 @@ Open:
 | The Assignment count                                                     | Adam       | Not the build; due 2026-10-23 on RCP-148                    |
 
 Sprint (Adam, 2026-10-13): the build is decided at the Sprint 12 charter. No build PR opens in Sprint 11, as RCP-148 says; KAN-356 stays To Do until then.
+
+## Eng Review 2 (KAN-345), 2026-10-14
+
+Target: this document as it stands after the design review and Adam's answers to R8 to R14. Reviewed against cookbook `dev` `6b15dd3` and Backend `dev` `e69b5cd`. The first eng review used cookbook `af8d300` and Backend `3a71b3e`. Nothing was built. This pass covers what changed after the first review: decision R8 (the sign-in-first link and the 24 hours worked out at read time) and Backend work that landed since, chiefly the Markdown view of public pages (KAN-397) and the MCP endpoint (KAN-399). It also produces the test plan and task artifacts on this machine, because the first run's copies were written in a remote session and are not here.
+
+### Scope record
+
+Feature answers: none proposed; the feature list is Adam's approved terms. Structure: A, "Original arrangement" (Adam, 2026-10-14, question D1). This confirms R1, which had been recorded without an answer. Accepted scope: the full Phase 1 feature, in one model file, one feedback blueprint, one mail helper, one control component and one moderation view. Pending remedies: R15 (E3), R16 (E1).
+
+### Eng Review 2 decision ledger
+
+#### R15: how the "Add feedback" intent survives the Google round trip
+
+Finding: E3, P1, confidence 9/10, `Backend/blueprints/auth_api_bp.py:530-531`, eng review 2.
+Plan baseline: R8, approved: the link "asks for sign-in first, then saves the recipe and opens the saved copy at the feedback form". The mechanism is not approved.
+Runtime evidence: the callback always ends with `return redirect(f"{frontend_url}?auth=success")`. Nothing records where the cook started. The SPA starts the sign-in itself (`src/services/auth.service.ts:168-170`, `window.location.href = data.authorization_url`), and `?save=<slug>` is the existing SPA entry for the public Save link (`src/guards/ssr-entry.guard.ts:12-19`).
+Comparison grid:
+
+| Choice                      | Current                       | A                                                                                                                                                                                                                                           | B                                                                                                                                                                       |
+| --------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R15 return path             | none: always `/?auth=success` | the SPA keeps the intent: `/?feedback=<slug>` is a new entry beside `?save=`; a signed-in cook saves and opens the copy at once; otherwise the SPA writes `{feedback: slug}` to sessionStorage, starts sign-in, and reads it once on return | the server keeps the intent: `/api/auth/login?intent=feedback&slug=<slug>` stores it in the Flask session; the callback builds the redirect URL from the validated slug |
+| E2 callback `error=` branch | missing                       | required by R8, same in both                                                                                                                                                                                                                | required by R8, same in both                                                                                                                                            |
+| R16 Markdown escaping       | pending                       | pending                                                                                                                                                                                                                                     | pending                                                                                                                                                                 |
+
+Question D2:
+D2 — Where the "Add feedback" intent is kept during Google sign-in <gstack-qid:plan-eng-review-feedback-return-path>
+Project/branch/task: second eng review of docs/designs/recipe-feedback.md on docs/kan-345-eng-review-2; decision R8 needs the cook to come back from Google to the recipe they clicked on.
+ELI10: Today every sign-in lands on the home page (`auth_api_bp.py:531` always redirects to `/?auth=success`). R8 promises that "Cooked this? Add your feedback" signs you in, saves the recipe and opens the form. Something has to remember which recipe while the cook is away at Google. The browser tab can remember it, or the server can.
+Stakes if we pick wrong: a server-built redirect is an open-redirect risk if the slug check is ever loosened, and a lost intent drops the cook on the home page, the exact dead end R8 exists to remove.
+Recommendation: A because the SPA already starts the sign-in and already has a `?save=` entry to copy, so no redirect target ever crosses the server and the Backend change stays limited to the cancel branch.
+Completeness: A=9/10, B=8/10
+Net: A keeps the redirect fixed and the logic in one Angular guard; B centralises it on the server at the cost of a URL built from user input.
+Header: Return path
+Options:
+A) Keep it in the SPA (recommended)
+Add `?feedback=<slug>` to `ssrEntryGuard` beside `?save=`, with the same slug check. Signed in: save (or find the existing copy, or the author's own recipe) and open it at the form. Not signed in: write the intent to sessionStorage, start Google sign-in, and on `?auth=success` or `?auth=cancelled` read it once and delete it. The callback redirect stays a fixed URL. Tests: Vitest for the guard's three branches and one-time use. (human: ~4h / CC: ~20min; low risk; one more param in an existing guard)
+B) Keep it on the server
+`/api/auth/login` accepts `intent=feedback&slug=`, checks the slug against the published recipes and stores it in the Flask session; the callback redirects to `/?feedback=<slug>&auth=success`. Tests: pytest for the slug check and the redirect, plus the same guard branch. Works even if sessionStorage is cleared, but adds a redirect target built from input, which must be kept tight forever. (human: ~6h / CC: ~30min; medium risk)
+
+State: approved
+Actual answer: A, "Keep it in the SPA" (Adam, 2026-10-14, question D2)
+Accepted scope: the public "Add feedback" link points at the SPA as `/?feedback=<slug>`, a new entry in `ssrEntryGuard` beside `?save=` with the same slug check. A signed-in visitor: save the recipe (or find the existing copy, or the author's own published recipe) and open it at the form. Otherwise: write `{feedback: slug}` to sessionStorage, start Google sign-in, and on `?auth=success` or `?auth=cancelled` read the intent once and delete it. The callback's redirect stays a fixed URL; no redirect target crosses the server. Tests: Vitest for the guard's signed-in, signed-out and returning branches and for one-time use of the intent.
+History: none
+
+#### R16: note text in the Markdown view of a recipe page
+
+Finding: E1, P2, confidence 9/10, `Backend/utils/markdown_for_agents.py:14` and md4a `wsgi.py:253`, eng review 2.
+Plan baseline: Architecture, Security: "Notes are shown through Jinja's default escaping and never marked safe; links in notes are not made clickable." That was written before the Markdown view existed.
+Runtime evidence: since KAN-397 (Backend `903b425`, after the first review), a GET for `/r/<slug>` with `Accept: text/markdown` gets the rendered HTML run through `markdownify(text, heading_style="ATX")`. Probe on 2026-10-14: a note `Used oat milk. [Free coupons](https://evil.example) ![x](https://evil.example/p.png)`, HTML-escaped as the template will do, converts to `> Used oat milk. [Free coupons](https://evil.example) ![x](https://evil.example/p.png)`. That is a live link and a remote image in the Markdown that agents read, from a trusted cook whose notes publish without review (Q3). HTML readers are unaffected.
+Comparison grid:
+
+| Choice                      | Current                                        | A                                                                                                             | B                                                   | C                                                     |
+| --------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| R16 note text in Markdown   | not built; would pass through as live Markdown | escape Markdown syntax in note text: md4a fork calls `markdownify(..., escape_misc=True)`, pin bump, one test | leave the feedback section out of the Markdown view | accept: agents only, notes from trusted accounts only |
+| R15 return path             | approved A                                     | approved A                                                                                                    | approved A                                          | approved A                                            |
+| E2 callback `error=` branch | required                                       | required                                                                                                      | required                                            | required                                              |
+
+Question D3:
+D3 — Stop cooks' notes becoming live links in the Markdown view <gstack-qid:plan-eng-review-markdown-note-escape>
+Project/branch/task: second eng review of docs/designs/recipe-feedback.md on docs/kan-345-eng-review-2; the Markdown view of public pages (KAN-397) shipped after the first eng review.
+ELI10: The plan promises that links in a cook's note are never clickable. That holds for the HTML page. But the same page served as Markdown to AI agents runs the HTML through markdownify, and I checked: a note containing `[Free coupons](https://evil.example)` comes out as a real Markdown link, and `![x](url)` as a remote image. Notes from a trusted account publish without review, so this is the path a spammer would use.
+Stakes if we pick wrong: spam links or tracking images reach every agent and crawler that asks for Markdown, under the site's name.
+Recommendation: A because the converter is your own fork (`adamtasteslikegood/md4a-fastapi`), the fix is one keyword argument plus a test, and it covers any user text that is added later, not only notes.
+Completeness: A=9/10, B=7/10, C=3/10
+Net: A fixes the converter once; B hides the feature from agents; C leaves the hole open.
+Header: Markdown notes
+Options:
+A) Escape it in the converter (recommended)
+In the md4a fork, call markdownify with `escape_misc=True` so `[`, `]`, `!`, `#` and similar characters in page text come out escaped; bump the pin in `Backend/pyproject.toml`; add a test to `tests/test_markdown_for_agents.py` that renders a note with a link and an image and asserts they are escaped. Recipe text gains some backslashes in the Markdown view, which agents read correctly. (human: ~2h / CC: ~15min; low risk)
+B) Leave feedback out of Markdown
+Mark the feedback section so the Markdown view drops it. Agents then see no cook count or notes, which removes part of what the feature is for, and any later user text needs the same treatment. (human: ~2h / CC: ~15min; low risk, less value)
+C) Accept as is
+Record the gap and change nothing. The links are only in the Markdown view, only from accounts with an approved note, and a moderator can hide them. (no effort; the hole stays open)
+
+State: approved
+Actual answer: A, "Escape it in the converter" (Adam, 2026-10-14, question D3, after asking whether non-clickable links are part of Cloudflare's Markdown for Agents; they are not: the protocol converts HTML as written and does no escaping, so the rule is this design's own)
+Accepted scope: the md4a fork calls `markdownify(..., escape_misc=True)`; `Backend/pyproject.toml` pins the new fork commit; `tests/test_markdown_for_agents.py` gains a test that renders a note containing a Markdown link and image and asserts both come out escaped. Verified by probe on 2026-10-14: with `escape_misc=True` the same note converts to `\[Free coupons\](https://evil.example) !\[x\](...)`. Recipe text gains some backslashes in the Markdown view.
+History: none
+
+Findings accepted as required proof of approved rules (no question):
+
+- **E2** `[P1] (confidence: 8/10) Backend/blueprints/auth_api_bp.py:425-450`: R8 approves "cancelling google sign-in saves the recipe to guest session cookbook ... and shows a informational toast". When the cook cancels, Google sends them to the callback with `error=access_denied`. The callback has no branch for that: it calls `flow.fetch_token(...)` and on any exception returns `jsonify({"error": "Authentication failed"}), 500`. The cook sees a JSON error page, and the SPA never runs, so neither the guest save nor the toast can happen. Required: when `error` is present, clear the OAuth state and redirect to the fixed `{FRONTEND_URL}?auth=cancelled`, with a pytest. This also fixes an ordinary cancelled sign-in, which hits the same page today.
+
+Scope Challenge result: scope accepted as-is. Reality rows:
+
+- REALITY: premise-table pass 6 new claims checked (callback redirect, no `error` branch, SPA starts sign-in, `?save=` guard, Markdown conversion of notes, `escape_misc` fix), all with receipts or a probe; still 1 unverified from the first run (T8 production counts) Backend/blueprints/auth_api_bp.py:531
+- REALITY: already-done pass no feedback, rating or sign-in-intent code on `origin/dev` in either repo since 2026-10-13; the only cookbook landing in the named paths is `f06e107` (route manifest for `/mcp`) server/route-manifest.ts:66
+- REALITY: surface-check pass `/api/auth/login` and `/api/auth/callback` exist (auth_api_bp.py:360,425); `flask db heads` prints one head, `d9b3e7a1c5f4`; `escape_misc` is accepted by the installed markdownify (probe) Backend/blueprints/auth_api_bp.py:425
+- REALITY: binding-decisions pass branch decision log is empty; R2 to R14 carried as approved; the Sprint 12 build gate (this document, "Sprint") is binding docs/designs/recipe-feedback.md:992
+- REALITY: numbers pass "about 20 files" [estimated]; effort figures [estimated] at the 30x feature ratio docs/designs/recipe-feedback.md:304
+- REALITY: deferred-asks pass KAN-345's asks unchanged from the first run; the Assignment, privacy wording and open question 1 stay with Adam docs/designs/recipe-feedback.md:983
+- REALITY: pr-count finding no `.gstack/ship-policy.json`; the build is at least one Backend PR, one md4a fork commit, one cookbook PR, a pointer bump and a release; R16 adds the fork as a third repo in the chain scripts/release/RUNBOOK.md:1
+- REALITY: transaction-semantics n/a new tables and one join; no driver or pool change Backend/models/user.py:11
+
+### 1. Architecture (delta)
+
+```
+Public /r/<slug>
+  "Cooked this? Add your feedback"  href=/?feedback=<slug>
+        |
+        v
+SPA ssrEntryGuard  (src/guards/ssr-entry.guard.ts, beside ?save=)
+  slug fails /^[a-z0-9-]+$/ ──▶ ignore, go to /
+  signed in ──▶ save, or find existing copy / own published recipe ──▶ open it at #feedback
+  guest or signed out ──▶ sessionStorage {feedback: slug} ──▶ /api/auth/login ──▶ Google
+        |
+        +── Google OK ──▶ /api/auth/callback ──▶ merge guest rows ──▶ 302 /?auth=success
+        |                                                         └─▶ intent read once ──▶ save ──▶ open at #feedback
+        +── Google refused ──▶ /api/auth/callback?error=... (E2: new branch) ──▶ 302 /?auth=cancelled
+                                                                  └─▶ intent read once ──▶ guest save ──▶ toast "Sign in to add your feedback"
+        +── cook closes the Google tab ──▶ nothing returns; intent stays in sessionStorage until the tab closes
+
+GET /r/<slug>, Accept: text/markdown ──▶ same HTML ──▶ md4a/markdownify(escape_misc=True) (R16) ──▶ notes as inert text
+```
+
+- **E1** R16, approved. **E2** required. **E3** R15, approved.
+- **E4** `[P2] (confidence: 8/10) docs/designs/recipe-feedback.md:331-332`: the first review's architecture diagram showed `age >= 24h` as a refusal at submit, which R8 removed. Corrected in place. Required with it, as proof of R8: the public summary query applies one age predicate, `user.created_at <= now - 24 hours`, to the count, the average, the notes list and `aggregateRating` together, so the visible numbers and the JSON-LD can never disagree at the 24-hour mark.
+- **E5** `[P3] (confidence: 7/10) Backend/blueprints/mcp_bp.py`, `Backend/services/agent_tools.py:81`: the MCP endpoint and the `get_recipe` agent tool (KAN-398, KAN-399, both after the first review) return a recipe without feedback. Not a defect: agents that want the cook count read the Markdown view, which carries the section. Recorded under NOT in scope.
+- Moderator rows say whether the account is in its first 24 hours (R13), so the moderation payload carries the account's `created_at`. Already in R13's scope; noted for the builder.
+
+Dispositions: E1 approved (R16), E2 accepted as required, E3 approved (R15), E4 accepted as required proof of R8, E5 recorded as not in scope.
+
+### 2. Code quality (delta)
+
+- No new issues. The `?feedback=` branch reuses `SsrEntryService.handleSave`'s slug check, in-flight map and already-saved lookup (`src/services/ssr-entry.service.ts:44-110`); it needs `handleSave` to return the saved or found copy so the guard can open it, rather than a second save path. That is the implementation of R15, not a separate choice.
+
+Dispositions: none needed.
+
+### 3. Tests (delta)
+
+```
+CODE PATHS (new since the first review)                      USER FLOWS
+[+] auth callback                                            [+] New cook from the public link (R8, R15)
+  ├── [GAP] error=access_denied ──▶ 302 /?auth=cancelled       ├── [GAP] [→E2E] link ─▶ Google ─▶ form, no typed URL (staging)
+  └── [GAP] OAuth state cleared on error                        ├── [GAP] cancel at Google ─▶ guest save + toast
+[+] ssrEntryGuard ?feedback=                                    ├── [GAP] signed-in visitor ─▶ form, no Google
+  ├── [GAP] invalid slug ignored                                └── [GAP] author on own recipe ─▶ own recipe at form, no copy
+  ├── [GAP] signed in: save or find, open at #feedback        [+] 24 hours at read time (R8)
+  ├── [GAP] signed out: intent stored, sign-in started          ├── [GAP] 23h59m account: absent from count, average, notes, JSON-LD
+  └── [GAP] intent read once on success and on cancel           ├── [GAP] 24h00m: present in all four together
+[+] Markdown view (R16)                                         └── [GAP] note approved during the 24h still hidden until 24h
+  └── [GAP] note link and image come out escaped
+[+] guest merge (existing)
+  └── [GAP] CRITICAL merged copy keeps source_recipe_id (first review, T6)
+
+COVERAGE: 0/15 new paths tested (nothing is built) | QUALITY: n/a | GAPS: 15 (1 E2E, 0 eval)
+```
+
+The first review's row "save, wait 24h, rate, note held" is superseded by R8: the cook posts at once and the entry shows after 24 hours. Every row above is required proof of an approved decision (R8, R15, R16, E2); none needed a separate answer. The full list, with value cards, is in the test plan artifact for `/qa`. No LLM or prompt change, so no eval scope.
+
+Dispositions: all gaps accepted as required proof.
+
+### 4. Performance (delta)
+
+- No new issues. The read-time age filter joins `user` on its primary key inside the existing per-recipe summary query; expected tens of rows per recipe [estimated]. `escape_misc` adds a character pass over each Markdown response, which md4a does not cache; pages are tens of kilobytes [estimated].
 
 ## GSTACK REVIEW REPORT
 
