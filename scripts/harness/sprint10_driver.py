@@ -305,7 +305,7 @@ def cmd_status(args):
                     t["carried_to"], sprint_name(plan))
             elif raw_status(args.state_dir, t["id"]) == "waived":
                 note = "counts as done, not verified (see its state's waiver reason)"
-            phase = soak_phase(args.state_dir, t["id"])
+            phase = None if t.get("carried_to") else soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
                 note = "soaking until %s (no WIP slot)" % soak_until(
                     args.state_dir, t["id"]).isoformat()
@@ -372,6 +372,15 @@ def cmd_soak(args):
         task = tasks[args.task]
         state_dir = Path(args.state_dir)
         path = state_dir / ("%s.soak.json" % task["id"])
+        if task.get("carried_to"):
+            # Carried work never re-enters this sprint, so a soak on it is
+            # refused and a leftover mark is reported, not resumed.
+            print("%s REFUSED — %s was carried out of %s to %s; it is not sprint "
+                  "work%s" % (args.cmd.upper(), task["id"], sprint_name(plan),
+                              task["carried_to"],
+                              " (delete %s by hand to clear its old mark)" % path
+                              if path.exists() else ""))
+            return REFUSED
         if args.cmd in ("resume", "unsoak"):
             if not path.exists():
                 print("RESUME REFUSED — %s is not soaked" % task["id"])

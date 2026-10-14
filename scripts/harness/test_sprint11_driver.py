@@ -176,6 +176,24 @@ class Sprint11DriverTests(unittest.TestCase):
                           side_effect=lambda d, t, now=None: "violation" if t in ("T12", "T20") else None):
             self.assertEqual(base.soak_blockers(self.plan, self.state), ([], []))
 
+    def test_soak_commands_refuse_a_carried_task(self):
+        (Path(self.state) / "T12.soak.json").write_text("{}")
+        for cmd in (["soak", "T12", "--until", "2026-10-30T00:00:00+00:00", "--reason", "x"],
+                    ["resume", "T12"], ["unsoak", "T12"]):
+            with self.subTest(cmd=cmd[0]):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    rc = driver.main(["--state-dir", self.state] + cmd)
+                self.assertEqual(rc, base.REFUSED)
+                self.assertIn("carried out of Sprint 11", output.getvalue())
+
+    def test_status_keeps_the_carried_note_over_an_old_soak_mark(self):
+        with patch.object(base, "soak_phase", return_value="violation"), \
+                contextlib.redirect_stdout(io.StringIO()) as output:
+            driver.main(["--state-dir", self.state, "status"])
+        line = [l for l in output.getvalue().splitlines() if l.startswith("T12 ")][0]
+        self.assertIn("carried to Sprint 12", line)
+
     def test_close_counts_carried_tasks_as_done(self):
         verified = [t["id"] for t in self.plan["tasks"]
                     if t["id"] != "T28" and not t.get("carried_to")]

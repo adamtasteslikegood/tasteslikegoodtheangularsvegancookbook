@@ -4,11 +4,14 @@
 
 The executable half of [`specs/SPRINT_11_PLAN.md`](../SPRINT_11_PLAN.md): one task per
 SI (T1 to T27 are S1 to S27), plus T0 (board honesty and the charter row) and T28
-(close-out). The rows kept for Sprint 12 (KAN-277, KAN-299, KAN-352) have no task.
+(close-out). The re-plan of 2026-10-14 (KAN-412) added `T-replan` and `T-S28` to
+`T-S40`, and marked T11 to T14, T20, T23 and T27 `carried_to` Sprint 12 and T26
+`carried_to` Sprint 13. The driver refuses to start or soak a carried task and
+counts it as done for dependencies. The launch rows (KAN-277, KAN-299) have no task.
 
 | File                                                                                         | Role                                                                            |
 | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| [`SPRINT_11_HARNESS_PLAN.json`](./SPRINT_11_HARNESS_PLAN.json)                               | The plan: 29 tasks, each with its lane, its checks, and its skill               |
+| [`SPRINT_11_HARNESS_PLAN.json`](./SPRINT_11_HARNESS_PLAN.json)                               | The plan: 43 tasks (8 carried), each with its lane, checks and skill            |
 | [`../../scripts/harness/sprint11_hard_gate.py`](../../scripts/harness/sprint11_hard_gate.py) | **The gate.** `--charter` is the day-1 form; the bare command is the close gate |
 | [`../../scripts/harness/sprint11_driver.py`](../../scripts/harness/sprint11_driver.py)       | **The PM driver.** The Sprint 10 driver, run on this plan and its own state dir |
 
