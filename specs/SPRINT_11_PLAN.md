@@ -98,7 +98,9 @@ acceptance row **RCP-160**. Three facts drove it:
   Sprint 12 charter (`docs/designs/recipe-feedback.md`, "Sprint"), so S27 could not
   close here. R7 below fired.
 - The cooking for the tested-recipe proof (KAN-352) is done. The notes and ratings
-  need the feedback build to have somewhere to go.
+  need the feedback build to have somewhere to go. There is no separate tested
+  marker: the feedback build supersedes it, and Adam's own entries on the recipes
+  he cooked are the proof (Adam, 2026-10-14).
 
 #### Release plan, Sprints 11 to 14
 
@@ -146,17 +148,17 @@ the release waits.
 
 **Moved out of Sprint 11.** Each is labelled `rolled-from-sprint-11`.
 
-| SI      | KAN / RCP         | To  | Why                                                                                      |
-| ------- | ----------------- | --- | ---------------------------------------------------------------------------------------- |
-| S27     | KAN-356 / RCP-150 | 12  | Adam, 2026-10-13: the build is decided at the Sprint 12 charter. **First in Sprint 12.** |
-| S23     | KAN-346 / RCP-147 | 12  | **Blocked by KAN-356**: the marker and the cooks' notes share the feedback surface       |
-| S14     | KAN-290 / RCP-138 | 12  | Major, not started                                                                       |
-| S20     | KAN-347 / RCP-144 | 12  | Its 7-day measurement cannot close inside this box                                       |
-| S11–S13 | KAN-334, 336, 337 | 12  | Bottom of the ordered list (rank 12)                                                     |
-| —       | KAN-389 / RCP-159 | 12  | Added after the charter; not started                                                     |
-| S26     | KAN-351 / RCP-149 | 13  | The readiness walk is the beta's job                                                     |
-| —       | KAN-299 / RCP-110 | 14  | The launch post follows the go/no-go                                                     |
-| —       | KAN-400, 404, 411 | 12  | Agent-readiness work not yet started                                                     |
+| SI      | KAN / RCP         | To  | Why                                                                                                                                                       |
+| ------- | ----------------- | --- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| S27     | KAN-356 / RCP-150 | 12  | Adam, 2026-10-13: the build is decided at the Sprint 12 charter. **First in Sprint 12.**                                                                  |
+| S23     | KAN-346 / RCP-147 | 12  | **The marker is superseded by the feedback build** (Adam, 2026-10-14): the author's own entry is the tested proof. Authorship on `/about` is what is left |
+| S14     | KAN-290 / RCP-138 | 12  | Major, not started                                                                                                                                        |
+| S20     | KAN-347 / RCP-144 | 12  | Its 7-day measurement cannot close inside this box                                                                                                        |
+| S11–S13 | KAN-334, 336, 337 | 12  | Bottom of the ordered list (rank 12)                                                                                                                      |
+| —       | KAN-389 / RCP-159 | 12  | Added after the charter; not started                                                                                                                      |
+| S26     | KAN-351 / RCP-149 | 13  | The readiness walk is the beta's job                                                                                                                      |
+| —       | KAN-299 / RCP-110 | 14  | The launch post follows the go/no-go                                                                                                                      |
+| —       | KAN-400, 404, 411 | 12  | Agent-readiness work not yet started                                                                                                                      |
 
 #### Decisions (supersede the charter where they differ)
 
