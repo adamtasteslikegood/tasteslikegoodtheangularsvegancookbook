@@ -2,20 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { apiCatalog, API_CATALOG_CONTENT_TYPE, OPENAPI_PATH } from './api-catalog.js';
 
 describe('apiCatalog (KAN-398)', () => {
-  it('links the OpenAPI description and llms.txt under the given origin', () => {
-    expect(apiCatalog('https://www.tasteslikegood.org')).toEqual({
-      linkset: [
-        {
-          anchor: 'https://www.tasteslikegood.org/api/public',
-          'service-desc': [
-            {
-              href: `https://www.tasteslikegood.org${OPENAPI_PATH}`,
-              type: 'application/vnd.oai.openapi+json',
-            },
-          ],
-          'service-doc': [{ href: 'https://www.tasteslikegood.org/llms.txt', type: 'text/plain' }],
-        },
-      ],
+  it('anchors each entry at a callable endpoint, with the shared OpenAPI description', () => {
+    const origin = 'https://www.tasteslikegood.org';
+    const entry = (path: string) => ({
+      anchor: `${origin}${path}`,
+      'service-desc': [{ href: `${origin}${OPENAPI_PATH}`, type: 'application/json' }],
+      'service-doc': [{ href: `${origin}/llms.txt`, type: 'text/plain' }],
+    });
+    expect(apiCatalog(origin)).toEqual({
+      linkset: [entry('/api/public/newest-recipes'), entry('/api/agent/tools')],
     });
   });
 
