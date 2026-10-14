@@ -134,8 +134,18 @@ incognito tab, US).** This is the result that counts for the brand query:
 - Below it: other accounts using the name (a YouTube music channel, a
   Pinterest profile), the Backend's GitHub repository, then unrelated videos.
 
-So for its own name the site ranks first and an AI summary describes it
-correctly. That is a real AI-generated answer about the brand, and the best
+**Google, `tasteslikegood vegan recipe generator`, incognito with
+personalization off** ([screenshot](./evidence/2026-10-14/google-brand-category-not-personalized.webp)):
+the site is again first, and the AI Overview says "The VeganGenius Chef AI
+vegan recipe generator is available for free at Tasteslikegood.org", naming
+custom prompts, full recipes, an AI food photo with each recipe and the
+personal cookbook. Every other result is a competitor that does not contain
+the name (10weeks.org, receptoai.com, recipegpt.io, thezestful.com and
+others). Google also offers "Did you mean: tastes like good", so the run-on
+name is not yet recognised as a word on its own.
+
+So for its own name, personalized or not, the site ranks first and an AI
+summary describes it correctly. That is a real AI-generated answer about the brand, and the best
 evidence in this document for what AI search already says.
 
 **Web search, Claude Code's built-in search tool (US, signed out), 14:44 to

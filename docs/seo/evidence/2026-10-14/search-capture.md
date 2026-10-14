@@ -45,6 +45,23 @@ and location).
 The Claude Code search tool returned none of this for the same query (table
 above), so it does not search Google's index.
 
+## Google, `tasteslikegood vegan recipe generator` (Adam, 2026-10-14)
+
+Incognito, personalization off ("These results are not personalized"),
+results located by IP in Oregon, US. Screenshot, with the account and exact
+location blurred by Adam:
+[google-brand-category-not-personalized.webp](./google-brand-category-not-personalized.webp).
+
+- Google suggests "Did you mean: tastes like good vegan recipe generator".
+- AI Overview: "The VeganGenius Chef AI vegan recipe generator is available
+  for free at Tasteslikegood.org". Key features: Custom Prompts; Full Recipes;
+  Visuals & AI Photos ("an AI-generated food photo with each recipe");
+  Personal Cookbook (cut off under "Show more").
+- Organic results, in order: www.tasteslikegood.org "AI Vegan Recipe
+  Generator & Cookbook | Tasteslikegood."; then, each marked "Missing:
+  tasteslikegood": 10weeks.org, arimotravels.com, receptoai.com,
+  trendhunter.com, recipegpt.io, thezestful.com; videos; a Reddit thread.
+
 ## Earlier observation, withdrawn
 
 An earlier run the same morning, before this capture, showed the site 2nd of
