@@ -181,7 +181,7 @@ the release waits.
   `lane:<worktree-name>`.
 - **The count is a command:** `check_sprint_lane.sh` fails on more than 3 agent
   lanes building, one lane on two In Progress rows, or one row with two lane labels.
-  An In Progress row with no lane label is a **warning**, because a Jira global rule
+  An In Progress row with no lane label is a **warning** (Adam, 2026-10-14), because a Jira global rule
   moves a row to In Progress when a branch is created for it.
 
 On 2026-10-14 the seven agent-readiness rows that were merged and waiting for the
