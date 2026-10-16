@@ -41,15 +41,19 @@ with the same code. The format has no frame lengths, so the exit frame is read
 as the last two bytes of the body. `test_run.sh` covers these cases with a
 mocked curl: `bash scripts/gbrain-maintenance/test_run.sh`.
 
-| Sprite result                                                                       | `run.sh` does                     | Exit |
-| ----------------------------------------------------------------------------------- | --------------------------------- | ---- |
-| process exit 0 and `EXIT=0`                                                         | nothing more                      | 0    |
-| process exit 0 and `EXIT=75` (another run holds the lock)                           | nothing more, to avoid an overlap | 0    |
-| request failed, no exit frame, process exit non-zero, or no `EXIT=0`/`EXIT=75` line | runs the fallback below           | 1    |
-| as above, and a fallback phase also failed                                          | runs the fallback below           | 2    |
+| Sprite result                                                                                                                           | `run.sh` does                                       | Exit |
+| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---- |
+| process exit 0 and `EXIT=0`                                                                                                             | nothing more                                        | 0    |
+| process exit 0 and `EXIT=75` (another run holds the lock)                                                                               | logs a WARN, nothing more, to avoid an overlap      | 0    |
+| run never started (no token, connect/TLS failure, HTTP error status), or it finished with a non-zero exit or no `EXIT=0`/`EXIT=75` line | runs the fallback below                             | 1    |
+| as above, and a fallback phase also failed                                                                                              | runs the fallback below                             | 2    |
+| request broke off mid-run (timeout, dropped connection) or the response has no exit frame                                               | skips the fallback: the sprite may still be running | 3    |
 
-The exec request is never retried: it starts a run, so a retry after a dropped
-connection would start a second one.
+The exec request is never retried, and the fallback never runs while the
+sprite might still be working: either would start a second run against the
+same brain. The sprite's lock is an `flock`, released when its holder dies,
+so `EXIT=75` means a live run holds it. If the WARN repeats day after day,
+look for a hung run on the sprite.
 
 The hermes `gbrain-maintain` schedule is **paused** on the sprite so the work
 does not also run on hermes's own schedule when the sprite is awake. Do not

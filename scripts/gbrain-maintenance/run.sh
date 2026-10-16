@@ -25,6 +25,9 @@ EMBED_MAX_USD="${EMBED_MAX_USD:-1}"
 
 log() { echo "[gbrain-maintenance] $(date -u +%FT%TZ) $*"; }
 
+# Returns 0 when the sprite run succeeded, 1 when it never started or finished
+# with a failure (the fallback is safe), and 2 when it started but its outcome
+# is unknown: the sprite may still be running, so a fallback would overlap it.
 run_on_sprite() {
   # A missing token is a failed sprite run, so it still reaches the fallback.
   if [ -z "${SPRITES_TOKEN:-}" ]; then
@@ -37,7 +40,7 @@ run_on_sprite() {
   # The response body is the command's framed output and exit code (decoded
   # below); the wrapper's last output line is EXIT=<n> as a second check.
   # No --retry: the POST starts a run, so a retry after a dropped connection
-  # would start a second one. A failed request goes to the fallback instead.
+  # would start a second one.
   # -G puts the url-encoded cmd args in the query string; -X POST keeps the method.
   curl -sS --fail-with-body --max-time 7200 -o "$out" \
     -G -X POST -H "Authorization: Bearer ${SPRITES_TOKEN}" \
@@ -46,9 +49,21 @@ run_on_sprite() {
   # Framing bytes are dropped for the log only.
   tr -d '\000\001\002\003' <"$out"
   if [ "$curl_rc" -ne 0 ]; then
-    log "ERROR: Sprites exec request failed (curl exit ${curl_rc})"
     rm -f "$out"
-    return 1
+    case "$curl_rc" in
+      # DNS, connect, TLS, or an HTTP error status (22, sent before any output):
+      # the run never started.
+      6 | 7 | 22 | 35 | 60)
+        log "ERROR: Sprites exec request failed before the run started (curl exit ${curl_rc})"
+        return 1
+        ;;
+      # Anything else (28 timeout, 18/52/56 dropped mid-stream) happened after
+      # the run may have started.
+      *)
+        log "ERROR: Sprites exec request broke off mid-run (curl exit ${curl_rc}); the sprite may still be running"
+        return 2
+        ;;
+    esac
   fi
   # The HTTP exec body is framed: a type byte before each output chunk (1
   # stdout, 2 stderr), then an exit frame, byte 3 followed by the process exit
@@ -57,20 +72,27 @@ run_on_sprite() {
   local ftype="" fcode=""
   read -r ftype fcode < <(tail -c 2 "$out" | od -An -tu1)
   if [ "$ftype" != 3 ] || [ -z "$fcode" ]; then
-    log "ERROR: response has no exit frame (run cut short?)"
+    log "ERROR: response has no exit frame; the sprite may still be running"
     rm -f "$out"
-    return 1
+    return 2
   fi
-  # The output must also end with EXIT=<n> on its last non-empty line.
-  rc=$(head -c -2 "$out" | tr -cd '[:print:]\n' | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
+  # The output must also carry the wrapper's EXIT=<n> line. The last one
+  # counts; it need not be the final line, since stderr frames can follow it.
+  rc=$(head -c -2 "$out" | tr -cd '[:print:]\n' | sed -nE 's/^EXIT=([0-9]+)$/\1/p' | tail -1)
   rm -f "$out"
   log "sprite process exit ${fcode}, marker EXIT=${rc:-missing}"
   if [ "$fcode" != 0 ] || [ -z "$rc" ]; then
     return 1
   fi
   # 75: a sprite run already holds its lock (the wrapper prints 75 and exits
-  # 0); running the fallback too would overlap it, so count this as done.
-  [ "$rc" = 0 ] || [ "$rc" = 75 ]
+  # 0); running the fallback too would overlap it, so count this as done. The
+  # flock is released when its holder dies, so only a live (possibly hung) run
+  # holds it; warn so a run stuck for days shows up in the logs.
+  if [ "$rc" = 75 ]; then
+    log "WARN: another sprite run holds the lock; nothing done. If this repeats, check for a hung run on the sprite"
+    return 0
+  fi
+  [ "$rc" = 0 ]
 }
 
 run_local() {
@@ -107,8 +129,10 @@ EOF
   gbrain embed --stale --catch-up --max-usd "${EMBED_MAX_USD}" || { log "WARN: embed --stale failed"; FALLBACK_FAILED=$((FALLBACK_FAILED + 1)); }
 
   # Doctor check (fast mode, informational only).
+  # Only stdout is parsed, so an error message cannot pass for a score;
+  # stderr still reaches the log.
   local doctor score
-  doctor=$(gbrain doctor --fast --json 2>&1) || true
+  doctor=$(gbrain doctor --fast --json) || true
   score=$(echo "$doctor" | grep -oP '"health_score":\s*\K[0-9]+' 2>/dev/null || echo "?")
   log "health score: ${score}/100"
   echo "$doctor" | grep -i '"status":"fail"' 2>/dev/null || log "no FAILs"
@@ -116,9 +140,15 @@ EOF
   gbrain sources status || true
 }
 
-if run_on_sprite; then
+sprite_rc=0
+run_on_sprite || sprite_rc=$?
+if [ "$sprite_rc" = 0 ]; then
   log "done (sprite)"
   exit 0
+fi
+if [ "$sprite_rc" = 2 ]; then
+  log "skipping the fallback so it cannot overlap a sprite run; exiting 3"
+  exit 3
 fi
 
 log "sprite path failed; running the fallback here"
