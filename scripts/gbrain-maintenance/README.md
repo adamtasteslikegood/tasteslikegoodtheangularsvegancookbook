@@ -79,7 +79,8 @@ railway cron run --service gbrain-maintenance --yes   # one run now, to verify
 
 Service variables (Dashboard → gbrain-maintenance → Variables):
 
-- `SPRITES_TOKEN`: Sprites API token for the `adam-schoen` org (required).
+- `SPRITES_TOKEN`: Sprites API token for the `adam-schoen` org. Without it,
+  every run goes straight to the fallback and exits 1.
 - `SPRITE_NAME`: optional, default `spawn-sprite-hermes222`.
 - `GBRAIN_DATABASE_URL`: the gbrain DB URL; used by the fallback.
 - `OPENAI_API_KEY`: embeddings only; used by the fallback. Scope the key to

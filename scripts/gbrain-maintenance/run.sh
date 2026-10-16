@@ -17,7 +17,6 @@
 # output (KAN-357). The Railway OPENAI_API_KEY is scoped to embeddings only.
 set -euo pipefail
 
-: "${SPRITES_TOKEN:?SPRITES_TOKEN is required (Railway service variable)}"
 SPRITE_NAME="${SPRITE_NAME:-spawn-sprite-hermes222}"
 # The sprite runs as user `sprite` (HOME=/home/sprite). Its /home/allisone holds
 # only the Backend clone, at the path the shared DB records for that source.
@@ -27,25 +26,32 @@ EMBED_MAX_USD="${EMBED_MAX_USD:-1}"
 log() { echo "[gbrain-maintenance] $(date -u +%FT%TZ) $*"; }
 
 run_on_sprite() {
-  local out rc=""
+  # A missing token is a failed sprite run, so it still reaches the fallback.
+  if [ -z "${SPRITES_TOKEN:-}" ]; then
+    log "ERROR: SPRITES_TOKEN is not set (Railway service variable)"
+    return 1
+  fi
+  local out rc="" curl_rc=0
   out=$(mktemp)
   log "waking ${SPRITE_NAME} and running ${SPRITE_SCRIPT}"
   # The response body is the command's output. Its last line is EXIT=<n>,
   # which is how this script learns the sprite-side result.
   # No --retry: the POST starts a run, so a retry after a dropped connection
   # would start a second one. A failed request goes to the fallback instead.
-  if curl -sS --no-buffer --fail-with-body --max-time 7200 \
-    -X POST -H "Authorization: Bearer ${SPRITES_TOKEN}" \
-    "https://api.sprites.dev/v1/sprites/${SPRITE_NAME}/exec?cmd=bash&cmd=-l&cmd=${SPRITE_SCRIPT}" \
-    | tee "$out"; then
-    # Only the last non-empty line counts, and it must be exactly EXIT=<n>. If
-    # the body is ever framed or cut short, this fails closed into the fallback.
-    rc=$(tr -cd '[:print:]\n' <"$out" | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
-  else
-    log "ERROR: Sprites exec request failed"
+  # -G puts the url-encoded cmd args in the query string; -X POST keeps the method.
+  curl -sS --fail-with-body --max-time 7200 -o "$out" \
+    -G -X POST -H "Authorization: Bearer ${SPRITES_TOKEN}" \
+    --data-urlencode "cmd=bash" --data-urlencode "cmd=-l" --data-urlencode "cmd=${SPRITE_SCRIPT}" \
+    "https://api.sprites.dev/v1/sprites/${SPRITE_NAME}/exec" || curl_rc=$?
+  cat "$out"
+  if [ "$curl_rc" -ne 0 ]; then
+    log "ERROR: Sprites exec request failed (curl exit ${curl_rc})"
     rm -f "$out"
     return 1
   fi
+  # Only the last non-empty line counts, and it must be exactly EXIT=<n>. If
+  # the body is ever framed or cut short, this fails closed into the fallback.
+  rc=$(tr -cd '[:print:]\n' <"$out" | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
   rm -f "$out"
   if [ -z "$rc" ]; then
     log "ERROR: sprite output did not end with an EXIT= line (run cut short?)"
