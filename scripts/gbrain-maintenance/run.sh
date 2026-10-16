@@ -18,7 +18,7 @@ set -euo pipefail
 
 : "${SPRITES_TOKEN:?SPRITES_TOKEN is required (Railway service variable)}"
 SPRITE_NAME="${SPRITE_NAME:-spawn-sprite-hermes222}"
-SPRITE_SCRIPT="${SPRITE_SCRIPT:-/home/sprite/.hermes/scripts/gbrain-remote-run.sh}"
+SPRITE_SCRIPT="${SPRITE_SCRIPT:-/home/allisone/.hermes/scripts/gbrain-remote-run.sh}"
 EMBED_MAX_USD="${EMBED_MAX_USD:-1}"
 
 log() { echo "[gbrain-maintenance] $(date -u +%FT%TZ) $*"; }
