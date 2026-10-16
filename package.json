@@ -43,7 +43,7 @@
     "@google-cloud/secret-manager": "^7.1.1",
     "autoprefixer": "^10.6.1",
     "compression": "^1.8.2",
-    "dd-trace": "^6.19.0",
+    "dd-trace": "^6.20.1",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.1",
     "express-validator": "^7.3.2",
