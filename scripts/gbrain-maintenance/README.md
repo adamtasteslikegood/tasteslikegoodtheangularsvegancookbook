@@ -12,7 +12,7 @@ Railway is the scheduler, and the hermes sprite does the work:
 Railway cron (30 16 * * * UTC)
   └─ run.sh: POST https://api.sprites.dev/v1/sprites/<sprite>/exec   ← wakes the sprite
        └─ sprite: ~/.hermes/scripts/gbrain-remote-run.sh (waits; output → Railway logs)
-            ├─ gbrain-maintain.sh: pull + sync gstack-code-backend, extract, embed, doctor
+            ├─ gbrain-maintain.sh: pull + sync each code source, extract, embed, doctor
             └─ hermes cron tick: runs any due agent job (the Monday gbrain-brain-check)
 ```
 
@@ -24,15 +24,43 @@ Why it is built like this:
   run finishes, so the sprite stays awake for the whole run.
 - **Maintenance needs fresh code to be useful.** `extract --stale` and
   `embed --stale` only process pages a sync changed. Code sync used to happen
-  only on the laptop, so a remote run had nothing to do. The sprite now has its
-  own Backend clone at `/home/allisone/.gbrain/clones/gstack-code-backend`,
-  the path the shared DB records for `gstack-code-backend`, so the laptop and
-  the sprite can each sync that source. That is the only thing under
-  `/home/allisone` on the sprite: it runs as user `sprite`, and everything
-  else (hermes, its scripts, `~/gbrain`) is under `/home/sprite`.
+  only on the laptop, so a remote run had nothing to do. The sprite now keeps
+  its own clone of each code source below, at the path the shared DB records
+  for it (`/home/allisone/.gbrain/clones/<source id>`) and on the same branch
+  as the laptop's clone, so both machines sync the same commits into the same
+  pages. Those clones are the only thing under `/home/allisone` on the sprite:
+  it runs as user `sprite`, and everything else (hermes, its scripts,
+  `~/gbrain`) is under `/home/sprite`.
 - **The cookbook source stays laptop-only.** It is registered to the laptop's
-  worktree path; a second registration elsewhere would double-store its pages.
-  The laptop's `gbrain autopilot` cron (every 5 minutes) syncs it when it is on.
+  worktree path and indexes whatever branch is checked out there. A clone on
+  the sprite would follow `dev`, and each machine's sync would overwrite the
+  other's pages. The laptop's `gbrain autopilot` cron (every 5 minutes) syncs
+  it when it is on.
+
+### Code sources the sprite syncs
+
+All are registered non-federated, so a search must name them with
+`--source <id>`.
+
+| Source id                     | Repository                 | Branch |
+| ----------------------------- | -------------------------- | ------ |
+| `gstack-code-backend`         | `tasteslikegood.com`       | `dev`  |
+| `gstack-code-md4a-fastapi`    | `md4a-fastapi`             | `main` |
+| `gstack-code-artazzen-com`    | `ArtazzenDotCom`           | `dev`  |
+| `gstack-code-artazzen-mobile` | `ArtazzenMobile`           | `main` |
+| `gstack-code-plaza`           | `10110TasteslikegoodPlaza` | `dev`  |
+
+To add one, first check `gbrain sources list` and `gbrain sources archived`
+so it is not registered twice. Then:
+
+1. On the laptop, clone the repo's branch to `~/.gbrain/clones/<id>` and run
+   `gbrain sources add <id> --path ~/.gbrain/clones/<id> --no-federated`.
+2. Run `gbrain sync --source <id> --strategy code --full`. The laptop's
+   autopilot picks up a new source within minutes and can do its first sync
+   without the code strategy. ArtazzenMobile got only its Markdown pages that
+   way, and the full code sync is what imported its Swift files.
+3. On the sprite, clone the same branch to `/home/allisone/.gbrain/clones/<id>`
+   and add `<id> <branch>` to the `SOURCES` list in `gbrain-maintain.sh`.
 
 `run.sh` reads the sprite's result two ways, and both must agree. The HTTP
 exec response ends with an exit frame (byte 3, then the process exit code),
@@ -68,7 +96,8 @@ resume it while this cron is deployed.
 | 3     | `doctor --fast`                                     | Health check: logs the score and any FAILs               |
 | 4     | `sources status`                                    | Snapshot of sync lag and embed coverage per source       |
 
-The sprite's `gbrain-maintain.sh` runs the same phases after its Backend sync.
+The sprite's `gbrain-maintain.sh` runs the same phases after it syncs the code
+sources.
 
 **Nothing here runs `gbrain dream`.** The cycle's `propose_takes` phase called a
 chat model for 20 to 50 minutes a night, about $3/day, with nothing consuming
@@ -121,12 +150,12 @@ railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenanc
 These files live on the sprite, not in this repo. List the hermes jobs with
 `hermes cron list` and their history with `hermes cron runs`.
 
-| File / job                               | What it does                                                                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `~/.hermes/scripts/gbrain-remote-run.sh` | Entry point for this cron: maintain, then `hermes cron tick`, then prints `EXIT=<n>` and exits with it |
-| `~/.hermes/scripts/gbrain-maintain.sh`   | Pull + sync Backend, extract, capped embed, doctor; log in `~/.gbrain/maintain.log`                    |
-| hermes `gbrain-maintain`                 | Paused. Railway runs the script instead                                                                |
-| hermes `gbrain-brain-check`              | Mondays 16:00 UTC, agent job; the 16:30 Railway run's tick fires it if it was asleep                   |
+| File / job                               | What it does                                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.hermes/scripts/gbrain-remote-run.sh` | Entry point for this cron: maintain, then `hermes cron tick`, then prints `EXIT=<n>` and exits with it                          |
+| `~/.hermes/scripts/gbrain-maintain.sh`   | Pull + sync each code source, extract, capped embed, doctor; log in `~/.gbrain/maintain.log`. Exits non-zero if any step failed |
+| hermes `gbrain-maintain`                 | Paused. Railway runs the script instead                                                                                         |
+| hermes `gbrain-brain-check`              | Mondays 16:00 UTC, agent job; the 16:30 Railway run's tick fires it if it was asleep                                            |
 
 There is no dream job. A `gbrain-nightly-dream` agent job was removed on
 2026-10-13: it sent about 495k prompt tokens a run and created no pages.
