@@ -34,8 +34,8 @@ run_on_sprite() {
   local out rc="" curl_rc=0
   out=$(mktemp)
   log "waking ${SPRITE_NAME} and running ${SPRITE_SCRIPT}"
-  # The response body is the command's output. Its last line is EXIT=<n>,
-  # which is how this script learns the sprite-side result.
+  # The response body is the command's framed output and exit code (decoded
+  # below); the wrapper's last output line is EXIT=<n> as a second check.
   # No --retry: the POST starts a run, so a retry after a dropped connection
   # would start a second one. A failed request goes to the fallback instead.
   # -G puts the url-encoded cmd args in the query string; -X POST keeps the method.
@@ -43,23 +43,33 @@ run_on_sprite() {
     -G -X POST -H "Authorization: Bearer ${SPRITES_TOKEN}" \
     --data-urlencode "cmd=bash" --data-urlencode "cmd=-l" --data-urlencode "cmd=${SPRITE_SCRIPT}" \
     "https://api.sprites.dev/v1/sprites/${SPRITE_NAME}/exec" || curl_rc=$?
-  cat "$out"
+  # Framing bytes are dropped for the log only.
+  tr -d '\000\001\002\003' <"$out"
   if [ "$curl_rc" -ne 0 ]; then
     log "ERROR: Sprites exec request failed (curl exit ${curl_rc})"
     rm -f "$out"
     return 1
   fi
-  # Only the last non-empty line counts, and it must be exactly EXIT=<n>. If
-  # the body is ever framed or cut short, this fails closed into the fallback.
-  rc=$(tr -cd '[:print:]\n' <"$out" | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
-  rm -f "$out"
-  if [ -z "$rc" ]; then
-    log "ERROR: sprite output did not end with an EXIT= line (run cut short?)"
+  # The HTTP exec body is framed: a type byte before each output chunk (1
+  # stdout, 2 stderr), then an exit frame, byte 3 followed by the process exit
+  # code. Frames carry no lengths, but the exit frame is always last, so it is
+  # read as the final two bytes. No exit frame means the run was cut short.
+  local ftype="" fcode=""
+  read -r ftype fcode < <(tail -c 2 "$out" | od -An -tu1)
+  if [ "$ftype" != 3 ] || [ -z "$fcode" ]; then
+    log "ERROR: response has no exit frame (run cut short?)"
+    rm -f "$out"
     return 1
   fi
-  log "sprite run exit ${rc}"
-  # 75: a sprite run already holds its lock; running the fallback too would
-  # overlap it, so count this as done.
+  # The output must also end with EXIT=<n> on its last non-empty line.
+  rc=$(head -c -2 "$out" | tr -cd '[:print:]\n' | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
+  rm -f "$out"
+  log "sprite process exit ${fcode}, marker EXIT=${rc:-missing}"
+  if [ "$fcode" != 0 ] || [ -z "$rc" ]; then
+    return 1
+  fi
+  # 75: a sprite run already holds its lock (the wrapper prints 75 and exits
+  # 0); running the fallback too would overlap it, so count this as done.
   [ "$rc" = 0 ] || [ "$rc" = 75 ]
 }
 

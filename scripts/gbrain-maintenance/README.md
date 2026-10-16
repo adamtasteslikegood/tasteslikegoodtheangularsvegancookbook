@@ -34,15 +34,19 @@ Why it is built like this:
   worktree path; a second registration elsewhere would double-store its pages.
   The laptop's `gbrain autopilot` cron (every 5 minutes) syncs it when it is on.
 
-`run.sh` reads the sprite's result from the `EXIT=<n>` line that
-`gbrain-remote-run.sh` prints last; any other last line counts as a failure.
+`run.sh` reads the sprite's result two ways, and both must agree. The HTTP
+exec response ends with an exit frame (byte 3, then the process exit code),
+and `gbrain-remote-run.sh` prints `EXIT=<n>` as its last output line and exits
+with the same code. The format has no frame lengths, so the exit frame is read
+as the last two bytes of the body. `test_run.sh` covers these cases with a
+mocked curl: `bash scripts/gbrain-maintenance/test_run.sh`.
 
-| Sprite result                                | `run.sh` does                     | Exit |
-| -------------------------------------------- | --------------------------------- | ---- |
-| `EXIT=0`                                     | nothing more                      | 0    |
-| `EXIT=75` (another sprite run holds a lock)  | nothing more, to avoid an overlap | 0    |
-| request failed, no `EXIT=` line, or non-zero | runs the fallback below           | 1    |
-| as above, and a fallback phase also failed   | runs the fallback below           | 2    |
+| Sprite result                                                                       | `run.sh` does                     | Exit |
+| ----------------------------------------------------------------------------------- | --------------------------------- | ---- |
+| process exit 0 and `EXIT=0`                                                         | nothing more                      | 0    |
+| process exit 0 and `EXIT=75` (another run holds the lock)                           | nothing more, to avoid an overlap | 0    |
+| request failed, no exit frame, process exit non-zero, or no `EXIT=0`/`EXIT=75` line | runs the fallback below           | 1    |
+| as above, and a fallback phase also failed                                          | runs the fallback below           | 2    |
 
 The exec request is never retried: it starts a run, so a retry after a dropped
 connection would start a second one.
@@ -113,12 +117,12 @@ railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenanc
 These files live on the sprite, not in this repo. List the hermes jobs with
 `hermes cron list` and their history with `hermes cron runs`.
 
-| File / job                               | What it does                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------ |
-| `~/.hermes/scripts/gbrain-remote-run.sh` | Entry point for this cron: maintain, then `hermes cron tick`, then prints `EXIT=<n>` |
-| `~/.hermes/scripts/gbrain-maintain.sh`   | Pull + sync Backend, extract, capped embed, doctor; log in `~/.gbrain/maintain.log`  |
-| hermes `gbrain-maintain`                 | Paused. Railway runs the script instead                                              |
-| hermes `gbrain-brain-check`              | Mondays 16:00 UTC, agent job; the 16:30 Railway run's tick fires it if it was asleep |
+| File / job                               | What it does                                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `~/.hermes/scripts/gbrain-remote-run.sh` | Entry point for this cron: maintain, then `hermes cron tick`, then prints `EXIT=<n>` and exits with it |
+| `~/.hermes/scripts/gbrain-maintain.sh`   | Pull + sync Backend, extract, capped embed, doctor; log in `~/.gbrain/maintain.log`                    |
+| hermes `gbrain-maintain`                 | Paused. Railway runs the script instead                                                                |
+| hermes `gbrain-brain-check`              | Mondays 16:00 UTC, agent job; the 16:30 Railway run's tick fires it if it was asleep                   |
 
 There is no dream job. A `gbrain-nightly-dream` agent job was removed on
 2026-10-13: it sent about 495k prompt tokens a run and created no pages.
