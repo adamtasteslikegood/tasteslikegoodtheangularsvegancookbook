@@ -27,15 +27,25 @@ Why it is built like this:
   only on the laptop, so a remote run had nothing to do. The sprite now has its
   own Backend clone at `/home/allisone/.gbrain/clones/gstack-code-backend`,
   the path the shared DB records for `gstack-code-backend`, so the laptop and
-  the sprite can each sync that source.
+  the sprite can each sync that source. That is the only thing under
+  `/home/allisone` on the sprite: it runs as user `sprite`, and everything
+  else (hermes, its scripts, `~/gbrain`) is under `/home/sprite`.
 - **The cookbook source stays laptop-only.** It is registered to the laptop's
   worktree path; a second registration elsewhere would double-store its pages.
   The laptop's `gbrain autopilot` cron (every 5 minutes) syncs it when it is on.
 
 `run.sh` reads the sprite's result from the `EXIT=<n>` line that
-`gbrain-remote-run.sh` prints last. If the request fails, or that line is
-missing or non-zero, `run.sh` runs the fallback below from Railway and exits 1
-so the failed run shows in Railway.
+`gbrain-remote-run.sh` prints last; any other last line counts as a failure.
+
+| Sprite result                                | `run.sh` does                     | Exit |
+| -------------------------------------------- | --------------------------------- | ---- |
+| `EXIT=0`                                     | nothing more                      | 0    |
+| `EXIT=75` (another sprite run holds a lock)  | nothing more, to avoid an overlap | 0    |
+| request failed, no `EXIT=` line, or non-zero | runs the fallback below           | 1    |
+| as above, and a fallback phase also failed   | runs the fallback below           | 2    |
+
+The exec request is never retried: it starts a run, so a retry after a dropped
+connection would start a second one.
 
 The hermes `gbrain-maintain` schedule is **paused** on the sprite so the work
 does not also run on hermes's own schedule when the sprite is awake. Do not

@@ -9,7 +9,8 @@
 # sleeps between requests and hermes cron does not wake it; this request does.
 #
 # Fallback: if the sprite cannot be reached or its run fails, extract stale
-# links and embed stale chunks from here, then exit non-zero so the miss shows.
+# links and embed stale chunks from here, then exit non-zero so the miss shows:
+# 1 when the fallback ran cleanly, 2 when one of its phases failed too.
 #
 # It deliberately does NOT run `gbrain dream`: the cycle's propose_takes phase
 # called a chat model for 20-50 minutes a night with nothing consuming the
@@ -18,32 +19,42 @@ set -euo pipefail
 
 : "${SPRITES_TOKEN:?SPRITES_TOKEN is required (Railway service variable)}"
 SPRITE_NAME="${SPRITE_NAME:-spawn-sprite-hermes222}"
-SPRITE_SCRIPT="${SPRITE_SCRIPT:-/home/allisone/.hermes/scripts/gbrain-remote-run.sh}"
+# The sprite runs as user `sprite` (HOME=/home/sprite). Its /home/allisone holds
+# only the Backend clone, at the path the shared DB records for that source.
+SPRITE_SCRIPT="${SPRITE_SCRIPT:-/home/sprite/.hermes/scripts/gbrain-remote-run.sh}"
 EMBED_MAX_USD="${EMBED_MAX_USD:-1}"
 
 log() { echo "[gbrain-maintenance] $(date -u +%FT%TZ) $*"; }
 
 run_on_sprite() {
-  local out
+  local out rc=""
   out=$(mktemp)
   log "waking ${SPRITE_NAME} and running ${SPRITE_SCRIPT}"
   # The response body is the command's output. Its last line is EXIT=<n>,
   # which is how this script learns the sprite-side result.
-  if ! curl -sS --no-buffer --fail-with-body --retry 2 --retry-delay 15 --max-time 7200 \
+  # No --retry: the POST starts a run, so a retry after a dropped connection
+  # would start a second one. A failed request goes to the fallback instead.
+  if curl -sS --no-buffer --fail-with-body --max-time 7200 \
     -X POST -H "Authorization: Bearer ${SPRITES_TOKEN}" \
     "https://api.sprites.dev/v1/sprites/${SPRITE_NAME}/exec?cmd=bash&cmd=-l&cmd=${SPRITE_SCRIPT}" \
     | tee "$out"; then
+    # Only the last non-empty line counts, and it must be exactly EXIT=<n>. If
+    # the body is ever framed or cut short, this fails closed into the fallback.
+    rc=$(tr -cd '[:print:]\n' <"$out" | sed '/^[[:space:]]*$/d' | tail -1 | sed -nE 's/^EXIT=([0-9]+)$/\1/p')
+  else
     log "ERROR: Sprites exec request failed"
+    rm -f "$out"
     return 1
   fi
-  local rc
-  rc=$(grep -aoE 'EXIT=[0-9]+' "$out" | tail -1 | cut -d= -f2)
+  rm -f "$out"
   if [ -z "$rc" ]; then
-    log "ERROR: sprite output had no EXIT= line (run cut short?)"
+    log "ERROR: sprite output did not end with an EXIT= line (run cut short?)"
     return 1
   fi
   log "sprite run exit ${rc}"
-  [ "$rc" = 0 ]
+  # 75: a sprite run already holds its lock; running the fallback too would
+  # overlap it, so count this as done.
+  [ "$rc" = 0 ] || [ "$rc" = 75 ]
 }
 
 run_local() {
@@ -72,12 +83,12 @@ EOF
 
   # Extract stale links.
   log "extract --stale"
-  gbrain extract --stale || log "WARN: extract --stale failed"
+  gbrain extract --stale || { log "WARN: extract --stale failed"; FALLBACK_FAILED=$((FALLBACK_FAILED + 1)); }
 
   # Embed any stale chunks. Without a terminal, embed exits 3 unless a spend
   # cap is given; EMBED_MAX_USD is that cap per run.
   log "embed --stale --catch-up --max-usd ${EMBED_MAX_USD}"
-  gbrain embed --stale --catch-up --max-usd "${EMBED_MAX_USD}" || log "WARN: embed --stale failed"
+  gbrain embed --stale --catch-up --max-usd "${EMBED_MAX_USD}" || { log "WARN: embed --stale failed"; FALLBACK_FAILED=$((FALLBACK_FAILED + 1)); }
 
   # Doctor check (fast mode, informational only).
   local doctor score
@@ -95,6 +106,11 @@ if run_on_sprite; then
 fi
 
 log "sprite path failed; running the fallback here"
+FALLBACK_FAILED=0
 run_local
+if [ "$FALLBACK_FAILED" -gt 0 ]; then
+  log "done (fallback, ${FALLBACK_FAILED} phase(s) failed); exiting 2"
+  exit 2
+fi
 log "done (fallback); exiting 1 so the missed sprite run is visible"
 exit 1
