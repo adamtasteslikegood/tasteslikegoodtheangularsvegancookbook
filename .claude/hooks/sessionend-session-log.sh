@@ -233,7 +233,8 @@ $(cat "$DIGEST")"
   #   --strict-mcp-config    no MCP servers (none are passed with --mcp-config)
   #   --setting-sources ''   no user/project/local settings, so no settings hooks
   #                          and no CLAUDE_CODE_PLUGIN_DIRS from a settings env block
-  #   env -u ...             nor from the parent's environment
+  #   env -u ...             nor that var from the parent's environment (the
+  #                          one env vector known; other env vars pass through)
   #   cd "$WORK"             a scratch cwd: no repo to discover or write into
   if ! (cd "$WORK" && "${RUNNER[@]}" env -u CLAUDE_CODE_PLUGIN_DIRS \
         claude -p "$PROMPT" \

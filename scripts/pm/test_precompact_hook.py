@@ -94,6 +94,16 @@ class TestPrecompactHook(unittest.TestCase):
     def test_session_end_transcript_is_summarized_and_published(self):
         self.assert_summarized_and_published(_END_HOOK)
 
+    @unittest.skipUnless(shutil.which("claude"), "real claude CLI not installed")
+    def test_installed_cli_has_the_isolation_flags(self):
+        # The stub above accepts any argv. Where the real CLI is installed, check
+        # it still offers the flags the hooks rely on (KAN-419); no model call.
+        help_text = subprocess.run(
+            ["claude", "--help"], capture_output=True, text=True, timeout=30
+        ).stdout
+        for flag in ("--tools", "--strict-mcp-config", "--setting-sources"):
+            self.assertRegex(help_text, rf"(?m)^\s+{flag}\b", flag)
+
     def assert_summarized_and_published(self, hook: Path):
         shutil.copy2(_DIGEST, self.repo / "scripts/pm/transcript_digest.py")
         transcript = self.repo / "session.jsonl"
