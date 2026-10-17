@@ -61,7 +61,6 @@ FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
 CODE_SPAN_RE = re.compile(r"(`+).*?\1")
 # A backslash-escaped space is part of the path: @Design\ Docs/api.md.
 IMPORT_RE = re.compile(r"(?:^|(?<=\s))@((?:\\ |\S)+)")
-PATH_TOKEN_RE = re.compile(r"[\w./-]+")
 # Destination: <angle-bracketed>, or bare with one level of balanced parens.
 LINK_RE = re.compile(r"\[[^\]]*\]\((?:<([^>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+\"[^\"]*\")?\)")
 TRAILING_PUNCT = "*_)]}>,.;:!?'\"`"
@@ -176,6 +175,27 @@ def deleted_paths(root: Path, days: int) -> set[str]:
     return gone
 
 
+def names_path(line: str, path: str) -> bool:
+    """Whether the line names the complete path, not a longer one that contains it.
+
+    The path is matched as written, so names with spaces, parentheses or ``+``
+    still match. Before it: line start, a character that cannot be part of a path,
+    or ``./``. After it: line end, or anything but a path character; a trailing
+    full stop counts as punctuation unless a name continues after it
+    (``report.md.bak``).
+    """
+    for match in re.finditer(re.escape(path), line):
+        before, after = line[: match.start()], line[match.end() :]
+        if before.endswith("./"):
+            before = before[:-2]
+        if before and (before[-1].isalnum() or before[-1] in "_./-"):
+            continue
+        if after and (after[0].isalnum() or after[0] in "_/-" or (after[0] == "." and after[1:2].isalnum())):
+            continue
+        return True
+    return False
+
+
 def find_drift(root: Path, report: Report, gone: set[str]) -> None:
     for name, _ in report.loaded:
         lines = (root / name).read_text(encoding="utf-8", errors="replace").splitlines()
@@ -186,10 +206,9 @@ def find_drift(root: Path, report: Report, gone: set[str]) -> None:
             relative = os.path.relpath(old, here)
             needles[old] = {old} if relative.startswith("..") else {old, relative}
         for number, line in enumerate(lines, start=1):
-            # Whole path tokens only: deleting report.md must not flag weekly-report.md.
-            tokens = {token.removeprefix("./").rstrip(".") for token in PATH_TOKEN_RE.findall(line)}
+            # The complete path only: deleting report.md must not flag weekly-report.md.
             for old in sorted(gone):
-                if needles[old] & tokens:
+                if any(names_path(line, needle) for needle in needles[old]):
                     report.drift.append(f"{name}:{number} — names `{old}`, deleted or renamed")
 
 

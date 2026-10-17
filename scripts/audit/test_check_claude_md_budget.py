@@ -124,6 +124,12 @@ class Walk(unittest.TestCase):
         budget.find_drift(self.root, report, {"report.md"})
         self.assertEqual(report.drift, ["CLAUDE.md:2 — names `report.md`, deleted or renamed"])
 
+    def test_drift_matches_paths_with_spaces_parens_and_plus(self):
+        write(self.root, "CLAUDE.md", "See `docs/f_(v2).md`.\nRead Design Docs/api.md now.\nAnd docs/api+auth.md, too.\n")
+        report = budget.walk(self.root)
+        budget.find_drift(self.root, report, {"docs/f_(v2).md", "Design Docs/api.md", "docs/api+auth.md"})
+        self.assertEqual([d.split(" — ")[0] for d in report.drift], ["CLAUDE.md:1", "CLAUDE.md:2", "CLAUDE.md:3"])
+
     def test_audit_crash_exits_2_not_findings(self):
         write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository
         self.assertEqual(budget.main(["--root", str(self.root), "--drift", "7"]), 2)
