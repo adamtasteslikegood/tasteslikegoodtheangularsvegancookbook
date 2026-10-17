@@ -115,17 +115,27 @@ jobs:
           # whole PR. A push (`synchronize`) reviews only what changed since the
           # last COMPLETED review, at low effort. That review's head, not the
           # event's `before`: cancel-in-progress drops the run for an earlier
-          # push, and its commits would otherwise never be reviewed. A base that
-          # is missing or not an ancestor (a force-push) falls back to the whole PR.
-          MODE=full RANGE=""
+          # push, and its commits would otherwise never be reviewed. "Completed"
+          # means the review STEP succeeded: a run concludes `success` even when
+          # that step was skipped (no credential) or errored (continue-on-error).
+          # A base that is missing or not an ancestor (a force-push) falls back
+          # to the whole PR, and so does a range holding a merge (an update from
+          # the base branch), whose diff would carry the base branch's changes.
+          MODE=full RANGE="" LAST=""
           if [ "$ACTION" = synchronize ]; then
-            LAST=$(gh run list --workflow claude-review.yml --branch "$HEAD_REF" \
-                     --status success --limit 1 --json headSha --jq '.[0].headSha // ""' \
-                   2>/dev/null || echo "")
+            for RUN in $(gh run list --workflow claude-review.yml --branch "$HEAD_REF" \
+                           --status success --limit 10 --json databaseId \
+                           --jq '.[].databaseId' 2>/dev/null); do
+              LAST=$(gh run view "$RUN" --json headSha,jobs --jq \
+                'if any(.jobs[].steps[]; .name == "Review + fix + comment" and .conclusion == "success")
+                 then .headSha else "" end' 2>/dev/null || echo "")
+              [ -z "$LAST" ] || break
+            done
             BASE_SHA="${LAST:-$BEFORE}"
             if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "$AFTER" ] \
                && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null \
-               && git merge-base --is-ancestor "$BASE_SHA" "$AFTER"; then
+               && git merge-base --is-ancestor "$BASE_SHA" "$AFTER" \
+               && [ -z "$(git rev-list --merges "$BASE_SHA..$AFTER")" ]; then
               MODE=delta RANGE="$BASE_SHA..$AFTER"
             fi
           fi
