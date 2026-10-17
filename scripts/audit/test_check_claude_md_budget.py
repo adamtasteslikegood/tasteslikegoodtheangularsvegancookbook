@@ -36,6 +36,10 @@ class FindImports(unittest.TestCase):
     def test_escaped_space_is_part_of_the_path(self):
         self.assertEqual(budget.find_imports("See @Design\\ Docs/api.md, then go.\n"), [(1, "Design Docs/api.md")])
 
+    def test_code_span_wrapping_onto_the_next_line_is_not_an_import(self):
+        text = "Write `the path\n@docs/example.md` as shown.\n\n@docs/real.md\n"
+        self.assertEqual(budget.find_imports(text), [(4, "docs/real.md")])
+
     def test_email_is_not_an_import(self):
         self.assertEqual(budget.find_imports("mail me at someone@example.org\n"), [])
 
@@ -48,6 +52,11 @@ class FindLinks(unittest.TestCase):
     def test_angle_percent_and_paren_destinations(self):
         text = "[a](<docs/my file.md>) [b](docs/my%20file.md) [c](docs/f_(v2).md)\n"
         self.assertEqual(budget.find_links(text), [(1, "docs/my file.md"), (1, "docs/my file.md"), (1, "docs/f_(v2).md")])
+
+
+    def test_authority_and_query_are_not_local_paths(self):
+        text = "[a](//cdn.example.org/x.md) [b](docs/f.md?plain=1) [c](docs/g.md?x#y)\n"
+        self.assertEqual(budget.find_links(text), [(1, "docs/f.md"), (1, "docs/g.md")])
 
 
 class Walk(unittest.TestCase):
@@ -146,6 +155,12 @@ class Walk(unittest.TestCase):
         budget.find_drift(self.root, report, {"report.md"})
         self.assertEqual(report.drift, ["CLAUDE.md:2 — names `report.md`, deleted or renamed"])
 
+    def test_plus_is_part_of_a_longer_name(self):
+        write(self.root, "CLAUDE.md", "Keep report.md+backup and weekly+report.md.\n")
+        report = budget.walk(self.root)
+        budget.find_drift(self.root, report, {"report.md"})
+        self.assertEqual(report.drift, [])
+
     def test_drift_matches_paths_with_spaces_parens_and_plus(self):
         write(self.root, "CLAUDE.md", "See `docs/f_(v2).md`.\nRead Design Docs/api.md now.\nAnd docs/api+auth.md, too.\n")
         report = budget.walk(self.root)
@@ -183,6 +198,18 @@ class Walk(unittest.TestCase):
         subprocess.run(git + ["rm", "-rq", "--", "."], cwd=self.root, check=True)
         subprocess.run(git + ["commit", "-qm", "rm"], cwd=self.root, check=True)
         self.assertEqual(budget.deleted_paths(self.root, 7), {"gone.md"})
+
+    def test_deleted_paths_includes_a_merge_resolution_delete(self):
+        git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+        run = lambda *a: subprocess.run(git + list(a), cwd=self.root, check=True, capture_output=True)
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=self.root, check=True)
+        write(self.root, "keep.md", "x\n")
+        write(self.root, "doomed.md", "x\n")
+        run("add", "-A"); run("commit", "-qm", "base")
+        run("switch", "-qc", "side"); write(self.root, "side.md", "x\n"); run("add", "-A"); run("commit", "-qm", "side")
+        run("switch", "-q", "main"); run("merge", "--no-ff", "--no-commit", "side")
+        run("rm", "-q", "doomed.md"); run("commit", "-qm", "merge, dropping doomed.md")
+        self.assertEqual(budget.deleted_paths(self.root, 7), {"doomed.md"})
 
     def test_audit_crash_exits_2_not_findings(self):
         write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository

@@ -59,7 +59,7 @@ MAX_DEPTH = 5
 ROOT_FILE = "CLAUDE.md"
 
 FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
-CODE_SPAN_RE = re.compile(r"(`+).*?\1")
+CODE_SPAN_RE = re.compile(r"(`+).*?\1", re.S)
 # A backslash-escaped space is part of the path: @Design\ Docs/api.md.
 IMPORT_RE = re.compile(r"(?:^|(?<=\s))@((?:\\ |\S)+)")
 # Destination: <angle-bracketed>, or bare with one level of balanced parens.
@@ -82,22 +82,35 @@ class Report:
         return sum(size for _, size in self.loaded)
 
 
+def blank_code_spans(lines: list[tuple[int, str]]):
+    """Blank code spans across one paragraph's lines (a span may wrap), keeping line numbers."""
+    joined = "\n".join(line for _, line in lines)
+    joined = CODE_SPAN_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), joined)
+    return zip((number for number, _ in lines), joined.split("\n"))
+
+
 def prose_lines(text: str):
     """Yield (line_number, line) with fenced blocks dropped and code spans blanked.
 
     A fence closes only on the same character, at least as long, with nothing
-    after it (CommonMark), so a ```` block can show a ``` example.
+    after it (CommonMark), so a ```` block can show a ``` example. Code spans are
+    matched within a paragraph, so one that wraps onto the next line still hides.
     """
     opener = None
+    paragraph: list[tuple[int, str]] = []
     for number, line in enumerate(text.splitlines(), start=1):
         fence = FENCE_RE.match(line)
         if opener is None:
-            if fence:
-                opener = fence.group(1)
+            if fence or not line.strip():
+                yield from blank_code_spans(paragraph)
+                paragraph = []
+                if fence:
+                    opener = fence.group(1)
                 continue
-            yield number, CODE_SPAN_RE.sub(" ", line)
+            paragraph.append((number, line))
         elif fence and fence.group(1)[0] == opener[0] and len(fence.group(1)) >= len(opener) and not fence.group(2).strip():
             opener = None
+    yield from blank_code_spans(paragraph)
 
 
 def find_imports(text: str) -> list[tuple[int, str]]:
@@ -114,8 +127,9 @@ def find_links(text: str) -> list[tuple[int, str]]:
     found = []
     for number, line in prose_lines(text):
         for match in LINK_RE.finditer(line):
-            target = urllib.parse.unquote((match.group(1) or match.group(2)).split("#", 1)[0])
-            if target and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
+            target = urllib.parse.unquote(re.split(r"[#?]", match.group(1) or match.group(2), maxsplit=1)[0])
+            # A scheme (https:, mailto:) or an authority (//host/path) is not a local file.
+            if target and not target.startswith("//") and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
                 found.append((number, target))
     return found
 
@@ -169,9 +183,10 @@ def walk(root: Path) -> Report:
 
 def deleted_paths(root: Path, days: int) -> set[str]:
     """Paths deleted or renamed away in the window and absent at HEAD."""
+    # A merge's own changes (a conflict resolution that deletes) count, against its first parent.
     # -z: NUL-separated and unquoted, so names git would quote (non-ASCII, tabs) arrive as written.
     out = subprocess.run(
-        ["git", "log", f"--since={days} days ago", "--name-status", "-z", "--no-merges", "--diff-filter=DR", "--format="],
+        ["git", "log", f"--since={days} days ago", "--name-status", "-z", "--diff-merges=first-parent", "--diff-filter=DR", "--format="],
         cwd=root, check=True, capture_output=True,
     ).stdout
     tokens = iter(t.strip(b"\n") for t in out.split(b"\0"))
@@ -204,9 +219,9 @@ def names_path(line: str, path: str) -> bool:
         before, after = line[: match.start()], line[match.end() :]
         if before.endswith("./"):
             before = before[:-2]
-        if before and (before[-1].isalnum() or before[-1] in "_./-"):
+        if before and (before[-1].isalnum() or before[-1] in "_./+-"):
             continue
-        if after and (after[0].isalnum() or after[0] in "_/-" or (after[0] == "." and after[1:2].isalnum())):
+        if after and (after[0].isalnum() or after[0] in "_/+-" or (after[0] == "." and after[1:2].isalnum())):
             continue
         return True
     return False

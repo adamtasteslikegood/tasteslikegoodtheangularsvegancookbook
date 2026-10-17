@@ -18,6 +18,12 @@ on:
 permissions:
   contents: read
 
+# One run at a time: search-then-create on Jira is not atomic, so two runs could
+# both find no open KAN and file two. Queue, never cancel, a second run.
+concurrency:
+  group: claude-md-audit
+  cancel-in-progress: false
+
 jobs:
   audit:
     name: CLAUDE.md — drift, budget, references
