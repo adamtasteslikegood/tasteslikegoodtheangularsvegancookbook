@@ -42,9 +42,11 @@ Stdlib only, so the gate job needs no install step.
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 import sys
+import urllib.parse
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -58,7 +60,8 @@ ROOT_FILE = "CLAUDE.md"
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
 CODE_SPAN_RE = re.compile(r"(`+).*?\1")
 IMPORT_RE = re.compile(r"(?:^|(?<=\s))@(\S+)")
-LINK_RE = re.compile(r"\[[^\]]*\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)")
+# Destination: <angle-bracketed>, or bare with one level of balanced parens.
+LINK_RE = re.compile(r"\[[^\]]*\]\((?:<([^>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+\"[^\"]*\")?\)")
 TRAILING_PUNCT = "*_)]}>,.;:!?'\"`"
 
 
@@ -100,7 +103,7 @@ def find_links(text: str) -> list[tuple[int, str]]:
     found = []
     for number, line in prose_lines(text):
         for match in LINK_RE.finditer(line):
-            target = match.group(1).split("#", 1)[0]
+            target = urllib.parse.unquote((match.group(1) or match.group(2)).split("#", 1)[0])
             if target and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
                 found.append((number, target))
     return found
@@ -164,9 +167,12 @@ def deleted_paths(root: Path, days: int) -> set[str]:
 def find_drift(root: Path, report: Report, gone: set[str]) -> None:
     for name, _ in report.loaded:
         lines = (root / name).read_text(encoding="utf-8", errors="replace").splitlines()
+        # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh).
+        here = os.path.dirname(name) or "."
+        needles = {old: {old} | {r for r in [os.path.relpath(old, here)] if not r.startswith("..")} for old in gone}
         for number, line in enumerate(lines, start=1):
             for old in sorted(gone):
-                if old in line:
+                if any(needle in line for needle in needles[old]):
                     report.drift.append(f"{name}:{number} — names `{old}`, deleted or renamed")
 
 
@@ -207,9 +213,15 @@ def main(argv: list[str] | None = None) -> int:
     if not (args.root / ROOT_FILE).is_file():
         print(f"error: {args.root / ROOT_FILE} not found", file=sys.stderr)
         return 2
-    report = walk(args.root)
-    if args.drift is not None:
-        find_drift(args.root, report, deleted_paths(args.root, args.drift))
+    # Exit 1 means findings; anything that stops the audit itself is exit 2, so the
+    # weekly workflow never files a KAN for a crash.
+    try:
+        report = walk(args.root)
+        if args.drift is not None:
+            find_drift(args.root, report, deleted_paths(args.root, args.drift))
+    except (OSError, subprocess.CalledProcessError) as exc:
+        print(f"error: audit could not run: {exc}", file=sys.stderr)
+        return 2
 
     print(render(report, args.budget, args.markdown))
     problems = failures(report, args.budget)

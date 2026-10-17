@@ -34,6 +34,10 @@ class FindLinks(unittest.TestCase):
         text = "[a](./README.md) [b](https://x.org) [c](#anchor) [d](mailto:x@y) [e](docs/f.md#sec)\n"
         self.assertEqual(budget.find_links(text), [(1, "./README.md"), (1, "docs/f.md")])
 
+    def test_angle_percent_and_paren_destinations(self):
+        text = "[a](<docs/my file.md>) [b](docs/my%20file.md) [c](docs/f_(v2).md)\n"
+        self.assertEqual(budget.find_links(text), [(1, "docs/my file.md"), (1, "docs/my file.md"), (1, "docs/f_(v2).md")])
+
 
 class Walk(unittest.TestCase):
     def setUp(self):
@@ -79,6 +83,17 @@ class Walk(unittest.TestCase):
         report = budget.walk(self.root)
         budget.find_drift(self.root, report, budget.deleted_paths(self.root, 7))
         self.assertEqual(report.drift, ["CLAUDE.md:1 — names `old/tool.sh`, deleted or renamed"])
+
+    def test_drift_matches_paths_relative_to_the_naming_file(self):
+        write(self.root, "CLAUDE.md", "@scripts/RUNBOOK.md\n")
+        write(self.root, "scripts/RUNBOOK.md", "Then run `./train-run.sh`.\n")
+        report = budget.walk(self.root)
+        budget.find_drift(self.root, report, {"scripts/train-run.sh"})
+        self.assertEqual(report.drift, ["scripts/RUNBOOK.md:1 — names `scripts/train-run.sh`, deleted or renamed"])
+
+    def test_audit_crash_exits_2_not_findings(self):
+        write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository
+        self.assertEqual(budget.main(["--root", str(self.root), "--drift", "7"]), 2)
 
 
 class RealTree(unittest.TestCase):

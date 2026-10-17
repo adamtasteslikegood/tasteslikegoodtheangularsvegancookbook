@@ -5,7 +5,7 @@
 # in some other PR while CLAUDE.md (or a file it imports) still names it.
 #
 # Deterministic, no model engine: the same stdlib script as the gate job, in
-# --drift mode. On findings it comments on the open KAN labelled
+# --drift mode (14 days). On findings it comments on the open KAN labelled
 # claude-md-drift, or files one if none is open, so findings land in one
 # ticket instead of a new one every week.
 name: CLAUDE.md weekly audit
@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0 # --drift reads the last week of history
+          fetch-depth: 0 # --drift reads the last two weeks of history
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
@@ -33,7 +33,9 @@ jobs:
         id: audit
         run: |
           set +e
-          python3 scripts/audit/check_claude_md_budget.py --drift 7 --markdown > report.md
+          # 14 days on a weekly schedule: one missed or failed run is re-examined by
+          # the next. Findings seen twice comment twice on the same KAN, not a new one.
+          python3 scripts/audit/check_claude_md_budget.py --drift 14 --markdown > report.md
           status=$?
           set -e
           cat report.md >> "$GITHUB_STEP_SUMMARY"
