@@ -123,8 +123,8 @@ describe('Flask proxy body limit (KAN-408)', () => {
     const res = await post(port, Buffer.alloc(limit * 2, 0x78), true);
     expect(res.status).toBe(413);
     expect(res.json).toEqual({ error: 'The request body is too large' });
-    // Flask never receives a complete request, let alone more than the limit.
-    expect(flaskBytes.every((n) => n <= limit)).toBe(true);
+    // The request to Flask is abandoned, so Flask never sees a complete body.
+    expect(flaskBytes).toEqual([]);
   });
 
   it('forwards a declared body at the limit unchanged', async () => {
