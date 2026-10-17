@@ -40,6 +40,18 @@ class FindImports(unittest.TestCase):
         text = "Write `the path\n@docs/example.md` as shown.\n\n@docs/real.md\n"
         self.assertEqual(budget.find_imports(text), [(4, "docs/real.md")])
 
+    def test_backtick_in_a_heading_does_not_pair_with_the_next_block(self):
+        text = "# Example `literal\n@docs/missing.md\n`\n"
+        self.assertEqual(budget.find_imports(text), [(2, "docs/missing.md")])
+
+    def test_backticks_in_sibling_list_items_do_not_pair(self):
+        text = "- one `literal\n- @docs/a.md\n- three `x\n"
+        self.assertEqual(budget.find_imports(text), [(2, "docs/a.md")])
+
+    def test_trailing_underscore_is_kept_unless_it_closes_emphasis(self):
+        text = "See @docs/foo_ here.\n__Read @docs/bar.md__, then go.\n"
+        self.assertEqual(budget.find_imports(text), [(1, "docs/foo_"), (2, "docs/bar.md")])
+
     def test_email_is_not_an_import(self):
         self.assertEqual(budget.find_imports("mail me at someone@example.org\n"), [])
 
@@ -58,12 +70,9 @@ class FindLinks(unittest.TestCase):
         text = "[a](//cdn.example.org/x.md) [b](docs/f.md?plain=1) [c](docs/g.md?x#y)\n"
         self.assertEqual(budget.find_links(text), [(1, "docs/f.md"), (1, "docs/g.md")])
 
-    def test_site_relative_route_is_not_a_local_path(self):
-        # [privacy](/privacy-policy) is an Express route, not a repo file;
-        # pathlib's absolute-right-wins join would false-positive it as broken.
-        text = "[privacy](/privacy-policy) [home](/) [doc](docs/x.md)\n"
-        self.assertEqual(budget.find_links(text), [(1, "docs/x.md")])
-
+    def test_root_relative_link_is_kept_for_walk(self):
+        text = "[privacy](/privacy-policy) [doc](docs/x.md)\n"
+        self.assertEqual(budget.find_links(text), [(1, "/privacy-policy"), (1, "docs/x.md")])
 
 class Walk(unittest.TestCase):
     def setUp(self):
@@ -143,6 +152,21 @@ class Walk(unittest.TestCase):
         self.assertEqual(report.skipped_imports, ["CLAUDE.md:1 — @/etc/hosts"])
         self.assertEqual([n for n, _ in report.loaded], ["CLAUDE.md"])
         self.assertEqual(budget.failures(report, 10_000), [])
+
+    def test_root_relative_link_resolves_from_the_repo_root(self):
+        write(self.root, "docs/a.md", "x\n")
+        write(self.root, "CLAUDE.md", "@scripts/r.md\n")
+        write(self.root, "scripts/r.md", "[ok](/docs/a.md) [gone](/docs/nope.md)\n")
+        report = budget.walk(self.root)
+        self.assertEqual(report.broken_links, ["scripts/r.md:1 — /docs/nope.md"])
+
+    def test_mention_is_skipped_not_a_missing_import(self):
+        write(self.root, "Makefile", "x\n")
+        write(self.root, "CLAUDE.md", "Ping @copilot and @dependabot[bot]; see @Makefile.\n")
+        report = budget.walk(self.root)
+        self.assertEqual(report.missing_imports, [])
+        self.assertEqual([n for n, _ in report.loaded], ["CLAUDE.md", "Makefile"])
+        self.assertEqual(len(report.skipped_imports), 2)
 
     def test_drift_reports_lines_naming_deleted_paths(self):
         git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]

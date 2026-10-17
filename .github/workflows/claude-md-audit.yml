@@ -59,7 +59,7 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 - <<'PY'
-          import base64, json, os, urllib.parse, urllib.request
+          import base64, json, os, urllib.error, urllib.parse, urllib.request
 
           BASE = "https://tasteslikegood.atlassian.net/rest/api/3"
           auth = base64.b64encode(f"{os.environ['ATLASSIAN_EMAIL']}:{os.environ['ATLASSIAN_API_TOKEN']}".encode()).decode()
@@ -67,9 +67,15 @@ jobs:
           def call(method, path, body=None):
               req = urllib.request.Request(BASE + path, method=method, data=json.dumps(body).encode() if body else None,
                                            headers={"Authorization": f"Basic {auth}", "Content-Type": "application/json", "Accept": "application/json"})
-              with urllib.request.urlopen(req, timeout=30) as resp:
-                  raw = resp.read()
-                  return json.loads(raw) if raw else {}
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as resp:
+                      raw = resp.read()
+                      return json.loads(raw) if raw else {}
+              except urllib.error.HTTPError as err:
+                  # Say which call failed and why (401 rotated token, 429, 5xx), then fail the step.
+                  detail = err.read().decode("utf-8", "replace")[:200]
+                  print(f"::error::Jira {method} {path} failed: HTTP {err.code} {detail}")
+                  raise
 
           report = open("report.md", encoding="utf-8").read()
           doc = {"type": "doc", "version": 1, "content": [
