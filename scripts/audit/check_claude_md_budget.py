@@ -214,9 +214,10 @@ def main(argv: list[str] | None = None) -> int:
     print(render(report, args.budget, args.markdown))
     problems = failures(report, args.budget)
     if problems:
-        if not args.markdown:
-            for problem in problems:
-                print(f"::error::{problem}")
+        if args.markdown:
+            print("\n### Problems")
+        for problem in problems:
+            print(f"- {problem}" if args.markdown else f"::error::{problem}")
         return 1
     print("\n✅ within budget, every reference resolves." if not args.markdown else "\nNo findings.")
     return 0

@@ -82,11 +82,14 @@ class Walk(unittest.TestCase):
 
 
 class RealTree(unittest.TestCase):
-    def test_repository_claude_md_passes(self):
+    # Parser oracle, not a second budget gate: the files this resolves must be the
+    # files Claude Code loads (KAN-416). A new import fails here by name.
+    def test_repository_claude_md_imports_only_the_runbook(self):
         root = Path(__file__).resolve().parents[2]
         report = budget.walk(root)
-        self.assertEqual(budget.failures(report, budget.BUDGET_BYTES), [])
-        self.assertEqual(report.loaded[0][0], "CLAUDE.md")
+        self.assertEqual([name for name, _ in report.loaded], ["CLAUDE.md", "scripts/release/RUNBOOK.md"])
+        self.assertEqual(report.missing_imports, [])
+        self.assertEqual(report.broken_links, [])
 
 
 if __name__ == "__main__":
