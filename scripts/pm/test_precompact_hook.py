@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
@@ -102,7 +103,11 @@ class TestPrecompactHook(unittest.TestCase):
             ["claude", "--help"], capture_output=True, text=True, timeout=30
         ).stdout
         for flag in ("--tools", "--strict-mcp-config", "--setting-sources"):
-            self.assertRegex(help_text, rf"(?m)^\s+{flag}\b", flag)
+            # Anchor on whitespace/end so `--tools` is not satisfied by
+            # `--tools-dir` (same for `--setting-sources` vs `-...-dir`): `\b`
+            # holds between `s` and `-`, so a help text that drops the real
+            # flag but keeps a sibling would pass this guard silently.
+            self.assertRegex(help_text, rf"(?m)^\s+{re.escape(flag)}(?:$|\s)", flag)
 
     def assert_summarized_and_published(self, hook: Path):
         shutil.copy2(_DIGEST, self.repo / "scripts/pm/transcript_digest.py")
