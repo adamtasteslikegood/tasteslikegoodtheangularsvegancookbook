@@ -58,6 +58,12 @@ class FindLinks(unittest.TestCase):
         text = "[a](//cdn.example.org/x.md) [b](docs/f.md?plain=1) [c](docs/g.md?x#y)\n"
         self.assertEqual(budget.find_links(text), [(1, "docs/f.md"), (1, "docs/g.md")])
 
+    def test_site_relative_route_is_not_a_local_path(self):
+        # [privacy](/privacy-policy) is an Express route, not a repo file;
+        # pathlib's absolute-right-wins join would false-positive it as broken.
+        text = "[privacy](/privacy-policy) [home](/) [doc](docs/x.md)\n"
+        self.assertEqual(budget.find_links(text), [(1, "docs/x.md")])
+
 
 class Walk(unittest.TestCase):
     def setUp(self):
@@ -127,6 +133,15 @@ class Walk(unittest.TestCase):
         write(self.root, "CLAUDE.md", "@~/.claude/personal.md\n")
         report = budget.walk(self.root)
         self.assertEqual(report.skipped_imports, ["CLAUDE.md:1 — @~/.claude/personal.md"])
+        self.assertEqual(budget.failures(report, 10_000), [])
+
+    def test_absolute_import_is_skipped_not_walked(self):
+        # @/etc/hosts would escape the repo through pathlib's absolute-right-wins join;
+        # skip it the same way as ~/... instead of charging it against the budget.
+        write(self.root, "CLAUDE.md", "@/etc/hosts\n")
+        report = budget.walk(self.root)
+        self.assertEqual(report.skipped_imports, ["CLAUDE.md:1 — @/etc/hosts"])
+        self.assertEqual([n for n, _ in report.loaded], ["CLAUDE.md"])
         self.assertEqual(budget.failures(report, 10_000), [])
 
     def test_drift_reports_lines_naming_deleted_paths(self):

@@ -128,8 +128,14 @@ def find_links(text: str) -> list[tuple[int, str]]:
     for number, line in prose_lines(text):
         for match in LINK_RE.finditer(line):
             target = urllib.parse.unquote(re.split(r"[#?]", match.group(1) or match.group(2), maxsplit=1)[0])
-            # A scheme (https:, mailto:) or an authority (//host/path) is not a local file.
-            if target and not target.startswith("//") and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I):
+            # A scheme (https:, mailto:), an authority (//host/path), or a site-relative
+            # route (/privacy-policy) is not a repo file. The last is served by the app,
+            # not stored on disk; checking it against the filesystem gives false positives.
+            if (
+                target
+                and not target.startswith(("/", "//"))
+                and not re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I)
+            ):
                 found.append((number, target))
     return found
 
@@ -165,7 +171,9 @@ def walk(root: Path) -> Report:
                 report.broken_links.append(f"{name}:{number} — {target}")
 
         for number, target in find_imports(text):
-            if target.startswith("~"):
+            # ~/... is a user-level file outside the repo; /... would escape via pathlib's
+            # absolute-right-wins join and read from the filesystem root. Both are skipped.
+            if target.startswith(("~", "/")):
                 report.skipped_imports.append(f"{name}:{number} — @{target}")
                 continue
             child = path.parent / target
@@ -228,6 +236,7 @@ def names_path(line: str, path: str) -> bool:
 
 
 def find_drift(root: Path, report: Report, gone: set[str]) -> None:
+    sorted_gone = sorted(gone)
     for name, _ in report.loaded:
         lines = report.texts[name].splitlines()
         # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh),
@@ -236,7 +245,7 @@ def find_drift(root: Path, report: Report, gone: set[str]) -> None:
         needles = {old: {old, os.path.relpath(old, here)} for old in gone}
         for number, line in enumerate(lines, start=1):
             # The complete path only: deleting report.md must not flag weekly-report.md.
-            for old in sorted(gone):
+            for old in sorted_gone:
                 if any(names_path(line, needle) for needle in needles[old]):
                     report.drift.append(f"{name}:{number} — names `{old}`, deleted or renamed")
 
