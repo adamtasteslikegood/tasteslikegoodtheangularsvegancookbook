@@ -150,7 +150,7 @@ def walk(root: Path) -> Report:
             child = path.parent / target
             if not child.is_file():
                 report.missing_imports.append(f"{name}:{number} — @{target}")
-            elif depth < MAX_DEPTH:
+            elif depth < MAX_DEPTH or child.resolve() in seen:  # a cycle back is audited already
                 visit(child, depth + 1)
             else:
                 report.too_deep.append(f"{name}:{number} — @{target}")
@@ -161,17 +161,21 @@ def walk(root: Path) -> Report:
 
 def deleted_paths(root: Path, days: int) -> set[str]:
     """Paths deleted or renamed away in the window and absent at HEAD."""
+    # -z: NUL-separated and unquoted, so names git would quote (non-ASCII, tabs) arrive as written.
     out = subprocess.run(
-        ["git", "log", f"--since={days} days ago", "--name-status", "--no-merges", "--diff-filter=DR", "--format="],
+        ["git", "log", f"--since={days} days ago", "--name-status", "-z", "--no-merges", "--diff-filter=DR", "--format="],
         cwd=root, check=True, capture_output=True, text=True,
     ).stdout
+    tokens = iter(t.strip("\n") for t in out.split("\0"))
     gone = set()
-    for line in out.splitlines():
-        parts = line.split("\t")
-        if len(parts) >= 2 and parts[0][:1] in "DR":
-            old = parts[1]
-            if not (root / old).exists():
-                gone.add(old)
+    for status in tokens:
+        if status[:1] not in ("D", "R"):
+            continue
+        old = next(tokens, "")
+        if status[:1] == "R":
+            next(tokens, "")  # the new name
+        if old and not (root / old).exists():
+            gone.add(old)
     return gone
 
 
@@ -199,12 +203,10 @@ def names_path(line: str, path: str) -> bool:
 def find_drift(root: Path, report: Report, gone: set[str]) -> None:
     for name, _ in report.loaded:
         lines = (root / name).read_text(encoding="utf-8", errors="replace").splitlines()
-        # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh).
+        # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh),
+        # or with ../ when the path lies outside it.
         here = os.path.dirname(name) or "."
-        needles = {}
-        for old in gone:
-            relative = os.path.relpath(old, here)
-            needles[old] = {old} if relative.startswith("..") else {old, relative}
+        needles = {old: {old, os.path.relpath(old, here)} for old in gone}
         for number, line in enumerate(lines, start=1):
             # The complete path only: deleting report.md must not flag weekly-report.md.
             for old in sorted(gone):

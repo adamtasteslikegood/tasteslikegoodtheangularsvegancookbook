@@ -92,6 +92,16 @@ class Walk(unittest.TestCase):
         self.assertEqual(len(report.too_deep), 1)
         self.assertTrue(any("deeper than" in p for p in budget.failures(report, 10_000)))
 
+    def test_cycle_closing_at_max_depth_is_not_too_deep(self):
+        # CLAUDE.md -> c0 -> ... -> c4 -> c0: the edge back to c0 sits at MAX_DEPTH.
+        n = budget.MAX_DEPTH
+        for i in range(n):
+            write(self.root, f"c{i}.md", f"@c{(i + 1) % n}.md\n")
+        write(self.root, "CLAUDE.md", "@c0.md\n")
+        report = budget.walk(self.root)
+        self.assertEqual(len(report.loaded), n + 1)
+        self.assertEqual(report.too_deep, [])
+
     def test_user_level_import_is_skipped(self):
         write(self.root, "CLAUDE.md", "@~/.claude/personal.md\n")
         report = budget.walk(self.root)
@@ -129,6 +139,25 @@ class Walk(unittest.TestCase):
         report = budget.walk(self.root)
         budget.find_drift(self.root, report, {"docs/f_(v2).md", "Design Docs/api.md", "docs/api+auth.md"})
         self.assertEqual([d.split(" — ")[0] for d in report.drift], ["CLAUDE.md:1", "CLAUDE.md:2", "CLAUDE.md:3"])
+
+    def test_drift_matches_parent_relative_paths(self):
+        write(self.root, "CLAUDE.md", "@docs/guide.md\n")
+        write(self.root, "docs/guide.md", "Run `../scripts/old.sh` first.\n")
+        report = budget.walk(self.root)
+        budget.find_drift(self.root, report, {"scripts/old.sh"})
+        self.assertEqual(report.drift, ["docs/guide.md:1 — names `scripts/old.sh`, deleted or renamed"])
+
+    def test_deleted_paths_reads_names_git_would_quote(self):
+        git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        write(self.root, "docs/café notes.md", "x\n")
+        write(self.root, "docs/old.md", "x\n")
+        subprocess.run(git + ["add", "-A"], cwd=self.root, check=True)
+        subprocess.run(git + ["commit", "-qm", "add"], cwd=self.root, check=True)
+        subprocess.run(git + ["rm", "-q", "docs/café notes.md"], cwd=self.root, check=True)
+        subprocess.run(git + ["mv", "docs/old.md", "docs/new.md"], cwd=self.root, check=True)
+        subprocess.run(git + ["commit", "-qm", "rm"], cwd=self.root, check=True)
+        self.assertEqual(budget.deleted_paths(self.root, 7), {"docs/café notes.md", "docs/old.md"})
 
     def test_audit_crash_exits_2_not_findings(self):
         write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository
