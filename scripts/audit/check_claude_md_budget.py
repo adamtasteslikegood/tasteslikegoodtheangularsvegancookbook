@@ -69,6 +69,7 @@ TRAILING_PUNCT = "*_)]}>,.;:!?'\"`"
 @dataclass
 class Report:
     loaded: list[tuple[str, int]] = field(default_factory=list)  # (path, bytes), load order
+    texts: dict[str, str] = field(default_factory=dict)  # name -> decoded text, reused by find_drift
     too_deep: list[str] = field(default_factory=list)  # imports past MAX_DEPTH, not walked
     missing_imports: list[str] = field(default_factory=list)  # "file:line — @target"
     broken_links: list[str] = field(default_factory=list)  # "file:line — target"
@@ -138,6 +139,7 @@ def walk(root: Path) -> Report:
         name = rel(path, root)
         report.loaded.append((name, len(data)))
         text = data.decode("utf-8", errors="replace")
+        report.texts[name] = text
 
         for number, target in find_links(text):
             if not (path.parent / target).exists():
@@ -202,7 +204,7 @@ def names_path(line: str, path: str) -> bool:
 
 def find_drift(root: Path, report: Report, gone: set[str]) -> None:
     for name, _ in report.loaded:
-        lines = (root / name).read_text(encoding="utf-8", errors="replace").splitlines()
+        lines = report.texts[name].splitlines()
         # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh),
         # or with ../ when the path lies outside it.
         here = os.path.dirname(name) or "."
