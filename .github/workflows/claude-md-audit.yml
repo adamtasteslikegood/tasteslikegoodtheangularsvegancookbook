@@ -1,0 +1,83 @@
+# Weekly CLAUDE.md audit (KAN-417).
+#
+# The PR gate catches budget overruns and broken references at the moment they
+# are introduced. This catches what a PR cannot see: a file deleted or renamed
+# in some other PR while CLAUDE.md (or a file it imports) still names it.
+#
+# Deterministic, no model engine: the same stdlib script as the gate job, in
+# --drift mode. On findings it comments on the open KAN labelled
+# claude-md-drift, or files one if none is open, so findings land in one
+# ticket instead of a new one every week.
+name: CLAUDE.md weekly audit
+
+on:
+  schedule:
+    - cron: '17 13 * * 1' # Mondays 13:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: CLAUDE.md — drift, budget, references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # --drift reads the last week of history
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Audit CLAUDE.md
+        id: audit
+        run: |
+          set +e
+          python3 scripts/audit/check_claude_md_budget.py --drift 7 --markdown > report.md
+          status=$?
+          set -e
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          case $status in
+            0) echo "findings=false" >> "$GITHUB_OUTPUT" ;;
+            1) echo "findings=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "::error::audit script failed (exit $status)"; exit "$status" ;;
+          esac
+      - name: File or update the claude-md-drift KAN
+        if: steps.audit.outputs.findings == 'true'
+        env:
+          ATLASSIAN_EMAIL: ${{ secrets.ATLASSIAN_EMAIL }}
+          ATLASSIAN_API_TOKEN: ${{ secrets.ATLASSIAN_API_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import base64, json, os, urllib.parse, urllib.request
+
+          BASE = "https://tasteslikegood.atlassian.net/rest/api/3"
+          auth = base64.b64encode(f"{os.environ['ATLASSIAN_EMAIL']}:{os.environ['ATLASSIAN_API_TOKEN']}".encode()).decode()
+
+          def call(method, path, body=None):
+              req = urllib.request.Request(BASE + path, method=method, data=json.dumps(body).encode() if body else None,
+                                           headers={"Authorization": f"Basic {auth}", "Content-Type": "application/json", "Accept": "application/json"})
+              with urllib.request.urlopen(req) as resp:
+                  raw = resp.read()
+                  return json.loads(raw) if raw else {}
+
+          report = open("report.md", encoding="utf-8").read()
+          doc = {"type": "doc", "version": 1, "content": [
+              {"type": "paragraph", "content": [{"type": "text", "text": f"Weekly CLAUDE.md audit found problems: {os.environ['RUN_URL']}"}]},
+              {"type": "codeBlock", "attrs": {"language": "markdown"}, "content": [{"type": "text", "text": report}]},
+          ]}
+
+          jql = 'project = KAN AND labels = claude-md-drift AND statusCategory != Done ORDER BY created DESC'
+          found = call("GET", "/search/jql?" + urllib.parse.urlencode({"jql": jql, "maxResults": 1, "fields": "key"}))
+          issues = found.get("issues", [])
+          if issues:
+              key = issues[0]["key"]
+              call("POST", f"/issue/{key}/comment", {"body": doc})
+              print(f"Commented on {key}")
+          else:
+              created = call("POST", "/issue", {"fields": {
+                  "project": {"key": "KAN"}, "issuetype": {"name": "Task"}, "labels": ["claude-md-drift"],
+                  "summary": "CLAUDE.md audit: drift, budget or broken references", "description": doc}})
+              print(f"Filed {created['key']}")
+          PY
