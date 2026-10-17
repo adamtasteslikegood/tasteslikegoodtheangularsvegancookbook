@@ -1,0 +1,4 @@
+{
+  "reviewers": ["claude[bot]"],
+  "checks": ["Independent Claude review", "Gate — all checks passed"]
+}
