@@ -54,6 +54,7 @@ permissions:
   pull-requests: write # post review comments
   issues: write # fallback / summary comment
   id-token: write # OIDC → official Claude GitHub App token (post comments / push fixes)
+  actions: read # find the head the last completed review saw (push-delta scope)
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number || github.event.inputs.pr }}
@@ -84,6 +85,11 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0 # full history — /code-review --comment needs PR context
           submodules: recursive
+          # Leave no GITHUB_TOKEN in the git config (KAN-420). The action sets up its
+          # own Claude App token for the push, but checkout v7 keeps this token in an
+          # included credentials file that the action's header cleanup misses, so
+          # fix pushes went out as GITHUB_TOKEN and their runs waited for approval.
+          persist-credentials: false
 
       - name: Checkout dispatched PR
         if: github.event_name == 'workflow_dispatch'
@@ -93,7 +99,39 @@ jobs:
           # shell source — otherwise a crafted `pr` value is a command-injection
           # sink (this job has contents/pull-requests/id-token: write).
           PR_NUMBER: ${{ github.event.inputs.pr }}
+        # Works without persisted credentials: gh authenticates with GH_TOKEN.
         run: gh pr checkout "$PR_NUMBER"
+
+      - name: Scope the review (whole PR, or the push delta)
+        id: scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ github.event.action }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          # KAN-420: open, ready_for_review, label and dispatch runs review the
+          # whole PR. A push (`synchronize`) reviews only what changed since the
+          # last COMPLETED review, at low effort. That review's head, not the
+          # event's `before`: cancel-in-progress drops the run for an earlier
+          # push, and its commits would otherwise never be reviewed. A base that
+          # is missing or not an ancestor (a force-push) falls back to the whole PR.
+          MODE=full RANGE=""
+          if [ "$ACTION" = synchronize ]; then
+            LAST=$(gh run list --workflow claude-review.yml --branch "$HEAD_REF" \
+                     --status success --limit 1 --json headSha --jq '.[0].headSha // ""' \
+                   2>/dev/null || echo "")
+            BASE_SHA="${LAST:-$BEFORE}"
+            if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "$AFTER" ] \
+               && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null \
+               && git merge-base --is-ancestor "$BASE_SHA" "$AFTER"; then
+              MODE=delta RANGE="$BASE_SHA..$AFTER"
+            fi
+          fi
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+          echo "::notice::Review scope: $MODE $RANGE"
 
       - name: Pick a cost-optimized, independent review model
         id: pick
@@ -146,6 +184,15 @@ jobs:
             You are an INDEPENDENT code reviewer running in CI, on a different and
             cheaper model than the author's session. Review THIS pull request's diff
             against its base branch. Be rigorous but do not fabricate issues.
+
+            SCOPE: `${{ steps.scope.outputs.mode }}` ${{ steps.scope.outputs.range }}
+            - `full`: review the whole PR as described below.
+            - `delta`: a push triggered this run. Review ONLY the changes in
+              `git diff ${{ steps.scope.outputs.range }}` (the commits since the last
+              completed review), at effort `low` whatever step 2 would pick, and add
+              `/security-review` only if that range itself touches the paths step 2
+              lists. Read the rest of the PR for context only: do not comment on, fix
+              or re-raise anything outside that range.
 
             1. Inspect the changed files (diff vs the base branch).
             2. REASON about scope and risk, then CHOOSE:
