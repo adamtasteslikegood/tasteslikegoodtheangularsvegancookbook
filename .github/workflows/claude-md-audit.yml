@@ -71,10 +71,13 @@ jobs:
                   with urllib.request.urlopen(req, timeout=30) as resp:
                       raw = resp.read()
                       return json.loads(raw) if raw else {}
-              except urllib.error.HTTPError as err:
-                  # Say which call failed and why (401 rotated token, 429, 5xx), then fail the step.
-                  detail = err.read().decode("utf-8", "replace")[:200]
-                  print(f"::error::Jira {method} {path} failed: HTTP {err.code} {detail}")
+              except urllib.error.URLError as err:
+                  # Say which call failed and why (401 rotated token, 429, 5xx, DNS, TLS, timeout), then fail.
+                  if isinstance(err, urllib.error.HTTPError):
+                      detail = f"HTTP {err.code} {err.read().decode('utf-8', 'replace')[:200]}"
+                  else:
+                      detail = str(err.reason)
+                  print(f"::error::Jira {method} {path} failed: {detail}")
                   raise
 
           report = open("report.md", encoding="utf-8").read()

@@ -52,6 +52,23 @@ class FindImports(unittest.TestCase):
         text = "See @docs/foo_ here.\n__Read @docs/bar.md__, then go.\n"
         self.assertEqual(budget.find_imports(text), [(1, "docs/foo_"), (2, "docs/bar.md")])
 
+    def test_code_span_wrapping_inside_a_block_quote_still_hides(self):
+        text = "> Write `a wrapped\n> @docs/example.md\n> code span` here.\n> @docs/real.md\n"
+        self.assertEqual(budget.find_imports(text), [(4, "docs/real.md")])
+
+    def test_indented_code_block_is_not_prose(self):
+        text = "A para.\n\n    @docs/code-block.md\n\nNext @docs/real.md\n"
+        self.assertEqual(budget.find_imports(text), [(5, "docs/real.md")])
+
+    def test_closed_emphasis_does_not_strip_a_name_underscore(self):
+        self.assertEqual(budget.find_imports("See _important_ @docs/foo_\n"), [(1, "docs/foo_")])
+
+    def test_emphasis_closing_on_the_next_line_is_trimmed(self):
+        self.assertEqual(budget.find_imports("__Read the\n@docs/guide.md__ first.\n"), [(2, "docs/guide.md")])
+
+    def test_intraword_underscore_is_not_emphasis(self):
+        self.assertEqual(budget.find_imports("See docs/my_file.md and @docs/foo_\n"), [(1, "docs/foo_")])
+
     def test_email_is_not_an_import(self):
         self.assertEqual(budget.find_imports("mail me at someone@example.org\n"), [])
 
@@ -69,6 +86,10 @@ class FindLinks(unittest.TestCase):
     def test_authority_and_query_are_not_local_paths(self):
         text = "[a](//cdn.example.org/x.md) [b](docs/f.md?plain=1) [c](docs/g.md?x#y)\n"
         self.assertEqual(budget.find_links(text), [(1, "docs/f.md"), (1, "docs/g.md")])
+
+    def test_single_quoted_and_parenthesised_titles(self):
+        text = "[a](docs/a.md 'title') [b](docs/b.md (title)) [c](docs/c.md \"t\")\n"
+        self.assertEqual(budget.find_links(text), [(1, "docs/a.md"), (1, "docs/b.md"), (1, "docs/c.md")])
 
     def test_root_relative_link_is_kept_for_walk(self):
         text = "[privacy](/privacy-policy) [doc](docs/x.md)\n"
@@ -159,6 +180,14 @@ class Walk(unittest.TestCase):
         write(self.root, "scripts/r.md", "[ok](/docs/a.md) [gone](/docs/nope.md)\n")
         report = budget.walk(self.root)
         self.assertEqual(report.broken_links, ["scripts/r.md:1 — /docs/nope.md"])
+
+    def test_import_outside_the_repository_is_skipped(self):
+        repo = self.root / "repo"
+        write(self.root, "outside.md", "x" * 100 + "\n")
+        write(repo, "CLAUDE.md", "@../outside.md\n")
+        report = budget.walk(repo)
+        self.assertEqual([n for n, _ in report.loaded], ["CLAUDE.md"])
+        self.assertEqual(report.skipped_imports, ["CLAUDE.md:1 — @../outside.md"])
 
     def test_mention_is_skipped_not_a_missing_import(self):
         write(self.root, "Makefile", "x\n")

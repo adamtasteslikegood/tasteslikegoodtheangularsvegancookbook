@@ -63,11 +63,18 @@ CODE_SPAN_RE = re.compile(r"(`+).*?\1", re.S)
 # A backslash-escaped space is part of the path: @Design\ Docs/api.md.
 IMPORT_RE = re.compile(r"(?:^|(?<=\s))@((?:\\ |\S)+)")
 # Destination: <angle-bracketed>, or bare with one level of balanced parens.
-LINK_RE = re.compile(r"\[[^\]]*\]\((?:<([^>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+\"[^\"]*\")?\)")
+# Title: "double", 'single' or (parenthesised), as CommonMark allows.
+LINK_RE = re.compile(
+    r"\[[^\]]*\]\((?:<([^>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^()]*\)))?\)"
+)
 TRAILING_PUNCT = "*)]}>,.;:!?'\"`"  # _ is handled apart: it is also a path character
 # A line that is a block of its own, or starts one: a code span cannot cross it.
 HEADING_RE = re.compile(r"^ {0,3}#{1,6}(\s|$)")
-BLOCK_START_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])\s|^\s*>|^ {0,3}(?:[-*_]\s*){3,}$")
+BLOCK_START_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])\s|^ {0,3}(?:[-*_]\s*){3,}$")
+# Block-quote markers, nested or not; what follows them is parsed as its own text.
+QUOTE_RE = re.compile(r"^(?: {0,3}> ?)+")
+# Four spaces or a tab, outside a paragraph: an indented code block.
+INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
 
 
 @dataclass
@@ -86,49 +93,82 @@ class Report:
 
 
 def blank_code_spans(lines: list[tuple[int, str]]):
-    """Blank code spans across one paragraph's lines (a span may wrap), keeping line numbers."""
+    """Blank code spans across one paragraph's lines (a span may wrap), keeping line numbers.
+
+    Yields (line_number, line, earlier), where earlier is the paragraph's text before that line.
+    """
     joined = "\n".join(line for _, line in lines)
     joined = CODE_SPAN_RE.sub(lambda m: re.sub(r"[^\n]", " ", m.group(0)), joined)
-    return zip((number for number, _ in lines), joined.split("\n"))
+    blanked = joined.split("\n")
+    for i, (number, _) in enumerate(lines):
+        yield number, blanked[i], "\n".join(blanked[:i])
 
 
 def prose_lines(text: str):
-    """Yield (line_number, line) with fenced blocks dropped and code spans blanked.
+    """Yield (line_number, line, earlier) for prose: fenced and indented code dropped,
+    code spans blanked, and earlier holding the paragraph's preceding lines.
 
     A fence closes only on the same character, at least as long, with nothing
     after it (CommonMark), so a ```` block can show a ``` example. Code spans are
     matched within a paragraph, so one that wraps onto the next line still hides;
-    a heading, a list item, a quote or a rule starts a new block, so a stray
-    backtick there cannot pair with one in the next block.
+    a heading, a list item or a rule starts a new block, so a stray backtick there
+    cannot pair with one in the next block. Block-quote markers are stripped, so a
+    quoted paragraph is one paragraph; entering or leaving a quote starts a new one.
+    An indented code block (four spaces, not continuing a paragraph) is dropped.
     """
     opener = None
     paragraph: list[tuple[int, str]] = []
-    for number, line in enumerate(text.splitlines(), start=1):
+    was_quoted = False
+    for number, raw in enumerate(text.splitlines(), start=1):
+        quote = QUOTE_RE.match(raw)
+        line = raw[quote.end() :] if quote else raw
         fence = FENCE_RE.match(line)
-        if opener is None:
-            if fence or not line.strip() or HEADING_RE.match(line) or BLOCK_START_RE.match(line):
-                yield from blank_code_spans(paragraph)
-                paragraph = []
-            if fence:
-                opener = fence.group(1)
-            elif HEADING_RE.match(line):
-                yield from blank_code_spans([(number, line)])  # a heading is one line, alone
-            elif line.strip():
-                paragraph.append((number, line))
-        elif fence and fence.group(1)[0] == opener[0] and len(fence.group(1)) >= len(opener) and not fence.group(2).strip():
-            opener = None
+        if opener is not None:
+            if fence and fence.group(1)[0] == opener[0] and len(fence.group(1)) >= len(opener) and not fence.group(2).strip():
+                opener = None
+            continue
+        if bool(quote) != was_quoted:
+            yield from blank_code_spans(paragraph)
+            paragraph = []
+        was_quoted = bool(quote)
+        if not paragraph and line.strip() and INDENTED_CODE_RE.match(line):
+            continue  # indented code
+        if fence or not line.strip() or HEADING_RE.match(line) or BLOCK_START_RE.match(line):
+            yield from blank_code_spans(paragraph)
+            paragraph = []
+        if fence:
+            opener = fence.group(1)
+        elif HEADING_RE.match(line):
+            yield from blank_code_spans([(number, line)])  # a heading is one line, alone
+        elif line.strip():
+            paragraph.append((number, line))
     yield from blank_code_spans(paragraph)
+
+
+def open_emphasis(run: str, before: str) -> bool:
+    """Whether an underscore run of this length is left open in the text before it.
+
+    Only delimiter runs count: an underscore inside a word (my_file) is not emphasis.
+    Runs of exactly this length are paired off; an odd count leaves one open.
+    """
+    count = 0
+    for m in re.finditer(r"(?<!_)_+(?!_)", before):
+        prev = before[m.start() - 1 : m.start()]
+        nxt = before[m.end() : m.end() + 1]
+        if m.group() == run and not (prev.isalnum() and nxt.isalnum()):
+            count += 1
+    return count % 2 == 1
 
 
 def trim_import(raw: str, before: str) -> str:
     """Drop markdown punctuation after an import. A trailing _ run is dropped only
-    when it closes emphasis opened earlier on the line (__see @a.md__); otherwise
-    it is part of the name (@docs/foo_)."""
+    when it closes emphasis left open earlier in the paragraph (__see @a.md__);
+    otherwise it is part of the name (@docs/foo_, even after a closed _word_)."""
     target = raw
     while True:
         trimmed = target.rstrip(TRAILING_PUNCT)
         run = re.search(r"_+$", trimmed)
-        if run and re.search(r"(?:^|\s)" + re.escape(run.group()) + r"(?=\S)", before):
+        if run and open_emphasis(run.group(), before):
             trimmed = trimmed[: run.start()]
         if trimmed == target:
             return target
@@ -137,9 +177,10 @@ def trim_import(raw: str, before: str) -> str:
 
 def find_imports(text: str) -> list[tuple[int, str]]:
     found = []
-    for number, line in prose_lines(text):
+    for number, line, earlier in prose_lines(text):
         for match in IMPORT_RE.finditer(line):
-            target = trim_import(match.group(1), line[: match.start()]).replace("\\ ", " ")
+            before = f"{earlier}\n{line[: match.start()]}"
+            target = trim_import(match.group(1), before).replace("\\ ", " ")
             if target:
                 found.append((number, target))
     return found
@@ -147,7 +188,7 @@ def find_imports(text: str) -> list[tuple[int, str]]:
 
 def find_links(text: str) -> list[tuple[int, str]]:
     found = []
-    for number, line in prose_lines(text):
+    for number, line, _ in prose_lines(text):
         for match in LINK_RE.finditer(line):
             target = urllib.parse.unquote(re.split(r"[#?]", match.group(1) or match.group(2), maxsplit=1)[0])
             # A scheme (https:, mailto:) or an authority (//host/path) is not a repo file.
@@ -195,9 +236,15 @@ def walk(root: Path) -> Report:
                 report.skipped_imports.append(f"{name}:{number} — @{target}")
                 continue
             child = path.parent / target
+            if not child.resolve().is_relative_to(root.resolve()):
+                # @../outside.md leaves the repository: not this repo's budget to count.
+                report.skipped_imports.append(f"{name}:{number} — @{target}")
+                continue
             if not child.is_file():
                 # @copilot or @dependabot[bot] is a mention, not a path: no / and no dot.
-                # An extensionless import that exists (@Makefile) still loads above.
+                # An extensionless import that exists (@Makefile) still loads. One that is
+                # missing is skipped here; write @./Makefile to make it fail. A deleted
+                # file named that way is still flagged by the weekly drift scan.
                 if "/" not in target and "." not in target:
                     report.skipped_imports.append(f"{name}:{number} — @{target}")
                 else:
