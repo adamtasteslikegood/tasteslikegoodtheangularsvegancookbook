@@ -138,7 +138,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field (currently v0.6.0)
-- **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions
+- **Other agents:** See `AGENTS.md` for OpenCode / non-Claude agent instructions
 
 ## Commands
 
@@ -187,11 +187,11 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 - **Layer 1 — Angular 22 SPA** (`src/`): Standalone components with Signals API, flat route config in `src/app.routes.ts`. See `src/` directory structure for component tree.
 - **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation, response compression, cache headers for the built assets. No AI logic and no recipe logic of its own: proxy, static hosting, and the home page.
   - **Home page composition:** `/` is the Angular build's `index.html`, the one crawlable page Flask does not render, so Express composes it. Today it writes the newest-recipes row into it from Flask's `GET /api/public/newest-recipes` (`server/newest-recipes.ts`, KAN-348): fetched at startup, kept three minutes, served as built when Flask has no list. Flask decides order and visibility. A GET for `/` that names `text/markdown` in `Accept` gets `server/public/home.md` with the same newest-recipes links (`server/home-markdown.ts`, KAN-397); every answer for `/` carries `Vary: Accept`. Express is not limited to proxying and may do more for `/` when the work calls for it (Adam, 2026-10-12).
-- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: @Backend/CLAUDE.md
+- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: `Backend/CLAUDE.md`
 - **Public SSR surface**: Express proxies `/r/<slug>`, `/browse`, `/sitemap.xml`, `/static/*` to Flask for server-side rendering before the SPA catch-all.
 - **Persistence**: `PersistenceService` writes localStorage first (instant UI), then syncs to Flask. Cloud SQL is authoritative; SQLite for local dev.
 
-For full architecture details: @docs/DOCUMENTATION_INDEX.md
+For full architecture details: `docs/DOCUMENTATION_INDEX.md`
 
 ## Key environment variables
 
@@ -245,7 +245,7 @@ Detect branched heads: `cd Backend && uv run flask db heads` (must be one line).
 cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
 ```
 
-For full migration details: @Backend/DATABASE_SETUP.md
+For full migration details: `Backend/DATABASE_SETUP.md`
 
 ## Deployment & CI
 
@@ -269,7 +269,7 @@ gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100
 
 For the two states above, diagnose the listed platform, scheduling, or approval causes. For any other conclusion where no job started, read the run annotations and inspect the workflow configuration first; startup and configuration errors can fail before a job exists. When a job did run and fail, read that job's logs.
 
-For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/deployment/DEPLOYMENT_CHECKLIST.md
+For full CI/CD details: `docs/ci/refresh/SPEC-01-ci-quality-gates.md`, `docs/deployment/DEPLOYMENT_CHECKLIST.md`
 
 ## Testing
 
@@ -306,15 +306,17 @@ npm run pm:daemon:status     # check if daemon is alive
 
 ## Further reading
 
-- @Backend/CLAUDE.md — authoritative Backend reference
+An `@path` entry is loaded into every session, so only the release runbook, the API reference and the PM tooling doc are imported; read the others when the task needs them.
+
+- `Backend/CLAUDE.md` — authoritative Backend reference
 - @Backend/API.md — Flask API endpoint reference
-- @Backend/DATABASE_SETUP.md — migration steps
-- @docs/DOCUMENTATION_INDEX.md — full docs index
-- @docs/ci/refresh/ — CI pipeline specs and decisions
+- `Backend/DATABASE_SETUP.md` — migration steps
+- `docs/DOCUMENTATION_INDEX.md` — full docs index
+- `docs/ci/refresh/` — CI pipeline specs and decisions
 - @scripts/release/RUNBOOK.md — release train procedure
 - @docs/PM_TOOLING.md — PM daemon and Confluence sync
-- @docs/MCP_GCP_MONITORING.md — GCP monitoring MCP setup
-- @docs/architecture/rate_limit.md — rate limiting details
+- `docs/MCP_GCP_MONITORING.md` — GCP monitoring MCP setup
+- `docs/architecture/rate_limit.md` — rate limiting details
 
 ## gstack
 
