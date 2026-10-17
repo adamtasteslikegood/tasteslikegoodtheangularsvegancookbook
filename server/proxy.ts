@@ -21,6 +21,23 @@ import { getFlaskAuthHeader } from './flask-auth.js';
 const FLASK_BACKEND_URL = process.env.FLASK_BACKEND_URL || 'http://localhost:5000';
 
 /**
+ * KAN-408: the largest request body this proxy streams to Flask. Real bodies
+ * are recipe JSON of a few KB (the largest published recipe's structured data
+ * was 4.5 KB on 2026-10-17); the SPA sends no images in request bodies. Flask
+ * keeps a 2 MB MAX_CONTENT_LENGTH behind this as a backstop.
+ */
+export const MAX_PROXY_BODY_BYTES = 1024 * 1024;
+
+const TOO_LARGE = { error: 'The request body is too large' };
+
+/** Answer 413 and close the connection, so the unread rest of the body is dropped. */
+function refuseTooLarge(res: Response): void {
+  if (res.headersSent) return;
+  res.set('Connection', 'close');
+  res.status(413).json(TOO_LARGE);
+}
+
+/**
  * Returns Express middleware that proxies every matched request to the
  * Flask backend, preserving the original Host header so Flask's
  * url_for(_external=True) generates URLs that point back to Express.
@@ -58,16 +75,25 @@ export function createFlaskProxy(label = 'Flask') {
     // endpoint requests before this proxy runs; when present, replay those
     // bytes instead of piping the (already consumed) request stream.
     const rawBody = (req as RawBodyRequest).rawBody;
-    // Before the await below, req has no listeners yet in the streaming path
-    // (req.pipe() — which attaches one — now runs AFTER the await, not in the
-    // same tick as before). A no-op keeps req from ever being listener-less:
-    // an unlistened 'error' on an IncomingMessage is an uncaught exception
-    // under Node's default policy, and server/index.ts installs no
-    // uncaughtException handler, so a client disconnecting mid-mint would
-    // crash the whole process, not just this request. AI-endpoint requests
-    // are already ended/destroyed by validation.ts by this point, so this is
-    // a no-op for them and only matters for the streamed path below.
+    // Before the pre-check and the await below, req has no listeners yet in
+    // the streaming path (req.pipe() — which attaches one — now runs after
+    // the await, not in the same tick as before). A no-op keeps req from
+    // ever being listener-less: an unlistened 'error' on an IncomingMessage
+    // is an uncaught exception under Node's default policy, and
+    // server/index.ts installs no uncaughtException handler, so a client
+    // disconnecting mid-flush of the 413 below, or mid-mint of the auth
+    // token, would crash the whole process, not just this request.
+    // AI-endpoint requests are already ended/destroyed by validation.ts by
+    // this point, so this is a no-op for them and only matters for the
+    // streamed path below.
     req.on('error', () => {});
+    // KAN-408: refuse a declared oversize body before doing any work for it.
+    // A chunked body has no length here; the streaming path below counts it.
+    const declaredLength = Number(req.headers['content-length']);
+    if (rawBody === undefined && declaredLength > MAX_PROXY_BODY_BYTES) {
+      refuseTooLarge(res);
+      return;
+    }
     // KAN-170: proves Express's identity to Cloud Run's invoker IAM check.
     // Null while the token can't be minted (local dev, or a metadata failure) —
     // the request still goes through, because before the check is enabled Flask
@@ -130,7 +156,11 @@ export function createFlaskProxy(label = 'Flask') {
       proxyRes.pipe(res, { end: true });
     });
 
+    let tooLarge = false;
     proxyReq.on('error', (err) => {
+      // Destroying proxyReq for an oversize body (below) lands here; the 413
+      // has already been sent and there is nothing to log.
+      if (tooLarge) return;
       // err.message is also sanitized: CodeQL models the client-request error
       // callback parameter as a remote flow source (the error text can echo
       // attacker-influenced request data), so it must not reach the log raw.
@@ -156,6 +186,22 @@ export function createFlaskProxy(label = 'Flask') {
       // Stream the raw request body through to Flask.
       // This middleware is mounted BEFORE express.json() so the body
       // stream has not been consumed.
+      //
+      // KAN-408: count the bytes as they pass, which also covers a chunked
+      // body with no Content-Length. Registered before pipe() so it runs
+      // first for each chunk: the chunk that crosses the limit is never
+      // written to Flask, and Flask's request is abandoned.
+      let received = 0;
+      req.on('data', (chunk: Buffer) => {
+        if (tooLarge) return;
+        received += chunk.length;
+        if (received > MAX_PROXY_BODY_BYTES) {
+          tooLarge = true;
+          req.unpipe(proxyReq);
+          proxyReq.destroy();
+          refuseTooLarge(res);
+        }
+      });
       req.pipe(proxyReq, { end: true });
     }
   }
