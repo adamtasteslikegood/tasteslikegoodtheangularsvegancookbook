@@ -22,6 +22,7 @@ jobs:
   audit:
     name: CLAUDE.md — drift, budget, references
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
         with:
@@ -60,7 +61,7 @@ jobs:
           def call(method, path, body=None):
               req = urllib.request.Request(BASE + path, method=method, data=json.dumps(body).encode() if body else None,
                                            headers={"Authorization": f"Basic {auth}", "Content-Type": "application/json", "Accept": "application/json"})
-              with urllib.request.urlopen(req) as resp:
+              with urllib.request.urlopen(req, timeout=30) as resp:
                   raw = resp.read()
                   return json.loads(raw) if raw else {}
 

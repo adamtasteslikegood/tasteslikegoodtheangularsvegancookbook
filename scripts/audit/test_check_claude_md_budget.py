@@ -25,6 +25,17 @@ class FindImports(unittest.TestCase):
         text = "An `@path` entry, `@angular/*` too.\n```\n@inside/fence.md\n```\n"
         self.assertEqual(budget.find_imports(text), [])
 
+    def test_longer_fence_hides_a_shorter_inner_fence(self):
+        text = "````markdown\n```\n@docs/example.md\n```\n````\n@docs/real.md\n"
+        self.assertEqual(budget.find_imports(text), [(6, "docs/real.md")])
+
+    def test_fence_closes_only_on_its_own_character(self):
+        text = "~~~\n```\n@docs/example.md\n~~~\n@docs/real.md\n"
+        self.assertEqual(budget.find_imports(text), [(5, "docs/real.md")])
+
+    def test_escaped_space_is_part_of_the_path(self):
+        self.assertEqual(budget.find_imports("See @Design\\ Docs/api.md, then go.\n"), [(1, "Design Docs/api.md")])
+
     def test_email_is_not_an_import(self):
         self.assertEqual(budget.find_imports("mail me at someone@example.org\n"), [])
 
@@ -65,6 +76,22 @@ class Walk(unittest.TestCase):
         self.assertTrue(problems[0].startswith("loaded bytes"))
         self.assertEqual(len(problems), 3)
 
+    def test_escaped_space_import_resolves_and_missing_one_fails(self):
+        write(self.root, "Design Docs/api.md", "x\n")
+        write(self.root, "CLAUDE.md", "@Design\\ Docs/api.md @Design\\ Docs/gone.md\n")
+        report = budget.walk(self.root)
+        self.assertEqual([n for n, _ in report.loaded], ["CLAUDE.md", "Design Docs/api.md"])
+        self.assertEqual(report.missing_imports, ["CLAUDE.md:1 — @Design Docs/gone.md"])
+
+    def test_import_past_max_depth_is_reported(self):
+        for i in range(budget.MAX_DEPTH + 1):
+            write(self.root, f"d{i}.md", f"@d{i + 1}.md\n")
+        write(self.root, f"d{budget.MAX_DEPTH + 1}.md", "end\n")
+        write(self.root, "CLAUDE.md", "@d0.md\n")
+        report = budget.walk(self.root)
+        self.assertEqual(len(report.too_deep), 1)
+        self.assertTrue(any("deeper than" in p for p in budget.failures(report, 10_000)))
+
     def test_user_level_import_is_skipped(self):
         write(self.root, "CLAUDE.md", "@~/.claude/personal.md\n")
         report = budget.walk(self.root)
@@ -90,6 +117,12 @@ class Walk(unittest.TestCase):
         report = budget.walk(self.root)
         budget.find_drift(self.root, report, {"scripts/train-run.sh"})
         self.assertEqual(report.drift, ["scripts/RUNBOOK.md:1 — names `scripts/train-run.sh`, deleted or renamed"])
+
+    def test_drift_matches_whole_path_tokens_only(self):
+        write(self.root, "CLAUDE.md", "Read weekly-report.md and docs/report.md.bak.\nThen report.md.\n")
+        report = budget.walk(self.root)
+        budget.find_drift(self.root, report, {"report.md"})
+        self.assertEqual(report.drift, ["CLAUDE.md:2 — names `report.md`, deleted or renamed"])
 
     def test_audit_crash_exits_2_not_findings(self):
         write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository

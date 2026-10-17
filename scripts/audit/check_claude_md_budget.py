@@ -57,9 +57,11 @@ BUDGET_BYTES = 48 * 1024
 MAX_DEPTH = 5
 ROOT_FILE = "CLAUDE.md"
 
-FENCE_RE = re.compile(r"^\s*(```|~~~)")
+FENCE_RE = re.compile(r"^\s*(`{3,}|~{3,})(.*)$")
 CODE_SPAN_RE = re.compile(r"(`+).*?\1")
-IMPORT_RE = re.compile(r"(?:^|(?<=\s))@(\S+)")
+# A backslash-escaped space is part of the path: @Design\ Docs/api.md.
+IMPORT_RE = re.compile(r"(?:^|(?<=\s))@((?:\\ |\S)+)")
+PATH_TOKEN_RE = re.compile(r"[\w./-]+")
 # Destination: <angle-bracketed>, or bare with one level of balanced parens.
 LINK_RE = re.compile(r"\[[^\]]*\]\((?:<([^>\n]+)>|((?:[^()\s]|\([^()\s]*\))+))(?:\s+\"[^\"]*\")?\)")
 TRAILING_PUNCT = "*_)]}>,.;:!?'\"`"
@@ -68,6 +70,7 @@ TRAILING_PUNCT = "*_)]}>,.;:!?'\"`"
 @dataclass
 class Report:
     loaded: list[tuple[str, int]] = field(default_factory=list)  # (path, bytes), load order
+    too_deep: list[str] = field(default_factory=list)  # imports past MAX_DEPTH, not walked
     missing_imports: list[str] = field(default_factory=list)  # "file:line — @target"
     broken_links: list[str] = field(default_factory=list)  # "file:line — target"
     skipped_imports: list[str] = field(default_factory=list)  # user-level ~/ imports
@@ -79,21 +82,28 @@ class Report:
 
 
 def prose_lines(text: str):
-    """Yield (line_number, line) with fenced blocks dropped and code spans blanked."""
-    in_fence = False
+    """Yield (line_number, line) with fenced blocks dropped and code spans blanked.
+
+    A fence closes only on the same character, at least as long, with nothing
+    after it (CommonMark), so a ```` block can show a ``` example.
+    """
+    opener = None
     for number, line in enumerate(text.splitlines(), start=1):
-        if FENCE_RE.match(line):
-            in_fence = not in_fence
-            continue
-        if not in_fence:
+        fence = FENCE_RE.match(line)
+        if opener is None:
+            if fence:
+                opener = fence.group(1)
+                continue
             yield number, CODE_SPAN_RE.sub(" ", line)
+        elif fence and fence.group(1)[0] == opener[0] and len(fence.group(1)) >= len(opener) and not fence.group(2).strip():
+            opener = None
 
 
 def find_imports(text: str) -> list[tuple[int, str]]:
     found = []
     for number, line in prose_lines(text):
         for match in IMPORT_RE.finditer(line):
-            target = match.group(1).rstrip(TRAILING_PUNCT)
+            target = match.group(1).rstrip(TRAILING_PUNCT).replace("\\ ", " ")
             if target:
                 found.append((number, target))
     return found
@@ -143,6 +153,8 @@ def walk(root: Path) -> Report:
                 report.missing_imports.append(f"{name}:{number} — @{target}")
             elif depth < MAX_DEPTH:
                 visit(child, depth + 1)
+            else:
+                report.too_deep.append(f"{name}:{number} — @{target}")
 
     visit(root / ROOT_FILE, 0)
     return report
@@ -169,10 +181,15 @@ def find_drift(root: Path, report: Report, gone: set[str]) -> None:
         lines = (root / name).read_text(encoding="utf-8", errors="replace").splitlines()
         # A file may name a path relative to its own directory (RUNBOOK.md says ./train-run.sh).
         here = os.path.dirname(name) or "."
-        needles = {old: {old} | {r for r in [os.path.relpath(old, here)] if not r.startswith("..")} for old in gone}
+        needles = {}
+        for old in gone:
+            relative = os.path.relpath(old, here)
+            needles[old] = {old} if relative.startswith("..") else {old, relative}
         for number, line in enumerate(lines, start=1):
+            # Whole path tokens only: deleting report.md must not flag weekly-report.md.
+            tokens = {token.removeprefix("./").rstrip(".") for token in PATH_TOKEN_RE.findall(line)}
             for old in sorted(gone):
-                if any(needle in line for needle in needles[old]):
+                if needles[old] & tokens:
                     report.drift.append(f"{name}:{number} — names `{old}`, deleted or renamed")
 
 
@@ -181,6 +198,7 @@ def failures(report: Report, budget: int) -> list[str]:
     if report.total > budget:
         problems.append(f"loaded bytes {report.total:,} exceed the budget {budget:,}")
     problems += [f"missing @-import: {m}" for m in report.missing_imports]
+    problems += [f"import deeper than {MAX_DEPTH} hops, not audited: {t}" for t in report.too_deep]
     problems += [f"broken link: {b}" for b in report.broken_links]
     problems += [f"drift: {d}" for d in report.drift]
     return problems
@@ -192,6 +210,7 @@ def render(report: Report, budget: int, markdown: bool) -> str:
     out += [f"{bullet}{name}: {size:,} bytes" for name, size in report.loaded]
     for title, items in (
         ("Missing @-imports", report.missing_imports),
+        (f"Imports deeper than {MAX_DEPTH} hops", report.too_deep),
         ("Broken links", report.broken_links),
         ("Drift", report.drift),
         ("Skipped user-level imports", report.skipped_imports),
