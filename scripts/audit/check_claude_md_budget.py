@@ -271,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
         for problem in problems:
             print(f"- {problem}" if args.markdown else f"::error::{problem}")
         return 1
-    print("\n✅ within budget, every reference resolves." if not args.markdown else "\nNo findings.")
+    print("\nNo findings.")
     return 0
 
 
