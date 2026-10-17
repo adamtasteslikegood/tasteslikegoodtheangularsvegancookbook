@@ -47,6 +47,7 @@ import re
 import subprocess
 import sys
 import urllib.parse
+from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -127,13 +128,17 @@ def rel(path: Path, root: Path) -> str:
 
 
 def walk(root: Path) -> Report:
+    # Breadth-first, so each file is reached at its shallowest depth and the result
+    # does not depend on import order.
     report = Report()
     seen: set[Path] = set()
-
-    def visit(path: Path, depth: int) -> None:
+    too_deep: list[tuple[Path, str]] = []
+    queue = deque([(root / ROOT_FILE, 0)])
+    while queue:
+        path, depth = queue.popleft()
         resolved = path.resolve()
         if resolved in seen:
-            return
+            continue
         seen.add(resolved)
         data = path.read_bytes()
         name = rel(path, root)
@@ -152,12 +157,13 @@ def walk(root: Path) -> Report:
             child = path.parent / target
             if not child.is_file():
                 report.missing_imports.append(f"{name}:{number} — @{target}")
-            elif depth < MAX_DEPTH or child.resolve() in seen:  # a cycle back is audited already
-                visit(child, depth + 1)
+            elif depth < MAX_DEPTH:
+                queue.append((child, depth + 1))
             else:
-                report.too_deep.append(f"{name}:{number} — @{target}")
+                too_deep.append((child.resolve(), f"{name}:{number} — @{target}"))
 
-    visit(root / ROOT_FILE, 0)
+    # Past the limit on one path but audited through another (or a cycle back): not a gap.
+    report.too_deep = [entry for target, entry in too_deep if target not in seen]
     return report
 
 
@@ -166,16 +172,20 @@ def deleted_paths(root: Path, days: int) -> set[str]:
     # -z: NUL-separated and unquoted, so names git would quote (non-ASCII, tabs) arrive as written.
     out = subprocess.run(
         ["git", "log", f"--since={days} days ago", "--name-status", "-z", "--no-merges", "--diff-filter=DR", "--format="],
-        cwd=root, check=True, capture_output=True, text=True,
+        cwd=root, check=True, capture_output=True,
     ).stdout
-    tokens = iter(t.strip("\n") for t in out.split("\0"))
+    tokens = iter(t.strip(b"\n") for t in out.split(b"\0"))
     gone = set()
     for status in tokens:
-        if status[:1] not in ("D", "R"):
+        if status[:1] not in (b"D", b"R"):
             continue
-        old = next(tokens, "")
-        if status[:1] == "R":
-            next(tokens, "")  # the new name
+        raw = next(tokens, b"")
+        if status[:1] == b"R":
+            next(tokens, b"")  # the new name
+        try:
+            old = raw.decode("utf-8")
+        except UnicodeDecodeError:
+            continue  # a UTF-8 markdown file cannot name it
         if old and not (root / old).exists():
             gone.add(old)
     return gone

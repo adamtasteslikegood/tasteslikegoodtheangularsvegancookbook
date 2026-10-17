@@ -102,6 +102,18 @@ class Walk(unittest.TestCase):
         self.assertEqual(len(report.loaded), n + 1)
         self.assertEqual(report.too_deep, [])
 
+    def test_depth_is_the_shortest_path_whatever_the_import_order(self):
+        # deep.md is MAX_DEPTH + 1 hops down the first chain but one hop from CLAUDE.md.
+        chain = [f"d{i}.md" for i in range(budget.MAX_DEPTH)]
+        for here, nxt in zip(chain, chain[1:] + ["deep.md"]):
+            write(self.root, here, f"@{nxt}\n")
+        write(self.root, "deep.md", "@leaf.md\n")
+        write(self.root, "leaf.md", "end\n")
+        write(self.root, "CLAUDE.md", "@d0.md\n@deep.md\n")
+        report = budget.walk(self.root)
+        self.assertEqual(report.too_deep, [])
+        self.assertIn("leaf.md", [n for n, _ in report.loaded])
+
     def test_user_level_import_is_skipped(self):
         write(self.root, "CLAUDE.md", "@~/.claude/personal.md\n")
         report = budget.walk(self.root)
@@ -158,6 +170,19 @@ class Walk(unittest.TestCase):
         subprocess.run(git + ["mv", "docs/old.md", "docs/new.md"], cwd=self.root, check=True)
         subprocess.run(git + ["commit", "-qm", "rm"], cwd=self.root, check=True)
         self.assertEqual(budget.deleted_paths(self.root, 7), {"docs/café notes.md", "docs/old.md"})
+
+    def test_deleted_paths_skips_names_that_are_not_utf8(self):
+        git = ["git", "-c", "user.email=t@t", "-c", "user.name=t"]
+        subprocess.run(["git", "init", "-q"], cwd=self.root, check=True)
+        bad = bytes(self.root) + b"/bad\xff.md"
+        with open(bad, "wb") as fh:
+            fh.write(b"x\n")
+        write(self.root, "gone.md", "x\n")
+        subprocess.run(git + ["add", "-A"], cwd=self.root, check=True)
+        subprocess.run(git + ["commit", "-qm", "add"], cwd=self.root, check=True)
+        subprocess.run(git + ["rm", "-rq", "--", "."], cwd=self.root, check=True)
+        subprocess.run(git + ["commit", "-qm", "rm"], cwd=self.root, check=True)
+        self.assertEqual(budget.deleted_paths(self.root, 7), {"gone.md"})
 
     def test_audit_crash_exits_2_not_findings(self):
         write(self.root, "CLAUDE.md", "no git here\n")  # --drift needs a git repository
