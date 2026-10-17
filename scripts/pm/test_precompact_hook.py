@@ -184,6 +184,7 @@ class TestPrecompactHook(unittest.TestCase):
         argv = (self.repo / "claude-argv.txt").read_text(encoding="utf-8").split("\n")
         self.assertNotIn("[--allowedTools]", argv)
         for flag in ("[--tools]", "[--setting-sources]"):
+            self.assertIn(flag, argv)
             self.assertEqual(argv[argv.index(flag) + 1], "[]", flag)
         self.assertIn("[--strict-mcp-config]", argv)
         plugins = (self.repo / "claude-plugins.txt").read_text(encoding="utf-8")
