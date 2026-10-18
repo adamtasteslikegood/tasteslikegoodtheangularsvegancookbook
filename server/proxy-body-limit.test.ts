@@ -218,6 +218,44 @@ describe('Flask proxy body limit (KAN-408)', () => {
     expect(settled).toBeTruthy();
   });
 
+  it('closes the client connection when the limit is crossed after Flask finished answering', async () => {
+    const { port, limit } = await startProxy((req, res) => {
+      req.once('data', () => {
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('early');
+      });
+      req.on('error', () => {});
+    });
+    const closed = await new Promise<boolean>((resolve) => {
+      const deadline = setTimeout(() => resolve(false), 2000);
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/recipes',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => {
+            // The answer is complete; only now send the bytes past the limit.
+            req.write(Buffer.alloc(256 * 1024, 0x78));
+          });
+        }
+      );
+      req.on('socket', (socket) =>
+        socket.on('close', () => {
+          clearTimeout(deadline);
+          resolve(true);
+        })
+      );
+      req.on('error', () => {});
+      req.write(Buffer.alloc(limit - 124 * 1024, 0x78));
+    });
+    expect(closed).toBe(true);
+  });
+
   it('keeps serving the connection when Flask answered early and the body was under the limit', async () => {
     const { port } = await startProxy((req, res) => {
       if (req.url === '/api/early') {

@@ -160,7 +160,13 @@ export function createFlaskProxy(label = 'Flask') {
         proxyRes.resume();
         return;
       }
-      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+      // KAN-428: Flask answered before the body ended. Tell the client not to
+      // reuse this connection; its unread rest may yet be cut off below.
+      const answersEarly = rawBody === undefined && !req.complete;
+      res.writeHead(
+        proxyRes.statusCode || 502,
+        answersEarly ? { ...proxyRes.headers, connection: 'close' } : proxyRes.headers
+      );
       proxyRes.pipe(res, { end: true });
       // KAN-428: a route can answer without reading the body. Flask then stops
       // reading, pipe() stops reading from the client, and the rest of the body
@@ -221,8 +227,13 @@ export function createFlaskProxy(label = 'Flask') {
           // KAN-428: if Flask already answered, its headers are out and no
           // 413 can follow. Close the connection instead, so it is not kept
           // for another request with the rest of this body still unread.
-          if (res.headersSent) res.destroy();
-          else refuseTooLarge(res);
+          // Destroy the request's socket, not just res: once the answer has
+          // finished, Node detaches res from the socket and res.destroy()
+          // no longer closes it.
+          if (res.headersSent) {
+            res.destroy();
+            req.socket.destroy();
+          } else refuseTooLarge(res);
         }
       });
       req.pipe(proxyReq, { end: true });

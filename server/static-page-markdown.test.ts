@@ -12,19 +12,14 @@ import { fileURLToPath } from 'node:url';
 const read = (file: string): string =>
   readFileSync(fileURLToPath(new URL(`./public/${file}`, import.meta.url)), 'utf8');
 
-const decode = (text: string): string =>
-  text
-    .replace(/<[^>]+>/g, '')
-    .replace(/&mdash;/g, '—')
-    .replace(/&amp;/g, '&')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+const ENTITIES: Record<string, string> = { mdash: '—', amp: '&', nbsp: ' ' };
 
+/** A heading's text, entities decoded in one pass. Headings here hold no tags. */
 function htmlHeadings(html: string): string[] {
-  return [...html.matchAll(/<h([1-3])\b[^>]*>([\s\S]*?)<\/h\1>/g)].map(
-    ([, level, text]) => `${'#'.repeat(Number(level))} ${decode(text)}`
-  );
+  return [...html.matchAll(/<h([1-3])\b[^>]*>([^<]*)<\/h\1>/g)].map(([, level, text]) => {
+    const plain = text.replace(/&(mdash|amp|nbsp);/g, (_, name: string) => ENTITIES[name]);
+    return `${'#'.repeat(Number(level))} ${plain.replace(/\s+/g, ' ').trim()}`;
+  });
 }
 
 function markdownHeadings(markdown: string): string[] {
@@ -39,11 +34,15 @@ describe.each(['about', 'privacy-policy'])('%s Markdown', (name) => {
   const markdown = read(`${name}.md`);
 
   it('has the same headings, in the same order, as the HTML page', () => {
+    // Every heading is read: one holding a tag would not match and is caught here.
+    expect(htmlHeadings(html)).toHaveLength(html.match(/<h[1-3]\b/g)?.length ?? 0);
     expect(markdownHeadings(markdown)).toEqual(htmlHeadings(html));
   });
 
-  it('is plain Markdown, with no HTML of its own', () => {
-    expect(markdown.replace(/<[\w.+-]+@[\w.-]+>/g, '')).not.toMatch(/<\/?[a-z][^>]*>/i);
+  it('is plain Markdown: its only angle brackets are email autolinks', () => {
+    for (const [token] of markdown.matchAll(/<[^>\n]*>/g)) {
+      expect(token).toMatch(/^<[\w.+-]+@[\w.-]+>$/);
+    }
   });
 });
 

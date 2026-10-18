@@ -24,10 +24,11 @@ Backend pointer pinned at `213f301e1a8d` (Backend `main`, unchanged from 0.7.0).
 ### Fixed
 
 - A request whose body Flask did not read no longer leaves the connection stuck (KAN-428). When
-  Flask answers before the body ends, Express stops forwarding and reads the rest itself, counting
-  it against the 1 MB limit; past the limit it closes the connection, since the answer already
-  sent cannot become a 413. Before, the unread rest stayed on a connection the client then reused,
-  and its next request got no answer.
+  Flask answers before the body ends, Express sends that answer with `Connection: close`, so the
+  client does not reuse the connection, stops forwarding, and counts the rest against the 1 MB
+  limit; past the limit it closes the connection, even after the answer has finished, since the
+  answer already sent cannot become a 413. Before, the unread rest stayed on a connection the
+  client then reused, and its next request got no answer.
 
 ## [0.7.0] - 2026-10-18
 
