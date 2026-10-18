@@ -152,33 +152,38 @@ export function createFlaskProxy(label = 'Flask') {
     };
 
     let tooLarge = false;
-    // Set once Flask's answer is complete while the client is still sending.
+    // Set once Flask's answer arrives while the client is still sending.
     let answeredEarly = false;
+    const relay = (proxyRes: http.IncomingMessage): void => {
+      res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
+      proxyRes.pipe(res, { end: true });
+      // The request to Flask was never finished; release it once the answer is through.
+      if (answeredEarly) proxyRes.on('end', () => proxyReq.destroy());
+    };
     const proxyReq = transport.request(options, (proxyRes) => {
       // The 413 (or a closed connection) has already answered this request.
       if (tooLarge || res.headersSent || res.destroyed) {
         proxyRes.resume();
         return;
       }
-      // KAN-428: Flask answered before the body ended. Tell the client not to
-      // reuse this connection; its unread rest may yet be cut off below.
-      const answersEarly = rawBody === undefined && !req.complete;
-      res.writeHead(
-        proxyRes.statusCode || 502,
-        answersEarly ? { ...proxyRes.headers, connection: 'close' } : proxyRes.headers
-      );
-      proxyRes.pipe(res, { end: true });
-      // KAN-428: a route can answer without reading the body. Flask then stops
-      // reading, pipe() stops reading from the client, and the rest of the body
-      // sits unread on a connection the client reuses for its next request.
-      // Stop forwarding and drain it instead; the byte counter below still runs
-      // and closes the connection if the body goes past the limit.
-      proxyRes.on('end', () => {
-        if (rawBody !== undefined || req.complete) return;
-        answeredEarly = true;
-        req.unpipe(proxyReq);
-        proxyReq.destroy();
-        req.resume();
+      if (rawBody !== undefined || req.complete) {
+        relay(proxyRes);
+        return;
+      }
+      // KAN-428: Flask answered before the body ended, which a route that
+      // ignores its body does. Hold that answer until the body ends: within
+      // the limit it is relayed unchanged; past it, the byte counter below
+      // drops it and the client gets the 413. Flask no longer reads, so stop
+      // forwarding to it and drain the rest of the body here instead.
+      answeredEarly = true;
+      req.unpipe(proxyReq);
+      req.resume();
+      req.once('end', () => {
+        if (!tooLarge && !res.destroyed) relay(proxyRes);
+      });
+      // The client gave up while the answer was held.
+      res.once('close', () => {
+        if (!res.headersSent) proxyReq.destroy();
       });
     });
 
@@ -223,17 +228,10 @@ export function createFlaskProxy(label = 'Flask') {
         if (received > MAX_PROXY_BODY_BYTES) {
           tooLarge = true;
           req.unpipe(proxyReq);
+          // Also drops an answer Flask gave early (KAN-428): nothing has been
+          // sent to the client yet, so the 413 can still go out.
           proxyReq.destroy();
-          // KAN-428: if Flask already answered, its headers are out and no
-          // 413 can follow. Close the connection instead, so it is not kept
-          // for another request with the rest of this body still unread.
-          // Destroy the request's socket, not just res: once the answer has
-          // finished, Node detaches res from the socket and res.destroy()
-          // no longer closes it.
-          if (res.headersSent) {
-            res.destroy();
-            req.socket.destroy();
-          } else refuseTooLarge(res);
+          refuseTooLarge(res);
         }
       });
       req.pipe(proxyReq, { end: true });
