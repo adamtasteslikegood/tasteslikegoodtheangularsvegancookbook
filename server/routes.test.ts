@@ -260,6 +260,38 @@ describe('standalone static pages', () => {
     expect(body).toContain('<title>About Tasteslikegood.org');
     expect(body).not.toContain('spa-shell');
   });
+
+  // KAN-431: a hand-written Markdown form, chosen the same way as "/" (KAN-397).
+  it.each([
+    ['/about', '# About Tasteslikegood.org'],
+    ['/privacy-policy', '# Privacy Policy'],
+  ])('answers %s with Markdown when Accept names text/markdown', async (route, heading) => {
+    const res = await fetch(`${baseUrl}${route}`, { headers: { accept: 'text/markdown' } });
+    const body = await res.text();
+
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe('text/markdown; charset=utf-8');
+    expect(res.headers.get('vary')).toMatch(/\bAccept\b/);
+    expect(body.startsWith(`${heading}\n`)).toBe(true);
+    expect(body).not.toContain('<html');
+  });
+
+  it.each(['/about', '/privacy-policy'])(
+    'still answers %s with HTML for a browser or a wildcard, and says it varies',
+    async (route) => {
+      for (const accept of [
+        'text/html,application/xhtml+xml,*/*;q=0.8',
+        '*/*',
+        'text/markdown;q=0',
+      ]) {
+        const res = await fetch(`${baseUrl}${route}`, { headers: { accept } });
+        expect(res.status).toBe(200);
+        expect(res.headers.get('content-type')).toContain('text/html');
+        expect(res.headers.get('vary')).toMatch(/\bAccept\b/);
+        expect(await res.text()).toMatch(/^<!doctype html>/i);
+      }
+    }
+  );
 });
 
 /**

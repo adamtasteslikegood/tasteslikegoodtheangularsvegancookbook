@@ -8,6 +8,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-18
+
+Backend pointer pinned at `213f301e1a8d` (Backend `main`, unchanged from 0.7.0).
+
+### Added
+
+- `/about` and `/privacy-policy` answer a request that names `text/markdown` in `Accept` with
+  hand-written Markdown, the same way `/` does (KAN-431). Browsers, and requests that send only a
+  wildcard, still get the HTML page; both answers carry `Vary: Accept`. A test keeps each
+  Markdown file's headings, and the privacy policy's "Last updated" date, the same as its HTML
+  page. `llms.txt` lists the two pages.
+- The site's Facebook (`facebook.com/tasteslikegood.org`), Instagram (`instagram.com/tasteslikegooddotorg`) and Pinterest (`pinterest.com/tasteslikegood`) pages are named as the Organization's `sameAs` in the structured data of `/` and `/about`, and linked from the About page.
+
+### Fixed
+
+- A request whose body Flask did not read no longer leaves the connection stuck (KAN-428). When
+  Flask answers before the body ends, Express sends that answer with `Connection: close`, so the
+  client does not reuse the connection, stops forwarding, and counts the rest against the 1 MB
+  limit; past the limit it closes the connection, even after the answer has finished, since the
+  answer already sent cannot become a 413. Before, the unread rest stayed on a connection the
+  client then reused, and its next request got no answer.
+
 ## [0.7.0] - 2026-10-18
 
 Backend pointer pinned at `213f301e1a8d` (Backend `main`, promotion #427).
