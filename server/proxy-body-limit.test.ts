@@ -23,17 +23,22 @@ function listen(server: http.Server): Promise<number> {
   });
 }
 
-async function startProxy(): Promise<{ port: number; limit: number }> {
-  const flask = http.createServer((req, res) => {
-    let n = 0;
-    req.on('data', (c: Buffer) => (n += c.length));
-    req.on('end', () => {
-      flaskBytes.push(n);
-      res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ bytes: n }));
-    });
-    req.on('error', () => {});
+/** The stand-in Flask: reads the whole body, then answers with the byte count. */
+const readAllThenAnswer: http.RequestListener = (req, res) => {
+  let n = 0;
+  req.on('data', (c: Buffer) => (n += c.length));
+  req.on('end', () => {
+    flaskBytes.push(n);
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ bytes: n }));
   });
+  req.on('error', () => {});
+};
+
+async function startProxy(
+  flaskHandler: http.RequestListener = readAllThenAnswer
+): Promise<{ port: number; limit: number }> {
+  const flask = http.createServer(flaskHandler);
   const flaskPort = await listen(flask);
   process.env.FLASK_BACKEND_URL = `http://127.0.0.1:${flaskPort}`;
   vi.resetModules();
@@ -48,7 +53,9 @@ async function startProxy(): Promise<{ port: number; limit: number }> {
 function post(
   port: number,
   body: Buffer,
-  chunked: boolean
+  chunked: boolean,
+  agent?: http.Agent,
+  path = '/api/recipes'
 ): Promise<{ status: number; json: unknown }> {
   return new Promise((resolve, reject) => {
     let responded = false;
@@ -56,7 +63,7 @@ function post(
     if (chunked) headers['transfer-encoding'] = 'chunked';
     else headers['content-length'] = String(body.length);
     const req = http.request(
-      { host: '127.0.0.1', port, path: '/api/recipes', method: 'POST', headers },
+      { host: '127.0.0.1', port, path, method: 'POST', headers, agent },
       (res) => {
         responded = true;
         const parts: Buffer[] = [];
@@ -132,6 +139,150 @@ describe('Flask proxy body limit (KAN-408)', () => {
     const res = await post(port, Buffer.alloc(limit, 0x78), false);
     expect(res.status).toBe(200);
     expect(res.json).toEqual({ bytes: limit });
+  });
+
+  // KAN-428: a Flask route can answer before reading the body. Its headers are
+  // then already on their way, so no 413 can follow; when the counter crosses
+  // the limit, the client's connection must be closed, not kept for reuse with
+  // the rest of an oversize body still unread on it.
+  it('closes the connection when Flask answered before the limit was crossed', async () => {
+    const { port, limit } = await startProxy((req, res) => {
+      if (req.url === '/api/early') {
+        req.once('data', () => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end('{"early":true}');
+        });
+        req.on('error', () => {});
+        res.on('error', () => {});
+        return;
+      }
+      readAllThenAnswer(req, res);
+    });
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    try {
+      const early = await post(port, Buffer.alloc(limit * 2, 0x78), true, agent, '/api/early');
+      expect(early.status).toBe(200);
+      // The next request through the same agent must still be answered.
+      const next = await Promise.race([
+        post(port, Buffer.from('{}'), false, agent),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('next request got no answer')), 3000)
+        ),
+      ]);
+      expect(next.status).toBe(200);
+    } finally {
+      agent.destroy();
+    }
+  });
+
+  // Review of #3713: Flask commits a status and starts its body, then the client
+  // sends the tail that crosses the limit. The client must see the exchange end
+  // promptly instead of waiting on a response that will never finish.
+  it('ends the response when the limit is crossed after Flask started answering', async () => {
+    const { port, limit } = await startProxy((req, res) => {
+      req.once('data', () => {
+        res.writeHead(413, { 'content-type': 'application/json', 'content-length': '100' });
+        res.write('{');
+      });
+      req.on('error', () => {});
+      res.on('error', () => {});
+    });
+    const settled = await new Promise<string>((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error('response never ended')), 2000);
+      const done = (how: string) => {
+        clearTimeout(deadline);
+        resolve(how);
+      };
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/recipes',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        },
+        (res) => {
+          res.on('data', () => {
+            // Flask's first byte is here: now send the tail past the limit.
+            req.end(Buffer.alloc(256 * 1024, 0x78));
+          });
+          res.on('end', () => done('end'));
+          res.on('aborted', () => done('aborted'));
+          res.on('error', () => done('error'));
+          res.on('close', () => done('close'));
+        }
+      );
+      req.on('error', () => done('request error'));
+      req.write(Buffer.alloc(limit - 100 * 1024, 0x78));
+    });
+    expect(settled).toBeTruthy();
+  });
+
+  it('closes the client connection when the limit is crossed after Flask finished answering', async () => {
+    const { port, limit } = await startProxy((req, res) => {
+      req.once('data', () => {
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.end('early');
+      });
+      req.on('error', () => {});
+    });
+    const closed = await new Promise<boolean>((resolve) => {
+      const deadline = setTimeout(() => resolve(false), 2000);
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/recipes',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        },
+        (res) => {
+          res.resume();
+          res.on('end', () => {
+            // The answer is complete; only now send the bytes past the limit.
+            req.write(Buffer.alloc(256 * 1024, 0x78));
+          });
+        }
+      );
+      req.on('socket', (socket) =>
+        socket.on('close', () => {
+          clearTimeout(deadline);
+          resolve(true);
+        })
+      );
+      req.on('error', () => {});
+      req.write(Buffer.alloc(limit - 124 * 1024, 0x78));
+    });
+    expect(closed).toBe(true);
+  });
+
+  it('keeps serving the connection when Flask answered early and the body was under the limit', async () => {
+    const { port } = await startProxy((req, res) => {
+      if (req.url === '/api/early') {
+        req.once('data', () => {
+          res.writeHead(200, { 'content-type': 'application/json' });
+          res.end('{"early":true}');
+        });
+        req.on('error', () => {});
+        res.on('error', () => {});
+        return;
+      }
+      readAllThenAnswer(req, res);
+    });
+    const agent = new http.Agent({ keepAlive: true, maxSockets: 1 });
+    try {
+      const early = await post(port, Buffer.alloc(600 * 1024, 0x78), true, agent, '/api/early');
+      expect(early.status).toBe(200);
+      const next = await Promise.race([
+        post(port, Buffer.from('{}'), false, agent),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('next request got no answer')), 3000)
+        ),
+      ]);
+      expect(next.json).toEqual({ bytes: 2 });
+    } finally {
+      agent.destroy();
+    }
   });
 
   it('forwards a chunked body under the limit unchanged', async () => {

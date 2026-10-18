@@ -60,6 +60,19 @@ describe('/about page', () => {
     for (const url of ld.mainEntity.sameAs) expect(url).toMatch(/^https:\/\//);
   });
 
+  it("names the site's own social profiles on the publisher, and links them on the page", () => {
+    const block = page.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)?.[1];
+    const ld = JSON.parse(block ?? '{}') as { publisher: { '@type': string; sameAs: string[] } };
+    const profiles = [
+      'https://www.facebook.com/tasteslikegood.org',
+      'https://www.instagram.com/tasteslikegooddotorg/',
+      'https://www.pinterest.com/tasteslikegood/',
+    ];
+    expect(ld.publisher['@type']).toBe('Organization');
+    expect(ld.publisher.sameAs).toEqual(profiles);
+    for (const url of profiles) expect(page).toContain(`<a rel="me" href="${url}">`);
+  });
+
   it('pairs its large-image card with a 1200x630 og:image', () => {
     expect(page).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(page).toContain(

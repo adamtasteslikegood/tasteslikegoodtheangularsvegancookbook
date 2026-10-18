@@ -359,17 +359,39 @@ export const ready = (async () => {
     })
   );
 
-  // Privacy policy — served as a standalone static HTML page.
-  // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
-  app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
-    res.sendFile('privacy-policy.html', { root: publicPath });
-  });
+  // A standalone static page, with a hand-written Markdown form (KAN-431) for a
+  // client that names text/markdown, the same way "/" answers (KAN-397). The
+  // Markdown is read once, now; if that fails the page is HTML only until the
+  // next start. Must be mounted BEFORE the SPA catch-all so it isn't swallowed
+  // by index.html.
+  const staticPage = (route: string, name: string): void => {
+    const markdown: Promise<string | null> = readFile(
+      path.join(publicPath, `${name}.md`),
+      'utf8'
+    ).catch((err) => {
+      console.warn(`[static-page] no Markdown for ${route}; it is HTML only:`, err);
+      return null;
+    });
+    // Checked before the limiter, so a request is counted once whichever form it gets.
+    const markdownOnly: express.RequestHandler = async (req, res, next) => {
+      res.vary('Accept');
+      if (!acceptsMarkdown(req.get('Accept'))) return next('route');
+      next((await markdown) === null ? 'route' : undefined);
+    };
+    app.get(route, markdownOnly, staticPageLimiter, async (_req, res) => {
+      res.setHeader('Cache-Control', 'public, max-age=0');
+      res.type(MARKDOWN_CONTENT_TYPE).send(await markdown);
+    });
+    app.get(route, staticPageLimiter, (_req, res) => {
+      res.sendFile(`${name}.html`, { root: publicPath });
+    });
+  };
 
+  // Privacy policy, served up front by Express on purpose.
+  staticPage('/privacy-policy', 'privacy-policy');
   // About page (KAN-272, SEO audit C5): who makes the site and why, with the
   // author's Person schema. Static, like the privacy policy.
-  app.get('/about', staticPageLimiter, (_req, res) => {
-    res.sendFile('about.html', { root: publicPath });
-  });
+  staticPage('/about', 'about');
 
   // /favicon.ico — browsers and crawlers request this path unconditionally,
   // but the SPA only ships favicon.svg, so the request fell through to the
