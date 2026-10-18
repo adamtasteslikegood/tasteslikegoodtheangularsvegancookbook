@@ -18,7 +18,7 @@ Every recipe is generated to be vegan: no meat, fish, dairy or eggs. They are AI
 
 ## Who makes it
 
-Tasteslikegood.org is built and run by Adam Schoen. The source code is public on [GitHub](https://github.com/adamtasteslikegood), where you can also report a bug or suggest a feature.
+Tasteslikegood.org is built and run by Adam Schoen. The source code is public on [GitHub](https://github.com/adamtasteslikegood), where you can also report a bug or suggest a feature. The site posts on [Facebook](https://www.facebook.com/tasteslikegood.org) and [Instagram](https://www.instagram.com/tasteslikegooddotorg/).
 
 ## Contact
 
