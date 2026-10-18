@@ -19,9 +19,7 @@ Backend pointer pinned at `213f301e1a8d` (Backend `main`, unchanged from 0.7.0).
   wildcard, still get the HTML page; both answers carry `Vary: Accept`. A test keeps each
   Markdown file's headings, and the privacy policy's "Last updated" date, the same as its HTML
   page. `llms.txt` lists the two pages.
-- The site's Facebook (`facebook.com/tasteslikegood.org`) and Instagram
-  (`instagram.com/tasteslikegooddotorg`) pages are named as the Organization's `sameAs` in the
-  structured data of `/` and `/about`, and linked from the About page.
+- The site's Facebook (`facebook.com/tasteslikegood.org`), Instagram (`instagram.com/tasteslikegooddotorg`) and Pinterest (`pinterest.com/tasteslikegood`) pages are named as the Organization's `sameAs` in the structured data of `/` and `/about`, and linked from the About page.
 
 ### Fixed
 

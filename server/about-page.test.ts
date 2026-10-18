@@ -66,6 +66,7 @@ describe('/about page', () => {
     const profiles = [
       'https://www.facebook.com/tasteslikegood.org',
       'https://www.instagram.com/tasteslikegooddotorg/',
+      'https://www.pinterest.com/tasteslikegood/',
     ];
     expect(ld.publisher['@type']).toBe('Organization');
     expect(ld.publisher.sameAs).toEqual(profiles);
