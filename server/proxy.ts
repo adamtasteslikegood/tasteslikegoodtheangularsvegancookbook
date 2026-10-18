@@ -196,9 +196,11 @@ export function createFlaskProxy(label = 'Flask') {
       req.once('end', () => {
         if (!answerFailed && !tooLarge && !res.destroyed) relay(proxyRes);
       });
-      // The client gave up while the answer was held.
+      // The client gave up, while the answer was held or partway through
+      // relaying it: release the request to Flask rather than wait for Flask
+      // to finish an answer nobody reads.
       res.once('close', () => {
-        if (!res.headersSent) proxyReq.destroy();
+        if (!res.writableEnded) proxyReq.destroy();
       });
     });
 

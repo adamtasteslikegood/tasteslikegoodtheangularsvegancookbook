@@ -268,6 +268,43 @@ describe('Flask proxy body limit (KAN-408)', () => {
     expect(result.connection).toBe('close');
   });
 
+  it('releases the request to Flask when the client leaves partway through a relayed early answer', async () => {
+    let flaskClosed!: () => void;
+    const closed = new Promise<void>((resolve) => (flaskClosed = resolve));
+    const { port } = await startProxy((req, res) => {
+      req.once('data', () => {
+        // Answer early, then keep the answer open: Flask is slow to finish it.
+        res.writeHead(200, { 'content-type': 'text/plain' });
+        res.write('partial');
+      });
+      req.socket.on('close', () => flaskClosed());
+      req.on('error', () => {});
+      res.on('error', () => {});
+    });
+    const req = http.request(
+      {
+        host: '127.0.0.1',
+        port,
+        path: '/api/recipes',
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+      },
+      (res) => {
+        // The held answer is being relayed now; leave before it finishes.
+        res.once('data', () => req.destroy());
+      }
+    );
+    req.on('error', () => {});
+    req.write(Buffer.alloc(64 * 1024, 0x78));
+    setTimeout(() => req.end(), 50);
+    await Promise.race([
+      closed,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('the request to Flask stayed open')), 2000)
+      ),
+    ]);
+  });
+
   it('releases the request to Flask when the client leaves while an early answer is held', async () => {
     let flaskClosed!: () => void;
     const closed = new Promise<void>((resolve) => (flaskClosed = resolve));
