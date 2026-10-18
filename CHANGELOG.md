@@ -8,6 +8,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-18
+
+Backend pointer pinned at `213f301e1a8d` (Backend `main`, unchanged from 0.7.0).
+
 ### Fixed
 
 - A request whose body Flask did not read no longer leaves the connection stuck (KAN-428). When
