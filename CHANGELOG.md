@@ -33,9 +33,11 @@ Backend pointer pinned at `213f301e1a8d` (Backend `main`, promotion #427).
 
 ### Changed
 
-- Request bodies are capped (KAN-408). Express refuses a body over 1 MB with a JSON 413 before it
-  reaches Flask, whether the length is declared or the body is streamed; Flask refuses one over 2
-  MB as a backstop.
+- Request bodies are capped (KAN-408). Express refuses a body whose declared length is over 1 MB
+  with a JSON 413 before sending anything to Flask. A streamed body is counted as it is forwarded,
+  and the request to Flask is cut off when it passes 1 MB, so Flask never receives more than that;
+  the client gets the 413 unless Flask has already answered (KAN-428 tracks that case). Flask
+  refuses a body over 2 MB as a backstop.
 - The recipe metadata engine records a model answer that failed its checks, so the same content
   is not sent to the model again (KAN-393).
 - Backend Python dependencies: google-genai 2.30.1, google-auth 2.62.0, google-cloud-storage
