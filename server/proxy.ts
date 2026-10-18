@@ -151,16 +151,35 @@ export function createFlaskProxy(label = 'Flask') {
       ...(target.protocol === 'https:' ? { servername: target.hostname } : {}),
     };
 
+    let tooLarge = false;
+    // Set once Flask's answer is complete while the client is still sending.
+    let answeredEarly = false;
     const proxyReq = transport.request(options, (proxyRes) => {
+      // The 413 (or a closed connection) has already answered this request.
+      if (tooLarge || res.headersSent || res.destroyed) {
+        proxyRes.resume();
+        return;
+      }
       res.writeHead(proxyRes.statusCode || 502, proxyRes.headers);
       proxyRes.pipe(res, { end: true });
+      // KAN-428: a route can answer without reading the body. Flask then stops
+      // reading, pipe() stops reading from the client, and the rest of the body
+      // sits unread on a connection the client reuses for its next request.
+      // Stop forwarding and drain it instead; the byte counter below still runs
+      // and closes the connection if the body goes past the limit.
+      proxyRes.on('end', () => {
+        if (rawBody !== undefined || req.complete) return;
+        answeredEarly = true;
+        req.unpipe(proxyReq);
+        proxyReq.destroy();
+        req.resume();
+      });
     });
 
-    let tooLarge = false;
     proxyReq.on('error', (err) => {
-      // Destroying proxyReq for an oversize body (below) lands here; the 413
-      // has already been sent and there is nothing to log.
-      if (tooLarge) return;
+      // Destroying proxyReq for an oversize body (below), or after Flask has
+      // already answered, lands here; there is nothing to log.
+      if (tooLarge || answeredEarly) return;
       // err.message is also sanitized: CodeQL models the client-request error
       // callback parameter as a remote flow source (the error text can echo
       // attacker-influenced request data), so it must not reach the log raw.
@@ -199,7 +218,11 @@ export function createFlaskProxy(label = 'Flask') {
           tooLarge = true;
           req.unpipe(proxyReq);
           proxyReq.destroy();
-          refuseTooLarge(res);
+          // KAN-428: if Flask already answered, its headers are out and no
+          // 413 can follow. Close the connection instead, so it is not kept
+          // for another request with the rest of this body still unread.
+          if (res.headersSent) res.destroy();
+          else refuseTooLarge(res);
         }
       });
       req.pipe(proxyReq, { end: true });
