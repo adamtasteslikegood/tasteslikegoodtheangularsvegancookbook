@@ -175,6 +175,49 @@ describe('Flask proxy body limit (KAN-408)', () => {
     }
   });
 
+  // Review of #3713: Flask commits a status and starts its body, then the client
+  // sends the tail that crosses the limit. The client must see the exchange end
+  // promptly instead of waiting on a response that will never finish.
+  it('ends the response when the limit is crossed after Flask started answering', async () => {
+    const { port, limit } = await startProxy((req, res) => {
+      req.once('data', () => {
+        res.writeHead(413, { 'content-type': 'application/json', 'content-length': '100' });
+        res.write('{');
+      });
+      req.on('error', () => {});
+      res.on('error', () => {});
+    });
+    const settled = await new Promise<string>((resolve, reject) => {
+      const deadline = setTimeout(() => reject(new Error('response never ended')), 2000);
+      const done = (how: string) => {
+        clearTimeout(deadline);
+        resolve(how);
+      };
+      const req = http.request(
+        {
+          host: '127.0.0.1',
+          port,
+          path: '/api/recipes',
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'transfer-encoding': 'chunked' },
+        },
+        (res) => {
+          res.on('data', () => {
+            // Flask's first byte is here: now send the tail past the limit.
+            req.end(Buffer.alloc(256 * 1024, 0x78));
+          });
+          res.on('end', () => done('end'));
+          res.on('aborted', () => done('aborted'));
+          res.on('error', () => done('error'));
+          res.on('close', () => done('close'));
+        }
+      );
+      req.on('error', () => done('request error'));
+      req.write(Buffer.alloc(limit - 100 * 1024, 0x78));
+    });
+    expect(settled).toBeTruthy();
+  });
+
   it('keeps serving the connection when Flask answered early and the body was under the limit', async () => {
     const { port } = await startProxy((req, res) => {
       if (req.url === '/api/early') {
