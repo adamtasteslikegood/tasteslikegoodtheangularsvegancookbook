@@ -178,8 +178,23 @@ export function createFlaskProxy(label = 'Flask') {
       answeredEarly = true;
       req.unpipe(proxyReq);
       req.resume();
+      // A held response can fail before we start piping it. Its failure is
+      // separate from proxyReq's error event, and must not become a hung reply.
+      let answerFailed = false;
+      const failAnswer = (): void => {
+        if (answerFailed || tooLarge || res.destroyed) return;
+        answerFailed = true;
+        proxyReq.destroy();
+        if (res.headersSent) res.destroy();
+        else {
+          res.set('Connection', 'close');
+          res.status(502).json({ error: 'Backend service unavailable' });
+        }
+      };
+      proxyRes.once('aborted', failAnswer);
+      proxyRes.on('error', failAnswer);
       req.once('end', () => {
-        if (!tooLarge && !res.destroyed) relay(proxyRes);
+        if (!answerFailed && !tooLarge && !res.destroyed) relay(proxyRes);
       });
       // The client gave up while the answer was held.
       res.once('close', () => {

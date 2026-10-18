@@ -216,6 +216,58 @@ describe('Flask proxy body limit (KAN-408)', () => {
     expect(status).toBe(413);
   });
 
+  it('answers 502 when Flask aborts a held response before the client body ends', async () => {
+    const { port } = await startProxy((req, res) => {
+      req.once('data', () => {
+        res.writeHead(200, { 'content-type': 'text/plain', 'content-length': '100' });
+        res.write('partial', () => res.destroy());
+      });
+      req.on('error', () => {});
+      res.on('error', () => {});
+    });
+    const result = await new Promise<{ status: number; body: string; connection?: string }>(
+      (resolve, reject) => {
+        const req = http.request(
+          {
+            host: '127.0.0.1',
+            port,
+            path: '/api/recipes',
+            method: 'POST',
+            headers: { 'transfer-encoding': 'chunked' },
+          },
+          (res) => {
+            const parts: Buffer[] = [];
+            res.on('data', (chunk: Buffer) => parts.push(chunk));
+            res.on('error', reject);
+            res.on('end', () => {
+              clearTimeout(deadline);
+              resolve({
+                status: res.statusCode ?? 0,
+                body: Buffer.concat(parts).toString(),
+                connection: res.headers.connection,
+              });
+              req.destroy();
+            });
+          }
+        );
+        const deadline = setTimeout(() => {
+          req.destroy();
+          reject(new Error('Flask aborted but the held answer never settled'));
+        }, 3000);
+        req.on('error', (error) => {
+          clearTimeout(deadline);
+          reject(error);
+        });
+        // Deliberately leave this under-limit body unfinished: Flask's failed
+        // response must be handled without waiting for another client byte.
+        req.write('start');
+      }
+    );
+    expect(result.status).toBe(502);
+    expect(JSON.parse(result.body)).toEqual({ error: 'Backend service unavailable' });
+    expect(result.connection).toBe('close');
+  });
+
   it('releases the request to Flask when the client leaves while an early answer is held', async () => {
     let flaskClosed!: () => void;
     const closed = new Promise<void>((resolve) => (flaskClosed = resolve));
