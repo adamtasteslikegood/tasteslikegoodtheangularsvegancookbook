@@ -8,6 +8,30 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-10-18
+
+Backend pointer pinned at `1eaab49c5821` (Backend `main`, promoted in Backend #431).
+
+### Added
+
+- Recipe pages, `/browse` and the tag hubs name the site as the schema.org `Organization`
+  `publisher`, with its Facebook, Instagram and Pinterest pages in `sameAs` (KAN-433, Backend
+  #430). The same Organization is the `author` of a recipe with no named owner; a named owner
+  stays the `Person` author. This matches the profiles `/` and `/about` named in 0.7.1.
+
+### Fixed
+
+- An oversize upload now gets the 413 even when Flask answers before reading the body
+  (KAN-428). Express holds an answer that arrives before the request body has ended. If the
+  body ends within 1 MB, the answer is relayed unchanged. If the body goes past 1 MB, the answer
+  is dropped and the client gets the 413. If the client leaves while an answer is held, the
+  request to Flask is closed. Requests whose body Flask reads in full are not affected.
+
+### Security
+
+- The model refresh route, `/api/models/refresh`, is no longer registered and answers 404
+  (KAN-403, RCP-166, Backend #429). Nothing in the Angular app called it.
+
 ## [0.7.1] - 2026-10-18
 
 Backend pointer pinned at `213f301e1a8d` (Backend `main`, unchanged from 0.7.0).
