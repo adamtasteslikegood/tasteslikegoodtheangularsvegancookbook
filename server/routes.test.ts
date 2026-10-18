@@ -96,6 +96,14 @@ beforeAll(async () => {
     } else if (req.url === '/api/recipes/abc/image') {
       res.writeHead(200, { 'content-type': 'image/webp', 'content-length': '4096' });
       res.end(STUB_IMAGE);
+    } else if (req.url === '/mcp') {
+      // Echo method and body, the way Flask's /mcp answers POST and refuses GET.
+      let body = '';
+      req.on('data', (chunk) => (body += chunk));
+      req.on('end', () => {
+        res.writeHead(req.method === 'POST' ? 200 : 405, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ method: req.method, body }));
+      });
     } else if (req.url === '/r/test-slug') {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(STUB_RECIPE_HTML);
@@ -405,6 +413,49 @@ describe('SPA shell index control (KAN-276)', () => {
     expect(res.status).toBe(200);
     expect(res.headers.get('x-robots-tag')).toBe('index, follow');
     expect(await res.text()).toBe(STUB_SPA_SHELL);
+  });
+
+  it('points agents at llms.txt and the sitemap from the home page only (KAN-395)', async () => {
+    const home = await fetch(`${baseUrl}/`);
+    expect(home.headers.get('link')).toBe(
+      '</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap", </.well-known/api-catalog>; rel="api-catalog"'
+    );
+    const kitchen = await fetch(`${baseUrl}/kitchen`);
+    expect(kitchen.headers.get('link')).toBeNull();
+  });
+
+  it('serves the API catalog as a link set, for GET and HEAD (KAN-398)', async () => {
+    const res = await fetch(`${baseUrl}/.well-known/api-catalog`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toBe(
+      'application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"'
+    );
+    expect(res.headers.get('link')).toBe('</.well-known/api-catalog>; rel="api-catalog"');
+    const { linkset } = (await res.json()) as {
+      linkset: { anchor: string; 'service-desc': { href: string }[] }[];
+    };
+    // Absolute, and on the host that was asked.
+    expect(linkset[0]['service-desc'][0].href).toBe(`${baseUrl}/api/public/openapi.json`);
+
+    const head = await fetch(`${baseUrl}/.well-known/api-catalog`, { method: 'HEAD' });
+    expect(head.status).toBe(200);
+    expect(head.headers.get('link')).toBe('</.well-known/api-catalog>; rel="api-catalog"');
+  });
+
+  it('proxies /mcp to Flask for every method, body intact (KAN-399)', async () => {
+    const message = '{"jsonrpc":"2.0","id":1,"method":"ping"}';
+    const post = await fetch(`${baseUrl}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: message,
+    });
+    expect(post.status).toBe(200);
+    expect(await post.json()).toEqual({ method: 'POST', body: message });
+    // Flask answers GET with 405; Express must not serve the SPA shell instead.
+    const get = await fetch(`${baseUrl}/mcp`);
+    expect(get.status).toBe(405);
+    expect(get.headers.get('content-type')).toMatch(/^application\/json/);
+    expect(post.headers.get('ratelimit-limit')).toBe('300');
   });
 
   it('keeps the home page indexable with a query string (OAuth return)', async () => {

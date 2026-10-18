@@ -1,7 +1,25 @@
 # robots.txt for VeganGenius Chef
 # https://www.tasteslikegood.org
 
+# One group for every crawler. The AI crawlers are named so that a reader, or a
+# scanner, can see they are welcome; they get the same rules as everyone else
+# (KAN-395). A crawler obeys only the group that names it, so naming them in a
+# group of their own would mean repeating every rule below.
 User-agent: *
+User-agent: GPTBot
+User-agent: OAI-SearchBot
+User-agent: ChatGPT-User
+User-agent: ClaudeBot
+User-agent: Claude-SearchBot
+User-agent: Claude-User
+User-agent: PerplexityBot
+User-agent: Perplexity-User
+User-agent: Google-Extended
+User-agent: Applebot-Extended
+User-agent: CCBot
+# Search indexing, use as input to AI answers, and model training are all
+# welcome.
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
 # Disallow API endpoints and internal paths
@@ -12,6 +30,9 @@ Disallow: /assets/
 # without this Allow (longest-match wins over Disallow: /api/) image crawlers
 # could never fetch recipe images (issue #3164).
 Allow: /api/recipes/*/image
+
+# The public read-only JSON (newest recipes) is meant to be fetched.
+Allow: /api/public/
 
 # Sitemap location
 Sitemap: https://www.tasteslikegood.org/sitemap.xml

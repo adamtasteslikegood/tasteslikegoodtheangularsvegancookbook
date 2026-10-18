@@ -14,9 +14,11 @@ import {
   createRequestLogger,
   createRumConfigLimiter,
   createRumIntakeLimiter,
+  createMcpLimiter,
 } from './security.js';
 import { createRumRouter, resolveRumConfig } from './rum.js';
 import { createFlaskProxy } from './proxy.js';
+import { mountGenerationLimiter } from './agent-tools.js';
 import { applyTrustProxy } from './trust-proxy.js';
 import { createAiValidation } from './validation.js';
 import { createWritePause } from './write-pause.js';
@@ -29,6 +31,14 @@ import {
   createNewestRecipesSource,
   injectNewestRecipes,
 } from './newest-recipes.js';
+import {
+  API_CATALOG_CONTENT_TYPE,
+  API_CATALOG_LINK,
+  API_CATALOG_PATH,
+  apiCatalog,
+  MCP_PATH,
+} from './api-catalog.js';
+import { MARKDOWN_CONTENT_TYPE, acceptsMarkdown, renderHomeMarkdown } from './home-markdown.js';
 
 // Exported for route-mounting integration tests (server/routes.test.ts).
 export const app = express();
@@ -128,8 +138,8 @@ export const ready = (async () => {
   // General: 300 req / 15 min per IP (image serving is exempt)
   app.use('/api', createApiLimiter(valkeyClient));
   // Expensive AI operations: 20 req / hour per IP
-  app.use('/api/generate', createExpensiveOperationLimiter(valkeyClient));
-  app.use('/api/generate_image', createExpensiveOperationLimiter(valkeyClient));
+  // The agent generation tools (KAN-401) spend the same budget.
+  mountGenerationLimiter(app, createExpensiveOperationLimiter(valkeyClient));
   // Public HTML surface (SPA shell, SSR pages, standalone static pages).
   // KAN-154: its own limiter, not a second createApiLimiter — that shared the
   // `rl:api:` Valkey keyspace with the /api limiter above, and it metered
@@ -143,8 +153,8 @@ export const ready = (async () => {
   app.use(createRequestLogger());
 
   // ── Recipe write pause (KAN-330) ────────────────────────────────
-  // RECIPE_WRITE_PAUSE=1 answers every write to /api/recipes* and
-  // /api/generate* with a 503 before the body is buffered or proxied, so a
+  // RECIPE_WRITE_PAUSE=1 answers every write to /api/recipes*,
+  // /api/generate* and the agent generation tools with a 503 before the body is buffered or proxied, so a
   // publish-state audit can run against a database nothing is changing.
   app.use('/api', createWritePause());
 
@@ -161,6 +171,10 @@ export const ready = (async () => {
   // through to Flask without being consumed by the JSON parser (the AI
   // endpoints above are the deliberate buffer-and-replay exception).
   app.use('/api', createFlaskProxy('API'));
+
+  // MCP endpoint (KAN-399): Flask answers POST; GET and DELETE get Flask's 405.
+  // Exact path only, all methods, its own limiter (it is outside /api).
+  app.all(MCP_PATH, createMcpLimiter(valkeyClient), createFlaskProxy('MCP'));
 
   // ── Datadog RUM (KAN-292) ───────────────────────────────────────
   // GET /rum/config feeds the consent loader (public/rum/consent.js);
@@ -238,6 +252,18 @@ export const ready = (async () => {
     res.redirect(301, `/${suffix}`);
   });
 
+  // Source tests execute from server/, while production runs the compiled file
+  // from server/dist/. Resolve the checked-in server/public directory in both
+  // modes so standalone pages are testable through the real Express route.
+  // Every sendFile below passes `root` instead of an absolute path: `send`
+  // refuses any absolute path with a dot-segment (dotfiles: 'ignore'), so a
+  // checkout under e.g. .claude/worktrees/ 404'd /favicon.ico and /about. With
+  // `root`, only the requested name is checked for dotfiles.
+  const publicPath =
+    path.basename(__dirname) === 'dist'
+      ? path.resolve(__dirname, '..', 'public')
+      : path.resolve(__dirname, 'public');
+
   // KAN-348: the home page's newest-recipes row. Mounted before express.static,
   // which would otherwise answer "/" with the file as built. The row is an
   // addition: with no list, or on any failure here, the request falls through
@@ -256,6 +282,56 @@ export const ready = (async () => {
     });
     return homeShellPromise;
   };
+  // KAN-398: the API catalog. An explicit route, because express.static does
+  // not serve from a dot-directory. The links are absolute (as in RFC 9727's
+  // examples) and built from the host that was asked, so staging's catalog
+  // points at staging. Express answers HEAD from the same handler.
+  app.get(API_CATALOG_PATH, staticPageLimiter, (req, res) => {
+    res.setHeader('Link', API_CATALOG_LINK);
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    // A Buffer, so Express leaves the media type as written: for a string it
+    // would add a charset parameter the link set type does not define.
+    const body = JSON.stringify(apiCatalog(`${req.protocol}://${req.host}`));
+    res.type(API_CATALOG_CONTENT_TYPE).send(Buffer.from(body));
+  });
+  // KAN-395: point agents at the machine-readable descriptions of the site from
+  // the home page's response headers. Scoped to GET `/` (so it does not fire on
+  // every /api, /r, image or proxy request) but still a standalone handler,
+  // because "/" is answered from three places (the composed handler below,
+  // express.static, and the catch-all's safety net) and all three need the
+  // header.
+  app.get('/', (_req, res, next) => {
+    res.setHeader(
+      'Link',
+      `</llms.txt>; rel="describedby"; type="text/plain", </sitemap.xml>; rel="sitemap", ${API_CATALOG_LINK}`
+    );
+    // KAN-397: "/" has an HTML and a Markdown form, so every answer says so.
+    res.vary('Accept');
+    next();
+  });
+  // KAN-397: the Markdown form, for a client that names text/markdown. The
+  // guide is a file in the image, so it is read once, now. If that fails it is
+  // logged here and "/" is HTML only until the next start: no retry per
+  // request, and the warning is this handler's own.
+  const homeGuide: Promise<string | null> = readFile(
+    path.join(publicPath, 'home.md'),
+    'utf8'
+  ).catch((err) => {
+    console.warn('[home-markdown] no guide to serve; "/" is HTML only:', err);
+    return null;
+  });
+  // Both checks come before the limiter, so a request is counted once whichever
+  // form it gets.
+  const markdownOnly: express.RequestHandler = async (req, _res, next) => {
+    if (!acceptsMarkdown(req.get('Accept'))) return next('route');
+    next((await homeGuide) === null ? 'route' : undefined);
+  };
+  app.get('/', markdownOnly, staticPageLimiter, async (_req, res, next) => {
+    const guide = await homeGuide;
+    if (guide === null) return next('route');
+    res.setHeader('Cache-Control', 'public, max-age=0');
+    res.type(MARKDOWN_CONTENT_TYPE).send(renderHomeMarkdown(guide, await newestRecipes.get()));
+  });
   app.get('/', staticPageLimiter, async (_req, res, next) => {
     try {
       const recipes = await newestRecipes.get();
@@ -285,17 +361,6 @@ export const ready = (async () => {
 
   // Privacy policy — served as a standalone static HTML page.
   // Must be mounted BEFORE the SPA catch-all so it isn't swallowed by index.html.
-  // Source tests execute from server/, while production runs the compiled file
-  // from server/dist/. Resolve the checked-in server/public directory in both
-  // modes so standalone pages are testable through the real Express route.
-  // Every sendFile below passes `root` instead of an absolute path: `send`
-  // refuses any absolute path with a dot-segment (dotfiles: 'ignore'), so a
-  // checkout under e.g. .claude/worktrees/ 404'd /favicon.ico and /about. With
-  // `root`, only the requested name is checked for dotfiles.
-  const publicPath =
-    path.basename(__dirname) === 'dist'
-      ? path.resolve(__dirname, '..', 'public')
-      : path.resolve(__dirname, 'public');
   app.get('/privacy-policy', staticPageLimiter, (_req, res) => {
     res.sendFile('privacy-policy.html', { root: publicPath });
   });

@@ -123,15 +123,16 @@ class Sprint11HardGateTests(unittest.TestCase):
     def test_charter_fails_when_a_required_item_left_the_sprint(self):
         # Literal keys: a fixture derived from the gate's own sets cannot
         # notice the gate ceasing to require them. KAN-312 is one of S22's
-        # three rows; KAN-356 is the row Adam added during chartering.
-        for key in ("KAN-306", "KAN-312", "KAN-356", "KAN-350"):
+        # three rows; KAN-408 is a v0.7.0 release gate added by the 2026-10-14
+        # re-plan; KAN-352 moved into the sprint at that re-plan.
+        for key in ("KAN-306", "KAN-312", "KAN-408", "KAN-352", "KAN-350", "KAN-412"):
             with self.subTest(key=key):
                 rc, output = self._run_gate(self._members() - {key}, charter=True)
                 self.assertEqual(rc, 1)
                 self.assertIn("%s is not in Sprint 11" % key, output)
 
     def test_charter_fails_when_an_acceptance_row_is_not_rendered(self):
-        for row in ("RCP-124", "RCP-117", "RCP-150"):
+        for row in ("RCP-124", "RCP-117", "RCP-171", "RCP-160"):
             with self.subTest(row=row):
                 rendered = set(hard_gate.ACCEPTANCE.values()) - {row}
                 rc, output = self._run_gate(self._members(), charter=True, rendered=rendered)
@@ -172,27 +173,35 @@ class Sprint11HardGateTests(unittest.TestCase):
         self.assertEqual(hard_gate.acceptance_row_problems("S4", "RCP-128", fields), [])
 
     def test_close_gate_rejects_an_acceptance_row_left_in_todo(self):
-        rc, output = self._run_gate(self._members(), todo_keys={"RCP-149"})
+        rc, output = self._run_gate(self._members(), todo_keys={"RCP-171"})
         self.assertEqual(rc, 1)
-        self.assertIn("RCP-149 is in To Do", output)
+        self.assertIn("RCP-171 is in To Do", output)
 
-    def test_rows_kept_for_sprint_12_are_not_gated(self):
+    def test_rows_kept_for_later_sprints_are_not_gated(self):
         gated = self._members()
-        for key in ("KAN-277", "RCP-109", "KAN-299", "RCP-110", "KAN-352"):
+        # Launch rows, plus the rows the 2026-10-14 re-plan moved out.
+        for key in ("KAN-277", "RCP-109", "KAN-299", "RCP-110", "KAN-356",
+                    "RCP-150", "KAN-346", "KAN-290", "KAN-351", "RCP-149"):
             with self.subTest(key=key):
                 self.assertIn(key, hard_gate.NOT_IN_SPRINT)
                 self.assertNotIn(key, gated)
 
-    def test_a_sprint_12_row_back_in_the_sprint_fails_both_gates(self):
-        for key in ("KAN-299", "KAN-352"):
+    def test_a_later_sprint_row_back_in_the_sprint_fails_both_gates(self):
+        for key in ("KAN-299", "KAN-356", "KAN-351"):
             with self.subTest(key=key):
                 members = self._members() | {key}
                 rc, output = self._run_gate(members, charter=True)
                 self.assertEqual(rc, 1)
                 self.assertIn("%s (" % key, output)
-                self.assertIn("stays under RCP-119 for Sprint 12", output)
+                self.assertIn("belongs to a later sprint", output)
                 rc, _ = self._run_gate(members, state="closed", todo_keys=())
                 self.assertEqual(rc, 1)
+
+    def test_kan_352_moved_into_the_sprint(self):
+        # Its cooking finished inside the Sprint 11 box (Adam, 2026-10-14), so
+        # it is S40 here and must not also be listed as a later-sprint row.
+        self.assertNotIn("KAN-352", hard_gate.NOT_IN_SPRINT)
+        self.assertEqual(hard_gate.SI_EXECUTION["S40"], ["KAN-352"])
 
     def test_a_sprint_12_acceptance_row_on_the_board_fails(self):
         rendered = set(hard_gate.ACCEPTANCE.values()) | {"RCP-110"}

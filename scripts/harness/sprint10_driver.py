@@ -190,8 +190,13 @@ def snapshot(plan, state_dir, now=None):
 
 
 def soak_blockers(plan, state_dir, now=None):
-    """Marked tasks that must be resumed before any new start: (reentry, violation)."""
-    phases = {t["id"]: soak_phase(state_dir, t["id"], now) for t in plan["tasks"]}
+    """Marked tasks that must be resumed before any new start: (reentry, violation).
+
+    A carried task is skipped: ``start`` and ``resume`` refuse it, so a soak mark
+    left from before it was carried could never be cleared and would block every
+    later start (codex-gate on KAN-412)."""
+    phases = {t["id"]: soak_phase(state_dir, t["id"], now) for t in plan["tasks"]
+              if not t.get("carried_to")}
     return (sorted(k for k, v in phases.items() if v == "reentry"),
             sorted(k for k, v in phases.items() if v == "violation"))
 
@@ -300,7 +305,7 @@ def cmd_status(args):
                     t["carried_to"], sprint_name(plan))
             elif raw_status(args.state_dir, t["id"]) == "waived":
                 note = "counts as done, not verified (see its state's waiver reason)"
-            phase = soak_phase(args.state_dir, t["id"])
+            phase = None if t.get("carried_to") else soak_phase(args.state_dir, t["id"])
             if phase == "soaking":
                 note = "soaking until %s (no WIP slot)" % soak_until(
                     args.state_dir, t["id"]).isoformat()
@@ -367,6 +372,14 @@ def cmd_soak(args):
         task = tasks[args.task]
         state_dir = Path(args.state_dir)
         path = state_dir / ("%s.soak.json" % task["id"])
+        if task.get("carried_to"):
+            # Carried work never re-enters this sprint, so a soak on it is
+            # refused. A leftover mark is inert: soak_blockers and status skip
+            # carried tasks.
+            print("%s REFUSED — %s was carried out of %s to %s; it is not sprint "
+                  "work" % (args.cmd.upper(), task["id"], sprint_name(plan),
+                            task["carried_to"]))
+            return REFUSED
         if args.cmd in ("resume", "unsoak"):
             if not path.exists():
                 print("RESUME REFUSED — %s is not soaked" % task["id"])

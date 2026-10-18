@@ -1,6 +1,7 @@
-# Nightly gbrain maintenance cron service (Railway).
-# Runs `gbrain extract --stale` + `gbrain embed --stale` against the shared
-# Railway Postgres brain, then exits (Railway cron requires the process to exit).
+# Daily gbrain maintenance cron service (Railway).
+# Wakes the hermes sprite and runs its maintenance there (curl to the Sprites
+# exec API); falls back to `gbrain extract --stale` + `gbrain embed --stale`
+# from here, then exits (Railway cron requires the process to exit).
 #
 # gbrain is NOT on npm (the npm "gbrain" package is an unrelated GPU library).
 # It is built from source and pinned by commit SHA so this service never runs
@@ -10,7 +11,7 @@
 FROM oven/bun:1.4
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git ca-certificates \
+    && apt-get install -y --no-install-recommends git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 # d4dc2d4d831503739e3c1551fdb01b4108457731 = v0.60.139.0

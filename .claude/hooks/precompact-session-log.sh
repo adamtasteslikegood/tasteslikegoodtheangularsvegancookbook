@@ -130,10 +130,11 @@ fi
   STAMP=$(date -u +%Y%m%d-%H%M%S)
 
   # PM snapshot: the facts the summarizer cannot see for itself. It runs with
-  # --allowedTools '' and can read nothing but this prompt, so without this it
-  # could never cite a PR number or the branch's position — it could only repeat
-  # what happened to be typed in the conversation. Same checkout-preference rule
-  # as DIGEST_PY above; fails open to no snapshot rather than costing the log.
+  # no tools (see the claude -p call below) and can read nothing but this
+  # prompt, so without this it could never cite a PR number or the branch's
+  # position — it could only repeat what happened to be typed in the
+  # conversation. Same checkout-preference rule as DIGEST_PY above; fails open
+  # to no snapshot rather than costing the log.
   SNAP_SH="$PROJECT_DIR/.claude/hooks/lib/pm-snapshot.sh"
   [ -f "$SNAP_SH" ] || SNAP_SH="$MAIN_REPO/.claude/hooks/lib/pm-snapshot.sh"
   PM_SNAPSHOT=""
@@ -143,8 +144,8 @@ fi
   [ -n "$PM_SNAPSHOT" ] || PM_SNAPSHOT="(PM snapshot unavailable.)"
 
   # Haiku is deliberate here: this is compression, not reasoning. Cheap + fast.
-  # --allowedTools '' keeps it from touching the repo; it only reads the digest
-  # we hand it on stdin and emits markdown.
+  # It runs with no tools (see the call below): it only reads the digest we
+  # hand it in the prompt and emits markdown.
   PROMPT="You are writing a session log for an engineering team's Confluence.
 
 Below is a condensed transcript of a Claude Code session on branch \`$BRANCH\`.
@@ -217,9 +218,22 @@ $(cat "$DIGEST")"
     echo "  note: no timeout(1) available; running summarizer unbounded (detached)" >>"$LOG"
   fi
 
-  if ! "${RUNNER[@]}" claude -p "$PROMPT" \
+  # The summarizer is a text transform and nothing more (KAN-419). On its own
+  # `--allowedTools ''` removes no tool: it only pre-approves, and under bypass
+  # permissions a summarizer in the session's worktree once loaded the pr-gate
+  # plugin, took the gate's prompt and committed and pushed to the PR. So:
+  #   --tools ''             no built-in tools at all
+  #   --strict-mcp-config    no MCP servers (none are passed with --mcp-config)
+  #   --setting-sources ''   no user/project/local settings, so no settings hooks
+  #                          and no CLAUDE_CODE_PLUGIN_DIRS from a settings env block
+  #   env -u ...             nor that var from the parent's environment (the
+  #                          one env vector known; other env vars pass through)
+  #   cd "$WORK"             a scratch cwd: no repo to discover or write into
+  if ! (cd "$WORK" && "${RUNNER[@]}" env -u CLAUDE_CODE_PLUGIN_DIRS \
+        claude -p "$PROMPT" \
         --model claude-haiku-4-5-20251001 \
-        --allowedTools '' >"$SUMMARY" 2>>"$LOG"; then
+        --tools '' --strict-mcp-config --setting-sources '' \
+        >"$SUMMARY" 2>>"$LOG"); then
     echo "  FAIL: claude -p summarizer (timeout or error)" >>"$LOG"
     exit 0
   fi

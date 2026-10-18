@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '26'
           cache: npm
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '26'
           cache: npm
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '26'
           cache: npm
@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7.0.0
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version: '26'
           cache: npm
@@ -119,6 +119,10 @@ jobs:
       # the sprint hard gates against vacuous passes (KAN-260).
       - name: Run sprint hard-gate unit tests
         run: python3 -m unittest scripts/harness/test_sprint9_harness.py scripts/harness/test_sprint10_hard_gate.py scripts/harness/test_sprint10_driver.py scripts/harness/test_sprint11_hard_gate.py scripts/harness/test_sprint11_driver.py
+      # Stubs `claude` and the publisher. Pins the summarizer to no tools, settings
+      # or plugins, the only guard on those flags (KAN-419).
+      - name: Run session-log hook tests
+        run: python3 -m unittest scripts/pm/test_precompact_hook.py
 
   monitoring-mcp:
     name: Monitoring MCP — unit tests + image build
@@ -443,6 +447,21 @@ jobs:
           # secret-presence: end
         run: python3 scripts/audit/check_workflow_secrets.py --env
 
+  # CLAUDE.md and its @-imports load into every agent session (KAN-415/416).
+  # Fails when they outgrow the byte budget or a reference stops resolving.
+  claude-md-budget:
+    name: CLAUDE.md — context budget + references
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Unit tests for the budget check
+        run: python3 -m unittest scripts/audit/test_check_claude_md_budget.py
+      - name: CLAUDE.md within budget, every reference resolves
+        run: python3 scripts/audit/check_claude_md_budget.py
+
   # ── Gate ──────────────────────────────────────────────────────────────────
   # Single required check for branch protection. Fails if ANY job above fails.
 
@@ -466,6 +485,7 @@ jobs:
       - release-train
       - sprint-lane
       - workflow-secrets
+      - claude-md-budget
     if: always()
     runs-on: ubuntu-latest
     steps:

@@ -2,11 +2,11 @@
 
 _Chartered:_ 2026-10-09 · _Owner:_ Adam Schoen
 _Jira epic:_ **RCP-123** (delivery/acceptance)
-_Acceptance rows:_ **RCP-125** (S1) to **RCP-147** (S23) in order · **RCP-117** (S24) · **RCP-148** (S25) · **RCP-149** (S26) · **RCP-150** (S27) · charter row **RCP-124**
+_Acceptance rows:_ **RCP-125** (S1) to **RCP-147** (S23) in order · **RCP-117** (S24) · **RCP-148** (S25) · **RCP-149** (S26) · **RCP-150** (S27) · charter row **RCP-124** · re-plan 2026-10-14: **RCP-161** (S28) to **RCP-173** (S40) in order, re-plan row **RCP-160** (see [Re-plan](#re-plan--2026-10-14-adam))
 _Delivery tickets:_ listed per SI in [Committed scope](#committed-scope--27-sis) (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-350**
 _Jira sprint:_ **Sprint 11** — id **121** on board **168**, started 2026-10-09, box ends 2026-10-23
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
-_Status:_ **Open.**
+_Status:_ **Open. Re-planned 2026-10-14**: see [Re-plan — 2026-10-14 (Adam)](#re-plan--2026-10-14-adam), which supersedes D1, D6 and the scope below where they differ.
 _Inputs:_ `/cs:grill-pm` with Adam, 2026-10-09 (six branches, locked below) · [Sprint 10 Retrospective — 2026-10-09](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/89456659) (Confluence 89456659) · [`specs/SPRINT_10_PLAN.md`](./SPRINT_10_PLAN.md) close-out · [`docs/seo/SEO_DRIVER_REVIEW_2026-10-03.md`](../docs/seo/SEO_DRIVER_REVIEW_2026-10-03.md) (KAN-325) · [`docs/designs/recipe-feedback.md`](../docs/designs/recipe-feedback.md)
 
 ## Why this sprint exists
@@ -33,6 +33,8 @@ for traffic. Sprint 12 writes the articles and publishes the launch post**, unde
 RCP-119, chartered when this sprint closes.
 
 ## Committed scope — 27 SIs
+
+> **As chartered on 2026-10-09.** The re-plan of 2026-10-14 changed this scope: eight rows moved out and S28 to S40 were added. The current scope is in [Re-plan — 2026-10-14 (Adam)](#re-plan--2026-10-14-adam); work from that section.
 
 SI numbers are tracking numbers. The order of work is in [Ordered list](#ordered-list).
 Size is a sort, not an estimate: **Q** quick, **S** standard, **M** major.
@@ -84,6 +86,150 @@ property.
   confirms or narrows it on KAN-349 before the build PR opens. S26's hub-link number for
   recipe pages follows that answer.
 
+### Re-plan — 2026-10-14 (Adam)
+
+A second `/cs:grill-pm` with Adam, on day 6 of the box. Execution row **KAN-412**,
+acceptance row **RCP-160**. Three facts drove it:
+
+- The agent-readiness work (KAN-393 to KAN-409) was built during this sprint and is
+  on dev and staging, but had no sprint, no label and no RCP row. The board showed
+  none of it and the throughput history did not count it.
+- Adam decided on 2026-10-13 that the feedback build (S27) is decided at the
+  Sprint 12 charter (`docs/designs/recipe-feedback.md`, "Sprint"), so S27 could not
+  close here. R7 below fired.
+- The cooking for the tested-recipe proof (KAN-352) is done. The notes and ratings
+  need the feedback build to have somewhere to go. There is no separate tested
+  marker: the feedback build supersedes it, and Adam's own entries on the recipes
+  he cooked are the proof (Adam, 2026-10-14).
+
+#### Release plan, Sprints 11 to 14
+
+| Sprint | Box            | Job                                                                                                                                                                                 | Production release             |
+| ------ | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| **11** | 10-09 to 10-23 | Close what is done; the save fixes S4 to S6; agent readiness S28 to S39                                                                                                             | **v0.7.0** (new API endpoints) |
+| **12** | 10-23 to 11-06 | The feedback build S27 first, then the rows moved from Sprint 11, then the articles (RCP-109)                                                                                       | patch releases                 |
+| **13** | 11-06 to 11-20 | **Beta and pre-release check on staging.** Fix-only freeze on dev. The readiness walk (S26), the invited cooks plus Adam and Allison. Ends in Adam's written go/no-go (**RCP-174**) | none (fix-only)                |
+| **14** | 11-20 to 12-04 | Promote the beta build; production smoke of the rate-limit and cache paths; the launch post (KAN-299 / RCP-110); the 7-day readout                                                  | the launch release             |
+
+Jira: Sprint 12 is id **122**, Sprint 13 id **123**, Sprint 14 id **124**, all on
+board 168 with these dates and goals. **The launch is a range, never a date:** at
+p50 the post goes out in the week of 11-23, at p85 in the week of 11-30, and it is
+gated by Sprint 13's go/no-go, not by the calendar. Monte Carlo is re-run at each
+charter.
+
+#### Scope changes
+
+**Added to Sprint 11** (tracked for throughput; work already in flight, not new
+commitment). Each has its own RCP acceptance row; no item was bundled.
+
+| SI      | KAN     | Acceptance | What                                                                               |
+| ------- | ------- | ---------- | ---------------------------------------------------------------------------------- |
+| **S28** | KAN-395 | RCP-161    | AI crawlers named in robots.txt; llms.txt and the well-known files                 |
+| **S29** | KAN-397 | RCP-162    | Markdown on `Accept: text/markdown` for the home, browse and recipe pages          |
+| **S30** | KAN-398 | RCP-163    | OpenAPI document and `/.well-known/api-catalog`                                    |
+| **S31** | KAN-399 | RCP-164    | Read-only MCP endpoint over published recipes                                      |
+| **S32** | KAN-401 | RCP-165    | Agent tool layer in Flask: registry, switches, one access check                    |
+| **S33** | KAN-403 | RCP-166    | Legacy file-based image routes need sign-in                                        |
+| **S34** | KAN-393 | RCP-167    | Metadata engine does not ask the model again after a rejection                     |
+| **S35** | KAN-405 | RCP-168    | An empty or blocked model answer is not the one permitted rejection                |
+| **S36** | KAN-406 | RCP-169    | The model-rejection counter is updated atomically                                  |
+| **S37** | KAN-407 | RCP-170    | Agent tools check the body size before the access check                            |
+| **S38** | KAN-408 | RCP-171    | Express caps streamed request bodies. **Release gate for v0.7.0**                  |
+| **S39** | KAN-409 | RCP-172    | Legacy file routes are not served on staging. **Release gate for v0.7.0**          |
+| **S40** | KAN-352 | RCP-173    | Tested-recipe cooking. **Done 2026-10-14** on Adam's statement; acceptance amended |
+
+**How the release gate is enforced.** Nothing in `release.yml` checks S38 and S39:
+it tags every push to `main`. The gate is a release-train step. Before the
+`dev → main` release PR for v0.7.0 merges, the operator runs
+`python3 scripts/harness/sprint11_hard_gate.py --issues KAN-408 KAN-409` and confirms
+on RCP-171 and RCP-172 that both rows are **Done** (the scoped check proves only
+"out of To Do"). If either is not Done, the agent tools ship switched off (P1) or
+the release waits.
+
+**Moved out of Sprint 11.** Each is labelled `rolled-from-sprint-11`.
+
+| SI      | KAN / RCP         | To  | Why                                                                                                                                                                      |
+| ------- | ----------------- | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| S27     | KAN-356 / RCP-150 | 12  | Adam, 2026-10-13: the build is decided at the Sprint 12 charter. **First in Sprint 12.**                                                                                 |
+| S23     | KAN-346 / RCP-147 | 12  | **The marker is superseded by the feedback build** (Adam, 2026-10-14): the author's own entry is the tested proof. Closed as superseded, authorship on `/about` included |
+| S14     | KAN-290 / RCP-138 | 12  | Major, not started                                                                                                                                                       |
+| S20     | KAN-347 / RCP-144 | 12  | Its 7-day measurement cannot close inside this box                                                                                                                       |
+| S11–S13 | KAN-334, 336, 337 | 12  | Bottom of the ordered list (rank 12)                                                                                                                                     |
+| —       | KAN-389 / RCP-159 | 12  | Added after the charter; not started                                                                                                                                     |
+| S26     | KAN-351 / RCP-149 | 13  | The readiness walk is the beta's job                                                                                                                                     |
+| —       | KAN-299 / RCP-110 | 14  | The launch post follows the go/no-go                                                                                                                                     |
+| —       | KAN-400, 404, 411 | 12  | Agent-readiness work not yet started                                                                                                                                     |
+
+#### Decisions (supersede the charter where they differ)
+
+| #   | Branch       | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| D1′ | Outcome      | **Replaces D1.** Sprint 11 is done when (1) **v0.7.0** is live on production with S4 to S6 and S28 to S39, verified by content (`scripts/release/RUNBOOK.md` step 9) and by `curl -H 'Accept: text/markdown' https://www.tasteslikegood.org/` returning Markdown; (2) every row in sprint 121 is closed with evidence or named as moved; (3) `check_sprint_lane.sh` and `sprint11_hard_gate.py` (close form) exit 0. If v0.7.0 is not tagged by 10-23 the box does not move; the release becomes Sprint 12's first item. Minor bump: Adam's call for this release. |
+| D4′ | Ownership    | D4 carries forward to Sprints 12 to 14. Sprint 13: an agent scripts and runs the readiness walk and Adam repeats it by hand on a phone; **Adam alone signs the go/no-go** on RCP-174, with the walk result, the open defects by severity and the LCP medians.                                                                                                                                                                                                                                                                                                      |
+| D6′ | Budgets, WIP | **Replaces D6's WIP rule.** 3 attempts per task, 12 iterations per goal, escalation to `claude-code-agent-recipe-one@agentmail.to` as before. Sprint 13: at most 2 fix PRs per beta defect; a third makes it a no-go input. **WIP is counted in lanes** (below).                                                                                                                                                                                                                                                                                                   |
+
+**WIP in lanes (D6′).**
+
+- A **lane** is one worktree with one agent session in it, or one human. It holds
+  **one** item In Progress at a time.
+- **At most 3 agent lanes at once, plus 1 human lane** (Adam, `lane:adam`). Adam's
+  dated items live in his lane and never take an agent lane.
+- Inside a lane, the session may run **up to 3 subagents**, all on the lane's item.
+  They are its tools, not WIP, and never pick up a second item.
+- **Waiting frees the lane.** An item waiting on review, CI or Adam moves to
+  **In Review**, and the lane takes the next item at the top of the ordered list.
+  Coming back to answer review comments on one's own PR needs no lane.
+- **A claim is visible:** the KAN row moves to In Progress and carries
+  `lane:<worktree-name>`.
+- **The count is a command:** `check_sprint_lane.sh` fails on more than 3 agent
+  lanes building, one lane on two In Progress rows, or one row with two lane labels.
+  An In Progress row with no lane label is a **warning** (Adam, 2026-10-14), because a Jira global rule
+  moves a row to In Progress when a branch is created for it.
+
+On 2026-10-14 the seven agent-readiness rows that were merged and waiting for the
+release (KAN-393, 395, 397, 398, 399, 401, 403) moved to In Review under this rule.
+
+#### Forecast, re-run 2026-10-14
+
+`jira_snapshot_bridge.py --to flow --as-of 2026-10-14 --seed 11` over KAN (resolved
+since 2026-07-01 or still open; 351 items).
+
+| Measure                                | Value                           |
+| -------------------------------------- | ------------------------------- |
+| Throughput                             | 7.38 items/week over 29.1 weeks |
+| Cycle time (created → resolved)        | p50 4 d · p85 30 d · p95 92 d   |
+| WIP (open, started)                    | 12                              |
+| Monte Carlo, 19 items (Sprint 11 left) | **p50 2 weeks · p85 3 weeks**   |
+| Monte Carlo, 33 items (with Sprint 12) | **p50 3 weeks · p85 5 weeks**   |
+
+1.3 weeks remain against a p50 of 2, so expect rows to roll. They roll from the
+bottom of the ordered list; S38 and S39 are protected because v0.7.0 waits on them.
+KAN-273 (S16) is 31 days old, past the 30-day SLE.
+
+#### Pre-mortem, Sprints 11 to 14
+
+_"It is 2026-12-05 and the launch failed. Why?"_ All owned by Adam.
+
+| #   | Risk                                                                   | Response (pre-stated)                                                                                                                 |
+| --- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| P1  | v0.7.0 ships the agent endpoints before the body cap and the route fix | S38 and S39 gate the tag. The generation tools stay off in production (`AGENT_TOOLS_GENERATE_*` unset); only reads go live.           |
+| P2  | The feedback build is not on staging by 11-06                          | Sprint 13 starts on time and tests S27 when it lands. **The launch post waits for S27.**                                              |
+| P3  | The Sprint 13 freeze leaks                                             | During Sprint 13 only fixes linked to a Sprint 13 row merge to dev. Anything else waits and is named the same day.                    |
+| P4  | The beta passes on staging but production differs                      | Staging has no Valkey and no Cloud NAT by design. Sprint 14 smoke-tests the rate-limit and cache paths on production before the post. |
+| P5  | The invited cooks do not show up                                       | The count is a finding, not a failure; Adam and Allison are the minimum group.                                                        |
+| P6  | A level-1 production item takes a sprint                               | D3 carries forward. It is the one exception to the P3 freeze.                                                                         |
+| P7  | The gates check the old scope after a re-plan                          | `sprint11_hard_gate.py`'s constants change in the same PR as this plan, and its `--charter` form exits 0 before the PR merges.        |
+
+Day-of evidence, 2026-10-14: `sprint11_hard_gate.py --charter` **exit 0** (34
+acceptance rows board-rendered); `check_sprint_lane.sh` **exit 0** (87 members carry
+`sprint-11`, 0 orphans, 0 of 3 agent lanes building, 2 warnings);
+`test_sprint11_hard_gate.py` 19 tests pass.
+
+**Close-outs not made on 2026-10-14**, each for a named reason: RCP-131 (S7) and
+RCP-133 (S9) are live since v0.5.9 and wait only on a browser check at desktop and
+phone width; RCP-148 (S25) waits on its dated criteria (the count of cooks, due
+10-23).
+
 ### What is not in Sprint 11
 
 These stay under **RCP-119** for Sprint 12. The hard gate fails if one is in the sprint.
@@ -91,11 +237,11 @@ Jira sprint **Sprint 12** (id **122**, board 168) exists as a future sprint, not
 and holds these rows, so work that does not finish in Sprint 11 has somewhere to land
 (Adam, 2026-10-09; Sprint 10 retro action 1).
 
-| Ticket            | What                                                                                                                                      |
-| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| KAN-277 / RCP-109 | The 3 to 5 articles under the Q6 rubric. The links half is S22.                                                                           |
-| KAN-299 / RCP-110 | Launch post and 7-day readout. The pre-registered readout table in the Sprint 10 plan is unchanged.                                       |
-| KAN-352           | Cooking half of the tested-recipe proof: 10 to 15 recipes cooked, noted, photographed. Split from KAN-346; Adam starts cooking in week 1. |
+| Ticket            | What                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| KAN-277 / RCP-109 | The 3 to 5 articles under the Q6 rubric. The links half is S22.                                                                      |
+| KAN-299 / RCP-110 | Launch post and 7-day readout. The pre-registered readout table in the Sprint 10 plan is unchanged.                                  |
+| ~~KAN-352~~       | Cooking half of the tested-recipe proof. **Moved into Sprint 11 as S40 on 2026-10-14**: the cooking finished inside this box (Adam). |
 
 ### On the item count
 
@@ -170,6 +316,10 @@ day). Rows filed on 2026-10-09 (KAN-345 to KAN-356) are age 0.
 
 One list, worked top to bottom. A row lower down starts only when a slot is free.
 
+> **Superseded on 2026-10-14 for the rest of the box.** The table below is the
+> chartered order. Work from the [order after the re-plan](#order-after-the-re-plan-2026-10-14)
+> instead; S11 to S14, S20, S23, S26 and S27 are no longer Sprint 11 work.
+
 | Rank | SI                 | Why here                                                                                                                                                    |
 | ---- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1    | S1 → S2 → S3       | Crawl-discovery lane. One session, in this order: all three change the same SSR templates and `index.html`. Google's clock starts only when these are live. |
@@ -186,7 +336,21 @@ One list, worked top to bottom. A row lower down starts only when a slot is free
 | 12   | S11, S12, S13, S24 | **The bottom of the list. An unplanned level-1 item displaces from here upward.**                                                                           |
 | —    | S26                | The exit check. Run when S4, S5 and S6 are Done on production. Never displaced.                                                                             |
 
-**Displaced items:** none as of 2026-10-09.
+#### Order after the re-plan (2026-10-14)
+
+| Rank | SI                                      | Why here                                                                             |
+| ---- | --------------------------------------- | ------------------------------------------------------------------------------------ |
+| 1    | S38, S39                                | The v0.7.0 release gates. Nothing else in the release can ship until they are Done.  |
+| 2    | S4, S5, S6                              | The save fixes and the rate-limiter fix ride the same release.                       |
+| 3    | S34 to S37                              | Codex-gate and metadata follow-ups, merged with tests and in the v0.7.0 Backend pin. |
+| 4    | S28 to S33                              | Built and In Review. Their evidence is a production check after v0.7.0 is live.      |
+| 5    | S16, S15                                | S16 is in review; S15 is small.                                                      |
+| 6    | S21                                     | Process lane.                                                                        |
+| 7    | S22, S7, S9                             | Adam's lane: profile edits and two browser checks. They hold no agent lane.          |
+| 8    | S25                                     | Closes on its dated count, due 10-23.                                                |
+| —    | S1 to S3, S8, S10, S17 to S19, S24, S40 | Done.                                                                                |
+
+**Displaced items:** none as of 2026-10-09. **2026-10-14 (re-plan, Adam):** S11, S12, S13, S14, S20, S23, S27 and KAN-389 moved to Sprint 12; S26 moved to Sprint 13. The reason for each is in [Re-plan](#re-plan--2026-10-14-adam).
 
 **Releases.** Backend work is batched: S1 to S3, S8, S9, S15 and S24 touch Backend, and
 each Backend release costs a promotion, a back-sync and a pointer PR. Plan for few
@@ -219,15 +383,15 @@ The launch post is not on this list. It moved to Sprint 12 (retro action 8).
 _"It is two weeks from now and Sprint 11 failed. Why?"_ R1 to R6 were confirmed by Adam
 at the grill. R7 was added with S27 and is **proposed, for Adam to confirm**.
 
-| #   | Risk                                                                                       | Owner | Response (pre-stated)                                                                                                                                                                                                                                     |
-| --- | ------------------------------------------------------------------------------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| R1  | An unplanned level-1 production item takes the sprint, as the hotfix took 80% of Sprint 10 | Adam  | D3's rule: it displaces from the bottom of the ordered list, and the displaced rows are named here the same day.                                                                                                                                          |
-| R2  | Traffic meets a defect                                                                     | Adam  | This is the sprint's purpose. S4, S5 and S6 are preconditions of the walk, and the walk is a precondition of the launch post in Sprint 12.                                                                                                                |
-| R3  | The hubs are still unindexed at the box's end                                              | Adam  | Ship criteria close the tickets. The Google checks are dated rows outside the commitment (KAN-353, 354, 355). S20 reports whether Googlebot fetched the hubs at all.                                                                                      |
-| R4  | The launch post and articles crowd out the engineering                                     | Adam  | Removed by the split: both are in Sprint 12.                                                                                                                                                                                                              |
-| R5  | The crawl-discovery rows collide in the same templates, or Backend releases multiply       | Adam  | S1 to S3 run in one session, serially. Backend changes are batched into few releases.                                                                                                                                                                     |
-| R6  | S25 drifts into "comments", or the Assignment falls short                                  | Adam  | RCP-148 lists only the pre-build steps. The count of cooks is reported as a count; fewer than five is a finding, not a failure. The design is "I cooked this" entries, not open comments.                                                                 |
-| R7  | S27 is a major build added to a box already past its p50, and it waits on two reviews      | Adam  | If both reviews are not linked on RCP-148 by 2026-10-14, the build is unlikely to finish inside the box. It then rolls to Sprint 12 **first in order, ahead of the launch post**, and the post waits for it. Phase 1 only; Phase 2 and 3 are not started. |
+| #   | Risk                                                                                       | Owner | Response (pre-stated)                                                                                                                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------------ | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | An unplanned level-1 production item takes the sprint, as the hotfix took 80% of Sprint 10 | Adam  | D3's rule: it displaces from the bottom of the ordered list, and the displaced rows are named here the same day.                                                                                                                                                                                                             |
+| R2  | Traffic meets a defect                                                                     | Adam  | This is the sprint's purpose. S4, S5 and S6 are preconditions of the walk, and the walk is a precondition of the launch post in Sprint 12.                                                                                                                                                                                   |
+| R3  | The hubs are still unindexed at the box's end                                              | Adam  | Ship criteria close the tickets. The Google checks are dated rows outside the commitment (KAN-353, 354, 355). S20 reports whether Googlebot fetched the hubs at all.                                                                                                                                                         |
+| R4  | The launch post and articles crowd out the engineering                                     | Adam  | Removed by the split: both are in Sprint 12.                                                                                                                                                                                                                                                                                 |
+| R5  | The crawl-discovery rows collide in the same templates, or Backend releases multiply       | Adam  | S1 to S3 run in one session, serially. Backend changes are batched into few releases.                                                                                                                                                                                                                                        |
+| R6  | S25 drifts into "comments", or the Assignment falls short                                  | Adam  | RCP-148 lists only the pre-build steps. The count of cooks is reported as a count; fewer than five is a finding, not a failure. The design is "I cooked this" entries, not open comments.                                                                                                                                    |
+| R7  | S27 is a major build added to a box already past its p50, and it waits on two reviews      | Adam  | If both reviews are not linked on RCP-148 by 2026-10-14, the build is unlikely to finish inside the box. It then rolls to Sprint 12 **first in order, ahead of the launch post**, and the post waits for it. Phase 1 only; Phase 2 and 3 are not started. **Triggered 2026-10-14:** S27 rolled to Sprint 12, first in order. |
 
 ## Acceptance criteria
 
@@ -297,7 +461,7 @@ rules with Sprint 11 constants and no pre-authorised drops. Its `NOT_IN_SPRINT` 
 fails the gate if a Sprint 12 row (the table above) is in the sprint or on the board.
 Rule 3 (nothing in To Do) is the close gate, so on day 1 it is expected red.
 
-**Day-1 evidence, 2026-10-09:**
+**Day-1 evidence, 2026-10-09** (charter-time scope; the re-plan's evidence of 2026-10-14 is in the Re-plan section):
 
 | Run                                  | Result                                                                            |
 | ------------------------------------ | --------------------------------------------------------------------------------- |

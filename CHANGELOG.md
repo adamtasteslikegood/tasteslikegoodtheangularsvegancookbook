@@ -8,6 +8,50 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-18
+
+Backend pointer pinned at `213f301e1a8d` (Backend `main`, promotion #427).
+
+### Added
+
+- AI crawlers are named in `robots.txt`, with a `Content-Signal` line (search, AI input and AI
+  training allowed); `/llms.txt` describes the site for language models, and the home page sends a
+  `Link` header pointing to it (KAN-395).
+- The public pages are served as Markdown to a request that sends `Accept: text/markdown`
+  (KAN-397). Flask converts `/browse`, the category hubs and `/r/<slug>` pages with md4a, keeping
+  the page content and dropping the site header and navigation; Express serves the home page from
+  `server/public/home.md` with the newest-recipes links. Every answer varies on `Accept`. Backend
+  takes `md4a-fastapi` 0.1.0 from PyPI instead of a GitHub archive (KAN-411).
+- An OpenAPI description of the public read API at `/api/public/openapi.json`, and an API catalog
+  at `/.well-known/api-catalog` that links to it (KAN-398).
+- A read-only MCP endpoint at `/mcp` over the published recipes, with `search_recipes` and
+  `get_recipe` (KAN-399). Express proxies it to Flask and lists it in the API catalog. A request
+  runs at most one tool call.
+- An agent tool layer in Flask at `/api/agent/tools`, with one switch per offering and one access
+  check (KAN-401). Production sets the switches explicitly: read tools on, text and image
+  generation off.
+
+### Changed
+
+- Request bodies are capped (KAN-408). Express refuses a body whose declared length is over 1 MB
+  with a JSON 413 before sending anything to Flask. A streamed body is counted as it is forwarded,
+  and the request to Flask is cut off when it passes 1 MB, so Flask never receives more than that;
+  the client gets the 413 unless Flask has already answered (KAN-428 tracks that case). Flask
+  refuses a body over 2 MB as a backstop.
+- The recipe metadata engine records a model answer that failed its checks, so the same content
+  is not sent to the model again (KAN-393).
+- Backend Python dependencies: google-genai 2.30.1, google-auth 2.62.0, google-cloud-storage
+  3.17.0, ddtrace 4.15.6 (security fix) and SQLAlchemy 2.0.55. SQLAlchemy stays below 2.1 until
+  the Postgres driver moves to psycopg 3 (KAN-425).
+- Frontend dependencies: the Angular group, Express 5.3.0, Vite, dd-trace 6.20.1,
+  google-auth-library 11.3.0 and @google-cloud/secret-manager 7.2.0.
+
+### Removed
+
+- The legacy file-based routes `/generate_image/<filename>`, `/regenerate_image/<filename>` and
+  `/report_recipe/<filename>` (KAN-403, KAN-409). They belonged to the old server-rendered UI and
+  were reachable through `/api` without sign-in; they now return 404.
+
 ## [0.6.2] - 2026-10-12
 
 Backend pointer pinned at `95cbe1044cc4` (Backend `main`, promotion #405).

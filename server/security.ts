@@ -178,6 +178,32 @@ export const createRumIntakeLimiter = (
 };
 
 /**
+ * Rate limiter for the MCP endpoint (/mcp, KAN-399).
+ *
+ * /mcp is not under /api, so the API limiter does not see it, and it is not a
+ * page. Its own keyspace, at the API limiter's rate: every call is one
+ * JSON-RPC message that Flask answers from the database. The generation
+ * limiter cannot apply here (it matches tool names in the path, and an MCP
+ * tool name is inside the body), which is one reason /mcp offers read tools
+ * only.
+ */
+export const createMcpLimiter = (
+  valkeyClient: Redis | null = null,
+  windowMs: number = 15 * 60 * 1000,
+  max: number = 300
+) => {
+  return rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests, please try again later.' },
+    keyGenerator: rateLimitKeyGenerator,
+    store: buildRedisStore(valkeyClient, RATE_LIMIT_PREFIXES.mcp),
+  });
+};
+
+/**
  * Rate limiter for the public Datadog RUM configuration document.
  *
  * Kept in a distinct keyspace so unconsented page loads and cache bypasses

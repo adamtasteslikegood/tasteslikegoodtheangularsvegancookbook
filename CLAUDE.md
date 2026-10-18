@@ -72,65 +72,13 @@ cd Backend && uv run pytest  # Backend tests (if Backend touched)
 
 For docs-only or config-only changes, `npm run format:check` is sufficient — the other checks won't fail on non-code files. When in doubt, run the full set; it takes ~60 seconds locally vs waiting for CI.
 
-### Every sprint item needs an RCP acceptance row, or the board shows nothing
+### Chartering, changing or closing a sprint? Read `docs/pm/SPRINT_PLANNING.md` first
 
-**Applies to: chartering any sprint, and any time work is added to a running one.**
+**Applies to: chartering or planning any sprint, adding work to a running one, `/cs:grill-pm`, any charter or plan document, and sprint close-out.** Read that file before acting. It is not optional: each rule in it exists because skipping it went unnoticed while gates reported green. In short:
 
-`KAN` is execution, `RCP` is delivery planning — and **board 168 filters
-`project = RCP ORDER BY Rank ASC`.** KAN is a separate, team-managed project, so
-**a KAN key added to a sprint is a member that no column can ever render.** The
-Agile API accepts the add and reports the issue as a sprint member; the board
-displays nothing. Both facts are true at once, and that gap is the trap.
-
-So the sprint is tracked by **RCP rows, one per SI**, exactly as Sprint 8 did it:
-
-| Artifact           | Project | Shape                                                     |
-| ------------------ | ------- | --------------------------------------------------------- |
-| Delivery epic      | `RCP`   | one per sprint (`RCP-80` S8, `RCP-88` S9)                 |
-| **Acceptance row** | `RCP`   | **one Story per SI**, `S<N> acceptance: <what> (KAN-###)` |
-| Execution ticket   | `KAN`   | the actual work; stays in the sprint too                  |
-
-Each acceptance row: labelled `acceptance` + `sprint-N`, `Relates`-linked to its
-KAN execution row(s), added to the sprint, and moved only with its evidence named
-on the ticket. **Label the KAN execution rows `sprint-N` as well** — that label is
-what `scripts/pm/check_sprint_lane.sh` grades, and it is the current sprint's
-label the CI `sprint-lane` job resolves from board 168's active sprint.
-
-**This is not optional polish, and it has silently regressed before.** Sprint 9
-opened with epic `RCP-88` and _zero_ acceptance rows; ten bare KAN keys went into
-the sprint and the board rendered **one row for four days** while two separate
-gates reported green — each passing vacuously on its own documented limit
-(KAN-260). Both gates are now tightened, but the convention is the fix and the
-gates are only the backstop:
-
-```bash
-bash scripts/pm/check_sprint_lane.sh            # active sprint labelled + no orphans
-python3 scripts/harness/sprint9_hard_gate.py    # every SI has a board-rendered row
-```
-
-Never "fix" a board-visibility failure by removing KAN rows from the sprint. They
-belong there; the missing half is the RCP row.
-
-### Planning a sprint? Read the Confluence retro FIRST (not the repo close-out)
-
-**Applies to: chartering or planning any sprint, `/cs:grill-pm`, and any charter or plan document.**
-
-A sprint's retrospective lives in **two** places with **different content**, and the one an agent naturally finds is the incomplete one:
-
-| Artifact          | Where                                                                               | What it has                                                                                |
-| ----------------- | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Close-out         | `specs/SPRINT_<N>_PLAN.md` → `## Close-out`                                         | What shipped, what rolled, gate results                                                    |
-| **Retrospective** | **Confluence space `TLG`** → "Sprint Close Retrospectives" (parent page `50298881`) | 4Ls, decisions, and an **"Actions for Next Sprint" table that exists nowhere in the repo** |
-
-**Do this before drafting any charter:**
-
-```
-searchConfluenceUsingCql: text ~ "retrospective" AND type = page ORDER BY lastmodified DESC
-```
-
-Then walk the retro's **actions table row by row** against your proposed scope and state, explicitly, which actions are _not_ committed and why. Treat that table as a **required input, not a summary** of the close-out. Scope remains Adam's call — surface the gap, never self-authorize the addition.
-
-**Closing a sprint is not done until the retro page exists.** As the final close-out step, create it yourself — read the template body from page `50495489`, fill it from the close-out plus the board data, and `POST` it as a child of parent `50298881`. Title format: `Sprint <N> Retrospective — <YYYY-MM-DD>`. The **"Actions for Next Sprint" table is the point** — it exists nowhere in the repo. Do not build a Jira automation for this; the agent already holds the gate evidence.
+- **Every sprint item needs an RCP acceptance row**, or board 168 shows nothing (it filters `project = RCP`). Label the KAN execution rows `sprint-N` too. Never fix board visibility by removing KAN rows from the sprint (KAN-260).
+- **Read the Confluence retro before drafting a charter.** Its "Actions for Next Sprint" table exists nowhere in the repo. Walk it row by row, and surface the gaps without self-authorizing scope.
+- **Closing a sprint is not done until the retro page exists** in Confluence `TLG`, as a child of page `50298881`.
 
 ## Project
 
@@ -138,7 +86,7 @@ Then walk the retro's **actions table row by row** against your proposed scope a
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field (currently v0.6.0)
-- **Other agents:** See @AGENTS.md for OpenCode / non-Claude agent instructions
+- **Other agents:** See `AGENTS.md` for OpenCode / non-Claude agent instructions
 
 ## Commands
 
@@ -185,13 +133,13 @@ Browser → Express :8080 → Flask :5000 → Cloud SQL (PostgreSQL)
 **All browser traffic routes through Express** (single origin, no CORS). Express proxies `/api/*` to Flask as a raw HTTP stream. Angular only ever uses relative URLs (`/api/...`).
 
 - **Layer 1 — Angular 22 SPA** (`src/`): Standalone components with Signals API, flat route config in `src/app.routes.ts`. See `src/` directory structure for component tree.
-- **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation, response compression, cache headers for the built assets. No AI logic and no recipe logic: proxy + static hosting, with **one exception**.
-  - **The exception (KAN-348):** `/` is the Angular build's `index.html`, the one crawlable page Flask does not render. Express writes the newest-recipes row into it from Flask's `GET /api/public/newest-recipes` (`server/newest-recipes.ts`): fetched at startup, kept three minutes, served as built when Flask has no list. Flask decides order and visibility; Express only pastes links. **Do not extend this.** It cost a cache, a timeout, a retry rule and a browser fallback for eight links. More live content on the home page means Flask rendering `/`, not more composition in Express.
-- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: @Backend/CLAUDE.md
+- **Layer 2 — Express reverse proxy** (`server/`): Helmet, rate limiting, Valkey, validation, response compression, cache headers for the built assets. No AI logic and no recipe logic of its own: proxy, static hosting, and the home page.
+  - **Home page composition:** `/` is the Angular build's `index.html`, the one crawlable page Flask does not render, so Express composes it. Today it writes the newest-recipes row into it from Flask's `GET /api/public/newest-recipes` (`server/newest-recipes.ts`, KAN-348): fetched at startup, kept three minutes, served as built when Flask has no list. Flask decides order and visibility. A GET for `/` that names `text/markdown` in `Accept` gets `server/public/home.md` with the same newest-recipes links (`server/home-markdown.ts`, KAN-397); every answer for `/` carries `Vary: Accept`. Express is not limited to proxying and may do more for `/` when the work calls for it (Adam, 2026-10-12).
+- **Layer 3 — Flask API** (`Backend/`): Modular blueprints. For Backend architecture, auth, and API details: `Backend/CLAUDE.md`
 - **Public SSR surface**: Express proxies `/r/<slug>`, `/browse`, `/sitemap.xml`, `/static/*` to Flask for server-side rendering before the SPA catch-all.
 - **Persistence**: `PersistenceService` writes localStorage first (instant UI), then syncs to Flask. Cloud SQL is authoritative; SQLite for local dev.
 
-For full architecture details: @docs/DOCUMENTATION_INDEX.md
+For full architecture details: `docs/DOCUMENTATION_INDEX.md`
 
 ## Key environment variables
 
@@ -221,19 +169,16 @@ On feature branches, commit and push after every significant work-run so work is
 
 ## Pull request lifecycle
 
-Opening a PR is not the end of the task. Every PR you author, or are actively working on or waiting on, is yours until it merges — this applies by default, without being asked:
+Every PR you author, work on or wait on is yours until it merges, without being asked. The rules below are binding; `docs/agents/PR_LIFECYCLE.md` has the full text, commands and the incidents behind each one.
 
-- **Jira key in the title (REQUIRED).** Every PR title — in this repo AND in `Backend/` — must contain the Jira issue key (`KAN-###` or `RCP-###`), e.g. `feat(seo): SSR crawlable links on home shell (TAS-2896) [KAN-114]`. Jira's GitHub integration links PRs/branches/commits to an issue by scanning for the key in the PR title; a Linear `TAS-####` key alone does NOT create the Jira link. Put the key in the branch name and commit messages too where practical. If no Jira issue exists for the work, file one first.
-- **Monitor it.** While the PR is open, check for new review comments, inline comments, and failing checks (`gh pr view <n> --comments`, `gh api repos/{owner}/{repo}/pulls/<n>/comments`, `gh pr checks <n>`). Re-check whenever you return to the PR and before declaring any related work done — a PR with unaddressed feedback is not finished.
-- **Read review bodies in full before calling a PR review-debt zero.** Before you merge, or report a PR as having no unanswered feedback, read every review body in full, not only the inline threads: `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews --jq '.[] | "\(.user.login) \(.submitted_at)\n\(.body)\n"'`. Keep `--paginate`: the endpoint returns 30 reviews per page, so without it a busy PR's older bodies are never read. Copilot puts real findings only in the review body, under **Suppressed comments** or **Previously missed**. Those never become threads, so `required_review_thread_resolution` goes green with them unanswered, and `gh pr view --comments` does not show them either. Treat each one like an inline comment: push a fix or post a rebuttal, as a PR comment, since there is no thread to reply in. On Sprint 10's #3577 and #3579, three real findings appeared only in review bodies.
-- **Answer every comment.** For each piece of reviewer feedback, do one of two things: push a fix commit and reply confirming what changed, or reply with a concrete technical rebuttal explaining why no change is needed. Never leave feedback unanswered or silently ignored. When you receive review feedback on a PR you own, you MUST invoke the `superpowers:receiving-code-review` skill BEFORE responding — verify each claim against the code first, so replies are grounded in the code rather than performative agreement (the superpowers plugin is enabled in `.claude/settings.json`). A non-blocking PreToolUse hook (`.claude/hooks/pretooluse-pr-review-nudge.sh`) reinforces this by reminding you right before you post a PR reply, but the skill invocation is on you — the hook is a backstop, not the gate.
-- **Persist review insights to Discussions.** When a PR review thread surfaces a non-trivial insight — a design trade-off, a recurring pattern, a "we should do X next" — search the repo's GitHub Discussions (`gh discussion list -R {owner}/{repo}`) for an existing thread on that topic. If one exists, add a comment linking back to the PR thread. If none exists, create a new Discussion (`gh discussion create -R {owner}/{repo} --category Ideas --title "..." --body "..."`) capturing the insight with a link to the PR for context. This ensures learnings outlive the PR merge — PR threads become invisible after merge, Discussions do not.
-- **Never write a bot's command text in a comment, not even in backticks.** Comments posted as Adam are commands to every bot that listens to the repo owner, and Woden DocBot matches its approval command anywhere in the text, code spans included. Three PR summaries that said DocBot was "waiting on" its command, quoting it in backticks, each started an unreviewed doc run that committed a `_docs/` tree onto the PR branch (#3546, #3549, #3552; on #3549 it rewrote `===` into `=`). Say "DocBot's approval command" instead, and do the same for any other bot's slash commands (KAN-310).
-- **Sign replies posted on Adam's behalf.** Replies go out under Adam's GitHub account, so make authorship explicit by ending each one with a plain attribution line:
-
-  > _Replied by Claude on Adam's behalf_
-
-- **Loop until merged.** Repeat monitor → fix or rebut → reply until the PR is merged (or closed, or Adam says stop). If feedback requires a judgment call only Adam can make — scope changes, product decisions — surface it to him instead of guessing, but still reply on the thread noting it's awaiting his call.
+- **Jira key in the title (REQUIRED)**, in this repo and in `Backend/`: `KAN-###` or `RCP-###`. A Linear `TAS-####` key alone does not create the Jira link. No issue yet? File one first.
+- **Monitor it**: comments, inline comments and checks, each time you return and before calling related work done.
+- **Read every review body in full** before merging or calling review debt zero: `gh api --paginate repos/{owner}/{repo}/pulls/<n>/reviews`. Keep `--paginate`. Copilot findings under **Suppressed comments** or **Previously missed** never become threads, so answer them as PR comments.
+- **Answer every comment** with a fix commit or a concrete rebuttal. Invoke `superpowers:receiving-code-review` BEFORE responding.
+- **Persist non-trivial review insights to GitHub Discussions** (category Ideas), linking the PR.
+- **Never write a bot's command text in a comment, not even in backticks.** Say "DocBot's approval command" instead (KAN-310).
+- **Sign replies posted on Adam's behalf** with a final line: _Replied by Claude on Adam's behalf_
+- **Loop until merged.** Surface calls only Adam can make, and note on the thread that they await him.
 
 ## Database migrations
 
@@ -245,7 +190,7 @@ Detect branched heads: `cd Backend && uv run flask db heads` (must be one line).
 cd Backend && uv run flask db merge -m "merge <topic-a> and <topic-b> heads" <revA> <revB>
 ```
 
-For full migration details: @Backend/DATABASE_SETUP.md
+For full migration details: `Backend/DATABASE_SETUP.md`
 
 ## Deployment & CI
 
@@ -253,23 +198,9 @@ Two Cloud Run services (`express-frontend`, `flask-backend`) plus one Job (`flas
 
 PR gate (`.github/workflows/pr-gate.yml`): lint, TypeScript, build, Vitest+coverage, pytest, Docker image, CHANGELOG check, SEO canonical, all aggregated into `Gate — all checks passed` (required status check). Additional: CodeQL, Dependency Review.
 
-**A stuck or red run: platform or code? Read the jobs before the logs.** Two platform states look exactly like code failures from the PR view, and both cost real time in Sprint 8 (KAN-304):
+**A stuck or red run: read the affected run's jobs before its logs.** All jobs `queued` with none started means a platform or scheduling cause, not code. A run conclusion of `action_required` means GitHub is holding it for approval, so nothing ran. Neither is fixed by re-pushing. Commands and the full decision tree: `docs/ci/CI_TRIAGE.md` (KAN-304).
 
-The endpoint forms are `gh run view <id> --json status,conclusion` and `gh api repos/{owner}/{repo}/actions/runs/<id>/jobs`. Set `run_id` to the affected run's ID, the number after `/actions/runs/` in its URL. Don't take "the newest run": a PR starts several workflows (PR Gate, CodeQL, Dependency Review, Prettier) and the newest may be an unrelated one. The jobs call is paginated so "every job" is true:
-
-```bash
-run_id=36901421963   # replace with the affected run's ID
-gh run view "$run_id" --json status,conclusion # the run as a whole
-gh api --paginate "repos/{owner}/{repo}/actions/runs/${run_id}/jobs?per_page=100" \
-  --jq '.jobs[] | "\(.status) \(.conclusion) \(.name)"' # every job in it
-```
-
-- **All jobs `queued`, none started** means no code ran: an Actions outage or runner shortage, or a scheduling limit (repository concurrency, unavailable runner labels, account or billing limits). It is not a code failure. Check githubstatus.com, repository concurrency, runner availability, and account limits; wait when GitHub or runner capacity is the cause. Re-pushing or editing code does not diagnose a job that never ran.
-- **Run conclusion `action_required`** means the run never started: GitHub is holding it for approval because the workflow's triggering actor is not a collaborator (here, Copilot review events triggering the Junie workflow; the policy holds any non-collaborator actor). Who authored the PR does not decide it. It has no logs because nothing ran. Identify the workflow and whether it is required or blocking; approve it in the Actions tab only when it is, and otherwise leave the non-required held run alone.
-
-For the two states above, diagnose the listed platform, scheduling, or approval causes. For any other conclusion where no job started, read the run annotations and inspect the workflow configuration first; startup and configuration errors can fail before a job exists. When a job did run and fail, read that job's logs.
-
-For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/deployment/DEPLOYMENT_CHECKLIST.md
+For full CI/CD details: `docs/ci/refresh/SPEC-01-ci-quality-gates.md`, `docs/deployment/DEPLOYMENT_CHECKLIST.md`
 
 ## Testing
 
@@ -279,7 +210,7 @@ For full CI/CD details: @docs/ci/refresh/SPEC-01-ci-quality-gates.md, @docs/depl
 
 ## Startup (agent sessions) & PM tooling
 
-Project MCP servers declared in `.mcp.json`: `pm-daemon` and `gcp-monitor`. Full documentation: @docs/PM_TOOLING.md
+Project MCP servers declared in `.mcp.json`: `pm-daemon` and `gcp-monitor`. Full documentation: `docs/PM_TOOLING.md`
 
 **Key facts for every session:**
 
@@ -306,15 +237,20 @@ npm run pm:daemon:status     # check if daemon is alive
 
 ## Further reading
 
-- @Backend/CLAUDE.md — authoritative Backend reference
-- @Backend/API.md — Flask API endpoint reference
-- @Backend/DATABASE_SETUP.md — migration steps
-- @docs/DOCUMENTATION_INDEX.md — full docs index
-- @docs/ci/refresh/ — CI pipeline specs and decisions
+An `@path` entry is loaded into every session, so only the release runbook is imported; read the others when the task needs them. Keep it that way: a new import costs every session, whatever the task (KAN-416).
+
+- `Backend/CLAUDE.md` — authoritative Backend reference
+- `Backend/API.md` — Flask API endpoint reference
+- `Backend/DATABASE_SETUP.md` — migration steps
+- `docs/DOCUMENTATION_INDEX.md` — full docs index
+- `docs/ci/refresh/` — CI pipeline specs and decisions
 - @scripts/release/RUNBOOK.md — release train procedure
-- @docs/PM_TOOLING.md — PM daemon and Confluence sync
-- @docs/MCP_GCP_MONITORING.md — GCP monitoring MCP setup
-- @docs/architecture/rate_limit.md — rate limiting details
+- `docs/PM_TOOLING.md` — PM daemon, Confluence sync and session logging
+- `docs/pm/SPRINT_PLANNING.md` — sprint acceptance rows, retro, close-out
+- `docs/agents/PR_LIFECYCLE.md` — PR rules with the incidents behind them
+- `docs/ci/CI_TRIAGE.md` — stuck or red runs: platform or code
+- `docs/MCP_GCP_MONITORING.md` — GCP monitoring MCP setup
+- `docs/architecture/rate_limit.md` — rate limiting details
 
 ## gstack
 

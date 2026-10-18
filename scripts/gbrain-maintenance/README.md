@@ -1,49 +1,139 @@
-# gbrain nightly maintenance (Railway cron service)
+# gbrain daily maintenance (Railway cron service)
 
-Runs nightly gbrain maintenance (link extraction and embedding) against the
-shared Railway Postgres, then exits. Deployed as a Railway **cron service**
-("gbrain maintenance" in the "believable-joy" project) linked to the same
-Postgres and pg_volume that host the brain.
+Keeps the shared gbrain brain (Railway Postgres) current while the dev laptop
+is off. Deployed as a Railway **cron service** (`gbrain-maintenance` in the
+`believable-joy` project) next to the Postgres service that hosts the brain.
 
-## What it does
+## How it works (KAN-413, 2026-10-16)
+
+Railway is the scheduler, and the hermes sprite does the work:
+
+```
+Railway cron (30 16 * * * UTC)
+  └─ run.sh: POST https://api.sprites.dev/v1/sprites/<sprite>/exec   ← wakes the sprite
+       └─ sprite: ~/.hermes/scripts/gbrain-remote-run.sh (waits; output → Railway logs)
+            ├─ gbrain-maintain.sh: pull + sync each code source, extract, embed, doctor
+            └─ hermes cron tick: runs any due agent job (the Monday gbrain-brain-check)
+```
+
+Why it is built like this:
+
+- **A sprite sleeps, and hermes cron does not wake it.** Between 2026-10-13
+  21:30 and 2026-10-16 03:30 the sprite's `gbrain-maintain` job missed every
+  run. An exec request wakes it, and `run.sh` holds that request open until the
+  run finishes, so the sprite stays awake for the whole run.
+- **Maintenance needs fresh code to be useful.** `extract --stale` and
+  `embed --stale` only process pages a sync changed. Code sync used to happen
+  only on the laptop, so a remote run had nothing to do. The sprite now keeps
+  its own clone of each code source below, at the path the shared DB records
+  for it (`/home/allisone/.gbrain/clones/<source id>`) and on the same branch
+  as the laptop's clone, so both machines sync the same commits into the same
+  pages. Those clones are the only thing under `/home/allisone` on the sprite:
+  it runs as user `sprite`, and everything else (hermes, its scripts,
+  `~/gbrain`) is under `/home/sprite`.
+- **The cookbook source stays laptop-only.** It is registered to the laptop's
+  worktree path and indexes whatever branch is checked out there. A clone on
+  the sprite would follow `dev`, and each machine's sync would overwrite the
+  other's pages. The laptop's `gbrain autopilot` cron (every 5 minutes) syncs
+  it when it is on.
+
+### Code sources the sprite syncs
+
+All are registered non-federated, so a search must name them with
+`--source <id>`.
+
+| Source id                     | Repository                 | Branch |
+| ----------------------------- | -------------------------- | ------ |
+| `gstack-code-backend`         | `tasteslikegood.com`       | `dev`  |
+| `gstack-code-md4a-fastapi`    | `md4a-fastapi`             | `main` |
+| `gstack-code-artazzen-com`    | `ArtazzenDotCom`           | `dev`  |
+| `gstack-code-artazzen-mobile` | `ArtazzenMobile`           | `main` |
+| `gstack-code-plaza`           | `10110TasteslikegoodPlaza` | `dev`  |
+
+To add one, first check `gbrain sources list` and `gbrain sources archived`
+so it is not registered twice. Then:
+
+1. On the laptop, clone the repo's branch to `~/.gbrain/clones/<id>` and run
+   `gbrain sources add <id> --path ~/.gbrain/clones/<id> --no-federated`.
+2. Run `gbrain sync --source <id> --strategy code --full`. The laptop's
+   autopilot picks up a new source within minutes and can do its first sync
+   without the code strategy. ArtazzenMobile got only its Markdown pages that
+   way, and the full code sync is what imported its Swift files.
+3. On the sprite, clone the same branch to `/home/allisone/.gbrain/clones/<id>`
+   and add `<id> <branch>` to the `SOURCES` list in `gbrain-maintain.sh`.
+
+`run.sh` reads the sprite's result two ways, and both must agree. The HTTP
+exec response ends with an exit frame (byte 3, then the process exit code),
+and `gbrain-remote-run.sh` prints `EXIT=<n>` as its last output line and exits
+with the same code. The format has no frame lengths, so the exit frame is read
+as the last two bytes of the body. `test_run.sh` covers these cases with a
+mocked curl: `bash scripts/gbrain-maintenance/test_run.sh`.
+
+| Sprite result                                                                                                                           | `run.sh` does                                       | Exit |
+| --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ---- |
+| process exit 0 and `EXIT=0`                                                                                                             | nothing more                                        | 0    |
+| process exit 0 and `EXIT=75` (another run holds the lock)                                                                               | logs a WARN, nothing more, to avoid an overlap      | 0    |
+| run never started (no token, connect/TLS failure, HTTP error status), or it finished with a non-zero exit or no `EXIT=0`/`EXIT=75` line | runs the fallback below                             | 1    |
+| as above, and a fallback phase also failed                                                                                              | runs the fallback below                             | 2    |
+| request broke off mid-run (timeout, dropped connection) or the response has no exit frame                                               | skips the fallback: the sprite may still be running | 3    |
+
+The exec request is never retried, and the fallback never runs while the
+sprite might still be working: either would start a second run against the
+same brain. The sprite's lock is an `flock`, released when its holder dies,
+so `EXIT=75` means a live run holds it. If the WARN repeats day after day,
+look for a hung run on the sprite.
+
+The hermes `gbrain-maintain` schedule is **paused** on the sprite so the work
+does not also run on hermes's own schedule when the sprite is awake. Do not
+resume it while this cron is deployed.
+
+## What the fallback does
 
 | Phase | Command                                             | Purpose                                                  |
 | ----- | --------------------------------------------------- | -------------------------------------------------------- |
 | 1     | `extract --stale`                                   | Extract links/edges from any pages that lack them        |
 | 2     | `embed --stale --catch-up --max-usd $EMBED_MAX_USD` | Embed any chunks missing embeddings, up to the spend cap |
-| 3     | `doctor --fast`                                     | Health check — logs score and any FAILs                  |
-| 4     | `sources status`                                    | Snapshot of sync lag, embed coverage per source          |
+| 3     | `doctor --fast`                                     | Health check: logs the score and any FAILs               |
+| 4     | `sources status`                                    | Snapshot of sync lag and embed coverage per source       |
 
-**It does not run `gbrain dream`.** The cycle's `propose_takes` phase called a
+The sprite's `gbrain-maintain.sh` runs the same phases after it syncs the code
+sources.
+
+**Nothing here runs `gbrain dream`.** The cycle's `propose_takes` phase called a
 chat model for 20 to 50 minutes a night, about $3/day, with nothing consuming
 the output (KAN-357). Do not add it back without a budget and a consumer.
 
-Code sync stays on the dev machine (`gbrain autopilot` cron, every 5 min);
-this service never syncs code, so there is exactly one writer per concern.
+## Deploy
 
-## Deploy (one-time, already done)
+The service is not connected to GitHub, so a merge to `dev` does not deploy
+it. Only `railway up` does, and it restores the schedule in `railway.json`.
 
 ```bash
-railway login
 railway link          # pick "believable-joy"
 railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
+railway cron run --service gbrain-maintenance --yes   # one run now, to verify
 ```
 
 Service variables (Dashboard → gbrain-maintenance → Variables):
 
-- `GBRAIN_DATABASE_URL` — the gbrain DB URL (public proxy or internal)
-- `OPENAI_API_KEY` — embeddings only. Scope the key to the embeddings
-  endpoint and model listing; nothing here needs chat access.
-- `EMBED_MAX_USD` — optional per-run embedding spend cap (default `1`).
+- `SPRITES_TOKEN`: Sprites API token for the `adam-schoen` org. Without it,
+  every run goes straight to the fallback and exits 1.
+- `SPRITE_NAME`: optional, default `spawn-sprite-hermes222`.
+- `GBRAIN_DATABASE_URL`: the gbrain DB URL; used by the fallback.
+- `OPENAI_API_KEY`: embeddings only; used by the fallback. Scope the key to
+  the embeddings endpoint and model listing; nothing here needs chat access.
+- `EMBED_MAX_USD`: optional per-run embedding spend cap (default `1`).
   Without a terminal, `gbrain embed` exits 3 unless a cap is passed.
 
-The cron schedule (`0 9 * * *` UTC = 2am PT) lives in `railway.json`.
+To stop the schedule: `railway down --service gbrain-maintenance --yes`. The
+service and its variables stay.
 
 ## Version pinning
 
 The Dockerfile pins gbrain by commit SHA so this service can never run
 schema migrations the local CLI hasn't seen. gbrain is NOT on npm (the npm
-`gbrain` package is an unrelated GPU library); it builds from source.
+`gbrain` package is an unrelated GPU library); it builds from source. The
+sprite's `~/gbrain` checkout is pinned to the same commit.
 
 **When local gbrain upgrades:**
 
@@ -51,24 +141,24 @@ schema migrations the local CLI hasn't seen. gbrain is NOT on npm (the npm
 # get the new SHA
 git -C ~/gbrain rev-parse HEAD
 # update GBRAIN_COMMIT in Dockerfile (and the bun base image if gbrain's
-# package.json engines.bun moved), then:
+# package.json engines.bun moved), check out the same SHA on the sprite, then:
 railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
 ```
 
-## Hermes agent integration (spawn/sprite)
+## The sprite side (`spawn-sprite-hermes222`)
 
-For on-demand maintenance outside the nightly cron — e.g. after a large
-sync or when doctor score drops — wake the hermes agent on the spawn/sprite
-instance with a brain-check task. The agent runs the same commands `run.sh`
-does, but can make judgment calls (archive dead sources, break stale locks,
-report anomalies).
+These files live on the sprite, not in this repo. List the hermes jobs with
+`hermes cron list` and their history with `hermes cron runs`.
 
-Sample hermes cron (twice daily, offset from the Railway nightly):
+| File / job                               | What it does                                                                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.hermes/scripts/gbrain-remote-run.sh` | Entry point for this cron: maintain, then `hermes cron tick`, then prints `EXIT=<n>` and exits with it                          |
+| `~/.hermes/scripts/gbrain-maintain.sh`   | Pull + sync each code source, extract, capped embed, doctor; log in `~/.gbrain/maintain.log`. Exits non-zero if any step failed |
+| hermes `gbrain-maintain`                 | Paused. Railway runs the script instead                                                                                         |
+| hermes `gbrain-brain-check`              | Mondays 16:00 UTC, agent job; the 16:30 Railway run's tick fires it if it was asleep                                            |
 
-```cron
-0 15 * * * hermes run --task "gbrain-brain-check" --timeout 300
-0 3  * * * hermes run --task "gbrain-brain-check" --timeout 300
-```
+There is no dream job. A `gbrain-nightly-dream` agent job was removed on
+2026-10-13: it sent about 495k prompt tokens a run and created no pages.
 
 The `gbrain-brain-check` task prompt:
 
@@ -79,10 +169,10 @@ If score < 50: run gbrain extract --stale and
 gbrain embed --stale --catch-up --max-usd 1, then re-check. Do not run
 gbrain dream (it calls a chat model; see above).
 If any source shows sync lag > 7d and is pointed at a missing path:
-archive it (gbrain sources archive <id>).
-If stale locks exist: break them (gbrain sync --break-lock --source <id>).
-Report the before/after score and any actions taken.
+report it, but do not archive or delete anything.
+If stale locks exist: report them, but do not break them.
+Report the before/after score, every FAIL check and any actions taken.
 ```
 
-This keeps the hermes agent lightweight — it only acts when doctor says
-something is wrong, and the Railway cron handles the scheduled work.
+This keeps the agent job lightweight: it only acts when doctor says
+something is wrong.

@@ -1,0 +1,18 @@
+# https://www.tasteslikegood.org  run at 2026-10-14T14:43:43Z
+FAIL  AR-1   robots.txt names the AI crawlers (missing: GPTBot OAI-SearchBot ChatGPT-User ClaudeBot Claude-SearchBot Claude-User PerplexityBot Perplexity-User Google-Extended Applebot-Extended CCBot)
+FAIL  AR-2   robots.txt states a Content-Signal
+FAIL  AR-3   /llms.txt is served and starts with a title
+PASS  AR-4   /sitemap.xml is served and listed in robots.txt
+PASS  AR-5a  home page has WebApplication and Organization structured data
+PASS  AR-5b  a recipe page has Recipe structured data
+FAIL  AR-6   home page Link header points at /llms.txt
+FAIL  AR-7a  Accept: text/markdown on / returns markdown
+FAIL  AR-7b  Accept: text/markdown on /browse returns markdown
+FAIL  AR-7c  Accept: text/markdown on /r/vegan-pub-sub-turkey-bacon-club-sandwich returns markdown
+FAIL  AR-8a  /api/public/openapi.json describes the public API
+FAIL  AR-8b  /.well-known/api-catalog is a linkset
+FAIL  AR-9   /mcp answers an MCP initialize request
+FAIL  AR-10  home page and llms.txt say the recipes are generated with Gemini
+
+11 requirement(s) fail for https://www.tasteslikegood.org
+exit=1

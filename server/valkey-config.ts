@@ -96,4 +96,6 @@ export const RATE_LIMIT_PREFIXES = {
   rum: 'rl:rum:',
   /** Public Datadog RUM runtime config (/rum/config, KAN-292) */
   rumConfig: 'rl:rum-config:',
+  /** MCP endpoint (/mcp, KAN-399) */
+  mcp: 'rl:mcp:',
 } as const;
