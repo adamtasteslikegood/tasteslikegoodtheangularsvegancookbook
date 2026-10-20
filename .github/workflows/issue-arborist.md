@@ -10,6 +10,11 @@ on:
 # Gemini (GEMINI_API_KEY is present and matches the Backend gemini-triage setup).
 engine:
   id: gemini
+# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x pins v0.28.62.
+# Drop this block once gh-aw's default AWF version is v0.28.67 or later (KAN-323).
+sandbox:
+  agent:
+    version: v0.28.69
 
 permissions:
   contents: read
