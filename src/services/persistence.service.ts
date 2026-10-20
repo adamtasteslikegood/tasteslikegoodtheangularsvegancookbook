@@ -635,32 +635,58 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
-    const wasIn = isInCookbook(user, cookbookId, recipe.id);
-    const op = this._beginMembershipOp(cookbookId, recipe.id);
+    const localId = this.auth.cookbookRecipeIdFor(recipe);
+    const op = this._beginMembershipOp(user, cookbookId, localId);
     this.auth.addRecipeToCookbook(cookbookId, recipe);
     const outcome = await this._addMembership(cookbookId, recipe);
-    if (!outcome.ok && !wasIn) this._undoMembership(op, cookbookId, recipe.id, false);
+    this._endMembershipOp(op, cookbookId, localId, true, outcome.ok);
     return outcome;
   }
 
   /**
-   * KAN-333: the latest membership change per cookbook and recipe. The dialog
-   * can reopen while a request is pending, so a failure is undone only if no
-   * newer change to the same recipe in the same cookbook has started since,
-   * and the undo touches that one recipe only.
+   * KAN-333: membership changes per cookbook and recipe. The dialog can reopen
+   * while a request is pending, so changes to one pair overlap. `confirmed` is
+   * the membership the server last took (or the local state when no change
+   * was pending), and a failure puts the screen back to it, but only when it
+   * is the newest change to that pair. An older change that lands after a
+   * newer one failed updates `confirmed` and the screen follows it.
    */
-  private readonly _membershipOps = new Map<string, number>();
+  private readonly _membership = new Map<
+    string,
+    { latest: number; pending: number; confirmed: boolean; undone: boolean }
+  >();
   private _membershipOpSeq = 0;
 
-  private _beginMembershipOp(cookbookId: string, recipeId: string): number {
+  private _beginMembershipOp(user: User, cookbookId: string, recipeId: string): number {
+    const key = `${cookbookId}\u0000${recipeId}`;
     const op = ++this._membershipOpSeq;
-    this._membershipOps.set(`${cookbookId}\u0000${recipeId}`, op);
+    const entry = this._membership.get(key);
+    if (!entry || entry.pending === 0) {
+      const confirmed = isInCookbook(user, cookbookId, recipeId);
+      this._membership.set(key, { latest: op, pending: 1, confirmed, undone: false });
+    } else {
+      entry.latest = op;
+      entry.pending++;
+      entry.undone = false;
+    }
     return op;
   }
 
-  private _undoMembership(op: number, cookbookId: string, recipeId: string, present: boolean) {
-    if (this._membershipOps.get(`${cookbookId}\u0000${recipeId}`) !== op) return;
-    this.auth.setCookbookMembership(cookbookId, recipeId, present);
+  private _endMembershipOp(
+    op: number,
+    cookbookId: string,
+    recipeId: string,
+    present: boolean,
+    ok: boolean
+  ) {
+    const key = `${cookbookId}\u0000${recipeId}`;
+    const entry = this._membership.get(key);
+    if (!entry) return;
+    entry.pending--;
+    if (ok) entry.confirmed = present;
+    if (!ok && entry.latest === op) entry.undone = true;
+    if (entry.undone) this.auth.setCookbookMembership(cookbookId, recipeId, entry.confirmed);
+    if (entry.pending === 0) this._membership.delete(key);
   }
 
   private async _addMembership(cookbookId: string, recipe: Recipe): Promise<SaveOutcome> {
@@ -687,8 +713,7 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
-    const wasIn = isInCookbook(user, cookbookId, recipeId);
-    const op = this._beginMembershipOp(cookbookId, recipeId);
+    const op = this._beginMembershipOp(user, cookbookId, recipeId);
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
     let res: Response | null = null;
@@ -700,7 +725,7 @@ export class PersistenceService {
       console.warn('[PersistenceService] removeRecipeFromCookbook failed:', err);
     }
     const outcome = interpretMembershipResponse(res, 'remove');
-    if (!outcome.ok && wasIn) this._undoMembership(op, cookbookId, recipeId, true);
+    this._endMembershipOp(op, cookbookId, recipeId, false, outcome.ok);
     return outcome;
   }
 

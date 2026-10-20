@@ -517,6 +517,18 @@ export class AuthService {
     });
   }
 
+  /**
+   * The id addRecipeToCookbook puts in a cookbook for this recipe: its own,
+   * or that of a saved recipe it matches by id or name. KAN-333: an undo of a
+   * failed add has to remove this id, not necessarily recipe.id.
+   */
+  cookbookRecipeIdFor(recipe: Recipe): string {
+    const saved = this.currentUser()?.savedRecipes.find(
+      (r) => r.id === recipe.id || r.name === recipe.name
+    );
+    return saved?.id ?? recipe.id;
+  }
+
   addRecipeToCookbook(cookbookId: string, recipe: Recipe) {
     const user = this.currentUser();
     if (!user) return;

@@ -336,13 +336,16 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
   const setup = (recipeIds: string[], answer: Answer) => {
     let books: Book[] = [{ id: 'cb1', recipeIds: [...recipeIds] }];
     const user = () => ({ cookbooks: books }) as unknown as User;
+    // AuthService matches a recipe to a saved one by id or by name, and the
+    // cookbook then holds the saved recipe's id.
+    const cookbookRecipeIdFor = (r: Recipe) => (r.name === 'Saved twin' ? 'existing' : r.id);
     const auth = {
       currentUser: () => user(),
+      cookbookRecipeIdFor,
       addRecipeToCookbook: (id: string, r: Recipe) => {
+        const rid = cookbookRecipeIdFor(r);
         books = books.map((b) =>
-          b.id === id && !b.recipeIds.includes(r.id)
-            ? { ...b, recipeIds: [...b.recipeIds, r.id] }
-            : b
+          b.id === id && !b.recipeIds.includes(rid) ? { ...b, recipeIds: [...b.recipeIds, rid] } : b
         );
       },
       removeRecipeFromCookbook: (id: string, rid: string) => {
@@ -370,7 +373,7 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
       _fetch: fetch,
       _apiSaveRecipe: vi.fn().mockResolvedValue({ ok: true }),
       // Field initializers do not run on a bare instance.
-      _membershipOps: new Map(),
+      _membership: new Map(),
       _membershipOpSeq: 0,
     }) as PersistenceService;
     return { service, fetch, ids: () => books[0].recipeIds };
@@ -426,6 +429,26 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
     slow.settle({ ok: false, status: 500 });
     await first;
     expect(ids()).toEqual(['r1']);
+  });
+
+  it('leaves a recipe out when an add and then its removal both fail', async () => {
+    const slowAdd = later();
+    const slowRemove = later();
+    const answers = [() => slowAdd.promise, () => slowRemove.promise];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const adding = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    const removing = service.removeRecipeFromCookbook('cb1', 'r1');
+    slowAdd.settle({ ok: false, status: 500 });
+    slowRemove.settle({ ok: false, status: 500 });
+    await Promise.all([adding, removing]);
+    expect(ids()).toEqual([]);
+  });
+
+  it('undoes the id the cookbook holds when the recipe matched a saved one by name', async () => {
+    const { service, ids } = setup([], { ok: false, status: 500 });
+    await service.addRecipeToCookbook('cb1', { id: 'new', name: 'Saved twin' } as Recipe);
+    expect(ids()).toEqual([]);
   });
 
   it('keeps a change the server took', async () => {
