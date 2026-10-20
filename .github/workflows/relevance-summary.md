@@ -5,7 +5,8 @@ on:
   workflow_dispatch:
 engine:
   id: gemini
-# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x pins v0.28.62.
+# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x defaults to v0.28.57
+# (see .github/aw/actions-lock.json).
 # Drop this block once gh-aw's default AWF version is v0.28.67 or later (KAN-323).
 sandbox:
   agent:

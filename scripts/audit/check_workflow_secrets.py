@@ -116,7 +116,8 @@ OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
         _GH_AW_LOCKS,
     ),
     # Emitted by every gh-aw compile since ADR-56353 (2026-08-27), no opt-out;
-    # KAN-323 brought them in. Pending Adam's confirmation.
+    # KAN-323 brought them in. Adam decides on its PR (#3732): merging it confirms
+    # the pair as optional; a rejection removes them before merge.
     "GH_AW_DEFAULT_OTLP_ENDPOINT": OptionalSecret(
         "gh-aw *.lock.yml default OTLP export: read as secrets.X || vars.X with"
         " GH_AW_OTLP_IF_MISSING: ignore, so an unset endpoint drops the export silently",
