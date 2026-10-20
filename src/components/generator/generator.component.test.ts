@@ -1,7 +1,11 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GeneratorComponent, SAVE_SESSION_WAIT_MS } from './generator.component';
+import {
+  GeneratorComponent,
+  NOT_SAVED_YET_MESSAGE,
+  SAVE_SESSION_WAIT_MS,
+} from './generator.component';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
@@ -470,6 +474,16 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
     expect(component.isSaved()).toBe(false);
+    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+  });
+
+  it('says a manual save with no session was not saved', async () => {
+    const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
   });
 
   // KAN-306: a returning visitor with a cached signed-in session has no
@@ -557,11 +571,16 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(saved.personalNotes).toBe('less salt');
     });
 
-    it('stops waiting on an auth check that never settles and still saves', async () => {
+    // Past the bound a cached signed-in session is still deferred, so the save
+    // finds no session and stores nothing; the user must be told.
+    it('stops waiting on an auth check that never settles and says nothing was saved', async () => {
       vi.useFakeTimers();
       try {
         const { ready } = holdAuthOpen();
-        const { component, persistenceSaveRecipe } = createComponent({ ready });
+        const { component, persistenceSaveRecipe } = createComponent({
+          ready,
+          saveOutcome: { ok: true, noSession: true },
+        });
         component.recipe.set(draftRecipe());
 
         const saving = component.onSaveRecipe();
@@ -569,6 +588,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
         await saving;
 
         expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+        expect(component.isSaved()).toBe(false);
+        expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
       } finally {
         vi.useRealTimers();
       }

@@ -15,6 +15,8 @@ describe('AddToCookbookModalComponent (KAN-333)', () => {
   let addRecipeToCookbook: ReturnType<typeof vi.fn>;
   let removeRecipeFromCookbook: ReturnType<typeof vi.fn>;
   let toastShow: ReturnType<typeof vi.fn>;
+  let isSavedSet: ReturnType<typeof vi.fn>;
+  let currentRecipe: unknown;
 
   const recipe = { id: 'r1', name: 'Vegan Cornbread' } as never;
   const user = {
@@ -28,6 +30,8 @@ describe('AddToCookbookModalComponent (KAN-333)', () => {
     addRecipeToCookbook = vi.fn().mockResolvedValue({ ok: true });
     removeRecipeFromCookbook = vi.fn().mockResolvedValue({ ok: true });
     toastShow = vi.fn();
+    isSavedSet = vi.fn();
+    currentRecipe = null;
   });
 
   const createComponent = () => {
@@ -40,7 +44,7 @@ describe('AddToCookbookModalComponent (KAN-333)', () => {
         },
         {
           provide: RecipeStateService,
-          useValue: { currentRecipe: () => null, isSaved: { set: vi.fn() } },
+          useValue: { currentRecipe: () => currentRecipe, isSaved: { set: isSavedSet } },
         },
         { provide: ToastService, useValue: { show: toastShow } },
       ],
@@ -105,5 +109,17 @@ describe('AddToCookbookModalComponent (KAN-333)', () => {
     expect(removeRecipeFromCookbook).toHaveBeenCalledWith('cb-in', 'r1');
     expect(toastShow).toHaveBeenCalledOnce();
     expect(toastShow.mock.calls[0][0]).toMatch(/not saved/i);
+  });
+
+  // The saved mark and the toast must agree: no mark when every change failed.
+  it('marks the recipe on screen saved only when a change landed', async () => {
+    currentRecipe = recipe;
+    addRecipeToCookbook.mockResolvedValue({ ok: false, refusal: 'sync' });
+    await addToWeeknights();
+    expect(isSavedSet).not.toHaveBeenCalled();
+
+    addRecipeToCookbook.mockResolvedValue({ ok: true });
+    await addToWeeknights();
+    expect(isSavedSet).toHaveBeenCalledWith(true);
   });
 });

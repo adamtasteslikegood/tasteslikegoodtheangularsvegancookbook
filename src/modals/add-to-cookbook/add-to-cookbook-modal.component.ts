@@ -106,6 +106,7 @@ export class AddToCookbookModalComponent {
 
     const pending = this.pendingCookbookIds();
     let failed: SaveOutcome | null = null;
+    let added = false;
 
     for (const cb of user.cookbooks) {
       const wasIn = cb.recipeIds.includes(r.id);
@@ -114,6 +115,7 @@ export class AddToCookbookModalComponent {
       let outcome: SaveOutcome | null = null;
       if (!wasIn && shouldBeIn) {
         outcome = await this.persistenceService.addRecipeToCookbook(cb.id, r);
+        if (outcome.ok) added = true;
       } else if (wasIn && !shouldBeIn) {
         outcome = await this.persistenceService.removeRecipeFromCookbook(cb.id, r.id);
       }
@@ -125,7 +127,8 @@ export class AddToCookbookModalComponent {
     // is lost there. Say so instead of closing as if it stuck.
     if (failed) this.toastService.show(cookbookUnsyncedMessage(failed));
 
-    if (this.recipeState.currentRecipe()?.id === r.id) {
+    // The saved mark follows the account: not when every change failed.
+    if ((added || !failed) && this.recipeState.currentRecipe()?.id === r.id) {
       this.recipeState.isSaved.set(true);
     }
 

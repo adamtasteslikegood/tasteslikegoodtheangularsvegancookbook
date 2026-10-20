@@ -29,6 +29,10 @@ import {
 /** KAN-306: longest a save waits for the startup auth check before going ahead. */
 export const SAVE_SESSION_WAIT_MS = 10_000;
 
+/** KAN-306: shown when a save found no session, so nothing was stored. */
+export const NOT_SAVED_YET_MESSAGE =
+  'Your recipe was not saved yet. Wait a moment, then save again.';
+
 @Component({
   selector: 'app-generator',
   standalone: true,
@@ -155,7 +159,15 @@ export class GeneratorComponent extends RecipeViewBase {
           // without showing it, so the id alone does not mean "on screen".
           const shown =
             this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
-          if (!shown) {
+          if (outcome.noSession) {
+            // KAN-306: the sign-in check outlasted the wait, so nothing was
+            // stored. Say so: the screen alone looks like an unsaved recipe.
+            this.toastService.show(
+              shown
+                ? NOT_SAVED_YET_MESSAGE
+                : `"${generatedRecipe.name}" is ready, but it was not saved yet.`
+            );
+          } else if (!shown) {
             this.toastService.show(
               kept
                 ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
@@ -191,6 +203,7 @@ export class GeneratorComponent extends RecipeViewBase {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       }
       trackRecipeSaveOutcome('generator_save', outcome);
+      if (outcome.noSession) this.toastService.show(NOT_SAVED_YET_MESSAGE);
     } finally {
       this.finishRecipeSave(currentRecipe.id);
     }

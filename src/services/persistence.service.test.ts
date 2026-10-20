@@ -254,8 +254,8 @@ describe('shouldWriteCookbookMembership', () => {
 // or failed write still closed the cookbook modal as if it had stuck.
 describe('interpretMembershipResponse (KAN-333)', () => {
   it('reports a stored membership change as ok', () => {
-    expect(interpretMembershipResponse({ ok: true, status: 201 }, 'add')).toEqual({ ok: true });
-    expect(interpretMembershipResponse({ ok: true, status: 204 }, 'remove')).toEqual({ ok: true });
+    expect(interpretMembershipResponse({ ok: true, status: 201 })).toEqual({ ok: true });
+    expect(interpretMembershipResponse({ ok: true, status: 204 })).toEqual({ ok: true });
   });
 
   // The Backend answers a removal of a recipe that is not in the cookbook
@@ -263,7 +263,7 @@ describe('interpretMembershipResponse (KAN-333)', () => {
   // (collections_api_bp.remove_recipe_from_collection), e.g. a lapsed session.
   // That removal did not happen, so it must not read as done.
   it('reports a removal the server answered 404 as unsynced', () => {
-    expect(interpretMembershipResponse({ ok: false, status: 404 }, 'remove')).toEqual({
+    expect(interpretMembershipResponse({ ok: false, status: 404 })).toEqual({
       ok: false,
       refusal: 'sync',
     });
@@ -271,13 +271,13 @@ describe('interpretMembershipResponse (KAN-333)', () => {
 
   it('reports any other answer, or none, as unsynced', () => {
     for (const res of [{ ok: false, status: 404 }, { ok: false, status: 500 }, null]) {
-      expect(interpretMembershipResponse(res, 'add')).toEqual({ ok: false, refusal: 'sync' });
+      expect(interpretMembershipResponse(res)).toEqual({ ok: false, refusal: 'sync' });
     }
-    expect(interpretMembershipResponse({ ok: false, status: 503 }, 'remove')).toEqual({
+    expect(interpretMembershipResponse({ ok: false, status: 503 })).toEqual({
       ok: false,
       refusal: 'sync',
     });
-    expect(interpretMembershipResponse(null, 'remove')).toEqual({ ok: false, refusal: 'sync' });
+    expect(interpretMembershipResponse(null)).toEqual({ ok: false, refusal: 'sync' });
   });
 });
 

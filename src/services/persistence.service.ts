@@ -204,8 +204,7 @@ export function shouldWriteCookbookMembership(outcome: SaveOutcome): boolean {
  * an add through the recipe save that precedes it.
  */
 export function interpretMembershipResponse(
-  res: { ok: boolean; status: number } | null,
-  _kind: 'add' | 'remove'
+  res: { ok: boolean; status: number } | null
 ): SaveOutcome {
   if (res?.ok) return { ok: true };
   return { ok: false, refusal: 'sync' };
@@ -705,7 +704,7 @@ export class PersistenceService {
     } catch (err) {
       console.warn('[PersistenceService] addRecipeToCookbook failed:', err);
     }
-    return interpretMembershipResponse(res, 'add');
+    return interpretMembershipResponse(res);
   }
 
   /** KAN-333: resolves to whether the removal reached the server. */
@@ -724,7 +723,7 @@ export class PersistenceService {
     } catch (err) {
       console.warn('[PersistenceService] removeRecipeFromCookbook failed:', err);
     }
-    const outcome = interpretMembershipResponse(res, 'remove');
+    const outcome = interpretMembershipResponse(res);
     this._endMembershipOp(op, cookbookId, recipeId, false, outcome.ok);
     return outcome;
   }
