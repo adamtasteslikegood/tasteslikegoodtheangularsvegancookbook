@@ -2,8 +2,8 @@
 description: Daily workflow that analyzes open issues and links related issues as sub-issues to improve issue organization
 name: Issue Arborist
 on:
-  # Twice a day is plenty for issue gardening; every 3h burned engine budget.
-  schedule: every 12h
+  # Once a day (Adam, 2026-10-20); every 3h burned engine budget.
+  schedule: daily
   workflow_dispatch:
 
 # Copilot budget is exhausted and gh-aw ignores CLAUDE_CODE_OAUTH_TOKEN, so run on
