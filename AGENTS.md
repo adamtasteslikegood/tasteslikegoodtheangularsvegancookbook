@@ -24,8 +24,8 @@ These sections describe Claude Code specifics and do not apply verbatim:
   for every harness.
 
 Wherever `CLAUDE.md` says "invoke it using the Skill tool", use your own
-harness's equivalent (`read_file` on the skill's `SKILL.md` in Antigravity /
-Gemini CLI, or the `skill` tool in OpenCode).
+harness's equivalent (`view_file` on the skill's `SKILL.md` in Antigravity,
+`read_file` in Gemini CLI, or the `skill` tool in OpenCode).
 
 ## Installing gstack (`garrytan/gstack`)
 
@@ -50,15 +50,18 @@ cd ~/.claude/skills/gstack && ./setup --host agy
   `~/.gemini/antigravity-cli/skills/gstack-*/SKILL.md` (prefixed with `gstack-`
   so `/gstack-plan-*` does not shadow Antigravity's built-in `/plan`). Project
   skills live in `.agents/skills/<name>/SKILL.md`. Both appear in `<skills>` in
-  your system prompt. Load a skill by reading its `SKILL.md` with `read_file`
+  your system prompt. Load a skill by reading its `SKILL.md` with `view_file`
   (read remaining line ranges if truncated at 800 lines). When a `gstack` skill
   references Claude Code tool names, translate them to Antigravity tools:
   - `Bash` → `run_command`
-  - `Read` → `read_file`
-  - `Write` → `write_file`
-  - `Edit` → `edit_file`
+  - `Read` → `view_file`
+  - `Write` → `write_to_file`
+  - `Edit` → `replace_file_content` (or `multi_replace_file_content` for multiple blocks)
   - `Agent` → `invoke_subagent`
   - `AskUserQuestion` → `ask_question`
+
+  Tool names follow the [official supported-tools list](https://antigravity.google/docs/hooks#supported-tools).
+
 - **Gemini CLI (`gemini`):** Reads `GEMINI.md` and loads skills from
   `.agents/skills/<name>/SKILL.md` and `~/.gemini/skills/`. In GitHub Actions
   (`run-gemini-cli` workflows), `GEMINI_CLI_TRUST_WORKSPACE: 'true'` is required
@@ -70,9 +73,10 @@ cd ~/.claude/skills/gstack && ./setup --host agy
 ## Skill routing
 
 When the user's request matches an available skill, load it as your FIRST action
-(`read_file` on its `SKILL.md` in Antigravity / Gemini CLI, or the `skill` tool
-in OpenCode). Do NOT answer directly, do NOT use other tools first. The skill
-has specialized workflows that produce better results than an ad-hoc answer.
+(`view_file` on its `SKILL.md` in Antigravity, `read_file` in Gemini CLI, or the
+`skill` tool in OpenCode). Do NOT answer directly, do NOT use other tools first.
+The skill has specialized workflows that produce better results than an ad-hoc
+answer.
 
 - Product ideas, "is this worth building", brainstorming → `office-hours` (`/gstack-office-hours`)
 - Bugs, errors, "why is this broken", 500 errors → `investigate` (`/gstack-investigate`)
