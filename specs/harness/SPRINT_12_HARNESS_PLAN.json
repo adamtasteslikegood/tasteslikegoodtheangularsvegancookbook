@@ -1,0 +1,850 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Deliver Sprint 12 (Sprint id 122 on RCP Scrum Board 168, under Epic RCP-119, 2026-10-23 to 2026-11-06): ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) with md4a-fastapi PyPI + R16 plain-mode escape (KAN-411) and Adam's recipe author display name (KAN-434), clear the rolled Sprint 11 and next-sprint-candidate items (KAN-290, KAN-334, KAN-426, KAN-389, KAN-347, KAN-435, KAN-421, KAN-336, KAN-337, KAN-400, KAN-404, KAN-425), publish 3-5 Q6 articles (KAN-277 / RCP-109), and close the Week-1 process lane (KAN-188, KAN-429/KAN-402, KAN-390) before the Sprint 13 staging beta freeze.",
+  "domain": "project-management",
+  "compiled_at": "2026-10-18",
+  "charter": "specs/SPRINT_12_PLAN.md",
+  "jira": {
+    "epic": "RCP-119",
+    "sprint": "Sprint 12",
+    "sprint_id": 122,
+    "board": 168,
+    "board_name": "RCP Scrum Board"
+  },
+  "hard_gate": {
+    "cmd": "python3 scripts/harness/sprint12_hard_gate.py",
+    "charter_cmd": "python3 scripts/harness/sprint12_hard_gate.py --charter",
+    "rule": "Sprint 12 exists on board 168 and is active or closed; every committed item is a sprint member; at close, no committed item sits in To Do; every SI has an RCP Story titled 'S12 acceptance: ... (KAN-###)' that board 168 actually renders; no later-sprint or superseded row in NOT_IN_SPRINT is in the sprint or on the board."
+  },
+  "repo_scope": {
+    "backend_repo": "adamtasteslikegood/tasteslikegood.com",
+    "frontend_repo": "adamtasteslikegood/tasteslikegoodtheangularsvegancookbook",
+    "md4a_repo": "adamtasteslikegood/md4a-fastapi",
+    "rule": "Backend tasks verify merged PRs with `gh pr list -R adamtasteslikegood/tasteslikegood.com`; frontend/express tasks verify against the root repo."
+  },
+  "lanes": {
+    "Feedback": {
+      "scope": "Recipe feedback Phase 1 (KAN-356), md4a-fastapi PyPI + R16 plain-mode escape (KAN-411), and Adam author display name (KAN-434).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "UX": {
+      "scope": "Server-side recycle bin (KAN-290), SPA publish toggle sync (KAN-334), Flask malformed JSON 400 handler (KAN-426), and mobile pagination tap targets (KAN-421).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "SEO": {
+      "scope": "Recipe tag links and popular tag hubs (KAN-389), verified Googlebot crawl-evidence instrument (KAN-347), and Recipe JSON-LD 3-aspect image crops (KAN-435).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "Ops": {
+      "scope": "Backend publish-gate review follow-ups (KAN-336) and psycopg 3 + SQLAlchemy 2.1 migration with staging soak (KAN-425).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "Agent": {
+      "scope": "WebMCP browser tools (KAN-400) and agent tools limits/comment follow-up from PR #3671 (KAN-404).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "Proof": {
+      "scope": "Human-owned Q6 articles (KAN-277 / RCP-109, lane:adam).",
+      "must_not_touch": [
+        ".github/workflows/",
+        "scripts/pm/",
+        "scripts/harness/"
+      ]
+    },
+    "Process": {
+      "scope": "Sprint 12 charter (T0), staging deploy workflow wiring for publish-audit/image-repair jobs (KAN-337), Week-1 process lane hygiene (KAN-188, KAN-429/KAN-402, KAN-390), and Sprint 12 close-out (T18).",
+      "must_not_touch": []
+    }
+  },
+  "tasks": [
+    {
+      "id": "T0",
+      "si": "charter",
+      "jira": [
+        "KAN-S12-CHARTER",
+        "RCP-S12-CHARTER"
+      ],
+      "lane": "Process",
+      "depends_on": [],
+      "skill": "pm-skills",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
+      "objective": "Day-1 Sprint 12 cutover: once Sprint 11 (id 121) is closed, run `python3 scripts/harness/sprint12_driver.py --day1-cutover` (or `python3 scripts/harness/sprint12_hard_gate.py --bootstrap-charter`) to check Sprint 11 spillover, remove superseded Done pair KAN-346/RCP-147 from Sprint 12, retitle the 8 carried RCP acceptance rows to `S12 acceptance: ...`, mint the Sprint 12 charter KAN task and the 9 new RCP acceptance stories under Epic RCP-119, add all committed KAN and RCP rows to Sprint 12 (id 122), start Sprint 12, sync `specs/SPRINT_12_PLAN.md` to Confluence via `npm run pm:sync`, and pass `--charter` + `check_sprint_lane.sh`.",
+      "suggested_tools": [
+        "scripts/harness/sprint12_driver.py",
+        "scripts/harness/sprint12_hard_gate.py",
+        "scripts/pm/check_sprint_lane.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --charter",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-S12-CHARTER RCP-S12-CHARTER",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane",
+          "shared_gate": true
+        }
+      ],
+      "done_when": "Sprint 12 (id 122) is active on board 168, every committed SI has a rendered `S12 acceptance:` Story, `sprint12_hard_gate.py --charter` and `check_sprint_lane.sh` exit 0, and `KAN-S12-CHARTER` / `RCP-S12-CHARTER` are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T1",
+      "si": "S1",
+      "jira": [
+        "KAN-356",
+        "RCP-150"
+      ],
+      "lane": "Feedback",
+      "depends_on": [
+        "T0",
+        "T2"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) per `docs/designs/recipe-feedback.md` (R1-R16, E2, O6-O8): run T8 read-only saved-copy SQL check, land `recipe_feedback` Alembic migration + CRUD/moderation/Gmail API endpoints (with Gmail alert gated on `FEEDBACK_MODERATION_EMAIL_ENABLED`, logging `feedback_moderation_email_skipped` when false) + `/api/auth/callback` OAuth cancel redirect in Backend, and land `ssrEntryGuard` `?feedback=<slug>` + `?auth=cancelled` toast, saved-copy feedback radiogroup + note editor, `/moderation` page, and privacy-policy update in cookbook.",
+      "suggested_tools": [
+        "pytest",
+        "npm test"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-356 RCP-150",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-356 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-356 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: KAN-356 pre-build saved-copy SQL count, all 4 public recipe feedback states, /api/auth/callback OAuth cancel toast, /moderation actions + conditional Gmail alert (or feedback_moderation_email_skipped log), and privacy-policy review recorded on RCP-150",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Backend and cookbook PRs for KAN-356 are merged and deployed, all 4 public recipe states, `/api/auth/callback` OAuth cancel toast, saved-copy feedback form, `/moderation` actions, conditional Gmail alert (`FEEDBACK_MODERATION_EMAIL_ENABLED`), and privacy policy are verified on RCP-150, and KAN-356 / RCP-150 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T2",
+      "si": "S2",
+      "jira": [
+        "KAN-411",
+        "RCP-S12-S2"
+      ],
+      "lane": "Feedback",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Publish `md4a-fastapi` to PyPI with `[fastapi]` and `[wsgi]` extras, including R16 plain-mode escape (`escape_misc=True` on `markdownify(..., escape_misc=True)` and CommonMark padded inline code spans with newline-to-space normalization on `<code data-md=\"plain\">`), and pin the released PyPI version in `Backend/pyproject.toml` and `Backend/uv.lock`.",
+      "suggested_tools": [
+        "pytest",
+        "uv"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-411 RCP-S12-S2",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-411 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: PyPI release URL for md4a-fastapi with [fastapi]/[wsgi] extras and R16 7-vector escape test output recorded on RCP-S12-S2",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "md4a-fastapi is live on PyPI with R16 plain-mode escape passing all 7 adversarial vectors, Backend pins the PyPI release, and KAN-411 / RCP-S12-S2 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T3",
+      "si": "S3",
+      "jira": [
+        "KAN-434",
+        "RCP-S12-S3"
+      ],
+      "lane": "Feedback",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Implement author display name for Adam's recipes (`user id 1`): emit `\"Tasteslikegood - {suffix}\"` (using Adam's chosen suffix recorded on KAN-434) instead of the raw Google account name on `/r/<slug>` public recipe pages and Recipe JSON-LD `author.name`.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-434 RCP-S12-S3",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-434 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Adam suffix choice and live /r/<slug> JSON-LD author.name output for user_id=1 recorded on RCP-S12-S3",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Recipes owned by user_id=1 render `Tasteslikegood - {suffix}` in visible byline and Recipe JSON-LD `author.name`, and KAN-434 / RCP-S12-S3 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T4",
+      "si": "S4",
+      "jira": [
+        "KAN-290",
+        "RCP-138"
+      ],
+      "lane": "UX",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Move the recycle bin to server-side soft-delete (`deleted_at`), surface failed `DELETE /api/recipes/<id>` responses with an error toast keeping the card in place, and ensure restore returns the recipe in unpublished state (`is_published = False`, `published_slug = None`) without slug collision.",
+      "suggested_tools": [
+        "pytest",
+        "npm test"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-290 RCP-138",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-290 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-290 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Recycle-bin server persistence across reload/logout, failed DELETE toast, and unpublished restore verification recorded on RCP-138",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Recycle bin persists on the server across reloads/logouts/devices, failed deletes show an error toast, restore never re-publishes, and KAN-290 / RCP-138 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T5",
+      "si": "S5",
+      "jira": [
+        "KAN-334",
+        "RCP-135"
+      ],
+      "lane": "UX",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Fix SPA publish toggle stale state in unrefreshed tabs by syncing `isPublished` / `publishedSlug` with the server before acting, and display the right explanation for legacy manual rows that carry a `sourceSlug`.",
+      "suggested_tools": [
+        "npm test"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-334 RCP-135",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-334 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Unrefreshed-tab publish toggle sync and legacy manual sourceSlug explanation verified on RCP-135",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "SPA publish toggle reflects server state in unrefreshed tabs, legacy manual rows with sourceSlug show the right explanation, and KAN-334 / RCP-135 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T6",
+      "si": "S6",
+      "jira": [
+        "KAN-426",
+        "RCP-S12-S6"
+      ],
+      "lane": "UX",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Fix Flask JSON body parsing in `POST /api/recipes` and sibling write routes so malformed or non-JSON request bodies return HTTP 400 with a JSON error payload instead of HTTP 500.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-426 RCP-S12-S6",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-426 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Malformed JSON POST /api/recipes returns HTTP 400 JSON error (not 500) verified on staging/prod and recorded on RCP-S12-S6",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Malformed JSON bodies on recipe write routes return 400 with JSON error payload, pytest coverage is merged, and KAN-426 / RCP-S12-S6 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T7",
+      "si": "S7",
+      "jira": [
+        "KAN-389",
+        "RCP-159"
+      ],
+      "lane": "SEO",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Make every recipe tag on `/r/<slug>` and `/browse` a link: tags with `>= 3` (`min_recipes = 3`) public recipes link to an indexable `/browse/tag/<tag-slug>` hub page (in `/sitemap.xml` with `CollectionPage` + `ItemList` + `BreadcrumbList` JSON-LD), and tags with `< 3` public recipes link to `/browse?tag=<tag>` (`noindex, follow`). Feed the popular-tag vocabulary into the metadata engine prompt.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-389 RCP-159",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-389 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Popular tag hub (/browse/tag/<slug>, >=3 recipes, indexed) and sparse tag filter (/browse?tag=<slug>, noindex) verified on RCP-159",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Every recipe tag is a link to either an indexable `/browse/tag/<slug>` hub (`>= 3` recipes) or a `noindex, follow` `/browse?tag=<slug>` view (`< 3` recipes), and KAN-389 / RCP-159 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T8",
+      "si": "S8",
+      "jira": [
+        "KAN-347",
+        "RCP-144"
+      ],
+      "lane": "SEO",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
+      "objective": "Build the crawl-evidence instrument (KAN-347 / RCP-144): count verified Googlebot/GoogleOther requests (`ASN 15169` + `Googlebot`/`GoogleOther` UA) by path prefix (`/`, `/browse`, `/browse/tag/`, `/r/`) and wire the weekly readout into `.claude/skills/seo-weekly-check/SKILL.md`.",
+      "suggested_tools": [
+        "scripts/monitoring/"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-347 RCP-144",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-347 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: 7-day verified Googlebot fetch count table by path prefix (/, /browse, /browse/tag/, /r/) recorded on RCP-144",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Verified Googlebot fetches by path prefix are counted and reported by `/seo-weekly-check`, dry-run table is attached on RCP-144, and KAN-347 / RCP-144 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T9",
+      "si": "S9",
+      "jira": [
+        "KAN-435",
+        "RCP-S12-S9"
+      ],
+      "lane": "SEO",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Emit `image` in Recipe JSON-LD on `/r/<slug>` as a 3-element array of `16:9`, `4:3`, and `1:1` aspect-ratio crops, each at least 50,000 pixels (`width * height >= 50000`), split from KAN-320.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-435 RCP-S12-S9",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-435 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Recipe JSON-LD 3-crop image array (16x9, 4x3, 1x1, each >= 50,000 pixels) verified on live /r/<slug> and recorded on RCP-S12-S9",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Recipe JSON-LD emits 16x9, 4x3, and 1x1 image URLs (`>= 50,000` px each) on `/r/<slug>`, and KAN-435 / RCP-S12-S9 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T10",
+      "si": "S10",
+      "jira": [
+        "KAN-421",
+        "RCP-S12-S10"
+      ],
+      "lane": "UX",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Enlarge the `/browse` header and footer page-number nav tap targets (`nav[aria-label=\"Pages, top\"]` and bottom pagination) to at least `24x24 CSS px` on a `375x812` phone viewport without horizontal overflow.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-421 RCP-S12-S10",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-421 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Headless 375x812 mobile viewport bounding-box check (>= 24x24 CSS px, scrollWidth <= 375) for /browse pagination links recorded on RCP-S12-S10",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Every `/browse` page-number link renders `>= 24x24 CSS px` on a 375px phone viewport without horizontal overflow, and KAN-421 / RCP-S12-S10 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T11",
+      "si": "S11",
+      "jira": [
+        "KAN-336",
+        "RCP-136"
+      ],
+      "lane": "Ops",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Complete all 7 Backend review follow-ups from the publish-gate release (KAN-336 / RCP-136): `_load_manifest` error handling, `migrate_file_to_db.py` field stripping, busy `image_Executor` unit test, 7-day locked-row log volume check, `migrate_image_urls.py` `ORDER BY id`, `seed-data.py` comment/manifest alignment, and closing stale PR `Backend#375`.",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-336 RCP-136",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-336 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: All 7 publish-gate follow-ups (manifest errors, migrator strip, busy executor test, 7-day log count, ORDER BY id paging, seed-data doc, Backend#375 closed) recorded on RCP-136",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "All 7 items in KAN-336 are merged/verified and recorded on RCP-136, and KAN-336 / RCP-136 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T12",
+      "si": "S12",
+      "jira": [
+        "KAN-337",
+        "RCP-137"
+      ],
+      "lane": "Process",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Wire `flask-backend-publish-audit` and `flask-backend-image-repair` Cloud Run jobs into `cloudbuild.staging.yaml` and `.github/workflows/staging-deploy.yml`, fix or unpublish the 2 broken staging recipes so the audit job exits 0, record the scheduler decision, update `specs/KAN-329_CUTOVER_RUNBOOK.md`, and remove temporary `audit/` screenshots.",
+      "suggested_tools": [
+        "gcloud",
+        "gh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-337 RCP-137",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-337 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Staging publish-audit and image-repair Cloud Run job execution, 2 broken staging recipes fixed, scheduler decision, and KAN-329 runbook diff recorded on RCP-137",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Staging deploy updates and executes publish-audit and image-repair jobs cleanly, runbook matches reality, and KAN-337 / RCP-137 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T13",
+      "si": "S13",
+      "jira": [
+        "KAN-400",
+        "RCP-S12-S13"
+      ],
+      "lane": "Agent",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Implement Agent Readiness AR-11 (KAN-400): register feature-detected WebMCP tools (`search_recipes`, `get_recipe`) via `navigator.modelContext` on both the Angular SPA and Flask public pages (`/r/<slug>`, `/browse`), backed by `GET /api/agent/tools`, `POST /api/agent/tools/<name>`, and `GET /api/recipes/public/<slug>`.",
+      "suggested_tools": [
+        "npm test",
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-400 RCP-S12-S13",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-400 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Feature-detected navigator.modelContext registration for search_recipes and get_recipe (backed by /api/agent/tools and /api/recipes/public/<slug>) verified on SPA and Flask public pages on RCP-S12-S13",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "`search_recipes` and `get_recipe` register cleanly when `navigator.modelContext` is present (and no-op when absent) across SPA and SSR pages via `/api/agent/tools` and `/api/recipes/public/<slug>`, and KAN-400 / RCP-S12-S13 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T14",
+      "si": "S14",
+      "jira": [
+        "KAN-404",
+        "RCP-S12-S14"
+      ],
+      "lane": "Agent",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Resolve the advisory follow-up items from PR #3671 on agent tools limits and comments (KAN-404).",
+      "suggested_tools": [
+        "pytest"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-404 RCP-S12-S14",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-404 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Agent tools limits and comment follow-ups from PR #3671 verified and recorded on RCP-S12-S14",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Agent tools limits/comments advisory follow-up is merged and verified, and KAN-404 / RCP-S12-S14 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T15",
+      "si": "S15",
+      "jira": [
+        "KAN-277",
+        "RCP-109"
+      ],
+      "lane": "Proof",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
+      "objective": "Publish 3-5 articles under the Q6 rubric (KAN-277 / RCP-109, lane:adam): each article includes first-hand testing notes/ratios, Adam review and sign-off, live `/r/<slug>` links for every recipe claim, a named byline linked to `/about`, and AI-assistance disclosure.",
+      "suggested_tools": [
+        "curl"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-277 RCP-109",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: 3-5 articles published under the Q6 rubric (first-hand notes, Adam sign-off, live /r/<slug> links, /about byline, AI disclosure) with HTTP 200 checks recorded on RCP-109",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "3-5 Q6 articles are live on vegangeniuschef.com (`HTTP 200`, in `/sitemap.xml`) with Adam sign-off recorded on RCP-109, and KAN-277 / RCP-109 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T16",
+      "si": "S16",
+      "jira": [
+        "KAN-425",
+        "RCP-S12-S16"
+      ],
+      "lane": "Ops",
+      "depends_on": [
+        "T0",
+        "T12"
+      ],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Migrate Backend Postgres driver from `psycopg2-binary` to `psycopg[binary]` v3 and upgrade SQLAlchemy to `>= 2.1` (KAN-425), normalizing `postgresql://` / `postgres://` URLs to `postgresql+psycopg://` and verifying on staging first (Retro R-7 / KAN-324 lesson) before production release.",
+      "suggested_tools": [
+        "pytest",
+        "uv"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-425 RCP-S12-S16",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-425 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: Staging deploy soak of psycopg 3 + SQLAlchemy 2.1 (/api/health 200, Alembic migration clean, >=10 DB queries 0 driver errors) recorded on RCP-S12-S16 before prod release",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Backend runs `psycopg` 3 and SQLAlchemy 2.1 on staging and production with 0 driver errors, Dependabot PR Backend#421 is closed, and KAN-425 / RCP-S12-S16 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T17",
+      "si": "process",
+      "jira": [
+        "KAN-188",
+        "KAN-429",
+        "KAN-402",
+        "KAN-390"
+      ],
+      "lane": "Process",
+      "depends_on": [
+        "T0"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
+      "objective": "Execute the Sprint 12 Week-1 Process Lane (`<= 2026-10-28`, Retro R-4): verify custom domain headers/TLS on KAN-188, fix the Backend Gemini triage workflow tool-permission failure on KAN-429/KAN-402, and record disposition on advisory ticket KAN-390.",
+      "suggested_tools": [
+        "curl",
+        "gh",
+        "scripts/harness/sprint12_driver.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_driver.py --verify-process-lane",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "MANUAL: Process lane rows KAN-188 (custom domain curl/TLS), KAN-429/KAN-402 (Gemini triage workflow fix), and KAN-390 (PR#405 advisory disposition) closed in Week 1 before 2026-10-30 mid-sprint check",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "KAN-188, KAN-429, KAN-402, and KAN-390 are Done (`--verify-process-lane` exits 0) with raw verification evidence attached before the 2026-10-30 mid-sprint check.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T18",
+      "si": "close",
+      "jira": [
+        "RCP-119"
+      ],
+      "lane": "Process",
+      "depends_on": [
+        "T0",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
+        "T14",
+        "T15",
+        "T16",
+        "T17"
+      ],
+      "skill": "pm-skills",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
+      "objective": "Close Sprint 12 (id 122) on 2026-11-06: verify the full Sprint 12 close gate (`sprint12_hard_gate.py --close`) and `check_sprint_lane.sh` pass, confirm every RCP acceptance story includes `'differs from the recorded decision: <details|none>'`, sync `specs/SPRINT_12_PLAN.md` via `npm run pm:sync`, publish the Sprint 12 Retrospective under Confluence parent 50298881, and charter Sprint 13 (id 123, staging beta KAN-351 / RCP-149).",
+      "suggested_tools": [
+        "scripts/harness/sprint12_hard_gate.py",
+        "scripts/pm/check_sprint_lane.sh"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --close",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "bash scripts/pm/check_sprint_lane.sh",
+          "expect_exit": 0,
+          "kind": "lane",
+          "shared_gate": true
+        },
+        {
+          "cmd": "MANUAL: Sprint 12 retrospective published under Confluence parent 50298881, every RCP story has 'differs from the recorded decision: <details|none>', and Sprint 13 (id 123, KAN-351/RCP-149) chartered",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "`sprint12_hard_gate.py --close` and `check_sprint_lane.sh` exit 0, Sprint 12 retro is live on Confluence, and Sprint 13 staging beta is chartered.",
+      "max_attempts": 3,
+      "status": "pending"
+    }
+  ],
+  "loop": {
+    "order": "dependency-dag",
+    "driver": "python3 scripts/harness/sprint12_driver.py",
+    "unit_of_loop": "one controller state per SI (.agent-harness/sprint12/<T>.state.json)",
+    "max_loop_iterations": 228,
+    "per_goal_iterations": 12,
+    "per_task_attempts": 3,
+    "wip_limit": 3,
+    "no_done_without_verify": true
+  },
+  "close": {
+    "gate_cmd": "python3 scripts/harness/sprint12_hard_gate.py --close",
+    "retro_parent_page_id": "50298881",
+    "next_sprint_id": 123,
+    "next_sprint_name": "Sprint 13"
+  }
+}
