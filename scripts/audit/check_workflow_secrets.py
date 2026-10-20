@@ -79,7 +79,7 @@ class OptionalSecret(NamedTuple):
 _GH_AW_LOCKS = ("daily-repo-status.lock.yml", "issue-arborist.lock.yml", "relevance-summary.lock.yml")
 
 # Referenced secrets that may legitimately be unset. An entry is a product
-# decision (Adam's, 2026-10-01 for these six), not a way to go green. An absent
+# decision (Adam's, 2026-10-01 for the first six), not a way to go green. An absent
 # optional secret is a notice; an entry nothing references fails; a reference
 # outside the entry's files is an ordinary required reference until reviewed.
 OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
@@ -113,6 +113,18 @@ OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
     "GH_AW_GITHUB_MCP_SERVER_TOKEN": OptionalSecret(
         "gh-aw *.lock.yml optional override: same fallback-to-GITHUB_TOKEN pattern as"
         " GH_AW_GITHUB_TOKEN",
+        _GH_AW_LOCKS,
+    ),
+    # Emitted by every gh-aw compile since ADR-56353 (2026-08-27), no opt-out;
+    # KAN-323 brought them in. Pending Adam's confirmation.
+    "GH_AW_DEFAULT_OTLP_ENDPOINT": OptionalSecret(
+        "gh-aw *.lock.yml default OTLP export: read as secrets.X || vars.X with"
+        " GH_AW_OTLP_IF_MISSING: ignore, so an unset endpoint drops the export silently",
+        _GH_AW_LOCKS,
+    ),
+    "GH_AW_DEFAULT_OTLP_HEADERS": OptionalSecret(
+        "gh-aw *.lock.yml default OTLP export: headers only accompany the endpoint;"
+        " with no endpoint set, GH_AW_OTLP_IF_MISSING: ignore makes it a no-op",
         _GH_AW_LOCKS,
     ),
 }

@@ -396,7 +396,7 @@ class RepositoryTest(unittest.TestCase):
                 for f in entry.files:
                     self.assertTrue((cws.WORKFLOWS / f).is_file(), f)
 
-    def test_the_six_agreed_optional_secrets_are_listed(self):
+    def test_the_agreed_optional_secrets_are_listed(self):
         self.assertEqual(
             set(cws.OPTIONAL_SECRETS),
             {
@@ -406,6 +406,9 @@ class RepositoryTest(unittest.TestCase):
                 "QODANA_CONFIGURATIONS_TOKEN",
                 "GH_AW_GITHUB_TOKEN",
                 "GH_AW_GITHUB_MCP_SERVER_TOKEN",
+                # gh-aw default OTLP export (KAN-323)
+                "GH_AW_DEFAULT_OTLP_ENDPOINT",
+                "GH_AW_DEFAULT_OTLP_HEADERS",
             },
         )
 
