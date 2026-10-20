@@ -384,6 +384,32 @@ class Sprint12HardGateTests(unittest.TestCase):
             hard_gate.DROPPABLE_SIS.update(orig_droppable_sis)
             hard_gate._sync_derived_sets()
 
+    def test_write_rcp_map_checkpoint_preserves_override_spillover_reason(self):
+        # check_spillover persists override_spillover_reason as an audit record.
+        # A later bootstrap_charter checkpoint must not overwrite the file in a
+        # way that erases that reason before the sprint even starts.
+        with tempfile.TemporaryDirectory() as tmp:
+            map_file = Path(tmp) / "sprint12_rcp_map.json"
+            map_file.write_text(
+                '{"dropped_sis":["S16"],"override_spillover_reason":'
+                '"Sprint 11 crunch, approved by Adam 2026-10-21"}'
+            )
+            hard_gate._write_rcp_map_checkpoint(
+                map_file,
+                charter_kan="KAN-436",
+                minted_acceptance={"S10": "RCP-179"},
+                dropped_sis={"S16"},
+            )
+            import json as _json
+            payload = _json.loads(map_file.read_text(encoding="utf-8"))
+            self.assertEqual(payload["charter_kan"], "KAN-436")
+            self.assertEqual(payload["acceptance"], {"S10": "RCP-179"})
+            self.assertEqual(payload["dropped_sis"], ["S16"])
+            self.assertEqual(
+                payload["override_spillover_reason"],
+                "Sprint 11 crunch, approved by Adam 2026-10-21",
+            )
+
     def test_close_flag_rejects_in_progress_items_and_passes_when_all_done(self):
         members = self._members()
         jira = Mock()

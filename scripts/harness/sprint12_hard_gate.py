@@ -313,6 +313,16 @@ def _write_rcp_map_checkpoint(map_path, charter_kan, minted_acceptance, dropped_
     }
     if dropped_sis:
         payload["dropped_sis"] = sorted(set(dropped_sis))
+    # Preserve audit metadata written by check_spillover (e.g. the
+    # --override-spillover-reason) across bootstrap_charter checkpoints.
+    if Path(map_path).exists():
+        try:
+            prior = json.loads(Path(map_path).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            prior = {}
+        reason = (prior.get("override_spillover_reason") or "").strip()
+        if reason:
+            payload["override_spillover_reason"] = reason
     Path(map_path).parent.mkdir(parents=True, exist_ok=True)
     Path(map_path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 

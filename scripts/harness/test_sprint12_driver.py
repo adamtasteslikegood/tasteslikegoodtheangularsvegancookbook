@@ -134,6 +134,19 @@ class FakeControllerTests(unittest.TestCase):
             self.assertEqual(rc2, 0, out2)
             self.assertIn("SCOPED CHECK PASSED", out2)
 
+    def test_forward_cutover_flags_handles_equals_form(self):
+        # argparse accepts both "--opt value" and "--opt=value"; the forwarder
+        # must relay both or an operator who types the equals form silently
+        # runs the hard gate with the default cap=3.
+        args = [
+            "--day1-cutover",
+            "--max-spillover=4",
+            '--override-spillover-reason=KAN-306 stuck',
+        ]
+        hg_args = driver._forward_cutover_flags(args, "--day1-cutover")
+        self.assertIn("--max-spillover=4", hg_args)
+        self.assertIn("--override-spillover-reason=KAN-306 stuck", hg_args)
+
     def test_day1_cutover_dry_run_flag_forwards_to_hard_gate(self):
         class FakeCutoverJira:
             def sprints(self, board_id):

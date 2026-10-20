@@ -49,6 +49,12 @@ def _forward_cutover_flags(args, base_flag):
             idx = args.index(opt)
             if idx + 1 < len(args):
                 hg_args.extend([opt, args[idx + 1]])
+            continue
+        prefix = opt + "="
+        for a in args:
+            if a.startswith(prefix):
+                hg_args.append(a)
+                break
     return hg_args
 
 
