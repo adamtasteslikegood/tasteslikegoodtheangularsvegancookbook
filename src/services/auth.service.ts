@@ -566,16 +566,20 @@ export class AuthService {
   }
 
   /**
-   * KAN-333: put one cookbook's membership back to what it was before an
-   * optimistic change the server did not take. Without this the dialog sees
-   * the change as made, and saving again sends nothing.
+   * KAN-333: set whether one recipe is in one cookbook, touching nothing
+   * else. Used to undo an optimistic change the server did not take, so the
+   * dialog shows the account's state and saving again sends the request.
    */
-  restoreCookbookRecipeIds(cookbookId: string, recipeIds: readonly string[]) {
+  setCookbookMembership(cookbookId: string, recipeId: string, present: boolean) {
     const user = this.currentUser();
     if (!user) return;
-    const cookbooks = user.cookbooks.map((cb) =>
-      cb.id === cookbookId ? { ...cb, recipeIds: [...recipeIds] } : cb
-    );
+    const cookbooks = user.cookbooks.map((cb) => {
+      if (cb.id !== cookbookId || cb.recipeIds.includes(recipeId) === present) return cb;
+      const recipeIds = present
+        ? [...cb.recipeIds, recipeId]
+        : cb.recipeIds.filter((id) => id !== recipeId);
+      return { ...cb, recipeIds };
+    });
     this.updateUserRecord({ ...user, cookbooks });
   }
 

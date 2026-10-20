@@ -332,7 +332,8 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
   type Book = { id: string; recipeIds: string[] };
   const recipe = { id: 'r1', name: 'Cornbread' } as Recipe;
 
-  const setup = (recipeIds: string[], answer: { ok: boolean; status: number } | 'throw') => {
+  type Answer = { ok: boolean; status: number } | 'throw' | (() => Promise<unknown>);
+  const setup = (recipeIds: string[], answer: Answer) => {
     let books: Book[] = [{ id: 'cb1', recipeIds: [...recipeIds] }];
     const user = () => ({ cookbooks: books }) as unknown as User;
     const auth = {
@@ -349,17 +350,28 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
           b.id === id ? { ...b, recipeIds: b.recipeIds.filter((x) => x !== rid) } : b
         );
       },
-      restoreCookbookRecipeIds: (id: string, ids: readonly string[]) => {
-        books = books.map((b) => (b.id === id ? { ...b, recipeIds: [...ids] } : b));
+      setCookbookMembership: (id: string, rid: string, present: boolean) => {
+        books = books.map((b) => {
+          if (b.id !== id) return b;
+          const without = b.recipeIds.filter((x) => x !== rid);
+          return { ...b, recipeIds: present ? [...without, rid] : without };
+        });
       },
     };
     const fetch = vi.fn(() =>
-      answer === 'throw' ? Promise.reject(new Error('offline')) : Promise.resolve(answer)
+      typeof answer === 'function'
+        ? answer()
+        : answer === 'throw'
+          ? Promise.reject(new Error('offline'))
+          : Promise.resolve(answer)
     );
     const service = Object.assign(Object.create(PersistenceService.prototype), {
       auth,
       _fetch: fetch,
       _apiSaveRecipe: vi.fn().mockResolvedValue({ ok: true }),
+      // Field initializers do not run on a bare instance.
+      _membershipOps: new Map(),
+      _membershipOpSeq: 0,
     }) as PersistenceService;
     return { service, fetch, ids: () => books[0].recipeIds };
   };
@@ -377,6 +389,43 @@ describe('cookbook membership changes the server does not take (KAN-333)', () =>
     const { service, ids } = setup(['r0', 'r1'], 'throw');
     expect((await service.removeRecipeFromCookbook('cb1', 'r1')).ok).toBe(false);
     expect(ids()).toEqual(['r0', 'r1']);
+  });
+
+  // pr-gate R3: the dialog can reopen while a request is pending. Undoing a
+  // failure must touch only that recipe, and never a newer change to it.
+  const later = () => {
+    let settle!: (v: unknown) => void;
+    const promise = new Promise((resolve) => (settle = resolve));
+    return { promise, settle };
+  };
+
+  it('undoes only the failed recipe, keeping one added meanwhile', async () => {
+    const slow = later();
+    const answers = [() => slow.promise, () => Promise.resolve({ ok: true, status: 201 })];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const first = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    await service.addRecipeToCookbook('cb1', { id: 'r2', name: 'Chili' } as Recipe);
+    slow.settle({ ok: false, status: 500 });
+    await first;
+    expect(ids()).toEqual(['r2']);
+  });
+
+  it('does not undo a failure that a newer change to the same recipe overtook', async () => {
+    const slow = later();
+    const answers = [
+      () => slow.promise,
+      () => Promise.resolve({ ok: true, status: 200 }),
+      () => Promise.resolve({ ok: true, status: 201 }),
+    ];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const first = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    await service.removeRecipeFromCookbook('cb1', 'r1');
+    await service.addRecipeToCookbook('cb1', recipe);
+    slow.settle({ ok: false, status: 500 });
+    await first;
+    expect(ids()).toEqual(['r1']);
   });
 
   it('keeps a change the server took', async () => {

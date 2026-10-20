@@ -211,10 +211,9 @@ export function interpretMembershipResponse(
   return { ok: false, refusal: 'sync' };
 }
 
-/** KAN-333: a cookbook's recipe ids as they are now, to undo a change with. */
-function cookbookRecipeIds(user: User, cookbookId: string): string[] | null {
-  const cookbook = user.cookbooks.find((cb) => cb.id === cookbookId);
-  return cookbook ? [...cookbook.recipeIds] : null;
+/** KAN-333: whether a recipe is in a cookbook right now. */
+function isInCookbook(user: User, cookbookId: string, recipeId: string): boolean {
+  return user.cookbooks.some((cb) => cb.id === cookbookId && cb.recipeIds.includes(recipeId));
 }
 
 const SERVER_ORIGINS = new Set<Recipe['origin']>(['manual', 'generated', 'saved']);
@@ -636,11 +635,32 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
-    const before = cookbookRecipeIds(user, cookbookId);
+    const wasIn = isInCookbook(user, cookbookId, recipe.id);
+    const op = this._beginMembershipOp(cookbookId, recipe.id);
     this.auth.addRecipeToCookbook(cookbookId, recipe);
     const outcome = await this._addMembership(cookbookId, recipe);
-    if (!outcome.ok && before) this.auth.restoreCookbookRecipeIds(cookbookId, before);
+    if (!outcome.ok && !wasIn) this._undoMembership(op, cookbookId, recipe.id, false);
     return outcome;
+  }
+
+  /**
+   * KAN-333: the latest membership change per cookbook and recipe. The dialog
+   * can reopen while a request is pending, so a failure is undone only if no
+   * newer change to the same recipe in the same cookbook has started since,
+   * and the undo touches that one recipe only.
+   */
+  private readonly _membershipOps = new Map<string, number>();
+  private _membershipOpSeq = 0;
+
+  private _beginMembershipOp(cookbookId: string, recipeId: string): number {
+    const op = ++this._membershipOpSeq;
+    this._membershipOps.set(`${cookbookId}\u0000${recipeId}`, op);
+    return op;
+  }
+
+  private _undoMembership(op: number, cookbookId: string, recipeId: string, present: boolean) {
+    if (this._membershipOps.get(`${cookbookId}\u0000${recipeId}`) !== op) return;
+    this.auth.setCookbookMembership(cookbookId, recipeId, present);
   }
 
   private async _addMembership(cookbookId: string, recipe: Recipe): Promise<SaveOutcome> {
@@ -667,7 +687,8 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
-    const before = cookbookRecipeIds(user, cookbookId);
+    const wasIn = isInCookbook(user, cookbookId, recipeId);
+    const op = this._beginMembershipOp(cookbookId, recipeId);
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
     let res: Response | null = null;
@@ -679,7 +700,7 @@ export class PersistenceService {
       console.warn('[PersistenceService] removeRecipeFromCookbook failed:', err);
     }
     const outcome = interpretMembershipResponse(res, 'remove');
-    if (!outcome.ok && before) this.auth.restoreCookbookRecipeIds(cookbookId, before);
+    if (!outcome.ok && wasIn) this._undoMembership(op, cookbookId, recipeId, true);
     return outcome;
   }
 
