@@ -26,6 +26,13 @@ import {
   needsNewestRecipesFallback,
 } from './newest-recipes';
 
+/** KAN-306: longest a save waits for the startup auth check before going ahead. */
+export const SAVE_SESSION_WAIT_MS = 10_000;
+
+/** KAN-306: shown when a save found no session, so nothing was stored. */
+export const NOT_SAVED_YET_MESSAGE =
+  'Your recipe was not saved yet. Wait a moment, then save again.';
+
 @Component({
   selector: 'app-generator',
   standalone: true,
@@ -135,7 +142,10 @@ export class GeneratorComponent extends RecipeViewBase {
       }
       if (this.beginRecipeSave(generatedRecipe.id)) {
         try {
-          const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+          await this.awaitSaveSession();
+          const outcome = await this.persistenceService.saveRecipeDetailed(
+            this.latestVersionOf(generatedRecipe)
+          );
           const kept = saveOutcomeForAnalytics(outcome) !== null;
           if (this.recipe()?.id === generatedRecipe.id) {
             this.isSaved.set(kept);
@@ -149,7 +159,15 @@ export class GeneratorComponent extends RecipeViewBase {
           // without showing it, so the id alone does not mean "on screen".
           const shown =
             this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
-          if (!shown) {
+          if (outcome.noSession) {
+            // KAN-306: the sign-in check outlasted the wait, so nothing was
+            // stored. Say so: the screen alone looks like an unsaved recipe.
+            this.toastService.show(
+              shown
+                ? NOT_SAVED_YET_MESSAGE
+                : `"${generatedRecipe.name}" is ready, but it was not saved yet.`
+            );
+          } else if (!shown) {
             this.toastService.show(
               kept
                 ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
@@ -177,14 +195,61 @@ export class GeneratorComponent extends RecipeViewBase {
     const currentRecipe = this.recipe();
     if (!currentRecipe || !this.beginRecipeSave(currentRecipe.id)) return;
     try {
-      const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
+      await this.awaitSaveSession();
+      const outcome = await this.persistenceService.saveRecipeDetailed(
+        this.latestVersionOf(currentRecipe)
+      );
       if (this.recipe()?.id === currentRecipe.id) {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       }
       trackRecipeSaveOutcome('generator_save', outcome);
+      if (outcome.noSession) this.toastService.show(NOT_SAVED_YET_MESSAGE);
     } finally {
       this.finishRecipeSave(currentRecipe.id);
     }
+  }
+
+  /**
+   * KAN-306: a save needs a session, and a returning visitor with a cached
+   * signed-in session has none until the startup auth check settles —
+   * ensureGuestSession() defers rather than restore a session that may be
+   * stale. Saving in that window reported ok and kept nothing. Wait for the
+   * check (it honors the deferred request), then make sure a session exists.
+   * Awaited here, after generation, so a slow check never delays cooking.
+   *
+   * The wait is bounded and a failed check is not an error: the auth request
+   * has no timeout of its own, and this runs inside the generation, so an
+   * unbounded or rejecting wait would hold the save and the image step. Past
+   * the bound the save goes ahead; with still no session it reports "not
+   * saved" rather than ok.
+   */
+  private async awaitSaveSession(): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, SAVE_SESSION_WAIT_MS);
+    });
+    try {
+      await Promise.race([this.authService.ready, bound]);
+    } catch {
+      // A failed check leaves nothing to wait for; save as a guest below.
+    } finally {
+      clearTimeout(timer);
+    }
+    this.authService.ensureGuestSession();
+  }
+
+  /**
+   * The recipe to write once the session wait is over: the one on screen if it
+   * is still this recipe, so edits made while waiting (notes, which had no
+   * session to go to) are kept; otherwise the snapshot taken before the wait.
+   */
+  private latestVersionOf(snapshot: Recipe): Recipe {
+    const onScreen = this.recipe();
+    if (onScreen?.id === snapshot.id) return onScreen;
+    // Moved on during the wait: a copy stored meanwhile (notes saved on the
+    // recipe page, say) is newer than the snapshot.
+    const stored = this.authService.currentUser()?.savedRecipes.find((r) => r.id === snapshot.id);
+    return stored ?? snapshot;
   }
 
   private beginRecipeSave(recipeId: string): boolean {

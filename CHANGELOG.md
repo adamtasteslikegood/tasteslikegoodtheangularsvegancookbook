@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- A recipe generated while the startup sign-in check is still running is now saved (KAN-306).
+  The generator waits for the check before saving, where it used to report the save as done and
+  keep nothing.
+- Saves that do not reach the server now say so (KAN-333). Adding a recipe to a cookbook or
+  removing it, and saving a manually entered recipe, show a message when the write is paused or
+  the sync fails. A cookbook membership is no longer written for a recipe the server refused as a
+  duplicate, and saving notes on such a recipe says the account already has it as another copy.
+
 ## [0.7.2] - 2026-10-18
 
 Backend pointer pinned at `1eaab49c5821` (Backend `main`, promoted in Backend #431).

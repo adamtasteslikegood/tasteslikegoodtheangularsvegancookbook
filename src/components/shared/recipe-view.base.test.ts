@@ -295,6 +295,23 @@ describe('RecipeViewBase', () => {
       );
     });
 
+    // KAN-333: a duplicate refusal is not a connection problem — the account
+    // already holds this recipe as another copy, and saving again cannot help.
+    it('says the account already has this recipe when the save is a duplicate', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      persistenceSaveRecipe.mockResolvedValue({ ok: false, refusal: 'duplicate' });
+      host.recipe.set(generated());
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      expect(toastShow).toHaveBeenCalledOnce();
+      const message = toastShow.mock.calls[0][0] as string;
+      expect(message).toMatch(/already has this recipe/i);
+      expect(message).not.toMatch(/connection/i);
+    });
+
     it('says nothing when the save lands', async () => {
       const { host } = createHost();
       host.recipe.set(generated());
