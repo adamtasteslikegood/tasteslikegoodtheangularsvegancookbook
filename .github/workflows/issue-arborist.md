@@ -73,6 +73,9 @@ safe-outputs:
     group: true
   link-sub-issue:
     max: 50
+    # Scheduled and dispatched runs have no triggering issue; the agent names
+    # both parent and sub-issue on every link (KAN-448).
+    target: "*"
   noop: {}
 timeout-minutes: 15
 source: githubnext/agentics/workflows/issue-arborist.md@1c6668b751c51af8571f01204ceffb19362e0f66
