@@ -6,7 +6,10 @@
 # script once to clone gstack into ~/.claude/skills/gstack and register its
 # skills with their local agent. Re-running it updates an existing install.
 #
-# Usage: ./scripts/install-gstack.sh
+# Usage:
+#   ./scripts/install-gstack.sh              # default host (Claude Code)
+#   ./scripts/install-gstack.sh --host agy   # Antigravity CLI (agy)
+#   ./scripts/install-gstack.sh --host auto  # every detected agent
 set -euo pipefail
 
 GSTACK_REPO="https://github.com/garrytan/gstack.git"
@@ -28,6 +31,6 @@ else
 fi
 
 echo "Running gstack setup…"
-( cd "${GSTACK_DIR}" && ./setup )
+( cd "${GSTACK_DIR}" && ./setup "$@" )
 
-echo "Done. gstack skills are registered. See the 'gstack' section of CLAUDE.md for usage."
+echo "Done. gstack skills are registered. See CLAUDE.md and AGENTS.md for usage."
