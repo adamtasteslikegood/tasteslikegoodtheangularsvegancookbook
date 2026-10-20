@@ -79,15 +79,10 @@ class OptionalSecret(NamedTuple):
 _GH_AW_LOCKS = ("daily-repo-status.lock.yml", "issue-arborist.lock.yml", "relevance-summary.lock.yml")
 
 # Referenced secrets that may legitimately be unset. An entry is a product
-# decision (Adam's, 2026-10-01 for the first six), not a way to go green. An absent
+# decision (Adam's, 2026-10-01 for the first five), not a way to go green. An absent
 # optional secret is a notice; an entry nothing references fails; a reference
 # outside the entry's files is an ordinary required reference until reviewed.
 OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
-    "ANTHROPIC_API_KEY": OptionalSecret(
-        "claude-review.yml: fallback to CLAUDE_CODE_OAUTH_TOKEN; the 'Check for a Claude"
-        " credential' step skips the review with a warning when neither is set",
-        ("claude-review.yml",),
-    ),
     "GCP_WORKLOAD_IDENTITY_PROVIDER": OptionalSecret(
         "gc-build-deploy.yml: cloud-build (the only auth use) needs predeploy_status =="
         " success, so it never runs with an empty value; deployment is enabled only by an"

@@ -61,7 +61,7 @@ with the model + effort used.
 - **Same-repo + non-bot + non-draft** `if:` guard — fork/Dependabot PRs have no
   secrets and skip cleanly (never fail).
 - **Advisory:** `continue-on-error: true`; the job is **never** added to required
-  status checks (SPEC-02). A missing `ANTHROPIC_API_KEY` or a flaky call cannot
+  status checks (SPEC-02). A missing `CLAUDE_CODE_OAUTH_TOKEN` or a flaky call cannot
   block a merge.
 - **Reviews every push:** triggers on `opened` / `ready_for_review` + every
   `synchronize` push (TAS-3006 / KAN-183 — commits pushed after the first review
@@ -83,12 +83,12 @@ with the model + effort used.
 
 ## 4. Prerequisites (one-time, maintainer)
 
-1. **Claude credential secret(s)** — at least one of (Settings → Secrets → Actions):
-   - `CLAUDE_CODE_OAUTH_TOKEN` (preferred) — long-lived token from `claude setup-token`,
-     draws on your subscription's usage/rate limits. Cheapest for regular reviews.
-   - `ANTHROPIC_API_KEY` (fallback) — metered API billing.
-     If both are set, the action prefers the OAuth token. With neither, the review
-     step logs a `::warning::` and skips cleanly (advisory, no failure).
+1. **Claude credential secret** — `CLAUDE_CODE_OAUTH_TOKEN` (Settings → Secrets →
+   Actions), a long-lived token from `claude setup-token` that draws on your
+   subscription's usage/rate limits. Without it, the review step logs a
+   `::warning::` and skips cleanly (advisory, no failure). The review never falls
+   back to `ANTHROPIC_API_KEY` (Adam, 2026-10-20): that metered secret exists for
+   the gh-aw threat detection (KAN-445).
 2. **Variable** `CLAUDE_REVIEW_MODEL` = the confirmed Opus 4.x<8 id (recommended;
    default placeholder otherwise).
 3. **Label** `claude-review` (for on-demand review).

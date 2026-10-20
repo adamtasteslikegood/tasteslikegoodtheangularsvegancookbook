@@ -400,7 +400,6 @@ class RepositoryTest(unittest.TestCase):
         self.assertEqual(
             set(cws.OPTIONAL_SECRETS),
             {
-                "ANTHROPIC_API_KEY",
                 "GCP_WORKLOAD_IDENTITY_PROVIDER",
                 "GCP_SERVICE_ACCOUNT",
                 "QODANA_CONFIGURATIONS_TOKEN",

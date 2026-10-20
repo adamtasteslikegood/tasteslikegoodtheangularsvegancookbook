@@ -19,6 +19,10 @@ tools:
   github:
     toolsets: [default]
 safe-outputs:
+  # gh-aw cannot run threat detection on Gemini and falls back to Copilot, which
+  # has no budget here; run it on Claude with ANTHROPIC_API_KEY (KAN-445).
+  threat-detection:
+    engine: claude
   create-issue:
     title-prefix: "[Relevance Summary] "
     labels: [report]

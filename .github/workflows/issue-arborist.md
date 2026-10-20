@@ -62,6 +62,10 @@ steps:
       echo "✓ Issues data saved to /tmp/gh-aw/issues-data/issues.json"
       echo "Total issues fetched: $(jq 'length' /tmp/gh-aw/issues-data/issues.json)"
 safe-outputs:
+  # gh-aw cannot run threat detection on Gemini and falls back to Copilot, which
+  # has no budget here; run it on Claude with ANTHROPIC_API_KEY (KAN-445).
+  threat-detection:
+    engine: claude
   create-issue:
     expires: 2d
     title-prefix: "[parent] "
