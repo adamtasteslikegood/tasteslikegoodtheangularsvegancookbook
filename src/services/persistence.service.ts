@@ -181,13 +181,33 @@ export function shouldUndoOptimisticSave(
  * KAN-330 — may a cookbook membership be posted after the recipe save?
  *
  * The membership names a row by id, so it only makes sense once the server
- * has that row: after a successful save, or a duplicate refusal (the server
- * already had it, which is what the user asked for). A save that never landed
- * — connection, write pause — or that the server refused as not the caller's
- * leaves no row for the membership to point at.
+ * has that row: after a successful save. A save that never landed —
+ * connection, write pause — or that the server refused as not the caller's
+ * leaves no row for the membership to point at. KAN-333: neither does a
+ * duplicate refusal. It means another row with the same source identity
+ * exists under its own server id, not this one, so a membership for this id
+ * would point at a recipe that was never stored.
  */
 export function shouldWriteCookbookMembership(outcome: SaveOutcome): boolean {
-  return outcome.ok || outcome.refusal === 'duplicate';
+  return outcome.ok;
+}
+
+/**
+ * KAN-333 — what a cookbook membership write's answer means. `null` is a
+ * request that never got an answer (transport failure).
+ *
+ * Removing a membership the server does not have (404) is already done: that
+ * is what follows a failed add. Everything else that is not a success is
+ * reported unsynced. The write pause does not cover /api/collections, so a
+ * membership request itself never carries the named pause; the pause reaches
+ * an add through the recipe save that precedes it.
+ */
+export function interpretMembershipResponse(
+  res: { ok: boolean; status: number } | null,
+  kind: 'add' | 'remove'
+): SaveOutcome {
+  if (res && (res.ok || (kind === 'remove' && res.status === 404))) return { ok: true };
+  return { ok: false, refusal: 'sync' };
 }
 
 const SERVER_ORIGINS = new Set<Recipe['origin']>(['manual', 'generated', 'saved']);
@@ -364,7 +384,9 @@ export class PersistenceService {
    *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`.
    *  Callers that need to explain WHY should use `saveRecipeDetailed`. */
   async saveRecipe(recipe: Recipe): Promise<boolean> {
-    return (await this.saveRecipeDetailed(recipe)).ok;
+    // KAN-306: no session means nothing was saved anywhere; not a success.
+    const outcome = await this.saveRecipeDetailed(recipe);
+    return outcome.ok && !outcome.noSession;
   }
 
   /** As `saveRecipe`, but reports why a save was refused (KAN-155).
@@ -597,33 +619,52 @@ export class PersistenceService {
     await this._fetch(`/api/collections/${cookbookId}`, { method: 'DELETE' });
   }
 
-  async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<void> {
+  /**
+   * KAN-333: resolves to whether the change reached the server. The local
+   * cookbook is updated first either way, but the next hydrate replaces it
+   * with the server's, so a change that did not land is lost there and the
+   * caller has to say so.
+   */
+  async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return { ok: false, noSession: true };
 
     this.auth.addRecipeToCookbook(cookbookId, recipe);
 
     // Ensure the recipe exists in the DB before naming it in a membership.
     // KAN-330: when that save never landed (connection, write pause), the
-    // membership would reference a row the server does not have — skip it;
-    // the local cookbook keeps the recipe and the next sync carries both.
+    // membership would reference a row the server does not have — skip it
+    // and report the save's outcome instead.
     const saved = await this._apiSaveRecipe(recipe);
-    if (!shouldWriteCookbookMembership(saved)) return;
-    await this._fetch(`/api/collections/${cookbookId}/recipes`, {
-      method: 'POST',
-      body: JSON.stringify({ recipe_id: recipe.id }),
-    });
+    if (!shouldWriteCookbookMembership(saved)) return saved;
+    let res: Response | null = null;
+    try {
+      res = await this._fetch(`/api/collections/${cookbookId}/recipes`, {
+        method: 'POST',
+        body: JSON.stringify({ recipe_id: recipe.id }),
+      });
+    } catch (err) {
+      console.warn('[PersistenceService] addRecipeToCookbook failed:', err);
+    }
+    return interpretMembershipResponse(res, 'add');
   }
 
-  async removeRecipeFromCookbook(cookbookId: string, recipeId: string): Promise<void> {
+  /** KAN-333: resolves to whether the removal reached the server. */
+  async removeRecipeFromCookbook(cookbookId: string, recipeId: string): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
-    if (!user) return;
+    if (!user) return { ok: false, noSession: true };
 
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
-    await this._fetch(`/api/collections/${cookbookId}/recipes/${recipeId}`, {
-      method: 'DELETE',
-    });
+    let res: Response | null = null;
+    try {
+      res = await this._fetch(`/api/collections/${cookbookId}/recipes/${recipeId}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.warn('[PersistenceService] removeRecipeFromCookbook failed:', err);
+    }
+    return interpretMembershipResponse(res, 'remove');
   }
 
   // ─── Internal: API sync ───────────────────────────────────────────────────

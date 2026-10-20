@@ -135,6 +135,7 @@ export class GeneratorComponent extends RecipeViewBase {
       }
       if (this.beginRecipeSave(generatedRecipe.id)) {
         try {
+          await this.awaitSaveSession();
           const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
           const kept = saveOutcomeForAnalytics(outcome) !== null;
           if (this.recipe()?.id === generatedRecipe.id) {
@@ -177,6 +178,7 @@ export class GeneratorComponent extends RecipeViewBase {
     const currentRecipe = this.recipe();
     if (!currentRecipe || !this.beginRecipeSave(currentRecipe.id)) return;
     try {
+      await this.awaitSaveSession();
       const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
       if (this.recipe()?.id === currentRecipe.id) {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
@@ -185,6 +187,19 @@ export class GeneratorComponent extends RecipeViewBase {
     } finally {
       this.finishRecipeSave(currentRecipe.id);
     }
+  }
+
+  /**
+   * KAN-306: a save needs a session, and a returning visitor with a cached
+   * signed-in session has none until the startup auth check settles —
+   * ensureGuestSession() defers rather than restore a session that may be
+   * stale. Saving in that window reported ok and kept nothing. Wait for the
+   * check (it honors the deferred request), then make sure a session exists.
+   * Awaited here, after generation, so a slow check never delays cooking.
+   */
+  private async awaitSaveSession(): Promise<void> {
+    await this.authService.ready;
+    this.authService.ensureGuestSession();
   }
 
   private beginRecipeSave(recipeId: string): boolean {

@@ -3,20 +3,26 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ManualEntryModalComponent } from './manual-entry-modal.component';
 import { PersistenceService } from '../../services/persistence.service';
+import { ToastService } from '../../services/toast.service';
 
 // GH #3256 (KAN-144): "Chef's Notes" here are the user's own text, but they
 // were written into `notes` — the field KAN-140 froze as generated,
 // publicly-rendered, read-only content. They belong in personalNotes.
 describe('ManualEntryModalComponent', () => {
   let saveRecipe: ReturnType<typeof vi.fn>;
+  let toastShow: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    saveRecipe = vi.fn().mockResolvedValue(true);
+    saveRecipe = vi.fn().mockResolvedValue({ ok: true });
+    toastShow = vi.fn();
   });
 
   const createComponent = () => {
     const injector = Injector.create({
-      providers: [{ provide: PersistenceService, useValue: { saveRecipe } }],
+      providers: [
+        { provide: PersistenceService, useValue: { saveRecipeDetailed: saveRecipe } },
+        { provide: ToastService, useValue: { show: toastShow } },
+      ],
     });
     return runInInjectionContext(injector, () => new ManualEntryModalComponent());
   };
@@ -46,5 +52,45 @@ describe('ManualEntryModalComponent', () => {
     await component.save();
 
     expect(saveRecipe.mock.calls[0][0].origin).toBe('manual');
+  });
+
+  // KAN-333: the modal closed on any outcome, so a manual recipe saved during
+  // the write pause or a failed sync looked stored on the account.
+  describe('when the save does not reach the server (KAN-333)', () => {
+    const saveNamed = async () => {
+      const component = createComponent();
+      component.open();
+      component.manualRecipe.update((r) => ({ ...r, name: 'Grandma Cornbread' }));
+      await component.save();
+      return component;
+    };
+
+    it('says nothing when the save lands', async () => {
+      await saveNamed();
+      expect(toastShow).not.toHaveBeenCalled();
+    });
+
+    it('says the recipe is not synced while recipe writes are paused', async () => {
+      saveRecipe.mockResolvedValue({ ok: false, refusal: 'paused' });
+      await saveNamed();
+      expect(toastShow).toHaveBeenCalledOnce();
+      expect(toastShow.mock.calls[0][0]).toMatch(/not synced/i);
+      expect(toastShow.mock.calls[0][0]).toMatch(/maintenance|few minutes/i);
+    });
+
+    it('says the recipe is not synced when the sync fails', async () => {
+      saveRecipe.mockResolvedValue({ ok: false, refusal: 'sync' });
+      await saveNamed();
+      expect(toastShow).toHaveBeenCalledOnce();
+      expect(toastShow.mock.calls[0][0]).toMatch(/not synced/i);
+    });
+
+    it('keeps the form open when there was no session, so nothing was saved', async () => {
+      saveRecipe.mockResolvedValue({ ok: true, noSession: true });
+      const component = await saveNamed();
+      expect(toastShow).toHaveBeenCalledOnce();
+      expect(toastShow.mock.calls[0][0]).toMatch(/not saved/i);
+      expect(component.isOpen()).toBe(true);
+    });
   });
 });

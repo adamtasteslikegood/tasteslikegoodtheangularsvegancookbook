@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-modal.component';
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
 import { PersistenceService } from './services/persistence.service';
+import { ToastService } from './services/toast.service';
 import { AppComponent } from './app.component';
 
 const inAppBrowser = vi.hoisted(() => vi.fn(() => false));
@@ -12,7 +13,10 @@ vi.mock('./utils/in-app-browser', () => ({ isInAppBrowserEnvironment: inAppBrows
 describe('ManualEntryModalComponent reopened session resets drafts', () => {
   it('starts a reopened manual-entry session with empty ingredient and instruction drafts', () => {
     const injector = Injector.create({
-      providers: [{ provide: PersistenceService, useValue: {} }],
+      providers: [
+        { provide: PersistenceService, useValue: {} },
+        { provide: ToastService, useValue: { show: vi.fn() } },
+      ],
     });
     const component = runInInjectionContext(injector, () => new ManualEntryModalComponent());
 

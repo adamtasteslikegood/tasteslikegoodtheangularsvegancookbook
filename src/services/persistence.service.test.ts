@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  interpretMembershipResponse,
   interpretSaveResponse,
   recipeWithServerIdentity,
   shouldUndoOptimisticSave,
@@ -227,19 +228,46 @@ describe('recipeWithServerIdentity (KAN-265/KAN-289)', () => {
 
 // KAN-330: adding to a cookbook first saves the recipe, then posts the
 // membership. When the save never landed (connection, write pause) the
-// membership would reference a row the server does not have; when the server
-// already has the row (duplicate) the membership is exactly what was asked.
+// membership would reference a row the server does not have.
+//
+// KAN-333: a duplicate refusal does not mean the server has THIS id. It means
+// another row with the same source identity exists under its own server id, so
+// posting a membership for this id points at a recipe that was never stored.
 describe('shouldWriteCookbookMembership', () => {
-  it('writes after a successful or no-op save', () => {
+  it('writes only after a save that landed', () => {
     expect(shouldWriteCookbookMembership({ ok: true })).toBe(true);
     expect(shouldWriteCookbookMembership({ ok: true, alreadySaved: true })).toBe(true);
-    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'duplicate' })).toBe(true);
   });
 
-  it('skips when the row may not exist on the server', () => {
+  it('skips when the server may not hold this id', () => {
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'duplicate' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'sync' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'paused' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'ownership' })).toBe(false);
+  });
+});
+
+// KAN-333: the membership request's answer used to be ignored, so a refused
+// or failed write still closed the cookbook modal as if it had stuck.
+describe('interpretMembershipResponse (KAN-333)', () => {
+  it('reports a stored membership change as ok', () => {
+    expect(interpretMembershipResponse({ ok: true, status: 201 }, 'add')).toEqual({ ok: true });
+    expect(interpretMembershipResponse({ ok: true, status: 204 }, 'remove')).toEqual({ ok: true });
+  });
+
+  it('treats removing a membership the server never had as done', () => {
+    expect(interpretMembershipResponse({ ok: false, status: 404 }, 'remove')).toEqual({ ok: true });
+  });
+
+  it('reports any other answer, or none, as unsynced', () => {
+    for (const res of [{ ok: false, status: 404 }, { ok: false, status: 500 }, null]) {
+      expect(interpretMembershipResponse(res, 'add')).toEqual({ ok: false, refusal: 'sync' });
+    }
+    expect(interpretMembershipResponse({ ok: false, status: 503 }, 'remove')).toEqual({
+      ok: false,
+      refusal: 'sync',
+    });
+    expect(interpretMembershipResponse(null, 'remove')).toEqual({ ok: false, refusal: 'sync' });
   });
 });
 
