@@ -537,6 +537,26 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(saved.personalNotes).toBe('less salt');
     });
 
+    it('saves the stored copy, with its notes, when the user moved on during the wait', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe, recipeState, authUser } = createComponent({
+        ready,
+      });
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+      authUser.savedRecipes.push({ ...component.recipe()!, personalNotes: 'less salt' });
+      component.recipe.set({ ...component.recipe()!, id: 'other' });
+
+      release();
+      await generating;
+
+      const saved = persistenceSaveRecipe.mock.calls.at(-1)![0];
+      expect(saved.id).toBe('gen-1');
+      expect(saved.personalNotes).toBe('less salt');
+    });
+
     it('stops waiting on an auth check that never settles and still saves', async () => {
       vi.useFakeTimers();
       try {

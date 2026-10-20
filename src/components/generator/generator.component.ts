@@ -232,7 +232,11 @@ export class GeneratorComponent extends RecipeViewBase {
    */
   private latestVersionOf(snapshot: Recipe): Recipe {
     const onScreen = this.recipe();
-    return onScreen?.id === snapshot.id ? onScreen : snapshot;
+    if (onScreen?.id === snapshot.id) return onScreen;
+    // Moved on during the wait: a copy stored meanwhile (notes saved on the
+    // recipe page, say) is newer than the snapshot.
+    const stored = this.authService.currentUser()?.savedRecipes.find((r) => r.id === snapshot.id);
+    return stored ?? snapshot;
   }
 
   private beginRecipeSave(recipeId: string): boolean {
