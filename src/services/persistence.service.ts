@@ -196,17 +196,18 @@ export function shouldWriteCookbookMembership(outcome: SaveOutcome): boolean {
  * KAN-333 — what a cookbook membership write's answer means. `null` is a
  * request that never got an answer (transport failure).
  *
- * Removing a membership the server does not have (404) is already done: that
- * is what follows a failed add. Everything else that is not a success is
- * reported unsynced. The write pause does not cover /api/collections, so a
+ * Anything that is not a success is reported unsynced. That includes a 404 on
+ * removal: the Backend answers 200 when the recipe is not in the cookbook, and
+ * 404 only when the cookbook is not found in the caller's scope (a lapsed
+ * session, say), so the removal did not happen. The write pause does not cover /api/collections, so a
  * membership request itself never carries the named pause; the pause reaches
  * an add through the recipe save that precedes it.
  */
 export function interpretMembershipResponse(
   res: { ok: boolean; status: number } | null,
-  kind: 'add' | 'remove'
+  _kind: 'add' | 'remove'
 ): SaveOutcome {
-  if (res && (res.ok || (kind === 'remove' && res.status === 404))) return { ok: true };
+  if (res?.ok) return { ok: true };
   return { ok: false, refusal: 'sync' };
 }
 

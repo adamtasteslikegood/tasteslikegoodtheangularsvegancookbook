@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GeneratorComponent } from './generator.component';
+import { GeneratorComponent, SAVE_SESSION_WAIT_MS } from './generator.component';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
@@ -515,6 +515,36 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       await saving;
 
       expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(component.isSaved()).toBe(true);
+    });
+
+    it('stops waiting on an auth check that never settles and still saves', async () => {
+      vi.useFakeTimers();
+      try {
+        const { ready } = holdAuthOpen();
+        const { component, persistenceSaveRecipe } = createComponent({ ready });
+        component.recipe.set(draftRecipe());
+
+        const saving = component.onSaveRecipe();
+        await vi.advanceTimersByTimeAsync(SAVE_SESSION_WAIT_MS);
+        await saving;
+
+        expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('saves after an auth check that fails instead of failing the generation', async () => {
+      const ready = Promise.reject(new Error('auth check failed'));
+      ready.catch(() => undefined);
+      const { component, persistenceSaveRecipe, recipeState } = createComponent({ ready });
+      component.prompt.set('vegan cornbread');
+
+      await component.onGenerate();
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(recipeState.currentRecipe()?.id).toBe('gen-1');
       expect(component.isSaved()).toBe(true);
     });
   });

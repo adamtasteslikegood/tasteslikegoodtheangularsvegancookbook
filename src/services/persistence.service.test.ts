@@ -255,8 +255,15 @@ describe('interpretMembershipResponse (KAN-333)', () => {
     expect(interpretMembershipResponse({ ok: true, status: 204 }, 'remove')).toEqual({ ok: true });
   });
 
-  it('treats removing a membership the server never had as done', () => {
-    expect(interpretMembershipResponse({ ok: false, status: 404 }, 'remove')).toEqual({ ok: true });
+  // The Backend answers a removal of a recipe that is not in the cookbook
+  // with 200; its only 404 is "cookbook not found in the caller's scope"
+  // (collections_api_bp.remove_recipe_from_collection), e.g. a lapsed session.
+  // That removal did not happen, so it must not read as done.
+  it('reports a removal the server answered 404 as unsynced', () => {
+    expect(interpretMembershipResponse({ ok: false, status: 404 }, 'remove')).toEqual({
+      ok: false,
+      refusal: 'sync',
+    });
   });
 
   it('reports any other answer, or none, as unsynced', () => {

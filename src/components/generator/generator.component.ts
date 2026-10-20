@@ -26,6 +26,9 @@ import {
   needsNewestRecipesFallback,
 } from './newest-recipes';
 
+/** KAN-306: longest a save waits for the startup auth check before going ahead. */
+export const SAVE_SESSION_WAIT_MS = 10_000;
+
 @Component({
   selector: 'app-generator',
   standalone: true,
@@ -196,9 +199,25 @@ export class GeneratorComponent extends RecipeViewBase {
    * stale. Saving in that window reported ok and kept nothing. Wait for the
    * check (it honors the deferred request), then make sure a session exists.
    * Awaited here, after generation, so a slow check never delays cooking.
+   *
+   * The wait is bounded and a failed check is not an error: the auth request
+   * has no timeout of its own, and this runs inside the generation, so an
+   * unbounded or rejecting wait would hold the save and the image step. Past
+   * the bound the save goes ahead; with still no session it reports "not
+   * saved" rather than ok.
    */
   private async awaitSaveSession(): Promise<void> {
-    await this.authService.ready;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, SAVE_SESSION_WAIT_MS);
+    });
+    try {
+      await Promise.race([this.authService.ready, bound]);
+    } catch {
+      // A failed check leaves nothing to wait for; save as a guest below.
+    } finally {
+      clearTimeout(timer);
+    }
     this.authService.ensureGuestSession();
   }
 

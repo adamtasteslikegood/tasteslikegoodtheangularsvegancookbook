@@ -138,13 +138,18 @@ export class AddToCookbookModalComponent {
   }
 }
 
-/** KAN-333: what to tell the user when a cookbook change did not reach the server. */
+/**
+ * KAN-333: what to tell the user when a cookbook change did not reach the
+ * server. Each one says reload: the local cookbooks still show the change, so
+ * reopening the dialog sees nothing to send until a reload restores the
+ * server's state.
+ */
 function cookbookUnsyncedMessage(outcome: SaveOutcome): string {
   if (outcome.refusal === 'paused') {
-    return 'Your cookbook change was not saved: recipes are read-only for a few minutes while we finish some maintenance. Try again in a few minutes.';
+    return 'Your cookbook change was not saved: recipes are read-only for a few minutes while we finish some maintenance. Reload and try again in a few minutes.';
   }
   if (outcome.refusal === 'duplicate') {
     return 'Your cookbook change was not saved: your account already has this recipe as another copy. Reload, then add that copy.';
   }
-  return 'Your cookbook change was not saved to your account. Check your connection and try again.';
+  return 'Your cookbook change was not saved to your account. Check your connection, reload, then try again.';
 }

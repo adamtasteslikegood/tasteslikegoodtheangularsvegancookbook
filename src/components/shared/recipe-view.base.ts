@@ -314,7 +314,7 @@ export abstract class RecipeViewBase {
             ? 'Your notes are saved on this device but not synced yet: recipes are read-only for a few minutes while we finish some maintenance. They’ll sync on your next save.'
             : outcome.refusal === 'duplicate'
               ? // KAN-333: saving again cannot help; the account holds another copy.
-                'Your notes are saved on this device only: your account already has this recipe as another copy, so they were not synced. Reload to see that copy.'
+                'Your notes are saved on this device only: your account already has this recipe as another copy, so they were not synced. Copy them before you reload: a reload shows that copy without them.'
               : 'Your notes are saved on this device but not synced to your account yet. Check your connection and save again.'
         );
       }
