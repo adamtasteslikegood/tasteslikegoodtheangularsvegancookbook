@@ -565,6 +565,20 @@ export class AuthService {
     this.updateUserRecord({ ...user, cookbooks });
   }
 
+  /**
+   * KAN-333: put one cookbook's membership back to what it was before an
+   * optimistic change the server did not take. Without this the dialog sees
+   * the change as made, and saving again sends nothing.
+   */
+  restoreCookbookRecipeIds(cookbookId: string, recipeIds: readonly string[]) {
+    const user = this.currentUser();
+    if (!user) return;
+    const cookbooks = user.cookbooks.map((cb) =>
+      cb.id === cookbookId ? { ...cb, recipeIds: [...recipeIds] } : cb
+    );
+    this.updateUserRecord({ ...user, cookbooks });
+  }
+
   // ─── Internal: localStorage persistence ───────────────────────
 
   private updateUserRecord(user: User) {

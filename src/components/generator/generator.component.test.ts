@@ -518,6 +518,25 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(component.isSaved()).toBe(true);
     });
 
+    // Notes edited while the save waits had nowhere to go (no session), and
+    // the save then wrote the pre-wait snapshot, so they were lost on reload.
+    it('saves the notes edited while it waited on the auth check', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe, recipeState } = createComponent({ ready });
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+      component.recipe.set({ ...component.recipe()!, personalNotes: 'less salt' });
+
+      release();
+      await generating;
+
+      const saved = persistenceSaveRecipe.mock.calls.at(-1)![0];
+      expect(saved.id).toBe('gen-1');
+      expect(saved.personalNotes).toBe('less salt');
+    });
+
     it('stops waiting on an auth check that never settles and still saves', async () => {
       vi.useFakeTimers();
       try {

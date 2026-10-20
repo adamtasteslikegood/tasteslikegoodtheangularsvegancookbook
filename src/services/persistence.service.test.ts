@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   interpretMembershipResponse,
   interpretSaveResponse,
+  PersistenceService,
   recipeWithServerIdentity,
   shouldUndoOptimisticSave,
   shouldWriteCookbookMembership,
 } from './persistence.service';
+import type { Recipe } from '../recipe.types';
+import type { User } from '../auth.types';
 
 /**
  * KAN-155 — a 409 from POST /api/recipes is a REFUSAL, not a success.
@@ -318,5 +321,67 @@ describe('shouldUndoOptimisticSave (KAN-241)', () => {
       expect(shouldUndoOptimisticSave(refusal, false), `${refusal}/new`).toBe(false);
       expect(shouldUndoOptimisticSave(refusal, true), `${refusal}/existing`).toBe(false);
     }
+  });
+});
+
+// KAN-333 / pr-gate R1-3: a cookbook change the server did not take used to
+// stay on screen, so reopening the dialog saw it as made and saving again
+// sent nothing. The constructor needs change-detection wiring this setup
+// lacks (see interpretSaveResponse), so the methods run on a bare instance.
+describe('cookbook membership changes the server does not take (KAN-333)', () => {
+  type Book = { id: string; recipeIds: string[] };
+  const recipe = { id: 'r1', name: 'Cornbread' } as Recipe;
+
+  const setup = (recipeIds: string[], answer: { ok: boolean; status: number } | 'throw') => {
+    let books: Book[] = [{ id: 'cb1', recipeIds: [...recipeIds] }];
+    const user = () => ({ cookbooks: books }) as unknown as User;
+    const auth = {
+      currentUser: () => user(),
+      addRecipeToCookbook: (id: string, r: Recipe) => {
+        books = books.map((b) =>
+          b.id === id && !b.recipeIds.includes(r.id)
+            ? { ...b, recipeIds: [...b.recipeIds, r.id] }
+            : b
+        );
+      },
+      removeRecipeFromCookbook: (id: string, rid: string) => {
+        books = books.map((b) =>
+          b.id === id ? { ...b, recipeIds: b.recipeIds.filter((x) => x !== rid) } : b
+        );
+      },
+      restoreCookbookRecipeIds: (id: string, ids: readonly string[]) => {
+        books = books.map((b) => (b.id === id ? { ...b, recipeIds: [...ids] } : b));
+      },
+    };
+    const fetch = vi.fn(() =>
+      answer === 'throw' ? Promise.reject(new Error('offline')) : Promise.resolve(answer)
+    );
+    const service = Object.assign(Object.create(PersistenceService.prototype), {
+      auth,
+      _fetch: fetch,
+      _apiSaveRecipe: vi.fn().mockResolvedValue({ ok: true }),
+    }) as PersistenceService;
+    return { service, fetch, ids: () => books[0].recipeIds };
+  };
+
+  it('puts the cookbook back when an add fails, so saving again sends the request', async () => {
+    const { service, fetch, ids } = setup([], { ok: false, status: 500 });
+    expect((await service.addRecipeToCookbook('cb1', recipe)).ok).toBe(false);
+    expect(ids()).toEqual([]);
+
+    await service.addRecipeToCookbook('cb1', recipe);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts the cookbook back when a removal does not reach the server', async () => {
+    const { service, ids } = setup(['r0', 'r1'], 'throw');
+    expect((await service.removeRecipeFromCookbook('cb1', 'r1')).ok).toBe(false);
+    expect(ids()).toEqual(['r0', 'r1']);
+  });
+
+  it('keeps a change the server took', async () => {
+    const { service, ids } = setup([], { ok: true, status: 201 });
+    expect((await service.addRecipeToCookbook('cb1', recipe)).ok).toBe(true);
+    expect(ids()).toEqual(['r1']);
   });
 });

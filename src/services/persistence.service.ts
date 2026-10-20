@@ -1,7 +1,7 @@
 import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
-import { Cookbook } from '../auth.types';
+import { Cookbook, User } from '../auth.types';
 import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/recipe-row';
 
 /**
@@ -209,6 +209,12 @@ export function interpretMembershipResponse(
 ): SaveOutcome {
   if (res?.ok) return { ok: true };
   return { ok: false, refusal: 'sync' };
+}
+
+/** KAN-333: a cookbook's recipe ids as they are now, to undo a change with. */
+function cookbookRecipeIds(user: User, cookbookId: string): string[] | null {
+  const cookbook = user.cookbooks.find((cb) => cb.id === cookbookId);
+  return cookbook ? [...cookbook.recipeIds] : null;
 }
 
 const SERVER_ORIGINS = new Set<Recipe['origin']>(['manual', 'generated', 'saved']);
@@ -622,16 +628,22 @@ export class PersistenceService {
 
   /**
    * KAN-333: resolves to whether the change reached the server. The local
-   * cookbook is updated first either way, but the next hydrate replaces it
-   * with the server's, so a change that did not land is lost there and the
-   * caller has to say so.
+   * cookbook is updated first so the dialog feels instant; when the server
+   * does not take the change, the local membership is put back, so the
+   * screen shows what the account holds and saving again sends the request.
    */
   async addRecipeToCookbook(cookbookId: string, recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
+    const before = cookbookRecipeIds(user, cookbookId);
     this.auth.addRecipeToCookbook(cookbookId, recipe);
+    const outcome = await this._addMembership(cookbookId, recipe);
+    if (!outcome.ok && before) this.auth.restoreCookbookRecipeIds(cookbookId, before);
+    return outcome;
+  }
 
+  private async _addMembership(cookbookId: string, recipe: Recipe): Promise<SaveOutcome> {
     // Ensure the recipe exists in the DB before naming it in a membership.
     // KAN-330: when that save never landed (connection, write pause), the
     // membership would reference a row the server does not have — skip it
@@ -655,6 +667,7 @@ export class PersistenceService {
     const user = this.auth.currentUser();
     if (!user) return { ok: false, noSession: true };
 
+    const before = cookbookRecipeIds(user, cookbookId);
     this.auth.removeRecipeFromCookbook(cookbookId, recipeId);
 
     let res: Response | null = null;
@@ -665,7 +678,9 @@ export class PersistenceService {
     } catch (err) {
       console.warn('[PersistenceService] removeRecipeFromCookbook failed:', err);
     }
-    return interpretMembershipResponse(res, 'remove');
+    const outcome = interpretMembershipResponse(res, 'remove');
+    if (!outcome.ok && before) this.auth.restoreCookbookRecipeIds(cookbookId, before);
+    return outcome;
   }
 
   // ─── Internal: API sync ───────────────────────────────────────────────────

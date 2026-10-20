@@ -139,7 +139,9 @@ export class GeneratorComponent extends RecipeViewBase {
       if (this.beginRecipeSave(generatedRecipe.id)) {
         try {
           await this.awaitSaveSession();
-          const outcome = await this.persistenceService.saveRecipeDetailed(generatedRecipe);
+          const outcome = await this.persistenceService.saveRecipeDetailed(
+            this.latestVersionOf(generatedRecipe)
+          );
           const kept = saveOutcomeForAnalytics(outcome) !== null;
           if (this.recipe()?.id === generatedRecipe.id) {
             this.isSaved.set(kept);
@@ -182,7 +184,9 @@ export class GeneratorComponent extends RecipeViewBase {
     if (!currentRecipe || !this.beginRecipeSave(currentRecipe.id)) return;
     try {
       await this.awaitSaveSession();
-      const outcome = await this.persistenceService.saveRecipeDetailed(currentRecipe);
+      const outcome = await this.persistenceService.saveRecipeDetailed(
+        this.latestVersionOf(currentRecipe)
+      );
       if (this.recipe()?.id === currentRecipe.id) {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       }
@@ -219,6 +223,16 @@ export class GeneratorComponent extends RecipeViewBase {
       clearTimeout(timer);
     }
     this.authService.ensureGuestSession();
+  }
+
+  /**
+   * The recipe to write once the session wait is over: the one on screen if it
+   * is still this recipe, so edits made while waiting (notes, which had no
+   * session to go to) are kept; otherwise the snapshot taken before the wait.
+   */
+  private latestVersionOf(snapshot: Recipe): Recipe {
+    const onScreen = this.recipe();
+    return onScreen?.id === snapshot.id ? onScreen : snapshot;
   }
 
   private beginRecipeSave(recipeId: string): boolean {

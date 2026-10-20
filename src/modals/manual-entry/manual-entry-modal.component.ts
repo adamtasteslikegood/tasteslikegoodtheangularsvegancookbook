@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PersistenceService } from '../../services/persistence.service';
 import { ToastService } from '../../services/toast.service';
+import { AuthService } from '../../services/auth.service';
 import type { Ingredient, IngredientGroup, Recipe } from '../../recipe.types';
 
 @Component({
@@ -14,6 +15,7 @@ import type { Ingredient, IngredientGroup, Recipe } from '../../recipe.types';
 export class ManualEntryModalComponent {
   private readonly persistenceService = inject(PersistenceService);
   private readonly toastService = inject(ToastService);
+  private readonly authService = inject(AuthService);
 
   isOpen = model<boolean>(false);
   readonly closed = output<void>();
@@ -143,10 +145,15 @@ export class ManualEntryModalComponent {
 
     // KAN-333: say when the save did not reach the server, as the main
     // recipe save does. With no session nothing was stored at all (KAN-306),
-    // so the form stays open with the recipe still in it.
+    // so the form stays open with the recipe still in it. A reload would
+    // discard that form, so ask for a session (honored once the startup auth
+    // check settles) and have the user save again from it.
     const outcome = await this.persistenceService.saveRecipeDetailed(newRecipe);
     if (outcome.noSession) {
-      this.toastService.show('Your recipe was not saved. Reload the page and try again.');
+      this.authService.ensureGuestSession();
+      this.toastService.show(
+        'Your recipe was not saved yet. Wait a moment, then save again: your recipe is still in the form.'
+      );
       return;
     }
     if (!outcome.ok) {

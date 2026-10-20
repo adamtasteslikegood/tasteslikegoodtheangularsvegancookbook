@@ -5,6 +5,7 @@ import { ManualEntryModalComponent } from './modals/manual-entry/manual-entry-mo
 import { CreateCookbookModalComponent } from './modals/create-cookbook/create-cookbook-modal.component';
 import { PersistenceService } from './services/persistence.service';
 import { ToastService } from './services/toast.service';
+import { AuthService } from './services/auth.service';
 import { AppComponent } from './app.component';
 
 const inAppBrowser = vi.hoisted(() => vi.fn(() => false));
@@ -16,6 +17,7 @@ describe('ManualEntryModalComponent reopened session resets drafts', () => {
       providers: [
         { provide: PersistenceService, useValue: {} },
         { provide: ToastService, useValue: { show: vi.fn() } },
+        { provide: AuthService, useValue: {} },
       ],
     });
     const component = runInInjectionContext(injector, () => new ManualEntryModalComponent());

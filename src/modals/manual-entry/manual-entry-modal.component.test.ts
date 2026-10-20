@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ManualEntryModalComponent } from './manual-entry-modal.component';
 import { PersistenceService } from '../../services/persistence.service';
 import { ToastService } from '../../services/toast.service';
+import { AuthService } from '../../services/auth.service';
 
 // GH #3256 (KAN-144): "Chef's Notes" here are the user's own text, but they
 // were written into `notes` — the field KAN-140 froze as generated,
@@ -11,10 +12,12 @@ import { ToastService } from '../../services/toast.service';
 describe('ManualEntryModalComponent', () => {
   let saveRecipe: ReturnType<typeof vi.fn>;
   let toastShow: ReturnType<typeof vi.fn>;
+  let ensureGuestSession: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     saveRecipe = vi.fn().mockResolvedValue({ ok: true });
     toastShow = vi.fn();
+    ensureGuestSession = vi.fn();
   });
 
   const createComponent = () => {
@@ -22,6 +25,7 @@ describe('ManualEntryModalComponent', () => {
       providers: [
         { provide: PersistenceService, useValue: { saveRecipeDetailed: saveRecipe } },
         { provide: ToastService, useValue: { show: toastShow } },
+        { provide: AuthService, useValue: { ensureGuestSession } },
       ],
     });
     return runInInjectionContext(injector, () => new ManualEntryModalComponent());
@@ -91,6 +95,17 @@ describe('ManualEntryModalComponent', () => {
       expect(toastShow).toHaveBeenCalledOnce();
       expect(toastShow.mock.calls[0][0]).toMatch(/not saved/i);
       expect(component.isOpen()).toBe(true);
+    });
+
+    // A reload would discard the form, the only copy of the recipe. Ask for a
+    // session instead (deferred until the startup auth check settles), so
+    // saving again from the open form can land.
+    it('asks for a session and says to save again, not to reload', async () => {
+      saveRecipe.mockResolvedValue({ ok: true, noSession: true });
+      await saveNamed();
+      expect(ensureGuestSession).toHaveBeenCalledOnce();
+      expect(toastShow.mock.calls[0][0]).not.toMatch(/reload/i);
+      expect(toastShow.mock.calls[0][0]).toMatch(/save again/i);
     });
   });
 });
