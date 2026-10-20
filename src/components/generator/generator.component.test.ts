@@ -1,7 +1,11 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { GeneratorComponent } from './generator.component';
+import {
+  GeneratorComponent,
+  NOT_SAVED_YET_MESSAGE,
+  SAVE_SESSION_WAIT_MS,
+} from './generator.component';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
@@ -38,6 +42,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
         alreadySaved?: boolean;
         noSession?: boolean;
       };
+      /** AuthService.ready — pass a pending promise to hold the startup check open. */
+      ready?: Promise<void>;
     } = {}
   ) => {
     const recipeState = runInInjectionContext(
@@ -63,6 +69,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
             saveRecipe: vi.fn(),
             updateRecipeField: vi.fn(),
             ensureGuestSession: vi.fn(),
+            ready: opts.ready ?? Promise.resolve(),
           },
         },
         {
@@ -345,7 +352,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     const second = component.onSaveRecipe();
     await second;
     expect(component.isCurrentRecipeSaving()).toBe(true);
-    expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+    // The first save reaches persistence after the auth-ready wait (KAN-306).
+    await vi.waitFor(() => expect(persistenceSaveRecipe).toHaveBeenCalledOnce());
 
     resolveSave({ ok: true });
     await first;
@@ -466,6 +474,139 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
     expect(component.isSaved()).toBe(false);
+    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+  });
+
+  it('says a manual save with no session was not saved', async () => {
+    const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
+    component.recipe.set(draftRecipe());
+
+    await component.onSaveRecipe();
+
+    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+  });
+
+  // KAN-306: a returning visitor with a cached signed-in session has no
+  // session at all until the startup auth check settles (ensureGuestSession
+  // defers). A save made in that window used to report ok and keep nothing.
+  describe('save during the deferred startup auth check (KAN-306)', () => {
+    const holdAuthOpen = () => {
+      let release!: () => void;
+      const ready = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return { ready, release };
+    };
+
+    it('waits for the auth check before saving a generated recipe, then keeps it', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe, recipeState } = createComponent({ ready });
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+      // The recipe is generated, but the session is not settled: no save yet.
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+
+      release();
+      await generating;
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(persistenceSaveRecipe.mock.calls[0][0].id).toBe('gen-1');
+      expect(component.isSaved()).toBe(true);
+    });
+
+    it('waits for the auth check before a manual generator save', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe } = createComponent({ ready });
+      component.recipe.set(draftRecipe());
+
+      const saving = component.onSaveRecipe();
+      await Promise.resolve();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+
+      release();
+      await saving;
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(component.isSaved()).toBe(true);
+    });
+
+    // Notes edited while the save waits had nowhere to go (no session), and
+    // the save then wrote the pre-wait snapshot, so they were lost on reload.
+    it('saves the notes edited while it waited on the auth check', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe, recipeState } = createComponent({ ready });
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+      component.recipe.set({ ...component.recipe()!, personalNotes: 'less salt' });
+
+      release();
+      await generating;
+
+      const saved = persistenceSaveRecipe.mock.calls.at(-1)![0];
+      expect(saved.id).toBe('gen-1');
+      expect(saved.personalNotes).toBe('less salt');
+    });
+
+    it('saves the stored copy, with its notes, when the user moved on during the wait', async () => {
+      const { ready, release } = holdAuthOpen();
+      const { component, persistenceSaveRecipe, recipeState, authUser } = createComponent({
+        ready,
+      });
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+      authUser.savedRecipes.push({ ...component.recipe()!, personalNotes: 'less salt' });
+      component.recipe.set({ ...component.recipe()!, id: 'other' });
+
+      release();
+      await generating;
+
+      const saved = persistenceSaveRecipe.mock.calls.at(-1)![0];
+      expect(saved.id).toBe('gen-1');
+      expect(saved.personalNotes).toBe('less salt');
+    });
+
+    // Past the bound a cached signed-in session is still deferred, so the save
+    // finds no session and stores nothing; the user must be told.
+    it('stops waiting on an auth check that never settles and says nothing was saved', async () => {
+      vi.useFakeTimers();
+      try {
+        const { ready } = holdAuthOpen();
+        const { component, persistenceSaveRecipe } = createComponent({
+          ready,
+          saveOutcome: { ok: true, noSession: true },
+        });
+        component.recipe.set(draftRecipe());
+
+        const saving = component.onSaveRecipe();
+        await vi.advanceTimersByTimeAsync(SAVE_SESSION_WAIT_MS);
+        await saving;
+
+        expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+        expect(component.isSaved()).toBe(false);
+        expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('saves after an auth check that fails instead of failing the generation', async () => {
+      const ready = Promise.reject(new Error('auth check failed'));
+      ready.catch(() => undefined);
+      const { component, persistenceSaveRecipe, recipeState } = createComponent({ ready });
+      component.prompt.set('vegan cornbread');
+
+      await component.onGenerate();
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(recipeState.currentRecipe()?.id).toBe('gen-1');
+      expect(component.isSaved()).toBe(true);
+    });
   });
 
   it.each(['duplicate', 'ownership', 'OWNERSHIP_OTHER_ACCOUNT'])(

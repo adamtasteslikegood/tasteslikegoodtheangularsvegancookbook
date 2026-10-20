@@ -517,6 +517,18 @@ export class AuthService {
     });
   }
 
+  /**
+   * The id addRecipeToCookbook puts in a cookbook for this recipe: its own,
+   * or that of a saved recipe it matches by id or name. KAN-333: an undo of a
+   * failed add has to remove this id, not necessarily recipe.id.
+   */
+  cookbookRecipeIdFor(recipe: Recipe): string {
+    const saved = this.currentUser()?.savedRecipes.find(
+      (r) => r.id === recipe.id || r.name === recipe.name
+    );
+    return saved?.id ?? recipe.id;
+  }
+
   addRecipeToCookbook(cookbookId: string, recipe: Recipe) {
     const user = this.currentUser();
     if (!user) return;
@@ -562,6 +574,24 @@ export class AuthService {
       return cb;
     });
 
+    this.updateUserRecord({ ...user, cookbooks });
+  }
+
+  /**
+   * KAN-333: set whether one recipe is in one cookbook, touching nothing
+   * else. Used to undo an optimistic change the server did not take, so the
+   * dialog shows the account's state and saving again sends the request.
+   */
+  setCookbookMembership(cookbookId: string, recipeId: string, present: boolean) {
+    const user = this.currentUser();
+    if (!user) return;
+    const cookbooks = user.cookbooks.map((cb) => {
+      if (cb.id !== cookbookId || cb.recipeIds.includes(recipeId) === present) return cb;
+      const recipeIds = present
+        ? [...cb.recipeIds, recipeId]
+        : cb.recipeIds.filter((id) => id !== recipeId);
+      return { ...cb, recipeIds };
+    });
     this.updateUserRecord({ ...user, cookbooks });
   }
 

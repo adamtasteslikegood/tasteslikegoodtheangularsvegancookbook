@@ -1,8 +1,9 @@
 import { Component, inject, model, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../services/auth.service';
-import { PersistenceService } from '../../services/persistence.service';
+import { PersistenceService, type SaveOutcome } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
+import { ToastService } from '../../services/toast.service';
 import type { Recipe } from '../../recipe.types';
 
 @Component({
@@ -15,6 +16,7 @@ export class AddToCookbookModalComponent {
   readonly authService = inject(AuthService);
   private readonly persistenceService = inject(PersistenceService);
   private readonly recipeState = inject(RecipeStateService);
+  private readonly toastService = inject(ToastService);
 
   isOpen = model<boolean>(false);
   readonly createCookbookRequested = output<void>();
@@ -103,19 +105,30 @@ export class AddToCookbookModalComponent {
     if (!user) return;
 
     const pending = this.pendingCookbookIds();
+    let failed: SaveOutcome | null = null;
+    let added = false;
 
     for (const cb of user.cookbooks) {
       const wasIn = cb.recipeIds.includes(r.id);
       const shouldBeIn = pending.has(cb.id);
 
+      let outcome: SaveOutcome | null = null;
       if (!wasIn && shouldBeIn) {
-        await this.persistenceService.addRecipeToCookbook(cb.id, r);
+        outcome = await this.persistenceService.addRecipeToCookbook(cb.id, r);
+        if (outcome.ok) added = true;
       } else if (wasIn && !shouldBeIn) {
-        await this.persistenceService.removeRecipeFromCookbook(cb.id, r.id);
+        outcome = await this.persistenceService.removeRecipeFromCookbook(cb.id, r.id);
       }
+      if (outcome && !outcome.ok && !failed) failed = outcome;
     }
 
-    if (this.recipeState.currentRecipe()?.id === r.id) {
+    // KAN-333: the local cookbooks already show the change, but the next
+    // hydrate replaces them with the server's, so a change that did not land
+    // is lost there. Say so instead of closing as if it stuck.
+    if (failed) this.toastService.show(cookbookUnsyncedMessage(failed));
+
+    // The saved mark follows the account: not when every change failed.
+    if ((added || !failed) && this.recipeState.currentRecipe()?.id === r.id) {
       this.recipeState.isSaved.set(true);
     }
 
@@ -126,4 +139,19 @@ export class AddToCookbookModalComponent {
     this.showRemoveConfirmation.set(false);
     this.cookbooksBeingRemoved.set([]);
   }
+}
+
+/**
+ * KAN-333: what to tell the user when a cookbook change did not reach the
+ * server. The change is undone on screen (PersistenceService), so trying
+ * again from the dialog sends it again.
+ */
+function cookbookUnsyncedMessage(outcome: SaveOutcome): string {
+  if (outcome.refusal === 'paused') {
+    return 'Your cookbook change was not saved: recipes are read-only for a few minutes while we finish some maintenance. Try again in a few minutes.';
+  }
+  if (outcome.refusal === 'duplicate') {
+    return 'Your cookbook change was not saved: your account already has this recipe as another copy. Reload, then add that copy.';
+  }
+  return 'Your cookbook change was not saved to your account. Check your connection and try again.';
 }
