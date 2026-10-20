@@ -1,64 +1,24 @@
-# tasteslikegoodtheangularsvegancookbook
+# GEMINI.md
 
-## Project Overview
+**Read [`CLAUDE.md`](./CLAUDE.md) and [`AGENTS.md`](./AGENTS.md) first:**
 
-This project is a full-stack application featuring an Angular/React frontend and a Python backend. It serves as a recipe platform or cookbook application ("tasteslikegoodtheangularsvegancookbook").
+- **[`CLAUDE.md`](./CLAUDE.md)** is the single source of truth for this
+  repository: architecture, commands, branching (`dev` / `main`), CI, testing,
+  deployment, PM tooling (`KAN` / `RCP` on `tasteslikegood.atlassian.net`), and
+  the release train.
+- **[`AGENTS.md`](./AGENTS.md)** carries the harness delta for **Antigravity
+  (`agy`)**, **Gemini CLI (`gemini`)**, and other non-Claude agents — including
+  [`garrytan/gstack`](https://github.com/garrytan/gstack) installation
+  (`./scripts/install-gstack.sh --host agy`), skill loading
+  (`~/.gemini/antigravity-cli/skills/gstack-*`, `~/.gemini/skills/`,
+  `.agents/skills/`), tool-name translation, and skill routing.
+- When working inside the `Backend/` submodule, read `Backend/CLAUDE.md` and
+  `Backend/AGENTS.md` (or `Backend/GEMINI.md`).
 
-**Jira Project Tracking** (all on `tasteslikegood.atlassian.net` — the only site for work items):
-
-- **Recipe app (Vegan Genius Chef):** `KAN` (tasks/bugs), `RCP` (releases) — the ONLY projects this repo's tooling may touch (enforced by `scripts/pm/_atlassian_guard.py`)
-- **Plaza game (different repo — do not touch from here):** `PLZG` (software), `TO` (business/creative); Confluence space `PLZA`
-- `tasteslikegood-dev.atlassian.net` is a service-site shell; its former `TO` project is frozen as `TOSVC` ("SERVICE-HOLD — do not use")
-
-**PM Automation:**
-
-- Scripts for syncing Jira and Confluence are located in `scripts/pm/`.
-- `scripts/pm/pm_daemon.py` - Background sync of planning docs (MCP server). One daemon spawns per agent session (that's correct — each needs its own MCP stdio pipes), but the file watcher is a singleton elected by an exclusive `flock` on `.claude/pm-daemon-watcher.lock`; non-holders serve MCP tools only. Don't kill extra daemons — it breaks those sessions' tools. See `docs/PM_TOOLING.md`.
-- `scripts/pm/sync_jira_confluence_status.py` - Fetches live project status.
-
-**Key Technologies:**
-
-- **Frontend:** Angular 22 SPA (TypeScript, `angular.json`, `index.tsx`) with Angular Router (lazy loading), Signals API, Tailwind CSS (`tailwind.config.js`), Vitest (`vitest.config.ts`), ESLint.
-- **Backend:** Python (`Backend/app.py`), managed with `uv` and `pyproject.toml`/`uv.lock`.
-- **Infrastructure:** Docker (`Dockerfile`, `Backend/Dockerfile`), Google Cloud Build (`cloudbuild.yaml`), GitHub Actions.
-- **Code Quality:** Qodana (`qodana.yaml`), Prettier (`.prettierrc`).
-- **Agents/Skills:** Uses custom Gemini CLI and Claude skills (located in `alirez-claude-skills/`).
-
-## Building and Running
-
-### Frontend
-
-- **Install dependencies:** `npm install` (implied by `package.json` and `package-lock.json`)
-- **Run development server:** `npm start` or `ng serve` (check `package.json` scripts)
-- **Run tests:** `npm test` (using Vitest)
-- **Linting:** `npm run lint` (using ESLint)
-
-### Backend
-
-- **Setup Environment:**
-  ```bash
-  cd Backend
-  uv sync
-  ```
-- **Database Setup:** `bash init_database.sh`
-- **Run Server:** `python app.py` or through the provided shell scripts (e.g., `run_debug.sh`).
-- **Tests/CI:** `bash run_ci_checks.sh`
-
-## Development Conventions
-
-- **Version Control:** Follow guidelines in `BRANCHING_STRATEGY.md` and `CONTRIBUTING.md`. ALWAYS create a new branch off `dev` before making any changes — do not commit directly to `dev` or `main`.
-- **CI/CD:** PRs and commits are checked via GitHub Actions and Qodana. Ensure all tests pass before submitting a PR.
-- **Code Style:** Enforced by ESLint (frontend), Flake8 (backend - `.flake8`), and Prettier.
-- **Documentation:** Review `START_HERE.md` and `API.md` (in Backend) for detailed onboarding.
-
-## gemstack
-
-To install gemstack for this project, run the following:
-
-```bash
-git submodule update --init --recursive
-cd gemstack && ./setup
-```
-
-Use the `/browse` skill from gemstack for all web browsing, never use `mcp__claude-in-chrome__*` tools.
-Available skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`, `/plan-design-review`, `/design-consultation`, `/review`, `/ship`, `/browse`, `/qa`, `/qa-only`, `/design-review`, `/setup-browser-cookies`, `/retro`, `/investigate`, `/document-release`, `/codex`, `/careful`, `/freeze`, `/guard`, `/unfreeze`, `/gemstack-upgrade`.
+This file previously held a separate project overview and `gemstack` submodule
+instructions. `gemstack` is retired in favour of
+[`garrytan/gstack`](https://github.com/garrytan/gstack), and Antigravity (`agy`)
+automatically loads both `AGENTS.md` and `GEMINI.md` in every workspace
+directory. Keeping repo facts in [`CLAUDE.md`](./CLAUDE.md) and Antigravity /
+Gemini CLI harness guidance in [`AGENTS.md`](./AGENTS.md) prevents drift and
+avoids loading duplicate rules into context.
