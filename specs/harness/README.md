@@ -8,10 +8,10 @@ SI (`T1` to `T16` are `S1` to `S16`), plus `T0` (Day-1 charter cutover & board h
 (close-out). Chartered in an isolated worktree while Sprint 11 (`id 121`) wraps up so
 zero live Jira mutations occur before Sprint 11 closes.
 
-| File                                                                                         | Role                                                                                                                                      |
-| -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| [`SPRINT_12_HARNESS_PLAN.json`](./SPRINT_12_HARNESS_PLAN.json)                               | The plan: 19 tasks (`T0`..`T18`), each with its lane, checks, and skill                                                                   |
-| [`../../scripts/harness/sprint12_hard_gate.py`](../../scripts/harness/sprint12_hard_gate.py) | **The gate.** `--day1-cutover` / `--bootstrap-charter` is the Day-1 cutover; `--charter` is the Day-1 gate; `--close` is the strict close gate |
+| File                                                                                         | Role                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`SPRINT_12_HARNESS_PLAN.json`](./SPRINT_12_HARNESS_PLAN.json)                               | The plan: 19 tasks (`T0`..`T18`), each with its lane, checks, and skill                                                                                              |
+| [`../../scripts/harness/sprint12_hard_gate.py`](../../scripts/harness/sprint12_hard_gate.py) | **The gate.** `--day1-cutover` / `--bootstrap-charter` is the Day-1 cutover; `--charter` is the Day-1 gate; `--close` is the strict close gate                       |
 | [`../../scripts/harness/sprint12_driver.py`](../../scripts/harness/sprint12_driver.py)       | **The PM driver.** The Sprint 10/11 driver, run on this plan and `.agent-harness/sprint12/`, plus `--day1-cutover`, `--check-spillover`, and `--verify-process-lane` |
 
 ### Day-1 Cutover & `harness-qa-loop` Kickoff (once Sprint 11 `id 121` is `closed`)
@@ -46,7 +46,7 @@ python3 $HC close  --state $S
 
 What is specific to Sprint 12:
 
-- **`T1` (`S1` `KAN-356` Recipe Feedback Phase 1) waits on `T2` (`S2` `KAN-411` `md4a-fastapi` PyPI + R16 plain-mode escape).** `depends_on: ["T0", "T2"]` ensures the released `md4a-fastapi` package with R16's 6-vector plain-mode escape is on PyPI before Backend pins it for `recipe_feedback.note_rendered`.
+- **`T1` (`S1` `KAN-356` Recipe Feedback Phase 1) waits on `T2` (`S2` `KAN-411` `md4a-fastapi` PyPI + R16 plain-mode escape).** `depends_on: ["T0", "T2"]` ensures the released `md4a-fastapi` package with R16's 7-vector plain-mode escape (`[data-md="plain"]` newline normalization + padded inline code spans per `ENG-DEC-5`) is on PyPI before Backend pins it for `/r/<slug>` Markdown note rendering (`ENG-DEC-3`).
 - **`T16` (`S16` `KAN-425` `psycopg` 3 + SQLAlchemy 2.1) waits on `T12` (`S12` `KAN-337` staging deploy jobs).** Per Sprint 10 Retro `R-7` (`KAN-324` lesson), driver/ORM upgrades must soak on staging with automated deploy jobs green before a production release PR is opened.
 - **Alias resolution and strict Done gates (`ENG-DEC-1`, `ENG-DEC-3`).** `sprint12_hard_gate.py --issues` resolves `KAN-S12-CHARTER`, `RCP-S12-CHARTER`, and `RCP-S12-S<N>` against `specs/harness/sprint12_rcp_map.json`, and `--require-done` / `--close` enforce exact `Done` status so `In Progress` cannot pass `T17` or `T18`.
 - **Superseded rows (`KAN-346`, `RCP-147`) and later-sprint rows (`KAN-351`, `RCP-149`, `RCP-174`, `KAN-299`, `RCP-110`) are in `NOT_IN_SPRINT`.** Both `--charter` and the close gate fail if any of them sits in Sprint 12 (`id 122`) or renders on Board 168.
