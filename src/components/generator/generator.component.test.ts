@@ -468,18 +468,22 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       slug: null,
     });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
-    expect(component.isSaved()).toBe(false);
-    // The server stored the recipe when generation started (KAN-306).
+    // The server stored the recipe when generation started (KAN-306), so the
+    // on-screen Save control must agree with My Kitchen.
+    expect(component.isSaved()).toBe(true);
     expect(toastShow).not.toHaveBeenCalled();
   });
 
-  it('shows no "not saved" toast for a manual save with no session', async () => {
+  it('warns when a manual save could not write the edited client copy', async () => {
     const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
     component.recipe.set(draftRecipe());
 
     await component.onSaveRecipe();
 
-    expect(toastShow).not.toHaveBeenCalled();
+    expect(component.isSaved()).toBe(false);
+    expect(toastShow).toHaveBeenCalledWith(
+      'Your changes were not saved yet. Wait a moment, then save again.'
+    );
   });
 
   // KAN-306: a returning visitor with a cached signed-in session has no
@@ -567,8 +571,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       expect(saved.personalNotes).toBe('less salt');
     });
 
-    // Past the bound a cached signed-in session is still deferred, so the save
-    // finds no session; the server copy stands, so no toast.
+    // Past the bound a cached signed-in session is still deferred, so a manual
+    // save finds no session and must say its edited client copy was not written.
     it('stops waiting on an auth check that never settles', async () => {
       vi.useFakeTimers();
       try {
@@ -585,7 +589,9 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
         expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
         expect(component.isSaved()).toBe(false);
-        expect(toastShow).not.toHaveBeenCalled();
+        expect(toastShow).toHaveBeenCalledWith(
+          'Your changes were not saved yet. Wait a moment, then save again.'
+        );
       } finally {
         vi.useRealTimers();
       }
