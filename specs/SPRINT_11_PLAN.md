@@ -365,7 +365,7 @@ charter and are Adam's to move**; a moved date is edited here the same day.
 | ----------------------------------------------------- | ----- | ------------------------------------------------------------------------------ | ------------- |
 | 2026-10-10                                            | Adam  | The Assignment: invite the inner circle to sign in, save and cook              | S25 / RCP-148 |
 | 2026-10-11, then ongoing                              | Adam  | First recipe cooked for the tested-recipe proof                                | KAN-352       |
-| 2026-10-12                                            | Adam  | Profile edits: Docker Hub, YouTube, owned Meta profiles                        | S22 / RCP-146 |
+| 2026-10-12                                            | Adam  | Profile edits: Docker Hub, owned Meta profiles (YouTube moved to KAN-436)      | S22 / RCP-146 |
 | 2026-10-12                                            | Adam  | Fill or decline each of the seven Recipe rich-result warnings                  | S16 / RCP-140 |
 | 2026-10-13                                            | Adam  | KAN-344 two-account check on staging                                           | S10 / RCP-134 |
 | 2026-10-13                                            | Adam  | KAN-342 order check on staging                                                 | S8 / RCP-132  |
