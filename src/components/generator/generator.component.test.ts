@@ -306,6 +306,31 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(component.isSaved()).toBe(true);
   });
 
+  it('shows the image spinner while the save runs, and asks for the image only after it (KAN-459)', async () => {
+    let resolveSave!: (outcome: { ok: boolean }) => void;
+    const { component, persistenceSaveRecipe, recipeState, injector } = createComponent();
+    const generateImage = vi.mocked(injector.get(GeminiService).generateImage);
+    persistenceSaveRecipe.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    component.prompt.set('vegan cornbread');
+
+    const generating = component.onGenerate();
+    await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+    await vi.waitFor(() => expect(persistenceSaveRecipe).toHaveBeenCalled());
+
+    // Before the fix: no spinner, so "Image not available" for the whole save.
+    expect(component.isImageLoading()).toBe(true);
+    expect(generateImage).not.toHaveBeenCalled();
+
+    resolveSave({ ok: true });
+    await generating;
+    await vi.waitFor(() => expect(generateImage).toHaveBeenCalledWith('gen-1', false));
+    await vi.waitFor(() => expect(component.isImageLoading()).toBe(false));
+  });
+
   it('blocks a manual save while the generated recipe save is still pending', async () => {
     const action = vi.fn();
     vi.stubGlobal('tlgAnalytics', { action });

@@ -194,8 +194,16 @@ export abstract class RecipeViewBase {
    * are root singletons, and every write to the *viewed* recipe is gated on
    * `this.recipe()?.id === recipeId`.
    */
-  protected async runImageGeneration(recipeId: string, opts: { regenerate: boolean }) {
-    const imagePromise = this.geminiService.generateImage(recipeId, opts.regenerate);
+  protected async runImageGeneration(
+    recipeId: string,
+    opts: { regenerate: boolean; after?: Promise<unknown> }
+  ) {
+    // `after` delays the request, not the spinner: the pending state is tracked
+    // from now (KAN-459). A failed `after` does not cancel the image; the
+    // recipe already exists server-side.
+    const imagePromise = (opts.after ?? Promise.resolve())
+      .catch(() => undefined)
+      .then(() => this.geminiService.generateImage(recipeId, opts.regenerate));
     this.recipeState.trackImageGeneration(recipeId, imagePromise);
     try {
       const imageUrl = await imagePromise;

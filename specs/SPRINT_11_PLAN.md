@@ -6,7 +6,7 @@ _Acceptance rows:_ **RCP-125** (S1) to **RCP-147** (S23) in order · **RCP-117**
 _Delivery tickets:_ listed per SI in [Committed scope](#committed-scope--27-sis) (KAN = execution, RCP = scope/acceptance); charter execution row **KAN-350**
 _Jira sprint:_ **Sprint 11** — id **121** on board **168**, started 2026-10-09, box ends 2026-10-23
 _Timebox:_ **No single-point date.** The sprint box is the timebox; the forecast below is a range.
-_Status:_ **Open. Re-planned 2026-10-14**: see [Re-plan — 2026-10-14 (Adam)](#re-plan--2026-10-14-adam), which supersedes D1, D6 and the scope below where they differ.
+_Status:_ **Close-out compiled 2026-10-21**; every row in the sprint is Done. Sprint 121 closes on board 168 with the Sprint 12 bootstrap on 2026-10-23. Re-planned 2026-10-14: see [Re-plan — 2026-10-14 (Adam)](#re-plan--2026-10-14-adam), which supersedes D1, D6 and the scope below where they differ. Final evidence: [Close-out](#close-out).
 _Inputs:_ `/cs:grill-pm` with Adam, 2026-10-09 (six branches, locked below) · [Sprint 10 Retrospective — 2026-10-09](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/89456659) (Confluence 89456659) · [`specs/SPRINT_10_PLAN.md`](./SPRINT_10_PLAN.md) close-out · [`docs/seo/SEO_DRIVER_REVIEW_2026-10-03.md`](../docs/seo/SEO_DRIVER_REVIEW_2026-10-03.md) (KAN-325) · [`docs/designs/recipe-feedback.md`](../docs/designs/recipe-feedback.md)
 
 ## Why this sprint exists
@@ -39,35 +39,35 @@ RCP-119, chartered when this sprint closes.
 SI numbers are tracking numbers. The order of work is in [Ordered list](#ordered-list).
 Size is a sort, not an estimate: **Q** quick, **S** standard, **M** major.
 
-| SI      | Lane      | Size | Summary                                                                                      | KAN                       | Acceptance |
-| ------- | --------- | ---- | -------------------------------------------------------------------------------------------- | ------------------------- | ---------- |
-| **S1**  | Crawl     | Q    | Footer and home page link the tag hubs in the first HTML response                            | KAN-319                   | RCP-125    |
-| **S2**  | Crawl     | S    | Public recipe pages link the hubs at the top and the bottom                                  | KAN-349                   | RCP-126    |
-| **S3**  | Crawl     | M    | Home page newest-recipes row, ordered by `first_published_at`                                | KAN-348                   | RCP-127    |
-| **S4**  | Stability | S    | A generator save during the deferred startup auth check is persisted                         | KAN-306                   | RCP-128    |
-| **S5**  | Stability | S    | Saves that fail to reach the server say so (cookbook membership, manual entry, duplicate)    | KAN-333                   | RCP-129    |
-| **S6**  | Stability | S    | Rate-limiter follow-up from the v0.5.8 review (detail on the ticket)                         | KAN-335                   | RCP-130    |
-| **S7**  | UI        | Q    | Recipe view has a labelled Add to Cookbook button                                            | KAN-341                   | RCP-131    |
-| **S8**  | UI        | Q    | Public recipe pages have Previous and Next links                                             | KAN-342                   | RCP-132    |
-| **S9**  | UI        | Q    | Browse pages carry a plain-text page-number nav in the header                                | KAN-343                   | RCP-133    |
-| **S10** | UI        | Q    | Profile menu "Switch user" signs in through Google's account chooser                         | KAN-344                   | RCP-134    |
-| **S11** | Stability | Q    | Publish toggle shows the server's state; legacy manual rows get the right explanation        | KAN-334                   | RCP-135    |
-| **S12** | Stability | S    | Backend review follow-ups from the publish-gate release                                      | KAN-336                   | RCP-136    |
-| **S13** | Stability | S    | Publish-audit and write-pause operations are in the deploy; the runbook matches the day      | KAN-337                   | RCP-137    |
-| **S14** | Stability | M    | Recycle bin survives reloads, logouts and devices; failed deletes show; restore unpublished  | KAN-290                   | RCP-138    |
-| **S15** | SEO       | Q    | Recipe JSON-LD carries the Google-recommended fields                                         | KAN-320                   | RCP-139    |
-| **S16** | SEO       | S    | Recipe pages are not crawl dead-ends; the seven rich-result warnings each filled or declined | KAN-273                   | RCP-140    |
-| **S17** | SEO       | Q    | Home page ships as the generator landing page (ship criteria)                                | KAN-272                   | RCP-141    |
-| **S18** | SEO       | Q    | Tag hubs ship: 200, self-canonical, in the sitemap (ship criteria)                           | KAN-274                   | RCP-142    |
-| **S19** | SEO       | Q    | SPA-only routes are served `noindex` (ship criteria)                                         | KAN-276                   | RCP-143    |
-| **S20** | SEO       | S    | Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly                 | KAN-347                   | RCP-144    |
-| **S21** | Process   | Q    | gh-aw upgraded and the three agentic workflows recompiled                                    | KAN-323                   | RCP-145    |
-| **S22** | Links     | Q    | Docker Hub, YouTube and the owned Meta profiles link the site                                | KAN-311, KAN-312, KAN-313 | RCP-146    |
-| **S23** | Proof     | M    | Tested-recipe marker and authorship on `/about` (code half of E1)                            | KAN-346                   | RCP-147    |
-| **S24** | Links     | Q    | Pinterest pin variant as a 1:1 centre crop, no blurred bars                                  | KAN-309                   | RCP-117    |
-| **S25** | Feedback  | S    | Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment)   | KAN-345                   | RCP-148    |
-| **S26** | Exit      | S    | Readiness walk on production; mobile LCP medians; hub-link counts                            | KAN-351                   | RCP-149    |
-| **S27** | Feedback  | M    | Recipe feedback Phase 1 build: cooked entry, stars, held notes, public summary               | KAN-356                   | RCP-150    |
+| SI      | Lane      | Size | Summary                                                                                      | KAN              | Acceptance |
+| ------- | --------- | ---- | -------------------------------------------------------------------------------------------- | ---------------- | ---------- |
+| **S1**  | Crawl     | Q    | Footer and home page link the tag hubs in the first HTML response                            | KAN-319          | RCP-125    |
+| **S2**  | Crawl     | S    | Public recipe pages link the hubs at the top and the bottom                                  | KAN-349          | RCP-126    |
+| **S3**  | Crawl     | M    | Home page newest-recipes row, ordered by `first_published_at`                                | KAN-348          | RCP-127    |
+| **S4**  | Stability | S    | A generator save during the deferred startup auth check is persisted                         | KAN-306          | RCP-128    |
+| **S5**  | Stability | S    | Saves that fail to reach the server say so (cookbook membership, manual entry, duplicate)    | KAN-333          | RCP-129    |
+| **S6**  | Stability | S    | Rate-limiter follow-up from the v0.5.8 review (detail on the ticket)                         | KAN-335          | RCP-130    |
+| **S7**  | UI        | Q    | Recipe view has a labelled Add to Cookbook button                                            | KAN-341          | RCP-131    |
+| **S8**  | UI        | Q    | Public recipe pages have Previous and Next links                                             | KAN-342          | RCP-132    |
+| **S9**  | UI        | Q    | Browse pages carry a plain-text page-number nav in the header                                | KAN-343          | RCP-133    |
+| **S10** | UI        | Q    | Profile menu "Switch user" signs in through Google's account chooser                         | KAN-344          | RCP-134    |
+| **S11** | Stability | Q    | Publish toggle shows the server's state; legacy manual rows get the right explanation        | KAN-334          | RCP-135    |
+| **S12** | Stability | S    | Backend review follow-ups from the publish-gate release                                      | KAN-336          | RCP-136    |
+| **S13** | Stability | S    | Publish-audit and write-pause operations are in the deploy; the runbook matches the day      | KAN-337          | RCP-137    |
+| **S14** | Stability | M    | Recycle bin survives reloads, logouts and devices; failed deletes show; restore unpublished  | KAN-290          | RCP-138    |
+| **S15** | SEO       | Q    | Recipe JSON-LD carries the Google-recommended fields                                         | KAN-320          | RCP-139    |
+| **S16** | SEO       | S    | Recipe pages are not crawl dead-ends; the seven rich-result warnings each filled or declined | KAN-273          | RCP-140    |
+| **S17** | SEO       | Q    | Home page ships as the generator landing page (ship criteria)                                | KAN-272          | RCP-141    |
+| **S18** | SEO       | Q    | Tag hubs ship: 200, self-canonical, in the sitemap (ship criteria)                           | KAN-274          | RCP-142    |
+| **S19** | SEO       | Q    | SPA-only routes are served `noindex` (ship criteria)                                         | KAN-276          | RCP-143    |
+| **S20** | SEO       | S    | Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly                 | KAN-347          | RCP-144    |
+| **S21** | Process   | Q    | gh-aw upgraded and the three agentic workflows recompiled                                    | KAN-323          | RCP-145    |
+| **S22** | Links     | Q    | Docker Hub and the owned Meta profiles link the site                                         | KAN-311, KAN-313 | RCP-146    |
+| **S23** | Proof     | M    | Tested-recipe marker and authorship on `/about` (code half of E1)                            | KAN-346          | RCP-147    |
+| **S24** | Links     | Q    | Pinterest pin variant as a 1:1 centre crop, no blurred bars                                  | KAN-309          | RCP-117    |
+| **S25** | Feedback  | S    | Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment)   | KAN-345          | RCP-148    |
+| **S26** | Exit      | S    | Readiness walk on production; mobile LCP medians; hub-link counts                            | KAN-351          | RCP-149    |
+| **S27** | Feedback  | M    | Recipe feedback Phase 1 build: cooked entry, stars, held notes, public summary               | KAN-356          | RCP-150    |
 
 **No stretch items. No pre-authorised drops.** No item was bundled to fit a count. S22
 is one deliverable (every owned property links the site) with one execution row per
@@ -365,7 +365,7 @@ charter and are Adam's to move**; a moved date is edited here the same day.
 | ----------------------------------------------------- | ----- | ------------------------------------------------------------------------------ | ------------- |
 | 2026-10-10                                            | Adam  | The Assignment: invite the inner circle to sign in, save and cook              | S25 / RCP-148 |
 | 2026-10-11, then ongoing                              | Adam  | First recipe cooked for the tested-recipe proof                                | KAN-352       |
-| 2026-10-12                                            | Adam  | Profile edits: Docker Hub, YouTube, owned Meta profiles                        | S22 / RCP-146 |
+| 2026-10-12                                            | Adam  | Profile edits: Docker Hub, owned Meta profiles (YouTube moved to KAN-436)      | S22 / RCP-146 |
 | 2026-10-12                                            | Adam  | Fill or decline each of the seven Recipe rich-result warnings                  | S16 / RCP-140 |
 | 2026-10-13                                            | Adam  | KAN-344 two-account check on staging                                           | S10 / RCP-134 |
 | 2026-10-13                                            | Adam  | KAN-342 order check on staging                                                 | S8 / RCP-132  |
@@ -472,13 +472,53 @@ Rule 3 (nothing in To Do) is the close gate, so on day 1 it is expected red.
 
 ## Close-out
 
-Not done until every box links its evidence:
+Compiled 2026-10-21. Retrospective: [Sprint 11 Retrospective — 2026-10-21](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/100106241) (Confluence 100106241).
 
-- [ ] Every acceptance row closed criterion by criterion, or amended in writing by Adam
-- [ ] `sprint11_hard_gate.py` exit 0; `check_sprint_lane.sh` exit 0, output pasted here
-- [ ] Readiness walk results (S26): the journey on phone and desktop, the LCP medians, the hub-link counts
-- [ ] Rows not finished inside the box named here, each with its reason and where it went
-- [ ] Aging table and dated list updated with final dispositions
-- [ ] Process-lane rows closed or carried with a reason
-- [ ] Sprint 12 chartered under RCP-119
-- [ ] Sprint 11 retrospective page created under Confluence 50298881 from template 50495489, on close-out day
+- [x] **Every acceptance row closed criterion by criterion, or amended in writing by Adam.** 42 of 42 acceptance rows in sprint 121 are Done; only the epic RCP-123 is open. The last six closed on 2026-10-21 on v0.7.3 production evidence: RCP-128 (throttled signed-in run), RCP-129, RCP-139 (Rich Results Test), RCP-168 to 170. Amendment: S22 no longer includes KAN-312 (YouTube), superseded by KAN-436 (Adam, 2026-10-20); RCP-146 was retitled and the hard gate's S22 constants changed with this close-out.
+- [x] **Gates.** Run 2026-10-21, after the S22 amendment:
+
+  | Run                                  | Result                                                                                                               |
+  | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+  | `sprint11_hard_gate.py` (close form) | **exit 0**: every committed or recorded item is out of To Do and has a board-rendered acceptance row                 |
+  | `sprint11_hard_gate.py --charter`    | **exit 0**                                                                                                           |
+  | `check_sprint_lane.sh`               | **exit 0**: all 88 sprint members carry `sprint-11`; 0/3 agent lanes building; no open KAN rows labelled `sprint-11` |
+  | `test_sprint11_hard_gate.py`         | 19 tests pass                                                                                                        |
+
+  Before the amendment the close form failed once: "S22's acceptance row RCP-146 does not name KAN-312 in its summary".
+
+- [ ] **Readiness walk results (S26).** Not run in Sprint 11: S26 (KAN-351 / RCP-149) moved to Sprint 13 at the re-plan, where the walk is the beta's job.
+- [x] **Rows not finished inside the box**, each placed at the re-plan of 2026-10-14 and confirmed by Adam on 2026-10-21. None was started in Sprint 11.
+
+  | Row     | KAN     | To        | Why                                                           |
+  | ------- | ------- | --------- | ------------------------------------------------------------- |
+  | RCP-150 | KAN-356 | Sprint 12 | Feedback build, decided at the Sprint 12 charter (Adam)       |
+  | RCP-138 | KAN-290 | Sprint 12 | Major, not started                                            |
+  | RCP-144 | KAN-347 | Sprint 12 | Its 7-day measurement cannot close inside the box             |
+  | RCP-135 | KAN-334 | Sprint 12 | Bottom of the ordered list                                    |
+  | RCP-136 | KAN-336 | Sprint 12 | Bottom of the ordered list                                    |
+  | RCP-137 | KAN-337 | Sprint 12 | Bottom of the ordered list                                    |
+  | RCP-159 | KAN-389 | Sprint 12 | Added after the charter; not started                          |
+  | RCP-149 | KAN-351 | Sprint 13 | The readiness walk is the beta's job                          |
+  | RCP-147 | KAN-346 | —         | Closed as superseded by the feedback build (Adam, 2026-10-14) |
+
+- [x] **Final dispositions.** Aging table: KAN-272, 274, 276 Done 2026-10-13; KAN-273 Done 2026-10-18; KAN-306 Done 2026-10-20; KAN-309, 319, 341 to 344 Done 2026-10-11 to 2026-10-13; KAN-311 Done 2026-10-20 and KAN-313 Done 2026-10-18; KAN-312 superseded (KAN-436); KAN-320 and KAN-333 Done 2026-10-21; KAN-323 Done 2026-10-20; KAN-335 Done 2026-10-18; KAN-290, 334, 336, 337 rolled (above). Dated list:
+
+  | Item                                    | Disposition                                                                        |
+  | --------------------------------------- | ---------------------------------------------------------------------------------- |
+  | The Assignment and the cook count (S25) | RCP-148 closed by Adam 2026-10-18                                                  |
+  | First recipe cooked (KAN-352)           | Done 2026-10-14 as S40                                                             |
+  | Profile edits (S22)                     | Done 2026-10-20; YouTube moved to KAN-436                                          |
+  | Rich-result fill or decline (S16)       | RCP-140 Done 2026-10-18                                                            |
+  | KAN-344 and KAN-342 staging checks      | RCP-134 Done 2026-10-13; RCP-132 Done 2026-10-11                                   |
+  | KAN-355 Google check, due 2026-10-16    | **Done 2026-10-21, five days late.** `/kitchen` unknown to Google; 0 soft-404 rows |
+  | KAN-353, due 2026-10-23                 | Open; runs on its date                                                             |
+  | KAN-354, due 2026-10-30 and 2026-11-13  | Open; runs on its dates                                                            |
+  | Feedback success criteria               | To file when S27 ships (Sprint 12)                                                 |
+
+- [x] **Process lane.** Dependabot: none open at close (27 merged, 2 closed since 2026-10-01). Stale rows sorted 2026-10-13: KAN-199, 212, 261, 287 Done; KAN-188 returned to To Do, closing or re-scoping it is Adam's call. Harness plan and driver merged (#3636). The Sprint 12 charter and the retrospective are the two rows below.
+- [x] **Sprint 12 chartered under RCP-119.** PR #3724 (`specs/SPRINT_12_PLAN.md`, harness plan, hard gate and driver), merged 2026-10-21 after the Sprint 11 retro's actions table was walked into it. Its day-one bootstrap retitles the rolled rows to `S12 acceptance:` and starts Sprint 12 (Adam, 2026-10-21).
+- [x] **Sprint 11 retrospective page** created 2026-10-21 under Confluence 50298881 from template 50495489: [page 100106241](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/100106241).
+
+**Releases in the box:** v0.6.0 (2026-10-11), v0.7.0, v0.7.1 and v0.7.2 (2026-10-18), v0.7.3 (2026-10-20). S4, S5 and S35 to S37 were planned for v0.7.0 and shipped in v0.7.3.
+
+**Found at close, outside the sprint:** KAN-457 (manual entry closes after a failed sync) and KAN-459 (image placeholder while a generated recipe saves; PR #3748, next patch).
