@@ -203,9 +203,13 @@ def _forward_cutover_flags(args, base_flag):
             idx = args.index(opt)
             # Forward the flag even without a value: the hard gate's argparse
             # then fails with "expected one argument" instead of this wrapper
-            # silently running with the default cap.
+            # silently running with the default cap. Only forward the next
+            # token as the value when it is not itself another flag — otherwise
+            # the next flag gets consumed as this option's value and argparse
+            # fails with a confusing "invalid int value" instead of the clean
+            # "expected one argument" the comment above describes.
             hg_args.append(opt)
-            if idx + 1 < len(args):
+            if idx + 1 < len(args) and not args[idx + 1].startswith("--"):
                 hg_args.append(args[idx + 1])
             continue
         prefix = opt + "="
