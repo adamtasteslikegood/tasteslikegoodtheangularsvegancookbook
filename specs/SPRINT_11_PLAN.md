@@ -516,7 +516,7 @@ Compiled 2026-10-21. Retrospective: [Sprint 11 Retrospective — 2026-10-21](htt
   | Feedback success criteria               | To file when S27 ships (Sprint 12)                                                 |
 
 - [x] **Process lane.** Dependabot: none open at close (27 merged, 2 closed since 2026-10-01). Stale rows sorted 2026-10-13: KAN-199, 212, 261, 287 Done; KAN-188 returned to To Do, closing or re-scoping it is Adam's call. Harness plan and driver merged (#3636). The Sprint 12 charter and the retrospective are the two rows below.
-- [ ] **Sprint 12 chartered under RCP-119.** Drafted in PR #3724 (`specs/SPRINT_12_PLAN.md`), not merged. Its day-one bootstrap on 2026-10-23 retitles the rolled rows to `S12 acceptance:`.
+- [x] **Sprint 12 chartered under RCP-119.** PR #3724 (`specs/SPRINT_12_PLAN.md`, harness plan, hard gate and driver), merged 2026-10-21 after the Sprint 11 retro's actions table was walked into it. Its day-one bootstrap retitles the rolled rows to `S12 acceptance:` and starts Sprint 12 (Adam, 2026-10-21).
 - [x] **Sprint 11 retrospective page** created 2026-10-21 under Confluence 50298881 from template 50495489: [page 100106241](https://tasteslikegood.atlassian.net/wiki/spaces/TLG/pages/100106241).
 
 **Releases in the box:** v0.6.0 (2026-10-11), v0.7.0, v0.7.1 and v0.7.2 (2026-10-18), v0.7.3 (2026-10-20). S4, S5 and S35 to S37 were planned for v0.7.0 and shipped in v0.7.3.

@@ -533,6 +533,92 @@ class Sprint12HardGateTests(unittest.TestCase):
         finally:
             hard_gate.reset_state()
 
+    def test_bootstrap_charter_recovers_a_committed_create_whose_response_was_lost(self):
+        """Jira commits POST /issue but the client never sees the key (DX-DEC-1).
+
+        The row is not a Sprint 12 member until the bootstrap finishes, so the
+        sprint-member index cannot see it. A fresh restart must find it by its
+        exact summary in the RCP project under the epic instead of creating a
+        second identical Story.
+        """
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                sprints = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "future"},
+                ]
+                committed = []  # rows Jira holds, whatever the client saw
+                seq = {"kan": 436, "rcp": 900}
+
+                def create(body):
+                    proj = body["fields"]["project"]["key"]
+                    k = "%s-%d" % (proj, seq[proj.lower()])
+                    seq[proj.lower()] += 1
+                    committed.append((k, body["fields"]["summary"]))
+                    return k
+
+                def search(body):
+                    return {
+                        "issues": [
+                            {"key": k, "fields": {"summary": s}}
+                            for k, s in committed
+                            if s in body["jql"]
+                        ]
+                    }
+
+                jira1 = Mock()
+                jira1.sprints.return_value = sprints
+                jira1.sprint_issues.return_value = []
+
+                def call_lose_s10_response(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/search/jql":
+                        return search(body)
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        key = create(body)
+                        if "KAN-421" in body["fields"]["summary"]:
+                            raise RuntimeError("connection dropped after create")
+                        return {"key": key}
+                    return {}
+
+                jira1.call.side_effect = call_lose_s10_response
+                with self.assertRaises(RuntimeError):
+                    hard_gate.bootstrap_charter(jira1, map_path=map_file)
+                checkpoint1 = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertNotIn("S10", checkpoint1["acceptance"])
+                s10_key = [k for k, s in committed if "KAN-421" in s][0]
+
+                hard_gate.reset_state()
+                jira2 = Mock()
+                jira2.sprints.return_value = sprints
+                jira2.sprint_issues.return_value = []
+
+                def call_retry(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/search/jql":
+                        return search(body)
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        return {"key": create(body)}
+                    return {}
+
+                jira2.call.side_effect = call_retry
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc2 = hard_gate.bootstrap_charter(jira2, map_path=map_file)
+                self.assertEqual(rc2, 0)
+
+                s10_rows = [k for k, s in committed if "KAN-421" in s]
+                self.assertEqual(s10_rows, [s10_key])
+                checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertEqual(checkpoint2["acceptance"]["S10"], s10_key)
+                self.assertIn("S10", checkpoint2.get("linked_sis", []))
+                # The charter KAN row is looked up project-wide the same way.
+                kan_rows = [k for k, s in committed if s.startswith("Charter Sprint 12")]
+                self.assertEqual(len(kan_rows), 1)
+                self.assertEqual(checkpoint2["charter_kan"], kan_rows[0])
+        finally:
+            hard_gate.reset_state()
+
     def test_day1_cutover_with_applied_spillover_swap_persists_adds_and_gates_carried_in_work(self):
         import json as _json
 

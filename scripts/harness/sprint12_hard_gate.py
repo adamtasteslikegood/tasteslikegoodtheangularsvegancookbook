@@ -439,6 +439,39 @@ def _write_rcp_map_checkpoint(
     Path(map_path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def _jql_quote(text):
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def find_existing_by_summary(jira, project, summary, parent=None):
+    """Return the key of an issue in ``project`` whose summary is exactly ``summary``.
+
+    Jira can commit ``POST /rest/api/3/issue`` and the client still lose the
+    response (timeout, dropped connection). The row then exists but is not yet
+    a Sprint 12 member, because members are added only at the end of the
+    bootstrap, so a retry that only indexes ``sprint_issues(122)`` cannot see
+    it and would create an identical row. This looks the row up by its
+    deterministic summary across the whole project (and epic, when given)
+    before any create. Returns ``None`` when nothing matches.
+    """
+    jql = "project = %s AND summary ~ %s" % (project, _jql_quote(summary))
+    if parent:
+        jql += " AND parent = %s" % parent
+    resp = jira.call(
+        "POST",
+        "/rest/api/3/search/jql",
+        {"jql": jql, "fields": ["summary"], "maxResults": 50},
+    )
+    issues = resp.get("issues") if isinstance(resp, dict) else None
+    matches = sorted(
+        i["key"]
+        for i in (issues or [])
+        if i.get("key")
+        and ((i.get("fields") or {}).get("summary") or "").strip() == summary
+    )
+    return matches[0] if matches else None
+
+
 def bootstrap_charter(
     jira,
     map_path=RCP_MAP_PATH,
@@ -535,7 +568,9 @@ def bootstrap_charter(
         "Charter Sprint 12: sync SPRINT_12_PLAN.md, mint S12 acceptance stories, pass day-1 hard gate"
     )
     if charter_kan == "KAN-S12-CHARTER":
-        recovered_kan = existing_by_summary.get(charter_kan_summary)
+        recovered_kan = existing_by_summary.get(charter_kan_summary) or (
+            find_existing_by_summary(jira, "KAN", charter_kan_summary)
+        )
         if recovered_kan and re.match(r"^KAN-\d+$", recovered_kan):
             charter_kan = recovered_kan
         else:
@@ -587,7 +622,11 @@ def bootstrap_charter(
             )
             minted_acceptance[si] = rcp_key
         else:
-            recovered_rcp = existing_by_summary.get(desired_summary)
+            recovered_rcp = existing_by_summary.get(desired_summary) or (
+                find_existing_by_summary(
+                    jira, "RCP", desired_summary, parent=EPIC_KEY
+                )
+            )
             if recovered_rcp and re.match(r"^RCP-\d+$", recovered_rcp):
                 rcp_key = recovered_rcp
             else:
