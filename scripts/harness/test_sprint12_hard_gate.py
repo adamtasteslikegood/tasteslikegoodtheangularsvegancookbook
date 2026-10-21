@@ -588,6 +588,8 @@ class Sprint12HardGateTests(unittest.TestCase):
                     hard_gate.bootstrap_charter(jira1, map_path=map_file)
                 checkpoint1 = _json.loads(map_file.read_text(encoding="utf-8"))
                 self.assertNotIn("S10", checkpoint1["acceptance"])
+                self.assertEqual(checkpoint1["create_intent"]["si"], "S10")
+                self.assertEqual(checkpoint1["create_intent"]["project"], "RCP")
                 s10_key = [k for k, s in committed if "KAN-421" in s][0]
 
                 hard_gate.reset_state()
@@ -612,10 +614,155 @@ class Sprint12HardGateTests(unittest.TestCase):
                 checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
                 self.assertEqual(checkpoint2["acceptance"]["S10"], s10_key)
                 self.assertIn("S10", checkpoint2.get("linked_sis", []))
+                self.assertNotIn("create_intent", checkpoint2)
                 # The charter KAN row is looked up project-wide the same way.
                 kan_rows = [k for k, s in committed if s.startswith("Charter Sprint 12")]
                 self.assertEqual(len(kan_rows), 1)
                 self.assertEqual(checkpoint2["charter_kan"], kan_rows[0])
+        finally:
+            hard_gate.reset_state()
+
+    def _lose_s10_create_response(self, map_file, committed, seq, lag):
+        """Run one bootstrap whose S10 create commits in Jira but whose response is lost.
+
+        ``lag['empty_polls']`` is how many searches for the S10 summary should
+        come back empty before the committed row appears; it is 0 during this
+        first run and set by the caller before the restart.
+        """
+        sprints = [
+            {"id": 121, "name": "Sprint 11", "state": "closed"},
+            {"id": 122, "name": "Sprint 12", "state": "future"},
+        ]
+
+        def create(body):
+            proj = body["fields"]["project"]["key"]
+            k = "%s-%d" % (proj, seq[proj.lower()])
+            seq[proj.lower()] += 1
+            committed.append((k, body["fields"]["summary"]))
+            return k
+
+        def search(body):
+            if "KAN-421" in body["jql"] and lag["empty_polls"] > 0:
+                lag["empty_polls"] -= 1
+                return {"issues": []}  # index not caught up yet
+            return {
+                "issues": [
+                    {"key": k, "fields": {"summary": s}}
+                    for k, s in committed
+                    if s in body["jql"]
+                ]
+            }
+
+        jira1 = Mock()
+        jira1.sprints.return_value = sprints
+        jira1.sprint_issues.return_value = []
+
+        def call_lose_s10_response(method, path, body=None):
+            if method == "POST" and path == "/rest/api/3/search/jql":
+                return search(body)
+            if method == "POST" and path == "/rest/api/3/issue":
+                key = create(body)
+                if "KAN-421" in body["fields"]["summary"]:
+                    raise RuntimeError("connection dropped after create")
+                return {"key": key}
+            return {}
+
+        jira1.call.side_effect = call_lose_s10_response
+        with self.assertRaises(RuntimeError):
+            hard_gate.bootstrap_charter(jira1, map_path=map_file)
+
+        hard_gate.reset_state()
+        jira2 = Mock()
+        jira2.sprints.return_value = sprints
+        jira2.sprint_issues.return_value = []
+        creates = []
+
+        def call_retry(method, path, body=None):
+            if method == "POST" and path == "/rest/api/3/search/jql":
+                return search(body)
+            if method == "POST" and path == "/rest/api/3/issue":
+                creates.append(body["fields"]["summary"])
+                return {"key": create(body)}
+            return {}
+
+        jira2.call.side_effect = call_retry
+        return jira2, creates
+
+    def test_bootstrap_charter_waits_for_the_search_index_before_trusting_an_empty_result(self):
+        """/rest/api/3/search/jql is eventually consistent.
+
+        A restart after a lost create response can get ``issues: []`` for a row
+        Jira has already committed. The bootstrap must poll with bounded
+        backoff and recover the row, not treat the first empty result as proof
+        the create failed and mint a duplicate.
+        """
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                committed, seq, lag = [], {"kan": 436, "rcp": 900}, {"empty_polls": 0}
+                jira2, creates = self._lose_s10_create_response(
+                    map_file, committed, seq, lag
+                )
+                s10_key = [k for k, s in committed if "KAN-421" in s][0]
+                lag["empty_polls"] = 3  # three stale reads before the index catches up
+
+                sleep = Mock()
+                with patch.object(hard_gate, "_sleep", sleep), contextlib.redirect_stdout(
+                    io.StringIO()
+                ):
+                    rc2 = hard_gate.bootstrap_charter(jira2, map_path=map_file)
+                self.assertEqual(rc2, 0)
+
+                self.assertEqual([c.args[0] for c in sleep.call_args_list], [1, 2, 4])
+                self.assertEqual([k for k, s in committed if "KAN-421" in s], [s10_key])
+                self.assertFalse([s for s in creates if "KAN-421" in s])
+                checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertEqual(checkpoint2["acceptance"]["S10"], s10_key)
+                self.assertIn("S10", checkpoint2.get("linked_sis", []))
+                self.assertNotIn("create_intent", checkpoint2)
+        finally:
+            hard_gate.reset_state()
+
+    def test_bootstrap_charter_fails_closed_while_a_lost_create_is_still_unresolved(self):
+        """If the committed row never surfaces within the poll budget, refuse to create again.
+
+        An empty search is not proof the create failed, so the restart exits
+        1 with a DX error, keeps the intent on disk, and mutates nothing.
+        """
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                committed, seq, lag = [], {"kan": 436, "rcp": 900}, {"empty_polls": 0}
+                jira2, creates = self._lose_s10_create_response(
+                    map_file, committed, seq, lag
+                )
+                s10_key = [k for k, s in committed if "KAN-421" in s][0]
+                lag["empty_polls"] = 10**6  # the index never catches up
+
+                sleep = Mock()
+                err = io.StringIO()
+                with patch.object(hard_gate, "_sleep", sleep), contextlib.redirect_stdout(
+                    io.StringIO()
+                ), contextlib.redirect_stderr(err):
+                    rc2 = hard_gate.bootstrap_charter(jira2, map_path=map_file)
+                self.assertEqual(rc2, 1)
+
+                self.assertEqual(
+                    [c.args[0] for c in sleep.call_args_list],
+                    list(hard_gate.CREATE_INTENT_POLL_DELAYS),
+                )
+                self.assertEqual(creates, [])
+                self.assertEqual([k for k, s in committed if "KAN-421" in s], [s10_key])
+                jira2.add_to_sprint.assert_not_called()
+                jira2.start_sprint.assert_not_called()
+                self.assertIn("create still in flight", err.getvalue())
+                checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertEqual(checkpoint2["create_intent"]["si"], "S10")
+                self.assertNotIn("S10", checkpoint2["acceptance"])
         finally:
             hard_gate.reset_state()
 

@@ -41,6 +41,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -379,6 +380,11 @@ def acceptance_row_problems(si, row, fields):
     return problems
 
 
+# ``create_intent`` default: keep whatever the map already records. ``None``
+# clears it; a dict replaces it.
+_KEEP_INTENT = object()
+
+
 def _write_rcp_map_checkpoint(
     map_path,
     charter_kan,
@@ -386,6 +392,7 @@ def _write_rcp_map_checkpoint(
     dropped_sis=None,
     swaps=None,
     linked_sis=None,
+    create_intent=_KEEP_INTENT,
 ):
     if not map_path:
         return
@@ -430,6 +437,12 @@ def _write_rcp_map_checkpoint(
     if effective_linked:
         payload["linked_sis"] = effective_linked
 
+    # A create whose outcome is still unknown (see resolve_create_intent).
+    if create_intent is _KEEP_INTENT:
+        create_intent = prior.get("create_intent")
+    if create_intent:
+        payload["create_intent"] = dict(create_intent)
+
     # Preserve audit metadata written by check_spillover (e.g. the
     # --override-spillover-reason) across bootstrap_charter checkpoints.
     reason = (prior.get("override_spillover_reason") or "").strip()
@@ -470,6 +483,48 @@ def find_existing_by_summary(jira, project, summary, parent=None):
         and ((i.get("fields") or {}).get("summary") or "").strip() == summary
     )
     return matches[0] if matches else None
+
+
+# /rest/api/3/search/jql is eventually consistent: a row created seconds ago
+# can be missing from the result, and reconcileIssues needs the issue ID the
+# client never received when the create response was lost. A restart polls
+# this long for the exact summary before failing closed.
+CREATE_INTENT_POLL_DELAYS = (1, 2, 4, 8, 15)
+_sleep = time.sleep
+
+
+def _read_create_intent(map_path):
+    if not map_path or not Path(map_path).exists():
+        return None
+    try:
+        data = json.loads(Path(map_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    intent = data.get("create_intent")
+    if isinstance(intent, dict) and intent.get("summary") and intent.get("project"):
+        return dict(intent)
+    return None
+
+
+def resolve_create_intent(jira, intent, delays=None):
+    """Return the key of the row a checkpointed create intent refers to.
+
+    The intent is written right before ``POST /rest/api/3/issue`` and cleared
+    right after the key is checkpointed, so its presence on restart means the
+    previous run never saw the create response. Polls the project-wide exact
+    summary lookup with bounded backoff; ``None`` means every poll came back
+    empty, which is NOT proof the create failed — the caller must fail closed.
+    """
+    delays = CREATE_INTENT_POLL_DELAYS if delays is None else delays
+    for delay in (0,) + tuple(delays):
+        if delay:
+            _sleep(delay)
+        key = find_existing_by_summary(
+            jira, intent["project"], intent["summary"], parent=intent.get("parent")
+        )
+        if key:
+            return key
+    return None
 
 
 def bootstrap_charter(
@@ -541,13 +596,72 @@ def bootstrap_charter(
     # summary contains a {suffix} placeholder — so re-reading it at call time
     # would be dead code. Rely on the import-time value instead.
 
+    intent = _read_create_intent(map_path)
+
     if dry_run:
         active_sis = [si for si in sorted(SI_EXECUTION) if si not in DROPPABLE_SIS]
         print(
             "DRY-RUN ONLY — BOOTSTRAP CHARTER %s (id %d): stale_to_remove=%s, active_sis=%d, dropped_sis=%s"
             % (SPRINT_NAME, sprint_id, stale, len(active_sis), sorted(DROPPABLE_SIS))
         )
+        if intent:
+            print(
+                "DRY-RUN ONLY — a create for %s is still in flight in %s; the live run "
+                "waits for Jira's search index before touching it."
+                % (intent.get("si"), map_path)
+            )
         return 0
+
+    # 0. A checkpointed create intent means a previous run sent POST /issue and
+    #    never saw the answer. Wait for the search index to return the row and
+    #    never create again while that outcome is unknown.
+    if intent:
+        recovered = existing_by_summary.get(intent["summary"]) or resolve_create_intent(
+            jira, intent
+        )
+        if not recovered:
+            polls = len(CREATE_INTENT_POLL_DELAYS) + 1
+            print(
+                "FAILED: %s records a create still in flight for %s and Jira's search "
+                "did not return it after %d polls." % (map_path, intent.get("si"), polls),
+                file=sys.stderr,
+            )
+            print_dx_error(
+                "%s records a create still in flight for %s (%s row %r), and the "
+                "search did not return it after %d polls over ~%ds."
+                % (
+                    map_path,
+                    intent.get("si"),
+                    intent["project"],
+                    intent["summary"],
+                    polls,
+                    sum(CREATE_INTENT_POLL_DELAYS),
+                ),
+                "A previous bootstrap sent POST /rest/api/3/issue and never saw the "
+                "response; /rest/api/3/search/jql is eventually consistent, so an empty "
+                "result does not prove the row was never created.",
+                "Search Jira for that exact summary. If the row exists, record its key "
+                "in the map (acceptance.<si>, or charter_kan) and delete create_intent; "
+                "if it does not, delete create_intent. Then re-run --bootstrap-charter.",
+            )
+            return 1
+        if intent.get("si") == "charter":
+            old_kan = SI_EXECUTION["charter"][0]
+            SI_EXECUTION["charter"] = [recovered]
+            REQUIRED.pop(old_kan, None)
+            REQUIRED[recovered] = "charter — execution row; closes with charter RCP story"
+            _sync_derived_sets()
+        elif intent.get("si") in ACCEPTANCE:
+            ACCEPTANCE[intent["si"]] = recovered
+        _write_rcp_map_checkpoint(
+            map_path,
+            SI_EXECUTION["charter"][0],
+            {s: r for s, r in ACCEPTANCE.items() if re.match(r"^RCP-\d+$", r or "")},
+            DROPPABLE_SIS,
+            swaps=SWAPS,
+            linked_sis=LINKED_SIS,
+            create_intent=None,
+        )
 
     # 1. Remove superseded Done rows (KAN-346, RCP-147) and any dropped SIs from Sprint 12.
     dropped_keys = [
@@ -577,6 +691,22 @@ def bootstrap_charter(
         if recovered_kan and re.match(r"^KAN-\d+$", recovered_kan):
             charter_kan = recovered_kan
         else:
+            # Record the create before sending it: if the response is lost,
+            # the restart waits for this row instead of minting another.
+            _write_rcp_map_checkpoint(
+                map_path,
+                charter_kan,
+                minted_acceptance,
+                DROPPABLE_SIS,
+                swaps=SWAPS,
+                linked_sis=LINKED_SIS,
+                create_intent={
+                    "si": "charter",
+                    "project": "KAN",
+                    "parent": None,
+                    "summary": charter_kan_summary,
+                },
+            )
             created_kan = jira.call(
                 "POST",
                 "/rest/api/3/issue",
@@ -601,6 +731,7 @@ def bootstrap_charter(
             DROPPABLE_SIS,
             swaps=SWAPS,
             linked_sis=LINKED_SIS,
+            create_intent=None,
         )
 
     # 3. Retitle the 8 carried RCP rows to "S12 acceptance: ..." and mint the
@@ -633,6 +764,20 @@ def bootstrap_charter(
             if recovered_rcp and re.match(r"^RCP-\d+$", recovered_rcp):
                 rcp_key = recovered_rcp
             else:
+                _write_rcp_map_checkpoint(
+                    map_path,
+                    charter_kan,
+                    minted_acceptance,
+                    DROPPABLE_SIS,
+                    swaps=SWAPS,
+                    linked_sis=LINKED_SIS,
+                    create_intent={
+                        "si": si,
+                        "project": "RCP",
+                        "parent": EPIC_KEY,
+                        "summary": desired_summary,
+                    },
+                )
                 created_rcp = jira.call(
                     "POST",
                     "/rest/api/3/issue",
@@ -661,6 +806,7 @@ def bootstrap_charter(
                 DROPPABLE_SIS,
                 swaps=SWAPS,
                 linked_sis=LINKED_SIS,
+                create_intent=None,
             )
 
         if was_placeholder and si not in LINKED_SIS:
