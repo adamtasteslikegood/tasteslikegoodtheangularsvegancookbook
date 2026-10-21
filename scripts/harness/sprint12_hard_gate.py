@@ -187,6 +187,17 @@ NOT_IN_SPRINT = {
     "RCP-110": "acceptance row for the launch post (Sprint 14)",
 }
 
+_DEFAULT_MAP_PATH = object()
+
+
+def _resolve_map_path(map_path):
+    """Resolve the configured map path when the caller omits it.
+
+    A sentinel keeps an explicit ``None`` meaningful while allowing tests and
+    callers to replace ``RCP_MAP_PATH`` after this module has been imported.
+    """
+    return RCP_MAP_PATH if map_path is _DEFAULT_MAP_PATH else map_path
+
 
 def _sync_derived_sets():
     COMMITTED.clear()
@@ -216,8 +227,9 @@ def reset_state():
     _sync_derived_sets()
 
 
-def apply_rcp_map(map_path=RCP_MAP_PATH):
+def apply_rcp_map(map_path=_DEFAULT_MAP_PATH):
     """Overlay minted charter/RCP keys, carried-in swaps, and dropped SIs from ``sprint12_rcp_map.json``."""
+    map_path = _resolve_map_path(map_path)
     if not map_path or not Path(map_path).exists():
         return
     try:
@@ -306,8 +318,9 @@ TODO_CATEGORY_KEYS = {"new", "undefined"}
 apply_rcp_map()
 
 
-def resolve_issue_aliases(issues, map_path=RCP_MAP_PATH):
+def resolve_issue_aliases(issues, map_path=_DEFAULT_MAP_PATH):
     """Resolve placeholder tokens (KAN-S12-CHARTER, RCP-S12-*) to minted Jira keys."""
+    map_path = _resolve_map_path(map_path)
     alias_map = {
         "KAN-S12-CHARTER": SI_EXECUTION.get("charter", ["KAN-S12-CHARTER"])[0],
         "RCP-S12-CHARTER": ACCEPTANCE.get("charter", "RCP-S12-CHARTER"),
@@ -575,7 +588,7 @@ def _already_relates(jira, rcp_key, kan_key):
 
 def bootstrap_charter(
     jira,
-    map_path=RCP_MAP_PATH,
+    map_path=_DEFAULT_MAP_PATH,
     dry_run=False,
     dropped_sis=None,
 ):
@@ -585,6 +598,7 @@ def bootstrap_charter(
     wrapping up Sprint 11 are never disrupted. Writes per-ticket checkpoints to
     ``sprint12_rcp_map.json`` so any partial run is idempotent on retry.
     """
+    map_path = _resolve_map_path(map_path)
     apply_rcp_map(map_path)
     sprints = {s["name"].strip().lower(): s for s in jira.sprints(RCP_SCRUM_BOARD)}
     s11 = sprints.get(PREV_SPRINT_NAME.lower())
@@ -945,7 +959,7 @@ def check_spillover(
     max_spillover=DEFAULT_MAX_SPILLOVER,
     override_reason=None,
     apply_swaps=False,
-    map_path=RCP_MAP_PATH,
+    map_path=_DEFAULT_MAP_PATH,
     dry_run=False,
 ):
     """Non-destructive Day-1 inspection of Sprint 11 (id 121) open items.
@@ -956,6 +970,7 @@ def check_spillover(
     persists ``dropped_sis`` and full ``swaps`` (including carried-in KAN +
     acceptance row mapping) to ``sprint12_rcp_map.json``.
     """
+    map_path = _resolve_map_path(map_path)
     if max_spillover > DEFAULT_MAX_SPILLOVER and not (override_reason or "").strip():
         print_dx_error(
             f"--max-spillover {max_spillover} exceeds default cap ({DEFAULT_MAX_SPILLOVER}) without --override-spillover-reason.",
@@ -1099,9 +1114,10 @@ def run_day1_cutover(
     as_json=False,
     max_spillover=DEFAULT_MAX_SPILLOVER,
     override_reason=None,
-    map_path=RCP_MAP_PATH,
+    map_path=_DEFAULT_MAP_PATH,
 ):
     """Single-command Day-1 cutover: check spillover and bootstrap charter."""
+    map_path = _resolve_map_path(map_path)
     rc = check_spillover(
         jira,
         as_json=as_json,

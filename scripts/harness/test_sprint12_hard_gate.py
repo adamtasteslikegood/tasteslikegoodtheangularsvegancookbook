@@ -398,6 +398,19 @@ class Sprint12HardGateTests(unittest.TestCase):
                 resolved, ["KAN-436", "RCP-175", "RCP-179", "KAN-356"]
             )
 
+    def test_default_map_path_is_resolved_at_call_time(self):
+        """Tests can replace RCP_MAP_PATH after import without reading the live map."""
+        with tempfile.TemporaryDirectory() as tmp:
+            map_file = Path(tmp) / "sprint12_rcp_map.json"
+            map_file.write_text(
+                '{"charter_kan":"KAN-999","acceptance":{"charter":"RCP-999"}}'
+            )
+            with patch.object(hard_gate, "RCP_MAP_PATH", map_file):
+                resolved = hard_gate.resolve_issue_aliases(
+                    ["KAN-S12-CHARTER", "RCP-S12-CHARTER"]
+                )
+            self.assertEqual(resolved, ["KAN-999", "RCP-999"])
+
     def test_apply_rcp_map_moves_dropped_sis_into_droppable(self):
         try:
             with tempfile.TemporaryDirectory() as tmp:
