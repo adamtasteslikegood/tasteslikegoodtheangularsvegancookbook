@@ -6,7 +6,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.7.3] - 2026-10-20
+
+Backend pointer pinned at `b08a1eb9368d` (Backend `main`, promoted in Backend #436).
 
 ### Added
 
@@ -24,6 +26,9 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   a generated recipe once the server reports it ready for this visitor's session, so the server
   already holds it and generation shows no "not saved" message, even when the device copy is
   skipped. A manual Save in that window says the changes were not saved yet.
+- Agent tools refuse a declared request body over their 10 KB limit before the access check
+  (KAN-407, Backend #435), so a switched-off tool or a signed-out generation call answers 413
+  instead of 404 or 401. The body itself is still read only after access.
 - Saves that do not reach the server now say so (KAN-333). Adding a recipe to a cookbook or
   removing it, and saving a manually entered recipe, show a message when the write is paused or
   the sync fails. A cookbook membership is no longer written for a recipe the server refused as a
