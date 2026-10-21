@@ -33,4 +33,35 @@ fi
 echo "Running gstack setup…"
 ( cd "${GSTACK_DIR}" && ./setup "$@" )
 
+# Antigravity CLI (agy) migrated global customization discovery from
+# ~/.gemini/antigravity-cli/ to ~/.gemini/config/ while upstream gstack's
+# `./setup --host agy` still writes symlinks into ~/.gemini/antigravity-cli/skills.
+# Bridge ~/.gemini/config/skills and ~/.gemini/config/skills.json when gstack's
+# .agy bundle exists so agy discovers all gstack-* skills automatically.
+if [ -d "${GSTACK_DIR}/.agy/skills" ] && [ -d "${HOME}/.gemini/config" ]; then
+  if [ ! -e "${HOME}/.gemini/config/skills" ] && [ -d "${HOME}/.gemini/antigravity-cli/skills" ]; then
+    ln -s ../antigravity-cli/skills "${HOME}/.gemini/config/skills"
+  fi
+  if [ ! -f "${HOME}/.gemini/config/skills.json" ]; then
+    cat > "${HOME}/.gemini/config/skills.json" <<'EOF'
+{
+  "entries": [
+    {
+      "path": "~/.claude/skills/gstack/.agy/skills"
+    }
+  ]
+}
+EOF
+  fi
+fi
+
+# Ensure repo-local .agents/skills points at .claude/skills (single source of
+# truth for project skills across Claude Code, Antigravity, Gemini CLI, and Codex).
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -d "${REPO_ROOT}/.claude/skills" ] && [ ! -L "${REPO_ROOT}/.agents/skills" ]; then
+  mkdir -p "${REPO_ROOT}/.agents"
+  rm -rf "${REPO_ROOT}/.agents/skills"
+  ln -s ../.claude/skills "${REPO_ROOT}/.agents/skills"
+fi
+
 echo "Done. gstack skills are registered. See CLAUDE.md and AGENTS.md for usage."
