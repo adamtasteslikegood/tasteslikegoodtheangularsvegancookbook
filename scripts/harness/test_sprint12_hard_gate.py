@@ -13,6 +13,25 @@ import sprint12_hard_gate as hard_gate  # noqa: E402
 
 
 class Sprint12HardGateTests(unittest.TestCase):
+    def setUp(self):
+        # The gate overlays specs/harness/sprint12_rcp_map.json at import and
+        # again in main(). Once T0 commits that file, every test that reasons
+        # about placeholders would see the live keys instead; point the gate
+        # at a map that does not exist and start from the static baseline.
+        self._map_tmp = tempfile.TemporaryDirectory()
+        self._map_patch = patch.object(
+            hard_gate,
+            "RCP_MAP_PATH",
+            Path(self._map_tmp.name) / "absent_sprint12_rcp_map.json",
+        )
+        self._map_patch.start()
+        hard_gate.reset_state()
+
+    def tearDown(self):
+        hard_gate.reset_state()
+        self._map_patch.stop()
+        self._map_tmp.cleanup()
+
     def _members(self):
         return set(hard_gate.GATED) | set(hard_gate.ACCEPTANCE.values())
 
@@ -295,9 +314,14 @@ class Sprint12HardGateTests(unittest.TestCase):
             {"key": "KAN-356"},
         ]
         seq = {"kan": 436, "rcp": 175}
+        created = []
+        puts = []
 
         def fake_call(method, path, body=None):
+            if method == "PUT" and path.startswith("/rest/api/3/issue/"):
+                puts.append((path.rsplit("/", 1)[1], body))
             if method == "POST" and path == "/rest/api/3/issue":
+                created.append(body["fields"])
                 proj = body["fields"]["project"]["key"]
                 if proj == "KAN":
                     k = "KAN-%d" % seq["kan"]
@@ -326,6 +350,27 @@ class Sprint12HardGateTests(unittest.TestCase):
                     {"issues": ["KAN-346", "RCP-147"]},
                 )
                 jira.start_sprint.assert_called_once()
+
+                # Every member the sprint receives carries sprint-12: the KAN
+                # rows and the epic are moved in, not minted, and the lane
+                # gate is blind to a member without the label.
+                in_sprint = set(jira.add_to_sprint.call_args[0][1])
+                self.assertIn("RCP-119", in_sprint)
+                self.assertIn("KAN-356", in_sprint)
+                labelled = {
+                    key
+                    for key, body in puts
+                    if {"add": "sprint-12"} in (body.get("update") or {}).get("labels", [])
+                }
+                self.assertTrue(in_sprint <= labelled, in_sprint - labelled)
+                # No PUT replaces a label list; the carried rows keep theirs.
+                for _key, body in puts:
+                    self.assertNotIn("labels", body.get("fields") or {})
+                # Minted acceptance rows carry both labels the convention names.
+                rcp_mints = [f for f in created if f["project"]["key"] == "RCP"]
+                self.assertTrue(rcp_mints)
+                for f in rcp_mints:
+                    self.assertEqual(sorted(f["labels"]), ["acceptance", "sprint-12"])
         finally:
             hard_gate.REQUIRED.clear()
             hard_gate.REQUIRED.update(orig_required)
@@ -501,8 +546,11 @@ class Sprint12HardGateTests(unittest.TestCase):
                 ]
                 jira2.sprint_issues.return_value = []
                 s10_links_on_retry = []
+                retry_puts = []
 
                 def call_retry(method, path, body=None):
+                    if method == "PUT" and path.startswith("/rest/api/3/issue/"):
+                        retry_puts.append((path.rsplit("/", 1)[1], body))
                     if method == "POST" and path == "/rest/api/3/issue":
                         k = "RCP-%d" % seq["rcp"]
                         seq["rcp"] += 1
@@ -530,6 +578,22 @@ class Sprint12HardGateTests(unittest.TestCase):
                 )
                 checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
                 self.assertIn("S10", checkpoint2.get("linked_sis", []))
+
+                # The retry labels every member (add-only), and the row minted
+                # by the first run gets ``acceptance`` through the retitle PUT.
+                in_sprint = set(jira2.add_to_sprint.call_args[0][1])
+                sprint_labelled = {
+                    key
+                    for key, body in retry_puts
+                    if {"add": "sprint-12"} in (body.get("update") or {}).get("labels", [])
+                }
+                self.assertTrue(in_sprint <= sprint_labelled, in_sprint - sprint_labelled)
+                acceptance_labelled = {
+                    key
+                    for key, body in retry_puts
+                    if {"add": "acceptance"} in (body.get("update") or {}).get("labels", [])
+                }
+                self.assertIn(s10_rcp, acceptance_labelled)
         finally:
             hard_gate.reset_state()
 

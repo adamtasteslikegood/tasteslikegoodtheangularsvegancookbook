@@ -57,6 +57,11 @@ PREV_SPRINT_ID = 121
 PREV_SPRINT_NAME = "Sprint 11"
 EPIC_KEY = "RCP-119"
 ACCEPTANCE_PREFIX = "S12 acceptance:"
+# The label check_sprint_lane.sh grades (docs/pm/SPRINT_PLANNING.md): every
+# sprint member carries SPRINT_LABEL, and every RCP acceptance row also
+# carries ACCEPTANCE_LABEL.
+SPRINT_LABEL = "sprint-12"
+ACCEPTANCE_LABEL = "acceptance"
 RCP_MAP_PATH = (
     Path(__file__).resolve().parents[2]
     / "specs"
@@ -533,6 +538,20 @@ def resolve_create_intent(jira, intent, delays=None):
     return None
 
 
+def _add_labels(jira, key, labels):
+    """Add ``labels`` to ``key`` without touching the labels it already has.
+
+    ``fields.labels`` on PUT replaces the whole list, which is how the first
+    live T0 run stripped ``acceptance`` from the 8 carried RCP rows. The
+    ``update`` form is add-only and idempotent, so a retry is harmless.
+    """
+    jira.call(
+        "PUT",
+        "/rest/api/3/issue/%s" % key,
+        {"update": {"labels": [{"add": label} for label in labels]}},
+    )
+
+
 def _already_relates(jira, rcp_key, kan_key):
     """True when ``rcp_key`` already carries a Relates link to ``kan_key``.
 
@@ -742,7 +761,7 @@ def bootstrap_charter(
                         "project": {"key": "KAN"},
                         "issuetype": {"name": "Task"},
                         "summary": charter_kan_summary,
-                        "labels": ["sprint-12", "pm"],
+                        "labels": [SPRINT_LABEL, "pm"],
                     }
                 },
             )
@@ -779,7 +798,15 @@ def bootstrap_charter(
             jira.call(
                 "PUT",
                 "/rest/api/3/issue/%s" % rcp_key,
-                {"fields": {"summary": desired_summary, "labels": ["sprint-12"]}},
+                {
+                    "fields": {"summary": desired_summary},
+                    "update": {
+                        "labels": [
+                            {"add": SPRINT_LABEL},
+                            {"add": ACCEPTANCE_LABEL},
+                        ]
+                    },
+                },
             )
             minted_acceptance[si] = rcp_key
         else:
@@ -814,7 +841,7 @@ def bootstrap_charter(
                             "issuetype": {"name": "Story"},
                             "parent": {"key": EPIC_KEY},
                             "summary": desired_summary,
-                            "labels": ["sprint-12"],
+                            "labels": [SPRINT_LABEL, ACCEPTANCE_LABEL],
                         }
                     },
                 )
@@ -878,6 +905,12 @@ def bootstrap_charter(
         | {EPIC_KEY}
     )
     jira.add_to_sprint(sprint_id, all_sprint_keys)
+    # check_sprint_lane.sh grades SPRINT_LABEL, and a member without it is
+    # invisible to that gate (Sprint 9 ran four days with a dark board that
+    # way). The KAN rows and the epic are moved in, not minted, so nothing
+    # above has labelled them.
+    for key in all_sprint_keys:
+        _add_labels(jira, key, [SPRINT_LABEL])
 
     if s12.get("state") == "future":
         jira.start_sprint(
