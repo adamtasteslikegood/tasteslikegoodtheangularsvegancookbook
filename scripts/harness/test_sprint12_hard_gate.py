@@ -354,11 +354,6 @@ class Sprint12HardGateTests(unittest.TestCase):
             )
 
     def test_apply_rcp_map_moves_dropped_sis_into_droppable(self):
-        orig_required = dict(hard_gate.REQUIRED)
-        orig_si_exec = {k: list(v) for k, v in hard_gate.SI_EXECUTION.items()}
-        orig_acceptance = dict(hard_gate.ACCEPTANCE)
-        orig_droppable = dict(hard_gate.DROPPABLE)
-        orig_droppable_sis = set(hard_gate.DROPPABLE_SIS)
         try:
             with tempfile.TemporaryDirectory() as tmp:
                 map_file = Path(tmp) / "sprint12_rcp_map.json"
@@ -366,23 +361,292 @@ class Sprint12HardGateTests(unittest.TestCase):
                     '{"kan_charter":"KAN-436","rcp_charter":"RCP-175","minted_rcp":{"S16":"RCP-185"},"dropped_sis":["S16"]}'
                 )
                 hard_gate.apply_rcp_map(map_file)
-                self.assertNotIn("S16", hard_gate.SI_EXECUTION)
-                self.assertNotIn("S16", hard_gate.ACCEPTANCE)
+                self.assertIn("S16", hard_gate.DROPPABLE_SIS)
+                self.assertEqual(hard_gate.SI_EXECUTION["S16"], ["KAN-425"])
+                self.assertEqual(hard_gate.ACCEPTANCE["S16"], "RCP-185")
                 self.assertNotIn("KAN-425", hard_gate.REQUIRED)
                 self.assertIn("KAN-425", hard_gate.DROPPABLE)
                 self.assertIn("RCP-185", hard_gate.DROPPABLE)
         finally:
-            hard_gate.REQUIRED.clear()
-            hard_gate.REQUIRED.update(orig_required)
-            hard_gate.SI_EXECUTION.clear()
-            hard_gate.SI_EXECUTION.update(orig_si_exec)
-            hard_gate.ACCEPTANCE.clear()
-            hard_gate.ACCEPTANCE.update(orig_acceptance)
-            hard_gate.DROPPABLE.clear()
-            hard_gate.DROPPABLE.update(orig_droppable)
-            hard_gate.DROPPABLE_SIS.clear()
-            hard_gate.DROPPABLE_SIS.update(orig_droppable_sis)
-            hard_gate._sync_derived_sets()
+            hard_gate.reset_state()
+
+    def test_dropped_si_retains_mapping_removes_both_rows_on_rerun_and_fails_charter_if_stranded(self):
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                map_file.write_text(
+                    '{"charter_kan":"KAN-436","acceptance":{"charter":"RCP-175","S16":"RCP-916"},"dropped_sis":["S16"]}'
+                )
+                hard_gate.apply_rcp_map(map_file)
+
+                # 1. Charter gate MUST fail if KAN-425 and/or RCP-916 remain in Sprint 12 / board 168.
+                active_members = (
+                    set(hard_gate.REQUIRED)
+                    | {
+                        hard_gate.ACCEPTANCE[si]
+                        for si in hard_gate.SI_EXECUTION
+                        if si not in hard_gate.DROPPABLE_SIS
+                    }
+                )
+                stranded_members = active_members | {"KAN-425", "RCP-916"}
+                stranded_rendered = (
+                    set(hard_gate.ACCEPTANCE.values()) & stranded_members
+                )
+                with patch.object(hard_gate, "RCP_MAP_PATH", map_file):
+                    rc, output = self._run_gate(
+                        stranded_members,
+                        charter=True,
+                        rendered=stranded_rendered,
+                    )
+                self.assertEqual(rc, 1, output)
+                self.assertIn("S16 is dropped via spillover swap", output)
+                self.assertIn("KAN-425/RCP-916", output)
+
+                # 2. Charter gate passes once both KAN-425 and RCP-916 are removed from Sprint 12 / board 168.
+                clean_rendered = {
+                    hard_gate.ACCEPTANCE[si]
+                    for si in hard_gate.SI_EXECUTION
+                    if si not in hard_gate.DROPPABLE_SIS
+                }
+                with patch.object(hard_gate, "RCP_MAP_PATH", map_file):
+                    rc_clean, out_clean = self._run_gate(
+                        active_members,
+                        charter=True,
+                        rendered=clean_rendered,
+                    )
+                self.assertEqual(rc_clean, 0, out_clean)
+
+                # 3. A rerun of bootstrap_charter moves both KAN-425 and RCP-916 to backlog.
+                jira = Mock()
+                jira.sprints.return_value = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "active"},
+                ]
+                jira.sprint_issues.return_value = [
+                    {"key": "KAN-425"},
+                    {"key": "RCP-916"},
+                    {"key": "KAN-356"},
+                ]
+                seq = {"rcp": 200}
+
+                def fake_call(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        k = "RCP-%d" % seq["rcp"]
+                        seq["rcp"] += 1
+                        return {"key": k}
+                    return {}
+
+                jira.call.side_effect = fake_call
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc_boot = hard_gate.bootstrap_charter(jira, map_path=map_file)
+                self.assertEqual(rc_boot, 0)
+                jira.call.assert_any_call(
+                    "POST",
+                    "/rest/agile/1.0/backlog/issue",
+                    {"issues": ["KAN-425", "RCP-916"]},
+                )
+        finally:
+            hard_gate.reset_state()
+
+    def test_bootstrap_charter_checkpoints_before_linking_and_reconciles_links_on_retry(self):
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                jira1 = Mock()
+                jira1.sprints.return_value = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "future"},
+                ]
+                jira1.sprint_issues.return_value = []
+                seq = {"kan": 436, "rcp": 900}
+                created_summaries = []
+
+                def call_fail_on_s10_link(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        proj = body["fields"]["project"]["key"]
+                        if proj == "KAN":
+                            k = "KAN-%d" % seq["kan"]
+                            seq["kan"] += 1
+                            return {"key": k}
+                        k = "RCP-%d" % seq["rcp"]
+                        seq["rcp"] += 1
+                        created_summaries.append((k, body["fields"]["summary"]))
+                        return {"key": k}
+                    if method == "POST" and path == "/rest/api/3/issueLink":
+                        if body["inwardIssue"]["key"] == "KAN-421":
+                            raise RuntimeError("transient link failure on S10")
+                    return {}
+
+                jira1.call.side_effect = call_fail_on_s10_link
+                with self.assertRaises(RuntimeError):
+                    hard_gate.bootstrap_charter(jira1, map_path=map_file)
+
+                # S10's newly created RCP key MUST already be persisted in the checkpoint
+                # even though POST /rest/api/3/issueLink raised!
+                self.assertTrue(map_file.exists())
+                checkpoint1 = _json.loads(map_file.read_text(encoding="utf-8"))
+                s10_rcp = checkpoint1["acceptance"].get("S10")
+                self.assertIsNotNone(s10_rcp)
+                self.assertRegex(s10_rcp, r"^RCP-\d+$")
+                self.assertNotIn("S10", checkpoint1.get("linked_sis", []))
+
+                # Simulate a fresh process restart and retry bootstrap_charter.
+                hard_gate.reset_state()
+                jira2 = Mock()
+                jira2.sprints.return_value = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "future"},
+                ]
+                jira2.sprint_issues.return_value = []
+                s10_links_on_retry = []
+
+                def call_retry(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        k = "RCP-%d" % seq["rcp"]
+                        seq["rcp"] += 1
+                        created_summaries.append((k, body["fields"]["summary"]))
+                        return {"key": k}
+                    if method == "POST" and path == "/rest/api/3/issueLink":
+                        if body["inwardIssue"]["key"] == "KAN-421":
+                            s10_links_on_retry.append(body)
+                    return {}
+
+                jira2.call.side_effect = call_retry
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc2 = hard_gate.bootstrap_charter(jira2, map_path=map_file)
+                self.assertEqual(rc2, 0)
+
+                # Verify S10 story was created only ONCE across both runs, and its
+                # issueLink was reconciled on the retry.
+                s10_creations = [
+                    k for k, s in created_summaries if "KAN-421" in s
+                ]
+                self.assertEqual(s10_creations, [s10_rcp])
+                self.assertEqual(len(s10_links_on_retry), 1)
+                self.assertEqual(
+                    s10_links_on_retry[0]["outwardIssue"]["key"], s10_rcp
+                )
+                checkpoint2 = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertIn("S10", checkpoint2.get("linked_sis", []))
+        finally:
+            hard_gate.reset_state()
+
+    def test_day1_cutover_with_applied_spillover_swap_persists_adds_and_gates_carried_in_work(self):
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                jira = Mock()
+                jira.sprints.return_value = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "future"},
+                ]
+                jira.sprint_issues.side_effect = lambda sid: (
+                    [
+                        {
+                            "key": "KAN-306",
+                            "fields": {
+                                "summary": "Carried Sprint 11 bug",
+                                "status": {
+                                    "name": "In Progress",
+                                    "statusCategory": {"key": "indeterminate"},
+                                },
+                            },
+                        }
+                    ]
+                    if sid == 121
+                    else [{"key": "KAN-425"}, {"key": "KAN-356"}]
+                )
+                seq = {"kan": 436, "rcp": 175}
+
+                def fake_call(method, path, body=None):
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        proj = body["fields"]["project"]["key"]
+                        if proj == "KAN":
+                            k = "KAN-%d" % seq["kan"]
+                            seq["kan"] += 1
+                            return {"key": k}
+                        k = "RCP-%d" % seq["rcp"]
+                        seq["rcp"] += 1
+                        return {"key": k}
+                    return {}
+
+                jira.call.side_effect = fake_call
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    rc = hard_gate.run_day1_cutover(
+                        jira,
+                        dry_run=False,
+                        apply_spillover_swaps=True,
+                        map_path=map_file,
+                    )
+                self.assertEqual(rc, 0, out.getvalue())
+
+                # 1. Verify KAN-306 is required in the gate and KAN-425 is dropped.
+                self.assertIn("KAN-306", hard_gate.REQUIRED)
+                self.assertNotIn("KAN-425", hard_gate.REQUIRED)
+                self.assertIn("KAN-425", hard_gate.DROPPABLE)
+                self.assertIn("CARRY-KAN-306", hard_gate.SI_EXECUTION)
+                carry_rcp = hard_gate.ACCEPTANCE["CARRY-KAN-306"]
+                self.assertRegex(carry_rcp, r"^RCP-\d+$")
+
+                # 2. Verify both KAN-306 and its minted RCP acceptance row were added to Sprint 12,
+                #    while KAN-425 was moved to backlog and excluded from add_to_sprint.
+                jira.call.assert_any_call(
+                    "POST",
+                    "/rest/agile/1.0/backlog/issue",
+                    {"issues": ["KAN-425"]},
+                )
+                added_keys = set(jira.add_to_sprint.call_args[0][1])
+                self.assertIn("KAN-306", added_keys)
+                self.assertIn(carry_rcp, added_keys)
+                self.assertNotIn("KAN-425", added_keys)
+
+                # 3. Verify the persisted map contains the full swap mapping + acceptance_rcp.
+                saved = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertEqual(saved["dropped_sis"], ["S16"])
+                self.assertEqual(len(saved["swaps"]), 1)
+                self.assertEqual(saved["swaps"][0]["carried_in"], "KAN-306")
+                self.assertEqual(saved["swaps"][0]["deferred_si"], "S16")
+                self.assertEqual(saved["swaps"][0]["deferred_kan"], "KAN-425")
+                self.assertEqual(saved["swaps"][0]["acceptance_rcp"], carry_rcp)
+
+                # 4. Verify the charter gate requires KAN-306 and its acceptance row on board 168.
+                active_members = added_keys
+                rendered = {
+                    hard_gate.ACCEPTANCE[si]
+                    for si in hard_gate.SI_EXECUTION
+                    if si not in hard_gate.DROPPABLE_SIS
+                }
+                with patch.object(hard_gate, "RCP_MAP_PATH", map_file):
+                    rc_pass, out_pass = self._run_gate(
+                        active_members, charter=True, rendered=rendered
+                    )
+                    self.assertEqual(rc_pass, 0, out_pass)
+
+                    rc_missing_kan, out_missing_kan = self._run_gate(
+                        active_members - {"KAN-306"},
+                        charter=True,
+                        rendered=rendered,
+                    )
+                    self.assertEqual(rc_missing_kan, 1)
+                    self.assertIn("KAN-306 is not in Sprint 12", out_missing_kan)
+
+                    rc_missing_rcp, out_missing_rcp = self._run_gate(
+                        active_members,
+                        charter=True,
+                        rendered=rendered - {carry_rcp},
+                    )
+                    self.assertEqual(rc_missing_rcp, 1)
+                    self.assertIn(
+                        f"{carry_rcp} is not rendered by board 168",
+                        out_missing_rcp,
+                    )
+        finally:
+            hard_gate.reset_state()
 
     def test_write_rcp_map_checkpoint_preserves_override_spillover_reason(self):
         # check_spillover persists override_spillover_reason as an audit record.

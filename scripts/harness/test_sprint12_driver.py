@@ -49,6 +49,7 @@ class FakeControllerTests(unittest.TestCase):
         self.patcher.start()
 
     def tearDown(self):
+        hard_gate.reset_state()
         self.patcher.stop()
         self.tmp.cleanup()
 
@@ -164,6 +165,69 @@ class FakeControllerTests(unittest.TestCase):
             payload = json.loads(out)
             self.assertTrue(payload["dry_run"])
             self.assertEqual(payload["spillover_count"], 0)
+
+    def test_dropped_scope_in_rcp_map_marks_task_carried_and_unblocks_close_task(self):
+        # Regression for Thread 2: when Day-1 spillover drops S16 (task T16) in
+        # sprint12_rcp_map.json, the Sprint 12 driver must mark T16 carried_to,
+        # refuse `start T16`, strip T16 from T18.depends_on so T18 can start
+        # when all remaining tasks are done, and wire carried-in swap items into
+        # T18's verification.
+        map_path = Path(self.tmp.name) / "sprint12_rcp_map.json"
+        map_path.write_text(
+            json.dumps(
+                {
+                    "acceptance": {si: f"RCP-{400 + i}" for i, si in enumerate(sorted(hard_gate.BASE_ACCEPTANCE))},
+                    "dropped_sis": ["S16"],
+                    "swaps": [
+                        {
+                            "si": "CARRY-KAN-306",
+                            "carried_in": "KAN-306",
+                            "carried_summary": "Carried Sprint 11 bug",
+                            "acceptance_rcp": "RCP-499",
+                            "deferred_si": "S16",
+                            "deferred_kan": ["KAN-425"],
+                        }
+                    ],
+                }
+            )
+        )
+        with patch.object(hard_gate, "RCP_MAP_PATH", map_path):
+            # Mark every non-dropped task except T18 as done in state_dir.
+            raw_plan = json.loads(driver.PLAN.read_text())
+            self.state_dir.mkdir(parents=True, exist_ok=True)
+            for t in raw_plan["tasks"]:
+                if t["id"] in ("T16", "T18"):
+                    continue
+                (self.state_dir / f"{t['id']}.state.json").write_text(
+                    json.dumps(
+                        {
+                            "iteration": 1,
+                            "max_loop_iterations": 8,
+                            "tasks": [dict(t, status="verified", attempts=1)],
+                        }
+                    )
+                )
+
+            # `start T16` is refused because S16 was dropped via spillover swap.
+            rc_t16, out_t16 = self.run_driver("start", "T16")
+            self.assertEqual(rc_t16, base_driver.REFUSED, out_t16)
+            self.assertIn("carried out of Sprint 12", out_t16)
+
+            # `start T18 --dry-run` succeeds even though T16 was never run.
+            rc_t18, out_t18 = self.run_driver("start", "T18", "--dry-run")
+            self.assertEqual(rc_t18, 0, out_t18)
+
+            # Compiled plan wires carried-in KAN-306 + RCP-499 into T18 and
+            # resolves placeholder keys.
+            compiled = driver.compile_plan(driver.PLAN, map_path=map_path)
+            by_id = {t["id"]: t for t in compiled["tasks"]}
+            self.assertNotIn("T16", by_id["T18"]["depends_on"])
+            self.assertTrue(by_id["T16"].get("carried_to"))
+            self.assertIn("KAN-306", by_id["T18"]["jira"])
+            self.assertIn("RCP-499", by_id["T18"]["jira"])
+            t18_cmds = " ".join(c["cmd"] for c in by_id["T18"]["verification"])
+            self.assertIn("KAN-306", t18_cmds)
+            self.assertIn("RCP-499", t18_cmds)
 
 
 class Sprint12PlanIntegrityTests(unittest.TestCase):

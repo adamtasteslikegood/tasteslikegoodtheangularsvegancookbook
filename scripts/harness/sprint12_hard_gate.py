@@ -156,8 +156,16 @@ SI_SUMMARIES = {
     "S16": "Backend Postgres driver moved to psycopg 3 and SQLAlchemy 2.1 after staging soak ({kan})",
 }
 
+BASE_REQUIRED = dict(REQUIRED)
+BASE_SI_EXECUTION = {k: list(v) for k, v in SI_EXECUTION.items()}
+BASE_ACCEPTANCE = dict(ACCEPTANCE)
+BASE_PLACEHOLDER_ACCEPTANCE = dict(PLACEHOLDER_ACCEPTANCE)
+BASE_SI_SUMMARIES = dict(SI_SUMMARIES)
+
 DROPPABLE_SIS = set()
 DROPPABLE = {}
+SWAPS = []
+LINKED_SIS = set()
 
 # Rows that belong to a later sprint (Sprint 13 beta, Sprint 14 launch post) or
 # that were closed as superseded during Sprint 11 (KAN-346 / RCP-147, superseded
@@ -179,18 +187,39 @@ def _sync_derived_sets():
     COMMITTED.update(REQUIRED)
     COMMITTED.update(DROPPABLE)
     GATED.clear()
-    GATED.update(COMMITTED)
+    GATED.update(REQUIRED)
     GATED.update(RECORDED)
 
 
+def reset_state():
+    """Reset module-level scope dicts to their static baseline before applying a map."""
+    REQUIRED.clear()
+    REQUIRED.update(BASE_REQUIRED)
+    SI_EXECUTION.clear()
+    SI_EXECUTION.update({k: list(v) for k, v in BASE_SI_EXECUTION.items()})
+    ACCEPTANCE.clear()
+    ACCEPTANCE.update(BASE_ACCEPTANCE)
+    PLACEHOLDER_ACCEPTANCE.clear()
+    PLACEHOLDER_ACCEPTANCE.update(BASE_PLACEHOLDER_ACCEPTANCE)
+    SI_SUMMARIES.clear()
+    SI_SUMMARIES.update(BASE_SI_SUMMARIES)
+    DROPPABLE_SIS.clear()
+    DROPPABLE.clear()
+    SWAPS.clear()
+    LINKED_SIS.clear()
+    _sync_derived_sets()
+
+
 def apply_rcp_map(map_path=RCP_MAP_PATH):
-    """Overlay minted charter/RCP keys and dropped SIs from ``sprint12_rcp_map.json`` when present."""
+    """Overlay minted charter/RCP keys, carried-in swaps, and dropped SIs from ``sprint12_rcp_map.json``."""
     if not map_path or not Path(map_path).exists():
         return
     try:
         data = json.loads(Path(map_path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return
+    reset_state()
+    LINKED_SIS.update(data.get("linked_sis") or [])
     charter_kan = data.get("charter_kan") or data.get("kan_charter")
     if charter_kan and "charter" in SI_EXECUTION and charter_kan != SI_EXECUTION["charter"][0]:
         old_kan = SI_EXECUTION["charter"][0]
@@ -200,18 +229,64 @@ def apply_rcp_map(map_path=RCP_MAP_PATH):
     rcp_charter = data.get("rcp_charter")
     if rcp_charter and "charter" in ACCEPTANCE:
         ACCEPTANCE["charter"] = rcp_charter
+
+    raw_swaps = list(data.get("swaps") or data.get("group_d_swaps") or [])
+    for s in raw_swaps:
+        carried_kan = (s.get("carried_in") or "").strip()
+        if not carried_kan:
+            continue
+        deferred_si = (s.get("deferred_si") or "").strip()
+        deferred_kan = (s.get("deferred_kan") or "").strip()
+        if not deferred_kan and deferred_si in BASE_SI_EXECUTION:
+            deferred_kan = BASE_SI_EXECUTION[deferred_si][0]
+        carry_si = (s.get("si") or f"CARRY-{carried_kan}").strip()
+        carried_summary = (
+            (s.get("carried_summary") or s.get("summary") or "").strip()
+            or f"Carried {carried_kan} from {PREV_SPRINT_NAME}"
+        )
+        placeholder_rcp = f"RCP-S12-{carried_kan}"
+        acc_rcp = (s.get("acceptance_rcp") or placeholder_rcp).strip()
+        REQUIRED[carried_kan] = (
+            f"{carry_si} — carried from {PREV_SPRINT_NAME} "
+            f"(swapped for {deferred_si}/{deferred_kan}): {carried_summary}"
+        )
+        SI_EXECUTION[carry_si] = [carried_kan]
+        ACCEPTANCE[carry_si] = acc_rcp
+        PLACEHOLDER_ACCEPTANCE[carry_si] = placeholder_rcp
+        if re.search(r"\b%s\b" % re.escape(carried_kan), carried_summary):
+            SI_SUMMARIES[carry_si] = carried_summary
+        else:
+            SI_SUMMARIES[carry_si] = f"{carried_summary} ({{kan}})"
+        SWAPS.append(
+            {
+                "si": carry_si,
+                "carried_in": carried_kan,
+                "carried_summary": carried_summary,
+                "acceptance_rcp": acc_rcp,
+                "deferred_si": deferred_si,
+                "deferred_kan": deferred_kan,
+            }
+        )
+
     minted = dict(data.get("acceptance") or {})
     minted.update(data.get("minted_rcp") or {})
     for si, rcp_key in minted.items():
         if si in ACCEPTANCE and rcp_key:
             ACCEPTANCE[si] = rcp_key
-    for si in data.get("dropped_sis") or []:
+            for s in SWAPS:
+                if s.get("si") == si:
+                    s["acceptance_rcp"] = rcp_key
+
+    dropped_sis = set(data.get("dropped_sis") or []) | {
+        s["deferred_si"] for s in SWAPS if s.get("deferred_si")
+    }
+    for si in sorted(dropped_sis):
         if si in SI_EXECUTION:
             DROPPABLE_SIS.add(si)
-            for k in SI_EXECUTION.pop(si, []):
+            for k in SI_EXECUTION.get(si, []):
                 desc = REQUIRED.pop(k, f"{si} — dropped via spillover swap")
                 DROPPABLE[k] = desc
-            acc_key = ACCEPTANCE.pop(si, None)
+            acc_key = ACCEPTANCE.get(si)
             if acc_key:
                 DROPPABLE[acc_key] = f"{si} acceptance — dropped via spillover swap"
     _sync_derived_sets()
@@ -304,25 +379,62 @@ def acceptance_row_problems(si, row, fields):
     return problems
 
 
-def _write_rcp_map_checkpoint(map_path, charter_kan, minted_acceptance, dropped_sis=None):
+def _write_rcp_map_checkpoint(
+    map_path,
+    charter_kan,
+    minted_acceptance,
+    dropped_sis=None,
+    swaps=None,
+    linked_sis=None,
+):
     if not map_path:
         return
-    payload = {
-        "charter_kan": charter_kan,
-        "acceptance": dict(minted_acceptance),
-    }
-    if dropped_sis:
-        payload["dropped_sis"] = sorted(set(dropped_sis))
-    # Preserve audit metadata written by check_spillover (e.g. the
-    # --override-spillover-reason) across bootstrap_charter checkpoints.
+    prior = {}
     if Path(map_path).exists():
         try:
             prior = json.loads(Path(map_path).read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             prior = {}
-        reason = (prior.get("override_spillover_reason") or "").strip()
-        if reason:
-            payload["override_spillover_reason"] = reason
+    payload = {
+        "charter_kan": charter_kan,
+        "acceptance": dict(minted_acceptance),
+    }
+    effective_dropped = sorted(
+        set(dropped_sis)
+        if dropped_sis is not None
+        else set(prior.get("dropped_sis") or [])
+    )
+    if effective_dropped:
+        payload["dropped_sis"] = effective_dropped
+
+    raw_swaps = (
+        swaps
+        if swaps is not None
+        else (SWAPS or prior.get("swaps") or prior.get("group_d_swaps") or [])
+    )
+    if raw_swaps:
+        serialized_swaps = []
+        for s in raw_swaps:
+            item = dict(s)
+            si_key = item.get("si")
+            if si_key and si_key in minted_acceptance:
+                item["acceptance_rcp"] = minted_acceptance[si_key]
+            serialized_swaps.append(item)
+        payload["swaps"] = serialized_swaps
+
+    effective_linked = sorted(
+        set(linked_sis)
+        if linked_sis is not None
+        else (set(LINKED_SIS) | set(prior.get("linked_sis") or []))
+    )
+    if effective_linked:
+        payload["linked_sis"] = effective_linked
+
+    # Preserve audit metadata written by check_spillover (e.g. the
+    # --override-spillover-reason) across bootstrap_charter checkpoints.
+    reason = (prior.get("override_spillover_reason") or "").strip()
+    if reason:
+        payload["override_spillover_reason"] = reason
     Path(map_path).parent.mkdir(parents=True, exist_ok=True)
     Path(map_path).write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -370,7 +482,13 @@ def bootstrap_charter(
         return 1
 
     sprint_id = s12["id"]
-    current_members = {i["key"] for i in jira.sprint_issues(sprint_id)}
+    sprint_issues_list = jira.sprint_issues(sprint_id)
+    current_members = {i["key"] for i in sprint_issues_list}
+    existing_by_summary = {
+        (i.get("fields") or {}).get("summary", "").strip(): i["key"]
+        for i in sprint_issues_list
+        if i.get("key") and (i.get("fields") or {}).get("summary")
+    }
     stale = sorted(current_members & set(NOT_IN_SPRINT))
 
     dropped_set = set(dropped_sis or []) | set(DROPPABLE_SIS)
@@ -380,6 +498,9 @@ def bootstrap_charter(
             for k in SI_EXECUTION[si]:
                 if k in REQUIRED:
                     DROPPABLE[k] = REQUIRED.pop(k)
+            acc_key = ACCEPTANCE.get(si)
+            if acc_key:
+                DROPPABLE[acc_key] = f"{si} acceptance — dropped via spillover swap"
     _sync_derived_sets()
 
     suffix = os.getenv("BRAND_AUTHOR_SUFFIX", "classic").strip() or "classic"
@@ -410,30 +531,43 @@ def bootstrap_charter(
         for si, rcp in ACCEPTANCE.items()
         if re.match(r"^RCP-\d+$", rcp or "")
     }
+    charter_kan_summary = (
+        "Charter Sprint 12: sync SPRINT_12_PLAN.md, mint S12 acceptance stories, pass day-1 hard gate"
+    )
     if charter_kan == "KAN-S12-CHARTER":
-        created_kan = jira.call(
-            "POST",
-            "/rest/api/3/issue",
-            {
-                "fields": {
-                    "project": {"key": "KAN"},
-                    "issuetype": {"name": "Task"},
-                    "summary": "Charter Sprint 12: sync SPRINT_12_PLAN.md, mint S12 acceptance stories, pass day-1 hard gate",
-                    "labels": ["sprint-12", "pm"],
-                }
-            },
-        )
-        charter_kan = created_kan["key"]
+        recovered_kan = existing_by_summary.get(charter_kan_summary)
+        if recovered_kan and re.match(r"^KAN-\d+$", recovered_kan):
+            charter_kan = recovered_kan
+        else:
+            created_kan = jira.call(
+                "POST",
+                "/rest/api/3/issue",
+                {
+                    "fields": {
+                        "project": {"key": "KAN"},
+                        "issuetype": {"name": "Task"},
+                        "summary": charter_kan_summary,
+                        "labels": ["sprint-12", "pm"],
+                    }
+                },
+            )
+            charter_kan = created_kan["key"]
         SI_EXECUTION["charter"] = [charter_kan]
         REQUIRED.pop("KAN-S12-CHARTER", None)
         REQUIRED[charter_kan] = "charter — execution row; closes with charter RCP story"
         _sync_derived_sets()
         _write_rcp_map_checkpoint(
-            map_path, charter_kan, minted_acceptance, DROPPABLE_SIS
+            map_path,
+            charter_kan,
+            minted_acceptance,
+            DROPPABLE_SIS,
+            swaps=SWAPS,
+            linked_sis=LINKED_SIS,
         )
 
     # 3. Retitle the 8 carried RCP rows to "S12 acceptance: ..." and mint the
-    #    new RCP Story rows under Epic RCP-119, checkpointing after each ticket.
+    #    new RCP Story rows under Epic RCP-119, checkpointing immediately after
+    #    creation and reconciling links idempotently on retry.
     for si, kan_keys in sorted(SI_EXECUTION.items()):
         if si in DROPPABLE_SIS:
             continue
@@ -443,30 +577,51 @@ def bootstrap_charter(
             SI_SUMMARIES[si].format(kan=kan_str, suffix=suffix),
         )
         current_rcp = ACCEPTANCE[si]
+        was_placeholder = not re.match(r"^RCP-\d+$", BASE_ACCEPTANCE.get(si, ""))
         if re.match(r"^RCP-\d+$", current_rcp):
+            rcp_key = current_rcp
             jira.call(
                 "PUT",
-                "/rest/api/3/issue/%s" % current_rcp,
+                "/rest/api/3/issue/%s" % rcp_key,
                 {"fields": {"summary": desired_summary, "labels": ["sprint-12"]}},
             )
-            minted_acceptance[si] = current_rcp
+            minted_acceptance[si] = rcp_key
         else:
-            created_rcp = jira.call(
-                "POST",
-                "/rest/api/3/issue",
-                {
-                    "fields": {
-                        "project": {"key": "RCP"},
-                        "issuetype": {"name": "Story"},
-                        "parent": {"key": EPIC_KEY},
-                        "summary": desired_summary,
-                        "labels": ["sprint-12"],
-                    }
-                },
-            )
-            rcp_key = created_rcp["key"]
+            recovered_rcp = existing_by_summary.get(desired_summary)
+            if recovered_rcp and re.match(r"^RCP-\d+$", recovered_rcp):
+                rcp_key = recovered_rcp
+            else:
+                created_rcp = jira.call(
+                    "POST",
+                    "/rest/api/3/issue",
+                    {
+                        "fields": {
+                            "project": {"key": "RCP"},
+                            "issuetype": {"name": "Story"},
+                            "parent": {"key": EPIC_KEY},
+                            "summary": desired_summary,
+                            "labels": ["sprint-12"],
+                        }
+                    },
+                )
+                rcp_key = created_rcp["key"]
             ACCEPTANCE[si] = rcp_key
             minted_acceptance[si] = rcp_key
+            for s in SWAPS:
+                if s.get("si") == si:
+                    s["acceptance_rcp"] = rcp_key
+            # Persist the newly created/recovered RCP key BEFORE linking so a
+            # transient issueLink failure never causes a duplicate Story on retry.
+            _write_rcp_map_checkpoint(
+                map_path,
+                charter_kan,
+                minted_acceptance,
+                DROPPABLE_SIS,
+                swaps=SWAPS,
+                linked_sis=LINKED_SIS,
+            )
+
+        if was_placeholder and si not in LINKED_SIS:
             for k in kan_keys:
                 jira.call(
                     "POST",
@@ -477,14 +632,27 @@ def bootstrap_charter(
                         "outwardIssue": {"key": rcp_key},
                     },
                 )
+            LINKED_SIS.add(si)
+
         _write_rcp_map_checkpoint(
-            map_path, charter_kan, minted_acceptance, DROPPABLE_SIS
+            map_path,
+            charter_kan,
+            minted_acceptance,
+            DROPPABLE_SIS,
+            swaps=SWAPS,
+            linked_sis=LINKED_SIS,
         )
 
     # 4. Finalize sprint12_rcp_map.json and add all active committed KAN + RCP rows to Sprint 12.
     _write_rcp_map_checkpoint(
-        map_path, charter_kan, minted_acceptance, DROPPABLE_SIS
+        map_path,
+        charter_kan,
+        minted_acceptance,
+        DROPPABLE_SIS,
+        swaps=SWAPS,
+        linked_sis=LINKED_SIS,
     )
+    apply_rcp_map(map_path)
 
     active_sis = [si for si in SI_EXECUTION if si not in DROPPABLE_SIS]
     all_sprint_keys = sorted(
@@ -535,7 +703,8 @@ def check_spillover(
     Computes the deterministic Priority Group D swap preview (S16 -> S14 -> S13,
     plus leaf fallback slots S6 -> S5 -> S8 when ``max_spillover > 3`` is passed
     with ``override_reason``). When ``apply_swaps=True`` (and not ``dry_run``),
-    persists ``dropped_sis`` to ``sprint12_rcp_map.json``.
+    persists ``dropped_sis`` and full ``swaps`` (including carried-in KAN +
+    acceptance row mapping) to ``sprint12_rcp_map.json``.
     """
     if max_spillover > DEFAULT_MAX_SPILLOVER and not (override_reason or "").strip():
         print_dx_error(
@@ -549,10 +718,13 @@ def check_spillover(
     candidates = GROUP_D_SWAP_CANDIDATES[:effective_cap]
 
     issues = jira.sprint_issues(PREV_SPRINT_ID)
+    rcp_stories = []
     open_items = []
     for item in issues:
         key = item.get("key", "")
         fields = item.get("fields") or {}
+        if key.startswith("RCP-"):
+            rcp_stories.append((key, (fields.get("summary") or "").strip()))
         cat = ((fields.get("status") or {}).get("statusCategory") or {}).get("key", "")
         status_name = ((fields.get("status") or {}).get("name") or "").strip()
         if cat.lower() != "done" and status_name.lower() != "done":
@@ -568,9 +740,25 @@ def check_spillover(
     for idx, carried in enumerate(open_items):
         if idx < len(candidates):
             si, kan = candidates[idx]
+            carried_key = carried["key"]
+            carried_summary = (
+                carried.get("summary")
+                or f"Carried {carried_key} from {PREV_SPRINT_NAME}"
+            )
+            existing_rcp = next(
+                (
+                    r_key
+                    for r_key, r_sum in rcp_stories
+                    if re.search(r"\b%s\b" % re.escape(carried_key), r_sum)
+                ),
+                None,
+            )
             swaps.append(
                 {
-                    "carried_in": carried["key"],
+                    "si": f"CARRY-{carried_key}",
+                    "carried_in": carried_key,
+                    "carried_summary": carried_summary,
+                    "acceptance_rcp": existing_rcp or f"RCP-S12-{carried_key}",
                     "deferred_si": si,
                     "deferred_kan": kan,
                 }
@@ -587,6 +775,7 @@ def check_spillover(
             except (OSError, json.JSONDecodeError):
                 existing = {}
         existing["dropped_sis"] = dropped_sis
+        existing["swaps"] = swaps
         if override_reason:
             existing["override_spillover_reason"] = override_reason.strip()
         Path(map_path).parent.mkdir(parents=True, exist_ok=True)
@@ -790,6 +979,7 @@ def main(argv=None):
             print("API ERROR: %s" % exc, file=sys.stderr)
             return 2
 
+    apply_rcp_map(RCP_MAP_PATH)
     require_done = bool(args.close or args.require_done)
     gate = (
         "sprint12-charter"
@@ -857,9 +1047,12 @@ def main(argv=None):
             report["acceptance"] = {}
             active_acceptance = {}
             for si in sorted(SI_EXECUTION):
-                dropped = not any(k in members for k in SI_EXECUTION[si])
                 row = ACCEPTANCE.get(si)
-                if dropped and si in DROPPABLE_SIS:
+                if si in DROPPABLE_SIS:
+                    stranded_exec = [
+                        k for k in SI_EXECUTION[si] if k in members or k in rendered
+                    ]
+                    stranded_acc = bool(row and (row in members or row in rendered))
                     if not row:
                         report["acceptance"][si] = "dropped — MISSING MAPPING"
                         report["violations"].append(
@@ -867,13 +1060,16 @@ def main(argv=None):
                             "mapping, so the gate cannot prove the SI was removed "
                             "as a unit" % si
                         )
-                    elif row in members or row in rendered:
-                        report["acceptance"][si] = "STRANDED — %s" % row
+                    elif stranded_exec or stranded_acc:
+                        stranded = list(stranded_exec) + (
+                            [row] if stranded_acc else []
+                        )
+                        report["acceptance"][si] = "STRANDED — %s" % "/".join(stranded)
                         report["violations"].append(
-                            "%s is treated as dropped because execution row(s) %s "
-                            "left Sprint 12, but acceptance row %s remains in the "
-                            "sprint/board — remove the SI as a unit"
-                            % (si, "/".join(SI_EXECUTION[si]), row)
+                            "%s is dropped via spillover swap, but row(s) %s "
+                            "remain in Sprint 12 or on board %d — remove the "
+                            "dropped SI as a unit"
+                            % (si, "/".join(stranded), RCP_SCRUM_BOARD)
                         )
                     else:
                         report["acceptance"][si] = "dropped"
