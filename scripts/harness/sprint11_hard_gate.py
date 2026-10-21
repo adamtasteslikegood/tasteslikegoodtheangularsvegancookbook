@@ -103,7 +103,6 @@ REQUIRED = {
     "KAN-276": "S19 — SPA-only routes noindex ship criteria",
     "KAN-323": "S21 — gh-aw upgrade and recompile",
     "KAN-311": "S22 — Docker Hub links the site",
-    "KAN-312": "S22 — YouTube About links the site",
     "KAN-313": "S22 — owned Meta profiles link the site",
     "KAN-309": "S24 — Pinterest pin variant as a 1:1 centre crop",
     "KAN-345": "S25 — recipe feedback pre-build steps",
@@ -150,7 +149,9 @@ SI_EXECUTION = {
     "S18": ["KAN-274"],
     "S19": ["KAN-276"],
     "S21": ["KAN-323"],
-    "S22": ["KAN-311", "KAN-312", "KAN-313"],
+    # KAN-312 (YouTube) superseded by KAN-436 on 2026-10-20 (Adam): there is no
+    # channel to link. It stays a Done member of the sprint; RCP-146 no longer names it.
+    "S22": ["KAN-311", "KAN-313"],
     "S24": ["KAN-309"],
     "S25": ["KAN-345"],
     "replan": ["KAN-412"],

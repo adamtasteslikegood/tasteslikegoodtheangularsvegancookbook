@@ -122,10 +122,10 @@ class Sprint11HardGateTests(unittest.TestCase):
 
     def test_charter_fails_when_a_required_item_left_the_sprint(self):
         # Literal keys: a fixture derived from the gate's own sets cannot
-        # notice the gate ceasing to require them. KAN-312 is one of S22's
-        # three rows; KAN-408 is a v0.7.0 release gate added by the 2026-10-14
+        # notice the gate ceasing to require them. KAN-313 is one of S22's
+        # two rows; KAN-408 is a v0.7.0 release gate added by the 2026-10-14
         # re-plan; KAN-352 moved into the sprint at that re-plan.
-        for key in ("KAN-306", "KAN-312", "KAN-408", "KAN-352", "KAN-350", "KAN-412"):
+        for key in ("KAN-306", "KAN-313", "KAN-408", "KAN-352", "KAN-350", "KAN-412"):
             with self.subTest(key=key):
                 rc, output = self._run_gate(self._members() - {key}, charter=True)
                 self.assertEqual(rc, 1)
@@ -140,7 +140,8 @@ class Sprint11HardGateTests(unittest.TestCase):
                 self.assertIn("%s is not rendered by board 168" % row, output)
 
     def test_charter_fails_when_the_rendered_row_is_not_the_acceptance_story(self):
-        # RCP-146 is S22's row: one Story for KAN-311, KAN-312 and KAN-313.
+        # RCP-146 is S22's row: one Story for KAN-311 and KAN-313 (KAN-312 was
+        # superseded by KAN-436 on 2026-10-20).
         story = {"name": "Story"}
         cases = (
             ("RCP-128", {"issuetype": {"name": "Epic"},
@@ -153,8 +154,8 @@ class Sprint11HardGateTests(unittest.TestCase):
             ("RCP-128", {"issuetype": story, "summary": "S11 acceptance: test (KAN-3060)"},
              "RCP-128 does not name KAN-306 in its summary"),
             ("RCP-146", {"issuetype": story,
-                         "summary": "S11 acceptance: test (KAN-311, KAN-313)"},
-             "RCP-146 does not name KAN-312 in its summary"),
+                         "summary": "S11 acceptance: test (KAN-311)"},
+             "RCP-146 does not name KAN-313 in its summary"),
             ("RCP-128", {}, "RCP-128 is of unknown type, not a Story"),
         )
         for row, fields, expected in cases:

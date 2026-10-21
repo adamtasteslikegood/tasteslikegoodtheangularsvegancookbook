@@ -759,16 +759,16 @@
     {
       "id": "T22",
       "si": "S22",
-      "jira": ["KAN-311", "KAN-312", "KAN-313", "RCP-146"],
+      "jira": ["KAN-311", "KAN-313", "RCP-146"],
       "lane": "Links",
       "depends_on": ["T0"],
       "skill": "pm-skills",
       "skill_path": "~/.claude/plugins/.../pm-skills",
-      "objective": "Docker Hub, YouTube and the owned Meta profiles link the site. One deliverable with one execution row per property (KAN-311, KAN-312, KAN-313). The profile edits are Adam's, dated 2026-10-12; do not start this task until he has made them. Agents verify. IG/FB @tasteslikegood is a band, not us: check only owned profiles. Acceptance criteria are on RCP-146, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
+      "objective": "Docker Hub and the owned Meta profiles link the site. One deliverable with one execution row per property (KAN-311, KAN-313); YouTube (KAN-312) was superseded by KAN-436 on 2026-10-20. The profile edits are Adam's, dated 2026-10-12; do not start this task until he has made them. Agents verify. IG/FB @tasteslikegood is a band, not us: check only owned profiles. Acceptance criteria are on RCP-146, which is authoritative: close it criterion by criterion, with evidence pasted the day the check is done, and record any difference from the ticket's recorded decision at merge.",
       "suggested_tools": ["python3 scripts/harness/sprint11_hard_gate.py --issues RCP-146"],
       "verification": [
         {
-          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-311 KAN-312 KAN-313 RCP-146",
+          "cmd": "python3 scripts/harness/sprint11_hard_gate.py --issues KAN-311 KAN-313 RCP-146",
           "expect_exit": 0,
           "kind": "board"
         },

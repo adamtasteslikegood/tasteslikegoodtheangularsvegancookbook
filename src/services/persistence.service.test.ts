@@ -1,10 +1,14 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  interpretMembershipResponse,
   interpretSaveResponse,
+  PersistenceService,
   recipeWithServerIdentity,
   shouldUndoOptimisticSave,
   shouldWriteCookbookMembership,
 } from './persistence.service';
+import type { Recipe } from '../recipe.types';
+import type { User } from '../auth.types';
 
 /**
  * KAN-155 — a 409 from POST /api/recipes is a REFUSAL, not a success.
@@ -227,19 +231,53 @@ describe('recipeWithServerIdentity (KAN-265/KAN-289)', () => {
 
 // KAN-330: adding to a cookbook first saves the recipe, then posts the
 // membership. When the save never landed (connection, write pause) the
-// membership would reference a row the server does not have; when the server
-// already has the row (duplicate) the membership is exactly what was asked.
+// membership would reference a row the server does not have.
+//
+// KAN-333: a duplicate refusal does not mean the server has THIS id. It means
+// another row with the same source identity exists under its own server id, so
+// posting a membership for this id points at a recipe that was never stored.
 describe('shouldWriteCookbookMembership', () => {
-  it('writes after a successful or no-op save', () => {
+  it('writes only after a save that landed', () => {
     expect(shouldWriteCookbookMembership({ ok: true })).toBe(true);
     expect(shouldWriteCookbookMembership({ ok: true, alreadySaved: true })).toBe(true);
-    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'duplicate' })).toBe(true);
   });
 
-  it('skips when the row may not exist on the server', () => {
+  it('skips when the server may not hold this id', () => {
+    expect(shouldWriteCookbookMembership({ ok: false, refusal: 'duplicate' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'sync' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'paused' })).toBe(false);
     expect(shouldWriteCookbookMembership({ ok: false, refusal: 'ownership' })).toBe(false);
+  });
+});
+
+// KAN-333: the membership request's answer used to be ignored, so a refused
+// or failed write still closed the cookbook modal as if it had stuck.
+describe('interpretMembershipResponse (KAN-333)', () => {
+  it('reports a stored membership change as ok', () => {
+    expect(interpretMembershipResponse({ ok: true, status: 201 })).toEqual({ ok: true });
+    expect(interpretMembershipResponse({ ok: true, status: 204 })).toEqual({ ok: true });
+  });
+
+  // The Backend answers a removal of a recipe that is not in the cookbook
+  // with 200; its only 404 is "cookbook not found in the caller's scope"
+  // (collections_api_bp.remove_recipe_from_collection), e.g. a lapsed session.
+  // That removal did not happen, so it must not read as done.
+  it('reports a removal the server answered 404 as unsynced', () => {
+    expect(interpretMembershipResponse({ ok: false, status: 404 })).toEqual({
+      ok: false,
+      refusal: 'sync',
+    });
+  });
+
+  it('reports any other answer, or none, as unsynced', () => {
+    for (const res of [{ ok: false, status: 404 }, { ok: false, status: 500 }, null]) {
+      expect(interpretMembershipResponse(res)).toEqual({ ok: false, refusal: 'sync' });
+    }
+    expect(interpretMembershipResponse({ ok: false, status: 503 })).toEqual({
+      ok: false,
+      refusal: 'sync',
+    });
+    expect(interpretMembershipResponse(null)).toEqual({ ok: false, refusal: 'sync' });
   });
 });
 
@@ -283,5 +321,139 @@ describe('shouldUndoOptimisticSave (KAN-241)', () => {
       expect(shouldUndoOptimisticSave(refusal, false), `${refusal}/new`).toBe(false);
       expect(shouldUndoOptimisticSave(refusal, true), `${refusal}/existing`).toBe(false);
     }
+  });
+});
+
+// KAN-333 / pr-gate R1-3: a cookbook change the server did not take used to
+// stay on screen, so reopening the dialog saw it as made and saving again
+// sent nothing. The constructor needs change-detection wiring this setup
+// lacks (see interpretSaveResponse), so the methods run on a bare instance.
+describe('cookbook membership changes the server does not take (KAN-333)', () => {
+  type Book = { id: string; recipeIds: string[] };
+  const recipe = { id: 'r1', name: 'Cornbread' } as Recipe;
+
+  type Answer = { ok: boolean; status: number } | 'throw' | (() => Promise<unknown>);
+  const setup = (recipeIds: string[], answer: Answer) => {
+    let books: Book[] = [{ id: 'cb1', recipeIds: [...recipeIds] }];
+    const user = () => ({ cookbooks: books }) as unknown as User;
+    // AuthService matches a recipe to a saved one by id or by name, and the
+    // cookbook then holds the saved recipe's id.
+    const cookbookRecipeIdFor = (r: Recipe) => (r.name === 'Saved twin' ? 'existing' : r.id);
+    const auth = {
+      currentUser: () => user(),
+      cookbookRecipeIdFor,
+      addRecipeToCookbook: (id: string, r: Recipe) => {
+        const rid = cookbookRecipeIdFor(r);
+        books = books.map((b) =>
+          b.id === id && !b.recipeIds.includes(rid) ? { ...b, recipeIds: [...b.recipeIds, rid] } : b
+        );
+      },
+      removeRecipeFromCookbook: (id: string, rid: string) => {
+        books = books.map((b) =>
+          b.id === id ? { ...b, recipeIds: b.recipeIds.filter((x) => x !== rid) } : b
+        );
+      },
+      setCookbookMembership: (id: string, rid: string, present: boolean) => {
+        books = books.map((b) => {
+          if (b.id !== id) return b;
+          const without = b.recipeIds.filter((x) => x !== rid);
+          return { ...b, recipeIds: present ? [...without, rid] : without };
+        });
+      },
+    };
+    const fetch = vi.fn(() =>
+      typeof answer === 'function'
+        ? answer()
+        : answer === 'throw'
+          ? Promise.reject(new Error('offline'))
+          : Promise.resolve(answer)
+    );
+    const service = Object.assign(Object.create(PersistenceService.prototype), {
+      auth,
+      _fetch: fetch,
+      _apiSaveRecipe: vi.fn().mockResolvedValue({ ok: true }),
+      // Field initializers do not run on a bare instance.
+      _membership: new Map(),
+      _membershipOpSeq: 0,
+    }) as PersistenceService;
+    return { service, fetch, ids: () => books[0].recipeIds };
+  };
+
+  it('puts the cookbook back when an add fails, so saving again sends the request', async () => {
+    const { service, fetch, ids } = setup([], { ok: false, status: 500 });
+    expect((await service.addRecipeToCookbook('cb1', recipe)).ok).toBe(false);
+    expect(ids()).toEqual([]);
+
+    await service.addRecipeToCookbook('cb1', recipe);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('puts the cookbook back when a removal does not reach the server', async () => {
+    const { service, ids } = setup(['r0', 'r1'], 'throw');
+    expect((await service.removeRecipeFromCookbook('cb1', 'r1')).ok).toBe(false);
+    expect(ids()).toEqual(['r0', 'r1']);
+  });
+
+  // pr-gate R3: the dialog can reopen while a request is pending. Undoing a
+  // failure must touch only that recipe, and never a newer change to it.
+  const later = () => {
+    let settle!: (v: unknown) => void;
+    const promise = new Promise((resolve) => (settle = resolve));
+    return { promise, settle };
+  };
+
+  it('undoes only the failed recipe, keeping one added meanwhile', async () => {
+    const slow = later();
+    const answers = [() => slow.promise, () => Promise.resolve({ ok: true, status: 201 })];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const first = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    await service.addRecipeToCookbook('cb1', { id: 'r2', name: 'Chili' } as Recipe);
+    slow.settle({ ok: false, status: 500 });
+    await first;
+    expect(ids()).toEqual(['r2']);
+  });
+
+  it('does not undo a failure that a newer change to the same recipe overtook', async () => {
+    const slow = later();
+    const answers = [
+      () => slow.promise,
+      () => Promise.resolve({ ok: true, status: 200 }),
+      () => Promise.resolve({ ok: true, status: 201 }),
+    ];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const first = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    await service.removeRecipeFromCookbook('cb1', 'r1');
+    await service.addRecipeToCookbook('cb1', recipe);
+    slow.settle({ ok: false, status: 500 });
+    await first;
+    expect(ids()).toEqual(['r1']);
+  });
+
+  it('leaves a recipe out when an add and then its removal both fail', async () => {
+    const slowAdd = later();
+    const slowRemove = later();
+    const answers = [() => slowAdd.promise, () => slowRemove.promise];
+    const { service, ids } = setup([], () => answers.shift()!());
+    const adding = service.addRecipeToCookbook('cb1', recipe);
+    await vi.waitFor(() => expect(ids()).toEqual(['r1']));
+    const removing = service.removeRecipeFromCookbook('cb1', 'r1');
+    slowAdd.settle({ ok: false, status: 500 });
+    slowRemove.settle({ ok: false, status: 500 });
+    await Promise.all([adding, removing]);
+    expect(ids()).toEqual([]);
+  });
+
+  it('undoes the id the cookbook holds when the recipe matched a saved one by name', async () => {
+    const { service, ids } = setup([], { ok: false, status: 500 });
+    await service.addRecipeToCookbook('cb1', { id: 'new', name: 'Saved twin' } as Recipe);
+    expect(ids()).toEqual([]);
+  });
+
+  it('keeps a change the server took', async () => {
+    const { service, ids } = setup([], { ok: true, status: 201 });
+    expect((await service.addRecipeToCookbook('cb1', recipe)).ok).toBe(true);
+    expect(ids()).toEqual(['r1']);
   });
 });
