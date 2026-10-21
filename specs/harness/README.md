@@ -1,5 +1,56 @@
 # Sprint agent harnesses
 
+## Sprint 12 (next — cutover when Sprint 11 closes on 2026-10-23)
+
+The executable half of [`specs/SPRINT_12_PLAN.md`](../SPRINT_12_PLAN.md): one task per
+SI (`T1` to `T16` are `S1` to `S16`), plus `T0` (Day-1 charter cutover & board honesty),
+`T17` (Week-1 process lane: `KAN-188`, `KAN-429`/`KAN-402`, `KAN-390`), and `T18`
+(close-out). Chartered in an isolated worktree while Sprint 11 (`id 121`) wraps up so
+zero live Jira mutations occur before Sprint 11 closes.
+
+| File                                                                                         | Role                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`SPRINT_12_HARNESS_PLAN.json`](./SPRINT_12_HARNESS_PLAN.json)                               | The plan: 19 tasks (`T0`..`T18`), each with its lane, checks, and skill                                                                                              |
+| [`../../scripts/harness/sprint12_hard_gate.py`](../../scripts/harness/sprint12_hard_gate.py) | **The gate.** `--day1-cutover` / `--bootstrap-charter` is the Day-1 cutover; `--charter` is the Day-1 gate; `--close` is the strict close gate                       |
+| [`../../scripts/harness/sprint12_driver.py`](../../scripts/harness/sprint12_driver.py)       | **The PM driver.** The Sprint 10/11 driver, run on this plan and `.agent-harness/sprint12/`, plus `--day1-cutover`, `--check-spillover`, and `--verify-process-lane` |
+
+### Day-1 Cutover & `harness-qa-loop` Kickoff (once Sprint 11 `id 121` is `closed`)
+
+```bash
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
+
+# 1. QA-lint the compiled plan (--strict requires 0 blockers and 0 warnings)
+python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/SPRINT_12_HARNESS_PLAN.json --strict
+
+# 2. Preview Day-1 cutover (read-only dry-run works even while Sprint 11 is still active)
+python3 scripts/harness/sprint12_driver.py --day1-cutover --dry-run
+
+# 3. Execute atomic Day-1 cutover once Sprint 11 (id 121) is closed (detects spillover,
+#    applies 1-for-1 Group D leaf swaps if needed, removes superseded Done pair
+#    KAN-346/RCP-147 from Sprint 12, retitles the 8 carried RCP stories to
+#    'S12 acceptance: ...', mints new S12 acceptance stories under RCP-119 with
+#    per-ticket checkpointing to specs/harness/sprint12_rcp_map.json, starts Sprint 12,
+#    and runs --charter + check_sprint_lane.sh)
+python3 scripts/harness/sprint12_driver.py --day1-cutover --apply-spillover-swaps
+
+# 4. Drive T0 -> T1..T17 -> T18 via sprint12_driver.py (WIP <= 3, 12 iters / 3 attempts per SI)
+python3 scripts/harness/sprint12_driver.py status
+python3 scripts/harness/sprint12_driver.py start T0
+S="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/sprint12/T0.state.json"
+python3 $HC next   --state $S
+python3 $HC record --state $S --task T0 --phase execute --exit-code 0
+python3 $HC verify --state $S --task T0 --cwd "$PWD"
+python3 $HC close  --state $S
+```
+
+What is specific to Sprint 12:
+
+- **`T1` (`S1` `KAN-356` Recipe Feedback Phase 1) waits on `T2` (`S2` `KAN-411` `md4a-fastapi` PyPI + R16 plain-mode escape).** `depends_on: ["T0", "T2"]` ensures the released `md4a-fastapi` package with R16's 7-vector plain-mode escape (`[data-md="plain"]` newline normalization + padded inline code spans per `ENG-DEC-5`) is on PyPI before Backend pins it for `/r/<slug>` Markdown note rendering (`ENG-DEC-3`).
+- **`T16` (`S16` `KAN-425` `psycopg` 3 + SQLAlchemy 2.1) waits on `T12` (`S12` `KAN-337` staging deploy jobs).** Per Sprint 10 Retro `R-7` (`KAN-324` lesson), driver/ORM upgrades must soak on staging with automated deploy jobs green before a production release PR is opened.
+- **Alias resolution and strict Done gates (`ENG-DEC-1`, `ENG-DEC-3`).** `sprint12_hard_gate.py --issues` resolves `KAN-S12-CHARTER`, `RCP-S12-CHARTER`, and `RCP-S12-S<N>` against `specs/harness/sprint12_rcp_map.json`, and `--require-done` / `--close` enforce exact `Done` status so `In Progress` cannot pass `T17` or `T18`.
+- **Superseded rows (`KAN-346`, `RCP-147`) and later-sprint rows (`KAN-351`, `RCP-149`, `RCP-174`, `KAN-299`, `RCP-110`) are in `NOT_IN_SPRINT`.** Both `--charter` and the close gate fail if any of them sits in Sprint 12 (`id 122`) or renders on Board 168.
+
 ## Sprint 11 (current)
 
 The executable half of [`specs/SPRINT_11_PLAN.md`](../SPRINT_11_PLAN.md): one task per
