@@ -33,4 +33,43 @@ fi
 echo "Running gstack setup…"
 ( cd "${GSTACK_DIR}" && ./setup "$@" )
 
+# Antigravity CLI (agy) migrated global customization discovery from
+# ~/.gemini/antigravity-cli/ to ~/.gemini/config/ while upstream gstack's
+# `./setup --host agy` still writes symlinks into ~/.gemini/antigravity-cli/skills.
+# Bridge ~/.gemini/config/skills and ~/.gemini/config/skills.json when gstack's
+# .agy bundle exists so agy discovers all gstack-* skills automatically.
+if [ -d "${GSTACK_DIR}/.agy/skills" ]; then
+  mkdir -p "${HOME}/.gemini/config"
+  if [ ! -e "${HOME}/.gemini/config/skills" ] && [ -d "${HOME}/.gemini/antigravity-cli/skills" ]; then
+    ln -s ../antigravity-cli/skills "${HOME}/.gemini/config/skills"
+  fi
+  if [ ! -f "${HOME}/.gemini/config/skills.json" ]; then
+    cat > "${HOME}/.gemini/config/skills.json" <<'EOF'
+{
+  "entries": [
+    {
+      "path": "~/.claude/skills/gstack/.agy/skills"
+    }
+  ]
+}
+EOF
+  elif ! grep -Fq '"path": "~/.claude/skills/gstack/.agy/skills"' "${HOME}/.gemini/config/skills.json"; then
+    echo "WARN: ${HOME}/.gemini/config/skills.json exists without the gstack .agy/skills path." >&2
+    echo "      Add ~/.claude/skills/gstack/.agy/skills to its entries array to enable global discovery." >&2
+  fi
+fi
+
+# Ensure repo-local .agents/skills points at .claude/skills (single source of
+# truth for project skills across Claude Code, Antigravity, Gemini CLI, and Codex).
+if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" && [ -d "${REPO_ROOT}/.claude/skills" ] && [ ! -L "${REPO_ROOT}/.agents/skills" ]; then
+  mkdir -p "${REPO_ROOT}/.agents"
+  if [ -d "${REPO_ROOT}/.agents/skills" ] && [ -n "$(ls -A "${REPO_ROOT}/.agents/skills" 2>/dev/null)" ]; then
+    echo "WARN: ${REPO_ROOT}/.agents/skills is a non-empty directory; refusing to replace it with a symlink." >&2
+    echo "      Move or merge its contents into .claude/skills/, remove the directory, then re-run." >&2
+  else
+    rm -rf "${REPO_ROOT}/.agents/skills"
+    ln -s ../.claude/skills "${REPO_ROOT}/.agents/skills"
+  fi
+fi
+
 echo "Done. gstack skills are registered. See CLAUDE.md and AGENTS.md for usage."

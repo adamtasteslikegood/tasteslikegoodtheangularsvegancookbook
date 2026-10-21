@@ -46,13 +46,19 @@ cd ~/.claude/skills/gstack && ./setup --host agy
 
 ## Skill loading by harness
 
-- **Antigravity (`agy`):** `./setup --host agy` installs global skills at
-  `~/.gemini/antigravity-cli/skills/gstack-*/SKILL.md` (prefixed with `gstack-`
-  so `/gstack-plan-*` does not shadow Antigravity's built-in `/plan`). Project
-  skills live in `.agents/skills/<name>/SKILL.md`. Both appear in `<skills>` in
-  your system prompt. Load a skill by reading its `SKILL.md` with `view_file`
-  (read remaining line ranges if truncated at 800 lines). When a `gstack` skill
-  references Claude Code tool names, translate them to Antigravity tools:
+- **Antigravity (`agy`):** `./scripts/install-gstack.sh --host agy` runs
+  `./setup --host agy` (which generates `~/.claude/skills/gstack/.agy/skills/gstack-*/SKILL.md`
+  and symlinks `~/.gemini/antigravity-cli/skills/gstack-*`) and bridges
+  Antigravity's migrated global config root (`~/.gemini/config/skills` and
+  `~/.gemini/config/skills.json`) so all `gstack-*` skills are discovered
+  globally (prefixed with `gstack-` so `/gstack-plan-*` does not shadow
+  Antigravity's built-in `/plan`). Project skills live in `.claude/skills/<name>/SKILL.md`
+  and are discovered via `.agents/skills.json` (plus `.agents/skills -> ../.claude/skills`
+  for Gemini CLI and Codex) so project skills never drift across harnesses. Both
+  appear in `<skills>` in your system prompt. Load a skill by reading its
+  `SKILL.md` with `view_file` (read remaining line ranges if truncated at 800
+  lines). When a `gstack` skill references Claude Code tool names, translate
+  them to Antigravity tools:
   - `Bash` → `run_command`
   - `Read` → `view_file`
   - `Write` → `write_to_file`
