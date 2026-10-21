@@ -152,6 +152,20 @@ describe('GeminiService.generateRecipe wait', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  // KAN-306: the generator marks a no-session save as saved because the
+  // server holds the recipe, so only a queued, server-held recipe may resolve.
+  it('rejects an answer that is not a queued generation', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ recipe: { id: RECIPE_ID, name: 'Stew' } }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(new GeminiService().generateRecipe('a hearty winter stew')).rejects.toThrow(
+      'Recipe generation failed.'
+    );
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it('rejects when the worker reports an error', async () => {
     vi.useFakeTimers();
     const fetchMock = vi
