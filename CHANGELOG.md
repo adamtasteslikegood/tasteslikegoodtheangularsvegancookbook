@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- A newly generated recipe shows the image spinner while it is being saved, instead of "Image not
+  available" (KAN-459). The image request still waits for the save.
+
 ## [0.7.3] - 2026-10-20
 
 Backend pointer pinned at `b08a1eb9368d` (Backend `main`, promoted in Backend #436).
