@@ -60,8 +60,13 @@ fi
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 if [ -d "${REPO_ROOT}/.claude/skills" ] && [ ! -L "${REPO_ROOT}/.agents/skills" ]; then
   mkdir -p "${REPO_ROOT}/.agents"
-  rm -rf "${REPO_ROOT}/.agents/skills"
-  ln -s ../.claude/skills "${REPO_ROOT}/.agents/skills"
+  if [ -d "${REPO_ROOT}/.agents/skills" ] && [ -n "$(ls -A "${REPO_ROOT}/.agents/skills" 2>/dev/null)" ]; then
+    echo "WARN: ${REPO_ROOT}/.agents/skills is a non-empty directory; refusing to replace it with a symlink." >&2
+    echo "      Move or merge its contents into .claude/skills/, remove the directory, then re-run." >&2
+  else
+    rm -rf "${REPO_ROOT}/.agents/skills"
+    ln -s ../.claude/skills "${REPO_ROOT}/.agents/skills"
+  fi
 fi
 
 echo "Done. gstack skills are registered. See CLAUDE.md and AGENTS.md for usage."
