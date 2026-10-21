@@ -8,8 +8,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Recipe pages name and anchor each method step (KAN-320, Backend #433). Each step's structured
+  data has a short name and a link to its `#step-N` anchor on the page, and keywords no longer
+  repeat the category and cuisine tags.
+
 ### Fixed
 
+- A model answer with no text is retried instead of using up the recipe's one permitted
+  rejection (KAN-405, Backend #433). The build claim now outlasts the model call, so two workers
+  cannot run the same recipe at once (KAN-406).
 - A recipe generated while the startup sign-in check is still running now shows as saved
   (KAN-306). The generator waits for the check before saving its copy on the device. It only shows
   a generated recipe once the server reports it ready for this visitor's session, so the server
