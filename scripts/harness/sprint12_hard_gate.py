@@ -536,7 +536,10 @@ def bootstrap_charter(
                 DROPPABLE[acc_key] = f"{si} acceptance — dropped via spillover swap"
     _sync_derived_sets()
 
-    suffix = os.getenv("BRAND_AUTHOR_SUFFIX", "classic").strip() or "classic"
+    # NOTE: BRAND_AUTHOR_SUFFIX is baked into SI_SUMMARIES["S3"] at module
+    # import (see line 143). The suffix format kwarg below is unused — no
+    # summary contains a {suffix} placeholder — so re-reading it at call time
+    # would be dead code. Rely on the import-time value instead.
 
     if dry_run:
         active_sis = [si for si in sorted(SI_EXECUTION) if si not in DROPPABLE_SIS]
@@ -609,7 +612,7 @@ def bootstrap_charter(
         kan_str = ", ".join(kan_keys)
         desired_summary = "%s %s" % (
             ACCEPTANCE_PREFIX,
-            SI_SUMMARIES[si].format(kan=kan_str, suffix=suffix),
+            SI_SUMMARIES[si].format(kan=kan_str),
         )
         current_rcp = ACCEPTANCE[si]
         was_placeholder = not re.match(r"^RCP-\d+$", BASE_ACCEPTANCE.get(si, ""))
