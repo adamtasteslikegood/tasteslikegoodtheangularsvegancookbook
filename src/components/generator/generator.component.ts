@@ -146,7 +146,7 @@ export class GeneratorComponent extends RecipeViewBase {
           if (this.recipe()?.id === generatedRecipe.id) {
             // The generation endpoint already owns this recipe server-side.
             // noSession only means the optional client copy was skipped.
-            this.isSaved.set(kept || outcome.noSession);
+            this.isSaved.set(kept || Boolean(outcome.noSession));
           }
           // KAN-292: already_saved / saved / saved_offline from the detailed
           // outcome; ownership and duplicate refusals keep nothing and emit nothing.
@@ -197,9 +197,7 @@ export class GeneratorComponent extends RecipeViewBase {
       }
       trackRecipeSaveOutcome('generator_save', outcome);
       if (outcome.noSession) {
-        this.toastService.show(
-          'Your changes were not saved yet. Wait a moment, then save again.'
-        );
+        this.toastService.show('Your changes were not saved yet. Wait a moment, then save again.');
       }
     } finally {
       this.finishRecipeSave(currentRecipe.id);
