@@ -39,35 +39,35 @@ RCP-119, chartered when this sprint closes.
 SI numbers are tracking numbers. The order of work is in [Ordered list](#ordered-list).
 Size is a sort, not an estimate: **Q** quick, **S** standard, **M** major.
 
-| SI      | Lane      | Size | Summary                                                                                      | KAN                       | Acceptance |
-| ------- | --------- | ---- | -------------------------------------------------------------------------------------------- | ------------------------- | ---------- |
-| **S1**  | Crawl     | Q    | Footer and home page link the tag hubs in the first HTML response                            | KAN-319                   | RCP-125    |
-| **S2**  | Crawl     | S    | Public recipe pages link the hubs at the top and the bottom                                  | KAN-349                   | RCP-126    |
-| **S3**  | Crawl     | M    | Home page newest-recipes row, ordered by `first_published_at`                                | KAN-348                   | RCP-127    |
-| **S4**  | Stability | S    | A generator save during the deferred startup auth check is persisted                         | KAN-306                   | RCP-128    |
-| **S5**  | Stability | S    | Saves that fail to reach the server say so (cookbook membership, manual entry, duplicate)    | KAN-333                   | RCP-129    |
-| **S6**  | Stability | S    | Rate-limiter follow-up from the v0.5.8 review (detail on the ticket)                         | KAN-335                   | RCP-130    |
-| **S7**  | UI        | Q    | Recipe view has a labelled Add to Cookbook button                                            | KAN-341                   | RCP-131    |
-| **S8**  | UI        | Q    | Public recipe pages have Previous and Next links                                             | KAN-342                   | RCP-132    |
-| **S9**  | UI        | Q    | Browse pages carry a plain-text page-number nav in the header                                | KAN-343                   | RCP-133    |
-| **S10** | UI        | Q    | Profile menu "Switch user" signs in through Google's account chooser                         | KAN-344                   | RCP-134    |
-| **S11** | Stability | Q    | Publish toggle shows the server's state; legacy manual rows get the right explanation        | KAN-334                   | RCP-135    |
-| **S12** | Stability | S    | Backend review follow-ups from the publish-gate release                                      | KAN-336                   | RCP-136    |
-| **S13** | Stability | S    | Publish-audit and write-pause operations are in the deploy; the runbook matches the day      | KAN-337                   | RCP-137    |
-| **S14** | Stability | M    | Recycle bin survives reloads, logouts and devices; failed deletes show; restore unpublished  | KAN-290                   | RCP-138    |
-| **S15** | SEO       | Q    | Recipe JSON-LD carries the Google-recommended fields                                         | KAN-320                   | RCP-139    |
-| **S16** | SEO       | S    | Recipe pages are not crawl dead-ends; the seven rich-result warnings each filled or declined | KAN-273                   | RCP-140    |
-| **S17** | SEO       | Q    | Home page ships as the generator landing page (ship criteria)                                | KAN-272                   | RCP-141    |
-| **S18** | SEO       | Q    | Tag hubs ship: 200, self-canonical, in the sitemap (ship criteria)                           | KAN-274                   | RCP-142    |
-| **S19** | SEO       | Q    | SPA-only routes are served `noindex` (ship criteria)                                         | KAN-276                   | RCP-143    |
-| **S20** | SEO       | S    | Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly                 | KAN-347                   | RCP-144    |
-| **S21** | Process   | Q    | gh-aw upgraded and the three agentic workflows recompiled                                    | KAN-323                   | RCP-145    |
-| **S22** | Links     | Q    | Docker Hub and the owned Meta profiles link the site                                          | KAN-311, KAN-313          | RCP-146    |
-| **S23** | Proof     | M    | Tested-recipe marker and authorship on `/about` (code half of E1)                            | KAN-346                   | RCP-147    |
-| **S24** | Links     | Q    | Pinterest pin variant as a 1:1 centre crop, no blurred bars                                  | KAN-309                   | RCP-117    |
-| **S25** | Feedback  | S    | Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment)   | KAN-345                   | RCP-148    |
-| **S26** | Exit      | S    | Readiness walk on production; mobile LCP medians; hub-link counts                            | KAN-351                   | RCP-149    |
-| **S27** | Feedback  | M    | Recipe feedback Phase 1 build: cooked entry, stars, held notes, public summary               | KAN-356                   | RCP-150    |
+| SI      | Lane      | Size | Summary                                                                                      | KAN              | Acceptance |
+| ------- | --------- | ---- | -------------------------------------------------------------------------------------------- | ---------------- | ---------- |
+| **S1**  | Crawl     | Q    | Footer and home page link the tag hubs in the first HTML response                            | KAN-319          | RCP-125    |
+| **S2**  | Crawl     | S    | Public recipe pages link the hubs at the top and the bottom                                  | KAN-349          | RCP-126    |
+| **S3**  | Crawl     | M    | Home page newest-recipes row, ordered by `first_published_at`                                | KAN-348          | RCP-127    |
+| **S4**  | Stability | S    | A generator save during the deferred startup auth check is persisted                         | KAN-306          | RCP-128    |
+| **S5**  | Stability | S    | Saves that fail to reach the server say so (cookbook membership, manual entry, duplicate)    | KAN-333          | RCP-129    |
+| **S6**  | Stability | S    | Rate-limiter follow-up from the v0.5.8 review (detail on the ticket)                         | KAN-335          | RCP-130    |
+| **S7**  | UI        | Q    | Recipe view has a labelled Add to Cookbook button                                            | KAN-341          | RCP-131    |
+| **S8**  | UI        | Q    | Public recipe pages have Previous and Next links                                             | KAN-342          | RCP-132    |
+| **S9**  | UI        | Q    | Browse pages carry a plain-text page-number nav in the header                                | KAN-343          | RCP-133    |
+| **S10** | UI        | Q    | Profile menu "Switch user" signs in through Google's account chooser                         | KAN-344          | RCP-134    |
+| **S11** | Stability | Q    | Publish toggle shows the server's state; legacy manual rows get the right explanation        | KAN-334          | RCP-135    |
+| **S12** | Stability | S    | Backend review follow-ups from the publish-gate release                                      | KAN-336          | RCP-136    |
+| **S13** | Stability | S    | Publish-audit and write-pause operations are in the deploy; the runbook matches the day      | KAN-337          | RCP-137    |
+| **S14** | Stability | M    | Recycle bin survives reloads, logouts and devices; failed deletes show; restore unpublished  | KAN-290          | RCP-138    |
+| **S15** | SEO       | Q    | Recipe JSON-LD carries the Google-recommended fields                                         | KAN-320          | RCP-139    |
+| **S16** | SEO       | S    | Recipe pages are not crawl dead-ends; the seven rich-result warnings each filled or declined | KAN-273          | RCP-140    |
+| **S17** | SEO       | Q    | Home page ships as the generator landing page (ship criteria)                                | KAN-272          | RCP-141    |
+| **S18** | SEO       | Q    | Tag hubs ship: 200, self-canonical, in the sitemap (ship criteria)                           | KAN-274          | RCP-142    |
+| **S19** | SEO       | Q    | SPA-only routes are served `noindex` (ship criteria)                                         | KAN-276          | RCP-143    |
+| **S20** | SEO       | S    | Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly                 | KAN-347          | RCP-144    |
+| **S21** | Process   | Q    | gh-aw upgraded and the three agentic workflows recompiled                                    | KAN-323          | RCP-145    |
+| **S22** | Links     | Q    | Docker Hub and the owned Meta profiles link the site                                         | KAN-311, KAN-313 | RCP-146    |
+| **S23** | Proof     | M    | Tested-recipe marker and authorship on `/about` (code half of E1)                            | KAN-346          | RCP-147    |
+| **S24** | Links     | Q    | Pinterest pin variant as a 1:1 centre crop, no blurred bars                                  | KAN-309          | RCP-117    |
+| **S25** | Feedback  | S    | Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment)   | KAN-345          | RCP-148    |
+| **S26** | Exit      | S    | Readiness walk on production; mobile LCP medians; hub-link counts                            | KAN-351          | RCP-149    |
+| **S27** | Feedback  | M    | Recipe feedback Phase 1 build: cooked entry, stars, held notes, public summary               | KAN-356          | RCP-150    |
 
 **No stretch items. No pre-authorised drops.** No item was bundled to fit a count. S22
 is one deliverable (every owned property links the site) with one execution row per
