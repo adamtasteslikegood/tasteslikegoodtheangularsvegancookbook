@@ -72,18 +72,16 @@ def compile_plan(plan_or_path=PLAN, map_path=None):
         except (OSError, json.JSONDecodeError):
             data = {}
 
-    swaps = list(
-        data.get("swaps")
-        or data.get("group_d_swaps")
-        or hard_gate.SWAPS
-    )
-    dropped_sis = (
-        set(data.get("dropped_sis") or [])
-        | set(hard_gate.DROPPABLE_SIS)
-        | {s.get("deferred_si") for s in swaps if s.get("deferred_si")}
-    )
+    # sprint12_rcp_map.json is the durable scope state (DX-DEC-2). In-memory
+    # hard_gate.SWAPS / DROPPABLE_SIS are only ever derived from it, so a map
+    # that is missing or unreadable means the empty baseline, not whatever an
+    # earlier apply_rcp_map left behind in this process.
+    swaps = list(data.get("swaps") or data.get("group_d_swaps") or [])
+    dropped_sis = set(data.get("dropped_sis") or []) | {
+        s.get("deferred_si") for s in swaps if s.get("deferred_si")
+    }
 
-    if not dropped_sis and not swaps and not effective_map.exists():
+    if not effective_map.exists():
         return plan
 
     for t in plan.get("tasks", []):
@@ -203,8 +201,12 @@ def _forward_cutover_flags(args, base_flag):
     for opt in ("--max-spillover", "--override-spillover-reason"):
         if opt in args:
             idx = args.index(opt)
+            # Forward the flag even without a value: the hard gate's argparse
+            # then fails with "expected one argument" instead of this wrapper
+            # silently running with the default cap.
+            hg_args.append(opt)
             if idx + 1 < len(args):
-                hg_args.extend([opt, args[idx + 1]])
+                hg_args.append(args[idx + 1])
             continue
         prefix = opt + "="
         for a in args:

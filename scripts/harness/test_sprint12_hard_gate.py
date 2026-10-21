@@ -881,6 +881,132 @@ class Sprint12HardGateTests(unittest.TestCase):
         finally:
             hard_gate.reset_state()
 
+    def test_print_dx_error_docs_anchor_exists_in_the_sprint_12_plan(self):
+        # The DOCS line of every diagnostic must land on a real heading.
+        import inspect
+        import re as _re
+
+        docs = inspect.signature(hard_gate.print_dx_error).parameters["docs"].default
+        rel_path, _, fragment = docs.partition("#")
+        plan = (Path(hard_gate.__file__).resolve().parents[2] / rel_path).read_text(
+            encoding="utf-8"
+        )
+        slugs = set()
+        for line in plan.splitlines():
+            if line.startswith("#"):
+                heading = line.lstrip("#").strip().lower()
+                slugs.add(_re.sub(r"[^\w\- ]", "", heading).replace(" ", "-"))
+        self.assertIn(fragment, slugs)
+
+    def test_check_spillover_overload_says_apply_swaps_was_skipped(self):
+        # --apply-spillover-swaps persists nothing on overload; the operator
+        # must be told, not left to discover an empty map on the next run.
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                jira = Mock()
+                jira.sprint_issues.return_value = [
+                    {
+                        "key": "KAN-%d" % n,
+                        "fields": {
+                            "summary": "open %d" % n,
+                            "status": {
+                                "name": "In Progress",
+                                "statusCategory": {"key": "indeterminate"},
+                            },
+                        },
+                    }
+                    for n in (301, 302, 303, 304)
+                ]
+                err = io.StringIO()
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err):
+                    rc = hard_gate.check_spillover(jira, apply_swaps=True, map_path=map_file)
+                self.assertEqual(rc, 1)
+                self.assertFalse(map_file.exists())
+                self.assertIn(
+                    "--apply-spillover-swaps was requested but nothing was persisted",
+                    err.getvalue(),
+                )
+                # A dry run never persists, so it does not raise the alarm.
+                err_dry = io.StringIO()
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                    err_dry
+                ):
+                    hard_gate.check_spillover(
+                        jira, apply_swaps=True, map_path=map_file, dry_run=True
+                    )
+                self.assertNotIn("nothing was persisted", err_dry.getvalue())
+        finally:
+            hard_gate.reset_state()
+
+    def test_bootstrap_charter_skips_the_relates_link_a_carried_in_row_already_has(self):
+        # A carried-in swap's acceptance row pre-dates this run and is usually
+        # linked to its KAN already; posting the link again duplicates it.
+        import json as _json
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                map_file = Path(tmp) / "sprint12_rcp_map.json"
+                map_file.write_text(
+                    _json.dumps(
+                        {
+                            "dropped_sis": ["S16"],
+                            "swaps": [
+                                {
+                                    "si": "CARRY-KAN-306",
+                                    "carried_in": "KAN-306",
+                                    "carried_summary": "Carried Sprint 11 bug",
+                                    "acceptance_rcp": "RCP-499",
+                                    "deferred_si": "S16",
+                                    "deferred_kan": "KAN-425",
+                                }
+                            ],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                jira = Mock()
+                jira.sprints.return_value = [
+                    {"id": 121, "name": "Sprint 11", "state": "closed"},
+                    {"id": 122, "name": "Sprint 12", "state": "future"},
+                ]
+                jira.sprint_issues.return_value = []
+                seq = {"kan": 436, "rcp": 900}
+                links = []
+
+                def fake_call(method, path, body=None):
+                    if method == "GET" and path == "/rest/api/3/issue/RCP-499?fields=issuelinks":
+                        return {
+                            "fields": {
+                                "issuelinks": [
+                                    {
+                                        "type": {"name": "Relates"},
+                                        "inwardIssue": {"key": "KAN-306"},
+                                    }
+                                ]
+                            }
+                        }
+                    if method == "POST" and path == "/rest/api/3/issue":
+                        proj = body["fields"]["project"]["key"]
+                        k = "%s-%d" % (proj, seq[proj.lower()])
+                        seq[proj.lower()] += 1
+                        return {"key": k}
+                    if method == "POST" and path == "/rest/api/3/issueLink":
+                        links.append((body["inwardIssue"]["key"], body["outwardIssue"]["key"]))
+                    return {}
+
+                jira.call.side_effect = fake_call
+                with contextlib.redirect_stdout(io.StringIO()):
+                    rc = hard_gate.bootstrap_charter(jira, map_path=map_file)
+                self.assertEqual(rc, 0)
+                self.assertNotIn(("KAN-306", "RCP-499"), links)
+                # Rows minted in this run are still linked.
+                self.assertIn("KAN-421", [k for k, _ in links])
+                saved = _json.loads(map_file.read_text(encoding="utf-8"))
+                self.assertIn("CARRY-KAN-306", saved.get("linked_sis", []))
+        finally:
+            hard_gate.reset_state()
+
     def test_write_rcp_map_checkpoint_preserves_override_spillover_reason(self):
         # check_spillover persists override_spillover_reason as an audit record.
         # A later bootstrap_charter checkpoint must not overwrite the file in a

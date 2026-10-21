@@ -148,6 +148,46 @@ class FakeControllerTests(unittest.TestCase):
         self.assertIn("--max-spillover=4", hg_args)
         self.assertIn("--override-spillover-reason=KAN-306 stuck", hg_args)
 
+    def test_forward_cutover_flags_keeps_a_value_less_flag_so_the_hard_gate_rejects_it(self):
+        # A bare "--max-spillover" used to vanish from the forwarded call and
+        # the hard gate ran with the default cap. Forward it and let argparse
+        # name the problem.
+        hg_args = driver._forward_cutover_flags(
+            ["--day1-cutover", "--max-spillover"], "--day1-cutover"
+        )
+        self.assertEqual(hg_args[-1], "--max-spillover")
+        err = io.StringIO()
+        with patch.object(hard_gate, "Jira"), contextlib.redirect_stderr(
+            err
+        ), self.assertRaises(SystemExit) as cm:
+            hard_gate.main(hg_args)
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("--max-spillover", err.getvalue())
+
+    def test_compile_plan_ignores_in_memory_scope_when_the_map_file_is_gone(self):
+        # sprint12_rcp_map.json is the durable scope state. If an operator
+        # wipes it, stale in-process SWAPS / DROPPABLE_SIS must not keep
+        # marking T16 carried or wiring KAN-306 into T18.
+        missing = Path(self.tmp.name) / "gone.json"
+        try:
+            hard_gate.DROPPABLE_SIS.add("S16")
+            hard_gate.SWAPS.append(
+                {
+                    "si": "CARRY-KAN-306",
+                    "carried_in": "KAN-306",
+                    "acceptance_rcp": "RCP-499",
+                    "deferred_si": "S16",
+                    "deferred_kan": "KAN-425",
+                }
+            )
+            compiled = driver.compile_plan(driver.PLAN, map_path=missing)
+        finally:
+            hard_gate.reset_state()
+        by_id = {t["id"]: t for t in compiled["tasks"]}
+        self.assertFalse(by_id["T16"].get("carried_to"))
+        self.assertIn("T16", by_id["T18"]["depends_on"])
+        self.assertNotIn("KAN-306", by_id["T18"]["jira"])
+
     def test_day1_cutover_dry_run_flag_forwards_to_hard_gate(self):
         class FakeCutoverJira:
             def sprints(self, board_id):

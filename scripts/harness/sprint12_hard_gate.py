@@ -343,7 +343,13 @@ def is_done(fields):
     return (fields["status"].get("name") or "").strip().lower() == "done"
 
 
-def print_dx_error(problem, cause, fix, docs="specs/SPRINT_12_PLAN.md#day-1-actions"):
+DX_DOCS = (
+    "specs/SPRINT_12_PLAN.md"
+    "#9-day-1-cutover--re-plan-protocol-handoff-to-harness-qa-loop"
+)
+
+
+def print_dx_error(problem, cause, fix, docs=DX_DOCS):
     """Emit structured 4-line PROBLEM / CAUSE / FIX / DOCS diagnostic to stderr."""
     print(f"PROBLEM: {problem}", file=sys.stderr)
     print(f"CAUSE:   {cause}", file=sys.stderr)
@@ -525,6 +531,27 @@ def resolve_create_intent(jira, intent, delays=None):
         if key:
             return key
     return None
+
+
+def _already_relates(jira, rcp_key, kan_key):
+    """True when ``rcp_key`` already carries a Relates link to ``kan_key``.
+
+    Carried-in swap rows and rows recovered by summary pre-date this run and
+    are usually linked already; posting the link again would duplicate it.
+    """
+    resp = jira.call("GET", "/rest/api/3/issue/%s?fields=issuelinks" % rcp_key)
+    links = (
+        ((resp.get("fields") or {}).get("issuelinks") or [])
+        if isinstance(resp, dict)
+        else []
+    )
+    for link in links:
+        if ((link.get("type") or {}).get("name") or "").lower() != "relates":
+            continue
+        other = link.get("inwardIssue") or link.get("outwardIssue") or {}
+        if other.get("key") == kan_key:
+            return True
+    return False
 
 
 def bootstrap_charter(
@@ -811,6 +838,8 @@ def bootstrap_charter(
 
         if was_placeholder and si not in LINKED_SIS:
             for k in kan_keys:
+                if _already_relates(jira, rcp_key, k):
+                    continue  # pre-existing row (carried-in or recovered) is linked already
                 jira.call(
                     "POST",
                     "/rest/api/3/issueLink",
@@ -1018,6 +1047,15 @@ def check_spillover(
                 "Sprint 11 has more unfinished KAN items than Priority Group D swap slots.",
                 f"Run with --max-spillover {len(open_items)} --override-spillover-reason \"<reason>\" or close remaining Sprint 11 tickets first.",
             )
+    if overload and apply_swaps and not dry_run:
+        print_dx_error(
+            "--apply-spillover-swaps was requested but nothing was persisted to %s."
+            % map_path,
+            "Swaps are recorded only once every spillover item has a slot; an "
+            "overload means the scope must be re-planned first.",
+            "Re-scope (raise --max-spillover with --override-spillover-reason, or "
+            "close the overflow items), then re-run with --apply-spillover-swaps.",
+        )
     return 1 if overload else 0
 
 
