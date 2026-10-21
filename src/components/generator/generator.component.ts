@@ -29,10 +29,6 @@ import {
 /** KAN-306: longest a save waits for the startup auth check before going ahead. */
 export const SAVE_SESSION_WAIT_MS = 10_000;
 
-/** KAN-306: shown when a save found no session, so nothing was stored. */
-export const NOT_SAVED_YET_MESSAGE =
-  'Your recipe was not saved yet. Wait a moment, then save again.';
-
 @Component({
   selector: 'app-generator',
   standalone: true,
@@ -159,17 +155,12 @@ export class GeneratorComponent extends RecipeViewBase {
           // without showing it, so the id alone does not mean "on screen".
           const shown =
             this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
-          if (outcome.noSession) {
-            // KAN-306: the sign-in check outlasted the wait, so nothing was
-            // stored. Say so: the screen alone looks like an unsaved recipe.
+          // No session here only means the client copy waited out the sign-in
+          // check: the server stored the recipe for its owner when generation
+          // started, so it is in My Kitchen either way.
+          if (!shown) {
             this.toastService.show(
-              shown
-                ? NOT_SAVED_YET_MESSAGE
-                : `"${generatedRecipe.name}" is ready, but it was not saved yet.`
-            );
-          } else if (!shown) {
-            this.toastService.show(
-              kept
+              kept || outcome.noSession
                 ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
                 : `"${generatedRecipe.name}" is ready.`
             );
@@ -203,7 +194,6 @@ export class GeneratorComponent extends RecipeViewBase {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       }
       trackRecipeSaveOutcome('generator_save', outcome);
-      if (outcome.noSession) this.toastService.show(NOT_SAVED_YET_MESSAGE);
     } finally {
       this.finishRecipeSave(currentRecipe.id);
     }
@@ -220,8 +210,9 @@ export class GeneratorComponent extends RecipeViewBase {
    * The wait is bounded and a failed check is not an error: the auth request
    * has no timeout of its own, and this runs inside the generation, so an
    * unbounded or rejecting wait would hold the save and the image step. Past
-   * the bound the save goes ahead; with still no session it reports "not
-   * saved" rather than ok.
+   * the bound the save goes ahead; with still no session it writes no
+   * client copy and says nothing, since the server already stored the
+   * recipe when generation started.
    */
   private async awaitSaveSession(): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;

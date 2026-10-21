@@ -10,9 +10,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
-- A recipe generated while the startup sign-in check is still running is now saved (KAN-306).
-  The generator waits for the check before saving, where it used to report the save as done and
-  keep nothing.
+- A recipe generated while the startup sign-in check is still running now shows as saved
+  (KAN-306). The generator waits for the check before saving its copy on the device. The server
+  stores every generated recipe when generation starts, so the recipe is in My Kitchen either way
+  and the generator shows no "not saved" message.
 - Saves that do not reach the server now say so (KAN-333). Adding a recipe to a cookbook or
   removing it, and saving a manually entered recipe, show a message when the write is paused or
   the sync fails. A cookbook membership is no longer written for a recipe the server refused as a

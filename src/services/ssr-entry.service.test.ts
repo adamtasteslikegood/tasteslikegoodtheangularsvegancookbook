@@ -35,7 +35,6 @@ describe('SsrEntryService', () => {
       opts.saveOutcome ??
       (opts.alreadySaved === true ? { ok: true, alreadySaved: true } : { ok: opts.synced ?? true });
     const saveRecipeDetailed = vi.fn().mockResolvedValue(saveOutcome);
-    const saveRecipe = vi.fn().mockResolvedValue(saveOutcome.ok);
     const injector = Injector.create({
       providers: [
         {
@@ -52,7 +51,6 @@ describe('SsrEntryService', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe,
             saveRecipeDetailed,
             firstSyncSettled: opts.firstSyncSettled ?? Promise.resolve(),
           },
@@ -376,7 +374,7 @@ describe('SsrEntryService', () => {
           provide: AuthService,
           useValue: { ready: Promise.reject(new Error('auth init failed')) },
         },
-        { provide: PersistenceService, useValue: { saveRecipe: vi.fn() } },
+        { provide: PersistenceService, useValue: { saveRecipeDetailed: vi.fn() } },
         { provide: ToastService, useValue: { show: toastShow } },
       ],
     });

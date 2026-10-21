@@ -1,11 +1,7 @@
 import '@angular/compiler';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  GeneratorComponent,
-  NOT_SAVED_YET_MESSAGE,
-  SAVE_SESSION_WAIT_MS,
-} from './generator.component';
+import { GeneratorComponent, SAVE_SESSION_WAIT_MS } from './generator.component';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
@@ -50,8 +46,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    // One double for saveRecipe and saveRecipeDetailed (the publish tests
-    // override it per case), resolving to a detailed SaveOutcome.
+    // The saveRecipeDetailed double (the publish tests override it per case),
+    // resolving to a detailed SaveOutcome.
     const persistenceSaveRecipe = vi
       .fn()
       .mockResolvedValue(
@@ -75,7 +71,6 @@ describe('GeneratorComponent shared recipe behaviour', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
             // KAN-255 post-image reconcile; null = row unreadable, the
             // branch that leaves the optimistic local write standing.
@@ -474,16 +469,17 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     });
     expect(action).not.toHaveBeenCalledWith('recipe_saved', expect.anything());
     expect(component.isSaved()).toBe(false);
-    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+    // The server stored the recipe when generation started (KAN-306).
+    expect(toastShow).not.toHaveBeenCalled();
   });
 
-  it('says a manual save with no session was not saved', async () => {
+  it('shows no "not saved" toast for a manual save with no session', async () => {
     const { component } = createComponent({ saveOutcome: { ok: true, noSession: true } });
     component.recipe.set(draftRecipe());
 
     await component.onSaveRecipe();
 
-    expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+    expect(toastShow).not.toHaveBeenCalled();
   });
 
   // KAN-306: a returning visitor with a cached signed-in session has no
@@ -572,8 +568,8 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     });
 
     // Past the bound a cached signed-in session is still deferred, so the save
-    // finds no session and stores nothing; the user must be told.
-    it('stops waiting on an auth check that never settles and says nothing was saved', async () => {
+    // finds no session; the server copy stands, so no toast.
+    it('stops waiting on an auth check that never settles', async () => {
       vi.useFakeTimers();
       try {
         const { ready } = holdAuthOpen();
@@ -589,7 +585,7 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
         expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
         expect(component.isSaved()).toBe(false);
-        expect(toastShow).toHaveBeenCalledWith(NOT_SAVED_YET_MESSAGE);
+        expect(toastShow).not.toHaveBeenCalled();
       } finally {
         vi.useRealTimers();
       }
@@ -773,6 +769,28 @@ describe('GeneratorComponent shared recipe behaviour', () => {
       recipeState.leaveGenerator();
       runInInjectionContext(injector, () => new GeneratorComponent());
       finishSave({ ok: true });
+      await generating;
+
+      expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');
+    });
+
+    // KAN-306: no session only skipped the client copy; the server stored the
+    // recipe when generation started, so it is in My Kitchen all the same.
+    it('points to My Kitchen when the user left and the save found no session', async () => {
+      const { component, injector, recipeState, persistenceSaveRecipe } = createComponent();
+      let finishSave!: (outcome: { ok: boolean; noSession: boolean }) => void;
+      persistenceSaveRecipe.mockReturnValue(
+        new Promise((resolve) => {
+          finishSave = resolve;
+        })
+      );
+      component.prompt.set('vegan cornbread');
+      const generating = component.onGenerate();
+      await vi.waitFor(() => expect(recipeState.currentRecipe()?.id).toBe('gen-1'));
+
+      recipeState.leaveGenerator();
+      runInInjectionContext(injector, () => new GeneratorComponent());
+      finishSave({ ok: true, noSession: true });
       await generating;
 
       expect(toastShow).toHaveBeenCalledWith('"Vegan Cornbread" is ready. Find it in My Kitchen.');

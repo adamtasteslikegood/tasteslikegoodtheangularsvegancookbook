@@ -42,10 +42,8 @@ describe('RecipeViewBase', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    // One spy behind both save entry points: saveNotes uses saveRecipe,
-    // togglePublic uses saveRecipeDetailed (KAN-155). `{ ok: true }` satisfies
-    // both — it is the SaveOutcome the detailed caller reads, and truthy for the
-    // boolean one.
+    // The saveRecipeDetailed spy (KAN-155); `{ ok: true }` is the SaveOutcome
+    // its callers read.
     const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
     // KAN-255: the post-image reconcile. Default null = "the row could not be
     // read", the branch that must leave the optimistic local write standing.
@@ -68,7 +66,6 @@ describe('RecipeViewBase', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
             refreshRecipeFromApi,
             publishStateSync: () => opts.publishStateSync ?? 'synced',
