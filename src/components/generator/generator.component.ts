@@ -144,7 +144,9 @@ export class GeneratorComponent extends RecipeViewBase {
           );
           const kept = saveOutcomeForAnalytics(outcome) !== null;
           if (this.recipe()?.id === generatedRecipe.id) {
-            this.isSaved.set(kept);
+            // The generation endpoint already owns this recipe server-side.
+            // noSession only means the optional client copy was skipped.
+            this.isSaved.set(kept || outcome.noSession);
           }
           // KAN-292: already_saved / saved / saved_offline from the detailed
           // outcome; ownership and duplicate refusals keep nothing and emit nothing.
@@ -194,6 +196,11 @@ export class GeneratorComponent extends RecipeViewBase {
         this.isSaved.set(saveOutcomeForAnalytics(outcome) !== null);
       }
       trackRecipeSaveOutcome('generator_save', outcome);
+      if (outcome.noSession) {
+        this.toastService.show(
+          'Your changes were not saved yet. Wait a moment, then save again.'
+        );
+      }
     } finally {
       this.finishRecipeSave(currentRecipe.id);
     }
@@ -210,9 +217,9 @@ export class GeneratorComponent extends RecipeViewBase {
    * The wait is bounded and a failed check is not an error: the auth request
    * has no timeout of its own, and this runs inside the generation, so an
    * unbounded or rejecting wait would hold the save and the image step. Past
-   * the bound the save goes ahead; with still no session it writes no
-   * client copy and says nothing, since the server already stored the
-   * recipe when generation started.
+   * the bound the save goes ahead. For a newly generated recipe, the server
+   * copy already exists; a later manual Save warns when its edited client
+   * copy could not be written.
    */
   private async awaitSaveSession(): Promise<void> {
     let timer: ReturnType<typeof setTimeout> | undefined;
