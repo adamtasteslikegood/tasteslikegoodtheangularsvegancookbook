@@ -62,7 +62,7 @@ Size is a sort, not an estimate: **Q** quick, **S** standard, **M** major.
 | **S19** | SEO       | Q    | SPA-only routes are served `noindex` (ship criteria)                                         | KAN-276                   | RCP-143    |
 | **S20** | SEO       | S    | Crawl-evidence instrument: verified Googlebot fetches by path prefix, weekly                 | KAN-347                   | RCP-144    |
 | **S21** | Process   | Q    | gh-aw upgraded and the three agentic workflows recompiled                                    | KAN-323                   | RCP-145    |
-| **S22** | Links     | Q    | Docker Hub, YouTube and the owned Meta profiles link the site                                | KAN-311, KAN-312, KAN-313 | RCP-146    |
+| **S22** | Links     | Q    | Docker Hub and the owned Meta profiles link the site                                          | KAN-311, KAN-313          | RCP-146    |
 | **S23** | Proof     | M    | Tested-recipe marker and authorship on `/about` (code half of E1)                            | KAN-346                   | RCP-147    |
 | **S24** | Links     | Q    | Pinterest pin variant as a 1:1 centre crop, no blurred bars                                  | KAN-309                   | RCP-117    |
 | **S25** | Feedback  | S    | Recipe feedback: pre-build steps (eng review, design review, R3-3 to R3-8, the Assignment)   | KAN-345                   | RCP-148    |
