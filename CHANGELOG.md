@@ -10,9 +10,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
-- A recipe generated while the startup sign-in check is still running is now saved (KAN-306).
-  The generator waits for the check before saving, where it used to report the save as done and
-  keep nothing.
+- A recipe generated while the startup sign-in check is still running now shows as saved
+  (KAN-306). The generator waits for the check before saving its copy on the device. It only shows
+  a generated recipe once the server reports it ready for this visitor's session, so the server
+  already holds it and generation shows no "not saved" message, even when the device copy is
+  skipped. A manual Save in that window says the changes were not saved yet.
 - Saves that do not reach the server now say so (KAN-333). Adding a recipe to a cookbook or
   removing it, and saving a manually entered recipe, show a message when the write is paused or
   the sync fails. A cookbook membership is no longer written for a recipe the server refused as a

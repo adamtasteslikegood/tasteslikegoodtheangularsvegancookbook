@@ -385,20 +385,9 @@ export class PersistenceService {
 
   // ─── Public API (components call these instead of AuthService directly) ──
 
-  /** Resolves `false` when the API sync failed so callers with optimistic UI
-   *  (e.g. togglePublic) can revert; never rejects — see `_apiSaveRecipe`.
-   *  Callers that need to explain WHY should use `saveRecipeDetailed`. */
-  async saveRecipe(recipe: Recipe): Promise<boolean> {
-    // KAN-306: no session means nothing was saved anywhere; not a success.
-    const outcome = await this.saveRecipeDetailed(recipe);
-    return outcome.ok && !outcome.noSession;
-  }
-
-  /** As `saveRecipe`, but reports why a save was refused (KAN-155).
-   *
-   *  Kept separate rather than widening `saveRecipe`'s return type: the boolean
-   *  contract has a dozen background-sync callers that only need "did it land",
-   *  and none of them should have to care about refusal reasons. */
+  /** Saves a recipe locally first, then to the API, and reports the outcome:
+   *  why a save was refused (KAN-155), or that there was no session (KAN-306).
+   *  Never rejects — see `_apiSaveRecipe`. */
   async saveRecipeDetailed(recipe: Recipe): Promise<SaveOutcome> {
     const user = this.auth.currentUser();
     if (!user) return { ok: true, noSession: true };
