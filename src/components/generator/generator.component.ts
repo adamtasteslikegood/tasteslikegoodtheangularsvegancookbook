@@ -136,44 +136,50 @@ export class GeneratorComponent extends RecipeViewBase {
         this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
         trackRecipeView(generatedRecipe, false);
       }
-      if (this.beginRecipeSave(generatedRecipe.id)) {
-        try {
-          await this.awaitSaveSession();
-          const outcome = await this.persistenceService.saveRecipeDetailed(
-            this.latestVersionOf(generatedRecipe)
-          );
-          const kept = saveOutcomeForAnalytics(outcome) !== null;
-          if (this.recipe()?.id === generatedRecipe.id) {
-            // The generation endpoint already owns this recipe server-side.
-            // noSession only means the optional client copy was skipped.
-            this.isSaved.set(kept || Boolean(outcome.noSession));
-          }
-          // KAN-292: already_saved / saved / saved_offline from the detailed
-          // outcome; ownership and duplicate refusals keep nothing and emit nothing.
-          trackRecipeSaveOutcome('generated', outcome);
-          // Asked after the save, not before it: the user can leave during
-          // the save too, and a generator they come back to starts empty.
-          // Both halves matter: My Kitchen keeps `currentRecipe` as a cache
-          // without showing it, so the id alone does not mean "on screen".
-          const shown =
-            this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
-          // No session here only means the client copy waited out the sign-in
-          // check: the server stored the recipe for its owner when generation
-          // started, so it is in My Kitchen either way.
-          if (!shown) {
-            this.toastService.show(
-              kept || outcome.noSession
-                ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
-                : `"${generatedRecipe.name}" is ready.`
+      const saved = (async () => {
+        if (this.beginRecipeSave(generatedRecipe.id)) {
+          try {
+            await this.awaitSaveSession();
+            const outcome = await this.persistenceService.saveRecipeDetailed(
+              this.latestVersionOf(generatedRecipe)
             );
+            const kept = saveOutcomeForAnalytics(outcome) !== null;
+            if (this.recipe()?.id === generatedRecipe.id) {
+              // The generation endpoint already owns this recipe server-side.
+              // noSession only means the optional client copy was skipped.
+              this.isSaved.set(kept || Boolean(outcome.noSession));
+            }
+            // KAN-292: already_saved / saved / saved_offline from the detailed
+            // outcome; ownership and duplicate refusals keep nothing and emit nothing.
+            trackRecipeSaveOutcome('generated', outcome);
+            // Asked after the save, not before it: the user can leave during
+            // the save too, and a generator they come back to starts empty.
+            // Both halves matter: My Kitchen keeps `currentRecipe` as a cache
+            // without showing it, so the id alone does not mean "on screen".
+            const shown =
+              this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
+            // No session here only means the client copy waited out the sign-in
+            // check: the server stored the recipe for its owner when generation
+            // started, so it is in My Kitchen either way.
+            if (!shown) {
+              this.toastService.show(
+                kept || outcome.noSession
+                  ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
+                  : `"${generatedRecipe.name}" is ready.`
+              );
+            }
+          } finally {
+            this.finishRecipeSave(generatedRecipe.id);
           }
-        } finally {
-          this.finishRecipeSave(generatedRecipe.id);
         }
-      }
+      })();
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
-      void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
+      // KAN-459: the request still waits for the save (a client save that lands
+      // after the worker could overwrite its image fields), but the spinner
+      // starts now instead of an "Image not available" placeholder.
+      void this.runImageGeneration(generatedRecipe.id, { regenerate: false, after: saved });
+      await saved;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
