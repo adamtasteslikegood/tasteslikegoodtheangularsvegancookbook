@@ -24,6 +24,10 @@ tools:
     lockdown: false
 
 safe-outputs:
+  # gh-aw cannot run threat detection on Gemini and falls back to Copilot, which
+  # has no budget here; run it on Claude with ANTHROPIC_API_KEY (KAN-445).
+  threat-detection:
+    engine: claude
   mentions: false
   allowed-github-references: []
   create-issue:
@@ -35,6 +39,12 @@ source: githubnext/agentics/workflows/daily-repo-status.md@442992eda2ccb11ee75a3
 # Gemini (GEMINI_API_KEY is present and matches the Backend gemini-triage setup).
 engine:
   id: gemini
+# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x defaults to v0.28.57
+# (see .github/aw/actions-lock.json).
+# Drop this block once gh-aw's default AWF version is v0.28.67 or later (KAN-323).
+sandbox:
+  agent:
+    version: v0.28.69
 ---
 
 # Daily Repo Status

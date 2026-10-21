@@ -5,6 +5,12 @@ on:
   workflow_dispatch:
 engine:
   id: gemini
+# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x defaults to v0.28.57
+# (see .github/aw/actions-lock.json).
+# Drop this block once gh-aw's default AWF version is v0.28.67 or later (KAN-323).
+sandbox:
+  agent:
+    version: v0.28.69
 permissions:
   contents: read
   issues: read
@@ -13,6 +19,10 @@ tools:
   github:
     toolsets: [default]
 safe-outputs:
+  # gh-aw cannot run threat detection on Gemini and falls back to Copilot, which
+  # has no budget here; run it on Claude with ANTHROPIC_API_KEY (KAN-445).
+  threat-detection:
+    engine: claude
   create-issue:
     title-prefix: "[Relevance Summary] "
     labels: [report]

@@ -79,15 +79,10 @@ class OptionalSecret(NamedTuple):
 _GH_AW_LOCKS = ("daily-repo-status.lock.yml", "issue-arborist.lock.yml", "relevance-summary.lock.yml")
 
 # Referenced secrets that may legitimately be unset. An entry is a product
-# decision (Adam's, 2026-10-01 for these six), not a way to go green. An absent
+# decision (Adam's, 2026-10-01 for the first five), not a way to go green. An absent
 # optional secret is a notice; an entry nothing references fails; a reference
 # outside the entry's files is an ordinary required reference until reviewed.
 OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
-    "ANTHROPIC_API_KEY": OptionalSecret(
-        "claude-review.yml: fallback to CLAUDE_CODE_OAUTH_TOKEN; the 'Check for a Claude"
-        " credential' step skips the review with a warning when neither is set",
-        ("claude-review.yml",),
-    ),
     "GCP_WORKLOAD_IDENTITY_PROVIDER": OptionalSecret(
         "gc-build-deploy.yml: cloud-build (the only auth use) needs predeploy_status =="
         " success, so it never runs with an empty value; deployment is enabled only by an"
@@ -113,6 +108,19 @@ OPTIONAL_SECRETS: dict[str, OptionalSecret] = {
     "GH_AW_GITHUB_MCP_SERVER_TOKEN": OptionalSecret(
         "gh-aw *.lock.yml optional override: same fallback-to-GITHUB_TOKEN pattern as"
         " GH_AW_GITHUB_TOKEN",
+        _GH_AW_LOCKS,
+    ),
+    # Emitted by every gh-aw compile since ADR-56353 (2026-08-27), no opt-out;
+    # KAN-323 brought them in. Adam decides on its PR (#3732): merging it confirms
+    # the pair as optional; a rejection removes them before merge.
+    "GH_AW_DEFAULT_OTLP_ENDPOINT": OptionalSecret(
+        "gh-aw *.lock.yml default OTLP export: read as secrets.X || vars.X with"
+        " GH_AW_OTLP_IF_MISSING: ignore, so an unset endpoint drops the export silently",
+        _GH_AW_LOCKS,
+    ),
+    "GH_AW_DEFAULT_OTLP_HEADERS": OptionalSecret(
+        "gh-aw *.lock.yml default OTLP export: headers only accompany the endpoint;"
+        " with no endpoint set, GH_AW_OTLP_IF_MISSING: ignore makes it a no-op",
         _GH_AW_LOCKS,
     ),
 }
