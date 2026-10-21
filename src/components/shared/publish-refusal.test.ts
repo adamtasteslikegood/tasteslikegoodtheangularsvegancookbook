@@ -161,7 +161,6 @@ describe('togglePublic on a refused publish (KAN-155)', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe: saveRecipeDetailed,
             saveRecipeDetailed,
             publishStateSync: () => 'synced',
           },

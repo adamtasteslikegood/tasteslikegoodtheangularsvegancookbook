@@ -6,7 +6,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.7.3] - 2026-10-20
+
+Backend pointer pinned at `b08a1eb9368d` (Backend `main`, promoted in Backend #436).
+
+### Added
+
+- Recipe pages name and anchor each method step (KAN-320, Backend #433). Each step's structured
+  data has a short name and a link to its `#step-N` anchor on the page, and keywords no longer
+  repeat the category and cuisine tags.
+
+### Fixed
+
+- A model answer with no text is retried instead of using up the recipe's one permitted
+  rejection (KAN-405, Backend #433). The build claim now outlasts the model call, so two workers
+  cannot run the same recipe at once (KAN-406).
+- A recipe generated while the startup sign-in check is still running now shows as saved
+  (KAN-306). The generator waits for the check before saving its copy on the device. It only shows
+  a generated recipe once the server reports it ready for this visitor's session, so the server
+  already holds it and generation shows no "not saved" message, even when the device copy is
+  skipped. A manual Save in that window says the changes were not saved yet.
+- Agent tools refuse a declared request body over their 10 KB limit before the access check
+  (KAN-407, Backend #435), so a switched-off tool or a signed-out generation call answers 413
+  instead of 404 or 401. The body itself is still read only after access.
+- Saves that do not reach the server now say so (KAN-333). Adding a recipe to a cookbook or
+  removing it, and saving a manually entered recipe, show a message when the write is paused or
+  the sync fails. A cookbook membership is no longer written for a recipe the server refused as a
+  duplicate, and saving notes on such a recipe says the account already has it as another copy.
 
 ## [0.7.2] - 2026-10-18
 

@@ -2,14 +2,20 @@
 description: Daily workflow that analyzes open issues and links related issues as sub-issues to improve issue organization
 name: Issue Arborist
 on:
-  # Twice a day is plenty for issue gardening; every 3h burned engine budget.
-  schedule: every 12h
+  # Once a day (Adam, 2026-10-20); every 3h burned engine budget.
+  schedule: daily
   workflow_dispatch:
 
 # Copilot budget is exhausted and gh-aw ignores CLAUDE_CODE_OAUTH_TOKEN, so run on
 # Gemini (GEMINI_API_KEY is present and matches the Backend gemini-triage setup).
 engine:
   id: gemini
+# Gemini auth fix (gh-aw-firewall#10246) ships in AWF v0.28.67+; gh-aw v0.92.x defaults to v0.28.57
+# (see .github/aw/actions-lock.json).
+# Drop this block once gh-aw's default AWF version is v0.28.67 or later (KAN-323).
+sandbox:
+  agent:
+    version: v0.28.69
 
 permissions:
   contents: read
@@ -56,6 +62,10 @@ steps:
       echo "✓ Issues data saved to /tmp/gh-aw/issues-data/issues.json"
       echo "Total issues fetched: $(jq 'length' /tmp/gh-aw/issues-data/issues.json)"
 safe-outputs:
+  # gh-aw cannot run threat detection on Gemini and falls back to Copilot, which
+  # has no budget here; run it on Claude with ANTHROPIC_API_KEY (KAN-445).
+  threat-detection:
+    engine: claude
   create-issue:
     expires: 2d
     title-prefix: "[parent] "
@@ -63,6 +73,9 @@ safe-outputs:
     group: true
   link-sub-issue:
     max: 50
+    # Scheduled and dispatched runs have no triggering issue; the agent names
+    # both parent and sub-issue on every link (KAN-448).
+    target: "*"
   noop: {}
 timeout-minutes: 15
 source: githubnext/agentics/workflows/issue-arborist.md@1c6668b751c51af8571f01204ceffb19362e0f66

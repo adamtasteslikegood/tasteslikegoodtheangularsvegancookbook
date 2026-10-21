@@ -90,7 +90,10 @@ export class GeminiService {
 
   /**
    * Generate a vegan recipe via the Flask backend.
-   * The backend saves the recipe to the database and returns it.
+   *
+   * Resolves only with the row the owner-scoped status lookup returns as
+   * ready, so the server already holds the recipe for this session. The
+   * generator relies on that when a client save finds no session (KAN-306).
    */
   async generateRecipe(userPrompt: string): Promise<Recipe> {
     const response = await fetch('/api/generate', {
@@ -106,25 +109,22 @@ export class GeminiService {
     }
 
     const payload = await response.json();
-    const recipeId = payload.recipe_id || (payload.recipe && payload.recipe.id);
-
-    // Poll for status if generating asynchronously
-    if (payload.status === 'generating') {
-      return this.pollStatus(
-        recipeId,
-        'Recipe generation timed out after 5 minutes. Please try again.',
-        ({ status, recipe }) => {
-          if (status === 'error') {
-            throw new Error('Recipe generation failed during async processing');
-          }
-          return status === 'ready' && recipe ? recipe : undefined;
-        }
-      );
+    // /api/generate only queues (202, status "generating"). Anything else is
+    // not a server-held recipe, so it must not reach the generator as one.
+    if (payload.status !== 'generating' || !payload.recipe_id) {
+      throw new Error('Recipe generation failed.');
     }
 
-    const recipe = payload.recipe as Recipe;
-    recipe.id = recipe.id || crypto.randomUUID();
-    return recipe;
+    return this.pollStatus(
+      payload.recipe_id,
+      'Recipe generation timed out after 5 minutes. Please try again.',
+      ({ status, recipe }) => {
+        if (status === 'error') {
+          throw new Error('Recipe generation failed during async processing');
+        }
+        return status === 'ready' && recipe ? recipe : undefined;
+      }
+    );
   }
 
   /**

@@ -42,10 +42,8 @@ describe('RecipeViewBase', () => {
       Injector.create({ providers: [] }),
       () => new RecipeStateService()
     );
-    // One spy behind both save entry points: saveNotes uses saveRecipe,
-    // togglePublic uses saveRecipeDetailed (KAN-155). `{ ok: true }` satisfies
-    // both — it is the SaveOutcome the detailed caller reads, and truthy for the
-    // boolean one.
+    // The saveRecipeDetailed spy (KAN-155); `{ ok: true }` is the SaveOutcome
+    // its callers read.
     const persistenceSaveRecipe = vi.fn().mockResolvedValue({ ok: true });
     // KAN-255: the post-image reconcile. Default null = "the row could not be
     // read", the branch that must leave the optimistic local write standing.
@@ -68,7 +66,6 @@ describe('RecipeViewBase', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
             refreshRecipeFromApi,
             publishStateSync: () => opts.publishStateSync ?? 'synced',
@@ -293,6 +290,23 @@ describe('RecipeViewBase', () => {
       expect(toastShow).toHaveBeenCalledWith(
         expect.stringMatching(/not (been )?synced|not saved/i)
       );
+    });
+
+    // KAN-333: a duplicate refusal is not a connection problem — the account
+    // already holds this recipe as another copy, and saving again cannot help.
+    it('says the account already has this recipe when the save is a duplicate', async () => {
+      const { host, persistenceSaveRecipe } = createHost();
+      persistenceSaveRecipe.mockResolvedValue({ ok: false, refusal: 'duplicate' });
+      host.recipe.set(generated());
+
+      host.startEditNotes();
+      host.editedNotes.set('more paprika');
+      await host.saveNotes();
+
+      expect(toastShow).toHaveBeenCalledOnce();
+      const message = toastShow.mock.calls[0][0] as string;
+      expect(message).toMatch(/already has this recipe/i);
+      expect(message).not.toMatch(/connection/i);
     });
 
     it('says nothing when the save lands', async () => {

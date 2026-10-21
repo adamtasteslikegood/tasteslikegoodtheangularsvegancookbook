@@ -81,7 +81,6 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
         {
           provide: PersistenceService,
           useValue: {
-            saveRecipe: persistenceSaveRecipe,
             saveRecipeDetailed: persistenceSaveRecipe,
             publishStateSync: () => 'synced',
           },
@@ -616,7 +615,7 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       };
       component.recipe.set(recipe as never);
       // Emulate the persistence mirror-back: the server minted a -2 slug on
-      // name collision and auth state was updated before saveRecipe resolved.
+      // name collision and auth state was updated before saveRecipeDetailed resolved.
       persistenceSaveRecipe.mockImplementation(async (saved: { slug?: string }) => {
         expect(saved.slug).toBeUndefined();
         authUser.savedRecipes = [{ ...recipe, is_public: true, slug: 'vegan-cornbread-2' }];
