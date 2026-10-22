@@ -47,7 +47,7 @@ Computed deterministically on `2026-10-18` via `jira_snapshot_bridge.py --to flo
 **Capacity Allocation for Sprint 12 (14 days, `2026-10-23` → `2026-11-06`):**
 
 - **Core Agent Commitment (`S1`–`S12` = 12 SIs):** Positioned squarely inside the **70%–85% active-cadence Monte Carlo band (`10–14` items)**. Covers Recipe Feedback Phase 1 (`S1`–`S3`), data/UX integrity bugs (`S4`–`S6`, `S10`), SEO/distribution (`S7`–`S9`), and publish-gate ops follow-ups (`S11`–`S12`).
-- **Bounded Agent Follow-Ups (`S13`, `S14`, `S16` = 3 SIs) + Human Lane (`S15` = 1 SI in `lane:adam`):** Brings total Sprint 12 SIs to **16 SIs (`S1`–`S16`)** at charter; `S17` was added on 2026-10-22 (Priority Group F), making **17 SIs**, well below the 50%-confidence median (`25` items) and matching Sprint 10's (`19` SIs) and Sprint 11's (`30+` SIs) demonstrated delivery velocity.
+- **Bounded Agent Follow-Ups (`S13`, `S14`, `S16` = 3 SIs) + Human Lane (`S15` = 1 SI in `lane:adam`):** Brings total Sprint 12 SIs to **17 SIs (`S1`–`S17`)**: 16 at charter plus `S17`, added on 2026-10-22 (Priority Group F), well below the 50%-confidence median (`25` items) and matching Sprint 10's (`19` SIs) and Sprint 11's (`30+` SIs) demonstrated delivery velocity.
 - **Process Lane Reserve (10% budget):** 3 small hygiene tickets (`KAN-188`, `KAN-429`/`KAN-402`, `KAN-390`) scheduled in Week 1 (`<= 2026-10-28`).
 - **WIP & Concurrency Limit:** Max **3 concurrent agent lanes** (`lane:<worktree>`) in `In Progress` at any time (`scripts/pm/check_sprint_lane.sh`); `lane:adam` (`S15`) is exempt.
 
