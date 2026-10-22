@@ -1,0 +1,614 @@
+{
+  "schema": "agent-harness/plan.v1",
+  "goal": "Execute the 8 production refactoring backlog tickets (KAN-460 through KAN-467, covering 15,813 lines across 17 oversized Backend, Cookbook SPA, Express SSR, and repo tooling files) in 4 sequential groups (G1..G4) with mandatory human check-in stopping points (C1..C4) after each group so no task in Group N+1 can start until Group N is verified and approved.",
+  "domain": "engineering",
+  "compiled_at": "2026-10-22",
+  "charter": "specs/harness/README.md",
+  "jira": {
+    "project": "KAN",
+    "sprint": "Refactoring Backlog",
+    "labels": ["backlog", "refactor"],
+    "issues": [
+      "KAN-460",
+      "KAN-461",
+      "KAN-462",
+      "KAN-463",
+      "KAN-464",
+      "KAN-465",
+      "KAN-466",
+      "KAN-467"
+    ]
+  },
+  "hard_gate": {
+    "cmd": "python3 scripts/harness/refactor_hard_gate.py --close",
+    "group_cmd": "python3 scripts/harness/refactor_hard_gate.py --group <G1|G2|G3|G4>",
+    "rule": "Every task's refactored source files meet their post-extraction line-count ceiling and export their backwards-compatible facade symbols, extracted modules exist and are non-empty, all unit/integration suites pass, every group stopping point (C1..C4) has a recorded human check-in approval (.agent-harness/refactor/G<N>.checkin.json), and KAN-460..KAN-467 are Done at close."
+  },
+  "repo_scope": {
+    "backend_repo": "adamtasteslikegood/tasteslikegood.com",
+    "frontend_repo": "adamtasteslikegood/tasteslikegoodtheangularsvegancookbook",
+    "integration_branch": "chore/refactor_argon_integration",
+    "rule": "All 4 groups branch off and open checkpoint PRs into the dedicated integration branch `chore/refactor_argon_integration` (in both Backend and Cookbook repos) before any final promotion to `dev`. Groups G1 and G2 (KAN-460..KAN-463) modify Backend/; Groups G3 and G4 (KAN-464..KAN-467) modify the cookbook root repo."
+  },
+  "groups": {
+    "G1": {
+      "name": "Group 1 — Backend Core Repository & Public SSR Blueprint",
+      "tasks": ["T1", "T2"],
+      "checkin_task": "C1",
+      "jira": ["KAN-460", "KAN-461"],
+      "repo": "Backend",
+      "branch": "chore/refactor-g1-kan-460-461",
+      "pr_base": "chore/refactor_argon_integration",
+      "stopping_point": true,
+      "checkin_gate_cmd": "python3 scripts/harness/refactor_driver.py check-gate G1",
+      "checkin_approve_cmd": "python3 scripts/harness/refactor_driver.py checkin G1 --approve --notes \"<human review summary>\""
+    },
+    "G2": {
+      "name": "Group 2 — Backend Worker, Generation & Auth Blueprints",
+      "tasks": ["T3", "T4"],
+      "checkin_task": "C2",
+      "jira": ["KAN-462", "KAN-463"],
+      "repo": "Backend",
+      "branch": "chore/refactor-g2-kan-462-463",
+      "pr_base": "chore/refactor_argon_integration",
+      "depends_on_group": "G1",
+      "stopping_point": true,
+      "checkin_gate_cmd": "python3 scripts/harness/refactor_driver.py check-gate G2",
+      "checkin_approve_cmd": "python3 scripts/harness/refactor_driver.py checkin G2 --approve --notes \"<human review summary>\""
+    },
+    "G3": {
+      "name": "Group 3 — Cookbook Frontend Services, View Base & Templates",
+      "tasks": ["T5", "T6"],
+      "checkin_task": "C3",
+      "jira": ["KAN-464", "KAN-465"],
+      "repo": "Cookbook",
+      "branch": "chore/refactor-g3-kan-464-465",
+      "pr_base": "chore/refactor_argon_integration",
+      "depends_on_group": "G2",
+      "stopping_point": true,
+      "checkin_gate_cmd": "python3 scripts/harness/refactor_driver.py check-gate G3",
+      "checkin_approve_cmd": "python3 scripts/harness/refactor_driver.py checkin G3 --approve --notes \"<human review summary>\""
+    },
+    "G4": {
+      "name": "Group 4 — Express SSR Server, RUM Consent & Repo Tooling Scripts",
+      "tasks": ["T7", "T8"],
+      "checkin_task": "C4",
+      "jira": ["KAN-466", "KAN-467"],
+      "repo": "Cookbook",
+      "branch": "chore/refactor-g4-kan-466-467",
+      "pr_base": "chore/refactor_argon_integration",
+      "depends_on_group": "G3",
+      "stopping_point": true,
+      "checkin_gate_cmd": "python3 scripts/harness/refactor_driver.py check-gate G4",
+      "checkin_approve_cmd": "python3 scripts/harness/refactor_driver.py checkin G4 --approve --notes \"<human review summary>\""
+    }
+  },
+  "lanes": {
+    "Backend-Core": {
+      "scope": "Group 1 (KAN-460, KAN-461): DbRecipeRepository decomposition and public_bp.py SEO/image/hub service extraction in Backend/.",
+      "must_not_touch": ["src/", "server/", "public/", ".github/workflows/", "scripts/harness/"]
+    },
+    "Backend-API-Auth": {
+      "scope": "Group 2 (KAN-462, KAN-463): worker_api_bp.py, generation_api_bp.py, auth_api_bp.py, and valkey_auth.py service extraction in Backend/.",
+      "must_not_touch": ["src/", "server/", "public/", ".github/workflows/", "scripts/harness/"]
+    },
+    "Frontend-SPA": {
+      "scope": "Group 3 (KAN-464, KAN-465): PersistenceService, AuthService, RecipeViewBase, and generator/kitchen/recipe-detail Angular templates in src/.",
+      "must_not_touch": ["Backend/", "server/", "public/rum/", "scripts/", ".github/workflows/"]
+    },
+    "SSR-And-Tooling": {
+      "scope": "Group 4 (KAN-466, KAN-467): Express server/index.ts, public/rum/consent.js, and scripts/monitoring/gsc_tools.py, scripts/git/git-workflow.sh, scripts/pm/atlassian_pm_link.py.",
+      "must_not_touch": ["Backend/", "src/", "scripts/harness/"]
+    },
+    "Check-In": {
+      "scope": "Group stopping points (C1, C2, C3, C4): run group hard gates, verify all tasks in the group are complete, pause the loop for human review, and record check-in approval before unlocking the next group.",
+      "must_not_touch": []
+    }
+  },
+  "tasks": [
+    {
+      "id": "T1",
+      "si": "R1",
+      "group": "G1",
+      "jira": ["KAN-460"],
+      "lane": "Backend-Core",
+      "depends_on": [],
+      "skill": "investigate",
+      "skill_path": ".claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Refactor `Backend/repositories/db_recipe_repository.py` (1,737 lines) for KAN-460 into focused modules: extract public slug resolution/collision retry/retired-slug reclamation helpers into `Backend/repositories/recipe_slugs.py`, async worker claim/status/patch operations into `Backend/repositories/recipe_worker_ops.py`, and image-generation queue + file-to-DB migration helpers into `Backend/repositories/recipe_image_queue.py`. Keep `DbRecipeRepository` and all domain exceptions (`RecipeConflictError`, `PublishGateError`, etc.) importable from `repositories.db_recipe_repository` as the backwards-compatible facade, reducing `db_recipe_repository.py` to <= 800 lines with zero behavioral regressions.",
+      "suggested_tools": [
+        "pytest",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T1 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "uv --directory Backend run pytest tests/ -q",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-460",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-460 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`Backend/repositories/db_recipe_repository.py` is <= 800 lines, `recipe_slugs.py`, `recipe_worker_ops.py`, and `recipe_image_queue.py` exist and are wired into `DbRecipeRepository`, all Backend pytest suites pass, the Backend PR for KAN-460 is merged, and KAN-460 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T2",
+      "si": "R2",
+      "group": "G1",
+      "jira": ["KAN-461"],
+      "lane": "Backend-Core",
+      "depends_on": [],
+      "skill": "investigate",
+      "skill_path": ".claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Refactor `Backend/blueprints/public_bp.py` (1,722 lines) for KAN-461: extract responsive `<picture>` and image variant builders into `Backend/services/public_images.py`, Schema.org JSON-LD (`_recipe_json_ld`, `_breadcrumb_json_ld`, `_collection_json_ld`), SEO meta, and Pinterest share builders into `Backend/services/public_seo.py`, and hub taxonomy/breadcrumb/related-recipe helpers into `Backend/services/public_hubs.py`. Keep `public_bp` route registrations and backwards-compatible helper re-exports intact while reducing `Backend/blueprints/public_bp.py` to <= 700 lines.",
+      "suggested_tools": [
+        "pytest",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T2 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "uv --directory Backend run pytest tests/ -q",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-461",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-461 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`Backend/blueprints/public_bp.py` is <= 700 lines, `public_images.py`, `public_seo.py`, and `public_hubs.py` exist under `Backend/services/`, all Backend pytest suites pass, the Backend PR for KAN-461 is merged, and KAN-461 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "C1",
+      "si": "G1-CHECKIN",
+      "group": "G1",
+      "checkin_for_group": "G1",
+      "jira": ["KAN-460", "KAN-461"],
+      "lane": "Check-In",
+      "depends_on": ["T1", "T2"],
+      "skill": "harness-qa-loop",
+      "skill_path": ".claude/skills/harness-qa-loop/SKILL.md",
+      "objective": "STOPPING POINT — Group 1 Human Check-In (`G1`: `KAN-460` + `KAN-461`, Backend Core Repository & Public SSR Blueprint): pause the loop after `T1` and `T2` are verified, run `python3 scripts/harness/refactor_hard_gate.py --group G1` to confirm line-count reductions, extracted modules, and Jira states, present the Group 1 diff/test summary to the human operator, and wait for explicit approval via `python3 scripts/harness/refactor_driver.py checkin G1 --approve --notes \"<review notes>\"` before unlocking Group 2 (`T3`, `T4`).",
+      "suggested_tools": [
+        "scripts/harness/refactor_driver.py",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --group G1",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_driver.py check-gate G1",
+          "expect_exit": 0,
+          "kind": "gate"
+        },
+        {
+          "cmd": "MANUAL: Human check-in completed for Group 1 (KAN-460 db_recipe_repository.py + KAN-461 public_bp.py); operator reviewed test results and approved progression to Group 2",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Group 1 hard gate (`--group G1`) and driver check-in gate (`check-gate G1`) exit 0, and human check-in approval for Group 1 is recorded.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T3",
+      "si": "R3",
+      "group": "G2",
+      "jira": ["KAN-462"],
+      "lane": "Backend-API-Auth",
+      "depends_on": ["C1"],
+      "skill": "investigate",
+      "skill_path": ".claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Refactor `Backend/blueprints/worker_api_bp.py` (822 lines) and `Backend/blueprints/generation_api_bp.py` (734 lines) for KAN-462: extract Pub/Sub push envelope parsing, async worker recipe/image generation orchestration, and fallback recovery into `Backend/services/worker_orchestration.py` and `Backend/services/generation_orchestration.py`, reducing both blueprint files to <= 450 lines each while preserving all route endpoints and tests.",
+      "suggested_tools": [
+        "pytest",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T3 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "uv --directory Backend run pytest tests/ -q",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-462",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-462 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`worker_api_bp.py` and `generation_api_bp.py` are each <= 450 lines, `worker_orchestration.py` and `generation_orchestration.py` exist under `Backend/services/`, all Backend pytest suites pass, the Backend PR for KAN-462 is merged, and KAN-462 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T4",
+      "si": "R4",
+      "group": "G2",
+      "jira": ["KAN-463"],
+      "lane": "Backend-API-Auth",
+      "depends_on": ["C1"],
+      "skill": "investigate",
+      "skill_path": ".claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Refactor `Backend/blueprints/auth_api_bp.py` (637 lines) and `Backend/utils/valkey_auth.py` (608 lines) for KAN-463: extract Google OAuth state/callback & account-switching helpers into `Backend/services/oauth_flow.py`, and split Valkey session CRUD and rate-limiting primitives into `Backend/utils/valkey_sessions.py` and `Backend/utils/valkey_ratelimit.py` while keeping `valkey_auth.py` as the backwards-compatible re-export facade and reducing `auth_api_bp.py` and `valkey_auth.py` to <= 380 lines each.",
+      "suggested_tools": [
+        "pytest",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T4 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "uv --directory Backend run pytest tests/ -q",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-463",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list -R adamtasteslikegood/tasteslikegood.com --state merged --search KAN-463 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`auth_api_bp.py` and `valkey_auth.py` are each <= 380 lines, `oauth_flow.py`, `valkey_sessions.py`, and `valkey_ratelimit.py` exist, all Backend pytest suites pass, the Backend PR for KAN-463 is merged, and KAN-463 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "C2",
+      "si": "G2-CHECKIN",
+      "group": "G2",
+      "checkin_for_group": "G2",
+      "jira": ["KAN-462", "KAN-463"],
+      "lane": "Check-In",
+      "depends_on": ["T3", "T4"],
+      "skill": "harness-qa-loop",
+      "skill_path": ".claude/skills/harness-qa-loop/SKILL.md",
+      "objective": "STOPPING POINT — Group 2 Human Check-In (`G2`: `KAN-462` + `KAN-463`, Backend Worker, Generation & Auth Blueprints): pause the loop after all Backend refactoring (`G1` + `G2`) is verified, run `python3 scripts/harness/refactor_hard_gate.py --group G2`, verify the full Backend pytest suite and submodule pointer hygiene, present the Backend completion summary to the human operator, and wait for explicit approval via `python3 scripts/harness/refactor_driver.py checkin G2 --approve --notes \"<review notes>\"` before crossing into Cookbook Frontend (`Group 3`).",
+      "suggested_tools": [
+        "scripts/harness/refactor_driver.py",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --group G2",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_driver.py check-gate G2",
+          "expect_exit": 0,
+          "kind": "gate"
+        },
+        {
+          "cmd": "MANUAL: Human check-in completed for Group 2 (KAN-462 worker/generation blueprints + KAN-463 auth/valkey modules); all Backend refactors reviewed and approved before starting Cookbook Group 3",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Group 2 hard gate (`--group G2`) and driver check-in gate (`check-gate G2`) exit 0, and human check-in approval for Group 2 is recorded.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T5",
+      "si": "R5",
+      "group": "G3",
+      "jira": ["KAN-464"],
+      "lane": "Frontend-SPA",
+      "depends_on": ["C2"],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Refactor `src/services/persistence.service.ts` (855 lines) and `src/services/auth.service.ts` (661 lines) for KAN-464: extract pure HTTP outcome classification and recipe identity-merge helpers into `src/services/persistence-outcomes.ts`, and extract local user/recipe/recycle-bin/cookbook state store operations into `src/services/user-library.store.ts`, reducing `persistence.service.ts` to <= 550 lines and `auth.service.ts` to <= 380 lines while preserving all public service methods and signals.",
+      "suggested_tools": [
+        "npm test",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T5 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "npm test -- --run",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-464",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-464 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`persistence.service.ts` is <= 550 lines, `auth.service.ts` is <= 380 lines, `persistence-outcomes.ts` and `user-library.store.ts` exist under `src/services/`, `npm test -- --run` passes, the cookbook PR for KAN-464 is merged, and KAN-464 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T6",
+      "si": "R6",
+      "group": "G3",
+      "jira": ["KAN-465"],
+      "lane": "Frontend-SPA",
+      "depends_on": ["C2"],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Refactor `src/components/shared/recipe-view.base.ts` (526 lines) and the 3 largest Angular component templates (`src/components/generator/generator.component.html` 701 lines, `src/components/kitchen/kitchen.component.html` 706 lines, `src/components/recipe-detail/recipe-detail.component.html` 606 lines) for KAN-465: extract publish state-machine/banner helpers into `src/components/shared/recipe-publish-state.ts` and reusable sub-components under `src/components/shared/`, reducing `recipe-view.base.ts` to <= 360 lines and each of the three component templates to <= 480 lines.",
+      "suggested_tools": [
+        "npm test",
+        "npm run build",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T6 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "npm test -- --run && npm run build",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-465",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-465 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`recipe-view.base.ts` is <= 360 lines, `generator.component.html`, `kitchen.component.html`, and `recipe-detail.component.html` are each <= 480 lines, `recipe-publish-state.ts` exists, `npm test` and `npm run build` pass, the cookbook PR for KAN-465 is merged, and KAN-465 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "C3",
+      "si": "G3-CHECKIN",
+      "group": "G3",
+      "checkin_for_group": "G3",
+      "jira": ["KAN-464", "KAN-465"],
+      "lane": "Check-In",
+      "depends_on": ["T5", "T6"],
+      "skill": "harness-qa-loop",
+      "skill_path": ".claude/skills/harness-qa-loop/SKILL.md",
+      "objective": "STOPPING POINT — Group 3 Human Check-In (`G3`: `KAN-464` + `KAN-465`, Cookbook Frontend Services, View Base & Templates): pause the loop after `T5` and `T6` are verified, run `python3 scripts/harness/refactor_hard_gate.py --group G3`, verify Angular unit tests and SSR build output, present the Group 3 frontend review summary to the human operator, and wait for explicit approval via `python3 scripts/harness/refactor_driver.py checkin G3 --approve --notes \"<review notes>\"` before unlocking Group 4 (`T7`, `T8`).",
+      "suggested_tools": [
+        "scripts/harness/refactor_driver.py",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --group G3",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_driver.py check-gate G3",
+          "expect_exit": 0,
+          "kind": "gate"
+        },
+        {
+          "cmd": "MANUAL: Human check-in completed for Group 3 (KAN-464 PersistenceService/AuthService + KAN-465 RecipeViewBase/templates); operator reviewed SPA build & tests and approved progression to Group 4",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Group 3 hard gate (`--group G3`) and driver check-in gate (`check-gate G3`) exit 0, and human check-in approval for Group 3 is recorded.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T7",
+      "si": "R7",
+      "group": "G4",
+      "jira": ["KAN-466"],
+      "lane": "SSR-And-Tooling",
+      "depends_on": ["C3"],
+      "skill": "senior-frontend",
+      "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/engineering/skills/senior-frontend/SKILL.md",
+      "objective": "Refactor `server/index.ts` (572 lines) and `public/rum/consent.js` (835 lines) for KAN-466: extract canonical-host/staging/security-header middleware and public shell/redirect route handlers into focused modules under `server/` (e.g. `server/middleware.ts` and `server/public-routes.ts`), and modularize `public/rum/consent.js` by extracting banner/modal UI rendering into `public/rum/consent-ui.js` (or companion module), reducing `server/index.ts` to <= 350 lines and `public/rum/consent.js` to <= 450 lines.",
+      "suggested_tools": [
+        "npm test",
+        "npm run build",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T7 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "npm test -- --run && npm run build",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-466",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-466 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`server/index.ts` is <= 350 lines, `public/rum/consent.js` is <= 450 lines, extracted `server/` and `public/rum/` modules exist, `npm test` and `npm run build` pass, the cookbook PR for KAN-466 is merged, and KAN-466 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T8",
+      "si": "R8",
+      "group": "G4",
+      "jira": ["KAN-467"],
+      "lane": "SSR-And-Tooling",
+      "depends_on": ["C3"],
+      "skill": "investigate",
+      "skill_path": ".claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Refactor the 3 oversized repository tooling scripts for KAN-467: split `scripts/monitoring/gsc_tools.py` (1,662 lines) by extracting client/OAuth/sitemap helpers into `scripts/monitoring/gsc_client.py` (keeping `gsc_tools.py` <= 750 lines), split `scripts/git/git-workflow.sh` (1,531 lines) by extracting shared helpers/subcommands into `scripts/git/lib/` (keeping `git-workflow.sh` <= 750 lines), and split `scripts/pm/atlassian_pm_link.py` (898 lines) by extracting Markdown-to-Confluence conversion helpers into `scripts/pm/confluence_markdown.py` (keeping `atlassian_pm_link.py` <= 500 lines).",
+      "suggested_tools": [
+        "pytest",
+        "bash -n",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --task T8 --structural-only",
+          "expect_exit": 0,
+          "kind": "outcome"
+        },
+        {
+          "cmd": "python3 -m pytest scripts/monitoring/ scripts/pm/ -q && bash -n scripts/git/git-workflow.sh",
+          "expect_exit": 0,
+          "kind": "unit"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --issues KAN-467",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-467 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        }
+      ],
+      "done_when": "`gsc_tools.py` is <= 750 lines, `git-workflow.sh` is <= 750 lines, `atlassian_pm_link.py` is <= 500 lines, extracted modules exist, monitoring/PM pytest suites and `bash -n` pass, the cookbook PR for KAN-467 is merged, and KAN-467 is out of To Do.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "C4",
+      "si": "G4-CHECKIN",
+      "group": "G4",
+      "checkin_for_group": "G4",
+      "jira": ["KAN-466", "KAN-467"],
+      "lane": "Check-In",
+      "depends_on": [
+        "T1",
+        "T2",
+        "C1",
+        "T3",
+        "T4",
+        "C2",
+        "T5",
+        "T6",
+        "C3",
+        "T7",
+        "T8"
+      ],
+      "skill": "harness-qa-loop",
+      "skill_path": ".claude/skills/harness-qa-loop/SKILL.md",
+      "objective": "FINAL STOPPING POINT & CLOSE-OUT — Group 4 Human Check-In (`G4`: `KAN-466` + `KAN-467`, Express SSR Server, RUM Consent & Repo Tooling Scripts): run the full refactoring close gate (`python3 scripts/harness/refactor_hard_gate.py --close`) verifying all 8 tickets (`KAN-460`..`KAN-467`) are `Done` and all 17 target files meet their line-count and extraction budgets, present the final refactoring summary across Groups G1..G4 to the human operator, and record final approval via `python3 scripts/harness/refactor_driver.py checkin G4 --approve --notes \"<final sign-off>\"`.",
+      "suggested_tools": [
+        "scripts/harness/refactor_driver.py",
+        "scripts/harness/refactor_hard_gate.py"
+      ],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/refactor_hard_gate.py --close",
+          "expect_exit": 0,
+          "kind": "hard-gate"
+        },
+        {
+          "cmd": "python3 scripts/harness/refactor_driver.py check-gate G4",
+          "expect_exit": 0,
+          "kind": "gate"
+        },
+        {
+          "cmd": "MANUAL: Final human check-in completed for Group 4 (KAN-466 server/consent.js + KAN-467 tooling scripts) and all 8 refactoring tickets (KAN-460..KAN-467) verified Done",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "`refactor_hard_gate.py --close` and `refactor_driver.py check-gate G4` exit 0, all 4 group check-ins (`G1`..`G4`) are approved, and `KAN-460`..`KAN-467` are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    }
+  ],
+  "loop": {
+    "order": "dependency-dag",
+    "driver": "python3 scripts/harness/refactor_driver.py",
+    "unit_of_loop": "one controller state per task (.agent-harness/refactor/<T>.state.json) with mandatory group check-in gates (.agent-harness/refactor/<G>.checkin.json) between groups G1 -> G2 -> G3 -> G4",
+    "max_loop_iterations": 144,
+    "per_goal_iterations": 12,
+    "per_task_attempts": 3,
+    "wip_limit": 2,
+    "stop_after_each_group": true,
+    "no_done_without_verify": true
+  },
+  "close": {
+    "gate_cmd": "python3 scripts/harness/refactor_hard_gate.py --close",
+    "required_checkins": ["G1", "G2", "G3", "G4"],
+    "required_done_issues": [
+      "KAN-460",
+      "KAN-461",
+      "KAN-462",
+      "KAN-463",
+      "KAN-464",
+      "KAN-465",
+      "KAN-466",
+      "KAN-467"
+    ]
+  }
+}
