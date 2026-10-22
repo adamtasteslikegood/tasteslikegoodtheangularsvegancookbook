@@ -8,13 +8,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [0.7.4] - 2026-10-21
 
-Backend pointer pinned at `b08a1eb9368d` (Backend `main`, unchanged since 0.7.3; promoted in
-Backend #436).
+Backend pointer pinned at `9316ffe55cc1` (Backend `main`, promoted in Backend #440).
 
 ### Fixed
 
 - A newly generated recipe shows the image spinner while it is being saved, instead of "Image not
   available" (KAN-459, #3748). The image request still waits for the save.
+
+### Changed
+
+- Backend takes md4a-fastapi 0.2.0 (Backend #438, KAN-411): the library now adds `Accept` to
+  `Vary` on every HTML and Markdown response it sees, so shared caches keep the two
+  representations of a public page apart. The app's own `Vary: Accept` on those paths stays and
+  does not duplicate the token.
 
 ## [0.7.3] - 2026-10-20
 
