@@ -366,7 +366,7 @@
             >
               <div class="h-28 sm:h-48 bg-stone-200 relative overflow-hidden">
                 @if (r.ai_image_url) {
-                  @if (imageVariants(r); as v) {
+                  @if (cardImageVariants().get(r.id); as v) {
                     <img
                       [src]="v.src"
                       [attr.srcset]="v.srcset"

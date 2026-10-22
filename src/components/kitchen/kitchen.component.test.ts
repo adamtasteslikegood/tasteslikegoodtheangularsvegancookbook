@@ -407,6 +407,20 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: null })).toBeNull();
   });
 
+  it('computes card variants once per list, keyed by recipe id', () => {
+    const { kitchen, user } = createKitchen({ imageDisplayUrl: (_id, url) => url ?? null });
+    const saved = [
+      { id: 'r-1', name: 'A', ai_image_url: '/api/recipes/r-1/image' },
+      { id: 'r-2', name: 'B', ai_image_url: null },
+    ] as unknown as Recipe[];
+    user.update((u) => (u ? { ...u, savedRecipes: saved } : u));
+    const first = kitchen.cardImageVariants();
+    expect(first.get('r-1')?.src).toBe('/api/recipes/r-1/image?w=600');
+    expect(first.get('r-2')).toBeNull();
+    // Unchanged inputs: the same Map, not a rebuild.
+    expect(kitchen.cardImageVariants()).toBe(first);
+  });
+
   it('reports a card image as pending from the shared tracker', () => {
     const { kitchen } = createKitchen({ isImagePending: (id) => id === 'r-2' });
     expect(kitchen.isImagePending('r-2')).toBe(true);

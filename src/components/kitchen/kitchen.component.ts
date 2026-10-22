@@ -106,6 +106,16 @@ export class KitchenComponent {
     };
   }
 
+  /**
+   * `imageVariants` per displayed card, keyed by recipe id. Computed so the
+   * template does not re-run the regex and rebuild every srcset on each
+   * change-detection pass; it recomputes only when the list or a regenerate
+   * marker changes.
+   */
+  readonly cardImageVariants = computed(
+    () => new Map(this.displayedKitchenRecipes().map((r) => [r.id, this.imageVariants(r)]))
+  );
+
   /** KAN-459: the card shows a spinner while its image is being generated. */
   isImagePending(id: string): boolean {
     return this.recipeState.isImagePending(id);
