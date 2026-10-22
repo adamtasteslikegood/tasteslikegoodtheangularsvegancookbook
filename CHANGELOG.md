@@ -10,6 +10,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Fixed
 
+- A recipe whose photo is still generating shows the "Styling your dish..." spinner, and then the
+  image, after a page reload — no second reload needed (KAN-459, #3758). The recipe page renders
+  saved recipes from the local copy without reading the server, and the generator writes that copy
+  before the photo exists, so a reload during image generation left the page on "Image not
+  available" with nothing polling. It now asks for the row's status and joins the in-flight
+  request, only when the status is `generating_image` so that a finished row with no image never
+  starts a new one.
 - A newly generated recipe shows its text, and the image spinner, as soon as the text is written,
   instead of waiting for the image (KAN-459). The text wait accepted only `ready`, which the row
   leaves for `generating_image` about a second after the text lands, so the image spinner almost

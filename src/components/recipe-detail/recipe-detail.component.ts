@@ -204,7 +204,7 @@ export class RecipeDetailComponent extends RecipeViewBase {
 
     // Fast path: it is already in the cookbook, so render it now rather than
     // making the user wait on the startup auth check.
-    if (this.adoptSaved(id)) return;
+    if (this.adoptSaved(id, seq)) return;
 
     this.loadState.set('loading');
 
@@ -221,16 +221,24 @@ export class RecipeDetailComponent extends RecipeViewBase {
     if (seq !== this.requestSeq) return;
 
     // The auth check may have hydrated the cookbook while we waited.
-    if (this.adoptSaved(id)) return;
+    if (this.adoptSaved(id, seq)) return;
 
     await this.pollUntilRenderable(id, seq);
   }
 
-  private adoptSaved(id: string): boolean {
+  private adoptSaved(id: string, seq: number): boolean {
     const saved = this.authService.currentUser()?.savedRecipes.find((r) => r.id === id);
     if (!saved) return false;
     this.recipeState.viewRecipe(saved);
     this.markReady();
+    // KAN-459 / #3758: this fast path returns before any server read, and the
+    // generator writes the local copy BEFORE the photo exists, so a reload
+    // during image generation always lands here. `pollUntilRenderable` — the
+    // only other caller of `joinPendingImage` — never runs, and the in-memory
+    // tracker died with the page, so without this the page sits on "Image not
+    // available" until the user reloads again. Deliberately not awaited: the
+    // whole point of this path is to render without waiting on the network.
+    if (!saved.ai_image_url) void this.rejoinPendingImage(id, seq);
     return true;
   }
 
@@ -323,6 +331,61 @@ export class RecipeDetailComponent extends RecipeViewBase {
       if (status === 'generating_image') this.joinPendingImage(id, recipe.ai_image_url);
       return;
     }
+  }
+
+  /**
+   * KAN-459 / #3758 — ask the server whether an image is still generating for
+   * a recipe we rendered from the local copy. Join it if so, or adopt the
+   * returned URL if the image completed before this probe arrived.
+   *
+   * Only `generating_image` may join, and the gate is load-bearing rather than
+   * defensive: `queue_image_generation` recovers the existing request (202, no
+   * second job) only for that status once the worker has claimed the row, but
+   * on a `ready` row with no image it publishes a NEW one (Backend
+   * `repositories/db_recipe_repository.py`). Joining merely because a saved row
+   * has no URL would therefore generate a fresh image for every image-less
+   * recipe on every visit — a recipe whose image genuinely failed, or one
+   * imported without a photo, included.
+   *
+   * One extra GET, and only for a recipe that has no image yet. A failed or
+   * refused probe leaves the placeholder exactly as it is today. Reading the
+   * returned URL also closes the race where the row moves to `ready` between
+   * the reload and this response without ever queueing another image.
+   */
+  private async rejoinPendingImage(id: string, seq: number) {
+    // Already tracked — a generation this session started and navigated back
+    // to. `joinPendingImage` would no-op on the same check, so skip the
+    // request too rather than paying for an answer we would discard.
+    if (this.recipeState.isImageGenerating()) return;
+
+    let body: { status?: unknown; recipe?: { ai_image_url?: unknown } } | null;
+    try {
+      const resp = await fetch(`/api/recipes/${encodeURIComponent(id)}/status`, {
+        credentials: 'include',
+      });
+      if (!resp.ok) return;
+      body = (await resp.json()) as typeof body;
+    } catch {
+      return;
+    }
+
+    // The user can navigate during the probe. Both guards matter: `seq` catches
+    // a new load on this route, and the id check catches a move to another
+    // recipe, which is what makes `joinPendingImage`'s own currentRecipe-keyed
+    // bookkeeping sound.
+    if (seq !== this.requestSeq || this.recipe()?.id !== id) return;
+    if (body?.status === 'ready' && typeof body.recipe?.ai_image_url === 'string') {
+      const imageUrl = body.recipe.ai_image_url;
+      this.authService.updateRecipeField(id, 'ai_image_url', imageUrl);
+      this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(id, imageUrl));
+      this.recipe.update((recipe) => (recipe ? { ...recipe, ai_image_url: imageUrl } : null));
+      return;
+    }
+    if (body?.status !== 'generating_image') return;
+
+    // No prior URL by construction — the caller only probes when there is
+    // none — so no cache-buster is wanted here.
+    this.joinPendingImage(id, undefined);
   }
 
   /**
