@@ -323,12 +323,40 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
     // Before the fix: no spinner, so "Image not available" for the whole save.
     expect(component.isImageLoading()).toBe(true);
+    // The per-id state My Kitchen cards read is set before the save settles too.
+    expect(recipeState.isImagePending('gen-1')).toBe(true);
     expect(generateImage).not.toHaveBeenCalled();
 
     resolveSave({ ok: true });
     await generating;
     await vi.waitFor(() => expect(generateImage).toHaveBeenCalledWith('gen-1', false));
     await vi.waitFor(() => expect(component.isImageLoading()).toBe(false));
+    expect(recipeState.isImagePending('gen-1')).toBe(false);
+  });
+
+  it('releases generation and image pending state when the generated recipe save stalls', async () => {
+    vi.useFakeTimers();
+    try {
+      const { component, persistenceSaveRecipe, recipeState, injector } = createComponent();
+      const generateImage = vi.mocked(injector.get(GeminiService).generateImage);
+      persistenceSaveRecipe.mockReturnValue(new Promise(() => {}));
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(recipeState.isImagePending('gen-1')).toBe(true);
+      expect(generateImage).not.toHaveBeenCalled();
+
+      await vi.runOnlyPendingTimersAsync();
+      await generating;
+
+      expect(generateImage).toHaveBeenCalledWith('gen-1', false);
+      expect(recipeState.isImagePending('gen-1')).toBe(false);
+      expect(component.isRecipeLoading()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('blocks a manual save while the generated recipe save is still pending', async () => {

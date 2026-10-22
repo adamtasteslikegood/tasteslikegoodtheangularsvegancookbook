@@ -96,6 +96,37 @@ describe('recipeFromRow', () => {
     expect(merged).toBe(data);
   });
 
+  // KAN-459 / Backend #442: the row's generation status, so a client that
+  // reloaded can tell "photo on its way" from "no photo". Same absent-key rule
+  // as first_published_at and slug_reserved.
+  it('carries the row status through', () => {
+    const merged = recipeFromRow({
+      id: 'r1',
+      data: blob(),
+      is_canonical: false,
+      status: 'generating_image',
+    } as RecipeRow);
+
+    expect(merged.status).toBe('generating_image');
+  });
+
+  it('leaves status undefined on a Backend that does not send it', () => {
+    const merged = recipeFromRow({ id: 'r1', data: blob(), is_canonical: false } as RecipeRow);
+
+    expect('status' in merged).toBe(false);
+  });
+
+  it('treats a null status column as absent rather than carrying the null', () => {
+    const merged = recipeFromRow({
+      id: 'r1',
+      data: blob(),
+      is_canonical: false,
+      status: null,
+    } as RecipeRow);
+
+    expect(merged.status).toBeUndefined();
+  });
+
   it('passes a bare Recipe blob through untouched', () => {
     const bare = blob();
     expect(recipeFromRow(bare)).toBe(bare);
@@ -215,10 +246,11 @@ describe('exportableRecipe', () => {
       origin: 'generated',
       first_published_at: '2026-08-12T10:00:00',
       slug_reserved: true,
+      status: 'ready',
       personalNotes: 'less salt',
     } as Partial<Recipe>);
 
-  it('drops the six server-owned fields and keeps everything else', () => {
+  it('drops the seven server-owned fields and keeps everything else', () => {
     const exported = exportableRecipe(published()) as unknown as Record<string, unknown>;
     for (const field of [
       'is_public',
@@ -227,6 +259,7 @@ describe('exportableRecipe', () => {
       'is_canonical',
       'first_published_at',
       'slug_reserved',
+      'status',
     ]) {
       expect(field in exported, field).toBe(false);
     }

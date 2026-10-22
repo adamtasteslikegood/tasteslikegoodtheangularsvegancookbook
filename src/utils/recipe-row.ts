@@ -28,6 +28,7 @@ export interface RecipeRow {
   origin?: Recipe['origin'] | null;
   first_published_at?: string | null;
   slug_reserved?: boolean;
+  status?: string | null;
 }
 
 /** True when the payload is a row envelope rather than a bare Recipe blob. */
@@ -66,6 +67,9 @@ export function recipeFromRow(payload: RecipeRow | Recipe): Recipe {
       : {}),
     // KAN-291: list-endpoint only, same absent-key rule as above.
     ...('slug_reserved' in payload ? { slug_reserved: !!payload.slug_reserved } : {}),
+    // KAN-459: row-level only, same absent-key rule. An older Backend (before
+    // #442) leaves it undefined, and the kitchen then behaves as it does today.
+    ...('status' in payload ? { status: payload.status ?? undefined } : {}),
   };
 }
 
@@ -85,6 +89,7 @@ const SERVER_OWNED_FIELDS = [
   'is_canonical',
   'first_published_at',
   'slug_reserved',
+  'status',
 ] as const;
 
 export type ExportableRecipe = Omit<Recipe, (typeof SERVER_OWNED_FIELDS)[number]>;

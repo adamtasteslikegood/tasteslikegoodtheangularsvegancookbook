@@ -110,6 +110,14 @@ export class RecipeStateService {
   });
 
   /**
+   * Whether `recipeId` has an in-flight image generation. For lists such as
+   * the My Kitchen grid, where the recipe is not the one being viewed.
+   */
+  isImagePending(recipeId: string): boolean {
+    return this._pendingImageIds().has(recipeId);
+  }
+
+  /**
    * Register an in-flight image generation. The promise's settlement
    * (resolve or reject) automatically clears the pending state.
    */

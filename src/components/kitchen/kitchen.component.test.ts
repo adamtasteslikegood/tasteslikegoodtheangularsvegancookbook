@@ -49,6 +49,11 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       cookbookId?: string;
       cookbooks?: Cookbook[];
       firstSyncSettled?: Promise<void>;
+      imageDisplayUrl?: (id: string, url: string | null | undefined) => string | null;
+      isImagePending?: (id: string) => boolean;
+      /** KAN-459: rows the kitchen may rejoin a pending image for. */
+      savedRecipes?: unknown[];
+      generateImage?: (id: string, force: boolean) => Promise<string>;
     } = {}
   ) => {
     const params = new BehaviorSubject(
@@ -60,7 +65,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       name: 'Guest Chef',
       isGuest: true,
       authProvider: 'guest',
-      savedRecipes: [],
+      savedRecipes: (opts.savedRecipes ?? []) as User['savedRecipes'],
       cookbooks: opts.cookbooks ?? [cookbook('cb-1', 'Weeknights', ['r-1'])],
     });
     const stageRecipeForNavigation = vi.fn();
@@ -73,6 +78,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
           useValue: {
             currentUser: user,
             ensureGuestSession: vi.fn(),
+            updateRecipeField: vi.fn(),
             ready: Promise.resolve(),
           },
         },
@@ -83,13 +89,18 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
             deleteCookbook: vi.fn().mockResolvedValue(undefined),
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: { generateImage: vi.fn(opts.generateImage ?? (async () => '')) },
+        },
         {
           provide: RecipeStateService,
           useValue: {
             leaveRecipeView: vi.fn(),
             stageRecipeForNavigation,
-            imageDisplayUrl: () => null,
+            imageDisplayUrl: opts.imageDisplayUrl ?? (() => null),
+            isImagePending: opts.isImagePending ?? (() => false),
+            trackImageGeneration: vi.fn(),
           },
         },
         { provide: ModalService, useValue: {} },
@@ -100,6 +111,75 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       params.next(asParamMap(id ? { cookbookId: id } : {}));
     return { kitchen, navigate, user, emitCookbook, stageRecipeForNavigation, injector };
   };
+
+  // KAN-459 / #3758: in-flight image tracking is per page, so a reload left a
+  // card whose photo was still generating on the empty placeholder until
+  // another reload. The row `status` (Backend #442) is the authoritative
+  // answer, and generateImage(id, false) joins rather than re-queues.
+  describe('rejoining a pending image after a reload (KAN-459 / #3758)', () => {
+    const row = (over: Record<string, unknown>) => ({
+      id: 'r-1',
+      name: 'Vegan Cornbread',
+      ingredients: {},
+      instructions: ['bake'],
+      ...over,
+    });
+
+    it('joins the image and writes the URL onto the saved copy when it lands', async () => {
+      const { kitchen, injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image' })],
+        generateImage: async () => '/api/recipes/r-1/image',
+      });
+      const recipeState = injector.get(RecipeStateService);
+      const authService = injector.get(AuthService);
+      await flush();
+
+      expect(injector.get(GeminiService).generateImage).toHaveBeenCalledWith('r-1', false);
+      expect(recipeState.trackImageGeneration).toHaveBeenCalledWith('r-1', expect.anything());
+      // Nothing else performs this write for a generation the page did not
+      // start, and the card reads ai_image_url off the saved copy.
+      expect(authService.updateRecipeField).toHaveBeenCalledWith(
+        'r-1',
+        'ai_image_url',
+        '/api/recipes/r-1/image'
+      );
+      expect(kitchen).toBeTruthy();
+    });
+
+    // The gate is load-bearing: queue_image_generation publishes a NEW job for
+    // a ready row with no image, so this would generate a photo for every
+    // image-less recipe on every visit to the Kitchen.
+    it('does not touch a ready row that has no image', async () => {
+      const { injector } = createKitchen({ savedRecipes: [row({ status: 'ready' })] });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    it('does not touch a row that already has an image', async () => {
+      const { injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image', ai_image_url: '/api/recipes/r-1/image' })],
+      });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    // An older Backend (before #442) sends no status at all, and the Kitchen
+    // must then behave exactly as it does today.
+    it('does not touch a row whose status the Backend did not send', async () => {
+      const { injector } = createKitchen({ savedRecipes: [row({})] });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    it('does not re-request an image this page is already tracking', async () => {
+      const { injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image' })],
+        isImagePending: () => true,
+      });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+  });
 
   it('routes /kitchen and /kitchen/<id> through one config, so the view is reused', () => {
     const seg = (...paths: string[]) => paths.map((p) => new UrlSegment(p, {}));
@@ -384,6 +464,55 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
         '@if (cookbookRecipes().length > 0 && displayedKitchenRecipes().length === 0)'
       );
     });
+  });
+  // KAN-459: cards load a card-sized WebP, not the ~700 KB original, which
+  // private images re-download on every visit (`no-store`).
+  it('serves card-sized variants for API images only', () => {
+    const { kitchen } = createKitchen({ imageDisplayUrl: (_id, url) => url ?? null });
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: '/api/recipes/r-1/image' })).toEqual({
+      src: '/api/recipes/r-1/image?w=600',
+      srcset:
+        '/api/recipes/r-1/image?w=400 400w, /api/recipes/r-1/image?w=600 600w, /api/recipes/r-1/image?w=800 800w',
+    });
+    expect(
+      kitchen.imageVariants({ id: 'r-1', ai_image_url: '/api/recipes/r-1/image?_t=5' })?.src
+    ).toBe('/api/recipes/r-1/image?_t=5&w=600');
+    expect(
+      kitchen.imageVariants({ id: 'r-1', ai_image_url: 'data:image/png;base64,AA' })
+    ).toBeNull();
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: 'https://cdn.test/a.jpg' })).toBeNull();
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: null })).toBeNull();
+    // Only the owned image route: other same-origin paths keep the plain src.
+    for (const other of [
+      '/static/img/r-1.jpg',
+      '/api/recipes/r-1/image/extra',
+      '/api/recipes/r-1/notes',
+      '/api/recipes//image',
+      'api/recipes/r-1/image',
+      '//evil.test/api/recipes/r-1/image',
+    ]) {
+      expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: other })).toBeNull();
+    }
+  });
+
+  it('computes card variants once per list, keyed by recipe id', () => {
+    const { kitchen, user } = createKitchen({ imageDisplayUrl: (_id, url) => url ?? null });
+    const saved = [
+      { id: 'r-1', name: 'A', ai_image_url: '/api/recipes/r-1/image' },
+      { id: 'r-2', name: 'B', ai_image_url: null },
+    ] as unknown as Recipe[];
+    user.update((u) => (u ? { ...u, savedRecipes: saved } : u));
+    const first = kitchen.cardImageVariants();
+    expect(first.get('r-1')?.src).toBe('/api/recipes/r-1/image?w=600');
+    expect(first.get('r-2')).toBeNull();
+    // Unchanged inputs: the same Map, not a rebuild.
+    expect(kitchen.cardImageVariants()).toBe(first);
+  });
+
+  it('reports a card image as pending from the shared tracker', () => {
+    const { kitchen } = createKitchen({ isImagePending: (id) => id === 'r-2' });
+    expect(kitchen.isImagePending('r-2')).toBe(true);
+    expect(kitchen.isImagePending('r-1')).toBe(false);
   });
 });
 
