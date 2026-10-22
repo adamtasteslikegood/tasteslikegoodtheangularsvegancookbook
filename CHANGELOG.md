@@ -21,6 +21,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   instead of waiting for the image (KAN-459). The text wait accepted only `ready`, which the row
   leaves for `generating_image` about a second after the text lands, so the image spinner almost
   never appeared and the text arrived together with the image.
+- My Kitchen cards show the "Styling your dish..." spinner while their image is being generated,
+  and the image replaces it when it lands, with no refresh (KAN-459). Before, a card showed the
+  empty placeholder until the image arrived.
+- My Kitchen cards load a card-sized WebP (`?w=400|600|800`) instead of the full-size original
+  (KAN-459). Private images are sent `no-store`, so every kitchen visit re-downloaded every
+  original. On staging, a signed-in kitchen of 61 private images pulled about 128 MB in its first
+  90 seconds, and the generator's status polls stalled behind it.
 
 ## [0.7.4] - 2026-10-21
 

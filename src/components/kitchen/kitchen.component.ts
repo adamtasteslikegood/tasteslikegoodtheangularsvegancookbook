@@ -57,6 +57,9 @@ function totalMinutes(recipe: Recipe): number {
   return minutes(recipe.prepTime) + minutes(recipe.cookTime) || Number.POSITIVE_INFINITY;
 }
 
+/** Widths the Backend's `?w=` variant route accepts that fit a kitchen card. */
+const KITCHEN_CARD_WIDTHS = [400, 600, 800] as const;
+
 @Component({
   selector: 'app-kitchen',
   standalone: true,
@@ -80,6 +83,32 @@ export class KitchenComponent {
    */
   imageSrc(r: { id: string; ai_image_url?: string | null }): string | null {
     return this.recipeState.imageDisplayUrl(r.id, r.ai_image_url);
+  }
+
+  /**
+   * KAN-459: card-sized WebP variants (`?w=`, KAN-271) for an image served by
+   * our own API. A card is at most ~400 CSS px wide, so the full-size original
+   * (~700 KB) is wasted bytes. Private images are sent `no-store`, so every
+   * kitchen visit downloaded every original again, and those downloads starved
+   * the generator's status polls. `null` for any other URL (`data:`, external,
+   * legacy imports): those have no variants and keep the plain `src`.
+   */
+  imageVariants(r: {
+    id: string;
+    ai_image_url?: string | null;
+  }): { src: string; srcset: string } | null {
+    const url = this.imageSrc(r);
+    if (!url || !/^\/api\/recipes\/[^/?#]+\/image(\?[^#]*)?$/.test(url)) return null;
+    const at = (w: number) => `${url}${url.includes('?') ? '&' : '?'}w=${w}`;
+    return {
+      src: at(600),
+      srcset: KITCHEN_CARD_WIDTHS.map((w) => `${at(w)} ${w}w`).join(', '),
+    };
+  }
+
+  /** KAN-459: the card shows a spinner while its image is being generated. */
+  isImagePending(id: string): boolean {
+    return this.recipeState.isImagePending(id);
   }
 
   private destroyed = false;

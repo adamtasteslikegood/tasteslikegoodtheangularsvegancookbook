@@ -1,4 +1,5 @@
 import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
+import { computed } from '@angular/core';
 import { RecipeStateService } from './recipe-state.service';
 import type { Recipe } from '../recipe.types';
 import { resetAnalyticsForTest } from '../utils/analytics';
@@ -209,6 +210,26 @@ describe('RecipeStateService.trackImageGeneration', () => {
     expect(service.isImageGenerating()).toBe(false);
     service.viewRecipe(recipe({ id: 'r2' }));
     expect(service.isImageGenerating()).toBe(true);
+  });
+
+  // KAN-459: the My Kitchen grid shows a spinner on every card whose image is
+  // in flight, not only on the recipe being viewed, and must update by itself
+  // when one lands.
+  it('isImagePending reports each recipe, viewed or not, and is reactive', async () => {
+    let resolveR1!: (v: string) => void;
+    const p1 = new Promise<string>((r) => {
+      resolveR1 = r;
+    });
+    service.trackImageGeneration('r1', p1);
+    service.trackImageGeneration('r2', new Promise<string>(() => {}));
+    service.viewRecipe(recipe({ id: 'r3' }));
+
+    const pending = computed(() => ['r1', 'r2', 'r3'].filter((id) => service.isImagePending(id)));
+    expect(pending()).toEqual(['r1', 'r2']);
+
+    resolveR1('/img');
+    await Promise.resolve();
+    expect(pending()).toEqual(['r2']);
   });
 });
 

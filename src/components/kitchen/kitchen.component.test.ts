@@ -49,6 +49,8 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       cookbookId?: string;
       cookbooks?: Cookbook[];
       firstSyncSettled?: Promise<void>;
+      imageDisplayUrl?: (id: string, url: string | null | undefined) => string | null;
+      isImagePending?: (id: string) => boolean;
     } = {}
   ) => {
     const params = new BehaviorSubject(
@@ -89,7 +91,8 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
           useValue: {
             leaveRecipeView: vi.fn(),
             stageRecipeForNavigation,
-            imageDisplayUrl: () => null,
+            imageDisplayUrl: opts.imageDisplayUrl ?? (() => null),
+            isImagePending: opts.isImagePending ?? (() => false),
           },
         },
         { provide: ModalService, useValue: {} },
@@ -384,6 +387,30 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
         '@if (cookbookRecipes().length > 0 && displayedKitchenRecipes().length === 0)'
       );
     });
+  });
+  // KAN-459: cards load a card-sized WebP, not the ~700 KB original, which
+  // private images re-download on every visit (`no-store`).
+  it('serves card-sized variants for API images only', () => {
+    const { kitchen } = createKitchen({ imageDisplayUrl: (_id, url) => url ?? null });
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: '/api/recipes/r-1/image' })).toEqual({
+      src: '/api/recipes/r-1/image?w=600',
+      srcset:
+        '/api/recipes/r-1/image?w=400 400w, /api/recipes/r-1/image?w=600 600w, /api/recipes/r-1/image?w=800 800w',
+    });
+    expect(
+      kitchen.imageVariants({ id: 'r-1', ai_image_url: '/api/recipes/r-1/image?_t=5' })?.src
+    ).toBe('/api/recipes/r-1/image?_t=5&w=600');
+    expect(
+      kitchen.imageVariants({ id: 'r-1', ai_image_url: 'data:image/png;base64,AA' })
+    ).toBeNull();
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: 'https://cdn.test/a.jpg' })).toBeNull();
+    expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: null })).toBeNull();
+  });
+
+  it('reports a card image as pending from the shared tracker', () => {
+    const { kitchen } = createKitchen({ isImagePending: (id) => id === 'r-2' });
+    expect(kitchen.isImagePending('r-2')).toBe(true);
+    expect(kitchen.isImagePending('r-1')).toBe(false);
   });
 });
 
