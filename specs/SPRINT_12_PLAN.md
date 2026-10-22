@@ -75,7 +75,7 @@ Per `docs/pm/SPRINT_PLANNING.md`, both retro action tables are walked below and 
 
 ---
 
-### 4. Ordered Sprint Items (`S1`–`S16`) — Scope, Lanes, Acceptance Criteria & Dependencies
+### 4. Ordered Sprint Items (`S1`–`S17`) — Scope, Lanes, Acceptance Criteria & Dependencies
 
 Items are ordered by execution priority. **Core Commitment (`S1`–`S12`)** runs first; **Bounded Follow-Ups (`S13`, `S14`, `S16`)** run as lanes free up; **Human Lane (`S15`, `lane:adam`)** runs in parallel.
 
@@ -120,6 +120,14 @@ Items are ordered by execution priority. **Core Commitment (`S1`–`S12`)** runs
 | SI      | Jira (`KAN` / `RCP`)  | Title & Scope                         | Lane   | Depends On | Acceptance Criteria (with named statistics & verification)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------- | --------------------- | ------------------------------------- | ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **S15** | `KAN-277` / `RCP-109` | **3–5 articles under the Q6 rubric.** | `adam` | `charter`  | 1. **Count:** Between `3` and `5` articles published at indexable URLs on `vegangeniuschef.com` (included in `/sitemap.xml`).<br>2. **Q6 Rubric per article:** (a) Contains original first-hand material (testing notes, failures, ratios, or cost/time comparisons), (b) Reviewed and signed off by Adam before publish, (c) Every recipe claim links to a live `/r/<slug>` page (`HTTP 200`), (d) Named byline linked to `/about`, (e) AI assistance disclosed in footer/byline.<br>3. **Tracking:** One child/linked `KAN` ticket per article, closed only after `curl -sI` confirms `HTTP 200` on production. |
+
+#### Priority Group F — Mid-Sprint Addition (`S17`, added 2026-10-22)
+
+Added by Adam on 2026-10-22, after `T0`. The build work landed before the sprint's nominal start (2026-10-23) and ships in v0.7.4, so the remaining cost is verification only. No Group D item was swapped out for it (rule (a) in Section 9); that call stays with Adam.
+
+| SI      | Jira (`KAN` / `RCP`)  | Title & Scope                                                                                      | Lane | Depends On | Acceptance Criteria (with named statistics & verification)                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | --------------------- | -------------------------------------------------------------------------------------------------- | ---- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S17** | `KAN-459` / `RCP-185` | **Generated recipe shows its text and an image spinner until the image lands, also after reload.** | `ux` | `charter`  | 1. On Slow 4G the generator shows the spinner, never "Image not available", from the moment the recipe appears until the image loads; the image request is sent within 1s of the recipe appearing, or the spinner covers the wait.<br>2. A recipe page or kitchen card reloaded while its image is pending shows the spinner and picks up the image.<br>3. v0.7.4 verified in production by content (marker `kitchen-image-pending` in a served chunk). |
 
 ---
 
@@ -207,7 +215,7 @@ Because Sprint 12 is planned in an isolated worktree (`chore/sprint-12-charter`)
 
 #### Mid-Sprint Re-Plan / Scope Freeze Rule (`2026-10-30`):
 
-- Any scope addition after `T0` requires: (a) swapping out an unstarted item of `>=` size from Priority Group D (`S13`, `S14`, `S16`), (b) updating `specs/SPRINT_12_PLAN.md`, `specs/harness/SPRINT_12_HARNESS_PLAN.json`, and `SI_ACCEPTANCE` in `scripts/harness/sprint12_hard_gate.py` in the same PR, and (c) re-running `sprint12_hard_gate.py --charter` and `plan_qa.py --strict`.
+- Any scope addition after `T0` requires: (a) swapping out an unstarted item of `>=` size from Priority Group D (`S13`, `S14`, `S16`), (b) updating `specs/SPRINT_12_PLAN.md`, `specs/harness/SPRINT_12_HARNESS_PLAN.json`, and `SI_ACCEPTANCE` in `scripts/harness/sprint12_hard_gate.py` in the same PR, and (c) re-running `sprint12_hard_gate.py --charter` and `plan_qa.py --strict`. Applied on 2026-10-22 for `S17` (`KAN-459` / `RCP-185`): (b) and (c) done; (a) not applied, see Priority Group F.
 - On `2026-10-30` (Mid-Sprint Check), if `S1` (`KAN-356`) or `S4` (`KAN-290`) is not yet `Done`, freeze Sprint 12 scope immediately and carry any unstarted Group D items (`S13`, `S14`, `S16`) as a clean block rather than half-finishing them (Sprint 10 Retro Loved #3).
 
 ---

@@ -90,6 +90,7 @@ REQUIRED = {
     "KAN-404": "S14 — Agent tools limits and comment advisory from PR #3671",
     "KAN-277": "S15 — 3-5 articles under the Q6 rubric (lane:adam)",
     "KAN-425": "S16 — Backend Postgres driver to psycopg 3 and SQLAlchemy 2.1",
+    "KAN-459": "S17 — Generated recipe image spinner until the image lands (added 2026-10-22)",
 }
 
 RECORDED = {}
@@ -112,6 +113,7 @@ SI_EXECUTION = {
     "S14": ["KAN-404"],
     "S15": ["KAN-277"],
     "S16": ["KAN-425"],
+    "S17": ["KAN-459"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them.
@@ -137,6 +139,7 @@ ACCEPTANCE = {
     "S14": "RCP-S12-S14",
     "S15": "RCP-109",
     "S16": "RCP-S12-S16",
+    "S17": "RCP-S12-S17",
 }
 
 PLACEHOLDER_ACCEPTANCE = dict(ACCEPTANCE)
@@ -160,6 +163,7 @@ SI_SUMMARIES = {
     "S14": "Agent tools limits and comment advisory follow-ups from PR #3671 ({kan})",
     "S15": "Owned-property links audited and completed, plus 3-5 articles under the Q6 rubric ({kan})",
     "S16": "Backend Postgres driver moved to psycopg 3 and SQLAlchemy 2.1 after staging soak ({kan})",
+    "S17": "A generated recipe shows its text and an image spinner until the image lands, including after a reload ({kan})",
 }
 
 BASE_REQUIRED = dict(REQUIRED)

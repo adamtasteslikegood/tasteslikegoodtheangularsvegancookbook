@@ -28,7 +28,7 @@
       "must_not_touch": [".github/workflows/", "scripts/pm/", "scripts/harness/"]
     },
     "UX": {
-      "scope": "Server-side recycle bin (KAN-290), SPA publish toggle sync (KAN-334), Flask malformed JSON 400 handler (KAN-426), and mobile pagination tap targets (KAN-421).",
+      "scope": "Server-side recycle bin (KAN-290), SPA publish toggle sync (KAN-334), Flask malformed JSON 400 handler (KAN-426), and mobile pagination tap targets (KAN-421), plus the mid-sprint generated-recipe image spinner fix (KAN-459, S17, added 2026-10-22).",
       "must_not_touch": [".github/workflows/", "scripts/pm/", "scripts/harness/"]
     },
     "SEO": {
@@ -617,6 +617,37 @@
       "status": "pending"
     },
     {
+      "id": "T19",
+      "si": "S17",
+      "jira": ["KAN-459", "RCP-S12-S17"],
+      "lane": "UX",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Mid-sprint addition (Adam, 2026-10-22): a generated recipe shows its text and the image spinner, never \"Image not available\", from the moment it appears until the image loads, and a recipe page or kitchen card reloaded while its image is pending shows the spinner and picks the image up (KAN-459; cookbook #3748, #3756, #3760, #3761; Backend #442). Ships in v0.7.4.",
+      "suggested_tools": ["npm test", "pytest"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-459 RCP-S12-S17",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-459 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: v0.7.4 production by-content check (marker kitchen-image-pending in a served chunk) and Slow 4G generator spinner check recorded on RCP-S12-S17",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "v0.7.4 is live in production with the KAN-459 fixes verified by content, the Slow 4G generator shows the spinner until the image loads, and KAN-459 / RCP-S12-S17 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
       "id": "T18",
       "si": "close",
       "jira": ["RCP-119"],
@@ -639,7 +670,8 @@
         "T14",
         "T15",
         "T16",
-        "T17"
+        "T17",
+        "T19"
       ],
       "skill": "pm-skills",
       "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
