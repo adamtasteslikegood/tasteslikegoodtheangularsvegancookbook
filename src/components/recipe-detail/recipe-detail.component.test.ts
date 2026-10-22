@@ -453,6 +453,112 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     );
   });
 
+  // KAN-459 / #3758: a reload during image generation renders from the local
+  // copy (`adoptSaved`), which returns before any server read, so nothing used
+  // to rejoin the in-flight image and the page sat on "Image not available"
+  // until a second reload. The generator writes that local copy BEFORE the
+  // photo exists, so this is the path every such reload takes.
+  describe('rejoining a pending image after a reload (KAN-459 / #3758)', () => {
+    const savedWithoutImage = {
+      id: 'r-1',
+      name: 'Vegan Cornbread',
+      ingredients: {},
+      instructions: ['bake'],
+    };
+
+    it('joins the in-flight image when the server says generating_image', async () => {
+      let settleImage: (url: string) => void = () => {};
+      const statusFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'generating_image', recipe: savedWithoutImage }),
+      });
+      vi.stubGlobal('fetch', statusFetch);
+      const { component, recipeState, geminiService, authUser } = createComponent({
+        generateImage: () =>
+          new Promise<string>((resolve) => {
+            settleImage = resolve;
+          }),
+      });
+      authUser.savedRecipes = [savedWithoutImage];
+
+      emitId('r-1');
+
+      // The local copy still renders immediately — the probe must not gate it.
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      expect(component.recipe()?.name).toBe('Vegan Cornbread');
+
+      // ...and the photo slot starts spinning once the probe answers.
+      await vi.waitFor(() => expect(recipeState.isImageGenerating()).toBe(true));
+      expect(statusFetch).toHaveBeenCalledWith(
+        '/api/recipes/r-1/status',
+        expect.objectContaining({ credentials: 'include' })
+      );
+      // Joined, not re-queued.
+      expect(geminiService.generateImage).toHaveBeenCalledWith('r-1', false);
+
+      // The image lands with no further reload.
+      settleImage('/api/recipes/r-1/image');
+      await vi.waitFor(() => expect(recipeState.isImageGenerating()).toBe(false));
+      expect((component.recipe() as { ai_image_url?: string }).ai_image_url).toBe(
+        '/api/recipes/r-1/image'
+      );
+    });
+
+    // The gate is load-bearing, not defensive. `queue_image_generation` only
+    // recovers the existing request for `generating_image`; on a `ready` row
+    // with no image it publishes a NEW job. Joining on "no URL" alone would
+    // generate an image for every image-less recipe on every visit.
+    it('does not request an image when the row is ready without one', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({ status: 'ready', recipe: savedWithoutImage }),
+        })
+      );
+      const { component, recipeState, geminiService, authUser } = createComponent();
+      authUser.savedRecipes = [savedWithoutImage];
+
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+
+      expect(geminiService.generateImage).not.toHaveBeenCalled();
+      expect(recipeState.isImageGenerating()).toBe(false);
+    });
+
+    it('does not probe at all when the saved copy already has an image', async () => {
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const { component, geminiService, authUser } = createComponent();
+      authUser.savedRecipes = [{ ...savedWithoutImage, ai_image_url: '/api/recipes/r-1/image' }];
+
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(geminiService.generateImage).not.toHaveBeenCalled();
+    });
+
+    // A probe that 5xx's or throws leaves the placeholder exactly as it is
+    // today, rather than surfacing an error over a rendered recipe.
+    it('leaves the placeholder when the status probe fails', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+      const { component, recipeState, geminiService, authUser } = createComponent();
+      authUser.savedRecipes = [savedWithoutImage];
+
+      emitId('r-1');
+      await vi.waitFor(() => expect(component.loadState()).toBe('ready'));
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalled());
+
+      expect(geminiService.generateImage).not.toHaveBeenCalled();
+      expect(recipeState.isImageGenerating()).toBe(false);
+      expect(component.loadState()).toBe('ready');
+    });
+  });
+
   // GH #3263 (KAN-149): GET /api/recipes/:id returns the row shape
   // ({…columns, data: {…blob}}) — rendering it raw left ingredients and
   // instructions undefined and blanked the page on refresh.
