@@ -33,6 +33,8 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   image tracking lived only in memory, so a reload lost it and the card fell back to the empty
   placeholder. The card now rejoins the request the server reports as still running. Needs the row
   `status` that Backend #442 adds to `GET /api/recipes`; without it the Kitchen behaves as before.
+  Backend pointer moved to `c516e4d676a4` (Backend `dev`) so the field is actually served. The
+  release pin must be re-taken from Backend `main` before `dev` → `main`.
 
 ## [0.7.4] - 2026-10-21
 
