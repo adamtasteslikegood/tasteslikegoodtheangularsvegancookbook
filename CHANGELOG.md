@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- A newly generated recipe shows its text, and the image spinner, as soon as the text is written,
+  instead of waiting for the image (KAN-459). The text wait accepted only `ready`, which the row
+  leaves for `generating_image` about a second after the text lands, so the image spinner almost
+  never appeared and the text arrived together with the image.
+
 ## [0.7.4] - 2026-10-21
 
 Backend pointer pinned at `b08a1eb9368d` (Backend `main`, unchanged since 0.7.3; promoted in
