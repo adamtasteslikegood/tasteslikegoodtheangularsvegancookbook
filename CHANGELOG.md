@@ -6,36 +6,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
-
-### Fixed
-
-- A recipe whose photo is still generating shows the "Styling your dish..." spinner, and then the
-  image, after a page reload — no second reload needed (KAN-459, #3758). The recipe page renders
-  saved recipes from the local copy without reading the server, and the generator writes that copy
-  before the photo exists, so a reload during image generation left the page on "Image not
-  available" with nothing polling. It now asks for the row's status and joins the in-flight
-  request, only when the status is `generating_image` so that a finished row with no image never
-  starts a new one.
-- A newly generated recipe shows its text, and the image spinner, as soon as the text is written,
-  instead of waiting for the image (KAN-459). The text wait accepted only `ready`, which the row
-  leaves for `generating_image` about a second after the text lands, so the image spinner almost
-  never appeared and the text arrived together with the image.
-- My Kitchen cards show the "Styling your dish..." spinner while their image is being generated,
-  and the image replaces it when it lands, with no refresh (KAN-459). Before, a card showed the
-  empty placeholder until the image arrived.
-- My Kitchen cards load a card-sized WebP (`?w=400|600|800`) instead of the full-size original
-  (KAN-459). Private images are sent `no-store`, so every kitchen visit re-downloaded every
-  original. On staging, a signed-in kitchen of 61 private images pulled about 128 MB in its first
-  90 seconds, and the generator's status polls stalled behind it.
-- A My Kitchen card whose photo is still being generated shows the "Styling your dish..." spinner,
-  and then the image, after a page reload — no second reload needed (KAN-459, #3758). In-flight
-  image tracking lived only in memory, so a reload lost it and the card fell back to the empty
-  placeholder. The card now rejoins the request the server reports as still running. Needs the row
-  `status` that Backend #442 adds to `GET /api/recipes`; without it the Kitchen behaves as before.
-  Backend pointer moved to `c516e4d676a4` (Backend `dev`) so the field is actually served. The
-  release pin must be re-taken from Backend `main` before `dev` → `main`.
-
 ## [0.7.4] - 2026-10-22
 
 Backend pointer pinned at `3cdf35e6a0c7` (Backend `main`, promoted in Backend #444).
