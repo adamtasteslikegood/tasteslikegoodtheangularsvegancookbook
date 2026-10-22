@@ -133,7 +133,7 @@
       "depends_on": ["T0"],
       "skill": "investigate",
       "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
-      "objective": "Publish `md4a-fastapi` to PyPI with `[fastapi]` and `[wsgi]` extras, including R16 plain-mode escape (`escape_misc=True` on `markdownify(..., escape_misc=True)` and CommonMark padded inline code spans with newline-to-space normalization on `<code data-md=\"plain\">`), and pin the released PyPI version in `Backend/pyproject.toml` and `Backend/uv.lock`.",
+      "objective": "Publish `md4a-fastapi` to PyPI (FastAPI stays a base dependency by Adam's 2026-10-21 decision; WSGI/Flask parts ship as the `[wsgi]`/`[flask]` extras), including R16 plain-mode escape (`escape_misc=True` on `markdownify(..., escape_misc=True)` and CommonMark padded inline code spans with newline-to-space normalization on `<code data-md=\"plain\">`), and pin the released PyPI version in `Backend/pyproject.toml` and `Backend/uv.lock`.",
       "suggested_tools": ["pytest", "uv"],
       "verification": [
         {
@@ -147,7 +147,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: PyPI release URL for md4a-fastapi with [fastapi]/[wsgi] extras and R16 7-vector escape test output recorded on RCP-S12-S2",
+          "cmd": "MANUAL: PyPI release URL for md4a-fastapi (FastAPI in base, [wsgi] extra) and R16 7-vector escape test output recorded on RCP-S12-S2",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }

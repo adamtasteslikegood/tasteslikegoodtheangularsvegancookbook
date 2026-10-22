@@ -75,7 +75,7 @@ REQUIRED = {
     "RCP-119": "epic — Sprint 12 delivery/acceptance under distribution & launch",
     "KAN-S12-CHARTER": "charter — execution row; closes with RCP-S12-CHARTER",
     "KAN-356": "S1  — Recipe feedback build, Phase 1",
-    "KAN-411": "S2  — md4a-fastapi PyPI release with [fastapi]/[wsgi] extras and R16 escape",
+    "KAN-411": "S2  — md4a-fastapi PyPI release (FastAPI in base) and R16 escape",
     "KAN-434": "S3  — Author display name for Adam's recipes (user id 1)",
     "KAN-290": "S4  — Recycle bin server-side soft delete and unpublished restore",
     "KAN-334": "S5  — SPA publish toggle server sync and legacy sourceSlug explanation",
@@ -145,7 +145,7 @@ BRAND_AUTHOR_SUFFIX = os.getenv("BRAND_AUTHOR_SUFFIX", "classic").strip() or "cl
 SI_SUMMARIES = {
     "charter": "Sprint 12 chartered — board 168 honest on day 1, plan synced to Confluence ({kan})",
     "S1": "Recipe feedback Phase 1 is live — cooked entry, stars, held notes, public summary ({kan})",
-    "S2": "md4a-fastapi published to PyPI with [fastapi]/[wsgi] extras and R16 plain-mode escape ({kan})",
+    "S2": "md4a-fastapi published to PyPI (FastAPI in base) with R16 plain-mode escape ({kan})",
     "S3": f"Author display name for Adam's recipes (user id 1) is Tasteslikegood - {BRAND_AUTHOR_SUFFIX} ({{kan}})",
     "S4": "Recycle bin survives reloads, logouts and devices; failed deletes show; restore never re-publishes ({kan})",
     "S5": "Publish toggle shows the server's state, and legacy manual rows get the right explanation ({kan})",
