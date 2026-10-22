@@ -365,6 +365,32 @@ def check_jira_issues(
     return failures
 
 
+def transition_jira_issues(keys: list, target_status: str, jira_client=None) -> list:
+    """Transition each Jira issue in ``keys`` to ``target_status``."""
+    failures = []
+    jira = jira_client or Jira()
+    target_norm = target_status.strip().lower()
+    for key in keys:
+        if key not in REQUIRED:
+            failures.append(f"{key}: not in refactoring scope ({sorted(REQUIRED)})")
+            continue
+        resp = jira.call("GET", f"/rest/api/3/issue/{key}/transitions")
+        transitions = (resp or {}).get("transitions") or []
+        match = None
+        for t in transitions:
+            to_name = ((t.get("to") or {}).get("name") or t.get("name") or "").strip().lower()
+            t_name = (t.get("name") or "").strip().lower()
+            if to_name == target_norm or t_name == target_norm:
+                match = t
+                break
+        if not match:
+            avail = [((t.get("to") or {}).get("name") or t.get("name")) for t in transitions]
+            failures.append(f"{key}: no transition matching {target_status!r} (available={avail})")
+            continue
+        jira.call("POST", f"/rest/api/3/issue/{key}/transitions", {"transition": {"id": match["id"]}})
+    return failures
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -384,6 +410,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--issues",
         nargs="+",
         help="Scoped Jira check for specific KAN refactoring ticket(s).",
+    )
+    p.add_argument(
+        "--transition",
+        metavar="STATUS",
+        help="Transition the selected Jira issue(s) to STATUS (e.g., 'In Progress', 'Done') before checking.",
     )
     p.add_argument(
         "--close",
@@ -457,6 +488,10 @@ def main(argv=None) -> int:
                         checked_issues.append(k)
 
         if checked_issues and not args.structural_only:
+            if args.transition:
+                failures.extend(
+                    transition_jira_issues(checked_issues, args.transition)
+                )
             failures.extend(
                 check_jira_issues(checked_issues, require_done=require_done)
             )
