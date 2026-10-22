@@ -147,7 +147,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: PyPI release URL for md4a-fastapi (FastAPI in base, [wsgi] extra) and R16 7-vector escape test output recorded on RCP-S12-S2",
+          "cmd": "MANUAL: PyPI release URL for md4a-fastapi (FastAPI in base, [wsgi]/[flask] extras) and R16 7-vector escape test output recorded on RCP-S12-S2",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
