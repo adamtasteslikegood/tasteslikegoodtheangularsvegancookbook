@@ -86,9 +86,9 @@ class Sprint11PlanTests(unittest.TestCase):
                 self.assertTrue(cmds)
                 self.assertTrue(all("-R adamtasteslikegood/tasteslikegood.com" in c for c in cmds))
 
-    def test_s22_checks_each_of_its_three_rows(self):
+    def test_s22_checks_each_of_its_two_rows(self):
         board = self.tasks["T22"]["verification"][0]["cmd"]
-        for key in ("KAN-311", "KAN-312", "KAN-313", "RCP-146"):
+        for key in ("KAN-311", "KAN-313", "RCP-146"):
             self.assertIn(key, board)
 
     def test_the_rate_limiter_task_carries_no_detail(self):

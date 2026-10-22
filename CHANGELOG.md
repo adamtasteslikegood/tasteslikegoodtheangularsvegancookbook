@@ -6,6 +6,30 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [0.7.4] - 2026-10-22
+
+Backend pointer pinned at `3cdf35e6a0c7` (Backend `main`, promoted in Backend #444).
+
+### Fixed
+
+- A newly generated recipe shows its text and an image spinner while it is saved and while its
+  image is made, instead of "Image not available" (KAN-459, #3748, #3756). The server returns the
+  recipe once the image worker has claimed it.
+- A recipe page or kitchen card reloaded while its image is still being made shows the spinner and
+  picks up the image when it lands (KAN-459, #3760, #3761). The recipe list now reports each
+  recipe's status (Backend #442), and kitchen cards use card-sized WebP images.
+
+### Changed
+
+- Backend takes `md4a-fastapi` 0.2.0, which adds `Vary: Accept` to both the HTML and the Markdown
+  responses so shared caches keep them apart (KAN-411, Backend #438, #3753).
+
+### Internal
+
+- Sprint 12 charter plan, hard gate and driver, the T0 cutover map, and the Sprint 11 close-out
+  (RCP-119, KAN-468, RCP-123; #3724, #3750, #3749).
+- Antigravity skill discovery for agent sessions (KAN-437, #3745).
+
 ## [0.7.3] - 2026-10-20
 
 Backend pointer pinned at `b08a1eb9368d` (Backend `main`, promoted in Backend #436).

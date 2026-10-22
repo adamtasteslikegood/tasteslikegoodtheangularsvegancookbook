@@ -122,7 +122,12 @@ export class GeminiService {
         if (status === 'error') {
           throw new Error('Recipe generation failed during async processing');
         }
-        return status === 'ready' && recipe ? recipe : undefined;
+        // The worker writes the text and sets `ready`, and the image worker
+        // claims the row as `generating_image` about a second later. Polling
+        // every 2s nearly always misses `ready`, so waiting for it alone held
+        // the text back until the image was done and the image spinner never
+        // showed. `generating_image` only follows a finished text write.
+        return (status === 'ready' || status === 'generating_image') && recipe ? recipe : undefined;
       }
     );
   }

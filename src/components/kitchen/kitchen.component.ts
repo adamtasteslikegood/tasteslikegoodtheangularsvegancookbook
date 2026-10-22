@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { PersistenceService } from '../../services/persistence.service';
+import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
 import { exportableRecipe, hasEverBeenPublished } from '../../utils/recipe-row';
@@ -57,6 +58,9 @@ function totalMinutes(recipe: Recipe): number {
   return minutes(recipe.prepTime) + minutes(recipe.cookTime) || Number.POSITIVE_INFINITY;
 }
 
+/** Widths the Backend's `?w=` variant route accepts that fit a kitchen card. */
+const KITCHEN_CARD_WIDTHS = [400, 600, 800] as const;
+
 @Component({
   selector: 'app-kitchen',
   standalone: true,
@@ -69,6 +73,7 @@ export class KitchenComponent {
   readonly authService = inject(AuthService);
   private readonly persistenceService = inject(PersistenceService);
   private readonly recipeState = inject(RecipeStateService);
+  private readonly geminiService = inject(GeminiService);
   readonly modalService = inject(ModalService);
 
   /**
@@ -80,6 +85,42 @@ export class KitchenComponent {
    */
   imageSrc(r: { id: string; ai_image_url?: string | null }): string | null {
     return this.recipeState.imageDisplayUrl(r.id, r.ai_image_url);
+  }
+
+  /**
+   * KAN-459: card-sized WebP variants (`?w=`, KAN-271) for an image served by
+   * our own API. A card is at most ~400 CSS px wide, so the full-size original
+   * (~700 KB) is wasted bytes. Private images are sent `no-store`, so every
+   * kitchen visit downloaded every original again, and those downloads starved
+   * the generator's status polls. `null` for any other URL (`data:`, external,
+   * legacy imports): those have no variants and keep the plain `src`.
+   */
+  imageVariants(r: {
+    id: string;
+    ai_image_url?: string | null;
+  }): { src: string; srcset: string } | null {
+    const url = this.imageSrc(r);
+    if (!url || !/^\/api\/recipes\/[^/?#]+\/image(\?[^#]*)?$/.test(url)) return null;
+    const at = (w: number) => `${url}${url.includes('?') ? '&' : '?'}w=${w}`;
+    return {
+      src: at(600),
+      srcset: KITCHEN_CARD_WIDTHS.map((w) => `${at(w)} ${w}w`).join(', '),
+    };
+  }
+
+  /**
+   * `imageVariants` per displayed card, keyed by recipe id. Computed so the
+   * template does not re-run the regex and rebuild every srcset on each
+   * change-detection pass; it recomputes only when the list or a regenerate
+   * marker changes.
+   */
+  readonly cardImageVariants = computed(
+    () => new Map(this.displayedKitchenRecipes().map((r) => [r.id, this.imageVariants(r)]))
+  );
+
+  /** KAN-459: the card shows a spinner while its image is being generated. */
+  isImagePending(id: string): boolean {
+    return this.recipeState.isImagePending(id);
   }
 
   private destroyed = false;
@@ -103,6 +144,61 @@ export class KitchenComponent {
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((params) => {
       void this.applyRouteCookbook(params.get('cookbookId'));
     });
+
+    // KAN-459 / #3758: rejoin photos still being generated, once the rows
+    // carrying their status have actually arrived.
+    void this.rejoinPendingImages();
+  }
+
+  /**
+   * KAN-459 / #3758 — join the image request for any recipe the server says is
+   * still generating one.
+   *
+   * `RecipeStateService` tracks in-flight images only for requests THIS page
+   * made, and a reload discards that, so a card whose photo was still being
+   * generated fell back to the empty placeholder until another reload. The row
+   * `status` (Backend #442) is the authoritative answer, and
+   * `generateImage(id, false)` is a join rather than a second request: the
+   * Backend recovers the existing owner-scoped request and returns 202.
+   *
+   * Narrow on purpose. `generating_image` only — a `ready` row with no image
+   * would have a NEW photo queued for it, which is exactly the accidental-work
+   * trap `rejoinPendingImage` guards against on the recipe page. And only rows
+   * with no image at all, so a regenerate in flight elsewhere is left alone.
+   */
+  private async rejoinPendingImages(): Promise<void> {
+    // The rows arrive from `loadFromApi`, which is usually still in flight
+    // when this component is built, so reading saved recipes now would see an
+    // empty cookbook. Awaiting the same settle gate `applyRouteCookbook` uses
+    // covers both orders: a cold reload, and opening the Kitchen later (the
+    // promise is already resolved by then).
+    try {
+      await this.authService.ready;
+      await this.persistenceService.firstSyncSettled;
+    } catch {
+      // Judge by whatever state we have, as above.
+    }
+    if (this.destroyed) return;
+    for (const recipe of this.authService.currentUser()?.savedRecipes ?? []) {
+      if (recipe.status !== 'generating_image' || recipe.ai_image_url) continue;
+      // Already tracked: this page started it, or a previous pass did.
+      if (this.recipeState.isImagePending(recipe.id)) continue;
+      const pending = this.geminiService.generateImage(recipe.id, false);
+      this.recipeState.trackImageGeneration(recipe.id, pending);
+      pending.then(
+        (imageUrl) => {
+          // The card reads `ai_image_url` off the saved copy, so the swap from
+          // spinner to photo needs this write — nothing else performs it for a
+          // generation this page did not start.
+          if (imageUrl) this.authService.updateRecipeField(recipe.id, 'ai_image_url', imageUrl);
+        },
+        () => {
+          // A failed or timed-out join is not worth a toast on a grid: the
+          // refcount clears and the card falls back to the placeholder it
+          // would have shown anyway.
+        }
+      );
+    }
   }
 
   /**

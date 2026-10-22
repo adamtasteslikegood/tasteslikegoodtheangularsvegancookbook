@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
+import type { SaveOutcome } from '../../services/persistence.service';
 import {
   saveOutcomeForAnalytics,
   trackRecipeSaveOutcome,
@@ -28,6 +29,8 @@ import {
 
 /** KAN-306: longest a save waits for the startup auth check before going ahead. */
 export const SAVE_SESSION_WAIT_MS = 10_000;
+/** KAN-459: a stuck initial save must not hold image or generator state forever. */
+export const GENERATED_RECIPE_SAVE_WAIT_MS = 15_000;
 
 @Component({
   selector: 'app-generator',
@@ -136,44 +139,48 @@ export class GeneratorComponent extends RecipeViewBase {
         this.recipeState.stageRecipeForNavigation(generatedRecipe, false);
         trackRecipeView(generatedRecipe, false);
       }
-      if (this.beginRecipeSave(generatedRecipe.id)) {
-        try {
-          await this.awaitSaveSession();
-          const outcome = await this.persistenceService.saveRecipeDetailed(
-            this.latestVersionOf(generatedRecipe)
-          );
-          const kept = saveOutcomeForAnalytics(outcome) !== null;
-          if (this.recipe()?.id === generatedRecipe.id) {
-            // The generation endpoint already owns this recipe server-side.
-            // noSession only means the optional client copy was skipped.
-            this.isSaved.set(kept || Boolean(outcome.noSession));
+      const saved = (async () => {
+        if (this.beginRecipeSave(generatedRecipe.id)) {
+          try {
+            await this.awaitSaveSession();
+            const outcome = await this.saveGeneratedRecipe(generatedRecipe);
+            const kept = saveOutcomeForAnalytics(outcome) !== null;
+            if (this.recipe()?.id === generatedRecipe.id) {
+              // The generation endpoint already owns this recipe server-side.
+              // noSession only means the optional client copy was skipped.
+              this.isSaved.set(kept || Boolean(outcome.noSession));
+            }
+            // KAN-292: already_saved / saved / saved_offline from the detailed
+            // outcome; ownership and duplicate refusals keep nothing and emit nothing.
+            trackRecipeSaveOutcome('generated', outcome);
+            // Asked after the save, not before it: the user can leave during
+            // the save too, and a generator they come back to starts empty.
+            // Both halves matter: My Kitchen keeps `currentRecipe` as a cache
+            // without showing it, so the id alone does not mean "on screen".
+            const shown =
+              this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
+            // No session here only means the client copy waited out the sign-in
+            // check: the server stored the recipe for its owner when generation
+            // started, so it is in My Kitchen either way.
+            if (!shown) {
+              this.toastService.show(
+                kept || outcome.noSession
+                  ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
+                  : `"${generatedRecipe.name}" is ready.`
+              );
+            }
+          } finally {
+            this.finishRecipeSave(generatedRecipe.id);
           }
-          // KAN-292: already_saved / saved / saved_offline from the detailed
-          // outcome; ownership and duplicate refusals keep nothing and emit nothing.
-          trackRecipeSaveOutcome('generated', outcome);
-          // Asked after the save, not before it: the user can leave during
-          // the save too, and a generator they come back to starts empty.
-          // Both halves matter: My Kitchen keeps `currentRecipe` as a cache
-          // without showing it, so the id alone does not mean "on screen".
-          const shown =
-            this.recipeState.isGeneratorOnScreen() && this.recipe()?.id === generatedRecipe.id;
-          // No session here only means the client copy waited out the sign-in
-          // check: the server stored the recipe for its owner when generation
-          // started, so it is in My Kitchen either way.
-          if (!shown) {
-            this.toastService.show(
-              kept || outcome.noSession
-                ? `"${generatedRecipe.name}" is ready. Find it in My Kitchen.`
-                : `"${generatedRecipe.name}" is ready.`
-            );
-          }
-        } finally {
-          this.finishRecipeSave(generatedRecipe.id);
         }
-      }
+      })();
       // Fire-and-forget: the image takes far longer than the recipe text, and
       // the user must be able to read (and leave) the recipe while it renders.
-      void this.runImageGeneration(generatedRecipe.id, { regenerate: false });
+      // KAN-459: the request still waits for the save (a client save that lands
+      // after the worker could overwrite its image fields), but the spinner
+      // starts now instead of an "Image not available" placeholder.
+      void this.runImageGeneration(generatedRecipe.id, { regenerate: false, after: saved });
+      await saved;
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to generate recipe. Please try again.';
@@ -232,6 +239,33 @@ export class GeneratorComponent extends RecipeViewBase {
       clearTimeout(timer);
     }
     this.authService.ensureGuestSession();
+  }
+
+  /**
+   * The generation endpoint already created this recipe server-side. Keep the
+   * normal client save ahead of the image request so the common fast path
+   * remains ordered, but do not let an indefinitely stalled request pin both
+   * root-scoped pending trackers forever. The optimistic local write happens
+   * before saveRecipeDetailed waits on the API, so a timeout has the same
+   * saved-offline meaning as its existing sync-failure outcome. Generated
+   * rows are content-locked server-side, making a late completion safe.
+   */
+  private async saveGeneratedRecipe(recipe: Recipe): Promise<SaveOutcome> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const bound = new Promise<SaveOutcome>((resolve) => {
+      timer = setTimeout(
+        () => resolve({ ok: false, refusal: 'sync' }),
+        GENERATED_RECIPE_SAVE_WAIT_MS
+      );
+    });
+    try {
+      return await Promise.race([
+        this.persistenceService.saveRecipeDetailed(this.latestVersionOf(recipe)),
+        bound,
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**

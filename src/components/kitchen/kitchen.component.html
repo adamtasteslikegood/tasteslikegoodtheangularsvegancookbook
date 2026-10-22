@@ -366,12 +366,33 @@
             >
               <div class="h-28 sm:h-48 bg-stone-200 relative overflow-hidden">
                 @if (r.ai_image_url) {
-                  <img
-                    [src]="imageSrc(r)"
-                    class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    alt="{{ r.name }}"
-                    loading="lazy"
-                  />
+                  @if (cardImageVariants().get(r.id); as v) {
+                    <img
+                      [src]="v.src"
+                      [attr.srcset]="v.srcset"
+                      sizes="(min-width: 1024px) 400px, 50vw"
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      alt="{{ r.name }}"
+                      loading="lazy"
+                    />
+                  } @else {
+                    <img
+                      [src]="imageSrc(r)"
+                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      alt="{{ r.name }}"
+                      loading="lazy"
+                    />
+                  }
+                } @else if (isImagePending(r.id)) {
+                  <div
+                    class="w-full h-full flex flex-col items-center justify-center text-stone-400 bg-stone-100"
+                    data-testid="kitchen-image-pending"
+                  >
+                    <div
+                      class="w-8 h-8 sm:w-12 sm:h-12 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-2 sm:mb-4"
+                    ></div>
+                    <p class="text-xs sm:text-sm font-medium animate-pulse">Styling your dish...</p>
+                  </div>
                 } @else {
                   <div class="w-full h-full flex items-center justify-center text-stone-400">
                     <svg
