@@ -51,6 +51,9 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       firstSyncSettled?: Promise<void>;
       imageDisplayUrl?: (id: string, url: string | null | undefined) => string | null;
       isImagePending?: (id: string) => boolean;
+      /** KAN-459: rows the kitchen may rejoin a pending image for. */
+      savedRecipes?: unknown[];
+      generateImage?: (id: string, force: boolean) => Promise<string>;
     } = {}
   ) => {
     const params = new BehaviorSubject(
@@ -62,7 +65,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       name: 'Guest Chef',
       isGuest: true,
       authProvider: 'guest',
-      savedRecipes: [],
+      savedRecipes: (opts.savedRecipes ?? []) as User['savedRecipes'],
       cookbooks: opts.cookbooks ?? [cookbook('cb-1', 'Weeknights', ['r-1'])],
     });
     const stageRecipeForNavigation = vi.fn();
@@ -75,6 +78,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
           useValue: {
             currentUser: user,
             ensureGuestSession: vi.fn(),
+            updateRecipeField: vi.fn(),
             ready: Promise.resolve(),
           },
         },
@@ -85,7 +89,10 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
             deleteCookbook: vi.fn().mockResolvedValue(undefined),
           },
         },
-        { provide: GeminiService, useValue: {} },
+        {
+          provide: GeminiService,
+          useValue: { generateImage: vi.fn(opts.generateImage ?? (async () => '')) },
+        },
         {
           provide: RecipeStateService,
           useValue: {
@@ -93,6 +100,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
             stageRecipeForNavigation,
             imageDisplayUrl: opts.imageDisplayUrl ?? (() => null),
             isImagePending: opts.isImagePending ?? (() => false),
+            trackImageGeneration: vi.fn(),
           },
         },
         { provide: ModalService, useValue: {} },
@@ -103,6 +111,75 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       params.next(asParamMap(id ? { cookbookId: id } : {}));
     return { kitchen, navigate, user, emitCookbook, stageRecipeForNavigation, injector };
   };
+
+  // KAN-459 / #3758: in-flight image tracking is per page, so a reload left a
+  // card whose photo was still generating on the empty placeholder until
+  // another reload. The row `status` (Backend #442) is the authoritative
+  // answer, and generateImage(id, false) joins rather than re-queues.
+  describe('rejoining a pending image after a reload (KAN-459 / #3758)', () => {
+    const row = (over: Record<string, unknown>) => ({
+      id: 'r-1',
+      name: 'Vegan Cornbread',
+      ingredients: {},
+      instructions: ['bake'],
+      ...over,
+    });
+
+    it('joins the image and writes the URL onto the saved copy when it lands', async () => {
+      const { kitchen, injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image' })],
+        generateImage: async () => '/api/recipes/r-1/image',
+      });
+      const recipeState = injector.get(RecipeStateService);
+      const authService = injector.get(AuthService);
+      await flush();
+
+      expect(injector.get(GeminiService).generateImage).toHaveBeenCalledWith('r-1', false);
+      expect(recipeState.trackImageGeneration).toHaveBeenCalledWith('r-1', expect.anything());
+      // Nothing else performs this write for a generation the page did not
+      // start, and the card reads ai_image_url off the saved copy.
+      expect(authService.updateRecipeField).toHaveBeenCalledWith(
+        'r-1',
+        'ai_image_url',
+        '/api/recipes/r-1/image'
+      );
+      expect(kitchen).toBeTruthy();
+    });
+
+    // The gate is load-bearing: queue_image_generation publishes a NEW job for
+    // a ready row with no image, so this would generate a photo for every
+    // image-less recipe on every visit to the Kitchen.
+    it('does not touch a ready row that has no image', async () => {
+      const { injector } = createKitchen({ savedRecipes: [row({ status: 'ready' })] });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    it('does not touch a row that already has an image', async () => {
+      const { injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image', ai_image_url: '/api/recipes/r-1/image' })],
+      });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    // An older Backend (before #442) sends no status at all, and the Kitchen
+    // must then behave exactly as it does today.
+    it('does not touch a row whose status the Backend did not send', async () => {
+      const { injector } = createKitchen({ savedRecipes: [row({})] });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+
+    it('does not re-request an image this page is already tracking', async () => {
+      const { injector } = createKitchen({
+        savedRecipes: [row({ status: 'generating_image' })],
+        isImagePending: () => true,
+      });
+      await flush();
+      expect(injector.get(GeminiService).generateImage).not.toHaveBeenCalled();
+    });
+  });
 
   it('routes /kitchen and /kitchen/<id> through one config, so the view is reused', () => {
     const seg = (...paths: string[]) => paths.map((p) => new UrlSegment(p, {}));

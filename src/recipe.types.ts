@@ -58,6 +58,17 @@ export interface Recipe {
    */
   slug_reserved?: boolean;
   /**
+   * KAN-459 — server-owned, from the recipe row only (Backend #442): the row's
+   * generation status. The only values that reach a listed recipe are `ready`
+   * and `generating_image`; the unfinished ones are filtered out server-side
+   * (KAN-381). `generating_image` is the one bit the SPA cannot infer after a
+   * reload — it distinguishes a recipe whose photo is still being generated
+   * from one that simply has none. Undefined means the Backend predates the
+   * field. Never written by the client: the Backend derives the column from
+   * its own worker state, never from this blob key.
+   */
+  status?: string;
+  /**
    * The public `/r/<slug>` this recipe was saved from, if it originated from
    * the public site's "Save to cookbook" CTA. Used to dedup repeat saves so
    * tapping Save again surfaces the existing copy instead of adding another.

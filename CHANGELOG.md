@@ -28,6 +28,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (KAN-459). Private images are sent `no-store`, so every kitchen visit re-downloaded every
   original. On staging, a signed-in kitchen of 61 private images pulled about 128 MB in its first
   90 seconds, and the generator's status polls stalled behind it.
+- A My Kitchen card whose photo is still being generated shows the "Styling your dish..." spinner,
+  and then the image, after a page reload — no second reload needed (KAN-459, #3758). In-flight
+  image tracking lived only in memory, so a reload lost it and the card fell back to the empty
+  placeholder. The card now rejoins the request the server reports as still running. Needs the row
+  `status` that Backend #442 adds to `GET /api/recipes`; without it the Kitchen behaves as before.
 
 ## [0.7.4] - 2026-10-21
 
