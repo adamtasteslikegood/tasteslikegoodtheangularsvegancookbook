@@ -323,12 +323,15 @@ describe('GeneratorComponent shared recipe behaviour', () => {
 
     // Before the fix: no spinner, so "Image not available" for the whole save.
     expect(component.isImageLoading()).toBe(true);
+    // The per-id state My Kitchen cards read is set before the save settles too.
+    expect(recipeState.isImagePending('gen-1')).toBe(true);
     expect(generateImage).not.toHaveBeenCalled();
 
     resolveSave({ ok: true });
     await generating;
     await vi.waitFor(() => expect(generateImage).toHaveBeenCalledWith('gen-1', false));
     await vi.waitFor(() => expect(component.isImageLoading()).toBe(false));
+    expect(recipeState.isImagePending('gen-1')).toBe(false);
   });
 
   it('blocks a manual save while the generated recipe save is still pending', async () => {

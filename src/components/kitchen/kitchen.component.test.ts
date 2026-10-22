@@ -405,6 +405,17 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
     ).toBeNull();
     expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: 'https://cdn.test/a.jpg' })).toBeNull();
     expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: null })).toBeNull();
+    // Only the owned image route: other same-origin paths keep the plain src.
+    for (const other of [
+      '/static/img/r-1.jpg',
+      '/api/recipes/r-1/image/extra',
+      '/api/recipes/r-1/notes',
+      '/api/recipes//image',
+      'api/recipes/r-1/image',
+      '//evil.test/api/recipes/r-1/image',
+    ]) {
+      expect(kitchen.imageVariants({ id: 'r-1', ai_image_url: other })).toBeNull();
+    }
   });
 
   it('computes card variants once per list, keyed by recipe id', () => {
