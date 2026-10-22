@@ -529,6 +529,37 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
       expect(recipeState.isImageGenerating()).toBe(false);
     });
 
+    it('adopts an image that completed before the status probe returned', async () => {
+      const completedImageUrl = '/api/recipes/r-1/image';
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: 'ready',
+            recipe: { ...savedWithoutImage, ai_image_url: completedImageUrl },
+          }),
+        })
+      );
+      const { component, geminiService, authService, authUser } = createComponent();
+      authUser.savedRecipes = [savedWithoutImage];
+
+      emitId('r-1');
+      await vi.waitFor(() =>
+        expect((component.recipe() as { ai_image_url?: string }).ai_image_url).toBe(
+          completedImageUrl
+        )
+      );
+
+      expect(geminiService.generateImage).not.toHaveBeenCalled();
+      expect(authService.updateRecipeField).toHaveBeenCalledWith(
+        'r-1',
+        'ai_image_url',
+        completedImageUrl
+      );
+    });
+
     it('does not probe at all when the saved copy already has an image', async () => {
       const fetchMock = vi.fn();
       vi.stubGlobal('fetch', fetchMock);

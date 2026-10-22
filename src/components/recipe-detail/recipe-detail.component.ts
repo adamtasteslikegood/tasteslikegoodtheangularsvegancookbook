@@ -335,7 +335,8 @@ export class RecipeDetailComponent extends RecipeViewBase {
 
   /**
    * KAN-459 / #3758 — ask the server whether an image is still generating for
-   * a recipe we rendered from the local copy, and join it if so.
+   * a recipe we rendered from the local copy. Join it if so, or adopt the
+   * returned URL if the image completed before this probe arrived.
    *
    * Only `generating_image` may join, and the gate is load-bearing rather than
    * defensive: `queue_image_generation` recovers the existing request (202, no
@@ -347,7 +348,9 @@ export class RecipeDetailComponent extends RecipeViewBase {
    * imported without a photo, included.
    *
    * One extra GET, and only for a recipe that has no image yet. A failed or
-   * refused probe leaves the placeholder exactly as it is today.
+   * refused probe leaves the placeholder exactly as it is today. Reading the
+   * returned URL also closes the race where the row moves to `ready` between
+   * the reload and this response without ever queueing another image.
    */
   private async rejoinPendingImage(id: string, seq: number) {
     // Already tracked — a generation this session started and navigated back
@@ -355,13 +358,13 @@ export class RecipeDetailComponent extends RecipeViewBase {
     // request too rather than paying for an answer we would discard.
     if (this.recipeState.isImageGenerating()) return;
 
-    let status: unknown;
+    let body: { status?: unknown; recipe?: { ai_image_url?: unknown } } | null;
     try {
       const resp = await fetch(`/api/recipes/${encodeURIComponent(id)}/status`, {
         credentials: 'include',
       });
       if (!resp.ok) return;
-      status = ((await resp.json()) as { status?: unknown } | null)?.status;
+      body = (await resp.json()) as typeof body;
     } catch {
       return;
     }
@@ -371,7 +374,14 @@ export class RecipeDetailComponent extends RecipeViewBase {
     // recipe, which is what makes `joinPendingImage`'s own currentRecipe-keyed
     // bookkeeping sound.
     if (seq !== this.requestSeq || this.recipe()?.id !== id) return;
-    if (status !== 'generating_image') return;
+    if (body?.status === 'ready' && typeof body.recipe?.ai_image_url === 'string') {
+      const imageUrl = body.recipe.ai_image_url;
+      this.authService.updateRecipeField(id, 'ai_image_url', imageUrl);
+      this.generatedImageUrl.set(this.recipeState.imageDisplayUrl(id, imageUrl));
+      this.recipe.update((recipe) => (recipe ? { ...recipe, ai_image_url: imageUrl } : null));
+      return;
+    }
+    if (body?.status !== 'generating_image') return;
 
     // No prior URL by construction — the caller only probes when there is
     // none — so no cache-buster is wanted here.
