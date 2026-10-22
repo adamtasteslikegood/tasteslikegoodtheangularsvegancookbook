@@ -334,6 +334,31 @@ describe('GeneratorComponent shared recipe behaviour', () => {
     expect(recipeState.isImagePending('gen-1')).toBe(false);
   });
 
+  it('releases generation and image pending state when the generated recipe save stalls', async () => {
+    vi.useFakeTimers();
+    try {
+      const { component, persistenceSaveRecipe, recipeState, injector } = createComponent();
+      const generateImage = vi.mocked(injector.get(GeminiService).generateImage);
+      persistenceSaveRecipe.mockReturnValue(new Promise(() => {}));
+      component.prompt.set('vegan cornbread');
+
+      const generating = component.onGenerate();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(persistenceSaveRecipe).toHaveBeenCalledOnce();
+      expect(recipeState.isImagePending('gen-1')).toBe(true);
+      expect(generateImage).not.toHaveBeenCalled();
+
+      await vi.runOnlyPendingTimersAsync();
+      await generating;
+
+      expect(generateImage).toHaveBeenCalledWith('gen-1', false);
+      expect(recipeState.isImagePending('gen-1')).toBe(false);
+      expect(component.isRecipeLoading()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('blocks a manual save while the generated recipe save is still pending', async () => {
     const action = vi.fn();
     vi.stubGlobal('tlgAnalytics', { action });
