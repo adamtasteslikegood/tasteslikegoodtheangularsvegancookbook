@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import type { IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
+import type { IngredientGroup, Recipe } from '../../recipe.types';
 import { formatIngredientAmount, formatInstructionText } from './recipe-publish-state';
 
 /**
@@ -249,11 +249,6 @@ export class RecipeBodyComponent {
   readonly cancelEditNotes = output<void>();
   readonly saveNotes = output<void>();
 
-  formatAmount(amount: number | number[]): string {
-    return formatIngredientAmount(amount);
-  }
-
-  instructionText(step: string | InstructionStep): string {
-    return formatInstructionText(step);
-  }
+  readonly formatAmount = formatIngredientAmount;
+  readonly instructionText = formatInstructionText;
 }
