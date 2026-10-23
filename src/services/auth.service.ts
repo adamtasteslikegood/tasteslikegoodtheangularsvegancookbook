@@ -3,6 +3,32 @@ import { Cookbook, User } from '../auth.types';
 import { Recipe } from '../recipe.types';
 import { environment } from '../environments/environment';
 import { resetRecipeViewTracking } from '../utils/analytics';
+import {
+  addRecipeToUserCookbook,
+  appendCookbook,
+  buildAuthenticatedUserFromCheck,
+  cleanOAuthSuccessUrl,
+  clearDeletedRecipes,
+  createGuestUser,
+  hydrateUserLibrary,
+  permanentlyDeleteSavedRecipe,
+  readSessionFromStorage,
+  removeCookbook,
+  removeRecipeFromUserCookbook,
+  removeSavedRecipeById,
+  resolveCookbookRecipeId,
+  resolveGuestSessionEnsure,
+  restoreDeletedRecipe,
+  saveSessionToStorage,
+  SESSION_STORAGE_KEY,
+  setUserCookbookMembership,
+  shouldClearStaleAuthenticatedSession,
+  softDeleteSavedRecipe,
+  updateSavedRecipeField,
+  upsertSavedRecipe,
+} from './user-library.store';
+
+export * from './user-library.store';
 
 /**
  * Authentication service that orchestrates both:
@@ -16,7 +42,7 @@ import { resetRecipeViewTracking } from '../utils/analytics';
   providedIn: 'root',
 })
 export class AuthService {
-  static readonly SESSION_STORAGE_KEY = 'vegan_genius_session';
+  static readonly SESSION_STORAGE_KEY = SESSION_STORAGE_KEY;
 
   currentUser: WritableSignal<User | null> = signal(null);
 
@@ -72,17 +98,11 @@ export class AuthService {
   }
 
   /**
-   * If the loaded local session points at a Google-authed user but Flask
-   * reports no active session, drop it entirely. Keeping the cached user
-   * (even downgraded to guest) causes the UI to show the Sign In button
-   * while still rendering the previously authenticated user's recipes —
-   * a state mismatch (and a minor privacy leak on shared devices). The
-   * authenticated user's recipes live in the Flask DB and will be re-
-   * hydrated on re-login.
+   * Drop a cached Google-authed session when Flask reports no active session
+   * (see `shouldClearStaleAuthenticatedSession` in `user-library.store.ts`).
    */
   private clearStaleAuthenticatedSession(reason: string) {
-    const restored = this.currentUser();
-    if (restored && !restored.isGuest) {
+    if (shouldClearStaleAuthenticatedSession(this.currentUser())) {
       console.log(`${reason} — clearing cached authenticated session`);
       this.currentUser.set(null);
       localStorage.removeItem(this.STORAGE_KEY_SESSION);
@@ -109,36 +129,10 @@ export class AuthService {
 
       const data = await res.json();
       if (data.authenticated) {
-        // Clean up ?auth=success query param left by the OAuth redirect,
-        // preserving any other query parameters that may be present.
-        if (window.location.search.includes('auth=success')) {
-          const url = new URL(window.location.href);
-          url.searchParams.delete('auth');
-          window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
-        }
-
-        // Merge any existing guest data before replacing session
-        const existingLocal = this.getLocalSession();
-
-        const user: User = {
-          id: data.user_id || data.email,
-          email: data.email,
-          name: data.name || 'Chef',
-          picture: data.picture,
-          isGuest: false,
-          authProvider: 'google',
-          savedRecipes: existingLocal?.savedRecipes || [],
-          cookbooks: existingLocal?.cookbooks || [],
-        };
-
+        cleanOAuthSuccessUrl();
+        const user = buildAuthenticatedUserFromCheck(data, this.getLocalSession());
         this.currentUser.set(user);
         this.saveLocalSession(user);
-
-        // Clear guest marker if present
-        if (existingLocal?.isGuest) {
-          console.log('Merged guest session data into authenticated user.');
-        }
-
         return true;
       }
 
@@ -210,36 +204,18 @@ export class AuthService {
   ensureGuestSession() {
     if (this.currentUser()) return;
 
-    // init() may still be awaiting /api/auth/check, so currentUser() is null
-    // even when a session already exists in localStorage. Restore that first
-    // instead of overwriting it with a fresh empty guest — otherwise a
-    // returning guest who opens a ?save= or #kitchen URL loses their saved
-    // recipes to this startup race. (Matches what init()'s loadLocalSession
-    // does; any stale authenticated session is still cleared once the auth
-    // check resolves.)
     const existing = this.getLocalSession();
-    if (existing) {
-      // A cached *authenticated* session may be stale while the startup auth
-      // check is still in flight: restoring it would briefly render another
-      // user's data on shared devices, and a save written into it disappears
-      // if clearStaleAuthenticatedSession() wipes it moments later. Callers
-      // that need a session for a save must await `ready` first.
-      if (existing.isGuest || !this.authLoading()) {
-        this.currentUser.set(existing);
-      } else {
-        this.pendingGuestEnsure = true;
-      }
+    const action = resolveGuestSessionEnsure(existing, this.authLoading());
+    if (action === 'restore' && existing) {
+      this.currentUser.set(existing);
+      return;
+    }
+    if (action === 'defer') {
+      this.pendingGuestEnsure = true;
       return;
     }
 
-    const guestUser: User = {
-      id: crypto.randomUUID(),
-      name: 'Guest Chef',
-      isGuest: true,
-      authProvider: 'guest',
-      savedRecipes: [],
-      cookbooks: [],
-    };
+    const guestUser = createGuestUser();
     this.currentUser.set(guestUser);
     this.saveLocalSession(guestUser);
   }
@@ -252,109 +228,7 @@ export class AuthService {
   hydrate(recipes: Recipe[], cookbooks: Cookbook[]) {
     const user = this.currentUser();
     if (!user) return;
-
-    // Merge recipes: keep any localStorage recipes NOT already in the API response.
-    // KAN-265: also match by sourceRecipeId/sourceSlug/slug so that a guest-saved copy whose
-    // server-side duplicate was deleted during merge doesn't survive as a zombie
-    // in localStorage under a different id.
-    const normalizeSlug = (value: unknown): string | undefined => {
-      if (typeof value !== 'string') return undefined;
-      const normalized = value.trim().toLowerCase();
-      return normalized || undefined;
-    };
-
-    const apiIds = new Set(recipes.map((r) => r.id));
-    const apiSourceRecipeIds = new Set(
-      recipes.map((r) => normalizeSlug(r.sourceRecipeId)).filter((id): id is string => !!id)
-    );
-    const apiSlugs = new Set<string>();
-    for (const r of recipes) {
-      const sourceSlug = normalizeSlug(r.sourceSlug);
-      const slug = normalizeSlug(r.slug);
-      if (sourceSlug) apiSlugs.add(sourceSlug);
-      if (slug) apiSlugs.add(slug);
-    }
-    const localOnly = user.savedRecipes.filter((r) => {
-      if (apiIds.has(r.id)) return false;
-      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
-      if (sourceRecipeId && apiSourceRecipeIds.has(sourceRecipeId)) return false;
-      const sourceSlug = normalizeSlug(r.sourceSlug);
-      const slug = normalizeSlug(r.slug);
-      if (sourceSlug && apiSlugs.has(sourceSlug)) return false;
-      if (slug && apiSlugs.has(slug)) return false;
-      return true;
-    });
-
-    // Merge ai_image_url from localStorage into API recipes. The API may
-    // not have the URL yet if Pub/Sub image generation hasn't completed;
-    // localStorage has it from the optimistic update in
-    // RecipeViewBase.runImageGeneration (was triggerImageGeneration, KAN-255).
-    //
-    // KAN-265: the localOnly filter above may now drop a local recipe whose
-    // id doesn't match the API record but whose sourceSlug/slug does (the
-    // "zombie after server-side merge" scenario). Look the local record up
-    // by id first, then fall back to sourceSlug/slug — otherwise a freshly
-    // generated ai_image_url cached on the guest copy is silently lost when
-    // the API record (a different id) doesn't have it yet.
-    const localById = new Map(user.savedRecipes.map((r) => [r.id, r]));
-    const localBySourceRecipeId = new Map<string, Recipe>();
-    const localBySlug = new Map<string, Recipe>();
-    const rememberImageCandidate = (map: Map<string, Recipe>, key: string, recipe: Recipe) => {
-      const existing = map.get(key);
-      if (!existing || (!existing.ai_image_url && recipe.ai_image_url)) {
-        map.set(key, recipe);
-      }
-    };
-    for (const r of user.savedRecipes) {
-      const sourceRecipeId = normalizeSlug(r.sourceRecipeId);
-      const src = normalizeSlug(r.sourceSlug);
-      const slg = normalizeSlug(r.slug);
-      if (sourceRecipeId) rememberImageCandidate(localBySourceRecipeId, sourceRecipeId, r);
-      if (src) rememberImageCandidate(localBySlug, src, r);
-      if (slg) rememberImageCandidate(localBySlug, slg, r);
-    }
-    const findLocalForApi = (apiRecipe: Recipe): Recipe | undefined => {
-      const byId = localById.get(apiRecipe.id);
-      if (byId) return byId;
-      const sourceRecipeId = normalizeSlug(apiRecipe.sourceRecipeId);
-      if (sourceRecipeId) {
-        const bySourceRecipeId = localBySourceRecipeId.get(sourceRecipeId);
-        if (bySourceRecipeId) return bySourceRecipeId;
-      }
-      const src = normalizeSlug(apiRecipe.sourceSlug);
-      if (src) {
-        const bySrc = localBySlug.get(src);
-        if (bySrc) return bySrc;
-      }
-      const slg = normalizeSlug(apiRecipe.slug);
-      if (slg) return localBySlug.get(slg);
-      return undefined;
-    };
-    const mergedApi = recipes.map((apiRecipe) => {
-      const local = findLocalForApi(apiRecipe);
-      if (local?.ai_image_url && !apiRecipe.ai_image_url) {
-        return { ...apiRecipe, ai_image_url: local.ai_image_url };
-      }
-      return apiRecipe;
-    });
-
-    const merged = [...mergedApi, ...localOnly];
-
-    // Merge cookbooks: keep any localStorage cookbooks NOT already in the API response,
-    // then deduplicate by id so races between loadFromApi and createCookbook never
-    // produce ghost double-entries in the add-to-cookbook modal (KAN-242).
-    const apiCookbookIds = new Set(cookbooks.map((c) => c.id));
-    const localOnlyCookbooks = user.cookbooks.filter((c) => !apiCookbookIds.has(c.id));
-    const seenIds = new Set<string>();
-    const mergedCookbooks = [...cookbooks, ...localOnlyCookbooks].filter((c) => {
-      if (seenIds.has(c.id)) return false;
-      seenIds.add(c.id);
-      return true;
-    });
-
-    const updated = { ...user, savedRecipes: merged, cookbooks: mergedCookbooks };
-    this.currentUser.set(updated);
-    this.saveLocalSession(updated);
+    this.updateUserRecord(hydrateUserLibrary(user, recipes, cookbooks));
   }
 
   // ─── Recipe Management (localStorage) ─────────────────────────
@@ -362,19 +236,7 @@ export class AuthService {
   saveRecipe(recipe: Recipe) {
     const user = this.currentUser();
     if (!user) return;
-
-    // Check if already saved by ID
-    if (user.savedRecipes.some((r) => r.id === recipe.id)) {
-      const updatedRecipes = user.savedRecipes.map((r) => (r.id === recipe.id ? recipe : r));
-      this.updateUserRecord({ ...user, savedRecipes: updatedRecipes });
-      return;
-    }
-
-    const updatedUser = {
-      ...user,
-      savedRecipes: [...user.savedRecipes, recipe],
-    };
-    this.updateUserRecord(updatedUser);
+    this.updateUserRecord(upsertSavedRecipe(user, recipe));
   }
 
   /**
@@ -387,18 +249,8 @@ export class AuthService {
   removeRecipeById(recipeId: string) {
     const user = this.currentUser();
     if (!user) return;
-    if (!user.savedRecipes.some((r) => r.id === recipeId)) return;
-    this.updateUserRecord({
-      ...user,
-      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
-      // Strip the id from every cookbook too, as deleteRecipe does. Dropping
-      // the row while leaving a cookbook.recipeIds entry behind leaves a
-      // dangling reference that renders as a missing entry in that cookbook.
-      cookbooks: user.cookbooks.map((cb) => ({
-        ...cb,
-        recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
-      })),
-    });
+    const updated = removeSavedRecipeById(user, recipeId);
+    if (updated) this.updateUserRecord(updated);
   }
 
   /**
@@ -409,81 +261,33 @@ export class AuthService {
   updateRecipeField(recipeId: string, field: keyof Recipe, value: unknown) {
     const user = this.currentUser();
     if (!user) return;
-
-    const idx = user.savedRecipes.findIndex((r) => r.id === recipeId);
-    if (idx === -1) return;
-
-    const updatedRecipes = [...user.savedRecipes];
-    updatedRecipes[idx] = { ...updatedRecipes[idx], [field]: value };
-    this.updateUserRecord({ ...user, savedRecipes: updatedRecipes });
+    const updated = updateSavedRecipeField(user, recipeId, field, value);
+    if (updated) this.updateUserRecord(updated);
   }
 
   deleteRecipe(recipeId: string) {
     const user = this.currentUser();
     if (!user) return;
-
-    const recipe = user.savedRecipes.find((r) => r.id === recipeId);
-    const deletedRecipes = [...(user.deletedRecipes || [])];
-    if (recipe) {
-      // Remember which cookbooks this recipe was in, so restore can re-add it
-      const cookbookIds = user.cookbooks
-        .filter((cb) => cb.recipeIds.includes(recipeId))
-        .map((cb) => cb.id);
-      deletedRecipes.push({ recipe, deletedAt: new Date().toISOString(), cookbookIds });
-    }
-
-    this.updateUserRecord({
-      ...user,
-      savedRecipes: user.savedRecipes.filter((r) => r.id !== recipeId),
-      cookbooks: user.cookbooks.map((cb) => ({
-        ...cb,
-        recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
-      })),
-      deletedRecipes,
-    });
+    this.updateUserRecord(softDeleteSavedRecipe(user, recipeId));
   }
 
   restoreRecipe(recipeId: string) {
     const user = this.currentUser();
     if (!user) return;
-
-    const entry = (user.deletedRecipes || []).find((d) => d.recipe.id === recipeId);
-    if (!entry) return;
-
-    // Restore cookbook membership if it was saved
-    const cookbooks = entry.cookbookIds?.length
-      ? user.cookbooks.map((cb) => {
-          if (entry.cookbookIds!.includes(cb.id) && !cb.recipeIds.includes(recipeId)) {
-            return { ...cb, recipeIds: [...cb.recipeIds, recipeId] };
-          }
-          return cb;
-        })
-      : user.cookbooks;
-
-    this.updateUserRecord({
-      ...user,
-      savedRecipes: [...user.savedRecipes, entry.recipe],
-      cookbooks,
-      deletedRecipes: (user.deletedRecipes || []).filter((d) => d.recipe.id !== recipeId),
-    });
+    const updated = restoreDeletedRecipe(user, recipeId);
+    if (updated) this.updateUserRecord(updated);
   }
 
   permanentlyDeleteRecipe(recipeId: string) {
     const user = this.currentUser();
     if (!user) return;
-    this.updateUserRecord({
-      ...user,
-      deletedRecipes: (user.deletedRecipes || []).filter((d) => d.recipe.id !== recipeId),
-    });
+    this.updateUserRecord(permanentlyDeleteSavedRecipe(user, recipeId));
   }
 
   emptyRecycleBin() {
     const user = this.currentUser();
     if (!user) return;
-    this.updateUserRecord({
-      ...user,
-      deletedRecipes: [],
-    });
+    this.updateUserRecord(clearDeletedRecipes(user));
   }
 
   // ─── Cookbook Management (localStorage) ────────────────────────
@@ -491,30 +295,15 @@ export class AuthService {
   createCookbook(name: string, description: string = '', id?: string): Cookbook | undefined {
     const user = this.currentUser();
     if (!user) return undefined;
-
-    const newCookbook: Cookbook = {
-      id: id ?? crypto.randomUUID(),
-      name,
-      description,
-      recipeIds: [],
-    };
-
-    this.updateUserRecord({
-      ...user,
-      cookbooks: [...user.cookbooks, newCookbook],
-    });
-
-    return newCookbook;
+    const { user: updatedUser, cookbook } = appendCookbook(user, name, description, id);
+    this.updateUserRecord(updatedUser);
+    return cookbook;
   }
 
   deleteCookbook(cookbookId: string) {
     const user = this.currentUser();
     if (!user) return;
-
-    this.updateUserRecord({
-      ...user,
-      cookbooks: user.cookbooks.filter((cb) => cb.id !== cookbookId),
-    });
+    this.updateUserRecord(removeCookbook(user, cookbookId));
   }
 
   /**
@@ -523,58 +312,19 @@ export class AuthService {
    * failed add has to remove this id, not necessarily recipe.id.
    */
   cookbookRecipeIdFor(recipe: Recipe): string {
-    const saved = this.currentUser()?.savedRecipes.find(
-      (r) => r.id === recipe.id || r.name === recipe.name
-    );
-    return saved?.id ?? recipe.id;
+    return resolveCookbookRecipeId(this.currentUser(), recipe);
   }
 
   addRecipeToCookbook(cookbookId: string, recipe: Recipe) {
     const user = this.currentUser();
     if (!user) return;
-
-    // 1. Ensure recipe is in savedRecipes
-    const savedRecipes = [...user.savedRecipes];
-    let recipeId = recipe.id;
-
-    const existingIndex = savedRecipes.findIndex(
-      (r) => r.id === recipe.id || r.name === recipe.name
-    );
-    if (existingIndex === -1) {
-      savedRecipes.push(recipe);
-    } else {
-      recipeId = savedRecipes[existingIndex].id;
-    }
-
-    // 2. Add to cookbook
-    const cookbooks = user.cookbooks.map((cb) => {
-      if (cb.id === cookbookId) {
-        if (!cb.recipeIds.includes(recipeId)) {
-          const coverImage = cb.coverImage || recipe.ai_image_url || recipe.stock_image_url;
-          return { ...cb, recipeIds: [...cb.recipeIds, recipeId], coverImage };
-        }
-      }
-      return cb;
-    });
-
-    this.updateUserRecord({ ...user, savedRecipes, cookbooks });
+    this.updateUserRecord(addRecipeToUserCookbook(user, cookbookId, recipe));
   }
 
   removeRecipeFromCookbook(cookbookId: string, recipeId: string) {
     const user = this.currentUser();
     if (!user) return;
-
-    const cookbooks = user.cookbooks.map((cb) => {
-      if (cb.id === cookbookId) {
-        return {
-          ...cb,
-          recipeIds: cb.recipeIds.filter((id) => id !== recipeId),
-        };
-      }
-      return cb;
-    });
-
-    this.updateUserRecord({ ...user, cookbooks });
+    this.updateUserRecord(removeRecipeFromUserCookbook(user, cookbookId, recipeId));
   }
 
   /**
@@ -585,14 +335,7 @@ export class AuthService {
   setCookbookMembership(cookbookId: string, recipeId: string, present: boolean) {
     const user = this.currentUser();
     if (!user) return;
-    const cookbooks = user.cookbooks.map((cb) => {
-      if (cb.id !== cookbookId || cb.recipeIds.includes(recipeId) === present) return cb;
-      const recipeIds = present
-        ? [...cb.recipeIds, recipeId]
-        : cb.recipeIds.filter((id) => id !== recipeId);
-      return { ...cb, recipeIds };
-    });
-    this.updateUserRecord({ ...user, cookbooks });
+    this.updateUserRecord(setUserCookbookMembership(user, cookbookId, recipeId, present));
   }
 
   // ─── Internal: localStorage persistence ───────────────────────
@@ -603,59 +346,17 @@ export class AuthService {
   }
 
   private saveLocalSession(user: User) {
-    const safeUser: User = {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      picture: user.picture,
-      isGuest: user.isGuest,
-      authProvider: user.authProvider,
-      // Strip base64 image data from the localStorage cache to stay within
-      // the ~5 MB quota. URL-based images (from Flask) are kept.
-      savedRecipes: (user.savedRecipes || []).map((r) => ({
-        ...r,
-        ai_image_url: r.ai_image_url?.startsWith('data:') ? undefined : r.ai_image_url,
-        image: r.image?.startsWith('data:') ? undefined : r.image,
-      })),
-      cookbooks: user.cookbooks || [],
-      deletedRecipes: user.deletedRecipes || [],
-    };
-    try {
-      localStorage.setItem(this.STORAGE_KEY_SESSION, JSON.stringify(safeUser));
-    } catch (e) {
-      console.warn('Failed to save local session to localStorage (quota exceeded?):', e);
-      // The in-memory signal is already updated, and the backend DB will still receive the POST.
-      // Next time the user refreshes, loadFromApi() will restore from the server.
-    }
+    saveSessionToStorage(this.STORAGE_KEY_SESSION, user);
   }
 
   private loadLocalSession() {
-    const session = localStorage.getItem(this.STORAGE_KEY_SESSION);
-    if (session) {
-      try {
-        const user = JSON.parse(session) as User;
-        if (!user.savedRecipes) user.savedRecipes = [];
-        if (!user.cookbooks) user.cookbooks = [];
-        if (!user.deletedRecipes) user.deletedRecipes = [];
-        this.currentUser.set(user);
-      } catch (e) {
-        console.error('Failed to parse local session', e);
-        localStorage.removeItem(this.STORAGE_KEY_SESSION);
-      }
+    const user = readSessionFromStorage(this.STORAGE_KEY_SESSION, true);
+    if (user) {
+      this.currentUser.set(user);
     }
   }
 
   private getLocalSession(): User | null {
-    const session = localStorage.getItem(this.STORAGE_KEY_SESSION);
-    if (!session) return null;
-    try {
-      const user = JSON.parse(session) as User;
-      if (!user.savedRecipes) user.savedRecipes = [];
-      if (!user.cookbooks) user.cookbooks = [];
-      if (!user.deletedRecipes) user.deletedRecipes = [];
-      return user;
-    } catch {
-      return null;
-    }
+    return readSessionFromStorage(this.STORAGE_KEY_SESSION, false);
   }
 }

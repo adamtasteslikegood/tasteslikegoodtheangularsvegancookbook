@@ -12,6 +12,11 @@ import type { Recipe } from '../../recipe.types';
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
 import { kitchenTrail } from '../../utils/breadcrumbs';
+import {
+  KitchenEmptyBinModalComponent,
+  KitchenRecipeCardComponent,
+  KitchenRecycleCardComponent,
+} from './kitchen-cards.component';
 
 /**
  * KAN-289 — which confirmation the delete button opens.
@@ -64,7 +69,14 @@ const KITCHEN_CARD_WIDTHS = [400, 600, 800] as const;
 @Component({
   selector: 'app-kitchen',
   standalone: true,
-  imports: [CommonModule, DialogFocusDirective, BreadcrumbComponent],
+  imports: [
+    CommonModule,
+    DialogFocusDirective,
+    BreadcrumbComponent,
+    KitchenRecipeCardComponent,
+    KitchenRecycleCardComponent,
+    KitchenEmptyBinModalComponent,
+  ],
   templateUrl: './kitchen.component.html',
 })
 export class KitchenComponent {
