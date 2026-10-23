@@ -485,4 +485,3 @@ export function createGuestUser(): User {
     cookbooks: [],
   };
 }
-
