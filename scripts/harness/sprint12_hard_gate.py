@@ -91,6 +91,8 @@ REQUIRED = {
     "KAN-277": "S15 — 3-5 articles under the Q6 rubric (lane:adam)",
     "KAN-425": "S16 — Backend Postgres driver to psycopg 3 and SQLAlchemy 2.1",
     "KAN-459": "S17 — Generated recipe image spinner until the image lands (added 2026-10-22)",
+    "KAN-472": "S18 — Recipe step sketch illustrations as HowToStep.image (added 2026-10-23)",
+    "KAN-424": "S19 — Per-serving Recipe nutrition from ingredients (added 2026-10-23)",
 }
 
 RECORDED = {}
@@ -114,6 +116,8 @@ SI_EXECUTION = {
     "S15": ["KAN-277"],
     "S16": ["KAN-425"],
     "S17": ["KAN-459"],
+    "S18": ["KAN-472"],
+    "S19": ["KAN-424"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them.
@@ -140,6 +144,8 @@ ACCEPTANCE = {
     "S15": "RCP-109",
     "S16": "RCP-S12-S16",
     "S17": "RCP-S12-S17",
+    "S18": "RCP-S12-S18",
+    "S19": "RCP-S12-S19",
 }
 
 PLACEHOLDER_ACCEPTANCE = dict(ACCEPTANCE)
@@ -164,6 +170,8 @@ SI_SUMMARIES = {
     "S15": "Owned-property links audited and completed, plus 3-5 articles under the Q6 rubric ({kan})",
     "S16": "Backend Postgres driver moved to psycopg 3 and SQLAlchemy 2.1 after staging soak ({kan})",
     "S17": "A generated recipe shows its text and an image spinner until the image lands, including after a reload ({kan})",
+    "S18": "A published recipe's steps each carry a sketch illustration, collapsed by default, emitted as HowToStep.image ({kan})",
+    "S19": "A published recipe's JSON-LD carries per-serving nutrition computed from its ingredients ({kan})",
 }
 
 BASE_REQUIRED = dict(REQUIRED)
