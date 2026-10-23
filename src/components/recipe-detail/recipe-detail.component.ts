@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { RecipeViewBase } from '../shared/recipe-view.base';
+import { RecipeBodyComponent } from '../shared/recipe-body.component';
+import { RecipeImageComponent } from '../shared/recipe-image.component';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
@@ -38,7 +40,14 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 @Component({
   selector: 'app-recipe-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, UnpublishConfirmComponent, BreadcrumbComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RecipeBodyComponent,
+    RecipeImageComponent,
+    UnpublishConfirmComponent,
+    BreadcrumbComponent,
+  ],
   templateUrl: './recipe-detail.component.html',
 })
 export class RecipeDetailComponent extends RecipeViewBase {
