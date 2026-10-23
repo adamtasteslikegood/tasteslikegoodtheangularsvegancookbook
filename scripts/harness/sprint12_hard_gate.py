@@ -122,9 +122,10 @@ SI_EXECUTION = {
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them.
 # Eight SIs reuse the RCP rows carried into Sprint 12 (retitled to
-# "S12 acceptance: ..." at Day-1 charter); the remaining nine SIs have
+# "S12 acceptance: ..." at Day-1 charter); the remaining nine charter SIs had
 # deterministic placeholder keys replaced by sprint12_rcp_map.json when
-# --bootstrap-charter mints the live RCP stories on Day 1.
+# --bootstrap-charter minted the live RCP stories on Day 1. Mid-sprint additions
+# S17-S19 also retain placeholder aliases here and resolve through the same map.
 ACCEPTANCE = {
     "charter": "RCP-S12-CHARTER",
     "S1": "RCP-150",

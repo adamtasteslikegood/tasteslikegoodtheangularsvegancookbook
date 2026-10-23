@@ -1,6 +1,6 @@
 {
   "schema": "agent-harness/plan.v1",
-  "goal": "Deliver Sprint 12 (Sprint id 122 on RCP Scrum Board 168, under Epic RCP-119, 2026-10-23 to 2026-11-06): ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) with md4a-fastapi PyPI + R16 plain-mode escape (KAN-411) and Adam's recipe author display name (KAN-434), clear the rolled Sprint 11 and next-sprint-candidate items (KAN-290, KAN-334, KAN-426, KAN-389, KAN-347, KAN-435, KAN-421, KAN-336, KAN-337, KAN-400, KAN-404, KAN-425), publish 3-5 Q6 articles (KAN-277 / RCP-109), and close the Week-1 process lane (KAN-188, KAN-429/KAN-402, KAN-390) before the Sprint 13 staging beta freeze.",
+  "goal": "Deliver Sprint 12 (Sprint id 122 on RCP Scrum Board 168, under Epic RCP-119, 2026-10-23 to 2026-11-06): ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) with md4a-fastapi PyPI + R16 plain-mode escape (KAN-411) and Adam's recipe author display name (KAN-434), clear the rolled Sprint 11 and next-sprint-candidate items (KAN-290, KAN-334, KAN-426, KAN-389, KAN-347, KAN-435, KAN-421, KAN-336, KAN-337, KAN-400, KAN-404, KAN-425), verify the generated-recipe image spinner shipped in v0.7.4 (KAN-459), add recipe step illustrations and per-serving nutrition to the public Recipe surface (KAN-472, KAN-424), publish 3-5 Q6 articles (KAN-277 / RCP-109), and close the Week-1 process lane (KAN-188, KAN-429/KAN-402, KAN-390) before the Sprint 13 staging beta freeze.",
   "domain": "project-management",
   "compiled_at": "2026-10-18",
   "charter": "specs/SPRINT_12_PLAN.md",
