@@ -148,7 +148,7 @@ export const ready = (async () => {
       ? path.resolve(__dirname, '..', 'public')
       : path.resolve(__dirname, 'public');
 
-  const newestRecipesPreload = mountPublicAndSsrRoutes(app, {
+  const { preload: newestRecipesPreload } = mountPublicAndSsrRoutes(app, {
     distPath,
     publicPath,
     spaIndexPath,

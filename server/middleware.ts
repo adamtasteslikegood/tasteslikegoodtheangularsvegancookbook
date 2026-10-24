@@ -141,7 +141,7 @@ export function mountPublicAndSsrRoutes(
     flaskUrl: string;
     staticPageLimiter: express.RequestHandler;
   }
-): Promise<void> {
+): { preload: Promise<void> } {
   const { distPath, publicPath, spaIndexPath, flaskUrl, staticPageLimiter } = opts;
 
   // /index.html is a duplicate of the canonical home URL. Redirect it before
@@ -357,5 +357,5 @@ export function mountPublicAndSsrRoutes(
   // express.static so Angular build assets (if any collide) still win.
   app.get('/static/*splat', staticPageLimiter, ssrProxy);
 
-  return newestRecipesPreload;
+  return { preload: newestRecipesPreload };
 }
