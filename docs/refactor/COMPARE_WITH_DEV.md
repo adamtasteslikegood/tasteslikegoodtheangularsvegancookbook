@@ -18,7 +18,7 @@ After the fork, `dev` gained only release and dependency commits: v0.7.4
 (#3763, #3764), the main-to-dev back-sync (#3766, Backend #445) and Dependabot
 updates. KAN-479 merges that `dev` into the integration branch: cookbook
 #3781 (`415c5ac`) and Backend #454 (`3dfa82e`). Once both merge, the two-dot
-diff `origin/dev..<integration>` is the refactor itself. Until then, run the
+diff `origin/dev..<integration>` is the refactor plus this comparison plan. Until then, run the
 checks below against the sync branch `chore/kan-479-sync-dev-into-refactor-integration`.
 
 **Merge #454 with a merge commit** (`gh pr merge 454 --merge`), and merge it
@@ -49,14 +49,16 @@ git -C Backend diff --stat origin/dev origin/chore/refactor_argon_integration
 Every path must be either a source file named in
 `scripts/harness/refactor_hard_gate.py` `TASK_SPECS` (or the component class
 paired with a template named there), an extracted module named there, a test,
-or Argon's harness files (`scripts/harness/refactor_*`,
-`specs/harness/`). Anything else is drift. Name it on KAN-479 before promoting.
+Argon's harness files (`scripts/harness/refactor_*`, `specs/harness/`), or this
+comparison plan (`docs/refactor/COMPARE_WITH_DEV.md`). Anything else is drift.
+Name it on KAN-479 before promoting.
 
 Result on 2026-10-26, after the sync and with G4 still unmerged:
 
-- **Cookbook:** 20 files. These are 5 harness files, 9 G3 sources (the 6 named
-  in `TASK_SPECS` plus the `.component.ts` classes paired with the three
-  templates) and 6 extracted modules (`persistence-outcomes.ts`, `user-library.store.ts`,
+- **Cookbook:** 21 files. These are this comparison plan, 5 harness files,
+  9 G3 sources (the 6 named in `TASK_SPECS` plus the `.component.ts` classes
+  paired with the three templates) and 6 extracted modules
+  (`persistence-outcomes.ts`, `user-library.store.ts`,
   `recipe-publish-state.ts`, `recipe-body.component.ts`,
   `recipe-image.component.ts`, `kitchen-cards.component.ts`). There was no
   drift. `package.json`, `package-lock.json` and `CHANGELOG.md` are identical
