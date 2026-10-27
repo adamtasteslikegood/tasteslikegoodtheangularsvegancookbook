@@ -180,7 +180,7 @@ SI_SUMMARIES = {
     "S18": "A published recipe's steps each carry a sketch illustration, collapsed by default, emitted as HowToStep.image ({kan})",
     "S19": "A published recipe's JSON-LD carries per-serving nutrition computed from its ingredients ({kan})",
     "S20": "every published recipe has a stored cuisine, read by recipeCuisine, with a report of the rest ({kan})",
-    "S21": "the refactor integration branches are promoted to dev in both repos, with full CI green and behaviour unchanged ({kan})",
+    "S21": "G4 has merged after its C4 human check-in, and the refactor integration branches are promoted to dev in both repos with full CI green and behaviour unchanged ({kan})",
 }
 
 BASE_REQUIRED = dict(REQUIRED)

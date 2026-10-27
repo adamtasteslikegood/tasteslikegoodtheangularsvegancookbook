@@ -778,7 +778,7 @@
       "depends_on": ["T0"],
       "skill": "pm-skills",
       "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
-      "objective": "Mid-sprint addition (Adam, 2026-10-27): promote chore/refactor_argon_integration (KAN-460..KAN-467, synced with dev by KAN-479) to dev in Backend and the cookbook before anything else lands on dev, so Sprint 12 changes are written once against the refactored files instead of being redone after it and widening the drift. Run behaviour check 3 from docs/refactor/COMPARE_WITH_DEV.md and answer its findings, merge Backend first and then the cookbook with the Backend pointer on the promoted commit, and confirm the refactor hard gate on dev. The promotion is the next change to land on dev (Adam, 2026-10-27): every other pending Sprint 12 task depends on this task.",
+      "objective": "Mid-sprint addition (Adam, 2026-10-27): after G4 (#3776) merges following its required C4 human check-in, promote chore/refactor_argon_integration (KAN-460..KAN-467, synced with dev by KAN-479) to dev in Backend and the cookbook before anything else lands on dev, so Sprint 12 changes are written once against the refactored files instead of being redone after it and widening the drift. Run behaviour check 3 from docs/refactor/COMPARE_WITH_DEV.md and answer its findings, merge Backend first and then the cookbook with the Backend pointer on the promoted commit, and confirm the refactor hard gate on dev. The promotion is the next change to land on dev (Adam, 2026-10-27): every other pending Sprint 12 task depends on this task.",
       "suggested_tools": [
         "scripts/harness/refactor_hard_gate.py",
         "scripts/git/branch-preflight.sh"
@@ -800,12 +800,12 @@
           "kind": "hard-gate"
         },
         {
-          "cmd": "MANUAL: behaviour check 3 results and the answered COMPARE_WITH_DEV.md findings, plus the green promotion PRs in both repos, recorded on KAN-479 and RCP-S12-S21",
+          "cmd": "MANUAL: G4 (#3776) merged after its required C4 human check-in, behaviour check 3 results and the answered COMPARE_WITH_DEV.md findings, plus the green promotion PRs in both repos, recorded on KAN-479 and RCP-S12-S21",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
       ],
-      "done_when": "Both integration branches are ancestors of dev, the promotion PRs merged with every required check green, the refactor hard gate passes on dev, behaviour check 3 is recorded, and KAN-466, KAN-467, KAN-479 / RCP-S12-S21 are Done.",
+      "done_when": "G4 (#3776) has merged after its required C4 human check-in, both integration branches are ancestors of dev, the promotion PRs merged with every required check green, the refactor hard gate passes on dev, behaviour check 3 is recorded, and KAN-466, KAN-467, KAN-479 / RCP-S12-S21 are Done.",
       "max_attempts": 3,
       "status": "pending"
     },
