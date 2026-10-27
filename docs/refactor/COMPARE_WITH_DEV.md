@@ -16,9 +16,21 @@ refactor did not change behaviour except where a commit says it does.
 
 After the fork, `dev` gained only release and dependency commits: v0.7.4
 (#3763, #3764), the main-to-dev back-sync (#3766, Backend #445) and Dependabot
-updates. KAN-479 merged that `dev` into the integration branch (cookbook
-`415c5ac`, Backend `3dfa82e` via Backend #454), so the two-dot diff
-`origin/dev..<integration>` is now the refactor itself.
+updates. KAN-479 merges that `dev` into the integration branch: cookbook
+#3781 (`415c5ac`) and Backend #454 (`3dfa82e`). Once both merge, the two-dot
+diff `origin/dev..<integration>` is the refactor itself. Until then, run the
+checks below against the sync branch `chore/kan-479-sync-dev-into-refactor-integration`.
+
+**Merge #454 with a merge commit** (`gh pr merge 454 --merge`), and merge it
+before #3781. The integration branches have no ruleset, so squash and rebase
+are both allowed. Either one leaves `3dfa82e` unreachable once the sync branch
+is deleted, and #3781's `Backend` gitlink would then point at nothing. Before
+merging #3781, confirm:
+
+```bash
+git -C Backend fetch origin && git -C Backend merge-base --is-ancestor \
+  3dfa82e origin/chore/refactor_argon_integration && echo reachable
+```
 
 Re-derive the fork point at any time:
 
@@ -86,6 +98,15 @@ worktrees:
    must match byte for byte.
 4. **Auth and Valkey.** Exercise login, logout and the rate-limit window
    against a local Valkey on both trees.
+
+### Known gap: CI has not run on the refactor
+
+`pr-gate.yml` triggers only on PRs into `main`, `dev` and `dev/**`, so it never
+ran on the PRs into the integration branch. The checks on #3781 come from other
+workflows, and most of them are skipped. G1-G3 and this sync were verified
+locally only. The combined tree first goes through CI on the
+integration-to-`dev` promotion PR, so treat that PR's first run as the real
+gate, not a formality.
 
 ### Expected differences
 
