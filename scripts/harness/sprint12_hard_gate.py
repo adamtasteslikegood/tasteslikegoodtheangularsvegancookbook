@@ -93,6 +93,8 @@ REQUIRED = {
     "KAN-459": "S17 — Generated recipe image spinner until the image lands (added 2026-10-22)",
     "KAN-472": "S18 — Recipe step sketch illustrations as HowToStep.image (added 2026-10-23)",
     "KAN-424": "S19 — Per-serving Recipe nutrition from ingredients (added 2026-10-23)",
+    "KAN-423": "S20 — Stored cuisine per recipe, read by recipeCuisine (added 2026-10-27)",
+    "KAN-479": "S21 — Refactor integration branches promoted to dev (added 2026-10-27)",
 }
 
 RECORDED = {}
@@ -118,6 +120,8 @@ SI_EXECUTION = {
     "S17": ["KAN-459"],
     "S18": ["KAN-472"],
     "S19": ["KAN-424"],
+    "S20": ["KAN-423"],
+    "S21": ["KAN-479"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them.
@@ -125,7 +129,7 @@ SI_EXECUTION = {
 # "S12 acceptance: ..." at Day-1 charter); the remaining nine charter SIs had
 # deterministic placeholder keys replaced by sprint12_rcp_map.json when
 # --bootstrap-charter minted the live RCP stories on Day 1. Mid-sprint additions
-# S17-S19 also retain placeholder aliases here and resolve through the same map.
+# S17-S21 also retain placeholder aliases here and resolve through the same map.
 ACCEPTANCE = {
     "charter": "RCP-S12-CHARTER",
     "S1": "RCP-150",
@@ -147,6 +151,8 @@ ACCEPTANCE = {
     "S17": "RCP-S12-S17",
     "S18": "RCP-S12-S18",
     "S19": "RCP-S12-S19",
+    "S20": "RCP-S12-S20",
+    "S21": "RCP-S12-S21",
 }
 
 PLACEHOLDER_ACCEPTANCE = dict(ACCEPTANCE)
@@ -173,6 +179,8 @@ SI_SUMMARIES = {
     "S17": "A generated recipe shows its text and an image spinner until the image lands, including after a reload ({kan})",
     "S18": "A published recipe's steps each carry a sketch illustration, collapsed by default, emitted as HowToStep.image ({kan})",
     "S19": "A published recipe's JSON-LD carries per-serving nutrition computed from its ingredients ({kan})",
+    "S20": "every published recipe has a stored cuisine, read by recipeCuisine, with a report of the rest ({kan})",
+    "S21": "the refactor integration branches are promoted to dev in both repos, with full CI green and behaviour unchanged ({kan})",
 }
 
 BASE_REQUIRED = dict(REQUIRED)
