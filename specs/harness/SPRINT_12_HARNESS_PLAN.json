@@ -655,7 +655,7 @@
       "depends_on": ["T0"],
       "skill": "investigate",
       "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
-      "objective": "Mid-sprint addition (Adam, 2026-10-23): every step of a published recipe gets one sketch-style illustration from the cheapest small Gemini image model, shown collapsed by default on /r/<slug> with an expand/collapse control per step, and each HowToStep in the Recipe JSON-LD carries its image URL. Fills the step-image recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20.",
+      "objective": "Mid-sprint addition (Adam, 2026-10-23): published recipes get one sketch-style illustration per step, shown collapsed by default on /r/<slug> with a per-step expand/collapse control, and each HowToStep that has one carries its image URL in the Recipe JSON-LD. Model: the GEMINI_STEP_IMAGE_MODEL setting, defaulted in Backend/config.py and pinned identically in cloudbuild.yaml; candidate gemini-3.1-flash-lite-image, GA status and price confirmed on the live API and recorded on KAN-472 before the build PR; no preview model; gemini-3-pro-image stays the hero model. Partial failure: publication never waits on step images; a failed step omits HowToStep.image and renders text only; the backfill retries up to 3 attempts and reports steps still missing a sketch with the reason. Fills the step-image recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20. Contract: specs/SPRINT_12_PLAN.md S18.",
       "suggested_tools": ["npm test", "pytest"],
       "verification": [
         {
@@ -669,12 +669,27 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing HowToStep.image on every step, and the collapsed/expanded step screenshots, recorded on RCP-S12-S18",
+          "cmd": "grep -q GEMINI_STEP_IMAGE_MODEL Backend/config.py && test \"$(grep -c GEMINI_STEP_IMAGE_MODEL= cloudbuild.yaml)\" -eq \"$(grep -c GEMINI_IMAGE_MODEL= cloudbuild.yaml)\" && test \"$(grep -o 'GEMINI_STEP_IMAGE_MODEL=[^,]*' cloudbuild.yaml | sort -u | wc -l)\" -eq 1 && ! grep -o 'GEMINI_STEP_IMAGE_MODEL=[^,]*' cloudbuild.yaml | grep -q preview",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "cd Backend && uv run pytest -q -k step_image",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: GA status and list price of the GEMINI_STEP_IMAGE_MODEL value confirmed on the live API and recorded on KAN-472 before the build PR opens; backfill report of steps without a sketch, with reasons, attached to RCP-S12-S18",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        },
+        {
+          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing HowToStep.image and no 'Either image or video' warning on each step that has a sketch, plus the collapsed/expanded step screenshots, recorded on RCP-S12-S18",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
       ],
-      "done_when": "Published recipes serve a step illustration per step, collapsed by default, the production JSON-LD carries HowToStep.image for each step, and KAN-472 / RCP-S12-S18 are Done.",
+      "done_when": "Every published recipe's steps have a stored sketch or a reported reason why not, a failed step never blocks publication and omits HowToStep.image, the step-image model is pinned through GEMINI_STEP_IMAGE_MODEL with GA status and price recorded, sketches are collapsed by default on /r/<slug>, and KAN-472 / RCP-S12-S18 are Done.",
       "max_attempts": 3,
       "status": "pending"
     },
@@ -686,7 +701,7 @@
       "depends_on": ["T0"],
       "skill": "investigate",
       "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
-      "objective": "Mid-sprint addition (Adam, 2026-10-23): compute per-serving nutrition from a published recipe's ingredients and emit it as Recipe.nutrition (NutritionInformation with calories and the main macros) in the JSON-LD. Fills the nutrition recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20.",
+      "objective": "Mid-sprint addition (Adam, 2026-10-23): compute per-serving nutrition from a published recipe's ingredients and emit it as Recipe.nutrition (NutritionInformation with calories and the main macros) in the JSON-LD. Values come from an ingredient nutrition database (candidate USDA FoodData Central; dataset, version and licence recorded on KAN-424 before the build PR), never a model estimate. Quantities normalise to grams through a declared conversion table; per serving = total / recipeYield servings. Fail closed: an unmatched ingredient, an unparseable or vague amount, or a missing or non-positive recipeYield emits no nutrition and is reported. Fills the nutrition recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20. Contract: specs/SPRINT_12_PLAN.md S19.",
       "suggested_tools": ["npm test", "pytest"],
       "verification": [
         {
@@ -700,12 +715,22 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing nutrition.calories with no new warnings, recorded on RCP-S12-S19",
+          "cmd": "cd Backend && uv run pytest -q -k nutrition",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: nutrition dataset, version and licence recorded on KAN-424 before the build PR opens; fixture tests show per-serving calories and macros within 1% of hand-computed values and no nutrition for unknown-ingredient, vague-amount and missing-yield fixtures; skipped-recipe report attached to RCP-S12-S19",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        },
+        {
+          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing nutrition.calories with no new warnings (schema shape only; accuracy is the fixture-test evidence), recorded on RCP-S12-S19",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
       ],
-      "done_when": "Published recipes' production JSON-LD carries per-serving nutrition computed from their ingredients, and KAN-424 / RCP-S12-S19 are Done.",
+      "done_when": "Published recipes whose ingredients all resolve carry per-serving nutrition computed from the recorded dataset, fixture tests prove the formula within 1% and the fail-closed cases, skipped recipes are reported, and KAN-424 / RCP-S12-S19 are Done.",
       "max_attempts": 3,
       "status": "pending"
     },
