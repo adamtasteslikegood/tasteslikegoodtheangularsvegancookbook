@@ -1,6 +1,6 @@
 {
   "schema": "agent-harness/plan.v1",
-  "goal": "Deliver Sprint 12 (Sprint id 122 on RCP Scrum Board 168, under Epic RCP-119, 2026-10-23 to 2026-11-06): ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) with md4a-fastapi PyPI + R16 plain-mode escape (KAN-411) and Adam's recipe author display name (KAN-434), clear the rolled Sprint 11 and next-sprint-candidate items (KAN-290, KAN-334, KAN-426, KAN-389, KAN-347, KAN-435, KAN-421, KAN-336, KAN-337, KAN-400, KAN-404, KAN-425), publish 3-5 Q6 articles (KAN-277 / RCP-109), and close the Week-1 process lane (KAN-188, KAN-429/KAN-402, KAN-390) before the Sprint 13 staging beta freeze.",
+  "goal": "Deliver Sprint 12 (Sprint id 122 on RCP Scrum Board 168, under Epic RCP-119, 2026-10-23 to 2026-11-06): ship Recipe Feedback Phase 1 (KAN-356 / RCP-150) with md4a-fastapi PyPI + R16 plain-mode escape (KAN-411) and Adam's recipe author display name (KAN-434), clear the rolled Sprint 11 and next-sprint-candidate items (KAN-290, KAN-334, KAN-426, KAN-389, KAN-347, KAN-435, KAN-421, KAN-336, KAN-337, KAN-400, KAN-404, KAN-425), verify the generated-recipe image spinner shipped in v0.7.4 (KAN-459), add recipe step illustrations and per-serving nutrition to the public Recipe surface (KAN-472, KAN-424), publish 3-5 Q6 articles (KAN-277 / RCP-109), and close the Week-1 process lane (KAN-188, KAN-429/KAN-402, KAN-390) before the Sprint 13 staging beta freeze.",
   "domain": "project-management",
   "compiled_at": "2026-10-18",
   "charter": "specs/SPRINT_12_PLAN.md",
@@ -28,11 +28,11 @@
       "must_not_touch": [".github/workflows/", "scripts/pm/", "scripts/harness/"]
     },
     "UX": {
-      "scope": "Server-side recycle bin (KAN-290), SPA publish toggle sync (KAN-334), Flask malformed JSON 400 handler (KAN-426), and mobile pagination tap targets (KAN-421).",
+      "scope": "Server-side recycle bin (KAN-290), SPA publish toggle sync (KAN-334), Flask malformed JSON 400 handler (KAN-426), and mobile pagination tap targets (KAN-421), plus the mid-sprint generated-recipe image spinner fix (KAN-459, S17, added 2026-10-22).",
       "must_not_touch": [".github/workflows/", "scripts/pm/", "scripts/harness/"]
     },
     "SEO": {
-      "scope": "Recipe tag links and popular tag hubs (KAN-389), verified Googlebot crawl-evidence instrument (KAN-347), and Recipe JSON-LD 3-aspect image crops (KAN-435).",
+      "scope": "Recipe tag links and popular tag hubs (KAN-389), verified Googlebot crawl-evidence instrument (KAN-347), and Recipe JSON-LD 3-aspect image crops (KAN-435), plus the mid-sprint Recipe recommended-field additions: step sketch illustrations as HowToStep.image (KAN-472, S18) and per-serving nutrition (KAN-424, S19), added 2026-10-23.",
       "must_not_touch": [".github/workflows/", "scripts/pm/", "scripts/harness/"]
     },
     "Ops": {
@@ -133,7 +133,7 @@
       "depends_on": ["T0"],
       "skill": "investigate",
       "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
-      "objective": "Publish `md4a-fastapi` to PyPI with `[fastapi]` and `[wsgi]` extras, including R16 plain-mode escape (`escape_misc=True` on `markdownify(..., escape_misc=True)` and CommonMark padded inline code spans with newline-to-space normalization on `<code data-md=\"plain\">`), and pin the released PyPI version in `Backend/pyproject.toml` and `Backend/uv.lock`.",
+      "objective": "Publish `md4a-fastapi` to PyPI (FastAPI stays a base dependency by Adam's 2026-10-21 decision; WSGI/Flask parts ship as the `[wsgi]`/`[flask]` extras), including R16 plain-mode escape (`escape_misc=True` on `markdownify(..., escape_misc=True)` and CommonMark padded inline code spans with newline-to-space normalization on `<code data-md=\"plain\">`), and pin the released PyPI version in `Backend/pyproject.toml` and `Backend/uv.lock`.",
       "suggested_tools": ["pytest", "uv"],
       "verification": [
         {
@@ -147,7 +147,7 @@
           "kind": "artifact"
         },
         {
-          "cmd": "MANUAL: PyPI release URL for md4a-fastapi with [fastapi]/[wsgi] extras and R16 7-vector escape test output recorded on RCP-S12-S2",
+          "cmd": "MANUAL: PyPI release URL for md4a-fastapi (FastAPI in base, [wsgi]/[flask] extras) and R16 7-vector escape test output recorded on RCP-S12-S2",
           "expect_exit": 0,
           "kind": "manual-evidence"
         }
@@ -617,6 +617,124 @@
       "status": "pending"
     },
     {
+      "id": "T19",
+      "si": "S17",
+      "jira": ["KAN-459", "RCP-S12-S17"],
+      "lane": "UX",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Mid-sprint addition (Adam, 2026-10-22): a generated recipe shows its text and the image spinner, never \"Image not available\", from the moment it appears until the image loads, and a recipe page or kitchen card reloaded while its image is pending shows the spinner and picks the image up (KAN-459; cookbook #3748, #3756, #3760, #3761; Backend #442). Ships in v0.7.4.",
+      "suggested_tools": ["npm test", "pytest"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-459 RCP-S12-S17",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-459 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: v0.7.4 production by-content check (marker kitchen-image-pending in a served chunk) and Slow 4G generator spinner check recorded on RCP-S12-S17",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "v0.7.4 is live in production with the KAN-459 fixes verified by content, the Slow 4G generator shows the spinner until the image loads, and KAN-459 / RCP-S12-S17 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T20",
+      "si": "S18",
+      "jira": ["KAN-472", "RCP-S12-S18"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Mid-sprint addition (Adam, 2026-10-23): published recipes get one sketch-style illustration per step, shown collapsed by default on /r/<slug> with a per-step expand/collapse control, and each HowToStep that has one carries its image URL in the Recipe JSON-LD. Model: the GEMINI_STEP_IMAGE_MODEL setting, defaulted in Backend/config.py and pinned identically in cloudbuild.yaml; candidate gemini-3.1-flash-lite-image, GA status and price confirmed on the live API and recorded on KAN-472 before the build PR; no preview model; gemini-3-pro-image stays the hero model. Partial failure: publication never waits on step images; a failed step omits HowToStep.image and renders text only; the backfill retries up to 3 attempts and reports steps still missing a sketch with the reason. Fills the step-image recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20. Contract: specs/SPRINT_12_PLAN.md S18.",
+      "suggested_tools": ["npm test", "pytest"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-472 RCP-S12-S18",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-472 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "grep -q GEMINI_STEP_IMAGE_MODEL Backend/config.py && test \"$(grep -c GEMINI_STEP_IMAGE_MODEL= cloudbuild.yaml)\" -eq \"$(grep -c GEMINI_IMAGE_MODEL= cloudbuild.yaml)\" && test \"$(grep -o 'GEMINI_STEP_IMAGE_MODEL=[^,]*' cloudbuild.yaml | sort -u | wc -l)\" -eq 1 && ! grep -o 'GEMINI_STEP_IMAGE_MODEL=[^,]*' cloudbuild.yaml | grep -q preview",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "cd Backend && uv run pytest -q -k step_image",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: GA status and list price of the GEMINI_STEP_IMAGE_MODEL value confirmed on the live API and recorded on KAN-472 before the build PR opens; backfill report of steps without a sketch, with reasons, attached to RCP-S12-S18",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        },
+        {
+          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing HowToStep.image and no 'Either image or video' warning on each step that has a sketch, plus the collapsed/expanded step screenshots, recorded on RCP-S12-S18",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Every published recipe's steps have a stored sketch or a reported reason why not, a failed step never blocks publication and omits HowToStep.image, the step-image model is pinned through GEMINI_STEP_IMAGE_MODEL with GA status and price recorded, sketches are collapsed by default on /r/<slug>, and KAN-472 / RCP-S12-S18 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
+      "id": "T21",
+      "si": "S19",
+      "jira": ["KAN-424", "RCP-S12-S19"],
+      "lane": "SEO",
+      "depends_on": ["T0"],
+      "skill": "investigate",
+      "skill_path": "/home/allisone/Projects/tasteslikegoodtheangularsvegancookbook/.claude/skills/gstack-investigate/SKILL.md",
+      "objective": "Mid-sprint addition (Adam, 2026-10-23): compute per-serving nutrition from a published recipe's ingredients and emit it as Recipe.nutrition (NutritionInformation with calories and the main macros) in the JSON-LD. Values come from an ingredient nutrition database (candidate USDA FoodData Central; dataset, version and licence recorded on KAN-424 before the build PR), never a model estimate. Quantities normalise to grams through a declared conversion table; per serving = total / recipeYield servings. Fail closed: an unmatched ingredient, an unparseable or vague amount, or a missing or non-positive recipeYield emits no nutrition and is reported. Fills the nutrition recommended field after the Search Console Recipes report fell from 1 valid item to 0 on 2026-10-20. Contract: specs/SPRINT_12_PLAN.md S19.",
+      "suggested_tools": ["npm test", "pytest"],
+      "verification": [
+        {
+          "cmd": "python3 scripts/harness/sprint12_hard_gate.py --issues KAN-424 RCP-S12-S19",
+          "expect_exit": 0,
+          "kind": "board"
+        },
+        {
+          "cmd": "gh pr list --state merged --search KAN-424 --json number --jq 'length >= 1' | grep -qx true",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "cd Backend && uv run pytest -q -k nutrition",
+          "expect_exit": 0,
+          "kind": "artifact"
+        },
+        {
+          "cmd": "MANUAL: nutrition dataset, version and licence recorded on KAN-424 before the build PR opens; fixture tests show per-serving calories and macros within 1% of hand-computed values and no nutrition for unknown-ingredient, vague-amount and missing-yield fixtures; skipped-recipe report attached to RCP-S12-S19",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        },
+        {
+          "cmd": "MANUAL: Rich Results Test on a production /r/<slug> showing nutrition.calories with no new warnings (schema shape only; accuracy is the fixture-test evidence), recorded on RCP-S12-S19",
+          "expect_exit": 0,
+          "kind": "manual-evidence"
+        }
+      ],
+      "done_when": "Published recipes whose ingredients all resolve carry per-serving nutrition computed from the recorded dataset, fixture tests prove the formula within 1% and the fail-closed cases, skipped recipes are reported, and KAN-424 / RCP-S12-S19 are Done.",
+      "max_attempts": 3,
+      "status": "pending"
+    },
+    {
       "id": "T18",
       "si": "close",
       "jira": ["RCP-119"],
@@ -639,7 +757,10 @@
         "T14",
         "T15",
         "T16",
-        "T17"
+        "T17",
+        "T19",
+        "T20",
+        "T21"
       ],
       "skill": "pm-skills",
       "skill_path": "/home/allisone/.claude/plugins/marketplaces/claude-code-skills/project-management/skills/pm-skills/SKILL.md",
