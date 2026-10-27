@@ -69,7 +69,7 @@ Result on 2026-10-26, after the sync and with G4 still unmerged:
 ## Check 2: structure, meaning ceilings and facades hold
 
 ```bash
-python3 scripts/harness/refactor_hard_gate.py --group G1   # ... G2, G3, G4
+python3 scripts/harness/refactor_hard_gate.py --group G1 --structural-only  # ... G2, G3, G4
 ```
 
 The gate checks each source file's line ceiling and that it still exports its
