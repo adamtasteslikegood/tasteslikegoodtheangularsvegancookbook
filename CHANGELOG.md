@@ -10,6 +10,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- Sprint 12 refactor promoted from `chore/refactor_argon_integration` (KAN-479, S21). It splits large
+  modules without intended behaviour change: the Express server and RUM consent script (KAN-466), the
+  persistence and auth services (KAN-464), the recipe and kitchen components (KAN-465), and the
+  monitoring, git-workflow and PM scripts (KAN-467). Backend pointer moved to `f962f96` (Backend
+  `dev`, Backend #455), which brings the Backend split (KAN-460..463) plus atomic Valkey token
+  transitions and counter TTLs, a guard for a missing Google account id at sign-in, and a sign-in log
+  line that records the user id only. The release pin must be re-taken from Backend `main` before
+  `dev` → `main`.
 - Backend pointer moved to `45c15d9` (Backend `dev`) so a staging deploy from `dev` runs it
   (KAN-481). It brings the Backend dependency updates since v0.7.4: Pillow 13.0.0 (Backend #453),
   the Python production group with SQLAlchemy 2.0 compatibility kept, and the `uv` image. The
