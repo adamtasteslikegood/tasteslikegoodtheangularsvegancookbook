@@ -18,6 +18,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- AI food photos now use `gemini-nano-banana-2.1` (Nano Banana 2.1) instead of `gemini-3-pro-image`
+  (Nano Banana Pro), in the `cloudbuild.yaml` pins, the staging configs and the Backend default
+  (KAN-487). Nano Banana 2 won a side-by-side test on staging (the image arrives right after the
+  recipe, at quality close to Pro), and 2.1 is its stable successor at Flash speed. Google deprecated
+  `gemini-3.1-flash-image` on 2026-10-06. The Backend pointer moves to Backend `dev` `4068037`
+  (Backend #457).
 - Sprint 12 refactor promoted from `chore/refactor_argon_integration` (KAN-479, S21). It splits large
   modules without intended behaviour change: the Express server and RUM consent script (KAN-466), the
   persistence and auth services (KAN-464), the recipe and kitchen components (KAN-465), and the
