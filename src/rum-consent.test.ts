@@ -14,6 +14,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
+const UI_SOURCE = readFileSync(
+  fileURLToPath(new URL('../public/rum/consent-ui.js', import.meta.url)),
+  'utf8'
+);
 const SOURCE = readFileSync(
   fileURLToPath(new URL('../public/rum/consent.js', import.meta.url)),
   'utf8'
@@ -279,6 +283,7 @@ async function run(opts: {
       return timers.length;
     };
   }
+  vm.runInNewContext(UI_SOURCE, win);
   vm.runInNewContext(SOURCE, win);
   await settle();
 

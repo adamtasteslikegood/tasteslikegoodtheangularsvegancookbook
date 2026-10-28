@@ -18,9 +18,9 @@ COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
 # gsc_tools.py is imported by the server at start-up (Search Console tools,
-# KAN-270); leaving it out makes every gsc_* tool vanish with only a stderr
-# warning, so both files ship together.
-COPY gcp_mcp_server.py gsc_tools.py ./
+# KAN-270) and its extracted helpers are direct imports. Leaving any of them
+# out makes every gsc_* tool vanish with only a stderr warning.
+COPY gcp_mcp_server.py gsc_tools.py gsc_client.py gsc_analytics.py ./
 
 # HTTP transport; Cloud Run overrides PORT and injects MCP_AUTH_TOKEN + secrets.
 ENV MCP_TRANSPORT=http \

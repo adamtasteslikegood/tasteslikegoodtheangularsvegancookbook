@@ -1,6 +1,6 @@
 import { computed, inject, signal } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
-import { PersistenceService, type SaveRefusal } from '../../services/persistence.service';
+import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ToastService } from '../../services/toast.service';
@@ -12,73 +12,25 @@ import {
   publishToggleKind,
 } from '../../utils/public-link';
 import { slugFromTitle } from '../../utils/slug';
-import { adoptImagePipelineFields, exportableRecipe } from '../../utils/recipe-row';
-import type { Ingredient, IngredientGroup, InstructionStep, Recipe } from '../../recipe.types';
+import { adoptImagePipelineFields } from '../../utils/recipe-row';
+import type { Recipe } from '../../recipe.types';
+import {
+  NOT_GENERATED_PUBLISH_REFUSAL,
+  PublishSyncError,
+  applyPersonalNotesEdit,
+  checkPublishPreconditions,
+  downloadRecipeJson,
+  formatIngredientAmount,
+  formatInstructionText,
+  initialPersonalNotesEditorValue,
+  notesSaveFailureMessage,
+  publishFailureMessage,
+  publishToggleTitleFor,
+  scaleRecipeIngredients,
+  unpublishSuccessMessage,
+} from './recipe-publish-state';
 
-/** KAN-330: the server's own reason, so the toggle, the toast and the 400 agree. */
-export const NOT_GENERATED_PUBLISH_REFUSAL =
-  'Only recipes generated here can have a public page. Manually entered, imported or still-generating recipes can’t be published.';
-
-/** Carries the server's refusal reason through the existing throw/catch in
- *  `togglePublic`, so the catch can explain what happened instead of assuming
- *  the network broke. */
-export class PublishSyncError extends Error {
-  constructor(readonly refusal: SaveRefusal) {
-    super(`Publish state failed to sync to the server (${refusal})`);
-    this.name = 'PublishSyncError';
-  }
-}
-
-/**
- * The toast for a failed publish/unpublish (KAN-155).
- *
- * The old copy said "Check your connection and try again" for every failure.
- * That is right for a genuine sync failure and wrong for a deliberate refusal —
- * it blamed the user's network for a permission decision. But the reverse
- * over-correction is just as wrong: RCP-61's repro is a stale tab whose auth had
- * not resolved, where the row really is the user's own and retrying after
- * logging in really does work. Telling that user "this belongs to a different
- * account" would tell them to abandon their own recipe.
- *
- * So: one message per situation, and the network advice survives where it is
- * actually true.
- */
-export function publishFailureMessage(refusal: SaveRefusal, publishing: boolean): string {
-  // The ownership check fires on the same POST regardless of direction, so an
-  // UNPUBLISH can be refused too. Hardcoding "published" told a user trying to
-  // unpublish that their recipe "can't be published" — right reason, wrong verb.
-  const verb = publishing ? 'published' : 'unpublished';
-
-  switch (refusal) {
-    case 'OWNERSHIP_OTHER_ACCOUNT':
-      return `This recipe belongs to a different account, so it can’t be ${verb} from here.`;
-    case 'OWNERSHIP_OTHER_GUEST_SESSION':
-      // Deliberately verb-free: the remedy is the message, and it is the same in
-      // both directions.
-      return 'This recipe was saved in a different browser session. Log in and try again — if it’s yours, it’ll be there.';
-    case 'OWNERSHIP_ORPHANED_GUEST_ROW':
-      // Known-incomplete on KAN-155: the repair is not built, so do not promise
-      // that retrying works. Say what is true and stop.
-      return `This recipe was saved before you logged in and isn’t linked to your account yet, so it can’t be ${verb}.`;
-    case 'duplicate':
-      // KAN-241: structurally unreachable from togglePublic (you cannot publish a
-      // saved copy — the 403 guard fires first), but the type system includes it.
-      return 'You already have this recipe saved.';
-    case 'ownership':
-      // 409 without a recognised code — an older Backend, or one newer than this
-      // build. Refused for certain, specific reason unknown; say only that much.
-      return `This recipe can’t be ${verb} from this account or session.`;
-    case 'paused':
-      // KAN-330: Express is holding recipe writes for a few minutes. The
-      // network is fine and a retry will work, so say that and nothing more.
-      return `Recipes are read-only for a few minutes while we finish some maintenance, so this wasn’t ${verb}. Please try again shortly.`;
-    case 'sync':
-    default:
-      return publishing
-        ? 'Publishing failed to sync to the server. Check your connection and try again.'
-        : 'Unpublishing failed to sync to the server. Check your connection and try again.';
-  }
-}
+export { NOT_GENERATED_PUBLISH_REFUSAL, PublishSyncError, publishFailureMessage };
 
 /**
  * State and behaviour shared by the two components that render a single recipe
@@ -124,27 +76,9 @@ export abstract class RecipeViewBase {
     return !!user && user.isGuest === false;
   });
 
-  scaledIngredients = computed(() => {
-    const r = this.recipe();
-    const mult = this.servingsMultiplier();
-    if (!r) return null;
-
-    const scaleIngredient = (ing: Ingredient): Ingredient => {
-      let newAmount: number | number[];
-      if (Array.isArray(ing.amount)) {
-        newAmount = ing.amount.map((val) => Number((val * mult).toFixed(2)));
-      } else {
-        newAmount = Number((ing.amount * mult).toFixed(2));
-      }
-      return { ...ing, amount: newAmount };
-    };
-
-    const scaledGroup: IngredientGroup = {};
-    if (r.ingredients.wet) scaledGroup.wet = r.ingredients.wet.map(scaleIngredient);
-    if (r.ingredients.dry) scaledGroup.dry = r.ingredients.dry.map(scaleIngredient);
-    if (r.ingredients.other) scaledGroup.other = r.ingredients.other.map(scaleIngredient);
-    return scaledGroup;
-  });
+  scaledIngredients = computed(() =>
+    scaleRecipeIngredients(this.recipe(), this.servingsMultiplier())
+  );
 
   scaledServings = computed(() => {
     const r = this.recipe();
@@ -276,25 +210,10 @@ export abstract class RecipeViewBase {
     await this.runImageGeneration(currentRecipe.id, { regenerate: true });
   }
 
-  /**
-   * GH #3256 (KAN-144): manual entry used to write the user's own "Chef's
-   * Notes" into `notes` — the field KAN-140 froze as generated, publicly
-   * rendered, read-only content. Those recipes were left with notes they
-   * could no longer edit and a pencil that opened an empty box.
-   *
-   * A manual recipe can never be published, so nothing public depends on its
-   * `notes`: on first edit, adopt the text into personalNotes instead.
-   */
-  private migratesLegacyNotes(r: Recipe): boolean {
-    return r.origin === 'manual' && !r.personalNotes && !!r.notes;
-  }
-
   startEditNotes() {
     const r = this.recipe();
     if (!r) return;
-    // KAN-140: the editor only ever touches personalNotes — the generated
-    // notes render on the public page and must not be user-writable.
-    this.editedNotes.set(this.migratesLegacyNotes(r) ? (r.notes ?? '') : r.personalNotes || '');
+    this.editedNotes.set(initialPersonalNotesEditorValue(r));
     this.isEditingNotes.set(true);
   }
 
@@ -305,27 +224,13 @@ export abstract class RecipeViewBase {
 
   async saveNotes() {
     const r = this.recipe();
-    if (r) {
-      const updatedRecipe: Recipe = { ...r, personalNotes: this.editedNotes() };
-      // Clear the adopted legacy field so the same text doesn't render twice —
-      // once read-only above the editor, once as "My notes (private)".
-      if (this.migratesLegacyNotes(r)) updatedRecipe.notes = '';
-      this.recipe.set(updatedRecipe);
-      const outcome = await this.persistenceService.saveRecipeDetailed(updatedRecipe);
-      this.isEditingNotes.set(false);
-      // KAN-330: the notes are already on this device (the save writes
-      // localStorage first), so a refused sync has to be said out loud or
-      // closing the editor reads as "synced".
-      if (!outcome.ok) {
-        this.toastService.show(
-          outcome.refusal === 'paused'
-            ? 'Your notes are saved on this device but not synced yet: recipes are read-only for a few minutes while we finish some maintenance. They’ll sync on your next save.'
-            : outcome.refusal === 'duplicate'
-              ? // KAN-333: saving again cannot help; the account holds another copy.
-                'Your notes are saved on this device only: your account already has this recipe as another copy, so they were not synced. Copy them before you reload: a reload shows that copy without them.'
-              : 'Your notes are saved on this device but not synced to your account yet. Check your connection and save again.'
-        );
-      }
+    if (!r) return;
+    const updatedRecipe = applyPersonalNotesEdit(r, this.editedNotes());
+    this.recipe.set(updatedRecipe);
+    const outcome = await this.persistenceService.saveRecipeDetailed(updatedRecipe);
+    this.isEditingNotes.set(false);
+    if (!outcome.ok) {
+      this.toastService.show(notesSaveFailureMessage(outcome.refusal));
     }
   }
 
@@ -378,41 +283,16 @@ export abstract class RecipeViewBase {
       return;
     }
 
-    const kind = publishToggleKind(recipe);
-
-    // RCP-74: saved copies cannot be published — the source page owns
-    // publication. Templates mark the toggle disabled for this kind, but this
-    // base is shared across surfaces and a template can forget (the generator
-    // shipped ungated): this guard is the refusal, not a courtesy. The server
-    // rejects the change with 403 once the Backend guard lands (Backend #279).
-    if (nextState && kind === 'source') {
-      // D1 copy: "This recipe is already live at [here]" — a different message
-      // class from the refusal below. It redirects rather than scolds:
-      // "here" is a real hyperlink to the source's public page (RCP-76 AC3).
-      this.toastService.show('This recipe is already live at', null, 6000, {
-        url: `/r/${recipe.sourceSlug}`,
-        label: 'here',
-      });
-      return;
-    }
-
-    // KAN-330 (widening KAN-140): only a recipe the server generated can go
-    // public — the server rejects everything else with 400; the template
-    // disables the toggle, this backstops it with the same reason.
-    if (nextState && kind === 'manual') {
-      this.toastService.show(NOT_GENERATED_PUBLISH_REFUSAL);
-      return;
-    }
-
-    // KAN-104 (#3146): a title with no ASCII alphanumerics (all-emoji,
-    // pure-CJK/Cyrillic) derives an empty slug, which the server rejects
-    // with 400. Same derivation as the server (parity is spec-pinned), so
-    // catch it before the round trip and say why instead of failing silently.
-    if (nextState && !recipe.slug && !this.slugFromTitle(recipe.name)) {
-      this.toastService.show(
-        "This recipe can't be published: its title has no letters or numbers (a-z, 0-9) to build a public link from."
-      );
-      return;
+    if (nextState) {
+      const check = checkPublishPreconditions(recipe, (name) => this.slugFromTitle(name));
+      if (!check.allowed) {
+        if (check.action) {
+          this.toastService.show(check.message, null, check.duration, check.action);
+        } else {
+          this.toastService.show(check.message);
+        }
+        return;
+      }
     }
 
     // KAN-149 (#3262): the flip is immutable and goes through the signal —
@@ -438,12 +318,7 @@ export abstract class RecipeViewBase {
         this.recipe.set(fresh);
       }
       if (!nextState) {
-        // KAN-289 (RCP-62): confirm the page really went offline.
-        this.toastService.show(
-          recipe.slug
-            ? `Unpublished. /r/${recipe.slug} is offline until you publish it again.`
-            : 'Unpublished. The public page is offline until you publish it again.'
-        );
+        this.toastService.show(unpublishSuccessMessage(recipe.slug));
       }
     } catch (err) {
       console.error('Failed to toggle public state:', err);
@@ -459,65 +334,20 @@ export abstract class RecipeViewBase {
     }
   }
 
-  isPublicViewable(recipe: Recipe): boolean {
-    return isPublicViewable(recipe);
-  }
-
-  publicSlugOf(recipe: Recipe): string | null {
-    return publicSlugOf(recipe);
-  }
-
-  publicLinkKind(recipe: Recipe): 'own' | 'source' | null {
-    return publicLinkKind(recipe);
-  }
-
-  publishToggleKind(recipe: Recipe): 'locked' | 'manual' | 'source' | 'normal' {
-    return publishToggleKind(recipe);
-  }
+  readonly isPublicViewable = isPublicViewable;
+  readonly publicSlugOf = publicSlugOf;
+  readonly publicLinkKind = publicLinkKind;
+  readonly publishToggleKind = publishToggleKind;
+  readonly exportRecipe = downloadRecipeJson;
+  readonly formatAmount = formatIngredientAmount;
+  readonly instructionText = formatInstructionText;
 
   publishTogglePending(): boolean {
     return this.persistenceService.publishStateSync() === 'pending';
   }
 
   publishToggleTitle(recipe: Recipe): string {
-    if (this.publishTogglePending()) return 'Checking publish state…';
-    const kind = publishToggleKind(recipe);
-    if (kind === 'locked') return 'Canonical recipe — publish state is locked';
-    if (kind === 'manual') return NOT_GENERATED_PUBLISH_REFUSAL;
-    if (kind === 'source') {
-      return `Saved copies can't be published — the original recipe at /r/${recipe.sourceSlug} owns the public page.`;
-    }
-    return recipe.is_public ? 'Unpublish this recipe' : 'Publish this recipe';
-  }
-
-  exportRecipe(recipe: Recipe) {
-    const fileName = `${recipe.name.replace(/\s+/g, '_')}.json`;
-    const blob = new Blob([JSON.stringify(exportableRecipe(recipe), null, 2)], {
-      type: 'application/json',
-    });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  }
-
-  formatAmount(amount: number | number[]): string {
-    if (Array.isArray(amount)) {
-      return amount.join(' - ');
-    }
-    const decimal = amount;
-    if (Math.abs(decimal - 0.25) < 0.01) return '1/4';
-    if (Math.abs(decimal - 0.5) < 0.01) return '1/2';
-    if (Math.abs(decimal - 0.75) < 0.01) return '3/4';
-    if (Math.abs(decimal - 0.33) < 0.01) return '1/3';
-    if (Math.abs(decimal - 0.66) < 0.01) return '2/3';
-    return decimal.toString();
-  }
-
-  instructionText(step: string | InstructionStep): string {
-    return typeof step === 'string' ? step : step.description;
+    return publishToggleTitleFor(recipe, this.publishTogglePending());
   }
 
   openAuthModal() {

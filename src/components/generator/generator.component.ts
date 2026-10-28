@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { RecipeViewBase } from '../shared/recipe-view.base';
+import { RecipeBodyComponent } from '../shared/recipe-body.component';
+import { RecipeImageComponent } from '../shared/recipe-image.component';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import type { Recipe } from '../../recipe.types';
 import type { SaveOutcome } from '../../services/persistence.service';
@@ -35,7 +37,13 @@ export const GENERATED_RECIPE_SAVE_WAIT_MS = 15_000;
 @Component({
   selector: 'app-generator',
   standalone: true,
-  imports: [CommonModule, FormsModule, UnpublishConfirmComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RecipeBodyComponent,
+    RecipeImageComponent,
+    UnpublishConfirmComponent,
+  ],
   templateUrl: './generator.component.html',
 })
 export class GeneratorComponent extends RecipeViewBase {
