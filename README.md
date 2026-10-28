@@ -25,7 +25,7 @@ Browser → Angular 22 SPA → Express reverse-proxy (:8080) → Flask API (:500
 ```
 
 - **Generate** vegan recipes via Google Gemini (`gemini-3.8-flash` in production)
-- **AI food photos** via Google Gemini (`gemini-3-pro-image` in production)
+- **AI food photos** via Google Gemini (`gemini-nano-banana-2.1` in production)
 - **Save & organize** recipes into named cookbooks
 - **Publish** recipes as SSR pages at `/r/<slug>` for SEO & sharing
 - **Auth** via Google OAuth or guest mode (localStorage)
