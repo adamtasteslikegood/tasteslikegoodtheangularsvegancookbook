@@ -6,36 +6,39 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.7.5] - 2026-10-28
 
-### Fixed
-
-- Backend pointer moved to `e532dbf` (Backend `dev`, Backend #456). The Valkey rate-limit and
-  backoff counters now set their expiry in the same atomic step as the increment, and session
-  rotation is atomic and needs a live session (KAN-483, KAN-484; #3791, #3792). These helpers came
-  with the Sprint 12 refactor and are not on `main`. The release pin must be re-taken from Backend
-  `main` before `dev` → `main`.
+Backend pointer pinned at `6fa5d263eacf` (Backend `main`, promoted in Backend #458 and #459).
 
 ### Changed
 
 - AI food photos now use `gemini-nano-banana-2.1` (Nano Banana 2.1) instead of `gemini-3-pro-image`
   (Nano Banana Pro), in the `cloudbuild.yaml` pins, the staging configs and the Backend default
-  (KAN-487). Nano Banana 2 won a side-by-side test on staging (the image arrives right after the
-  recipe, at quality close to Pro), and 2.1 is its stable successor at Flash speed. Google deprecated
-  `gemini-3.1-flash-image` on 2026-10-06. The Backend pointer moves to Backend `dev` `4068037`
-  (Backend #457).
-- Sprint 12 refactor promoted from `chore/refactor_argon_integration` (KAN-479, S21). It splits large
-  modules without intended behaviour change: the Express server and RUM consent script (KAN-466), the
-  persistence and auth services (KAN-464), the recipe and kitchen components (KAN-465), and the
-  monitoring, git-workflow and PM scripts (KAN-467). Backend pointer moved to `f962f96` (Backend
-  `dev`, Backend #455), which brings the Backend split (KAN-460..463) plus atomic Valkey token
-  transitions and counter TTLs, a guard for a missing Google account id at sign-in, and a sign-in log
-  line that records the user id only. The release pin must be re-taken from Backend `main` before
-  `dev` → `main`.
-- Backend pointer moved to `45c15d9` (Backend `dev`) so a staging deploy from `dev` runs it
-  (KAN-481). It brings the Backend dependency updates since v0.7.4: Pillow 13.0.0 (Backend #453),
-  the Python production group with SQLAlchemy 2.0 compatibility kept, and the `uv` image. The
-  release pin must be re-taken from Backend `main` before `dev` → `main`.
+  (KAN-487; Backend #457, #3796). Nano Banana 2 won a side-by-side test on staging: the image arrives
+  right after the recipe, at quality close to Pro. 2.1 is its stable successor at Flash speed. Google
+  deprecated `gemini-3.1-flash-image` on 2026-10-06.
+- Sprint 12 refactor promoted from `chore/refactor_argon_integration` (KAN-479, S21; #3790). It splits
+  large modules with no intended behaviour change: the Express server and RUM consent script (KAN-466),
+  the persistence and auth services (KAN-464), the recipe and kitchen components (KAN-465), and the
+  monitoring, git-workflow and PM scripts (KAN-467). On the Backend it brings the module split
+  (KAN-460..463, Backend #455), atomic Valkey token transitions, a guard for a missing Google account
+  id at sign-in, and a sign-in log line that records only the user id.
+- Backend dependency updates since v0.7.4 (KAN-481): Pillow 13.0.0 (Backend #453), the Python
+  production group with SQLAlchemy kept on 2.0, and the `uv` image.
+
+### Fixed
+
+- The Valkey rate-limit and backoff counters set their expiry in the same atomic step as the
+  increment, and session rotation is atomic and needs a live session (KAN-483, KAN-484; Backend
+  #456, #3793).
+
+### Internal
+
+- Dependency updates: the Angular group, linting and testing groups, `dd-trace` 6.21.0,
+  `@datadog/browser-rum-slim` 7.16.0, `google-auth-library` 11.3.1, `ip-address`, and the
+  GitHub Actions group.
+- Sprint 12 amendments: S17–S21 added and the sprint gated on S21 (KAN-411, KAN-479, KAN-423;
+  #3765, #3785).
 
 ## [0.7.4] - 2026-10-22
 
