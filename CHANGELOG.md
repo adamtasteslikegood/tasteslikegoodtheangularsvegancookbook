@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Internal
+
+- The Independent Claude review is bounded, following Plaza's reforms (KAN-489). The job stops at 14
+  minutes, and the review step at 8 minutes for a full review or 4 for a push. Each mode caps turns
+  and budget and sets a fixed effort. Push reviews still cover only the commits since the last
+  completed review (KAN-420), which a new "Record completed review" step now marks. The review
+  prompt reviews directly instead of calling the code-review and security-review skills.
+
 ## [0.7.5] - 2026-10-28
 
 Backend pointer pinned at `6fa5d263eacf` (Backend `main`, promoted in Backend #458 and #459).
