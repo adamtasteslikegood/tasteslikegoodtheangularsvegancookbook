@@ -1,4 +1,51 @@
-# Sprint agent harnesses
+# Sprint & Refactoring agent harnesses
+
+## Refactoring Backlog (`KAN-460`..`KAN-467` — 4 groups with stopping points)
+
+Drives the 8 refactoring backlog tickets (`KAN-460` through `KAN-467`, covering `15,813` lines across 17 oversized Backend, Cookbook SPA, Express SSR, and repo tooling files) in **4 sequential groups (`G1`..`G4`)** with **mandatory human check-in stopping points (`C1`..`C4`)** after each group.
+
+| File                                                                                         | Role                                                                                                                                                     |
+| -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`REFACTOR_HARNESS_PLAN.json`](./REFACTOR_HARNESS_PLAN.json)                                 | The plan: 8 refactoring tasks (`T1`..`T8`) + 4 group check-in stopping-point tasks (`C1`..`C4`)                                                          |
+| [`../../scripts/harness/refactor_hard_gate.py`](../../scripts/harness/refactor_hard_gate.py) | **The gate.** Verifies post-refactoring line-count ceilings, extracted modules, facade exports (`--task`, `--group`), and Jira progress (`--close`)      |
+| [`../../scripts/harness/refactor_driver.py`](../../scripts/harness/refactor_driver.py)       | **The group driver.** Enforces `WIP <= 2` per group and blocks Group `G<N+1>` until `G<N>` tasks are verified AND human check-in `checkin G<N>` is saved |
+
+### Group Breakdown & Stopping Points
+
+| Group | Tasks | Jira | Scope | Stopping Point Gate |
+| --- | --- | --- | --- | --- |
+| **`G1`** | `T1`, `T2` | `KAN-460`, `KAN-461` | **Backend Core Repository & Public SSR Blueprint:** decompose `db_recipe_repository.py` (`1,737` -> `<= 800` lines) and `public_bp.py` (`1,722` -> `<= 700` lines) | **`C1` (`G1-CHECKIN`)** — pauses after `T1`+`T2`; requires `checkin G1 --approve` before `G2` (`T3`, `T4`) can start |
+| **`G2`** | `T3`, `T4` | `KAN-462`, `KAN-463` | **Backend Worker, Generation & Auth Blueprints:** decompose `worker_api_bp.py`, `generation_api_bp.py`, `auth_api_bp.py`, and `valkey_auth.py` | **`C2` (`G2-CHECKIN`)** — pauses after all Backend refactors (`G1`+`G2`); requires `checkin G2 --approve` before crossing into Cookbook `G3` |
+| **`G3`** | `T5`, `T6` | `KAN-464`, `KAN-465` | **Cookbook Frontend Services, View Base & Templates:** decompose `persistence.service.ts`, `auth.service.ts`, `recipe-view.base.ts`, and `generator`/`kitchen`/`recipe-detail` templates | **`C3` (`G3-CHECKIN`)** — pauses after SPA refactors (`T5`+`T6`); requires `checkin G3 --approve` before `G4` (`T7`, `T8`) can start |
+| **`G4`** | `T7`, `T8` | `KAN-466`, `KAN-467` | **Express SSR Server, RUM Consent & Tooling Scripts:** modularize `server/index.ts`, `public/rum/consent.js`, `gsc_tools.py`, `git-workflow.sh`, and `atlassian_pm_link.py` | **`C4` (`G4-CHECKIN`)** — final stopping point & `--close` gate across all 8 tickets |
+
+### Driving the Refactoring Loop with `/harness-qa-loop`
+
+```bash
+HC="${HARNESS_CONTROLLER:-$HOME/.claude/plugins/cache/claude-code-skills/agent-harness/1.0.0/skills/agent-harness/scripts/loop_controller.py}"
+export HARNESS_CONTROLLER="$HC"
+STATE_DIR="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")/.agent-harness/refactor"
+
+# 1. QA-lint the plan (--strict requires 0 blockers and 0 warnings)
+python3 .claude/skills/harness-qa-loop/plan_qa.py --plan specs/harness/REFACTOR_HARNESS_PLAN.json --strict
+
+# 2. Inspect group status & start Group 1 (T1 = KAN-460, T2 = KAN-461)
+python3 scripts/harness/refactor_driver.py status
+python3 scripts/harness/refactor_driver.py start T1
+python3 "$HC" next   --state "$STATE_DIR/T1.state.json"
+# ... execute T1 refactoring, run verify, and close T1.state.json; repeat for T2 ...
+
+# 3. STOPPING POINT C1 (after T1 and T2 are verified):
+#    Starting T3 (Group 2) is REFUSED until the human check-in for G1 is approved and C1 is verified.
+python3 scripts/harness/refactor_driver.py start C1
+python3 scripts/harness/refactor_driver.py checkin G1 --approve --notes "Reviewed KAN-460/461 PRs and Backend pytest suite"
+python3 "$HC" record --state "$STATE_DIR/C1.state.json" --task C1 --phase execute --exit-code 0
+python3 "$HC" verify --state "$STATE_DIR/C1.state.json" --task C1 --cwd "$PWD"
+python3 "$HC" record --state "$STATE_DIR/C1.state.json" --task C1 --phase verify --exit-code 0 --evidence "Human check-in G1 approved; KAN-460/461 verified"
+python3 "$HC" close  --state "$STATE_DIR/C1.state.json"
+
+# 4. Group 2 (T3, T4) is now unlocked — repeat for G2 -> C2 -> G3 -> C3 -> G4 -> C4.
+```
 
 ## Sprint 12 (next — cutover when Sprint 11 closes on 2026-10-23)
 

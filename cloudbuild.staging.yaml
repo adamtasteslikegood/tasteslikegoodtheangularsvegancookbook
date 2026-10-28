@@ -69,7 +69,7 @@ substitutions:
   # files in step — a silent divergence here is exactly the class of drift
   # that made the imagen-4.0 retirement invisible until production broke.
   _TEXT_MODEL: gemini-3.8-flash
-  _IMAGE_MODEL: gemini-3-pro-image
+  _IMAGE_MODEL: gemini-nano-banana-2.1
   _VERSION: staging
 
 options:
