@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Backend pointer moved to `45c15d9` (Backend `dev`) so a staging deploy from `dev` runs it
+  (KAN-481). It brings the Backend dependency updates since v0.7.4: Pillow 13.0.0 (Backend #453),
+  the Python production group with SQLAlchemy 2.0 compatibility kept, and the `uv` image. The
+  release pin must be re-taken from Backend `main` before `dev` → `main`.
+
 ## [0.7.4] - 2026-10-22
 
 Backend pointer pinned at `3cdf35e6a0c7` (Backend `main`, promoted in Backend #444).
