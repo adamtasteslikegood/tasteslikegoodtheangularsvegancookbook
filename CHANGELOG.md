@@ -8,6 +8,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Backend pointer moved to `e532dbf` (Backend `dev`, Backend #456). The Valkey rate-limit and
+  backoff counters now set their expiry in the same atomic step as the increment, and session
+  rotation is atomic and needs a live session (KAN-483, KAN-484; #3791, #3792). These helpers came
+  with the Sprint 12 refactor and are not on `main`. The release pin must be re-taken from Backend
+  `main` before `dev` → `main`.
+
 ### Changed
 
 - Sprint 12 refactor promoted from `chore/refactor_argon_integration` (KAN-479, S21). It splits large
