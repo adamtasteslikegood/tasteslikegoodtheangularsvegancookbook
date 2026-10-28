@@ -75,7 +75,7 @@ REQUIRED = {
     "RCP-119": "epic — Sprint 12 delivery/acceptance under distribution & launch",
     "KAN-S12-CHARTER": "charter — execution row; closes with RCP-S12-CHARTER",
     "KAN-356": "S1  — Recipe feedback build, Phase 1",
-    "KAN-411": "S2  — md4a-fastapi PyPI release with [fastapi]/[wsgi] extras and R16 escape",
+    "KAN-411": "S2  — md4a-fastapi PyPI release (FastAPI in base) and R16 escape",
     "KAN-434": "S3  — Author display name for Adam's recipes (user id 1)",
     "KAN-290": "S4  — Recycle bin server-side soft delete and unpublished restore",
     "KAN-334": "S5  — SPA publish toggle server sync and legacy sourceSlug explanation",
@@ -90,6 +90,11 @@ REQUIRED = {
     "KAN-404": "S14 — Agent tools limits and comment advisory from PR #3671",
     "KAN-277": "S15 — 3-5 articles under the Q6 rubric (lane:adam)",
     "KAN-425": "S16 — Backend Postgres driver to psycopg 3 and SQLAlchemy 2.1",
+    "KAN-459": "S17 — Generated recipe image spinner until the image lands (added 2026-10-22)",
+    "KAN-472": "S18 — Recipe step sketch illustrations as HowToStep.image (added 2026-10-23)",
+    "KAN-424": "S19 — Per-serving Recipe nutrition from ingredients (added 2026-10-23)",
+    "KAN-423": "S20 — Stored cuisine per recipe, read by recipeCuisine (added 2026-10-27)",
+    "KAN-479": "S21 — Refactor integration branches promoted to dev (added 2026-10-27)",
 }
 
 RECORDED = {}
@@ -112,13 +117,19 @@ SI_EXECUTION = {
     "S14": ["KAN-404"],
     "S15": ["KAN-277"],
     "S16": ["KAN-425"],
+    "S17": ["KAN-459"],
+    "S18": ["KAN-472"],
+    "S19": ["KAN-424"],
+    "S20": ["KAN-423"],
+    "S21": ["KAN-479"],
 }
 
 # Sprint items -> the RCP acceptance Story the BOARD renders for them.
 # Eight SIs reuse the RCP rows carried into Sprint 12 (retitled to
-# "S12 acceptance: ..." at Day-1 charter); the remaining nine SIs have
+# "S12 acceptance: ..." at Day-1 charter); the remaining nine charter SIs had
 # deterministic placeholder keys replaced by sprint12_rcp_map.json when
-# --bootstrap-charter mints the live RCP stories on Day 1.
+# --bootstrap-charter minted the live RCP stories on Day 1. Mid-sprint additions
+# S17-S21 also retain placeholder aliases here and resolve through the same map.
 ACCEPTANCE = {
     "charter": "RCP-S12-CHARTER",
     "S1": "RCP-150",
@@ -137,6 +148,11 @@ ACCEPTANCE = {
     "S14": "RCP-S12-S14",
     "S15": "RCP-109",
     "S16": "RCP-S12-S16",
+    "S17": "RCP-S12-S17",
+    "S18": "RCP-S12-S18",
+    "S19": "RCP-S12-S19",
+    "S20": "RCP-S12-S20",
+    "S21": "RCP-S12-S21",
 }
 
 PLACEHOLDER_ACCEPTANCE = dict(ACCEPTANCE)
@@ -145,7 +161,7 @@ BRAND_AUTHOR_SUFFIX = os.getenv("BRAND_AUTHOR_SUFFIX", "classic").strip() or "cl
 SI_SUMMARIES = {
     "charter": "Sprint 12 chartered — board 168 honest on day 1, plan synced to Confluence ({kan})",
     "S1": "Recipe feedback Phase 1 is live — cooked entry, stars, held notes, public summary ({kan})",
-    "S2": "md4a-fastapi published to PyPI with [fastapi]/[wsgi] extras and R16 plain-mode escape ({kan})",
+    "S2": "md4a-fastapi published to PyPI (FastAPI in base) with R16 plain-mode escape ({kan})",
     "S3": f"Author display name for Adam's recipes (user id 1) is Tasteslikegood - {BRAND_AUTHOR_SUFFIX} ({{kan}})",
     "S4": "Recycle bin survives reloads, logouts and devices; failed deletes show; restore never re-publishes ({kan})",
     "S5": "Publish toggle shows the server's state, and legacy manual rows get the right explanation ({kan})",
@@ -160,6 +176,11 @@ SI_SUMMARIES = {
     "S14": "Agent tools limits and comment advisory follow-ups from PR #3671 ({kan})",
     "S15": "Owned-property links audited and completed, plus 3-5 articles under the Q6 rubric ({kan})",
     "S16": "Backend Postgres driver moved to psycopg 3 and SQLAlchemy 2.1 after staging soak ({kan})",
+    "S17": "A generated recipe shows its text and an image spinner until the image lands, including after a reload ({kan})",
+    "S18": "A published recipe's steps each carry a sketch illustration, collapsed by default, emitted as HowToStep.image ({kan})",
+    "S19": "A published recipe's JSON-LD carries per-serving nutrition computed from its ingredients ({kan})",
+    "S20": "every published recipe has a stored cuisine, read by recipeCuisine, with a report of the rest ({kan})",
+    "S21": "G4 has merged after its C4 human check-in, and the refactor integration branches are promoted to dev in both repos with full CI green and behaviour unchanged ({kan})",
 }
 
 BASE_REQUIRED = dict(REQUIRED)

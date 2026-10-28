@@ -14,22 +14,24 @@ refactor did not change behaviour except where a commit says it does.
 | Cookbook | `933f757` fix(kitchen): rejoin a pending card image (#3761) | `8dd3721` Argon's harness plan and driver, 2026-10-22 05:00 |
 | Backend  | `c516e4d` feat(recipes): report each row's status (#442)    | `49adaee` split db_recipe_repository (G1, KAN-460)          |
 
-After the fork, `dev` gained only release and dependency commits: v0.7.4
-(#3763, #3764), the main-to-dev back-sync (#3766, Backend #445) and Dependabot
-updates. KAN-479 merges that `dev` into the integration branch: cookbook
-#3781 (`415c5ac`) and Backend #454 (`3dfa82e`). Once both merge, the two-dot
-diff `origin/dev..<integration>` is the refactor plus this comparison plan. Until then, run the
-checks below against the sync branch `chore/kan-479-sync-dev-into-refactor-integration`.
+After the fork, `dev` gained the v0.7.4 release/back-sync, Dependabot updates,
+Sprint 12 harness amendments and the KAN-481 Backend staging pin. KAN-479 first
+synced those histories through cookbook #3781 and Backend #454, then cookbook
+#3789 synced the later `dev` changes. At #3789 head `6303a228`, the cookbook
+gitlink is Backend integration tip `ce8ce99`; Backend `dev` tip `45c15d9` is an
+ancestor of it. The two-dot diff `origin/dev..<integration>` is therefore the
+refactor plus its harness and this comparison plan. While #3789 is open, run
+the checks below against
+`chore/kan-479-resync-dev-into-refactor-integration`; after it merges, use
+`chore/refactor_argon_integration`.
 
-**Merge #454 with a merge commit** (`gh pr merge 454 --merge`), and merge it
-before #3781. The integration branches have no ruleset, so squash and rebase
-are both allowed. Either one leaves `3dfa82e` unreachable once the sync branch
-is deleted, and #3781's `Backend` gitlink would then point at nothing. Before
-merging #3781, confirm:
+The required merge commits are preserved in history: Backend #454 produced
+`ce8ce99`, and cookbook #3781 produced `85a5984`. Confirm the current Backend
+integration tip still contains Backend `dev` before promotion:
 
 ```bash
 git -C Backend fetch origin && git -C Backend merge-base --is-ancestor \
-  3dfa82e origin/chore/refactor_argon_integration && echo reachable
+  origin/dev origin/chore/refactor_argon_integration && echo reachable
 ```
 
 Re-derive the fork point at any time:
@@ -53,16 +55,15 @@ Argon's harness files (`scripts/harness/refactor_*`, `specs/harness/`), or this
 comparison plan (`docs/refactor/COMPARE_WITH_DEV.md`). Anything else is drift.
 Name it on KAN-479 before promoting.
 
-Result on 2026-10-26, after the sync and with G4 still unmerged:
+Result on 2026-10-27 at #3789 head `6303a228`, after G4 and the latest sync:
 
-- **Cookbook:** 21 files. These are this comparison plan, 5 harness files,
-  9 G3 sources (the 6 named in `TASK_SPECS` plus the `.component.ts` classes
-  paired with the three templates) and 6 extracted modules
-  (`persistence-outcomes.ts`, `user-library.store.ts`,
-  `recipe-publish-state.ts`, `recipe-body.component.ts`,
-  `recipe-image.component.ts`, `kitchen-cards.component.ts`). There was no
-  drift. `package.json`, `package-lock.json` and `CHANGELOG.md` are identical
-  to `dev`.
+- **Cookbook:** 37 files excluding the Backend gitlink. They are this
+  comparison plan, 5 harness files, the G3/G4 sources and extracted modules,
+  their tests, and the 3 required integration edits outside the named sources:
+  the `consent-ui.js` loader in `index.html` and `privacy-policy.html`, and the
+  monitoring Dockerfile copies for `gsc_client.py` and `gsc_analytics.py`.
+  There was no drift. Every file brought into #3789 from `dev` matches `dev`
+  byte-for-byte; only the Backend gitlink intentionally points farther ahead.
 - **Backend:** 18 files. These are the 6 G1/G2 sources, 11 extracted modules
   and `tests/test_valkey_security_helpers.py`. There was no drift.
 
@@ -73,8 +74,8 @@ python3 scripts/harness/refactor_hard_gate.py --group G1 --structural-only  # ..
 ```
 
 The gate checks each source file's line ceiling and that it still exports its
-backwards-compatible facade symbols. On 2026-10-26, after the sync, G1, G2 and
-G3 pass. Run G4 after #3776 merges, then run `--close`.
+backwards-compatible facade symbols. On 2026-10-27, G1, G2, G3, G4 and the
+combined structural close gate pass. G4 merged through #3776 as `1894e73`.
 
 ## Check 3: behaviour, meaning the same contract on both trees
 
@@ -84,8 +85,9 @@ worktrees:
 
 1. **Test suites.** Run `npm test` and `cd Backend && uv run pytest` on both.
    Every test on `dev` must pass on the integration branch. The integration
-   branch adds tests, never fewer. Baseline on the sync tip: 1020 Vitest tests
-   and 1097 pytest tests passed.
+   branch adds tests, never fewer. Baseline on #3789 head `6303a228`: 1020
+   Vitest tests passed; Backend integration passed 1098 tests with 1 expected
+   failure.
 2. **Route tables.** Dump Flask's `app.url_map`, sorted
    `(rule, methods, endpoint)`, from both Backend trees and diff the two. The
    Express route table (G4 splits `server/index.ts`) must match after G4, by
@@ -104,9 +106,9 @@ worktrees:
 ### Known gap: CI has not run on the refactor
 
 `pr-gate.yml` triggers only on PRs into `main`, `dev` and `dev/**`, so it never
-ran on the PRs into the integration branch. The checks on #3781 come from other
-workflows, and most of them are skipped. G1-G3 and this sync were verified
-locally only. The combined tree first goes through CI on the
+ran on the PRs into the integration branch. The checks on #3781 and #3789 come
+from other workflows and do not replace the PR gate. G1-G4 and the sync were
+verified locally. The combined tree first goes through full CI on the
 integration-to-`dev` promotion PR, so treat that PR's first run as the real
 gate, not a formality.
 
@@ -124,7 +126,8 @@ These are deliberate and must not be counted as regressions:
 
 ## Promotion
 
-When checks 1-3 pass and G4 is merged:
+When checks 1-3 pass, confirm that the required C4 human check-in is recorded.
+The G4 merge and structural gate do not substitute for that approval. Then:
 
 1. Merge Backend `dev` into Backend `chore/refactor_argon_integration` again,
    if `dev` has moved, then promote it to Backend `dev` with a merge commit.

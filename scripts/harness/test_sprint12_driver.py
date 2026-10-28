@@ -325,6 +325,22 @@ class Sprint12PlanIntegrityTests(unittest.TestCase):
         others = {t["id"] for t in self.plan["tasks"] if t["id"] != "T18"}
         self.assertEqual(set(close["depends_on"]), others)
 
+    def test_refactor_promotion_preserves_g4_c4_precondition(self):
+        by_id = {t["id"]: t for t in self.plan["tasks"]}
+        task = by_id["T23"]
+        contract = " ".join(
+            [
+                task["objective"],
+                task["done_when"],
+                *(check["cmd"] for check in task["verification"]),
+            ]
+        )
+        self.assertIn("G4", contract)
+        self.assertIn("#3776", contract)
+        self.assertIn("C4", contract)
+        self.assertIn("G4", hard_gate.SI_SUMMARIES["S21"])
+        self.assertIn("C4", hard_gate.SI_SUMMARIES["S21"])
+
     def test_charter_runs_first_and_only_process_allows_workflow_edits(self):
         by_id = {t["id"]: t for t in self.plan["tasks"]}
         self.assertEqual(by_id["T0"]["depends_on"], [])
