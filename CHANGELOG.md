@@ -15,6 +15,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and budget and sets a fixed effort. Push reviews still cover only the commits since the last
   completed review (KAN-420), which a new "Record completed review" step now marks. The review
   prompt reviews directly instead of calling the code-review and security-review skills.
+- Agent docs absorb rules that lived only in agent memory. RUNBOOK step 5 states the patch-bump
+  default, step 8 holds the back-sync merge until production is verified, and step 9 adds one
+  real-browser render (the KAN-286 unstyled-release case). `CLAUDE.md` covers pinning Backend `dev`
+  for staging and the public-repo rule, and drops a stale Flask "live concerns" line and the stale
+  version note. `docs/agents/PR_LIFECYCLE.md` adds issue progress comments at each milestone.
 
 ## [0.7.5] - 2026-10-28
 

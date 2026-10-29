@@ -110,6 +110,10 @@ git add Backend
 
 ### 5. Version + CHANGELOG, same branch
 
+The default is a **patch** bump, even when the release ships user-facing features
+or a migration. The minor number moves only when a release completes a spec
+milestone; it tracks the spec roadmap, not semver feature size.
+
 Bump `package.json` **and both self-references in `package-lock.json`**. Add a
 `## [X.Y.Z]` section to `CHANGELOG.md` that **names the pinned Backend SHA** —
 `train-verify` checks the section against the _actual pointer_, so the SHA in the
@@ -177,6 +181,12 @@ never redeployed anything.
 ./scripts/release/train-backsync.sh --apply --merge
 ```
 
+**The cookbook `main → dev` back-sync merges only after step 9 passes:** Cloud
+Build succeeded, the new revision serves traffic, and production is verified by
+content and by one real-browser render. Until then `main` may still need a
+patch-forward, and the freeze on `dev` holds. Opening the back-sync PR early is
+fine; merging it is not.
+
 Must be a **merge commit**. Squashing rewrites the commits, ancestry never
 converges, and the drift count never returns to zero. This step is local and not
 in CI because it needs credentials for both repos (Actions' `GITHUB_TOKEN` is
@@ -241,9 +251,17 @@ URL is hardcoded to the staging domain, `https://staging.tasteslikegood.xyz`
 Also confirm: `/`, `/browse`, `/sitemap.xml` return 200, and if the release
 touched Backend, that a canonical `/r/<slug>` still resolves.
 
+> **TRAP — a marker grep never renders the page.** v0.5.0 passed its marker check
+> and went live unstyled: an `@angular/build` bump changed beasties' inline
+> stylesheet-swap script, the CSP (which pins that script by SHA-256 in
+> `server/security.ts`) blocked it, and the main stylesheet stayed
+> `media="print"` (KAN-286). Load `/` once in a real browser. Check the page is
+> styled and the console has no CSP violation; a violation prints the hash the
+> CSP needs.
+
 If `gcloud` is authenticated, `gcloud builds list --region=us-central1` shows the
-build — **regional; a global list shows nothing recent**. The content check above
-is decisive on its own and needs no credentials.
+build — **regional; a global list shows nothing recent**. The content check and
+the browser render together decide the step; neither needs credentials.
 
 ### 10. Close out
 

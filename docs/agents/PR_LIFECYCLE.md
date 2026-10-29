@@ -14,4 +14,5 @@ Opening a PR is not the end of the task. Every PR you author, or are actively wo
 
   > _Replied by Claude on Adam's behalf_
 
+- **Comment progress on the issue at every milestone.** When work on a GitHub issue moves, comment on the issue with what was done and what is next: fix PR and SHA, Backend promotion, pointer pin, release PR, production verification. Do not wait for close; #3791 and #3792 had fixes merged and promoted with no trace on the issues. Sign it like a PR reply. Keep exploit detail out (both repos are public), and leave gate follow-up issues open until production is verified.
 - **Loop until merged.** Repeat monitor → fix or rebut → reply until the PR is merged (or closed, or Adam says stop). If feedback requires a judgment call only Adam can make — scope changes, product decisions — surface it to him instead of guessing, but still reply on the thread noting it's awaiting his call.

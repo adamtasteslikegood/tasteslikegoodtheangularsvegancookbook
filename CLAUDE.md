@@ -82,10 +82,10 @@ For docs-only or config-only changes, `npm run format:check` is sufficient — t
 
 ## Project
 
-**Vegangenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-nano-banana-2.1`, Nano Banana 2.1), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
+**VeganGenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-nano-banana-2.1`, Nano Banana 2.1), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
-- **Version:** See `package.json` `version` field (currently v0.6.0)
+- **Version:** See `package.json` `version` field
 - **Other agents:** See `AGENTS.md` for OpenCode / non-Claude agent instructions
 
 ## Commands
@@ -161,6 +161,10 @@ To ship a Backend change:
 
 **Do not use `git submodule update --remote Backend`** — `.gitmodules` tracks `dev`, so `--remote` resolves to Backend `dev`'s tip and always blocks train-verify Station 3.
 
+**Staging runs Backend `dev` work only once cookbook `dev` points at it.** Staging deploys from cookbook `dev`, so when Backend `dev` lands changes ready for testing, open a cookbook PR into `dev` that pins that explicit SHA (`git -C Backend checkout <sha> && git add Backend`), titled `chore(backend): pin Backend dev <sha> for staging [KAN-###]`, even with no cookbook change. The release pin is still re-taken from Backend `main`'s own SHA at RUNBOOK step 4.
+
+**Both repos are public.** Never push a spec, commit or PR text that describes how to exploit something not yet fixed in production; that detail goes in Jira until the fix is deployed.
+
 **The full ordered procedure is @scripts/release/RUNBOOK.md**, driven by `scripts/release/train-run.sh`.
 
 ## Commit and push cadence
@@ -178,6 +182,7 @@ Every PR you author, work on or wait on is yours until it merges, without being 
 - **Persist non-trivial review insights to GitHub Discussions** (category Ideas), linking the PR.
 - **Never write a bot's command text in a comment, not even in backticks.** Say "DocBot's approval command" instead (KAN-310).
 - **Sign replies posted on Adam's behalf** with a final line: _Replied by Claude on Adam's behalf_
+- **Comment progress on GitHub issues at every milestone** (fix merged, promoted, pinned, released, verified), not only at close.
 - **Loop until merged.** Surface calls only Adam can make, and note on the thread that they await him.
 
 ## Database migrations
@@ -229,7 +234,7 @@ npm run pm:daemon:status     # check if daemon is alive
 
 ## Non-obvious patterns
 
-- **Rate limiter** uses Valkey for distributed state. GH #163/#162 are FIXED (2026-04-15). Live concerns are Flask-side: IAM token-refresh (Backend #247) and response-cache lost in merge `07123c2` (KAN-151).
+- **Rate limiter** uses Valkey for distributed state. GH #163/#162 are FIXED (2026-04-15).
 - **AI model names** — API entries carry `models/` prefix; `Backend/config.py` uses bare IDs. Both forms in active use. The model choice itself is **settled**: `gemini-3.8-flash` (text; moved from `gemini-3.7-flash` on 2026-09-28, KAN-282) and `gemini-nano-banana-2.1` (images, Nano Banana 2.1; moved from `gemini-3-pro-image` on 2026-10-28, KAN-487: Nano Banana 2 won a side-by-side test on staging, and 2.1 is its stable successor) — both GA, both verified on the live API surface, and pinned in `cloudbuild.yaml`. Since v0.5.0 the pinned Backend (`d43b58f`, via Backend #323) defaults `Backend/config.py` to the same pair, so the pins are belt-and-braces rather than load-bearing: an unset env var no longer yields an older model. Keep the pins and the defaults moving together. There is no GA Gemini 3.x _Pro_ text model, so `gemini-3.1-pro-preview` is not an alternative: it is a preview model, and preview-model retirement is what took production down when Imagen 4.0 was withdrawn. Do not propose reverting either.
 - **Backend submodule** — remote: `adamtasteslikegood/tasteslikegood.com`, tracked branch `dev`. Always check for open Backend PRs and unsynced commits before backend work or releases.
 - **gbrain and Backend** — Backend indexed as separate source `gstack-code-backend`; queries need `--source gstack-code-backend` or they silently miss. Never run `/sync-gbrain` from inside `Backend/`.
