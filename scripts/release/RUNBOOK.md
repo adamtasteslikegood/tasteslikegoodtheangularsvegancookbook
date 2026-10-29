@@ -177,15 +177,17 @@ never redeployed anything.
 
 ### 8. Back-sync both repos
 
-```bash
-./scripts/release/train-backsync.sh --apply --merge
-```
+> **PRECONDITION for the cookbook half — step 9 has passed:** Cloud Build
+> succeeded, the new revision serves traffic, and production is verified by
+> content and by one real-browser render. Until then `main` may still need a
+> patch-forward, and the freeze on `dev` holds. The Backend half has no such hold.
 
-**The cookbook `main → dev` back-sync merges only after step 9 passes:** Cloud
-Build succeeded, the new revision serves traffic, and production is verified by
-content and by one real-browser render. Until then `main` may still need a
-patch-forward, and the freeze on `dev` holds. Opening the back-sync PR early is
-fine; merging it is not.
+```bash
+./scripts/release/train-backsync.sh --apply --merge --only backend   # any time
+./scripts/release/train-backsync.sh --apply --only cookbook          # opens the PR, does not merge
+# after step 9 passes:
+./scripts/release/train-backsync.sh --apply --merge --only cookbook
+```
 
 Must be a **merge commit**. Squashing rewrites the commits, ancestry never
 converges, and the drift count never returns to zero. This step is local and not
