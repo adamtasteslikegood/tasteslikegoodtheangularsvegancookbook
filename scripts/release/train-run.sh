@@ -79,6 +79,13 @@ while [ $# -gt 0 ]; do
       PLAN_ARGS=("$2" "$3" "$4")
       shift 3
       ;;
+    --step9-state)
+      # test seam: --step9-state <failed-urls> <marker-hits> <rendered 1|0>
+      [ $# -ge 4 ] || { echo "--step9-state needs three values" >&2; exit 2; }
+      MODE="step9-state"
+      PLAN_ARGS=("$2" "$3" "$4")
+      shift 3
+      ;;
     -h | --help)
       sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -119,9 +126,27 @@ backsync_plan() {
   return 0
 }
 
-# Test seam: print the plan for given counts and step-9 state, touch nothing.
+# Step-9 state from verify_prod's evidence. "done" needs every required URL at
+# 200, the marker in a served asset, and a confirmed browser render; marker and
+# URLs alone give "content-ok", which backsync_plan does not treat as done.
+#   $1 failed required URLs  $2 marker hits  $3 browser render confirmed (1/0)
+step9_state() {
+  if [ "$1" -gt 0 ] || [ "$2" -le 0 ]; then
+    echo ""
+  elif [ "$3" = "1" ]; then
+    echo "done"
+  else
+    echo "content-ok"
+  fi
+}
+
+# Test seams: compute from the given values and print, touch nothing.
 if [ "$MODE" = "backsync-plan" ]; then
   backsync_plan "${PLAN_ARGS[@]}"
+  exit 0
+fi
+if [ "$MODE" = "step9-state" ]; then
+  step9_state "${PLAN_ARGS[@]}"
   exit 0
 fi
 die()  { printf '%serror:%s %s\n' "$R" "$X" "$*" >&2; exit 2; }
@@ -446,10 +471,13 @@ verify_prod() {
   local marker="${1:-}"
   head2 "Step 9 — verify production by content"
 
-  local code
+  # A rerun re-proves step 9 from scratch; a failed rerun must not leave an old "done".
+  state_set 9 ""
+
+  local code url_failures=0
   for path in "/" "/browse" "/sitemap.xml"; do
     code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$PROD$path" || echo "000")
-    if [ "$code" = "200" ]; then ok "$path → 200"; else bad "$path → $code"; fi
+    if [ "$code" = "200" ]; then ok "$path → 200"; else bad "$path → $code"; url_failures=$((url_failures + 1)); fi
   done
 
   if [ -z "$marker" ]; then
@@ -492,13 +520,27 @@ verify_prod() {
 
   if [ "$total" -gt 0 ]; then
     ok "marker found in $total place(s) — this release IS live"
-    # Step 9 is proven by content, so mark it only here — never from "the merge
-    # went green", which is what the RUNBOOK's step 9 trap is about.
-    state_set 9 "done"
-    return 0
+  else
+    bad "marker not found in any served asset — the deploy is not live yet (or the marker is wrong)"
+    info "a marker present in BOTH builds proves nothing; pick one only this release has"
   fi
-  bad "marker not found in any served asset — the deploy is not live yet (or the marker is wrong)"
-  info "a marker present in BOTH builds proves nothing; pick one only this release has"
+
+  # A marker grep never renders the page (KAN-286: v0.5.0 passed it unstyled),
+  # so "done" also needs a typed confirmation of one real-browser render.
+  local rendered=0
+  if [ "$url_failures" -eq 0 ] && [ "$total" -gt 0 ]; then
+    info "load $PROD/ in a real browser: the page must be styled and the console free of CSP violations"
+    confirm "RENDERED" "Did $PROD/ render styled with no CSP violation in the console?" && rendered=1
+  fi
+
+  # Step 9 is set only here, never from "the merge went green" (RUNBOOK step 9 trap).
+  local state; state=$(step9_state "$url_failures" "$total" "$rendered")
+  state_set 9 "$state"
+  case "$state" in
+    done) ok "step 9 recorded as done" ; return 0 ;;
+    content-ok) warn "content verified, browser render not confirmed — step 9 stays open; re-run in a terminal" ;;
+    *) bad "step 9 not verified" ;;
+  esac
   return 1
 }
 
