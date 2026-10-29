@@ -72,6 +72,13 @@ while [ $# -gt 0 ]; do
       [ $# -gt 0 ] || { echo "--marker needs a value" >&2; exit 2; }
       MARKER="$1"
       ;;
+    --backsync-plan)
+      # test seam: --backsync-plan <backend-owed> <cookbook-owed> <step9-state>
+      [ $# -ge 4 ] || { echo "--backsync-plan needs three values" >&2; exit 2; }
+      MODE="backsync-plan"
+      PLAN_ARGS=("$2" "$3" "$4")
+      shift 3
+      ;;
     -h | --help)
       sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -97,6 +104,26 @@ ok()   { printf '  %s✓%s %s\n' "$G" "$X" "$*"; }
 bad()  { printf '  %s✗%s %s\n' "$R" "$X" "$*"; }
 warn() { printf '  %s!%s %s\n' "$Y" "$X" "$*"; }
 info() { printf '  %s·%s %s\n' "$DIM" "$X" "$*"; }
+
+# ── back-sync plan (RUNBOOK step 8) ─────────────────────────────────────────
+# Prints one "<repo> <action>" line per repo that owes a back-sync. Backend
+# merges any time. Cookbook merges only once step 9 (production verified by
+# content) is recorded as done; before that its PR is opened but not merged,
+# because main may still need a patch-forward and the freeze on dev holds.
+#   $1 Backend commits owed  $2 cookbook commits owed  $3 step-9 state
+backsync_plan() {
+  [ "$1" -gt 0 ] && echo "backend merge"
+  if [ "$2" -gt 0 ]; then
+    if [ "$3" = "done" ]; then echo "cookbook merge"; else echo "cookbook open"; fi
+  fi
+  return 0
+}
+
+# Test seam: print the plan for given counts and step-9 state, touch nothing.
+if [ "$MODE" = "backsync-plan" ]; then
+  backsync_plan "${PLAN_ARGS[@]}"
+  exit 0
+fi
 die()  { printf '%serror:%s %s\n' "$R" "$X" "$*" >&2; exit 2; }
 
 # ── checklist state ─────────────────────────────────────────────────────────
@@ -653,8 +680,31 @@ fi
 if [ "$BE_BACKSYNC" -gt 0 ] || [ "$CB_BACKSYNC" -gt 0 ]; then
   bad "back-sync owed — cookbook $CB_BACKSYNC, Backend $BE_BACKSYNC (RUNBOOK step 3/8)"
   info "must be a MERGE commit; squashing rewrites commits and the count never reaches zero"
-  if confirm "BACKSYNC" "Run train-backsync.sh --apply --merge?"; then
-    run "$SCRIPT_DIR/train-backsync.sh" --apply --merge && state_set 8 "done"
+  mapfile -t BACKSYNC_STEPS < <(backsync_plan "$BE_BACKSYNC" "$CB_BACKSYNC" "$(state_get 9)")
+  for s in "${BACKSYNC_STEPS[@]}"; do
+    case "$s" in
+      "backend merge") info "Backend: open and merge the back-sync PR" ;;
+      "cookbook merge") info "cookbook: open and merge the back-sync PR (step 9 is verified)" ;;
+      "cookbook open")
+        info "cookbook: open the back-sync PR only — it merges after step 9 passes"
+        info "  verify first: $0 --verify-only --marker '<string new in this release>'"
+        ;;
+    esac
+  done
+  if confirm "BACKSYNC" "Run the back-sync steps above?"; then
+    backsync_rc=0
+    for s in "${BACKSYNC_STEPS[@]}"; do
+      repo=${s%% *}
+      if [ "${s##* }" = "merge" ]; then
+        run "$SCRIPT_DIR/train-backsync.sh" --apply --merge --only "$repo" || backsync_rc=1
+      else
+        run "$SCRIPT_DIR/train-backsync.sh" --apply --only "$repo" || backsync_rc=1
+      fi
+    done
+    # Step 8 is done only when every half merged; an opened-only cookbook PR is not.
+    if [ "$backsync_rc" -eq 0 ] && [[ ! " ${BACKSYNC_STEPS[*]} " =~ " open" ]]; then
+      state_set 8 "done"
+    fi
   else
     info "skipped — run it before cutting, the stations block on this"
   fi
