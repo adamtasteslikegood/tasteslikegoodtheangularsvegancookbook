@@ -345,7 +345,7 @@
     <!-- KAN-356: feedback on a saved copy of a published recipe, or the
          author's own notes on their published recipe. Renders nothing for any
          other recipe. -->
-    @if (isSaved()) {
+    @if (showFeedback()) {
       <app-recipe-feedback [recipe]="r" />
     }
   </article>

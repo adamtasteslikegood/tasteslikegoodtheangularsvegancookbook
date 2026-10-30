@@ -113,6 +113,18 @@ export class RecipeDetailComponent extends RecipeViewBase {
   });
 
   /**
+   * KAN-356: the feedback panel needs a recipe in this user's cookbook.
+   * `isSaved` alone misses a cold deep link with empty storage, which reads
+   * the row before the cookbook hydrates; the cookbook check settles once it
+   * does.
+   */
+  readonly showFeedback = computed(() => {
+    if (this.isSaved()) return true;
+    const r = this.recipe();
+    return !!r && !!this.authService.currentUser()?.savedRecipes.some((s) => s.id === r.id);
+  });
+
+  /**
    * The visible breadcrumb: My Kitchen [→ cookbook] → recipe (KAN-321).
    * Published or not, this is the Kitchen's view of the recipe, so the trail
    * stays in-app; the public /r/<slug> page has its own SSR trail, reached

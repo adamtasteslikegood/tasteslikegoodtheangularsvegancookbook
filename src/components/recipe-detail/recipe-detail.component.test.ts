@@ -635,6 +635,29 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
     expect(component.isSaved()).toBe(false);
   });
 
+  // KAN-356: a reload with empty storage reads the row before the cookbook
+  // hydrates, so isSaved stays false. The feedback panel must still appear once
+  // the cookbook shows the recipe is this user's.
+  it('shows feedback once the cookbook hydrates after a cold deep link', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'row-1', name: 'Stew', data: { id: 'row-1', name: 'Stew' } }),
+      })
+    );
+    const user = signal({ isGuest: false, savedRecipes: [] as { id: string }[] });
+    const { component } = createComponent({ currentUser: user });
+    emitId('row-1');
+    await vi.waitFor(() => expect(component.recipe()).not.toBeNull());
+    expect(component.isSaved()).toBe(false);
+    expect(component.showFeedback()).toBe(false);
+
+    user.set({ isGuest: false, savedRecipes: [{ id: 'row-1' }] });
+    expect(component.showFeedback()).toBe(true);
+  });
+
   // KAN-137 confirm-guard: first publish of a copy saved from a public recipe
   // must be an informed choice — and "no" must leave the recipe untouched.
   // KAN-140: generated notes render live on /r/<slug> unmoderated, so the
