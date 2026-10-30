@@ -21,6 +21,7 @@ import {
   isSignedIn,
   parseServerTime,
   storeFeedbackIntent,
+  takeFeedbackIntent,
   type FeedbackEntry,
   type FeedbackState,
 } from '../../services/feedback.service';
@@ -478,6 +479,7 @@ export class RecipeFeedbackComponent {
     const slug = this.recipe().sourceSlug;
     if (slug) storeFeedbackIntent(slug);
     this.auth.login().catch(() => {
+      takeFeedbackIntent();
       this.error.set('Could not start sign-in. Please try again.');
     });
   }

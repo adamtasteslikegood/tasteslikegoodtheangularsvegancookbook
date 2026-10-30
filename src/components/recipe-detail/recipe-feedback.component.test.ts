@@ -154,9 +154,14 @@ describe('counterAnnouncement (R12)', () => {
 // recipe, and a load failure that hid the whole panel.
 describe('RecipeFeedbackComponent requests (KAN-356)', () => {
   const recipeFor = (sourceRecipeId: string) =>
-    ({ id: `copy-${sourceRecipeId}`, name: 'Copy', sourceRecipeId }) as unknown as Recipe;
+    ({
+      id: `copy-${sourceRecipeId}`,
+      name: 'Copy',
+      sourceRecipeId,
+      sourceSlug: 'thai-peanut-noodles',
+    }) as unknown as Recipe;
 
-  const create = (feedback: Record<string, unknown>) => {
+  const create = (feedback: Record<string, unknown>, login = vi.fn()) => {
     const user = signal<User | null>({
       id: 'u-1',
       name: 'Sam',
@@ -165,7 +170,7 @@ describe('RecipeFeedbackComponent requests (KAN-356)', () => {
     } as User);
     const injector = Injector.create({
       providers: [
-        { provide: AuthService, useValue: { currentUser: user, login: vi.fn() } },
+        { provide: AuthService, useValue: { currentUser: user, login } },
         { provide: FeedbackService, useValue: feedback },
         // The constructor's effect needs a scheduler; these tests drive the
         // component's methods directly and never run change detection.
@@ -179,7 +184,7 @@ describe('RecipeFeedbackComponent requests (KAN-356)', () => {
     const comp = runInInjectionContext(injector, () => new RecipeFeedbackComponent());
     const recipe = signal(recipeFor('pub-a'));
     Object.defineProperty(comp, 'recipe', { value: recipe });
-    return { comp, recipe };
+    return { comp, recipe, login };
   };
 
   const settle = async () => {
@@ -214,6 +219,29 @@ describe('RecipeFeedbackComponent requests (KAN-356)', () => {
     finish(true);
     await deleting;
     expect(load).not.toHaveBeenCalledWith('pub-a');
+  });
+
+  it('clears the intent when sign-in cannot start', async () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => void store.set(key, value),
+      removeItem: (key: string) => void store.delete(key),
+    } as Storage);
+
+    try {
+      const login = vi.fn().mockRejectedValue(new Error('down'));
+      const { comp } = create({}, login);
+
+      comp.signIn();
+      await settle();
+
+      expect(login).toHaveBeenCalledTimes(1);
+      expect(store.has('tlg.feedbackIntent')).toBe(false);
+      expect(comp.error()).toBe('Could not start sign-in. Please try again.');
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it('offers a retry when loading fails, and loads again on Try again', async () => {

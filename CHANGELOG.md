@@ -17,7 +17,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   feedback" page at `/moderation`. The public page's "Cooked this? Add your feedback" link
   survives Google sign-in, and a cancelled sign-in saves the recipe and offers sign-in again.
   Deleting a saved copy asks whether to keep the feedback. The privacy policy gains section 3.7.
-  Backend pinned to `4d8a0a7` (Backend #464, unmerged); it is re-pinned once #464 merges.
+  Backend pinned to `1038930` (the merged Backend #464).
 
 ### Internal
 
