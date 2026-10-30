@@ -19,7 +19,7 @@ import { GeminiService } from '../../services/gemini.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
-import { FeedbackService } from '../../services/feedback.service';
+import { DELETE_CHECK_TIMEOUT_MS, FeedbackService } from '../../services/feedback.service';
 import type { Cookbook, User } from '../../auth.types';
 import type { Recipe } from '../../recipe.types';
 
@@ -56,7 +56,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       savedRecipes?: unknown[];
       generateImage?: (id: string, force: boolean) => Promise<string>;
       /** KAN-356: the feedback lookup the delete dialog makes. */
-      feedbackLoad?: (target: string) => Promise<unknown>;
+      feedbackLoad?: (target: string, timeoutMs?: number) => Promise<unknown>;
     } = {}
   ) => {
     const params = new BehaviorSubject(
@@ -555,6 +555,32 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
       await flush();
       expect(kitchen.deleteFeedbackCheckFailed()).toBe(true);
       expect(kitchen.deleteFeedbackTarget()).toBeNull();
+      expect(kitchen.canConfirmDelete()).toBe(true);
+    });
+
+    it('gives up on the lookup sooner than a page load, so Delete is not held long', async () => {
+      let timeout: number | undefined;
+      const { kitchen, user } = createKitchen({
+        feedbackLoad: async (_target, timeoutMs) => {
+          timeout = timeoutMs;
+          return { kind: 'none' };
+        },
+      });
+      signIn(user);
+      kitchen.promptDeleteRecipe(copy, new Event('click'));
+      await flush();
+      expect(timeout).toBe(DELETE_CHECK_TIMEOUT_MS);
+      expect(DELETE_CHECK_TIMEOUT_MS).toBeLessThanOrEqual(3_000);
+    });
+
+    it('does not wait at all for a recipe that is not a saved copy', () => {
+      const load = vi.fn();
+      const { kitchen, user } = createKitchen({ feedbackLoad: load });
+      signIn(user);
+      const own = { id: 'r-2', name: 'My Noodles' } as unknown as Recipe;
+      kitchen.promptDeleteRecipe(own, new Event('click'));
+      expect(load).not.toHaveBeenCalled();
+      expect(kitchen.deleteFeedbackChecking()).toBe(false);
       expect(kitchen.canConfirmDelete()).toBe(true);
     });
   });

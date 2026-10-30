@@ -7,7 +7,11 @@ import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
-import { FeedbackService, isSignedIn } from '../../services/feedback.service';
+import {
+  DELETE_CHECK_TIMEOUT_MS,
+  FeedbackService,
+  isSignedIn,
+} from '../../services/feedback.service';
 import { exportableRecipe, hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
@@ -427,7 +431,7 @@ export class KitchenComponent {
     const target = recipe.sourceRecipeId;
     if (!target || !isSignedIn(this.authService.currentUser())) return;
     this.deleteFeedbackChecking.set(true);
-    const result = await this.feedbackService.load(target);
+    const result = await this.feedbackService.load(target, DELETE_CHECK_TIMEOUT_MS);
     if (this.recipeToDelete()?.id !== recipe.id) return;
     this.deleteFeedbackChecking.set(false);
     if (result.kind === 'ok' && result.state.entry && result.state.role === 'cook') {

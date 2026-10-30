@@ -178,6 +178,11 @@ export function formatDayTime(date: Date): string {
 // A stalled request must end in an error, never leave a button or dialog
 // waiting. Writes get longer: a post may send a moderator email first.
 const LOAD_TIMEOUT_MS = 10_000;
+/**
+ * The kitchen's Delete waits on this check, and a failed check still lets the
+ * copy go with its feedback kept, so it gives up sooner than a page load.
+ */
+export const DELETE_CHECK_TIMEOUT_MS = 3_000;
 const WRITE_TIMEOUT_MS = 30_000;
 
 async function readJson(res: Response): Promise<Record<string, unknown> | null> {
@@ -193,13 +198,13 @@ export class FeedbackService {
   /** From `/api/auth/me`. False until the server says otherwise (R2 fails closed). */
   readonly isModerator = signal(false);
 
-  async load(targetId: string): Promise<FeedbackLoad> {
+  async load(targetId: string, timeoutMs = LOAD_TIMEOUT_MS): Promise<FeedbackLoad> {
     try {
       const res = await fetch(`/api/feedback/${encodeURIComponent(targetId)}`, {
         credentials: 'include',
         // A hung lookup must end in the error state, not leave callers waiting
         // (the kitchen's Delete waits on it).
-        signal: AbortSignal.timeout(LOAD_TIMEOUT_MS),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (res.status === 401) return { kind: 'signed-out' };
       if (res.status === 404) return { kind: 'none' };
