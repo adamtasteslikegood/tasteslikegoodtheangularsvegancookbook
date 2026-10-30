@@ -111,7 +111,7 @@ Moderation
 Public recipe page
 
 - Requirement: the feedback section and the JSON-LD reflect a new entry, a hide, a rejection or a threshold change on the next request. These pages returned `Cache-Control: private` when probed on 2026-10-03 and again on 2026-10-13, and the Express proxy adds no cache header (eng review, Architecture).
-- No entries of any kind: one link line only, "Add feedback". No count, no empty box.
+- No entries of any kind: one link line only, "Cooked this? Add your feedback". No count, no empty box.
 - Author's entry only: a block headed "From the author" (decision R10; this design first called it "Author's notes"), with the author's stars shown inside that block, and the link line.
 - 1 or 2 non-author entries: "Cooked by N" and any approved notes with the cook's first name. No stars, no average.
 - 3 or more non-author entries: "Cooked by N", the average rating, approved notes newest first with the cook's first name.
@@ -125,16 +125,21 @@ Public recipe page
 - Edit history, report-abuse, author replies.
 
 ```
-PUBLIC /r/<slug>  (server-rendered, read-only)
-  From the author: ★★★★★ "..."     <- above the cooks; outside the count and average
-  [Cooked by 7 · 4.6 ★]            <- average only at >= 3 non-author entries
-  "Used oat milk, baked 5 min longer."  — Sam     <- approved notes only, newest first
-  Add feedback  ->  explains: sign in, save to your cookbook, comment there
+PUBLIC /r/<slug>  (server-rendered, read-only; full order in R9)
+  Chef's notes                     <- existing panel, the recipe's own notes; NOT feedback
+  h2 Cooked by 7                   <- the count; a heading, not a badge
+     4.6 ★ average from 7 cooks    <- only at >= 3 non-author entries
+     h3 From the author ★★★★★ "..." <- outside the count and average (R10)
+     "Used oat milk, baked 5 min longer."  Sam · October 2026   <- approved notes, newest first
+  Cooked this? Add your feedback   <- a link, no text under it (R8)
         |
-        v  sign in first, then save, then the saved copy opens at the form (R8)
+        v  sign in first, then save, then the saved copy opens at the form (R8, R15)
 SAVED COPY in the app  (signed in)
-  [x] I cooked this   ★★★★☆   What I changed: [..............]
-  "Your rating, note and first name will be shown publicly."
+  h3 Your feedback                 <- below the private pencil notes, separate from them
+     ( )1 ( )2 ( )3 ( )4 ( )5      <- required
+     What I changed (optional) [..............]  0 / 1000
+     "Your rating, your note and your first name (Sam) will be shown publicly on the recipe page."
+     [ Post: I cooked this ]       <- the only "I cooked this"; no tick box (R11)
         |
         v  server checks: signed in, and a saved copy whose
         |  source_recipe_id is this public recipe (one step, no slug fallback)
@@ -946,40 +951,51 @@ Design tasks. These add to the eng review's list; T3 and T5 already carry the bu
 
 One place that says what the build may rely on. "Decided" means approved by Adam or required by an approved rule. "Open" means the build must not assume an answer.
 
+Terms used in this document (added 2026-10-29 so the build and QA read one feature, not two):
+
+| Term                            | What it is                                                                                                                                                     | Feedback? |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Feedback entry                  | The one feature: "I cooked this" (the post button), required 1 to 5 stars, optional public note. Shown blog-style under the recipe. "Entry" is the whole post. | yes       |
+| Note, comment, "what I changed" | Three names for the same thing: the optional public text in an entry, at most 1,000 characters, moderated. The form label is "What I changed (optional)".      | yes       |
+| "Cooked by N"                   | The count of non-author entries, shown as the section heading and in the toolbar. Not a badge; there is no badge or award anywhere (design review, Pass 4).    | yes       |
+| "From the author"               | The recipe author's own entry, in a plain panel, outside the count and average (R10).                                                                          | yes       |
+| "Chef's notes"                  | Existing panel on the public page with the recipe's own notes, written with the recipe. Unchanged by this feature.                                             | no        |
+| Pencil notes (`personalNotes`)  | Existing private notes on a saved copy in the app. Never public, never read or changed by this feature (R7).                                                   | no        |
+
 Decided:
 
-| Item                            | What the build does                                                                                                                                                                                     | Source                              |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| The entry                       | "I cooked this", required 1 to 5 stars, optional note. One active entry per account per public recipe.                                                                                                  | Premises; Q2                        |
-| Eligibility                     | Signed in, and a saved copy whose `source_recipe_id` is the target. Authors need no copy. Guests never. Account age does not block posting.                                                             | Premise 2; A4; A5; R8               |
-| The 24 hours                    | An entry from an account under 24 hours old is stored at once and is off the page, the count, the average and the JSON-LD until the account is 24 hours old. Worked out at read time; no scheduled job. | R8                                  |
-| No slug fallback                | A copy that carries only `source_slug` shows no control and cannot post.                                                                                                                                | A4                                  |
-| Target                          | The public recipe's id, one `source_recipe_id` step. A saved copy can never be published, so there are no copies of copies.                                                                             | S1; R3-3                            |
-| Author                          | The target recipe's `user_id`. The author's entry is outside the count and the average.                                                                                                                 | A2; Premise 3                       |
-| Changing an entry               | Delete and post again. No edit in place. Deleted rows are kept for the moderator and leave the page at once.                                                                                            | R7                                  |
-| A hide survives delete          | A hide stays on the account and recipe pair through delete and repost.                                                                                                                                  | O1                                  |
-| Approve acts on one record      | Each posted note is its own record, so an approval can never cover text the moderator did not read.                                                                                                     | O2; R7                              |
-| Notes                           | Held until the account has one approved note; stars count at once. The account's trusted state is stored on the user and cleared by a hide.                                                             | Premise 6; A1                       |
-| Moderator                       | An account whose email is on a list in deploy configuration. Fails closed. `/api/auth/me` tells the app.                                                                                                | R2                                  |
-| Mail                            | Gmail API from the Workspace, send-only. Cloud Scheduler calls a token-guarded reminder endpoint. A failed send never fails a write.                                                                    | R3                                  |
-| Name shown                      | First word of the Google name, read at display. Empty name: "A cook". The display-name settings page is after Phase 1, on its own ticket.                                                               | R6                                  |
-| Public page                     | Four states; nothing but the link line when there are no entries; `aggregateRating` only at 3 or more cooks, from the same query as the visible numbers.                                                | Premises 4, 5; "Public recipe page" |
-| Errors                          | Stars outside 1 to 5 or an over-long note: 400. Changed payload on an existing entry: 409. Target unpublished at submit: 409. Identical replay: no-op.                                                  | Q2                                  |
-| Path from the public page       | The link reads "Cooked this? Add your feedback", with no line under it. It asks for sign-in first, then saves and opens the saved copy at the form. The ordinary Save button is unchanged.              | R8                                  |
-| Cancelled sign-in               | The recipe is saved to the guest cookbook, as the Save button does, and a toast offers sign-in again to add feedback.                                                                                   | R8                                  |
-| The 24 hours, who and when      | Authors as well as cooks. A note approved during the 24 hours still shows only after them.                                                                                                              | R8                                  |
-| Caps                            | A note is at most 1,000 characters. The public page shows the 50 newest approved notes, then "Showing the 50 newest notes."                                                                             | R4                                  |
-| Source unpublished              | A saved copy with an entry shows the entry, its status and "Delete feedback". No new entry can be made.                                                                                                 | R4 (R3-4)                           |
-| A hide and the account          | Hiding a note or a whole entry returns the account to held. Its other published notes stay up. One later approval restores it.                                                                          | R4 (R3-6)                           |
-| Did cooks see the form          | Adam asks the invited cooks. No record of page opens is added.                                                                                                                                          | R4 (R3-5)                           |
-| Public section                  | After "Chef's notes"; heading "Cooked by N"; a line under the title; author block headed "From the author"; first name and month on each note.                                                          | R9, R10                             |
-| The form                        | Stars, optional note, public-display line, one "Post: I cooked this" button; every state and its wording as in the Pass 2 tables.                                                                       | R11                                 |
-| Accessibility and small screens | Native radio-button stars, 44 px targets, announced status and errors, the phone layouts in Pass 6.                                                                                                     | R12                                 |
-| Moderation view                 | One page, three lists, confirm on "Hide whole entry". "Show again" only on moderator-hidden items; a cook-deleted entry is read-only and cannot be restored.                                            | R13                                 |
-| Styles                          | Existing tokens and components only.                                                                                                                                                                    | R14                                 |
-| File arrangement                | One model file, one blueprint, one mail helper, one control component, one moderation view.                                                                                                             | R1                                  |
-| Regression tests                | Guest merge keeps `source_recipe_id`; JSON-LD unchanged with no entries; renamed-slug case gets no control.                                                                                             | Tests; T6                           |
-| Moderation view route           | Added to `server/route-manifest.ts`.                                                                                                                                                                    | A6                                  |
+| Item                            | What the build does                                                                                                                                                                                                  | Source                              |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| The entry                       | "I cooked this", required 1 to 5 stars, optional note. One active entry per account per public recipe.                                                                                                               | Premises; Q2                        |
+| Eligibility                     | Signed in, and a saved copy whose `source_recipe_id` is the target. Authors need no copy. Guests never. Account age does not block posting.                                                                          | Premise 2; A4; A5; R8               |
+| The 24 hours                    | An entry from an account under 24 hours old is stored at once and is off the page, the count, the average and the JSON-LD until the account is 24 hours old. Worked out at read time; no scheduled job.              | R8                                  |
+| No slug fallback                | A copy that carries only `source_slug` shows no control and cannot post.                                                                                                                                             | A4                                  |
+| Target                          | The public recipe's id, one `source_recipe_id` step. A saved copy can never be published, so there are no copies of copies.                                                                                          | S1; R3-3                            |
+| Author                          | The target recipe's `user_id`. The author's entry is outside the count and the average.                                                                                                                              | A2; Premise 3                       |
+| Changing an entry               | Delete and post again. No edit in place. Deleted rows are kept for the moderator and leave the page at once.                                                                                                         | R7                                  |
+| A hide survives delete          | A hide stays on the account and recipe pair through delete and repost.                                                                                                                                               | O1                                  |
+| Approve acts on one record      | Each posted note is its own record, so an approval can never cover text the moderator did not read.                                                                                                                  | O2; R7                              |
+| Notes                           | Held until the account has one approved note; stars count at once. The account's trusted state is stored on the user and cleared by a hide.                                                                          | Premise 6; A1                       |
+| Moderator                       | An account whose email is on a list in deploy configuration. Fails closed. `/api/auth/me` tells the app.                                                                                                             | R2                                  |
+| Mail                            | Gmail API from the Workspace, send-only. Cloud Scheduler calls a token-guarded reminder endpoint. A failed send never fails a write.                                                                                 | R3                                  |
+| Name shown                      | First word of the Google name, read at display. Empty name: "A cook". The display-name settings page is after Phase 1, on its own ticket.                                                                            | R6                                  |
+| Public page                     | Four states; nothing but the link line when there are no entries; `aggregateRating` only at 3 or more cooks, from the same query as the visible numbers.                                                             | Premises 4, 5; "Public recipe page" |
+| Errors                          | Stars outside 1 to 5 or an over-long note: 400. Changed payload on an existing entry: 409. Target unpublished at submit: 409. Identical replay: no-op.                                                               | Q2                                  |
+| Path from the public page       | The link reads "Cooked this? Add your feedback", with no line under it. It asks for sign-in first, then saves and opens the saved copy at the form. The ordinary Save button is unchanged.                           | R8                                  |
+| Cancelled sign-in               | The recipe is saved to the guest cookbook, as the Save button does, and a toast offers sign-in again to add feedback.                                                                                                | R8                                  |
+| The 24 hours, who and when      | Authors as well as cooks. A note approved during the 24 hours still shows only after them.                                                                                                                           | R8                                  |
+| Caps                            | A note is at most 1,000 characters. The public page shows the 50 newest approved notes, then "Showing the 50 newest notes."                                                                                          | R4                                  |
+| Source unpublished              | A saved copy with an entry shows the entry, its status and "Delete feedback". No new entry can be made.                                                                                                              | R4 (R3-4)                           |
+| A hide and the account          | Hiding a note or a whole entry returns the account to held. Its other published notes stay up. One later approval restores it.                                                                                       | R4 (R3-6)                           |
+| Did cooks see the form          | Adam asks the invited cooks. No record of page opens is added.                                                                                                                                                       | R4 (R3-5)                           |
+| Public section                  | After "Chef's notes"; heading "Cooked by N"; a line under the title; author block headed "From the author"; first name and month on each note.                                                                       | R9, R10                             |
+| The form                        | Stars, optional note, public-display line, one "Post: I cooked this" button; every state and its wording as in the Pass 2 tables.                                                                                    | R11                                 |
+| Accessibility and small screens | Native radio-button stars, 44 px targets, announced status and errors, the phone layouts in Pass 6.                                                                                                                  | R12                                 |
+| Moderation view                 | One page, three lists, confirm on "Hide whole entry". "Show again" only on moderator-hidden items; a cook-deleted entry is read-only and cannot be restored.                                                         | R13                                 |
+| Styles                          | Existing tokens and components only.                                                                                                                                                                                 | R14                                 |
+| File arrangement                | One model file, one blueprint, one mail helper, one control component, one moderation view.                                                                                                                          | R1                                  |
+| Regression tests                | Guest merge keeps `source_recipe_id`; JSON-LD unchanged with no entries; a copy whose source was renamed is found by `source_recipe_id` and gets the control (O6); a copy with no `source_recipe_id` gets none (A4). | Tests; T6                           |
+| Moderation view route           | Added to `server/route-manifest.ts`.                                                                                                                                                                                 | A6                                  |
 
 Open:
 
