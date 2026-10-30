@@ -12,4 +12,10 @@ describe('Angular development proxy', () => {
       expect(proxyConfig[path]?.target).toBe('http://localhost:5000');
     }
   });
+
+  it('forwards every Flask API prefix the SPA calls', () => {
+    for (const path of ['/api/auth', '/api/recipes', '/api/collections', '/api/feedback']) {
+      expect(proxyConfig[path]?.target).toBe('http://localhost:5000');
+    }
+  });
 });

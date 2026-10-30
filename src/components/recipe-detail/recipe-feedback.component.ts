@@ -155,7 +155,7 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                           [value]="n"
                           [checked]="stars() === n"
                           [disabled]="sending()"
-                          (change)="stars.set(n)"
+                          (change)="stars.set(n); error.set(null)"
                         />
                         <span class="sm:hidden" aria-hidden="true">{{ n }}</span>
                         <span class="sr-only sm:not-sr-only">{{
@@ -242,9 +242,10 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                   <span class="sr-only">{{ entry.stars }} out of 5 stars</span>
                 </p>
                 @if (entry.note) {
-                  <blockquote class="mt-2 text-base text-stone-700 whitespace-pre-wrap border-l-0">
-                    {{ entry.note }}
-                  </blockquote>
+                  <blockquote
+                    class="mt-2 text-base text-stone-700 whitespace-pre-wrap border-l-0"
+                    [textContent]="entry.note"
+                  ></blockquote>
                 }
                 @if (postedOn(entry); as day) {
                   <p class="mt-1 text-sm text-stone-500">Posted {{ day }}</p>

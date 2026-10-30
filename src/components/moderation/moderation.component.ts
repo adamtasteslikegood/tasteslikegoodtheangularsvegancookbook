@@ -169,9 +169,10 @@ const RESULT_WORDS: Record<ModerationAction, string> = {
           }
         </p>
         @if (row.note) {
-          <blockquote class="mt-2 text-base text-stone-800 whitespace-pre-wrap">
-            {{ row.note }}
-          </blockquote>
+          <blockquote
+            class="mt-2 text-base text-stone-800 whitespace-pre-wrap"
+            [textContent]="row.note"
+          ></blockquote>
         }
         @if (stateLine(row); as line) {
           <p class="mt-1 text-sm text-stone-500">{{ line }}</p>
