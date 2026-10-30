@@ -60,7 +60,7 @@
     "@angular-eslint/eslint-plugin-template": "22.6.0",
     "@angular-eslint/schematics": "22.6.0",
     "@angular-eslint/template-parser": "22.6.0",
-    "@datadog/browser-rum-slim": "7.16.0",
+    "@datadog/browser-rum-slim": "7.16.1",
     "@eslint/js": "^10.0.1",
     "@types/compression": "^1.8.1",
     "@types/express": "^5.0.6",
