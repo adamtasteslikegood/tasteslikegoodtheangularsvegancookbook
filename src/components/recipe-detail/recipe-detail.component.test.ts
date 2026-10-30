@@ -82,6 +82,9 @@ describe('RecipeDetailComponent route load states (KAN-257)', () => {
           provide: PersistenceService,
           useValue: {
             saveRecipeDetailed: persistenceSaveRecipe,
+            // KAN-334: the toggle re-reads the row first; null = unreadable,
+            // so it acts on the local copy as before.
+            refreshRecipeFromApi: vi.fn().mockResolvedValue(null),
             publishStateSync: () => 'synced',
           },
         },

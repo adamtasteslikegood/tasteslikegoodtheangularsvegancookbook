@@ -168,3 +168,32 @@ export function adoptImagePipelineFields(local: Recipe, fresh: Recipe): Recipe {
   }
   return merged as unknown as Recipe;
 }
+
+/** Server-owned fields that decide what the publish toggle may do. */
+const PUBLISH_STATE_FIELDS = [
+  'is_public',
+  'slug',
+  'is_canonical',
+  'origin',
+  'first_published_at',
+] as const;
+
+/**
+ * KAN-334 — adopt the publish state from a freshly-read server row, keeping
+ * every other field from the local copy.
+ *
+ * A tab that was never refreshed holds whatever publish state it loaded with;
+ * another tab may have published or unpublished since. The toggle re-reads the
+ * row before acting and adopts only these server-owned fields, so it acts on
+ * the server's state without reverting the user's own edits (the KAN-255
+ * clobber `adoptImagePipelineFields` guards against). A field the row does not
+ * carry leaves the local value alone.
+ */
+export function adoptPublishStateFields(local: Recipe, fresh: Recipe): Recipe {
+  const merged = { ...local } as Record<string, unknown>;
+  const source = fresh as unknown as Record<string, unknown>;
+  for (const field of PUBLISH_STATE_FIELDS) {
+    if (source[field] !== undefined) merged[field] = source[field];
+  }
+  return merged as unknown as Recipe;
+}

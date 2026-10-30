@@ -2,7 +2,12 @@ import { Injectable, effect, signal, untracked, inject } from '@angular/core';
 import { AuthService } from './auth.service';
 import { Recipe } from '../recipe.types';
 import { Cookbook, User } from '../auth.types';
-import { adoptImagePipelineFields, recipeFromRow, RecipeRow } from '../utils/recipe-row';
+import {
+  adoptImagePipelineFields,
+  adoptPublishStateFields,
+  recipeFromRow,
+  RecipeRow,
+} from '../utils/recipe-row';
 import {
   beginMembershipOp,
   DELETE_CANONICAL_LOCK_REFUSAL,
@@ -168,13 +173,19 @@ export class PersistenceService {
    *  - Never ADDS a row. A cold deep-linked recipe (recipe-detail, saved=false)
    *    is not in the user's cookbook, and a background image reconcile must not
    *    be the thing that saves it for them.
+   *  - KAN-334: `adopt: 'publish'` swaps the image fields for the publish
+   *    state (`adoptPublishStateFields`), for the publish toggle's re-read in
+   *    a tab that may be stale. The default stays image-only.
    *  - The server wins for the image-pipeline fields ONLY
    *    (`adoptImagePipelineFields`), not wholesale. Adopting the whole row here
    *    reverted a concurrent notes edit or publish made during the 30-60s image
    *    window, and — because `saveNotes` POSTs the whole recipe — the next save
    *    after that clobber wrote the stale copy back to the server for good.
    */
-  async refreshRecipeFromApi(recipeId: string): Promise<Recipe | null> {
+  async refreshRecipeFromApi(
+    recipeId: string,
+    adopt: 'image' | 'publish' = 'image'
+  ): Promise<Recipe | null> {
     if (!this.auth.currentUser()) return null;
     try {
       const res = await this._fetch(`/api/recipes/${encodeURIComponent(recipeId)}`);
@@ -188,7 +199,12 @@ export class PersistenceService {
       if (!local) return fresh;
       // Merge onto the SAVED row, not onto `fresh`: anything the user changed
       // locally while the image was generating lives here and must survive.
-      const merged = adoptImagePipelineFields(local, fresh);
+      // KAN-334: the publish toggle asks for the publish state instead; the
+      // image reconcile must never adopt it (see adoptImagePipelineFields).
+      const merged =
+        adopt === 'publish'
+          ? adoptPublishStateFields(local, fresh)
+          : adoptImagePipelineFields(local, fresh);
       this.auth.saveRecipe(merged);
       return merged;
     } catch (err) {

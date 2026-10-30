@@ -95,8 +95,11 @@ export function publicLinkKind(recipe: {
  *            fall through to 'normal' — they must stay unpublish-able.
  * 'normal' — everything else.
  *
- * Order matters: 'source' is checked before 'manual' so a saved copy keeps
- * its own explanation, which points at the page that is already live.
+ * Order matters: 'source' is checked before the wide 'manual' fallback so a
+ * saved copy keeps its own explanation, which points at the page that is
+ * already live. KAN-334 (superseding KAN-330 for this one case): a row
+ * labelled `origin: 'manual'` is not a saved copy even when a legacy blob
+ * carries a `sourceSlug`, so it gets the manual explanation first.
  */
 export function publishToggleKind(recipe: {
   is_public?: boolean;
@@ -107,6 +110,9 @@ export function publishToggleKind(recipe: {
 }): 'locked' | 'manual' | 'source' | 'normal' {
   if (recipe.is_canonical === true) {
     return 'locked';
+  }
+  if (recipe.origin === 'manual' && recipe.is_public !== true) {
+    return 'manual';
   }
   if (publicLinkKind(recipe) === 'source') {
     return 'source';

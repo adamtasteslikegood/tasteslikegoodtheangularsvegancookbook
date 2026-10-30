@@ -275,7 +275,26 @@ export abstract class RecipeViewBase {
       this.toastService.show(this.publishToggleTitle(recipe));
       return;
     }
+    // KAN-334: the switch the user tapped shows this tab's copy, which may be
+    // stale if another tab published or unpublished since. Re-read the row and
+    // act on the server's state; when the server cannot be read, fall back to
+    // the local copy as before.
     const nextState = !recipe.is_public;
+    const fresh = await this.persistenceService.refreshRecipeFromApi(recipe.id, 'publish');
+    if (fresh) {
+      if (this.recipe()?.id === recipe.id) {
+        this.recipe.set(fresh);
+      }
+      if (!!fresh.is_public === nextState) {
+        // Already true on the server: show it, send nothing.
+        return;
+      }
+      recipe = fresh;
+      if (recipe.is_canonical) {
+        this.toastService.show(this.publishToggleTitle(recipe));
+        return;
+      }
+    }
 
     // KAN-289: taking a page offline is never a single tap.
     if (!nextState && !confirmed) {

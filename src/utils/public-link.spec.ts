@@ -176,9 +176,17 @@ describe('publishToggleKind', () => {
   it('is manual for an unpublished manually entered recipe', () => {
     expect(publishToggleKind({ origin: 'manual' })).toBe('manual');
     expect(publishToggleKind({ origin: 'manual', is_public: false })).toBe('manual');
-    // KAN-330: a sourceSlug now wins — both kinds refuse to publish, and the
-    // source toast points at the page that is already live.
-    expect(publishToggleKind({ origin: 'manual', sourceSlug: 'x' })).toBe('source');
+  });
+
+  // KAN-334 (superseding KAN-330 for this one case): a legacy manually entered
+  // row can carry a sourceSlug. It is not a saved copy, so the saved-copy
+  // explanation ("the original recipe owns the public page") is wrong for it;
+  // it gets the manual explanation.
+  it('is manual for a legacy manual row that carries a sourceSlug', () => {
+    expect(publishToggleKind({ origin: 'manual', sourceSlug: 'x' })).toBe('manual');
+    expect(publishToggleKind({ origin: 'manual', is_public: false, sourceSlug: 'x' })).toBe(
+      'manual'
+    );
   });
 
   it('is normal for a legacy published manual recipe (so it can be unpublished)', () => {

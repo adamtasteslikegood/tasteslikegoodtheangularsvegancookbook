@@ -8,6 +8,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- The publish toggle re-reads the recipe's publish state from the server before it acts, so a tab
+  that was not refreshed after another tab published or unpublished no longer flips the wrong way
+  or sends a change that is already made (KAN-334). A manually entered recipe that carries a saved
+  copy's source link now explains the manual-entry refusal instead of the saved-copy one.
+
 ### Internal
 
 - The Independent Claude review is bounded, following Plaza's reforms (KAN-489). The job stops at 14

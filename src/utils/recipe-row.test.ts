@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   adoptImagePipelineFields,
+  adoptPublishStateFields,
   exportableRecipe,
   recipeFromRow,
   type RecipeRow,
@@ -273,5 +274,64 @@ describe('exportableRecipe', () => {
     exportableRecipe(recipe);
     expect(recipe.is_public).toBe(true);
     expect(recipe.slug).toBe('vegan-zucchini-poppers');
+  });
+});
+
+// KAN-334: the publish toggle re-reads the row before acting, so a tab that was
+// never refreshed acts on the server's publish state rather than its own stale
+// copy. Only the server-owned publish fields are adopted; the user's own edits
+// stay, for the same reason adoptImagePipelineFields keeps them (KAN-255).
+describe('adoptPublishStateFields (KAN-334)', () => {
+  const local = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      personalNotes: 'typed in this tab',
+      is_public: false,
+      origin: 'generated',
+      ...over,
+    }) as unknown as Recipe;
+
+  const server = (over: Record<string, unknown> = {}) =>
+    ({
+      id: 'r1',
+      name: 'Vegan Cornbread',
+      personalNotes: '',
+      is_public: true,
+      slug: 'vegan-cornbread',
+      is_canonical: false,
+      first_published_at: '2026-10-30T00:00:00Z',
+      origin: 'generated',
+      ...over,
+    }) as unknown as Recipe;
+
+  it('adopts the server publish state and slug', () => {
+    const merged = adoptPublishStateFields(local(), server());
+    expect(merged.is_public).toBe(true);
+    expect(merged.slug).toBe('vegan-cornbread');
+    expect(merged.is_canonical).toBe(false);
+    expect(merged.first_published_at).toBe('2026-10-30T00:00:00Z');
+  });
+
+  it('adopts an unpublish made in another tab', () => {
+    const merged = adoptPublishStateFields(
+      local({ is_public: true, slug: 'vegan-cornbread' }),
+      server({ is_public: false })
+    );
+    expect(merged.is_public).toBe(false);
+    expect(merged.slug).toBe('vegan-cornbread');
+  });
+
+  it('keeps the local user-editable fields', () => {
+    const merged = adoptPublishStateFields(local(), server());
+    expect(merged.personalNotes).toBe('typed in this tab');
+  });
+
+  it('leaves a field alone when the server row does not carry it', () => {
+    const merged = adoptPublishStateFields(
+      local({ slug: 'kept' }),
+      server({ slug: undefined, first_published_at: undefined })
+    );
+    expect(merged.slug).toBe('kept');
   });
 });

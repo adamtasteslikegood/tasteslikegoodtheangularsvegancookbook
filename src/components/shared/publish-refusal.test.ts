@@ -162,6 +162,9 @@ describe('togglePublic on a refused publish (KAN-155)', () => {
           provide: PersistenceService,
           useValue: {
             saveRecipeDetailed,
+            // KAN-334: the toggle re-reads the row first; null = unreadable,
+            // so it acts on the local copy as before.
+            refreshRecipeFromApi: vi.fn().mockResolvedValue(null),
             publishStateSync: () => 'synced',
           },
         },

@@ -181,6 +181,86 @@ describe('RecipeViewBase', () => {
     });
   });
 
+  // KAN-334: a tab that was never refreshed holds a stale publish state. The
+  // toggle re-reads the row first and acts on what the server says, so it can
+  // neither flip the wrong way nor send a change that is already true.
+  describe('syncs publish state with the server before acting (KAN-334)', () => {
+    const base = { id: 'r1', name: 'Vegan Cornbread', origin: 'generated' };
+
+    it('reads the row in publish mode before acting', async () => {
+      const { host, refreshRecipeFromApi } = createHost();
+
+      await host.togglePublic(base as never);
+
+      expect(refreshRecipeFromApi).toHaveBeenCalledWith('r1', 'publish');
+    });
+
+    it('does not publish again when another tab already published', async () => {
+      const server = { ...base, is_public: true, slug: 'vegan-cornbread' };
+      const { host, persistenceSaveRecipe } = createHost({
+        refreshRecipeFromApi: async () => server,
+      });
+      host.recipe.set({ ...base, is_public: false } as never);
+
+      await host.togglePublic({ ...base, is_public: false } as never);
+
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+      expect(host.recipe()).toMatchObject({ is_public: true, slug: 'vegan-cornbread' });
+      expect(host.unpublishCandidate()).toBeNull();
+    });
+
+    it('does not ask to unpublish when another tab already unpublished', async () => {
+      const server = { ...base, is_public: false, slug: 'vegan-cornbread' };
+      const { host, persistenceSaveRecipe } = createHost({
+        refreshRecipeFromApi: async () => server,
+      });
+      const stale = { ...base, is_public: true, slug: 'vegan-cornbread' };
+      host.recipe.set(stale as never);
+
+      await host.togglePublic(stale as never);
+
+      expect(host.unpublishCandidate()).toBeNull();
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+      expect(host.recipe()).toMatchObject({ is_public: false });
+    });
+
+    it('never republishes on a confirmed unpublish the server already applied', async () => {
+      const server = { ...base, is_public: false, slug: 'vegan-cornbread' };
+      const { host, persistenceSaveRecipe } = createHost({
+        refreshRecipeFromApi: async () => server,
+      });
+
+      await host.togglePublic({ ...base, is_public: true, slug: 'vegan-cornbread' } as never, true);
+
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('acts on the fresh row when the change is still needed', async () => {
+      const server = { ...base, is_public: true, slug: 'vegan-cornbread-2' };
+      const { host, persistenceSaveRecipe } = createHost({
+        refreshRecipeFromApi: async () => server,
+      });
+
+      await host.togglePublic({ ...base, is_public: true, slug: 'vegan-cornbread' } as never);
+
+      // The dialog names the server's slug, not the stale one.
+      expect(host.unpublishCandidate()).toMatchObject({ slug: 'vegan-cornbread-2' });
+      expect(persistenceSaveRecipe).not.toHaveBeenCalled();
+    });
+
+    it('falls back to the local row when the server row cannot be read', async () => {
+      const { host, persistenceSaveRecipe } = createHost({
+        refreshRecipeFromApi: async () => null,
+      });
+
+      await host.togglePublic({ ...base, is_public: false } as never);
+
+      expect(persistenceSaveRecipe).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'r1', is_public: true })
+      );
+    });
+  });
+
   // GH #3255 (KAN-143): the reason a toggle is unavailable used to live only in
   // a `title` on a `disabled` button, which neither surfaces a tooltip reliably
   // nor is reachable by keyboard — so the explanation could never appear.
