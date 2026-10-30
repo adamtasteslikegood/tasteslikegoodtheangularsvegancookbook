@@ -110,9 +110,10 @@ git add Backend
 
 ### 5. Version + CHANGELOG, same branch
 
-The default is a **patch** bump, even when the release ships user-facing features
-or a migration. The minor number moves only when a release completes a spec
-milestone; it tracks the spec roadmap, not semver feature size.
+Below 1.0.0, a change semver would call minor usually ships as a **patch** bump,
+especially when it completes a spec meant for an earlier release or adds work
+production showed was needed. New routes and new user-facing features still take
+a **minor** bump.
 
 Bump `package.json` **and both self-references in `package-lock.json`**. Add a
 `## [X.Y.Z]` section to `CHANGELOG.md` that **names the pinned Backend SHA** —
@@ -177,16 +178,13 @@ never redeployed anything.
 
 ### 8. Back-sync both repos
 
-> **PRECONDITION for the cookbook half — step 9 has passed:** Cloud Build
-> succeeded, the new revision serves traffic, and production is verified by
-> content and by one real-browser render. Until then `main` may still need a
-> patch-forward, and the freeze on `dev` holds. The Backend half has no such hold.
+Run it as soon as the release PR has merged and the tag is on the remote (step 7).
+It does not wait for the build or for step 9: `main` holds the tagged, shipped code
+either way, and a back-synced `dev` means any patch-forward starts from exactly
+what shipped.
 
 ```bash
-./scripts/release/train-backsync.sh --apply --merge --only backend   # any time
-./scripts/release/train-backsync.sh --apply --only cookbook          # opens the PR, does not merge
-# after step 9 passes:
-./scripts/release/train-backsync.sh --apply --merge --only cookbook
+./scripts/release/train-backsync.sh --apply --merge
 ```
 
 Must be a **merge commit**. Squashing rewrites the commits, ancestry never

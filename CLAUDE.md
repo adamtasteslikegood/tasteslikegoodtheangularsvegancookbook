@@ -161,7 +161,7 @@ To ship a Backend change:
 
 **Do not use `git submodule update --remote Backend`** — `.gitmodules` tracks `dev`, so `--remote` resolves to Backend `dev`'s tip and always blocks train-verify Station 3.
 
-**Staging runs Backend `dev` work only once cookbook `dev` points at it.** Staging deploys from cookbook `dev`, so when Backend `dev` lands changes ready for testing, open a cookbook PR into `dev` that pins that explicit SHA (`git -C Backend checkout <sha> && git add Backend`), titled `chore(backend): pin Backend dev <sha> for staging [KAN-###]`, even with no cookbook change. The release pin is still re-taken from Backend `main`'s own SHA at RUNBOOK step 4.
+**Keep cookbook `dev` pointing at Backend `dev`.** When a Backend PR lands on Backend `dev`, open a cookbook PR into `dev` (e.g. branch `chore/update-dev-backend-pointer`) that pins the new SHA (`git -C Backend checkout <sha> && git add Backend`). Staging deploys from cookbook `dev`, so this is also what puts Backend work on staging. No check enforces it yet. Every production release still promotes Backend `dev` → `main`; a `dev` pointer update never replaces that promotion. If Backend `dev` is not ready for production, run the Backend `main` → `dev` back-sync first; either way the back-sync puts `main` on `dev`, so the order does not matter.
 
 **Both repos are public.** Never push a spec, commit or PR text that describes how to exploit something not yet fixed in production; that detail goes in Jira until the fix is deployed.
 
