@@ -402,7 +402,7 @@ Everything new is a gap because nothing is built. Three regression contracts are
 
 - The guest merge keeps `source_recipe_id` on a reassigned saved copy. `tests/test_guest_merge_dedup.py` builds its rows with `source_slug` only and never reads the id link after the merge.
 - A recipe with no entries renders the same JSON-LD as today.
-- A saved copy whose source was deleted, followed by an older recipe renamed into the freed slug, gets no control and cannot create an entry on that recipe.
+- Saved-copy source identity uses stable ids: a renamed source is found through `source_recipe_id` and gets the control (O6), while a copy with no `source_recipe_id` gets none (A4). The deleted-source/slug-reuse scenario is not a regression case because existing Backend invariants make it unreachable (see "Cases that cannot occur" in the build spec).
 
 Test plan artifact: written to the gstack project directory for `/qa`. No LLM or prompt change, so no eval scope.
 
