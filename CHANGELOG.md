@@ -8,6 +8,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- Recipe feedback, Phase 1 (KAN-356). A signed-in cook can post "I cooked this" on a saved copy
+  of a public recipe: 1 to 5 stars, and an optional public note, "What I changed", that may wait
+  for review. The author's own entry sits under "From the author" and is not counted. The public
+  page shows "Cooked by N" and, from three ratings, the average. Moderators get a "Review
+  feedback" page at `/moderation`. The public page's "Cooked this? Add your feedback" link
+  survives Google sign-in, and a cancelled sign-in saves the recipe and offers sign-in again.
+  Deleting a saved copy asks whether to keep the feedback. The privacy policy gains section 3.7.
+  Backend pinned to `4d8a0a7` (Backend #464, unmerged); it is re-pinned once #464 merges.
+
 ### Internal
 
 - The Independent Claude review is bounded, following Plaza's reforms (KAN-489). The job stops at 14
