@@ -130,7 +130,9 @@ export function feedbackTargetId(recipe: Recipe | null | undefined): string | nu
   if (!recipe) return null;
   if (recipe.sourceRecipeId) return recipe.sourceRecipeId;
   if (recipe.origin === 'saved' || recipe.sourceSlug) return null;
-  return recipe.is_public ? recipe.id : null;
+  // Entries are kept through an unpublish, so an author whose recipe was ever
+  // published still needs the control to see or delete theirs.
+  return recipe.is_public || recipe.first_published_at ? recipe.id : null;
 }
 
 export function isSignedIn(user: User | null | undefined): boolean {

@@ -100,9 +100,13 @@ describe('feedbackTargetId (A4)', () => {
     expect(feedbackTargetId(recipe({ origin: 'saved' } as Partial<Recipe>))).toBeNull();
   });
 
-  it('uses an own recipe’s id only while it is published', () => {
+  it('uses an own recipe’s id once it has ever been published', () => {
     expect(feedbackTargetId(recipe({ is_public: true }))).toBe('r1');
     expect(feedbackTargetId(recipe({ is_public: false }))).toBeNull();
+    // Unpublished later: the author can still see and delete a kept entry.
+    expect(
+      feedbackTargetId(recipe({ is_public: false, first_published_at: '2026-10-01T09:00:00' }))
+    ).toBe('r1');
     expect(feedbackTargetId(null)).toBeNull();
   });
 });

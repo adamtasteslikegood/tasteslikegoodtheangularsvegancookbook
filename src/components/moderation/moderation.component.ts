@@ -192,7 +192,7 @@ const RESULT_WORDS: Record<ModerationAction, string> = {
                 <button
                   type="button"
                   (click)="run(row, a.action)"
-                  [disabled]="busy() === row.id"
+                  [disabled]="busy() !== null"
                   class="w-full md:w-auto min-h-[44px] px-4 py-2 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                 >
                   Hide whole entry
@@ -209,7 +209,7 @@ const RESULT_WORDS: Record<ModerationAction, string> = {
               <button
                 type="button"
                 (click)="a.confirm ? confirming.set(row.id) : run(row, a.action)"
-                [disabled]="busy() === row.id"
+                [disabled]="busy() !== null"
                 class="w-full md:w-auto min-h-[44px] px-4 py-2 rounded-lg font-semibold disabled:opacity-50"
                 [class.bg-green-700]="a.action === 'approve' || a.action === 'show-again'"
                 [class.text-white]="a.action === 'approve' || a.action === 'show-again'"
@@ -265,6 +265,8 @@ export class ModerationComponent implements OnInit {
   }
 
   async run(row: ModerationRow, action: ModerationAction) {
+    // One action at a time, so two clicks cannot overlap.
+    if (this.busy() !== null) return;
     this.busy.set(row.id);
     this.confirming.set(null);
     try {
