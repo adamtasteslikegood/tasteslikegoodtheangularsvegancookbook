@@ -110,6 +110,11 @@ git add Backend
 
 ### 5. Version + CHANGELOG, same branch
 
+Below 1.0.0, a change semver would call minor usually ships as a **patch** bump,
+especially when it completes a spec meant for an earlier release or adds work
+production showed was needed. New routes and new user-facing features still take
+a **minor** bump.
+
 Bump `package.json` **and both self-references in `package-lock.json`**. Add a
 `## [X.Y.Z]` section to `CHANGELOG.md` that **names the pinned Backend SHA** —
 `train-verify` checks the section against the _actual pointer_, so the SHA in the
@@ -172,6 +177,11 @@ never redeployed anything.
 > `--for-release` blocks on this; do not override it.
 
 ### 8. Back-sync both repos
+
+Run it as soon as the release PR has merged and the tag is on the remote (step 7).
+It does not wait for the build or for step 9: `main` holds the tagged, shipped code
+either way, and a back-synced `dev` means any patch-forward starts from exactly
+what shipped.
 
 ```bash
 ./scripts/release/train-backsync.sh --apply --merge
@@ -241,9 +251,17 @@ URL is hardcoded to the staging domain, `https://staging.tasteslikegood.xyz`
 Also confirm: `/`, `/browse`, `/sitemap.xml` return 200, and if the release
 touched Backend, that a canonical `/r/<slug>` still resolves.
 
+> **TRAP — a marker grep never renders the page.** v0.5.0 passed its marker check
+> and went live unstyled: an `@angular/build` bump changed beasties' inline
+> stylesheet-swap script, the CSP (which pins that script by SHA-256 in
+> `server/security.ts`) blocked it, and the main stylesheet stayed
+> `media="print"` (KAN-286). Load `/` once in a real browser. Check the page is
+> styled and the console has no CSP violation; a violation prints the hash the
+> CSP needs.
+
 If `gcloud` is authenticated, `gcloud builds list --region=us-central1` shows the
-build — **regional; a global list shows nothing recent**. The content check above
-is decisive on its own and needs no credentials.
+build — **regional; a global list shows nothing recent**. The content check and
+the browser render together decide the step; neither needs credentials.
 
 ### 10. Close out
 
