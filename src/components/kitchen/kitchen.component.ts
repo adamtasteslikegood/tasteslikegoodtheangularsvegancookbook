@@ -7,6 +7,7 @@ import { PersistenceService } from '../../services/persistence.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
+import { FeedbackService, isSignedIn } from '../../services/feedback.service';
 import { exportableRecipe, hasEverBeenPublished } from '../../utils/recipe-row';
 import type { Recipe } from '../../recipe.types';
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
@@ -87,6 +88,7 @@ export class KitchenComponent {
   private readonly recipeState = inject(RecipeStateService);
   private readonly geminiService = inject(GeminiService);
   readonly modalService = inject(ModalService);
+  private readonly feedbackService = inject(FeedbackService);
 
   /**
    * KAN-243: the tile `src`. `ai_image_url` is the canonical URL, so after a
@@ -273,6 +275,13 @@ export class KitchenComponent {
         return false;
     }
   });
+  /**
+   * KAN-356: the public recipe whose feedback this copy's owner posted, when
+   * the copy being deleted has an active entry. The prompt then offers a
+   * choice; the entry outlives its saved copy unless the cook says otherwise.
+   */
+  deleteFeedbackTarget = signal<string | null>(null);
+  deleteFeedbackToo = signal(false);
   showEmptyBinConfirmation = signal(false);
 
   recycleBinRecipes = computed(() => this.authService.currentUser()?.deletedRecipes || []);
@@ -400,7 +409,21 @@ export class KitchenComponent {
     this.recipeToDelete.set(recipe);
     this.deleteConfirmationTyped.set('');
     this.deleteError.set(null);
+    this.deleteFeedbackTarget.set(null);
+    this.deleteFeedbackToo.set(false);
     this.showDeleteConfirmation.set(true);
+    void this.checkFeedbackForDelete(recipe);
+  }
+
+  /** Does the cook have an entry through this copy? If so, the prompt asks (KAN-356). */
+  private async checkFeedbackForDelete(recipe: Recipe) {
+    const target = recipe.sourceRecipeId;
+    if (!target || !isSignedIn(this.authService.currentUser())) return;
+    const result = await this.feedbackService.load(target);
+    if (this.recipeToDelete()?.id !== recipe.id) return;
+    if (result.kind === 'ok' && result.state.entry && result.state.role === 'cook') {
+      this.deleteFeedbackTarget.set(target);
+    }
   }
 
   async confirmDeleteRecipe() {
@@ -409,6 +432,16 @@ export class KitchenComponent {
     this.deleteInFlight.set(true);
     this.deleteError.set(null);
     try {
+      // KAN-356: delete the feedback first, so a failure leaves both in place
+      // and the cook can still reach the entry from the copy.
+      const feedbackTarget = this.deleteFeedbackTarget();
+      if (feedbackTarget && this.deleteFeedbackToo()) {
+        if (!(await this.feedbackService.remove(feedbackTarget))) {
+          this.deleteError.set('Could not delete your feedback, so nothing was deleted. Try again.');
+          return;
+        }
+        this.deleteFeedbackTarget.set(null);
+      }
       // KAN-289: the recipe leaves the kitchen only once the server agrees.
       const outcome = await this.persistenceService.deleteRecipe(r.id);
       if (!outcome.ok) {
@@ -437,6 +470,8 @@ export class KitchenComponent {
     this.recipeToDelete.set(null);
     this.deleteConfirmationTyped.set('');
     this.deleteError.set(null);
+    this.deleteFeedbackTarget.set(null);
+    this.deleteFeedbackToo.set(false);
   }
 
   async restoreRecipe(recipeId: string) {

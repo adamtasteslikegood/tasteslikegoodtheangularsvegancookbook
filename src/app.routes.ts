@@ -48,6 +48,13 @@ export const routes: Routes = [
         (m) => m.RecipeDetailComponent
       ),
   },
+  {
+    // KAN-356 (R13): feedback moderation. The account menu links here only for
+    // a moderator; the API refuses everyone else whatever the route shows.
+    path: 'moderation',
+    loadComponent: () =>
+      import('./components/moderation/moderation.component').then((m) => m.ModerationComponent),
+  },
   { path: 'chunk-error', component: ChunkErrorComponent },
   { path: '**', redirectTo: '' },
 ];

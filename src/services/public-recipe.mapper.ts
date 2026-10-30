@@ -29,6 +29,10 @@ export function buildSavedRecipeFromPublic(recipeData: Partial<Recipe>): Recipe 
     // cookbook" can detect the duplicate and point the user at the copy they
     // already have instead of silently adding another.
     sourceSlug: recipeData.slug,
+    // KAN-356 (O6): the public recipe's own id. Feedback is keyed to it, and
+    // unlike the slug it survives a rename. The server derives the column
+    // itself; this is the same value, known before the save round trip ends.
+    sourceRecipeId: typeof recipeData.id === 'string' && recipeData.id ? recipeData.id : undefined,
     origin: 'saved',
   };
 }

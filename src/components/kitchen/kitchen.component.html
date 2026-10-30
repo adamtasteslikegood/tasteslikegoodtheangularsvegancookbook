@@ -425,6 +425,32 @@
             </p>
           }
         }
+        @if (deleteFeedbackTarget()) {
+          <!-- KAN-356: the cook posted feedback through this copy. -->
+          <fieldset class="mt-4 text-left">
+            <legend class="text-sm font-bold text-stone-800 mb-2">Your feedback on this recipe</legend>
+            <label class="flex items-center gap-3 min-h-[44px] cursor-pointer">
+              <input
+                type="radio"
+                name="delete-feedback-choice"
+                class="h-4 w-4 accent-green-700"
+                [checked]="!deleteFeedbackToo()"
+                (change)="deleteFeedbackToo.set(false)"
+              />
+              <span class="text-sm text-stone-700">Keep my feedback on the recipe page</span>
+            </label>
+            <label class="flex items-center gap-3 min-h-[44px] cursor-pointer">
+              <input
+                type="radio"
+                name="delete-feedback-choice"
+                class="h-4 w-4 accent-red-600"
+                [checked]="deleteFeedbackToo()"
+                (change)="deleteFeedbackToo.set(true)"
+              />
+              <span class="text-sm text-stone-700">Delete my feedback too</span>
+            </label>
+          </fieldset>
+        }
         @if (deleteError(); as message) {
           <p class="mt-3 text-sm text-red-700" role="alert">{{ message }}</p>
         }

@@ -58,7 +58,8 @@ export const HASHED_BUNDLE_RE = /(?:^|\/)[\w.-]+-[A-Z0-9]{8}\.(?:js|css)$/;
  *   standalone  — Express-served pages (/privacy-policy, /about, /favicon.ico, /index.html),
  *                 the Express-local RUM endpoints (/rum/config, /rum/intake), and /mcp
  *                 (KAN-399), which is proxied to Flask outside the /api prefix
- *   spa         — Angular client-side routes (/, /kitchen, /kitchen/:cookbookId, /recipe/:id, etc.)
+ *   spa         — Angular client-side routes (/, /kitchen, /kitchen/:cookbookId, /recipe/:id,
+ *                 /moderation (KAN-356), etc.)
  */
 export const ROUTE_MANIFEST = {
   /** Proxied to Flask */
@@ -92,7 +93,7 @@ export const ROUTE_MANIFEST = {
    * keeps the 404 + no-store shell policy.
    */
   spa: {
-    paths: ['/', '/generate', '/kitchen', '/chunk-error'],
+    paths: ['/', '/generate', '/kitchen', '/moderation', '/chunk-error'],
     prefixes: ['/recipe/'],
     singleSegment: ['/kitchen/'],
   },

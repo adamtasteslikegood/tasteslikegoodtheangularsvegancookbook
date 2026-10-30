@@ -8,6 +8,7 @@ import { RecipeImageComponent } from '../shared/recipe-image.component';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
+import { RecipeFeedbackComponent } from './recipe-feedback.component';
 import { recipeTrail, type Crumb } from '../../utils/breadcrumbs';
 
 /**
@@ -47,6 +48,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
     RecipeImageComponent,
     UnpublishConfirmComponent,
     BreadcrumbComponent,
+    RecipeFeedbackComponent,
   ],
   templateUrl: './recipe-detail.component.html',
 })
