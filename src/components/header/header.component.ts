@@ -56,6 +56,11 @@ export class HeaderComponent {
     this.showUserProfileCard.set(false);
   }
 
+  openModeration() {
+    this.closeUserProfileCard();
+    void this.router.navigate(['/moderation']);
+  }
+
   maskedEmail(): string {
     const email = this.authService.currentUser()?.email;
     if (!email) return '';

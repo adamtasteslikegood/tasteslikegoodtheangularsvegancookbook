@@ -76,7 +76,9 @@ export function entryStatusLines(state: FeedbackState, entry: FeedbackEntry, now
     );
   } else {
     lines.push(
-      author ? 'Your stars and note are on the recipe page.' : 'Your rating and note are on the recipe page.'
+      author
+        ? 'Your stars and note are on the recipe page.'
+        : 'Your rating and note are on the recipe page.'
     );
   }
   if (!state.target_public) lines.push('This recipe is not public right now.');
@@ -156,14 +158,18 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                           (change)="stars.set(n)"
                         />
                         <span class="sm:hidden" aria-hidden="true">{{ n }}</span>
-                        <span class="sr-only sm:not-sr-only">{{ n === 1 ? '1 star' : n + ' stars' }}</span>
+                        <span class="sr-only sm:not-sr-only">{{
+                          n === 1 ? '1 star' : n + ' stars'
+                        }}</span>
                       </label>
                     }
                   </div>
                 </fieldset>
 
                 <div>
-                  <label for="feedback-note" class="block text-base font-semibold text-stone-800 mb-1"
+                  <label
+                    for="feedback-note"
+                    class="block text-base font-semibold text-stone-800 mb-1"
                     >What I changed (optional)</label
                   >
                   <textarea
@@ -176,7 +182,11 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                     [disabled]="sending()"
                     (input)="note.set($any($event.target).value)"
                   ></textarea>
-                  <p id="feedback-note-count" class="text-sm text-stone-500 text-right" aria-hidden="true">
+                  <p
+                    id="feedback-note-count"
+                    class="text-sm text-stone-500 text-right"
+                    aria-hidden="true"
+                  >
                     {{ note().length }} / {{ maxLength }}
                   </p>
                   <p class="sr-only" aria-live="polite">{{ counterMessage() }}</p>
@@ -198,7 +208,12 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                 </p>
 
                 @if (error(); as message) {
-                  <p #errorLine role="alert" tabindex="-1" class="text-base text-red-700 font-medium">
+                  <p
+                    #errorLine
+                    role="alert"
+                    tabindex="-1"
+                    class="text-base text-red-700 font-medium"
+                  >
                     {{ message }}
                   </p>
                 }
@@ -216,10 +231,14 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
             @if (state(); as s) {
               @if (s.entry; as entry) {
                 @if (notice(); as message) {
-                  <p role="alert" class="mb-3 text-base text-stone-800 font-medium">{{ message }}</p>
+                  <p role="alert" class="mb-3 text-base text-stone-800 font-medium">
+                    {{ message }}
+                  </p>
                 }
                 <p class="text-lg text-stone-800">
-                  <span aria-hidden="true" class="text-yellow-800">{{ starGlyphs(entry.stars) }}</span>
+                  <span aria-hidden="true" class="text-yellow-800">{{
+                    starGlyphs(entry.stars)
+                  }}</span>
                   <span class="sr-only">{{ entry.stars }} out of 5 stars</span>
                 </p>
                 @if (entry.note) {
@@ -247,7 +266,12 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
                   }
                 </div>
                 @if (error(); as message) {
-                  <p #errorLine role="alert" tabindex="-1" class="mt-3 text-base text-red-700 font-medium">
+                  <p
+                    #errorLine
+                    role="alert"
+                    tabindex="-1"
+                    class="mt-3 text-base text-red-700 font-medium"
+                  >
                     {{ message }}
                   </p>
                 }
@@ -454,7 +478,9 @@ export class RecipeFeedbackComponent {
               'You already posted feedback on this recipe. Delete it to post a new one.'
             );
           } else {
-            this.showError('You already posted feedback on this recipe. Delete it to post a new one.');
+            this.showError(
+              'You already posted feedback on this recipe. Delete it to post a new one.'
+            );
           }
           break;
         case 'not-public':

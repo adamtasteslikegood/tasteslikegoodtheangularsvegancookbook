@@ -94,20 +94,21 @@ export function normalizeFeedbackSlug(value: unknown): string | null {
 }
 
 /** Remember which recipe "Add feedback" was for, across the Google round trip. */
-export function storeFeedbackIntent(slug: string, storage: Storage = sessionStorage): void {
+export function storeFeedbackIntent(slug: string, storage?: Storage): void {
   try {
-    storage.setItem(FEEDBACK_INTENT_KEY, JSON.stringify({ feedback: slug }));
+    (storage ?? sessionStorage).setItem(FEEDBACK_INTENT_KEY, JSON.stringify({ feedback: slug }));
   } catch {
     // Private mode or a full quota: the cook lands on the home page instead.
   }
 }
 
 /** Read the intent once and delete it, so it can never fire twice. */
-export function takeFeedbackIntent(storage: Storage = sessionStorage): string | null {
+export function takeFeedbackIntent(storage?: Storage): string | null {
   let raw: string | null;
   try {
-    raw = storage.getItem(FEEDBACK_INTENT_KEY);
-    storage.removeItem(FEEDBACK_INTENT_KEY);
+    const store = storage ?? sessionStorage;
+    raw = store.getItem(FEEDBACK_INTENT_KEY);
+    store.removeItem(FEEDBACK_INTENT_KEY);
   } catch {
     return null;
   }
@@ -212,7 +213,8 @@ export class FeedbackService {
       if (res.ok && body?.['entry']) {
         return { kind: 'posted', entry: body['entry'] as FeedbackEntry };
       }
-      if (res.status === 409 && body?.['code'] === 'recipe_not_public') return { kind: 'not-public' };
+      if (res.status === 409 && body?.['code'] === 'recipe_not_public')
+        return { kind: 'not-public' };
       if (res.status === 409 && body?.['code'] === 'entry_exists') {
         return { kind: 'exists', entry: (body['entry'] as FeedbackEntry) ?? null };
       }

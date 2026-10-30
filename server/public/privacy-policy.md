@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Tasteslikegood.org — VeganGenius Chef | Last updated: September 29, 2026
+Tasteslikegood.org — VeganGenius Chef | Last updated: October 30, 2026
 
 ## 1. Who We Are
 
@@ -63,6 +63,12 @@ We use essential session cookies to maintain your login state. We may use prefer
 
 Your analytics choice is remembered in your browser’s `localStorage` (`tlg.analytics-consent`). Before you allow analytics, how you arrived is not sent to Datadog. If you follow a recipe’s save link before choosing, only those five campaign tags already in the page address are copied into the same-origin destination address to preserve attribution; our server receives that address as part of the ordinary navigation. If you allow analytics, the sanitized landing context (the page path, external referrer reduced to its origin and path, and those five campaign tags) is stored for this browser session in `sessionStorage` (`tlg.analytics-landing`) and sent to Datadog. Consented recipe actions waiting for the analytics code may also be stored temporarily in `sessionStorage` (`tlg.analytics-pending-actions`) and are removed after delivery or when you withdraw consent. When you turn analytics off, a one-word note (`tlg.analytics-notice`) is kept in `sessionStorage` only across the page reload, so the confirmation can be shown, and is then deleted. Datadog also keeps an anonymous session identifier in `localStorage` (`_dd_s_v2`). Datadog sets no cookies here.
 
+If you choose to leave feedback on a recipe before signing in, the recipe’s short name from its web address is kept in `sessionStorage` (`tlg.feedbackIntent`) while you sign in with Google, so you return to that recipe. It is deleted as soon as it is read.
+
+### 3.7 Feedback You Post on Recipes
+
+If you leave feedback on a recipe, we store your star rating, the comment you write, the date and the recipe it belongs to, linked to your account. Your rating, your comment and the first word of your Google account name are shown publicly on that recipe’s page. Anyone can read them, including search engines. When three or more people have rated a recipe, we show the average and give it to search engines as part of the recipe’s description. New comments may be held until we have read them, and we may hide a rating or comment. You can delete your feedback at any time from your saved copy of the recipe. It then leaves the public page at once; we keep a record of it for moderation. If we delete your account at your request, your feedback is deleted with it.
+
 ---
 
 ## 4. How We Use Your Information
@@ -74,6 +80,7 @@ We use the information we collect to:
 - Display your name and profile picture within the application
 - Generate AI recipes using Gemini via our server-side API integration
 - Save and organize your recipes and cookbooks
+- Show your feedback on recipe pages, and review comments before or after they are published
 - Analyze usage patterns to improve the application
 - Detect and prevent fraud, abuse, or security incidents
 - Comply with applicable legal obligations
@@ -119,6 +126,8 @@ Your data is processed on Google Cloud Platform (Cloud Run, Cloud SQL) infrastru
 
 If you allow analytics (section 3.4), the measurements are relayed through our own servers to Datadog, Inc. (United States, US5 region), which acts as a data processor on our behalf under its data processing terms.
 
+Feedback you post is public (section 3.7). When a comment needs review we send a notice to the site owner by email through Google Workspace; the notice does not go to anyone else.
+
 ### 7.3 No Sale of Personal Data
 
 We do not sell, rent, or trade your personal information to any third party.
@@ -134,6 +143,8 @@ We may disclose your information if required to do so by law, court order, or go
 We retain your account information (email, name, profile picture) and your saved recipes and cookbooks for as long as your account is active. If you delete your account or request deletion, we will remove your personal data within 30 days, except where retention is required by law.
 
 Guest data stored in your browser's `localStorage` is retained until you clear your browser storage or sign in and migrate it to an account.
+
+Feedback is kept until you delete it, the recipe is deleted, or your account is deleted. Feedback you delete leaves the public page at once and is kept as a moderation record until the recipe or your account is deleted.
 
 ---
 

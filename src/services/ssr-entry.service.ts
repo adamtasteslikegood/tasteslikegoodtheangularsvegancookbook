@@ -249,11 +249,17 @@ export class SsrEntryService {
     if (!slug) return;
     const saved = await this.saveOrFind(slug, true);
     if (!saved) return;
-    this.toast.show('Saved to your cookbook. Sign in to add your feedback.', null, 12_000, undefined, {
-      label: 'Sign in',
-      // O8: the second chance re-arms the intent, so it lands on the form too.
-      run: () => void this.startFeedbackSignIn(slug),
-    });
+    this.toast.show(
+      'Saved to your cookbook. Sign in to add your feedback.',
+      null,
+      12_000,
+      undefined,
+      {
+        label: 'Sign in',
+        // O8: the second chance re-arms the intent, so it lands on the form too.
+        run: () => void this.startFeedbackSignIn(slug),
+      }
+    );
   }
 
   private async startFeedbackSignIn(slug: string): Promise<void> {

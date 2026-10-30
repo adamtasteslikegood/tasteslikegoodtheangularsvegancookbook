@@ -19,6 +19,7 @@ import { GeminiService } from '../../services/gemini.service';
 import { PersistenceService } from '../../services/persistence.service';
 import { RecipeStateService } from '../../services/recipe-state.service';
 import { ModalService } from '../../services/modal.service';
+import { FeedbackService } from '../../services/feedback.service';
 import type { Cookbook, User } from '../../auth.types';
 import type { Recipe } from '../../recipe.types';
 
@@ -104,6 +105,7 @@ describe('KitchenComponent routable cookbooks (KAN-321)', () => {
           },
         },
         { provide: ModalService, useValue: {} },
+        { provide: FeedbackService, useValue: {} },
       ],
     });
     const kitchen = runInInjectionContext(injector, () => new KitchenComponent());

@@ -119,7 +119,9 @@ const RESULT_WORDS: Record<ModerationAction, string> = {
             }
 
             <details class="mb-8">
-              <summary class="cursor-pointer text-xl font-bold text-stone-800 min-h-[44px] flex items-center">
+              <summary
+                class="cursor-pointer text-xl font-bold text-stone-800 min-h-[44px] flex items-center"
+              >
                 Hidden and deleted ({{ l.hidden_and_deleted.length }})
               </summary>
               @if (l.hidden_and_deleted.length === 0) {
@@ -167,7 +169,9 @@ const RESULT_WORDS: Record<ModerationAction, string> = {
           }
         </p>
         @if (row.note) {
-          <blockquote class="mt-2 text-base text-stone-800 whitespace-pre-wrap">{{ row.note }}</blockquote>
+          <blockquote class="mt-2 text-base text-stone-800 whitespace-pre-wrap">
+            {{ row.note }}
+          </blockquote>
         }
         @if (stateLine(row); as line) {
           <p class="mt-1 text-sm text-stone-500">{{ line }}</p>

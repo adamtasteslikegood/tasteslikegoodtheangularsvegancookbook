@@ -164,10 +164,12 @@
             <!-- Logout -->
             <div class="px-3 py-2">
               @if (feedbackService.isModerator()) {
-                <!-- KAN-356 (R13): only for an account the server names as a moderator. -->
-                <a
-                  routerLink="/moderation"
-                  (click)="closeUserProfileCard()"
+                <!-- KAN-356 (R13): only for an account the server names as a moderator.
+                     A button, like the other account-menu items, so the header's
+                     link set stays the canonical site nav (site-nav-parity test). -->
+                <button
+                  type="button"
+                  (click)="openModeration()"
                   class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-stone-700 hover:bg-stone-100 transition-colors text-sm font-medium"
                 >
                   <svg
@@ -186,7 +188,7 @@
                     />
                   </svg>
                   Review feedback
-                </a>
+                </button>
               }
               <!-- KAN-344: Log Out alone signs back into the same Google account. -->
               <button

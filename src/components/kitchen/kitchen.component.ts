@@ -437,7 +437,9 @@ export class KitchenComponent {
       const feedbackTarget = this.deleteFeedbackTarget();
       if (feedbackTarget && this.deleteFeedbackToo()) {
         if (!(await this.feedbackService.remove(feedbackTarget))) {
-          this.deleteError.set('Could not delete your feedback, so nothing was deleted. Try again.');
+          this.deleteError.set(
+            'Could not delete your feedback, so nothing was deleted. Try again.'
+          );
           return;
         }
         this.deleteFeedbackTarget.set(null);

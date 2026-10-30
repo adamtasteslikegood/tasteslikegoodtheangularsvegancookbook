@@ -15,14 +15,21 @@ describe('ssrEntryGuard', () => {
     fragment?: string | null;
     handleSave?: ReturnType<typeof vi.fn>;
     handleAuth?: ReturnType<typeof vi.fn>;
+    handleFeedback?: ReturnType<typeof vi.fn>;
+    handleAuthCancelled?: ReturnType<typeof vi.fn>;
   }) => {
     const handleSave = opts.handleSave ?? vi.fn().mockResolvedValue(undefined);
     const handleAuth = opts.handleAuth ?? vi.fn().mockResolvedValue(undefined);
+    const handleFeedback = opts.handleFeedback ?? vi.fn().mockResolvedValue(undefined);
+    const handleAuthCancelled = opts.handleAuthCancelled ?? vi.fn().mockResolvedValue(undefined);
     const createUrlTree = vi.fn((commands: unknown[]) => ({ commands }) as unknown as UrlTree);
     const injector = Injector.create({
       providers: [
         { provide: Router, useValue: { createUrlTree } },
-        { provide: SsrEntryService, useValue: { handleSave, handleAuth } },
+        {
+          provide: SsrEntryService,
+          useValue: { handleSave, handleAuth, handleFeedback, handleAuthCancelled },
+        },
       ],
     });
     const route = {
@@ -30,7 +37,7 @@ describe('ssrEntryGuard', () => {
       fragment: opts.fragment ?? null,
     } as unknown as ActivatedRouteSnapshot;
     const result = runInInjectionContext(injector, () => ssrEntryGuard(route, {} as never));
-    return { result, handleSave, handleAuth, createUrlTree };
+    return { result, handleSave, handleAuth, handleFeedback, handleAuthCancelled, createUrlTree };
   };
 
   it('kicks off the save and redirects to /kitchen without waiting on it', () => {
@@ -89,6 +96,48 @@ describe('ssrEntryGuard', () => {
     expect(handleSave).not.toHaveBeenCalled();
     expect(handleAuth).not.toHaveBeenCalled();
     expect(result).toEqual({ commands: ['/kitchen'] });
+  });
+
+  // KAN-356 (R15): "Cooked this? Add your feedback" from the public page.
+  it('hands ?feedback= to the service and redirects to /kitchen without waiting', () => {
+    const { result, handleFeedback, handleSave, createUrlTree } = runGuard({
+      queryParams: { feedback: 'thai-peanut-noodles' },
+    });
+
+    expect(handleFeedback).toHaveBeenCalledWith('thai-peanut-noodles');
+    expect(handleSave).not.toHaveBeenCalled();
+    expect(createUrlTree).toHaveBeenCalledWith(['/kitchen']);
+    expect(result).toEqual({ commands: ['/kitchen'] });
+  });
+
+  it('uses the first value when the feedback param is repeated', () => {
+    const { handleFeedback } = runGuard({ queryParams: { feedback: ['first', 'second'] } });
+
+    expect(handleFeedback).toHaveBeenCalledWith('first');
+  });
+
+  it('still redirects when handleFeedback rejects, logging the error', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = runGuard({
+      queryParams: { feedback: 'x' },
+      handleFeedback: vi.fn().mockRejectedValue(new Error('boom')),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(result).toEqual({ commands: ['/kitchen'] });
+    expect(error).toHaveBeenCalled();
+  });
+
+  // KAN-356 (E2): Google sign-in cancelled or refused.
+  it('hands ?auth=cancelled to the service and redirects to /', () => {
+    const { result, handleAuthCancelled, handleAuth } = runGuard({
+      queryParams: { auth: 'cancelled' },
+    });
+
+    expect(handleAuthCancelled).toHaveBeenCalledTimes(1);
+    expect(handleAuth).not.toHaveBeenCalled();
+    expect(result).toEqual({ commands: ['/'] });
   });
 
   it('activates normally when no SSR entry params are present', () => {
