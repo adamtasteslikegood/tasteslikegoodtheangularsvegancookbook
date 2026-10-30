@@ -1007,6 +1007,8 @@ Cases that cannot occur (Adam, 2026-10-29). The build adds no control path, test
 | A saved copy as a feedback target, or copies of copies           | A saved copy can never be published (`SAVED_COPY_PUBLISH_ERROR`), checked against the stored columns, not the payload (RCP-74).                                                                                               |
 | A manually entered, imported or pre-migration recipe as a target | Going public requires the worker-stamped `origin = "generated"` and a finished status (`_gate_publish_transition`, KAN-329; `MANUAL_RECIPE_UNPUBLISHABLE_ERROR`), so these cannot become public.                              |
 
+Planned after Phase 1 is live (Adam, 2026-10-29; not in this build). Phase 1 is built for the app as it works today: an author may unpublish or delete their own published recipe, and the "Source unpublished" rows cover what cooks then see. Once feedback is running, Adam expects to extend the canonical-recipe lock to published recipes that other cooks have saved and left feedback on, at least once a recipe has three non-author entries (enough for `aggregateRating` in the JSON-LD). After that change, an author who deletes such a recipe removes it from their own cookbook and removes, or is offered to remove, their name as author; the public page, its slug and its feedback stay. That change gets its own ticket and design. Phase 1 should not block it: keep entries keyed to the public recipe's id, not to the author's account.
+
 Open:
 
 | Item                                                                     | Whose call | Blocks the build?                                           |
