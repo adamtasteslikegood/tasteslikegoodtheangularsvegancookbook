@@ -123,9 +123,6 @@ jobs:
       # or plugins, the only guard on those flags (KAN-419).
       - name: Run session-log hook tests
         run: python3 -m unittest scripts/pm/test_precompact_hook.py
-      # The cookbook back-sync merges only after step 9 (RUNBOOK step 8).
-      - name: Run release-driver back-sync tests
-        run: python3 -m unittest scripts/release/test_train_run_backsync.py
 
   monitoring-mcp:
     name: Monitoring MCP — unit tests + image build

@@ -16,10 +16,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   completed review (KAN-420), which a new "Record completed review" step now marks. The review
   prompt reviews directly instead of calling the code-review and security-review skills.
 - Agent docs absorb rules that lived only in agent memory. RUNBOOK step 5 states the patch-bump
-  default, step 8 holds the cookbook back-sync merge until production is verified (`train-run.sh`
-  now enforces this: it merges Backend, opens the cookbook PR, and merges it only once step 9 is
-  recorded as done, which now needs every required URL at 200, the marker, and a typed confirmation
-  of a browser render; tests in `scripts/release/test_train_run_backsync.py`), and step 9 adds one
+  default, step 8 holds the back-sync merge until production is verified, and step 9 adds one
   real-browser render (the KAN-286 unstyled-release case). `CLAUDE.md` covers pinning Backend `dev`
   for staging and the public-repo rule, and drops a stale Flask "live concerns" line and the stale
   version note. `docs/agents/PR_LIFECYCLE.md` adds issue progress comments at each milestone.

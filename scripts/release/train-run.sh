@@ -72,20 +72,6 @@ while [ $# -gt 0 ]; do
       [ $# -gt 0 ] || { echo "--marker needs a value" >&2; exit 2; }
       MARKER="$1"
       ;;
-    --backsync-plan)
-      # test seam: --backsync-plan <backend-owed> <cookbook-owed> <step9-state>
-      [ $# -ge 4 ] || { echo "--backsync-plan needs three values" >&2; exit 2; }
-      MODE="backsync-plan"
-      PLAN_ARGS=("$2" "$3" "$4")
-      shift 3
-      ;;
-    --step9-state)
-      # test seam: --step9-state <failed-urls> <marker-hits> <rendered 1|0>
-      [ $# -ge 4 ] || { echo "--step9-state needs three values" >&2; exit 2; }
-      MODE="step9-state"
-      PLAN_ARGS=("$2" "$3" "$4")
-      shift 3
-      ;;
     -h | --help)
       sed -n '2,30p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
@@ -111,44 +97,6 @@ ok()   { printf '  %s✓%s %s\n' "$G" "$X" "$*"; }
 bad()  { printf '  %s✗%s %s\n' "$R" "$X" "$*"; }
 warn() { printf '  %s!%s %s\n' "$Y" "$X" "$*"; }
 info() { printf '  %s·%s %s\n' "$DIM" "$X" "$*"; }
-
-# ── back-sync plan (RUNBOOK step 8) ─────────────────────────────────────────
-# Prints one "<repo> <action>" line per repo that owes a back-sync. Backend
-# merges any time. Cookbook merges only once step 9 (production verified by
-# content) is recorded as done; before that its PR is opened but not merged,
-# because main may still need a patch-forward and the freeze on dev holds.
-#   $1 Backend commits owed  $2 cookbook commits owed  $3 step-9 state
-backsync_plan() {
-  [ "$1" -gt 0 ] && echo "backend merge"
-  if [ "$2" -gt 0 ]; then
-    if [ "$3" = "done" ]; then echo "cookbook merge"; else echo "cookbook open"; fi
-  fi
-  return 0
-}
-
-# Step-9 state from verify_prod's evidence. "done" needs every required URL at
-# 200, the marker in a served asset, and a confirmed browser render; marker and
-# URLs alone give "content-ok", which backsync_plan does not treat as done.
-#   $1 failed required URLs  $2 marker hits  $3 browser render confirmed (1/0)
-step9_state() {
-  if [ "$1" -gt 0 ] || [ "$2" -le 0 ]; then
-    echo ""
-  elif [ "$3" = "1" ]; then
-    echo "done"
-  else
-    echo "content-ok"
-  fi
-}
-
-# Test seams: compute from the given values and print, touch nothing.
-if [ "$MODE" = "backsync-plan" ]; then
-  backsync_plan "${PLAN_ARGS[@]}"
-  exit 0
-fi
-if [ "$MODE" = "step9-state" ]; then
-  step9_state "${PLAN_ARGS[@]}"
-  exit 0
-fi
 die()  { printf '%serror:%s %s\n' "$R" "$X" "$*" >&2; exit 2; }
 
 # ── checklist state ─────────────────────────────────────────────────────────
@@ -471,13 +419,10 @@ verify_prod() {
   local marker="${1:-}"
   head2 "Step 9 — verify production by content"
 
-  # A rerun re-proves step 9 from scratch; a failed rerun must not leave an old "done".
-  state_set 9 ""
-
-  local code url_failures=0
+  local code
   for path in "/" "/browse" "/sitemap.xml"; do
     code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$PROD$path" || echo "000")
-    if [ "$code" = "200" ]; then ok "$path → 200"; else bad "$path → $code"; url_failures=$((url_failures + 1)); fi
+    if [ "$code" = "200" ]; then ok "$path → 200"; else bad "$path → $code"; fi
   done
 
   if [ -z "$marker" ]; then
@@ -520,27 +465,13 @@ verify_prod() {
 
   if [ "$total" -gt 0 ]; then
     ok "marker found in $total place(s) — this release IS live"
-  else
-    bad "marker not found in any served asset — the deploy is not live yet (or the marker is wrong)"
-    info "a marker present in BOTH builds proves nothing; pick one only this release has"
+    # Step 9 is proven by content, so mark it only here — never from "the merge
+    # went green", which is what the RUNBOOK's step 9 trap is about.
+    state_set 9 "done"
+    return 0
   fi
-
-  # A marker grep never renders the page (KAN-286: v0.5.0 passed it unstyled),
-  # so "done" also needs a typed confirmation of one real-browser render.
-  local rendered=0
-  if [ "$url_failures" -eq 0 ] && [ "$total" -gt 0 ]; then
-    info "load $PROD/ in a real browser: the page must be styled and the console free of CSP violations"
-    confirm "RENDERED" "Did $PROD/ render styled with no CSP violation in the console?" && rendered=1
-  fi
-
-  # Step 9 is set only here, never from "the merge went green" (RUNBOOK step 9 trap).
-  local state; state=$(step9_state "$url_failures" "$total" "$rendered")
-  state_set 9 "$state"
-  case "$state" in
-    done) ok "step 9 recorded as done" ; return 0 ;;
-    content-ok) warn "content verified, browser render not confirmed — step 9 stays open; re-run in a terminal" ;;
-    *) bad "step 9 not verified" ;;
-  esac
+  bad "marker not found in any served asset — the deploy is not live yet (or the marker is wrong)"
+  info "a marker present in BOTH builds proves nothing; pick one only this release has"
   return 1
 }
 
@@ -722,31 +653,8 @@ fi
 if [ "$BE_BACKSYNC" -gt 0 ] || [ "$CB_BACKSYNC" -gt 0 ]; then
   bad "back-sync owed — cookbook $CB_BACKSYNC, Backend $BE_BACKSYNC (RUNBOOK step 3/8)"
   info "must be a MERGE commit; squashing rewrites commits and the count never reaches zero"
-  mapfile -t BACKSYNC_STEPS < <(backsync_plan "$BE_BACKSYNC" "$CB_BACKSYNC" "$(state_get 9)")
-  for s in "${BACKSYNC_STEPS[@]}"; do
-    case "$s" in
-      "backend merge") info "Backend: open and merge the back-sync PR" ;;
-      "cookbook merge") info "cookbook: open and merge the back-sync PR (step 9 is verified)" ;;
-      "cookbook open")
-        info "cookbook: open the back-sync PR only — it merges after step 9 passes"
-        info "  verify first: $0 --verify-only --marker '<string new in this release>'"
-        ;;
-    esac
-  done
-  if confirm "BACKSYNC" "Run the back-sync steps above?"; then
-    backsync_rc=0
-    for s in "${BACKSYNC_STEPS[@]}"; do
-      repo=${s%% *}
-      if [ "${s##* }" = "merge" ]; then
-        run "$SCRIPT_DIR/train-backsync.sh" --apply --merge --only "$repo" || backsync_rc=1
-      else
-        run "$SCRIPT_DIR/train-backsync.sh" --apply --only "$repo" || backsync_rc=1
-      fi
-    done
-    # Step 8 is done only when every half merged; an opened-only cookbook PR is not.
-    if [ "$backsync_rc" -eq 0 ] && [[ ! " ${BACKSYNC_STEPS[*]} " =~ " open" ]]; then
-      state_set 8 "done"
-    fi
+  if confirm "BACKSYNC" "Run train-backsync.sh --apply --merge?"; then
+    run "$SCRIPT_DIR/train-backsync.sh" --apply --merge && state_set 8 "done"
   else
     info "skipped — run it before cutting, the stations block on this"
   fi
