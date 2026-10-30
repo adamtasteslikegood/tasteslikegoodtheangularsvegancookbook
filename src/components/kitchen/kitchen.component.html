@@ -425,6 +425,15 @@
             </p>
           }
         }
+        @if (deleteFeedbackChecking()) {
+          <p class="mt-4 text-sm text-stone-500" role="status">Checking for your feedback…</p>
+        }
+        @if (deleteFeedbackCheckFailed()) {
+          <p class="mt-4 text-sm text-stone-700" role="status">
+            We couldn't check for feedback you posted on this recipe. If there is some, deleting
+            this copy keeps it on the recipe page. Cancel and try again to choose.
+          </p>
+        }
         @if (deleteFeedbackTarget()) {
           <!-- KAN-356: the cook posted feedback through this copy. -->
           <fieldset class="mt-4 text-left">

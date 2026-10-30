@@ -265,7 +265,9 @@ export class KitchenComponent {
   deleteError = signal<string | null>(null);
   canConfirmDelete = computed(() => {
     const r = this.recipeToDelete();
-    if (!r || this.deleteInFlight()) return false;
+    // KAN-356: wait for the feedback check, so the keep-or-delete choice is
+    // offered before the copy can go.
+    if (!r || this.deleteInFlight() || this.deleteFeedbackChecking()) return false;
     switch (this.deleteMode()) {
       case 'bin':
         return true;
@@ -282,6 +284,10 @@ export class KitchenComponent {
    */
   deleteFeedbackTarget = signal<string | null>(null);
   deleteFeedbackToo = signal(false);
+  /** The feedback check for the copy in the delete dialog is still running. */
+  deleteFeedbackChecking = signal(false);
+  /** The feedback check failed: deleting keeps any feedback on the recipe page. */
+  deleteFeedbackCheckFailed = signal(false);
   showEmptyBinConfirmation = signal(false);
 
   recycleBinRecipes = computed(() => this.authService.currentUser()?.deletedRecipes || []);
@@ -411,6 +417,7 @@ export class KitchenComponent {
     this.deleteError.set(null);
     this.deleteFeedbackTarget.set(null);
     this.deleteFeedbackToo.set(false);
+    this.deleteFeedbackCheckFailed.set(false);
     this.showDeleteConfirmation.set(true);
     void this.checkFeedbackForDelete(recipe);
   }
@@ -419,10 +426,14 @@ export class KitchenComponent {
   private async checkFeedbackForDelete(recipe: Recipe) {
     const target = recipe.sourceRecipeId;
     if (!target || !isSignedIn(this.authService.currentUser())) return;
+    this.deleteFeedbackChecking.set(true);
     const result = await this.feedbackService.load(target);
     if (this.recipeToDelete()?.id !== recipe.id) return;
+    this.deleteFeedbackChecking.set(false);
     if (result.kind === 'ok' && result.state.entry && result.state.role === 'cook') {
       this.deleteFeedbackTarget.set(target);
+    } else if (result.kind === 'error') {
+      this.deleteFeedbackCheckFailed.set(true);
     }
   }
 
@@ -474,6 +485,8 @@ export class KitchenComponent {
     this.deleteError.set(null);
     this.deleteFeedbackTarget.set(null);
     this.deleteFeedbackToo.set(false);
+    this.deleteFeedbackChecking.set(false);
+    this.deleteFeedbackCheckFailed.set(false);
   }
 
   async restoreRecipe(recipeId: string) {
