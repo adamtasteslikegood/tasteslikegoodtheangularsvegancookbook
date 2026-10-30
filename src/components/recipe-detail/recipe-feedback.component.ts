@@ -132,6 +132,9 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
             >
               Sign in to leave feedback
             </button>
+            @if (error(); as message) {
+              <p role="alert" class="mt-3 text-base text-red-700 font-medium">{{ message }}</p>
+            }
           }
           @case ('loading') {
             <p class="text-stone-500 text-base" role="status">Loading your feedback…</p>
@@ -427,6 +430,11 @@ export class RecipeFeedbackComponent {
         this.loadFailed.set(false);
         this.error.set(null);
         this.notice.set(null);
+        // A reused component must not carry a draft or an open delete
+        // confirmation over to another recipe.
+        this.stars.set(null);
+        this.note.set('');
+        this.confirmingDelete.set(false);
         if (target && signedIn) void this.load(target);
       });
     });
