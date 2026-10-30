@@ -426,19 +426,24 @@ export class RecipeFeedbackComponent {
     effect(() => {
       const target = this.targetId();
       const signedIn = this.signedIn();
-      untracked(() => {
-        this.state.set(null);
-        this.loadFailed.set(false);
-        this.error.set(null);
-        this.notice.set(null);
-        // A reused component must not carry a draft or an open delete
-        // confirmation over to another recipe.
-        this.stars.set(null);
-        this.note.set('');
-        this.confirmingDelete.set(false);
-        if (target && signedIn) void this.load(target);
-      });
+      untracked(() => this.resetFor(target, signedIn));
     });
+  }
+
+  /** Start over for a new target: drop any load still in flight for the old one. */
+  resetFor(target: string | null, signedIn: boolean) {
+    this.loadSeq++;
+    this.loading.set(false);
+    this.state.set(null);
+    this.loadFailed.set(false);
+    this.error.set(null);
+    this.notice.set(null);
+    // A reused component must not carry a draft or an open delete
+    // confirmation over to another recipe.
+    this.stars.set(null);
+    this.note.set('');
+    this.confirmingDelete.set(false);
+    if (target && signedIn) void this.load(target);
   }
 
   starGlyphs(stars: number): string {
@@ -540,8 +545,9 @@ export class RecipeFeedbackComponent {
     this.deleting.set(true);
     try {
       const ok = await this.feedback.remove(target);
-      this.confirmingDelete.set(false);
+      // A confirmation open now belongs to the new recipe: leave it alone.
       if (this.targetId() !== target) return;
+      this.confirmingDelete.set(false);
       if (!ok) {
         this.showError('Could not delete your feedback. Try again.');
         return;

@@ -221,6 +221,31 @@ describe('RecipeFeedbackComponent requests (KAN-356)', () => {
     expect(load).not.toHaveBeenCalledWith('pub-a');
   });
 
+  it("leaves the new recipe's delete confirmation open after a late delete", async () => {
+    let finish!: (v: boolean) => void;
+    const { comp, recipe } = create({
+      remove: vi.fn(() => new Promise<boolean>((r) => (finish = r))),
+      load: vi.fn(),
+    });
+    const deleting = comp.confirmDelete();
+    recipe.set(recipeFor('pub-b'));
+    comp.confirmingDelete.set(true);
+    finish(true);
+    await deleting;
+    expect(comp.confirmingDelete()).toBe(true);
+  });
+
+  it('drops a load for the old recipe after moving to one with no feedback target', async () => {
+    let finish!: (v: unknown) => void;
+    const { comp } = create({ load: vi.fn(() => new Promise((r) => (finish = r))) });
+    comp.retryLoad();
+    comp.resetFor(null, true);
+    finish({ kind: 'ok', state: state({ target_id: 'pub-a' }) });
+    await settle();
+    expect(comp.state()).toBeNull();
+    expect(comp.view()).not.toBe('loading');
+  });
+
   it('clears the intent when sign-in cannot start', async () => {
     const store = new Map<string, string>();
     vi.stubGlobal('sessionStorage', {
