@@ -175,6 +175,8 @@ export function formatDayTime(date: Date): string {
   return `${formatDay(date)}, ${hour12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`;
 }
 
+const LOAD_TIMEOUT_MS = 10_000;
+
 async function readJson(res: Response): Promise<Record<string, unknown> | null> {
   try {
     return (await res.json()) as Record<string, unknown>;
@@ -192,6 +194,9 @@ export class FeedbackService {
     try {
       const res = await fetch(`/api/feedback/${encodeURIComponent(targetId)}`, {
         credentials: 'include',
+        // A hung lookup must end in the error state, not leave callers waiting
+        // (the kitchen's Delete waits on it).
+        signal: AbortSignal.timeout(LOAD_TIMEOUT_MS),
       });
       if (res.status === 401) return { kind: 'signed-out' };
       if (res.status === 404) return { kind: 'none' };
