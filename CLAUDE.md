@@ -82,7 +82,7 @@ For docs-only or config-only changes, `npm run format:check` is sufficient — t
 
 ## Project
 
-**VeganGenius Chef** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-nano-banana-2.1`, Nano Banana 2.1), and manage cookbooks. Auth via Google OAuth or guest (localStorage).
+**Tasteslikegood** — vegan recipe generator and personal cookbook app. Users generate recipes via Google Gemini (`gemini-3.8-flash`), get AI food photos via Gemini image generation (`gemini-nano-banana-2.1`, Nano Banana 2.1), and manage cookbooks. Auth via Google OAuth or guest (localStorage). The Google OAuth consent/app-branding label is registered as **VeganGenius Chef**; keep that exact casing in Google-facing configuration even though it is not the product name.
 
 - **Production:** `https://www.tasteslikegood.org` (canonical host; apex `tasteslikegood.org` 301-redirects to `www`)
 - **Version:** See `package.json` `version` field
