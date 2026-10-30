@@ -175,7 +175,10 @@ export function formatDayTime(date: Date): string {
   return `${formatDay(date)}, ${hour12}:${minutes} ${hours < 12 ? 'am' : 'pm'}`;
 }
 
+// A stalled request must end in an error, never leave a button or dialog
+// waiting. Writes get longer: a post may send a moderator email first.
 const LOAD_TIMEOUT_MS = 10_000;
+const WRITE_TIMEOUT_MS = 30_000;
 
 async function readJson(res: Response): Promise<Record<string, unknown> | null> {
   try {
@@ -215,6 +218,7 @@ export class FeedbackService {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ stars, note: note.trim() || null }),
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
       });
       const body = await readJson(res);
       if (res.ok && body?.['entry']) {
@@ -237,6 +241,7 @@ export class FeedbackService {
       const res = await fetch(`/api/feedback/${encodeURIComponent(targetId)}`, {
         method: 'DELETE',
         credentials: 'include',
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
       });
       return res.ok || res.status === 404;
     } catch {
@@ -264,7 +269,10 @@ export class FeedbackService {
     { kind: 'ok'; lists: ModerationLists } | { kind: 'refused' } | { kind: 'error' }
   > {
     try {
-      const res = await fetch('/api/feedback/moderation', { credentials: 'include' });
+      const res = await fetch('/api/feedback/moderation', {
+        credentials: 'include',
+        signal: AbortSignal.timeout(LOAD_TIMEOUT_MS),
+      });
       if (res.status === 401 || res.status === 403) return { kind: 'refused' };
       const body = res.ok ? await readJson(res) : null;
       return body ? { kind: 'ok', lists: body as unknown as ModerationLists } : { kind: 'error' };
@@ -281,6 +289,7 @@ export class FeedbackService {
       const res = await fetch(`/api/feedback/moderation/${entryId}/${action}`, {
         method: 'POST',
         credentials: 'include',
+        signal: AbortSignal.timeout(WRITE_TIMEOUT_MS),
       });
       const body = await readJson(res);
       if (res.ok && body?.['entry']) return { ok: true, row: body['entry'] as ModerationRow };
