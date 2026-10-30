@@ -27,7 +27,7 @@ import {
 import { DialogFocusDirective } from '../shared/dialog-focus.directive';
 
 /** What the control shows (design "Pass 2" table, R11). */
-export type FeedbackView = 'hidden' | 'guest' | 'loading' | 'form' | 'entry';
+export type FeedbackView = 'hidden' | 'guest' | 'loading' | 'load-error' | 'form' | 'entry';
 
 /**
  * Which view a loaded state gets. A copy whose source is no longer public and
@@ -135,6 +135,16 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
           }
           @case ('loading') {
             <p class="text-stone-500 text-base" role="status">Loading your feedback…</p>
+          }
+          @case ('load-error') {
+            <p class="text-stone-700 text-base" role="alert">Could not load your feedback.</p>
+            <button
+              type="button"
+              (click)="retryLoad()"
+              class="mt-4 min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-stone-100 text-stone-800 hover:bg-stone-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
+            >
+              Try again
+            </button>
           }
           @case ('form') {
             @if (state(); as s) {
@@ -351,6 +361,8 @@ export class RecipeFeedbackComponent {
 
   readonly state = signal<FeedbackState | null>(null);
   readonly loading = signal(false);
+  /** The last load failed (network or server), so the panel offers a retry. */
+  readonly loadFailed = signal(false);
   readonly stars = signal<number | null>(null);
   readonly note = signal('');
   readonly sending = signal(false);
@@ -375,6 +387,7 @@ export class RecipeFeedbackComponent {
       return this.recipe().sourceRecipeId ? 'guest' : 'hidden';
     }
     if (this.loading()) return 'loading';
+    if (this.loadFailed()) return 'load-error';
     return feedbackViewFor(this.state());
   });
 
@@ -411,6 +424,7 @@ export class RecipeFeedbackComponent {
       const signedIn = this.signedIn();
       untracked(() => {
         this.state.set(null);
+        this.loadFailed.set(false);
         this.error.set(null);
         this.notice.set(null);
         if (target && signedIn) void this.load(target);
@@ -430,10 +444,12 @@ export class RecipeFeedbackComponent {
   private async load(target: string) {
     const seq = ++this.loadSeq;
     this.loading.set(true);
+    this.loadFailed.set(false);
     const result = await this.feedback.load(target);
     if (seq !== this.loadSeq) return;
     this.loading.set(false);
     this.state.set(result.kind === 'ok' ? result.state : null);
+    this.loadFailed.set(result.kind === 'error');
     if (result.kind === 'ok' && this.route?.snapshot?.fragment === 'feedback') {
       // Arrived from "Add feedback" (R8): bring the form into view and to the
       // screen reader, after it has rendered.
@@ -443,6 +459,11 @@ export class RecipeFeedbackComponent {
         el?.focus({ preventScroll: true });
       });
     }
+  }
+
+  retryLoad() {
+    const target = this.targetId();
+    if (target && this.signedIn()) void this.load(target);
   }
 
   signIn() {
@@ -465,6 +486,9 @@ export class RecipeFeedbackComponent {
     this.error.set(null);
     try {
       const result = await this.feedback.post(target, stars, this.note());
+      // The page moved to another recipe while this was in flight: the result
+      // belongs to the old one, and the new one has loaded its own state.
+      if (this.targetId() !== target) return;
       const s = this.state();
       switch (result.kind) {
         case 'posted':
@@ -507,6 +531,7 @@ export class RecipeFeedbackComponent {
     try {
       const ok = await this.feedback.remove(target);
       this.confirmingDelete.set(false);
+      if (this.targetId() !== target) return;
       if (!ok) {
         this.showError('Could not delete your feedback. Try again.');
         return;

@@ -3,13 +3,25 @@
  * The pure helpers carry every state; the template only renders them.
  */
 import '@angular/compiler';
-import { describe, expect, it } from 'vitest';
 import {
+  Injector,
+  runInInjectionContext,
+  signal,
+  ɵChangeDetectionScheduler,
+  ɵEffectScheduler,
+} from '@angular/core';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  RecipeFeedbackComponent,
   counterAnnouncement,
   entryStatusLines,
   feedbackViewFor,
 } from './recipe-feedback.component';
+import { AuthService } from '../../services/auth.service';
+import { FeedbackService } from '../../services/feedback.service';
 import type { FeedbackEntry, FeedbackState } from '../../services/feedback.service';
+import type { User } from '../../auth.types';
+import type { Recipe } from '../../recipe.types';
 
 const NOW = new Date('2026-10-14T12:00:00Z');
 
@@ -135,5 +147,88 @@ describe('counterAnnouncement (R12)', () => {
     expect(counterAnnouncement(900)).toBe('100 or fewer characters left.');
     expect(counterAnnouncement(950)).toBe('50 or fewer characters left.');
     expect(counterAnnouncement(1000)).toBe('Note is at the 1000 character limit.');
+  });
+});
+
+// Codex pre-PR round 1: results that land after the page moved to another
+// recipe, and a load failure that hid the whole panel.
+describe('RecipeFeedbackComponent requests (KAN-356)', () => {
+  const recipeFor = (sourceRecipeId: string) =>
+    ({ id: `copy-${sourceRecipeId}`, name: 'Copy', sourceRecipeId }) as unknown as Recipe;
+
+  const create = (feedback: Record<string, unknown>) => {
+    const user = signal<User | null>({
+      id: 'u-1',
+      name: 'Sam',
+      isGuest: false,
+      authProvider: 'google',
+    } as User);
+    const injector = Injector.create({
+      providers: [
+        { provide: AuthService, useValue: { currentUser: user, login: vi.fn() } },
+        { provide: FeedbackService, useValue: feedback },
+        // The constructor's effect needs a scheduler; these tests drive the
+        // component's methods directly and never run change detection.
+        { provide: ɵChangeDetectionScheduler, useValue: { notify: () => {}, runningTick: false } },
+        {
+          provide: ɵEffectScheduler,
+          useValue: { add: () => {}, schedule: () => {}, remove: () => {}, flush: () => {} },
+        },
+      ],
+    });
+    const comp = runInInjectionContext(injector, () => new RecipeFeedbackComponent());
+    const recipe = signal(recipeFor('pub-a'));
+    Object.defineProperty(comp, 'recipe', { value: recipe });
+    return { comp, recipe };
+  };
+
+  const settle = async () => {
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+  };
+
+  it('drops a post result that lands after the page moved to another recipe', async () => {
+    let finish!: (v: unknown) => void;
+    const { comp, recipe } = create({ post: vi.fn(() => new Promise((r) => (finish = r))) });
+    comp.state.set(state({ target_id: 'pub-a' }));
+    comp.stars.set(4);
+    const posting = comp.post();
+
+    recipe.set(recipeFor('pub-b'));
+    comp.state.set(state({ target_id: 'pub-b' }));
+    finish({ kind: 'posted', entry: entry({ recipe_id: 'pub-a' }) });
+    await posting;
+
+    expect(comp.state()?.target_id).toBe('pub-b');
+    expect(comp.state()?.entry).toBeNull();
+  });
+
+  it('does not reload the old recipe after a delete that finished late', async () => {
+    let finish!: (v: boolean) => void;
+    const load = vi.fn();
+    const { comp, recipe } = create({
+      remove: vi.fn(() => new Promise<boolean>((r) => (finish = r))),
+      load,
+    });
+    const deleting = comp.confirmDelete();
+    recipe.set(recipeFor('pub-b'));
+    finish(true);
+    await deleting;
+    expect(load).not.toHaveBeenCalledWith('pub-a');
+  });
+
+  it('offers a retry when loading fails, and loads again on Try again', async () => {
+    const load = vi
+      .fn()
+      .mockResolvedValueOnce({ kind: 'error' })
+      .mockResolvedValueOnce({ kind: 'ok', state: state() });
+    const { comp } = create({ load });
+    comp.retryLoad();
+    await settle();
+    expect(comp.view()).toBe('load-error');
+
+    comp.retryLoad();
+    await settle();
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(comp.view()).toBe('form');
   });
 });
