@@ -8,6 +8,7 @@ import { RecipeImageComponent } from '../shared/recipe-image.component';
 import { UnpublishConfirmComponent } from '../shared/unpublish-confirm.component';
 import { recipeFromRow, type RecipeRow } from '../../utils/recipe-row';
 import { BreadcrumbComponent } from '../shared/breadcrumb.component';
+import { RecipeFeedbackComponent } from './recipe-feedback.component';
 import { recipeTrail, type Crumb } from '../../utils/breadcrumbs';
 
 /**
@@ -47,6 +48,7 @@ const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
     RecipeImageComponent,
     UnpublishConfirmComponent,
     BreadcrumbComponent,
+    RecipeFeedbackComponent,
   ],
   templateUrl: './recipe-detail.component.html',
 })
@@ -108,6 +110,18 @@ export class RecipeDetailComponent extends RecipeViewBase {
         .currentUser()
         ?.cookbooks.find((cb) => cb.id === id && cb.recipeIds.includes(r.id)) ?? null
     );
+  });
+
+  /**
+   * KAN-356: the feedback panel needs a recipe in this user's cookbook.
+   * `isSaved` alone misses a cold deep link with empty storage, which reads
+   * the row before the cookbook hydrates; the cookbook check settles once it
+   * does.
+   */
+  readonly showFeedback = computed(() => {
+    if (this.isSaved()) return true;
+    const r = this.recipe();
+    return !!r && !!this.authService.currentUser()?.savedRecipes.some((s) => s.id === r.id);
   });
 
   /**

@@ -1,8 +1,9 @@
-import { Component, inject, output, signal } from '@angular/core';
+import { Component, effect, inject, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, NavigationEnd, RouterLink } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
 import { ModalService } from '../../services/modal.service';
+import { FeedbackService } from '../../services/feedback.service';
 
 @Component({
   selector: 'app-header',
@@ -14,6 +15,7 @@ export class HeaderComponent {
   private readonly router = inject(Router);
   readonly authService = inject(AuthService);
   readonly modalService = inject(ModalService);
+  readonly feedbackService = inject(FeedbackService);
 
   readonly activeView = signal<'home' | 'generator' | 'kitchen' | 'recipe'>('home');
   readonly showUserProfileCard = signal(false);
@@ -22,6 +24,10 @@ export class HeaderComponent {
   readonly switchUserRequested = output<void>();
 
   constructor() {
+    // KAN-356 (R2): the server says who moderates feedback; ask on each sign-in.
+    effect(() => {
+      void this.feedbackService.refreshModerator(this.authService.currentUser());
+    });
     // Seed from the router's current URL so a direct load of /kitchen or
     // /recipe/:id paints aria-current on the correct tab before the first
     // NavigationEnd. Router bootstrap is non-blocking, so subscribing alone
@@ -48,6 +54,11 @@ export class HeaderComponent {
 
   closeUserProfileCard() {
     this.showUserProfileCard.set(false);
+  }
+
+  openModeration() {
+    this.closeUserProfileCard();
+    void this.router.navigate(['/moderation']);
   }
 
   maskedEmail(): string {

@@ -18,8 +18,27 @@ export const ssrEntryGuard: CanActivateFn = (route) => {
     return router.createUrlTree(['/kitchen']);
   }
 
+  // KAN-356 (R15): "Cooked this? Add your feedback" from the public page.
+  // The service checks the slug, then opens the form or starts sign-in.
+  const feedbackParam = queryParams['feedback'];
+  if (feedbackParam) {
+    const slug = Array.isArray(feedbackParam) ? feedbackParam[0] : feedbackParam;
+    if (typeof slug === 'string') {
+      ssrEntry.handleFeedback(slug).catch((err) => console.error('SSR feedback failed:', err));
+    }
+    return router.createUrlTree(['/kitchen']);
+  }
+
   if (queryParams['auth'] === 'success') {
     ssrEntry.handleAuth().catch((err) => console.error('SSR auth handoff failed:', err));
+    return router.createUrlTree(['/']);
+  }
+
+  // KAN-356 (E2): Google sign-in was cancelled or refused.
+  if (queryParams['auth'] === 'cancelled') {
+    ssrEntry
+      .handleAuthCancelled()
+      .catch((err) => console.error('SSR auth cancel handoff failed:', err));
     return router.createUrlTree(['/']);
   }
 

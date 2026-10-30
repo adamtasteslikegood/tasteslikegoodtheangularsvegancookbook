@@ -10,6 +10,13 @@ export interface Toast {
    *  rather than navigating to an in-app Recipe. */
   linkUrl?: string;
   linkLabel?: string;
+  /** KAN-356 (R8): an in-app action button, e.g. "Sign in" after a cancelled sign-in. */
+  action?: ToastAction;
+}
+
+export interface ToastAction {
+  label: string;
+  run: () => void;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -23,12 +30,13 @@ export class ToastService {
     message: string,
     recipe: Recipe | null = null,
     durationMs = 6000,
-    link?: { url: string; label: string }
+    link?: { url: string; label: string },
+    action?: ToastAction
   ): void {
     const id = this.nextId++;
     this.toasts.update((list) => [
       ...list,
-      { id, message, recipe, linkUrl: link?.url, linkLabel: link?.label },
+      { id, message, recipe, linkUrl: link?.url, linkLabel: link?.label, action },
     ]);
     const timer = setTimeout(() => this.dismiss(id), durationMs);
     (timer as unknown as { unref?: () => void }).unref?.();

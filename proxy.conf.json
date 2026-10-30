@@ -35,6 +35,12 @@
     "changeOrigin": true,
     "logLevel": "debug"
   },
+  "/api/feedback": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
   "/browse": {
     "target": "http://localhost:5000",
     "secure": false,

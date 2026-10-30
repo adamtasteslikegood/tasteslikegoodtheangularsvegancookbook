@@ -281,7 +281,13 @@ steps:
       # by hand on the service would be dropped by the next release. Read is
       # on; both generation switches are off. Turning generation on is an
       # edit to this line.
-      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-nano-banana-2.1,AGENT_TOOLS_READ=true,AGENT_TOOLS_GENERATE_TEXT=false,AGENT_TOOLS_GENERATE_IMAGE=false
+      # FEEDBACK_* (KAN-356, recipe feedback): left EMPTY on purpose until Adam
+      # sets them. Empty fails closed: no account moderates (the /moderation
+      # page and its API refuse everyone) and no review email is sent. FEEDBACK_MODERATOR_EMAILS is comma-separated, so more
+      # than one address needs gcloud's alternate-delimiter form for this flag
+      # (see `gcloud topic escaping`). FEEDBACK_MODERATION_EMAIL_FROM is the
+      # Workspace address the notice is sent as; _SERVICE_ACCOUNT is optional.
+      - --set-env-vars=FLASK_ENV=production,VALKEY_HOST=10.128.0.11,VALKEY_AUTH_MODE=iam,GOOGLE_CLIENT_ID=746675616486-ssnh50hs4fls688m7bvjqtpak7ob8qu1.apps.googleusercontent.com,FRONTEND_URL=https://www.tasteslikegood.org,SESSION_COOKIE_DOMAIN=.tasteslikegood.org,GCS_BUCKET_NAME=tasteslikegood-recipe-images,GCP_PROJECT_ID=comdottasteslikegood,PUBSUB_INVOKER_SA=pubsub-pusher@comdottasteslikegood.iam.gserviceaccount.com,GEMINI_DEFAULT_MODEL=gemini-3.8-flash,GEMINI_IMAGE_MODEL=gemini-nano-banana-2.1,AGENT_TOOLS_READ=true,AGENT_TOOLS_GENERATE_TEXT=false,AGENT_TOOLS_GENERATE_IMAGE=false,FEEDBACK_MODERATOR_EMAILS=,FEEDBACK_MODERATION_EMAIL_ENABLED=false,FEEDBACK_MODERATION_EMAIL_FROM=,FEEDBACK_MODERATION_EMAIL_SERVICE_ACCOUNT=
       # VALKEY_CA_CERT: Memorystore's Google-managed CA, trusted by the Flask
       # IAM Valkey client (Backend/utils/valkey_auth.py) so the response cache
       # (Flask-Caching) uses shared Valkey instead of silently degrading to a

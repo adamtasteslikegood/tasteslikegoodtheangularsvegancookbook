@@ -97,6 +97,7 @@ describe('save-toast template anchor (RCP-74)', () => {
 
   it('gives the link branch precedence over the in-app View button', () => {
     // One slot, link first: a toast carrying both must show the hyperlink.
-    expect(html).toMatch(/@if \(t\.linkUrl\) \{[\s\S]*@else if \(t\.recipe\) \{/);
+    // (KAN-356 put the action button ahead of both, hence the optional else.)
+    expect(html).toMatch(/@(?:else )?if \(t\.linkUrl\) \{[\s\S]*@else if \(t\.recipe\) \{/);
   });
 });

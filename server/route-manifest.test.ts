@@ -173,6 +173,7 @@ describe('ROUTE_MANIFEST', () => {
     expect(ROUTE_MANIFEST.spa.paths).toContain('/');
     expect(ROUTE_MANIFEST.spa.paths).toContain('/kitchen');
     expect(ROUTE_MANIFEST.spa.paths).toContain('/chunk-error');
+    expect(ROUTE_MANIFEST.spa.paths).toContain('/moderation');
     expect(ROUTE_MANIFEST.spa.prefixes).toContain('/recipe/');
   });
 });
@@ -234,6 +235,7 @@ describe('classifyRoute', () => {
     ['/', 'spa'],
     ['/kitchen', 'spa'],
     ['/chunk-error', 'spa'],
+    ['/moderation', 'spa'],
     ['/recipe/abc-123', 'spa'],
     ['/recipe/', 'unknown'],
     // KAN-321: a Kitchen cookbook view reloads as the SPA, not a 404 shell.

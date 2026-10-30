@@ -17,7 +17,13 @@ export class SaveToastComponent {
   toast = computed(() => {
     const t = this.toastService.toasts()[0];
     return t
-      ? { message: t.message, recipe: t.recipe, linkUrl: t.linkUrl, linkLabel: t.linkLabel }
+      ? {
+          message: t.message,
+          recipe: t.recipe,
+          linkUrl: t.linkUrl,
+          linkLabel: t.linkLabel,
+          actionLabel: t.action?.label,
+        }
       : null;
   });
 
@@ -27,6 +33,13 @@ export class SaveToastComponent {
       this.viewRecipeRequested.emit(t.recipe);
     }
     if (t) this.toastService.dismiss(t.id);
+  }
+
+  onAction() {
+    const t = this.toastService.toasts()[0];
+    if (!t) return;
+    this.toastService.dismiss(t.id);
+    t.action?.run();
   }
 
   dismiss() {
