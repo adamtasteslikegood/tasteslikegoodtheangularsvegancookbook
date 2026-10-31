@@ -6,7 +6,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.8.0-beta] - staging
+
+On staging as tag `staging-v0.8.0-beta`, for evaluation before the v0.8.0 production release.
+Backend pointer at `0573048` (Backend `dev`).
 
 ### Changed
 
