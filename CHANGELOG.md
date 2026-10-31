@@ -6,7 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.8.0-beta] - staging
+
+On staging as tag `staging-v0.8.0-beta`, for evaluation before the v0.8.0 production release.
+Backend pointer at `0573048` (Backend `dev`).
+
+### Changed
+
+- Backend pointer moved to `0573048` (Backend `dev`) for the `staging-v0.8.0-beta` staging deploy.
+  Public recipe pages set ingredients and steps in Lato at 16px instead of Courier New (Backend
+  #470). The moderation page loads each entry's user and recipe in the same query (`bc894f1`).
+  Python production dependencies are bumped, with SQLAlchemy held at 2.0 for psycopg2 (Backend
+  #467). The release pin must be re-taken from Backend `main` before `dev` → `main`.
 
 ### Added
 
