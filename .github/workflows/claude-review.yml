@@ -47,8 +47,10 @@ on:
     # pushed after the first review are reviewed too (TAS-3006 / KAN-183).
     # Also on-demand via the `claude-review` label. The bot's own fix pushes do
     # NOT re-trigger (the `if:` guard below skips `github.event.sender.type == 'Bot'`).
+    # No base-branch filter: a PR stacked with `gh stack` has another PR's
+    # branch as its base, and the first step checks that its chain reaches
+    # main, dev or dev/** (KAN-495).
     types: [opened, ready_for_review, labeled, synchronize]
-    branches: [main, dev, 'dev/**']
   workflow_dispatch:
     inputs:
       pr:
@@ -114,7 +116,22 @@ jobs:
             .head.repo.full_name == $repo and .user.login != "dependabot[bot]"
           ' <<< "$PR_JSON" > /dev/null || { echo '::error::PR is not eligible for review'; exit 1; }
           BASE_REF=$(jq -r '.base.ref' <<< "$PR_JSON")
-          case "$BASE_REF" in main|dev|dev/*) ;; *) echo '::error::Unexpected PR base'; exit 1 ;; esac
+          # KAN-495: a stacked PR's base is the branch of the PR below it. Follow
+          # the chain: each base must be the head of exactly one open same-repo
+          # PR, and the chain must reach main, dev or dev/* within 5 levels.
+          TRUNK_REF=$BASE_REF
+          for _ in 1 2 3 4 5; do
+            case "$TRUNK_REF" in main|dev|dev/*) break ;; esac
+            BELOW=$(gh api -X GET "repos/$GITHUB_REPOSITORY/pulls" \
+              -f state=open -f head="$GITHUB_REPOSITORY_OWNER:$TRUNK_REF")
+            jq -e --arg repo "$GITHUB_REPOSITORY" \
+              'length == 1 and .[0].head.repo.full_name == $repo' \
+              <<< "$BELOW" > /dev/null || { echo '::error::Unexpected PR base'; exit 1; }
+            TRUNK_REF=$(jq -r '.[0].base.ref' <<< "$BELOW")
+          done
+          case "$TRUNK_REF" in main|dev|dev/*) ;; *) echo '::error::Unexpected PR base'; exit 1 ;; esac
+          TRUNK_SHA=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$TRUNK_REF" --jq .object.sha)
+          echo "trunk_sha=$TRUNK_SHA" >> "$GITHUB_OUTPUT"
           HEAD_SHA=$(jq -r '.head.sha' <<< "$PR_JSON")
           if [ -n "$EVENT_HEAD" ] && [ "$EVENT_HEAD" != "$HEAD_SHA" ]; then
             echo '::notice::PR head moved; the newer event must review it.'
@@ -262,16 +279,18 @@ jobs:
           github.event_name == 'workflow_dispatch' &&
           steps.auth.outputs.present == 'true' && steps.scope.outputs.mode != 'skip'
         env:
-          BASE_SHA: ${{ steps.pr.outputs.base_sha }}
+          TRUNK_SHA: ${{ steps.pr.outputs.trunk_sha }}
         run: |
           # Match the pinned action's restore-config.ts for PR events. Dispatch
           # lacks PR event context, so do this before Claude can load hooks/MCP.
+          # Restore from the trunk tip, not the base: a stacked PR's base is the
+          # branch of the PR below it (KAN-495). Unstacked, both name the same branch.
           # These are fixed paths in a fresh CI checkout; rm unlinks a PR symlink
           # itself rather than following it. The index/HEAD stay the PR's versions.
           for CONFIG in .claude .mcp.json .claude.json .gitmodules .ripgreprc CLAUDE.md CLAUDE.local.md .husky; do
             rm -rf -- "$CONFIG"
-            if git cat-file -e "$BASE_SHA:$CONFIG" 2>/dev/null; then
-              git restore --source="$BASE_SHA" --worktree -- "$CONFIG"
+            if git cat-file -e "$TRUNK_SHA:$CONFIG" 2>/dev/null; then
+              git restore --source="$TRUNK_SHA" --worktree -- "$CONFIG"
             fi
           done
 
