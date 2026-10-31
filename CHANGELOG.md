@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Internal
+
+- The retired `gemstack` submodule is removed (KAN-494). `garrytan/gstack` covers Gemini CLI and
+  Antigravity (`scripts/install-gstack.sh --host agy`), and a stale `gemstack` checkout could get in
+  the way of those installs. The `gemstack/` lines in the Docker and gcloud ignore files stay, so a
+  leftover directory in an older checkout is still kept out of build uploads.
+- The Independent Claude review reviews stacked PRs (KAN-495). A PR stacked with `gh stack` has
+  another PR's branch as its base, which the review refused as "Unexpected PR base", and its
+  trigger ignored. It now follows the chain of open same-repo PRs down to `main`, `dev` or `dev/*`
+  (at most 5 levels) and refuses anything else. A dispatched review restores its trusted startup
+  configuration from that trunk's tip.
+
 ## [0.8.0-beta] - staging
 
 On staging as tag `staging-v0.8.0-beta`, for evaluation before the v0.8.0 production release.
