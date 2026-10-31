@@ -6,24 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.8.1-beta] - staging
 
-### Internal
+On staging as tag `staging-v0.8.1-beta`, for evaluation before the v0.8.0 production release.
+Backend pointer at `0573048` (Backend `dev`). Replaces `staging-v0.8.0-beta`, which ran the same
+Backend without the staging configuration below.
 
-- The retired `gemstack` submodule is removed (KAN-494). `garrytan/gstack` covers Gemini CLI and
-  Antigravity (`scripts/install-gstack.sh --host agy`), and a stale `gemstack` checkout could get in
-  the way of those installs. The `gemstack/` lines in the Docker and gcloud ignore files stay, so a
-  leftover directory in an older checkout is still kept out of build uploads.
-- The Independent Claude review reviews stacked PRs (KAN-495). A PR stacked with `gh stack` has
-  another PR's branch as its base, which the review refused as "Unexpected PR base", and its
-  trigger ignored. It now follows the chain of open same-repo PRs down to `main`, `dev` or `dev/*`
-  (at most 5 levels) and refuses anything else. A dispatched review restores its trusted startup
-  configuration from that trunk's tip.
+### Fixed
 
-## [0.8.0-beta] - staging
-
-On staging as tag `staging-v0.8.0-beta`, for evaluation before the v0.8.0 production release.
-Backend pointer at `0573048` (Backend `dev`).
+- Staging configuration for recipe feedback (KAN-356, KAN-434). Staging sets
+  `BRAND_AUTHOR_USER_IDS=2`, because Adam's account is user 2 in the staging database rather
+  than 1, so his recipes show "Tasteslikegood - classic" there too. The moderator list,
+  `FEEDBACK_MODERATOR_EMAILS`, comes from the `FEEDBACK_MODERATOR_EMAILS_STAGING` secret, so
+  `/moderation` works on staging. Review email stays off.
 
 ### Changed
 
@@ -46,6 +41,15 @@ Backend pointer at `0573048` (Backend `dev`).
 
 ### Internal
 
+- The retired `gemstack` submodule is removed (KAN-494). `garrytan/gstack` covers Gemini CLI and
+  Antigravity (`scripts/install-gstack.sh --host agy`), and a stale `gemstack` checkout could get in
+  the way of those installs. The `gemstack/` lines in the Docker and gcloud ignore files stay, so a
+  leftover directory in an older checkout is still kept out of build uploads.
+- The Independent Claude review reviews stacked PRs (KAN-495). A PR stacked with `gh stack` has
+  another PR's branch as its base, which the review refused as "Unexpected PR base", and its
+  trigger ignored. It now follows the chain of open same-repo PRs down to `main`, `dev` or `dev/*`
+  (at most 5 levels) and refuses anything else. A dispatched review restores its trusted startup
+  configuration from that trunk's tip.
 - The Independent Claude review is bounded, following Plaza's reforms (KAN-489). The job stops at 14
   minutes, and the review step at 8 minutes for a full review or 4 for a push. Each mode caps turns
   and budget and sets a fixed effort. Push reviews still cover only the commits since the last

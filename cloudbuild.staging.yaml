@@ -246,8 +246,13 @@ steps:
       - --min-instances=0
       - --max-instances=1
       - --memory=512Mi
-      - --set-env-vars=GCS_BUCKET_NAME=$_GCS_BUCKET,GCP_PROJECT_ID=$_PROJECT_ID,PUBSUB_INVOKER_SA=$_PUBSUB_SA,GEMINI_DEFAULT_MODEL=$_TEXT_MODEL,GEMINI_IMAGE_MODEL=$_IMAGE_MODEL
-      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest
+      # Recipe feedback (KAN-356) on staging. BRAND_AUTHOR_USER_IDS=2: Adam's
+      # account is user 2 in the staging database, not 1 as in production
+      # (KAN-434). FEEDBACK_MODERATOR_EMAILS comes from a secret because the
+      # repo is public; it is both who may moderate and who gets review email.
+      # Review email stays off (FEEDBACK_MODERATION_EMAIL_ENABLED unset).
+      - --set-env-vars=GCS_BUCKET_NAME=$_GCS_BUCKET,GCP_PROJECT_ID=$_PROJECT_ID,PUBSUB_INVOKER_SA=$_PUBSUB_SA,GEMINI_DEFAULT_MODEL=$_TEXT_MODEL,GEMINI_IMAGE_MODEL=$_IMAGE_MODEL,BRAND_AUTHOR_USER_IDS=2
+      - --set-secrets=GOOGLE_API_KEY=GOOGLE_API_KEY_STAGING:latest,FLASK_SECRET_KEY=FLASK_SECRET_KEY_STAGING:latest,GOOGLE_CLIENT_ID=GOOGLE_CLIENT_ID_STAGING:latest,GOOGLE_CLIENT_SECRET=GOOGLE_CLIENT_SECRET_STAGING:latest,DATABASE_URL=DATABASE_URL_STAGING:latest,FEEDBACK_MODERATOR_EMAILS=FEEDBACK_MODERATOR_EMAILS_STAGING:latest
       - --set-cloudsql-instances=$_CLOUDSQL
       - --labels=service=flask-backend-staging,environment=staging
       # Same posture as prod (KAN-170): --invoker-iam-check is the flag that
