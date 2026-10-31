@@ -201,11 +201,24 @@ jobs:
             --wait \
             --quiet
 
-      # ── Deploy (image swap only — no IAM or secret mutations) ───────
+      # ── Deploy (image swap + the Flask settings below; no IAM or secret mutations) ──
+      # `services update` keeps every env var and secret mapping the service
+      # already has; it only adds or replaces the ones named here.
+      # Recipe feedback (KAN-356) on staging:
+      #   * BRAND_AUTHOR_USER_IDS=2 — Adam is user 2 in the staging database,
+      #     not 1 as in production (KAN-434).
+      #   * FEEDBACK_MODERATOR_EMAILS from FEEDBACK_MODERATOR_EMAILS_STAGING,
+      #     a secret because this repo is public. It is both who may moderate
+      #     and who gets review email (email stays off). The secret is created
+      #     outside this workflow; the deployer cannot read secrets, so the
+      #     check that it exists and the runtime account can read it is Cloud
+      #     Run's: `services update` fails and the old revision keeps serving.
       - name: Deploy Flask backend to staging
         run: |
           gcloud run services update flask-backend-staging \
             --image="$IMAGE_REGISTRY/flask-backend:${{ steps.tag.outputs.tag }}" \
+            --update-env-vars=BRAND_AUTHOR_USER_IDS=2 \
+            --update-secrets=FEEDBACK_MODERATOR_EMAILS=FEEDBACK_MODERATOR_EMAILS_STAGING:latest \
             --region="$REGION" \
             --project="$STAGING_PROJECT" \
             --quiet
