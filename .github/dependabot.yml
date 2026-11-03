@@ -19,6 +19,11 @@ updates:
       actions-all:
         patterns:
           - '*'
+    ignore:
+      # gh-aw lock files are compiler output. The setup action must match the gh-aw
+      # version that compiled them, or the AWF install step fails (TAS-3438).
+      # Upgrade with `gh aw upgrade` + `gh aw compile` instead.
+      - dependency-name: 'github/gh-aw-actions/setup'
     open-pull-requests-limit: 10
 
   # -------------------------
