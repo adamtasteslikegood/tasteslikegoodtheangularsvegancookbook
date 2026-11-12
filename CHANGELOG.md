@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- Backend pointer moved from `6ab16cf` to `0e03115` (Backend `dev` tip). It brings Backend's
+  Dependabot bumps since then (Python production and development groups, Actions, the uv image,
+  types-requests, oauthlib), with SQLAlchemy kept at 2.0 for psycopg2.
+
 ## [0.8.1-beta] - staging
 
 On staging as tag `staging-v0.8.1-beta`, for evaluation before the v0.8.0 production release.
