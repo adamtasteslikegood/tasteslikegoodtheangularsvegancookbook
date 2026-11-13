@@ -45,7 +45,7 @@
     "compression": "^1.8.2",
     "dd-trace": "^6.21.0",
     "express": "^5.3.0",
-    "express-rate-limit": "^8.7.1",
+    "express-rate-limit": "^8.7.4",
     "express-validator": "^7.3.2",
     "google-auth-library": "^11.3.4",
     "helmet": "^8.3.0",
