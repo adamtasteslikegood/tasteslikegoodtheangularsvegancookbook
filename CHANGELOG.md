@@ -6,13 +6,28 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.8.2-beta] - staging
+
+On staging as tag `staging-v0.8.2-beta`, for evaluation before the v0.8.0 production release.
+Backend pointer at `1d22354` (Backend `dev`). Replaces `staging-v0.8.1-beta`: the same feedback
+feature, with the layout pass from Adam's staging review.
+
+### Fixed
+
+- Recipe feedback sits in line with the rest of the page (KAN-356). On the public recipe page
+  and on a saved copy in the app, the feedback section was narrower than the page and sat at
+  the left. It now spans the content column like the sections above it; note text and the form
+  keep a readable width inside it. The "Cooked this? Add your feedback" link is a button, and
+  the in-app panel no longer touches the footer.
+- Page numbers in the browse and tag-hub header are large enough to tap on a phone: 24 by 24
+  pixels at least, up from 8 by 16 (KAN-421).
 
 ### Changed
 
-- Backend pointer moved from `6ab16cf` to `0e03115` (Backend `dev` tip). It brings Backend's
-  Dependabot bumps since then (Python production and development groups, Actions, the uv image,
-  types-requests, oauthlib), with SQLAlchemy kept at 2.0 for psycopg2.
+- Backend pointer moved from `6ab16cf` to `1d22354` (Backend `dev` tip). It carries the public
+  half of the two fixes above (Backend #488) and Backend's Dependabot bumps since `6ab16cf`
+  (Python production and development groups, Actions, the uv image, types-requests, oauthlib,
+  websockets, soupsieve, opentelemetry-api), with SQLAlchemy kept at 2.0 for psycopg2.
 
 ## [0.8.1-beta] - staging
 
