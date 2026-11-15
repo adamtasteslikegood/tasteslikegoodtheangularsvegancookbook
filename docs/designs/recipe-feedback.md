@@ -111,13 +111,13 @@ Moderation
 Public recipe page
 
 - Requirement: the feedback section and the JSON-LD reflect a new entry, a hide, a rejection or a threshold change on the next request. These pages returned `Cache-Control: private` when probed on 2026-10-03 and again on 2026-10-13, and the Express proxy adds no cache header (eng review, Architecture).
-- No entries of any kind: one link line only, "Cooked this? Add your feedback". No count, no empty box.
-- Author's entry only: a block headed "From the author" (decision R10; this design first called it "Author's notes"), with the author's stars shown inside that block, and the link line.
-- 1 or 2 non-author entries: "Cooked by N" and any approved notes with the cook's first name. No stars, no average.
-- 3 or more non-author entries: "Cooked by N", the average rating, approved notes newest first with the cook's first name.
+- No entries of any kind: one link line only, "Cooked this? Sign in to add your feedback". No count, no empty box.
+- Author's entry only: a block headed "From the author" (decision R10; this design first called it "Author's notes"), with the author's stars shown inside that block, and the link as the block's last row.
+- 1 or 2 non-author entries: the heading "Cooked by 1 person" / "Cooked by N people" and any approved notes with the cook's first name. No stars, no average.
+- 3 or more non-author entries: the heading "Cooked by 1 person" / "Cooked by N people", the average rating, approved notes newest first with the cook's first name.
 - The author's entry is always outside the count and the average.
 - "Add feedback" is a link that asks for sign-in first, then saves the recipe and opens the saved copy at the feedback form (decision R8, Adam, 2026-10-13). Adam's first wording for the line, "to comment on this recipe log-in/create account and save the recipe to your cookbook, then comment there", described the path before that decision; the link now does those steps for the cook. If the cook cancels the Google sign-in, the recipe is saved to the guest cookbook, the same result as the ordinary "Save to your cookbook" button, and a toast offers a second chance to sign in and add feedback (Adam, 2026-10-13). The link reads "Cooked this? Add your feedback" (confirmed by Adam, 2026-10-13). His rule for any text beside it: the public page cannot tell whether the visitor has an account, is a guest, how old the account is, whether the recipe is already saved or whether they are the author, so "the text needs to be the same for all cases". The line this review proposed under the link, "You will be asked to sign in with Google. Feedback from a new account shows after 24 hours.", is dropped: Adam, 2026-10-13, "drop the line under the link all togther". The link stands alone, with no text under it and no hover text. A new account learns the date and time its feedback shows from the form on the saved copy (R11). The separate "Save to your cookbook" button keeps working for guests as it does today.
-- Changed on 2026-11-15 after a design critique of the section on staging, approved by Adam the same day. The link reads "Cooked this? Sign in to add your feedback", because a signed-out cook who followed it met Google's sign-in page with nothing said first; the path behind it (R8, R15) is unchanged, and there is still no line under it. When the section has entries the link is the panel's last row, under the notes, in the filled style of "Save to your cookbook"; with no entries it is still the one line with no box. The section heading reads "Cooked by 1 person" or "Cooked by N people"; the toolbar line keeps "Cooked by N". Each note is set in quotation marks, with no card and no coloured edge (R14). The section has a scroll margin so the toolbar link lands with the heading clear of the viewport edge. Where the text below says "Cooked this? Add your feedback" or gives the heading as "Cooked by N", read it with these changes.
+- Changed on 2026-11-15 after a design critique of the section on staging, approved by Adam the same day. The link reads "Cooked this? Sign in to add your feedback", because a signed-out cook who followed it met Google's sign-in page with nothing said first; the path behind it (R8, R15) is unchanged, and there is still no line under it. When the section has entries the link is the panel's last row, under the notes, in the filled style of "Save to your cookbook"; with no entries it is still the one line with no box. The section heading reads "Cooked by 1 person" or "Cooked by N people"; the toolbar line keeps "Cooked by N". Each note is set in quotation marks, with no card and no coloured edge (R14). The section has a scroll margin so the toolbar link lands with the heading clear of the viewport edge. The lists, sketches and tables in this document state the section as changed.
 - Recipe JSON-LD emits `aggregateRating` only at 3 or more non-author entries, computed in the same request as the visible numbers.
 
 **Phase 2 or 3 (planned, not in the first build; Adam's request)**
@@ -128,11 +128,11 @@ Public recipe page
 ```
 PUBLIC /r/<slug>  (server-rendered, read-only; full order in R9)
   Chef's notes                     <- existing panel, the recipe's own notes; NOT feedback
-  h2 Cooked by 7                   <- the count; a heading, not a badge
+  h2 Cooked by 7 people            <- the count; a heading, not a badge ("Cooked by 1 person" at one)
      4.6 ★ average from 7 cooks    <- only at >= 3 non-author entries
      h3 From the author ★★★★★ "..." <- outside the count and average (R10)
-     "Used oat milk, baked 5 min longer."  Sam · October 2026   <- approved notes, newest first
-  Cooked this? Add your feedback   <- a link, no text under it (R8)
+     “Used oat milk, baked 5 min longer.”  Sam · October 2026   <- approved notes in quotation marks, newest first
+     [Cooked this? Sign in to add your feedback]   <- the panel's last row, filled button, no text under it (R8)
         |
         v  sign in first, then save, then the saved copy opens at the form (R8, R15)
 SAVED COPY in the app  (signed in)
@@ -545,12 +545,12 @@ Proposed public page order (R9):
   Ingredients | Method
   Chef's notes                      (existing; the recipe's own notes)
   ---- new, id="feedback" ----
-  h2  Cooked by 7                   (state heading; see the states table)
+  h2  Cooked by 7 people            (state heading; see the states table)
       4.6 ★ average from 7 cooks    (only at 3 or more cooks)
       h3 From the author            ★★★★★  "note..."
       notes, newest first:          "Used oat milk, baked 5 minutes longer."
                                     Sam · October 2026
-  Add feedback line                 (always; the only thing rendered when there are no entries)
+  Add feedback link                 (always; the panel's last row, or the only thing rendered when there are no entries)
   ---- end new ----
   tags, hubs, neighbours, more vegan recipes
 ```
@@ -601,17 +601,17 @@ There is no edit action anywhere. The delete dialog is where the cook learns tha
 
 Public page, what a reader sees:
 
-| State                                      | Toolbar         | Section heading | Body                                                                                                |
-| ------------------------------------------ | --------------- | --------------- | --------------------------------------------------------------------------------------------------- |
-| No entries                                 | nothing         | none            | The "Add feedback" line only.                                                                       |
-| Author's entry only, note approved         | nothing         | From the author | Author's stars and note. Then the "Add feedback" line.                                              |
-| Author's entry only, note held or rejected | nothing         | From the author | Author's stars and the line from R10. Then the "Add feedback" line.                                 |
-| 1 or 2 cooks                               | Cooked by N     | Cooked by N     | Author's block if there is one, then approved notes. No stars, no average.                          |
-| 3 or more cooks                            | Cooked by N · ★ | Cooked by N     | The average line, the author's block if there is one, then approved notes newest first.             |
-| Cooks, but no approved note yet            | as above        | Cooked by N     | The count (and the average at 3 or more). No empty list, no "no notes yet".                         |
-| More than 50 approved notes (R4)           | as above        | Cooked by N     | The 50 newest, then one line: "Showing the 50 newest notes."                                        |
-| A cook's name is empty                     | as above        | as above        | "A cook" in place of the first name (decision R6).                                                  |
-| Summary query fails                        | nothing         | none            | The "Add feedback" line only. The recipe page renders as it does today (eng review, failure modes). |
+| State                                      | Toolbar         | Section heading    | Body                                                                                                |
+| ------------------------------------------ | --------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| No entries                                 | nothing         | none               | The "Add feedback" line only.                                                                       |
+| Author's entry only, note approved         | nothing         | From the author    | Author's stars and note. Then the "Add feedback" line.                                              |
+| Author's entry only, note held or rejected | nothing         | From the author    | Author's stars and the line from R10. Then the "Add feedback" line.                                 |
+| 1 or 2 cooks                               | Cooked by N     | Cooked by N people | Author's block if there is one, then approved notes. No stars, no average.                          |
+| 3 or more cooks                            | Cooked by N · ★ | Cooked by N people | The average line, the author's block if there is one, then approved notes newest first.             |
+| Cooks, but no approved note yet            | as above        | Cooked by N people | The count (and the average at 3 or more). No empty list, no "no notes yet".                         |
+| More than 50 approved notes (R4)           | as above        | Cooked by N people | The 50 newest, then one line: "Showing the 50 newest notes."                                        |
+| A cook's name is empty                     | as above        | as above           | "A cook" in place of the first name (decision R6).                                                  |
+| Summary query fails                        | nothing         | none               | The "Add feedback" line only. The recipe page renders as it does today (eng review, failure modes). |
 
 ### Pass 3: journey, 3/10, then 9/10
 
@@ -652,7 +652,7 @@ Proposed mapping (R14):
 - Public section: the existing panel structure, `.public-recipe-panel` with its header and body (`Backend/static/css/recipe-site.css:569-590`): `--bg-surface`, `--ar-border`, `--ar-radius` (0). Headings in `--font-display`, text in `--font-body` at `--text-base`, secondary text (name and month) in `--fg-secondary` at `--text-sm`.
 - The yellow accent treatment (`.public-recipe-notes`, `--color-accent-bg`) stays with "Chef's notes" alone, so the two blocks do not look alike.
 - The star glyph and the average use `--color-accent-text` (`#854d0e`), which passes 4.5:1 on white. The lighter yellows do not and are not used for text.
-- Notes are a plain list separated by `--ar-border` rules. No cards, no coloured left edge, no avatars, no emoji.
+- Notes are a plain list separated by `--ar-border` rules, each note in quotation marks. The "Add feedback" link takes the filled style of `.public-save-cta`. No cards, no coloured left edge, no avatars, no emoji.
 - Toolbar line: one more `<li>` in `.public-recipe-meta`, same type as its neighbours.
 - App side: the saved copy's existing section heading (`text-2xl font-bold text-stone-800 serif`, `src/components/recipe-detail/recipe-detail.component.html:386`), the stone palette, the existing button styles. The delete confirm follows `src/components/shared/unpublish-confirm.component.ts` with `dialog-focus.directive.ts`. The sign-in prompt follows the existing "Sign in to publish" button (`recipe-detail.component.html:216-218`).
 - No new colour, typeface, radius or shadow on either surface.
@@ -847,7 +847,7 @@ Accepted scope: the "Add feedback" line on the public page is a link that asks f
 Finding: DR1, design review, Pass 1.
 State: approved
 Actual answer: A, "Section + line under the title" (Adam, 2026-10-13, question D3)
-Accepted scope: the section follows "Chef's notes" and comes before the tags, with `id="feedback"`. Its heading is the count ("Cooked by N"), or "From the author" when only the author has an entry. Each note shows the first name and the month. One line in the toolbar under the title ("Cooked by N", with the average at 3 or more cooks) links to the section and is absent until a cook has an entry.
+Accepted scope: the section follows "Chef's notes" and comes before the tags, with `id="feedback"`. Its heading is the count ("Cooked by 1 person" / "Cooked by N people", changed 2026-11-15), or "From the author" when only the author has an entry. Each note is set in quotation marks and shows the first name and the month. The "Add feedback" link is the panel's last row when the section has entries. The section has a scroll margin, so the toolbar link lands with the heading clear of the viewport edge. One line in the toolbar under the title ("Cooked by N", with the average at 3 or more cooks) links to the section and is absent until a cook has an entry.
 
 ### R10: the author's block, its name and its held-note line
 
@@ -982,14 +982,14 @@ Decided:
 | Name shown                      | First word of the Google name, read at display. Empty name: "A cook". The display-name settings page is after Phase 1, on its own ticket.                                                                                                                                                                                       | R6                                  |
 | Public page                     | Four states; nothing but the link line when there are no entries; `aggregateRating` only at 3 or more cooks, from the same query as the visible numbers.                                                                                                                                                                        | Premises 4, 5; "Public recipe page" |
 | Errors                          | Stars outside 1 to 5 or an over-long note: 400. Changed payload on an existing entry: 409. Target unpublished at submit: 409. Identical replay: no-op.                                                                                                                                                                          | Q2                                  |
-| Path from the public page       | The link reads "Cooked this? Add your feedback", with no line under it. It asks for sign-in first, then saves and opens the saved copy at the form. The ordinary Save button is unchanged.                                                                                                                                      | R8                                  |
+| Path from the public page       | The link reads "Cooked this? Sign in to add your feedback", with no line under it; with entries it is the panel's last row in the filled button style. It asks for sign-in first, then saves and opens the saved copy at the form. The ordinary Save button is unchanged.                                                       | R8                                  |
 | Cancelled sign-in               | The recipe is saved to the guest cookbook, as the Save button does, and a toast offers sign-in again to add feedback.                                                                                                                                                                                                           | R8                                  |
 | The 24 hours, who and when      | Authors as well as cooks. A note approved during the 24 hours still shows only after them.                                                                                                                                                                                                                                      | R8                                  |
 | Caps                            | A note is at most 1,000 characters. The public page shows the 50 newest approved notes, then "Showing the 50 newest notes."                                                                                                                                                                                                     | R4                                  |
 | Source unpublished              | A saved copy with an entry shows the entry, its status and "Delete feedback". No new entry can be made.                                                                                                                                                                                                                         | R4 (R3-4)                           |
 | A hide and the account          | Hiding a note or a whole entry returns the account to held. Its other published notes stay up. One later approval restores it.                                                                                                                                                                                                  | R4 (R3-6)                           |
 | Did cooks see the form          | Adam asks the invited cooks. No record of page opens is added.                                                                                                                                                                                                                                                                  | R4 (R3-5)                           |
-| Public section                  | After "Chef's notes"; heading "Cooked by N"; a line under the title; author block headed "From the author"; first name and month on each note.                                                                                                                                                                                  | R9, R10                             |
+| Public section                  | After "Chef's notes"; heading "Cooked by 1 person" / "Cooked by N people"; a line under the title reading "Cooked by N"; notes in quotation marks; a scroll margin on the section; author block headed "From the author"; first name and month on each note.                                                                    | R9, R10                             |
 | The form                        | Stars, optional note, public-display line, one "Post: I cooked this" button; every state and its wording as in the Pass 2 tables.                                                                                                                                                                                               | R11                                 |
 | Accessibility and small screens | Native radio-button stars, 44 px targets, announced status and errors, the phone layouts in Pass 6.                                                                                                                                                                                                                             | R12                                 |
 | Moderation view                 | One page, three lists, confirm on "Hide whole entry". "Show again" only on moderator-hidden items; a cook-deleted entry is read-only and cannot be restored.                                                                                                                                                                    | R13                                 |
@@ -1120,7 +1120,7 @@ Scope Challenge result: scope accepted as-is. Reality rows:
 
 ```
 Public /r/<slug>
-  "Cooked this? Add your feedback"  href=/?feedback=<slug>
+  "Cooked this? Sign in to add your feedback"  href=/?feedback=<slug>
         |
         v
 SPA ssrEntryGuard  (src/guards/ssr-entry.guard.ts, beside ?save=)
