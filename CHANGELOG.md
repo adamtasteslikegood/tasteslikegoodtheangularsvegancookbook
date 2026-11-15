@@ -8,6 +8,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Fixed
+
+- Recipe feedback sits in line with the rest of the page (KAN-356). On the public recipe page
+  and on a saved copy in the app, the feedback section was narrower than the page and sat at
+  the left. It now spans the content column like the sections above it; note text and the form
+  keep a readable width inside it. The "Cooked this? Add your feedback" link is a button, and
+  the in-app panel no longer touches the footer.
+- Page numbers in the browse and tag-hub header are large enough to tap on a phone: 24 by 24
+  pixels at least, up from 8 by 16 (KAN-421).
+
 ### Changed
 
 - Backend pointer moved from `6ab16cf` to `0e03115` (Backend `dev` tip). It brings Backend's

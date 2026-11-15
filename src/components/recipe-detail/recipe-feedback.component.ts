@@ -112,7 +112,7 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
       <section
         id="feedback"
         aria-labelledby="feedback-heading"
-        class="mt-10 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-stone-200 max-w-3xl"
+        class="mt-10 mb-10 bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-stone-200"
       >
         <h3
           #heading
@@ -123,184 +123,188 @@ const STAR_CHOICES = [1, 2, 3, 4, 5] as const;
           {{ isAuthor() ? 'Your notes as the author' : 'Your feedback' }}
         </h3>
 
-        @switch (view()) {
-          @case ('guest') {
-            <p class="text-stone-600 text-base">Feedback is public and needs a Google account.</p>
-            <button
-              type="button"
-              (click)="signIn()"
-              class="mt-4 min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-green-700 text-white hover:bg-green-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
-            >
-              Sign in to leave feedback
-            </button>
-            @if (error(); as message) {
-              <p role="alert" class="mt-3 text-base text-red-700 font-medium">{{ message }}</p>
+        <!-- The panel spans the article like the sections above it; the form
+             and text inside keep a readable width. -->
+        <div class="max-w-2xl">
+          @switch (view()) {
+            @case ('guest') {
+              <p class="text-stone-600 text-base">Feedback is public and needs a Google account.</p>
+              <button
+                type="button"
+                (click)="signIn()"
+                class="mt-4 min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-green-700 text-white hover:bg-green-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
+              >
+                Sign in to leave feedback
+              </button>
+              @if (error(); as message) {
+                <p role="alert" class="mt-3 text-base text-red-700 font-medium">{{ message }}</p>
+              }
             }
-          }
-          @case ('loading') {
-            <p class="text-stone-500 text-base" role="status">Loading your feedback…</p>
-          }
-          @case ('load-error') {
-            <p class="text-stone-700 text-base" role="alert">Could not load your feedback.</p>
-            <button
-              type="button"
-              (click)="retryLoad()"
-              class="mt-4 min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-stone-100 text-stone-800 hover:bg-stone-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
-            >
-              Try again
-            </button>
-          }
-          @case ('form') {
-            @if (state(); as s) {
-              <form (submit)="$event.preventDefault(); post()" class="space-y-5" novalidate>
-                <fieldset>
-                  <legend class="text-base font-semibold text-stone-800 mb-2">
-                    How did it turn out?
-                  </legend>
-                  <div class="flex flex-nowrap gap-2">
-                    @for (n of starChoices; track n) {
-                      <label
-                        class="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] px-2 sm:px-3 rounded-lg border border-stone-300 text-stone-700 cursor-pointer has-[:checked]:border-green-700 has-[:checked]:bg-green-50 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-green-700"
-                      >
-                        <input
-                          type="radio"
-                          name="feedback-stars"
-                          class="h-4 w-4 accent-green-700"
-                          [value]="n"
-                          [checked]="stars() === n"
-                          [disabled]="sending()"
-                          (change)="stars.set(n); error.set(null)"
-                        />
-                        <span class="sm:hidden" aria-hidden="true">{{ n }}</span>
-                        <span class="sr-only sm:not-sr-only">{{
-                          n === 1 ? '1 star' : n + ' stars'
-                        }}</span>
-                      </label>
-                    }
+            @case ('loading') {
+              <p class="text-stone-500 text-base" role="status">Loading your feedback…</p>
+            }
+            @case ('load-error') {
+              <p class="text-stone-700 text-base" role="alert">Could not load your feedback.</p>
+              <button
+                type="button"
+                (click)="retryLoad()"
+                class="mt-4 min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-stone-100 text-stone-800 hover:bg-stone-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
+              >
+                Try again
+              </button>
+            }
+            @case ('form') {
+              @if (state(); as s) {
+                <form (submit)="$event.preventDefault(); post()" class="space-y-5" novalidate>
+                  <fieldset>
+                    <legend class="text-base font-semibold text-stone-800 mb-2">
+                      How did it turn out?
+                    </legend>
+                    <div class="flex flex-nowrap gap-2">
+                      @for (n of starChoices; track n) {
+                        <label
+                          class="flex items-center justify-center gap-2 min-h-[44px] min-w-[44px] px-2 sm:px-3 rounded-lg border border-stone-300 text-stone-700 cursor-pointer has-[:checked]:border-green-700 has-[:checked]:bg-green-50 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-green-700"
+                        >
+                          <input
+                            type="radio"
+                            name="feedback-stars"
+                            class="h-4 w-4 accent-green-700"
+                            [value]="n"
+                            [checked]="stars() === n"
+                            [disabled]="sending()"
+                            (change)="stars.set(n); error.set(null)"
+                          />
+                          <span class="sm:hidden" aria-hidden="true">{{ n }}</span>
+                          <span class="sr-only sm:not-sr-only">{{
+                            n === 1 ? '1 star' : n + ' stars'
+                          }}</span>
+                        </label>
+                      }
+                    </div>
+                  </fieldset>
+
+                  <div>
+                    <label
+                      for="feedback-note"
+                      class="block text-base font-semibold text-stone-800 mb-1"
+                      >What I changed (optional)</label
+                    >
+                    <textarea
+                      id="feedback-note"
+                      rows="4"
+                      [attr.maxlength]="maxLength"
+                      aria-describedby="feedback-note-count"
+                      class="w-full p-3 rounded-lg border border-stone-300 text-stone-800 text-base focus:outline-none focus:ring-2 focus:ring-green-600"
+                      [value]="note()"
+                      [disabled]="sending()"
+                      (input)="note.set($any($event.target).value)"
+                    ></textarea>
+                    <p
+                      id="feedback-note-count"
+                      class="text-sm text-stone-500 text-right"
+                      aria-hidden="true"
+                    >
+                      {{ note().length }} / {{ maxLength }}
+                    </p>
+                    <p class="sr-only" aria-live="polite">{{ counterMessage() }}</p>
                   </div>
-                </fieldset>
 
-                <div>
-                  <label
-                    for="feedback-note"
-                    class="block text-base font-semibold text-stone-800 mb-1"
-                    >What I changed (optional)</label
-                  >
-                  <textarea
-                    id="feedback-note"
-                    rows="4"
-                    [attr.maxlength]="maxLength"
-                    aria-describedby="feedback-note-count"
-                    class="w-full p-3 rounded-lg border border-stone-300 text-stone-800 text-base focus:outline-none focus:ring-2 focus:ring-green-600"
-                    [value]="note()"
-                    [disabled]="sending()"
-                    (input)="note.set($any($event.target).value)"
-                  ></textarea>
-                  <p
-                    id="feedback-note-count"
-                    class="text-sm text-stone-500 text-right"
-                    aria-hidden="true"
-                  >
-                    {{ note().length }} / {{ maxLength }}
-                  </p>
-                  <p class="sr-only" aria-live="polite">{{ counterMessage() }}</p>
-                </div>
-
-                @if (showsFromText(); as showsFrom) {
-                  <p class="text-base text-stone-700">
-                    Your account is new. Feedback you post now shows on the recipe page from
-                    {{ showsFrom }}.
-                  </p>
-                }
-                <p class="text-base text-stone-600">
-                  @if (isAuthor()) {
-                    Shown on the recipe page under 'From the author'. Not counted in the rating.
-                  } @else {
-                    Your rating, your note and your first name ({{ s.first_name }}) will be shown
-                    publicly on the recipe page.
-                  }
-                </p>
-
-                @if (error(); as message) {
-                  <p
-                    #errorLine
-                    role="alert"
-                    tabindex="-1"
-                    class="text-base text-red-700 font-medium"
-                  >
-                    {{ message }}
-                  </p>
-                }
-                <button
-                  type="submit"
-                  [disabled]="sending()"
-                  class="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-green-700 text-white hover:bg-green-800 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
-                >
-                  {{ sending() ? 'Posting…' : 'Post: I cooked this' }}
-                </button>
-              </form>
-            }
-          }
-          @case ('entry') {
-            @if (state(); as s) {
-              @if (s.entry; as entry) {
-                @if (notice(); as message) {
-                  <p role="alert" class="mb-3 text-base text-stone-800 font-medium">
-                    {{ message }}
-                  </p>
-                }
-                <p class="text-lg text-stone-800">
-                  <span aria-hidden="true" class="text-yellow-800">{{
-                    starGlyphs(entry.stars)
-                  }}</span>
-                  <span class="sr-only">{{ entry.stars }} out of 5 stars</span>
-                </p>
-                @if (entry.note) {
-                  <blockquote
-                    class="mt-2 text-base text-stone-700 whitespace-pre-wrap border-l-0"
-                    [textContent]="entry.note"
-                  ></blockquote>
-                }
-                @if (postedOn(entry); as day) {
-                  <p class="mt-1 text-sm text-stone-500">Posted {{ day }}</p>
-                }
-                <div role="status" class="mt-3 space-y-1 text-base text-stone-700">
-                  @for (line of statusLines(); track line) {
-                    <p>{{ line }}</p>
-                  }
-                  @if (publicLink(); as href) {
-                    <p>
-                      <a
-                        [href]="href"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="font-semibold text-green-800 underline underline-offset-2 hover:text-green-900"
-                        >Open the recipe page</a
-                      >
+                  @if (showsFromText(); as showsFrom) {
+                    <p class="text-base text-stone-700">
+                      Your account is new. Feedback you post now shows on the recipe page from
+                      {{ showsFrom }}.
                     </p>
                   }
-                </div>
-                @if (error(); as message) {
-                  <p
-                    #errorLine
-                    role="alert"
-                    tabindex="-1"
-                    class="mt-3 text-base text-red-700 font-medium"
-                  >
-                    {{ message }}
+                  <p class="text-base text-stone-600">
+                    @if (isAuthor()) {
+                      Shown on the recipe page under 'From the author'. Not counted in the rating.
+                    } @else {
+                      Your rating, your note and your first name ({{ s.first_name }}) will be shown
+                      publicly on the recipe page.
+                    }
                   </p>
+
+                  @if (error(); as message) {
+                    <p
+                      #errorLine
+                      role="alert"
+                      tabindex="-1"
+                      class="text-base text-red-700 font-medium"
+                    >
+                      {{ message }}
+                    </p>
+                  }
+                  <button
+                    type="submit"
+                    [disabled]="sending()"
+                    class="w-full sm:w-auto min-h-[44px] px-5 py-2.5 rounded-lg font-semibold bg-green-700 text-white hover:bg-green-800 disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-green-700 transition-colors"
+                  >
+                    {{ sending() ? 'Posting…' : 'Post: I cooked this' }}
+                  </button>
+                </form>
+              }
+            }
+            @case ('entry') {
+              @if (state(); as s) {
+                @if (s.entry; as entry) {
+                  @if (notice(); as message) {
+                    <p role="alert" class="mb-3 text-base text-stone-800 font-medium">
+                      {{ message }}
+                    </p>
+                  }
+                  <p class="text-lg text-stone-800">
+                    <span aria-hidden="true" class="text-yellow-800">{{
+                      starGlyphs(entry.stars)
+                    }}</span>
+                    <span class="sr-only">{{ entry.stars }} out of 5 stars</span>
+                  </p>
+                  @if (entry.note) {
+                    <blockquote
+                      class="mt-2 text-base text-stone-700 whitespace-pre-wrap border-l-0"
+                      [textContent]="entry.note"
+                    ></blockquote>
+                  }
+                  @if (postedOn(entry); as day) {
+                    <p class="mt-1 text-sm text-stone-500">Posted {{ day }}</p>
+                  }
+                  <div role="status" class="mt-3 space-y-1 text-base text-stone-700">
+                    @for (line of statusLines(); track line) {
+                      <p>{{ line }}</p>
+                    }
+                    @if (publicLink(); as href) {
+                      <p>
+                        <a
+                          [href]="href"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          class="font-semibold text-green-800 underline underline-offset-2 hover:text-green-900"
+                          >Open the recipe page</a
+                        >
+                      </p>
+                    }
+                  </div>
+                  @if (error(); as message) {
+                    <p
+                      #errorLine
+                      role="alert"
+                      tabindex="-1"
+                      class="mt-3 text-base text-red-700 font-medium"
+                    >
+                      {{ message }}
+                    </p>
+                  }
+                  <button
+                    type="button"
+                    (click)="confirmingDelete.set(true)"
+                    class="mt-4 min-h-[44px] px-4 py-2 rounded-lg font-semibold text-red-700 bg-stone-100 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 transition-colors"
+                  >
+                    Delete feedback
+                  </button>
                 }
-                <button
-                  type="button"
-                  (click)="confirmingDelete.set(true)"
-                  class="mt-4 min-h-[44px] px-4 py-2 rounded-lg font-semibold text-red-700 bg-stone-100 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 transition-colors"
-                >
-                  Delete feedback
-                </button>
               }
             }
           }
-        }
+        </div>
       </section>
     }
 

@@ -668,7 +668,7 @@ Proposed (R12):
 - The delete confirm traps focus and returns it to the "Delete feedback" action on close.
 - Public section: `<section id="feedback" aria-labelledby>`; the average has a text form ("4.6 out of 5 from 7 cooks"), and the glyph is hidden from screen readers; notes are a list; each note is a `blockquote` followed by the name and month.
 - Body text 16 px or more, contrast 4.5:1 or more, visible focus ring on every interactive element including the toolbar link.
-- Small screens (600 px and under): the toolbar's "Cooked by" line wraps onto its own row under the times; the public section is one column with a line length of 65 characters at most on any width; the control's stars sit on one row with labels shortened to the numerals and the full label kept for screen readers; the post button is full width.
+- Small screens (600 px and under): the toolbar's "Cooked by" line wraps onto its own row under the times; the public section is one column that spans the content column like the page's other sections, and only the note text keeps a line length of 65 characters at most (changed 2026-11-15 on Adam's staging review: the section itself was capped at 65 characters and sat at the left of a wider page); the control's stars sit on one row with labels shortened to the numerals and the full label kept for screen readers; the post button is full width.
 - Moderation view at 768 px and under: each row becomes a stacked block with the note in full and the actions as full-width buttons below it. No horizontal scrolling table.
 
 ### Pass 7: decisions this review raised (all answered)
