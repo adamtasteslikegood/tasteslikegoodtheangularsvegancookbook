@@ -6,7 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ---
 
-## [Unreleased]
+## [0.8.2-beta] - staging
+
+On staging as tag `staging-v0.8.2-beta`, for evaluation before the v0.8.0 production release.
+Backend pointer at `1d22354` (Backend `dev`). Replaces `staging-v0.8.1-beta`: the same feedback
+feature, with the layout pass from Adam's staging review.
 
 ### Fixed
 
@@ -20,9 +24,10 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
-- Backend pointer moved from `6ab16cf` to `0e03115` (Backend `dev` tip). It brings Backend's
-  Dependabot bumps since then (Python production and development groups, Actions, the uv image,
-  types-requests, oauthlib), with SQLAlchemy kept at 2.0 for psycopg2.
+- Backend pointer moved from `6ab16cf` to `1d22354` (Backend `dev` tip). It carries the public
+  half of the two fixes above (Backend #488) and Backend's Dependabot bumps since `6ab16cf`
+  (Python production and development groups, Actions, the uv image, types-requests, oauthlib,
+  websockets, soupsieve, opentelemetry-api), with SQLAlchemy kept at 2.0 for psycopg2.
 
 ## [0.8.1-beta] - staging
 
