@@ -547,8 +547,8 @@ Proposed public page order (R9):
   ---- new, id="feedback" ----
   h2  Cooked by 7 people            (state heading; see the states table)
       4.6 ★ average from 7 cooks    (only at 3 or more cooks)
-      h3 From the author            ★★★★★  "note..."
-      notes, newest first:          "Used oat milk, baked 5 minutes longer."
+      h3 From the author            ★★★★★  “note...”
+      notes, newest first:          “Used oat milk, baked 5 minutes longer.”
                                     Sam · October 2026
   Add feedback link                 (always; the panel's last row, or the only thing rendered when there are no entries)
   ---- end new ----
@@ -639,7 +639,7 @@ Time horizons. Five seconds: a count of people near the title, no stars until th
 
 No hard rejection applies. The plan is specific where it matters: it shows nothing when there is nothing, withholds the average until three cooks, and has no testimonial carousel, badge or review-count theatre.
 
-Litmus: product unmistakable in the first screen, yes (unchanged page). One visual anchor, yes (the hero image; feedback adds none). Understandable from headings alone, yes with R9 ("Cooked by 7", "From the author"). One job per section, yes. Cards necessary, no, and none are proposed. Motion, none proposed and none needed. Premium without shadows, yes: the public page has no shadows today.
+Litmus: product unmistakable in the first screen, yes (unchanged page). One visual anchor, yes (the hero image; feedback adds none). Understandable from headings alone, yes with R9 ("Cooked by 7 people", "From the author"). One job per section, yes. Cards necessary, no, and none are proposed. Motion, none proposed and none needed. Premium without shadows, yes: the public page has no shadows today.
 
 The risk is in the build, where a review section tends to arrive as a grid of bordered quote cards with coloured left edges and emoji stars. R14 rules those out by naming what to reuse. No separate issue.
 
