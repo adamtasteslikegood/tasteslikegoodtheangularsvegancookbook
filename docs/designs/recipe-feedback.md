@@ -954,14 +954,14 @@ One place that says what the build may rely on. "Decided" means approved by Adam
 
 Terms used in this document (added 2026-10-29 so the build and QA read one feature, not two):
 
-| Term                            | What it is                                                                                                                                                     | Feedback? |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| Feedback entry                  | The one feature: "I cooked this" (the post button), required 1 to 5 stars, optional public note. Shown blog-style under the recipe. "Entry" is the whole post. | yes       |
-| Note, comment, "what I changed" | Three names for the same thing: the optional public text in an entry, at most 1,000 characters, moderated. The form label is "What I changed (optional)".      | yes       |
-| "Cooked by N"                   | The count of non-author entries, shown as the section heading and in the toolbar. Not a badge; there is no badge or award anywhere (design review, Pass 4).    | yes       |
-| "From the author"               | The recipe author's own entry, in a plain panel, outside the count and average (R10).                                                                          | yes       |
-| "Chef's notes"                  | Existing panel on the public page with the recipe's own notes, written with the recipe. Unchanged by this feature.                                             | no        |
-| Pencil notes (`personalNotes`)  | Existing private notes on a saved copy in the app. Never public, never read or changed by this feature (R7).                                                   | no        |
+| Term                            | What it is                                                                                                                                                                                                                  | Feedback? |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| Feedback entry                  | The one feature: "I cooked this" (the post button), required 1 to 5 stars, optional public note. Shown blog-style under the recipe. "Entry" is the whole post.                                                              | yes       |
+| Note, comment, "what I changed" | Three names for the same thing: the optional public text in an entry, at most 1,000 characters, moderated. The form label is "What I changed (optional)".                                                                   | yes       |
+| "Cooked by N"                   | The count of non-author entries, shown in the toolbar as "Cooked by N" and in the section heading as "Cooked by 1 person" / "Cooked by N people". Not a badge; there is no badge or award anywhere (design review, Pass 4). | yes       |
+| "From the author"               | The recipe author's own entry, in a plain panel, outside the count and average (R10).                                                                                                                                       | yes       |
+| "Chef's notes"                  | Existing panel on the public page with the recipe's own notes, written with the recipe. Unchanged by this feature.                                                                                                          | no        |
+| Pencil notes (`personalNotes`)  | Existing private notes on a saved copy in the app. Never public, never read or changed by this feature (R7).                                                                                                                | no        |
 
 Decided:
 
