@@ -105,14 +105,22 @@ the output (KAN-357). Do not add it back without a budget and a consumer.
 
 ## Deploy
 
-The service is not connected to GitHub, so a merge to `dev` does not deploy
-it. Only `railway up` does, and it restores the schedule in `railway.json`.
+Run these commands from this directory. Apply configuration changes with Railway
+IaC, then upload the container separately. A Git merge alone runs neither step.
 
 ```bash
-railway link          # pick "believable-joy"
-railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
-railway cron run --service gbrain-maintenance --yes   # one run now, to verify
+npm ci
+railway link          # select believable-joy / production / gbrain-maintenance
+railway config plan  # review the maintenance service changes
+railway config apply
+railway up . --path-as-root --service gbrain-maintenance --detach
+railway cron run --service gbrain-maintenance --yes   # after the deploy succeeds
 ```
+
+The `.railway/railway.ts` partial owns the maintenance service settings, including
+the daily 16:30 UTC schedule. Service variables are managed in Railway.
+A successful verification log ends with `sprite process exit 0, marker EXIT=0`
+and `done (sprite)`.
 
 Service variables (Dashboard → gbrain-maintenance → Variables):
 
