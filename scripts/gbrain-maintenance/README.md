@@ -116,14 +116,21 @@ railway config migrate cutover --service gbrain-maintenance   # first deploy onl
 railway config plan  # review the maintenance service changes
 railway config apply
 railway up . --path-as-root --service gbrain-maintenance --ci   # waits for the build; non-zero if it fails
-railway deployment list --service gbrain-maintenance --limit 1  # newest deployment must be SUCCESS
+railway deployment list --service gbrain-maintenance --limit 5  # find this upload's deployment ID
+```
+
+`railway up` prints a build-logs URL; its `id=` parameter is this upload's
+deployment ID. Stop if `railway up` failed. In `deployment list`, the row with
+that ID, not just the newest row, must show `SUCCESS`: another upload can land
+in between. `--detach` returns before the build finishes, so it is not used
+here. Only then run the verification:
+
+```bash
 railway cron run --service gbrain-maintenance --yes
 ```
 
-Do not run `cron run` until the newest deployment shows `SUCCESS`. Before
-that, the run uses the previous image, so a clean log proves nothing about
-this build. `--detach` returns before the build finishes, so it is not used
-here.
+Before that deployment reaches `SUCCESS`, the run uses the previous image, so
+a clean log proves nothing about this build.
 
 The two `migrate` commands are a one-time cutover. Until it runs, Railway still
 reads the service's Config as Code file, and `config plan` refuses to manage a
@@ -134,7 +141,7 @@ that `config plan` keeps the `30 16 * * *` cron schedule and the `NEVER`
 restart policy before you apply.
 
 Before the first `config plan`, open Dashboard → gbrain-maintenance →
-Variables. If `SPRITE_NAME` or `EMBED_MAX_USD` is set there, add it to `env`
+Variables. If `SPRITE_NAME`, `SPRITE_SCRIPT` or `EMBED_MAX_USD` is set there, add it to `env`
 in `.railway/railway.ts` with `preserve()`. Otherwise `config plan` rejects
 the service for an undeclared variable.
 
@@ -153,6 +160,8 @@ Service variables (Dashboard → gbrain-maintenance → Variables):
 - `SPRITES_TOKEN`: Sprites API token for the `adam-schoen` org. Without it,
   every run goes straight to the fallback and exits 1.
 - `SPRITE_NAME`: optional, default `spawn-sprite-hermes222`.
+- `SPRITE_SCRIPT`: optional, the script run on the sprite, default
+  `/home/sprite/.hermes/scripts/gbrain-remote-run.sh`.
 - `GBRAIN_DATABASE_URL`: the gbrain DB URL; used by the fallback.
 - `OPENAI_API_KEY`: embeddings only; used by the fallback. Scope the key to
   the embeddings endpoint and model listing; nothing here needs chat access.
@@ -176,9 +185,10 @@ sprite's `~/gbrain` checkout is pinned to the same commit.
 git -C ~/gbrain rev-parse HEAD
 # update GBRAIN_COMMIT in Dockerfile (and the bun base image if gbrain's
 # package.json engines.bun moved), check out the same SHA on the sprite.
-# Smoke-test the fallback's gbrain before deploying (prints the pinned version):
-docker build -t gbrain-maintenance scripts/gbrain-maintenance
-docker run --rm --entrypoint sh gbrain-maintenance -c 'cd /opt/gbrain && bun src/cli.ts --version'
+# Smoke-test the fallback's gbrain before deploying (prints the pinned version).
+# Run from this directory; `&&` keeps a failed build from testing an old image:
+docker build -t gbrain-maintenance . \
+  && docker run --rm --entrypoint sh gbrain-maintenance -c 'cd /opt/gbrain && bun src/cli.ts --version'
 # then deploy and verify as under Deploy.
 ```
 
