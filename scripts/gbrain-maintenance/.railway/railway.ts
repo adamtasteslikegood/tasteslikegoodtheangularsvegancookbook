@@ -10,7 +10,6 @@ export default defineRailway(() => {
   });
 
   return project("believable-joy", {
-    variables: { managed: false },
     resources: [gbrainMaintenance],
   });
 });
