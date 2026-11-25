@@ -105,20 +105,63 @@ the output (KAN-357). Do not add it back without a budget and a consumer.
 
 ## Deploy
 
-The service is not connected to GitHub, so a merge to `dev` does not deploy
-it. Only `railway up` does, and it restores the schedule in `railway.json`.
+Run these commands from this directory. Apply configuration changes with Railway
+IaC, then upload the container separately. A Git merge alone runs neither step.
 
 ```bash
-railway link          # pick "believable-joy"
-railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
-railway cron run --service gbrain-maintenance --yes   # one run now, to verify
+npm ci
+railway link          # select believable-joy / production / gbrain-maintenance
+railway config migrate status    # first deploy only: is the service still on Config as Code?
+railway config migrate cutover --service gbrain-maintenance   # first deploy only (reversible with `undo`)
+railway config plan  # review the maintenance service changes
+railway config apply
+railway up . --path-as-root --service gbrain-maintenance --ci   # waits for the build; non-zero if it fails
+railway deployment list --service gbrain-maintenance --limit 5  # find this upload's deployment ID
 ```
+
+`railway up` prints a build-logs URL; its `id=` parameter is this upload's
+deployment ID. Stop if `railway up` failed. In `deployment list`, the row with
+that ID, not just the newest row, must show `SUCCESS`: another upload can land
+in between. `--detach` returns before the build finishes, so it is not used
+here. Only then run the verification:
+
+```bash
+railway cron run --service gbrain-maintenance --yes
+```
+
+Before that deployment reaches `SUCCESS`, the run uses the previous image, so
+a clean log proves nothing about this build.
+
+The two `migrate` commands are a one-time cutover. Until it runs, Railway still
+reads the service's Config as Code file, and `config plan` refuses to manage a
+service that file owns. `railway.json` is already deleted from this branch, so
+the cutover must come first. `--service` limits the cutover to this service,
+so other services in the project keep their own Config as Code files. Check
+that `config plan` keeps the `30 16 * * *` cron schedule and the `NEVER`
+restart policy before you apply.
+
+Before the first `config plan`, open Dashboard → gbrain-maintenance →
+Variables. If `SPRITE_NAME`, `SPRITE_SCRIPT` or `EMBED_MAX_USD` is set there, add it to `env`
+in `.railway/railway.ts` with `preserve()`. Otherwise `config plan` rejects
+the service for an undeclared variable.
+
+The `.railway/railway.ts` partial owns the maintenance service settings, including
+the daily 16:30 UTC schedule. Service variable values stay in Railway; the
+partial declares each one with `preserve()`, because `config plan` rejects a
+service whose Railway variables the file does not declare. Before you set an
+optional variable below, add it to `env` in the partial.
+A successful verification log ends with `sprite process exit 0, marker EXIT=0`
+and `done (sprite)`. That run never starts the image's own gbrain, which only
+the fallback uses. After a `GBRAIN_COMMIT` bump, also run the smoke check under
+**Version pinning**.
 
 Service variables (Dashboard → gbrain-maintenance → Variables):
 
 - `SPRITES_TOKEN`: Sprites API token for the `adam-schoen` org. Without it,
   every run goes straight to the fallback and exits 1.
 - `SPRITE_NAME`: optional, default `spawn-sprite-hermes222`.
+- `SPRITE_SCRIPT`: optional, the script run on the sprite, default
+  `/home/sprite/.hermes/scripts/gbrain-remote-run.sh`.
 - `GBRAIN_DATABASE_URL`: the gbrain DB URL; used by the fallback.
 - `OPENAI_API_KEY`: embeddings only; used by the fallback. Scope the key to
   the embeddings endpoint and model listing; nothing here needs chat access.
@@ -141,9 +184,17 @@ sprite's `~/gbrain` checkout is pinned to the same commit.
 # get the new SHA
 git -C ~/gbrain rev-parse HEAD
 # update GBRAIN_COMMIT in Dockerfile (and the bun base image if gbrain's
-# package.json engines.bun moved), check out the same SHA on the sprite, then:
-railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
+# package.json engines.bun moved), check out the same SHA on the sprite.
+# Smoke-test the fallback's gbrain before deploying (prints the pinned version).
+# Run from this directory; `&&` keeps a failed build from testing an old image:
+docker build -t gbrain-maintenance . \
+  && docker run --rm --entrypoint sh gbrain-maintenance -c 'cd /opt/gbrain && bun src/cli.ts --version'
+# then deploy and verify as under Deploy.
 ```
+
+The smoke check proves the pin builds and its CLI starts. It does not reach
+the brain. A sprite-path run never invokes this gbrain, so without the check a
+bad pin first shows up during a sprite outage.
 
 ## The sprite side (`spawn-sprite-hermes222`)
 

@@ -1,0 +1,7 @@
+{
+  "name": "gbrain-maintenance-railway-config",
+  "private": true,
+  "devDependencies": {
+    "railway": "3.17.0"
+  }
+}

@@ -7,19 +7,19 @@
 # It is built from source and pinned by commit SHA so this service never runs
 # schema migrations the owner's local gbrain hasn't seen. Bump GBRAIN_COMMIT
 # in lockstep with local gbrain upgrades (locally: git -C ~/gbrain rev-parse HEAD).
-# gbrain 0.60 declares engines.bun >= 1.4.0.
-FROM oven/bun:1.4
+# gbrain 0.60 declares engines.bun >= 1.4.4.
+FROM oven/bun:1.4.4
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
-# d4dc2d4d831503739e3c1551fdb01b4108457731 = v0.60.139.0
-ARG GBRAIN_COMMIT=d4dc2d4d831503739e3c1551fdb01b4108457731
+# fbf608cf86ea7b2b912ce80151f856a1a47e9533 = v0.60.753.0
+ARG GBRAIN_COMMIT=fbf608cf86ea7b2b912ce80151f856a1a47e9533
 RUN git clone https://github.com/garrytan/gbrain.git /opt/gbrain \
     && git -C /opt/gbrain checkout "$GBRAIN_COMMIT" \
     && cd /opt/gbrain \
-    && bun install
+    && bun install --frozen-lockfile
 
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
