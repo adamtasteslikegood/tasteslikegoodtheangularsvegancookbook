@@ -111,11 +111,19 @@ IaC, then upload the container separately. A Git merge alone runs neither step.
 ```bash
 npm ci
 railway link          # select believable-joy / production / gbrain-maintenance
+railway config migrate status    # first deploy only: is the service still on Config as Code?
+railway config migrate cutover   # first deploy only: detach it from railway.json (reversible with `undo`)
 railway config plan  # review the maintenance service changes
 railway config apply
 railway up . --path-as-root --service gbrain-maintenance --detach
 railway cron run --service gbrain-maintenance --yes   # after the deploy succeeds
 ```
+
+The two `migrate` commands are a one-time cutover. Until it runs, Railway still
+reads the service's Config as Code file, and `config plan` refuses to manage a
+service that file owns. `railway.json` is already deleted from this branch, so
+the cutover must come first. Check that `config plan` keeps the `30 16 * * *`
+cron schedule and the `NEVER` restart policy before you apply.
 
 The `.railway/railway.ts` partial owns the maintenance service settings, including
 the daily 16:30 UTC schedule. Service variables are managed in Railway.
