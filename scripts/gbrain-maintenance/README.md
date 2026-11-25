@@ -126,7 +126,10 @@ the cutover must come first. Check that `config plan` keeps the `30 16 * * *`
 cron schedule and the `NEVER` restart policy before you apply.
 
 The `.railway/railway.ts` partial owns the maintenance service settings, including
-the daily 16:30 UTC schedule. Service variables are managed in Railway.
+the daily 16:30 UTC schedule. Service variable values stay in Railway; the
+partial declares each one with `preserve()`, because `config plan` rejects a
+service whose Railway variables the file does not declare. Before you set an
+optional variable below, add it to `env` in the partial.
 A successful verification log ends with `sprite process exit 0, marker EXIT=0`
 and `done (sprite)`.
 
