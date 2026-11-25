@@ -1,15 +1,15 @@
-import { defineRailway, project, service } from "railway/iac";
+import { defineRailway, project, service } from 'railway/iac';
 // This repository manages only its own resources in the environment. Other
 // repositories export their own partial name.
 // See https://docs.railway.com/infrastructure-as-code#multi-repo-projects
-export const partial = "gbrain-maintenance";
+export const partial = 'gbrain-maintenance';
 export default defineRailway(() => {
-  const gbrainMaintenance = service("gbrain-maintenance", {
-    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "Dockerfile" },
-    deploy: { cronSchedule: "30 16 * * *", restartPolicyType: "NEVER" },
+  const gbrainMaintenance = service('gbrain-maintenance', {
+    build: { buildEnvironment: 'V3', builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' },
+    deploy: { cronSchedule: '30 16 * * *', restartPolicyType: 'NEVER' },
   });
 
-  return project("believable-joy", {
+  return project('believable-joy', {
     resources: [gbrainMaintenance],
   });
 });
