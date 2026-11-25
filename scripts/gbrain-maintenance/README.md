@@ -112,18 +112,31 @@ IaC, then upload the container separately. A Git merge alone runs neither step.
 npm ci
 railway link          # select believable-joy / production / gbrain-maintenance
 railway config migrate status    # first deploy only: is the service still on Config as Code?
-railway config migrate cutover   # first deploy only: detach it from railway.json (reversible with `undo`)
+railway config migrate cutover --service gbrain-maintenance   # first deploy only (reversible with `undo`)
 railway config plan  # review the maintenance service changes
 railway config apply
-railway up . --path-as-root --service gbrain-maintenance --detach
-railway cron run --service gbrain-maintenance --yes   # after the deploy succeeds
+railway up . --path-as-root --service gbrain-maintenance --ci   # waits for the build; non-zero if it fails
+railway deployment list --service gbrain-maintenance --limit 1  # newest deployment must be SUCCESS
+railway cron run --service gbrain-maintenance --yes
 ```
+
+Do not run `cron run` until the newest deployment shows `SUCCESS`. Before
+that, the run uses the previous image, so a clean log proves nothing about
+this build. `--detach` returns before the build finishes, so it is not used
+here.
 
 The two `migrate` commands are a one-time cutover. Until it runs, Railway still
 reads the service's Config as Code file, and `config plan` refuses to manage a
 service that file owns. `railway.json` is already deleted from this branch, so
-the cutover must come first. Check that `config plan` keeps the `30 16 * * *`
-cron schedule and the `NEVER` restart policy before you apply.
+the cutover must come first. `--service` limits the cutover to this service,
+so other services in the project keep their own Config as Code files. Check
+that `config plan` keeps the `30 16 * * *` cron schedule and the `NEVER`
+restart policy before you apply.
+
+Before the first `config plan`, open Dashboard → gbrain-maintenance →
+Variables. If `SPRITE_NAME` or `EMBED_MAX_USD` is set there, add it to `env`
+in `.railway/railway.ts` with `preserve()`. Otherwise `config plan` rejects
+the service for an undeclared variable.
 
 The `.railway/railway.ts` partial owns the maintenance service settings, including
 the daily 16:30 UTC schedule. Service variable values stay in Railway; the
@@ -131,7 +144,9 @@ partial declares each one with `preserve()`, because `config plan` rejects a
 service whose Railway variables the file does not declare. Before you set an
 optional variable below, add it to `env` in the partial.
 A successful verification log ends with `sprite process exit 0, marker EXIT=0`
-and `done (sprite)`.
+and `done (sprite)`. That run never starts the image's own gbrain, which only
+the fallback uses. After a `GBRAIN_COMMIT` bump, also run the smoke check under
+**Version pinning**.
 
 Service variables (Dashboard → gbrain-maintenance → Variables):
 
@@ -160,9 +175,16 @@ sprite's `~/gbrain` checkout is pinned to the same commit.
 # get the new SHA
 git -C ~/gbrain rev-parse HEAD
 # update GBRAIN_COMMIT in Dockerfile (and the bun base image if gbrain's
-# package.json engines.bun moved), check out the same SHA on the sprite, then:
-railway up scripts/gbrain-maintenance --path-as-root --service gbrain-maintenance
+# package.json engines.bun moved), check out the same SHA on the sprite.
+# Smoke-test the fallback's gbrain before deploying (prints the pinned version):
+docker build -t gbrain-maintenance scripts/gbrain-maintenance
+docker run --rm --entrypoint sh gbrain-maintenance -c 'cd /opt/gbrain && bun src/cli.ts --version'
+# then deploy and verify as under Deploy.
 ```
+
+The smoke check proves the pin builds and its CLI starts. It does not reach
+the brain. A sprite-path run never invokes this gbrain, so without the check a
+bad pin first shows up during a sprite outage.
 
 ## The sprite side (`spawn-sprite-hermes222`)
 
